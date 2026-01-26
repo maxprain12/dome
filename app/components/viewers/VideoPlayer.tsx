@@ -248,7 +248,7 @@ export default function VideoPlayer({ resource }: VideoPlayerProps) {
                 onClick={() => setShowAnnotationInput(true)}
                 className="p-2 rounded-md transition-colors text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
                 title="Add annotation at current time"
-                aria-label="Agregar anotación en tiempo actual"
+                aria-label="Add annotation at current time"
               >
                 <Bookmark size={20} />
               </button>

@@ -360,7 +360,7 @@ export default function AISettingsPanel() {
           <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
             <div className="flex items-center gap-2 mb-2">
               <Gift className="w-5 h-5 text-green-600" />
-              <span className="font-medium text-green-700 dark:text-green-400">Modelos Gratuitos</span>
+              <span className="font-medium text-green-700 dark:text-green-400">Free Models</span>
             </div>
             <p className="text-sm opacity-80" style={{ color: 'var(--secondary)' }}>
               Synthetic ofrece acceso gratuito a modelos de MiniMax, DeepSeek, Qwen, Llama y más.
@@ -375,17 +375,17 @@ export default function AISettingsPanel() {
             <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
               <div className="flex items-center gap-2 mb-2">
                 <Shield className="w-5 h-5 text-purple-600" />
-                <span className="font-medium text-purple-700 dark:text-purple-400">Privacidad Garantizada</span>
+                <span className="font-medium text-purple-700 dark:text-purple-400">Privacy Guaranteed</span>
               </div>
               <p className="text-sm opacity-80" style={{ color: 'var(--secondary)' }}>
-                Venice ejecuta modelos de forma privada sin logging. API key opcional para modelos premium.
+                Venice runs models privately without logging. Optional API key for premium models.
               </p>
             </div>
 
             {/* Privacy Mode Toggle */}
             <div className="group">
               <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary)' }}>
-                Modo de Privacidad
+                Privacy Mode
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -402,7 +402,7 @@ export default function AISettingsPanel() {
                     <Lock className="w-4 h-4" />
                     <span className="font-medium text-sm">Private</span>
                   </div>
-                  <p className="text-xs opacity-60 mt-1">Sin logging, efímero</p>
+                  <p className="text-xs opacity-60 mt-1">No logging, ephemeral</p>
                 </button>
                 <button
                   type="button"
@@ -418,7 +418,7 @@ export default function AISettingsPanel() {
                     <Shield className="w-4 h-4" />
                     <span className="font-medium text-sm">Anonymized</span>
                   </div>
-                  <p className="text-xs opacity-60 mt-1">Modelos propietarios</p>
+                  <p className="text-xs opacity-60 mt-1">Proprietary models</p>
                 </button>
               </div>
             </div>
@@ -426,14 +426,14 @@ export default function AISettingsPanel() {
             {/* Optional API Key */}
             <div className="group">
               <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary)' }}>
-                API Key <span className="opacity-50">(opcional)</span>
+                API Key <span className="opacity-50">(optional)</span>
               </label>
               <div className="relative">
                 <input
                   type={showApiKey ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Para modelos premium..."
+                  placeholder="For premium models..."
                   className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
                   style={{
                     color: 'var(--primary)',
@@ -502,7 +502,7 @@ export default function AISettingsPanel() {
             {/* Auth Mode Toggle */}
             <div className="group">
               <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary)' }}>
-                Método de Autenticación
+                Authentication Method
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -519,7 +519,7 @@ export default function AISettingsPanel() {
                     <Key className="w-4 h-4" />
                     <span className="font-medium text-sm">API Key</span>
                   </div>
-                  <p className="text-xs opacity-60 mt-1">Pago por uso</p>
+                  <p className="text-xs opacity-60 mt-1">Pay per use</p>
                 </button>
                 <button
                   type="button"
@@ -533,7 +533,7 @@ export default function AISettingsPanel() {
                 >
                   <div className="flex items-center gap-2">
                     <Lock className="w-4 h-4" />
-                    <span className="font-medium text-sm">Suscripción</span>
+                    <span className="font-medium text-sm">Subscription</span>
                   </div>
                   <p className="text-xs opacity-60 mt-1">Claude Pro/Max</p>
                 </button>
@@ -602,26 +602,26 @@ export default function AISettingsPanel() {
                       disabled={checkingProxy}
                       className="text-xs font-medium text-blue-500 hover:text-blue-600 disabled:opacity-50"
                     >
-                      Verificar
+                      Verify
                     </button>
                   </div>
                   
                   {claudeMaxProxyAvailable ? (
                     <p className="text-xs text-green-600 dark:text-green-400">
-                      Claude Code CLI disponible. Tu suscripcion Claude Pro/Max esta lista para usar.
+                      Claude Code CLI available. Your Claude Pro/Max subscription is ready to use.
                     </p>
                   ) : (
                     <div className="text-xs" style={{ color: 'var(--secondary)' }}>
                       <p className="mb-2 text-amber-600 dark:text-amber-400 font-medium">
-                        Claude Code CLI no encontrado. Para usar tu suscripcion Claude Pro/Max:
+                        Claude Code CLI not found. To use your Claude Pro/Max subscription:
                       </p>
                       <ol className="list-decimal list-inside space-y-1 ml-1">
-                        <li>Instala Claude Code: <code className="bg-black/10 dark:bg-white/10 px-1 rounded">npm install -g @anthropic-ai/claude-code</code></li>
-                        <li>Autentica: <code className="bg-black/10 dark:bg-white/10 px-1 rounded">claude login</code></li>
-                        <li>Verifica: <code className="bg-black/10 dark:bg-white/10 px-1 rounded">claude --version</code></li>
+                        <li>Install Claude Code: <code className="bg-black/10 dark:bg-white/10 px-1 rounded">npm install -g @anthropic-ai/claude-code</code></li>
+                        <li>Authenticate: <code className="bg-black/10 dark:bg-white/10 px-1 rounded">claude login</code></li>
+                        <li>Verify: <code className="bg-black/10 dark:bg-white/10 px-1 rounded">claude --version</code></li>
                       </ol>
                       <p className="mt-2 opacity-70">
-                        Claude Code CLI usa tu sesion de Claude Pro/Max directamente.
+                        Claude Code CLI uses your Claude Pro/Max session directly.
                       </p>
                     </div>
                   )}
@@ -692,7 +692,7 @@ export default function AISettingsPanel() {
                             </span>
                             {m.recommended && (
                               <span className="ml-2 px-1.5 py-0.5 text-[10px] font-medium rounded bg-green-500/10 text-green-600 dark:text-green-400">
-                                Recomendado
+                                Recommended
                               </span>
                             )}
                             {renderModelBadges(m, provider === 'synthetic', provider === 'venice')}
@@ -731,7 +731,7 @@ export default function AISettingsPanel() {
                 >
                   {currentProviderEmbeddingModels.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} {m.recommended ? '(Recomendado)' : ''}
+                      {m.name} {m.recommended ? '(Recommended)' : ''}
                     </option>
                   ))}
                 </select>
@@ -742,11 +742,11 @@ export default function AISettingsPanel() {
             {(provider === 'anthropic' || provider === 'synthetic' || provider === 'venice') && (
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <p className="text-xs" style={{ color: 'var(--secondary)' }}>
-                  <strong className="text-amber-600 dark:text-amber-400">Nota:</strong>{' '}
-                  {provider === 'anthropic' ? 'Anthropic' : provider === 'synthetic' ? 'Synthetic' : 'Venice'} no soporta embeddings para búsqueda semántica.
+                  <strong className="text-amber-600 dark:text-amber-400">Note:</strong>{' '}
+                  {provider === 'anthropic' ? 'Anthropic' : provider === 'synthetic' ? 'Synthetic' : 'Venice'} doesn't support embeddings for semantic search.
                 </p>
                 <p className="text-xs mt-1 opacity-80" style={{ color: 'var(--secondary)' }}>
-                  Para habilitar búsqueda semántica, instala <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline text-blue-500">Ollama</a> con un modelo de embeddings:
+                  To enable semantic search, install <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline text-blue-500">Ollama</a> with an embedding model:
                 </p>
                 <code className="block mt-2 text-xs bg-black/10 dark:bg-white/10 px-2 py-1 rounded font-mono">
                   ollama pull mxbai-embed-large

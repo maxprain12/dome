@@ -108,7 +108,7 @@ export default function PromptModal() {
             onBlur={(e) => {
               e.currentTarget.style.borderColor = 'var(--border)';
             }}
-            placeholder="Escribe aquí..."
+            placeholder="Type here..."
           />
           
           {/* Actions */}

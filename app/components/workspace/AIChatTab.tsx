@@ -137,7 +137,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
       const config = await getAIConfig();
 
       if (!config) {
-        setError('IA no configurada. Configura tu provider en Ajustes.');
+        setError('AI not configured. Configure your provider in Settings.');
         return null;
       }
 
@@ -146,7 +146,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
       const hasApiKey = config.apiKey;
       
       if (needsApiKey && !hasApiKey && config.provider !== 'synthetic' && config.provider !== 'venice') {
-        setError('API key no configurada. Ve a Ajustes para configurarla.');
+        setError('API key not configured. Go to Settings to configure it.');
         return null;
       }
 
@@ -273,7 +273,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
       }
     } catch (err) {
       console.error('Chat error:', err);
-      setError(err instanceof Error ? err.message : 'Error al obtener respuesta');
+      setError(err instanceof Error ? err.message : 'Error getting response');
     } finally {
       setIsStreaming(false);
       setStreamingMessage(null);
@@ -323,7 +323,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
       }
     } catch (err) {
       console.error('Regenerate error:', err);
-      setError(err instanceof Error ? err.message : 'Error al regenerar');
+      setError(err instanceof Error ? err.message : 'Error regenerating');
     } finally {
       setIsStreaming(false);
       setStreamingMessage(null);
@@ -352,18 +352,18 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
               <MartinAvatar size="lg" />
             </div>
             <p className="text-base font-medium" style={{ color: 'var(--primary)' }}>
-              Hola, soy Martin
+              Hi, I'm Martin
             </p>
             <p className="text-sm mt-2 max-w-xs mx-auto" style={{ color: 'var(--secondary)' }}>
-              Puedes hacerme preguntas sobre este recurso, pedirme resúmenes o explorar ideas juntos.
+              You can ask me questions about this resource, ask for summaries, or explore ideas together.
             </p>
             
             {/* Quick prompts */}
             <div className="mt-6 flex flex-wrap gap-2 justify-center max-w-md mx-auto">
               {[
-                '¿Cuáles son los puntos clave?',
-                'Hazme un resumen',
-                '¿Qué preguntas debería hacerme?',
+                'What are the key points?',
+                'Give me a summary',
+                'What questions should I ask myself?',
               ].map((prompt) => (
                 <button
                   key={prompt}
@@ -439,10 +439,10 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
                 border: toolsEnabled && resourceToolsEnabled ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border)',
                 color: toolsEnabled && resourceToolsEnabled ? undefined : 'var(--secondary)',
               }}
-              title={resourceToolsEnabled ? 'Acceso a recursos habilitado' : 'Habilitar acceso a recursos'}
+              title={resourceToolsEnabled ? 'Resource access enabled' : 'Enable resource access'}
             >
               <Database size={12} />
-              Mis recursos
+              My resources
             </button>
             <button
               onClick={() => setToolsEnabled(!toolsEnabled)}
@@ -453,10 +453,10 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
                 border: toolsEnabled ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--border)',
                 color: toolsEnabled ? undefined : 'var(--secondary)',
               }}
-              title={toolsEnabled ? 'Herramientas habilitadas' : 'Habilitar herramientas'}
+              title={toolsEnabled ? 'Tools enabled' : 'Enable tools'}
             >
               <Search size={12} />
-              Búsqueda web
+              Web search
             </button>
             <button
               onClick={() => setToolsEnabled(!toolsEnabled)}
@@ -467,10 +467,10 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
                 border: toolsEnabled ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--border)',
                 color: toolsEnabled ? undefined : 'var(--secondary)',
               }}
-              title={toolsEnabled ? 'Herramientas habilitadas' : 'Habilitar herramientas'}
+              title={toolsEnabled ? 'Tools enabled' : 'Enable tools'}
             >
               <Globe size={12} />
-              Obtener páginas
+              Get pages
             </button>
           </div>
         )}
@@ -483,10 +483,10 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={toolsEnabled && resourceToolsEnabled 
-                ? "Escribe tu pregunta (puedo buscar en tus recursos y en la web)..." 
+                ? "Type your question (I can search your resources and the web)..." 
                 : toolsEnabled 
-                  ? "Escribe tu pregunta (con búsqueda web)..." 
-                  : "Escribe tu pregunta..."}
+                  ? "Type your question (with web search)..." 
+                  : "Type your question..."}
               disabled={isStreaming}
               className="w-full px-4 py-3 text-sm rounded-xl resize-none disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               style={{
@@ -508,7 +508,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
                 backgroundColor: 'var(--error)',
                 color: 'white',
               }}
-              title="Detener generación"
+              title="Stop generation"
             >
               <StopCircle size={20} />
             </button>
@@ -521,7 +521,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
                 backgroundColor: inputValue.trim() ? 'var(--brand-primary)' : 'var(--bg-secondary)',
                 color: inputValue.trim() ? 'white' : 'var(--secondary)',
               }}
-              title="Enviar mensaje"
+              title="Send message"
             >
               <Send size={20} />
             </button>
@@ -529,7 +529,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
         </div>
         
         <p className="text-[11px] mt-2 text-center opacity-50" style={{ color: 'var(--secondary)' }}>
-          Enter para enviar · Shift+Enter para nueva línea
+          Enter to send · Shift+Enter for new line
         </p>
       </div>
     </div>

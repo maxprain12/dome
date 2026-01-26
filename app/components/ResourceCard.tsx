@@ -410,7 +410,7 @@ export default memo(function ResourceCard({
               ref={buttonRef}
               className="menu-btn focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
               onClick={handleMenuToggle}
-              aria-label="Menú de opciones"
+              aria-label="Options menu"
               aria-expanded={showMenu}
             >
               <MoreVertical size={16} />

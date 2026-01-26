@@ -178,7 +178,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
                 e.currentTarget.style.background = 'transparent';
               }
             }}
-            title="Código"
+            title="Code"
           >
             <Code className="w-4 h-4" />
           </button>
@@ -225,7 +225,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
                 e.currentTarget.style.background = 'transparent';
               }
             }}
-            title="Título 1"
+            title="Heading 1"
           >
             <Heading1 className="w-4 h-4" />
           </button>
@@ -247,7 +247,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
                 e.currentTarget.style.background = 'transparent';
               }
             }}
-            title="Título 2"
+            title="Heading 2"
           >
             <Heading2 className="w-4 h-4" />
           </button>
@@ -269,7 +269,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
                 e.currentTarget.style.background = 'transparent';
               }
             }}
-            title="Título 3"
+            title="Heading 3"
           >
             <Heading3 className="w-4 h-4" />
           </button>

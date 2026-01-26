@@ -126,7 +126,7 @@ export default function UserMenu() {
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'transparent';
               }}
-              aria-label="Abrir configuración"
+              aria-label="Open settings"
             >
               <Settings className="w-4 h-4" />
               <span className="text-sm">Settings</span>
@@ -140,7 +140,7 @@ export default function UserMenu() {
               disabled={isSigningOut}
               className="w-full px-4 py-2 text-left flex items-center gap-3 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2 disabled:opacity-50"
               style={{ color: 'var(--error)' }}
-              aria-label="Cerrar sesión"
+              aria-label="Sign out"
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
               }}

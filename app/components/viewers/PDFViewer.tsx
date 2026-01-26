@@ -252,7 +252,7 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
               e.currentTarget.style.background = 'transparent';
             }}
             title="Previous page"
-            aria-label="Página anterior"
+            aria-label="Previous page"
           >
             <ChevronLeft size={18} />
           </button>
@@ -297,7 +297,7 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
               e.currentTarget.style.background = 'transparent';
             }}
             title="Zoom out"
-            aria-label="Alejar"
+            aria-label="Zoom out"
           >
             <ZoomOut size={18} />
           </button>
@@ -322,7 +322,7 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
               e.currentTarget.style.background = 'transparent';
             }}
             title="Zoom in"
-            aria-label="Acercar"
+            aria-label="Zoom in"
           >
             <ZoomIn size={18} />
           </button>
@@ -340,7 +340,7 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
               e.currentTarget.style.background = 'transparent';
             }}
             title="Fit to page"
-            aria-label="Ajustar a página"
+            aria-label="Fit to page"
           >
             <Maximize2 size={18} />
           </button>
@@ -357,7 +357,7 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'transparent';
             }}
-            aria-label="Abrir en aplicación externa"
+            aria-label="Open in external application"
             title="Open in external viewer"
           >
             <ExternalLink size={16} />

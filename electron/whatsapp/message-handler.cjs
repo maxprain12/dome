@@ -248,7 +248,7 @@ async function createNoteFromText(from, text) {
       id,
       'default',
       'note',
-      `Nota de WhatsApp - ${new Date().toLocaleDateString('es-ES')}`,
+      `WhatsApp Note - ${new Date().toLocaleDateString('en-US')}`,
       text,
       null,
       JSON.stringify({
@@ -267,13 +267,13 @@ async function createNoteFromText(from, text) {
     }
 
     // Responder al usuario
-    await session.sendText(from, `✅ Nota creada: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
+    await session.sendText(from, `✅ Note created: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
 
     console.log('[WhatsApp Handler] Created note from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error creating note:', error);
-    await session.sendText(from, `❌ Error al crear la nota: ${error.message}`);
+    await session.sendText(from, `❌ Error creating note: ${error.message}`);
     return { success: false, error: error.message };
   }
 }
@@ -321,13 +321,13 @@ async function createUrlResource(from, url) {
       windowManager.broadcast('resource:created', resource);
     }
 
-    await session.sendText(from, `✅ Enlace guardado: ${url}`);
+    await session.sendText(from, `✅ Link saved: ${url}`);
 
     console.log('[WhatsApp Handler] Created URL resource from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error creating URL resource:', error);
-    await session.sendText(from, `❌ Error al guardar el enlace: ${error.message}`);
+    await session.sendText(from, `❌ Error saving link: ${error.message}`);
     return { success: false, error: error.message };
   }
 }
@@ -338,17 +338,17 @@ async function createUrlResource(from, url) {
  * @returns {string}
  */
 async function buildEnhancedSystemPrompt(context = {}) {
-  let prompt = `Eres Martin, el asistente de IA de Dome. Eres amigable, conversacional y siempre intentas ayudar de manera clara. Hablas en español de manera natural.
+  let prompt = `You are Martin, Dome's AI assistant. You are friendly, conversational, and always try to help clearly. You speak in natural English.
 
-## Tu Rol
-Ayudas al usuario a trabajar con sus recursos de conocimiento: notas, PDFs, videos, audios, etc.
+## Your Role
+You help the user work with their knowledge resources: notes, PDFs, videos, audios, etc.
 
-## Contexto Actual`;
+## Current Context`;
 
   // Get current project
   const currentProject = await aiToolsHandler.getCurrentProject();
   if (currentProject) {
-    prompt += `\n- Proyecto activo: ${currentProject.name}`;
+    prompt += `\n- Active project: ${currentProject.name}`;
     if (currentProject.description) {
       prompt += ` (${currentProject.description})`;
     }
@@ -357,7 +357,7 @@ Ayudas al usuario a trabajar con sus recursos de conocimiento: notas, PDFs, vide
   // Get recent resources
   const recentResources = await aiToolsHandler.getRecentResources(5);
   if (recentResources.length > 0) {
-    prompt += `\n- Recursos recientes:`;
+    prompt += `\n- Recent resources:`;
     recentResources.forEach(r => {
       prompt += `\n  • ${r.title} (${r.type})`;
     });
@@ -365,24 +365,24 @@ Ayudas al usuario a trabajar con sus recursos de conocimiento: notas, PDFs, vide
 
   // Add timestamp
   const now = new Date();
-  prompt += `\n- Fecha: ${now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
-  prompt += `\n- Hora: ${now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+  prompt += `\n- Date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+  prompt += `\n- Time: ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 
   prompt += `
 
-## Capacidades
-Puedes ayudar al usuario con:
-- Buscar información en sus recursos existentes
-- Responder preguntas basándote en su base de conocimiento
-- Crear notas y guardar contenido
-- Sugerir conexiones entre contenidos
-- Buscar información en la web cuando sea necesario
+## Capabilities
+You can help the user with:
+- Searching for information in their existing resources
+- Answering questions based on their knowledge base
+- Creating notes and saving content
+- Suggesting connections between content
+- Searching for information on the web when necessary
 
-## Comportamiento para WhatsApp
-- Mantén las respuestas concisas y relevantes
-- Usa formato simple (sin markdown complejo)
-- Si necesitas información de los recursos, primero búscalos
-- Sé proactivo sugiriendo recursos relacionados cuando sea útil`;
+## Behavior for WhatsApp
+- Keep responses concise and relevant
+- Use simple format (no complex markdown)
+- If you need information from resources, search them first
+- Be proactive suggesting related resources when useful`;
 
   return prompt;
 }
@@ -394,12 +394,12 @@ Puedes ayudar al usuario con:
  */
 function mightNeedResourceSearch(question) {
   const keywords = [
-    'nota', 'notas', 'recurso', 'recursos', 'documento', 'documentos',
-    'pdf', 'video', 'audio', 'imagen', 
-    'tengo', 'tenía', 'guardé', 'guardado', 
-    'buscar', 'busca', 'encuentra', 'encontrar',
-    'mis', 'mi ', 'qué ', 'cuál', 'dónde',
-    'sobre', 'acerca', 'relacionado', 'información'
+    'note', 'notes', 'resource', 'resources', 'document', 'documents',
+    'pdf', 'video', 'audio', 'image', 
+    'have', 'had', 'saved', 'save', 
+    'search', 'find', 'finding',
+    'my', 'what', 'which', 'where',
+    'about', 'related', 'information'
   ];
   
   const lowerQuestion = question.toLowerCase();
@@ -419,7 +419,7 @@ async function searchResourcesForContext(query) {
       return '';
     }
 
-    let context = '\n\n## Recursos encontrados relacionados con tu pregunta:\n';
+    let context = '\n\n## Resources found related to your question:\n';
     result.results.forEach((r, i) => {
       context += `\n${i + 1}. **${r.title}** (${r.type})`;
       if (r.snippet) {
@@ -442,7 +442,7 @@ async function searchResourcesForContext(query) {
 async function askMartin(from, question) {
   try {
     // Notificar que estamos procesando
-    await session.sendText(from, '🤔 Pensando...');
+    await session.sendText(from, '🤔 Thinking...');
 
     // Si hay un callback de Martin configurado, usarlo
     if (_martinCallback) {
@@ -464,7 +464,7 @@ async function askMartin(from, question) {
       const resourceContext = await searchResourcesForContext(question);
       if (resourceContext) {
         systemPrompt += resourceContext;
-        systemPrompt += '\n\nUsa esta información de los recursos para responder la pregunta del usuario.';
+        systemPrompt += '\n\nUse this resource information to answer the user\'s question.';
       }
     }
 
@@ -529,7 +529,7 @@ async function askMartin(from, question) {
       }
     }
 
-    await session.sendText(from, 'Lo siento, no puedo procesar tu pregunta en este momento. Configura un proveedor de IA en Dome (Settings > IA).');
+    await session.sendText(from, 'Sorry, I can\'t process your question right now. Configure an AI provider in Dome (Settings > AI).');
     return { success: false, error: 'No AI provider available' };
   } catch (error) {
     console.error('[WhatsApp Handler] Error asking Martin:', error);
@@ -546,7 +546,7 @@ async function processAudioMessage(message) {
   const from = message.key.remoteJid;
 
   try {
-    await session.sendText(from, '🎵 Recibido. Procesando audio...');
+    await session.sendText(from, '🎵 Received. Processing audio...');
 
     // Descargar el audio
     const buffer = await session.downloadMedia(message);
@@ -572,7 +572,7 @@ async function processAudioMessage(message) {
       id,
       'default',
       'audio',
-      `Audio de WhatsApp - ${new Date().toLocaleDateString('es-ES')}`,
+      `WhatsApp Audio - ${new Date().toLocaleDateString('en-US')}`,
       null,
       null,
       importResult.internalPath,
@@ -599,13 +599,13 @@ async function processAudioMessage(message) {
       windowManager.broadcast('resource:created', resource);
     }
 
-    await session.sendText(from, '✅ Audio guardado en Dome. Procesando transcripción...');
+    await session.sendText(from, '✅ Audio saved in Dome. Processing transcription...');
 
     console.log('[WhatsApp Handler] Created audio resource from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error processing audio:', error);
-    await session.sendText(from, `❌ Error al procesar el audio: ${error.message}`);
+    await session.sendText(from, `❌ Error processing audio: ${error.message}`);
     return { success: false, error: error.message };
   }
 }
@@ -618,7 +618,7 @@ async function processImageMessage(message) {
   const from = message.key.remoteJid;
 
   try {
-    await session.sendText(from, '📷 Recibida. Guardando imagen...');
+    await session.sendText(from, '📷 Received. Saving image...');
 
     // Descargar la imagen
     const buffer = await session.downloadMedia(message);
@@ -645,7 +645,7 @@ async function processImageMessage(message) {
     const now = Date.now();
     const id = generateId();
 
-    const caption = msg.caption || `Imagen de WhatsApp - ${new Date().toLocaleDateString('es-ES')}`;
+    const caption = msg.caption || `WhatsApp Image - ${new Date().toLocaleDateString('en-US')}`;
 
     queries.createResourceWithFile.run(
       id,
@@ -677,13 +677,13 @@ async function processImageMessage(message) {
       windowManager.broadcast('resource:created', resource);
     }
 
-    await session.sendText(from, '✅ Imagen guardada en Dome');
+    await session.sendText(from, '✅ Image saved in Dome');
 
     console.log('[WhatsApp Handler] Created image resource from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error processing image:', error);
-    await session.sendText(from, `❌ Error al procesar la imagen: ${error.message}`);
+    await session.sendText(from, `❌ Error processing image: ${error.message}`);
     return { success: false, error: error.message };
   }
 }
@@ -696,7 +696,7 @@ async function processDocumentMessage(message) {
   const from = message.key.remoteJid;
 
   try {
-    await session.sendText(from, '📄 Recibido. Guardando documento...');
+    await session.sendText(from, '📄 Received. Saving document...');
 
     // Descargar el documento
     const buffer = await session.downloadMedia(message);
@@ -758,13 +758,13 @@ async function processDocumentMessage(message) {
       windowManager.broadcast('resource:created', resource);
     }
 
-    await session.sendText(from, `✅ Documento guardado: ${filename}`);
+    await session.sendText(from, `✅ Document saved: ${filename}`);
 
     console.log('[WhatsApp Handler] Created document resource from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error processing document:', error);
-    await session.sendText(from, `❌ Error al procesar el documento: ${error.message}`);
+    await session.sendText(from, `❌ Error processing document: ${error.message}`);
     return { success: false, error: error.message };
   }
 }
@@ -780,7 +780,7 @@ async function processLocationMessage(message) {
     const msg = message.message.locationMessage;
     const lat = msg.degreesLatitude;
     const lng = msg.degreesLongitude;
-    const name = msg.name || 'Ubicación compartida';
+    const name = msg.name || 'Shared location';
 
     const content = `📍 ${name}\nLatitud: ${lat}\nLongitud: ${lng}\nhttps://maps.google.com/?q=${lat},${lng}`;
 
@@ -793,7 +793,7 @@ async function processLocationMessage(message) {
       id,
       'default',
       'note',
-      `Ubicación: ${name}`,
+      `Location: ${name}`,
       content,
       null,
       JSON.stringify({
@@ -811,13 +811,13 @@ async function processLocationMessage(message) {
       windowManager.broadcast('resource:created', resource);
     }
 
-    await session.sendText(from, '✅ Ubicación guardada en Dome');
+    await session.sendText(from, '✅ Location saved in Dome');
 
     console.log('[WhatsApp Handler] Created location resource from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error processing location:', error);
-    await session.sendText(from, `❌ Error al procesar la ubicación: ${error.message}`);
+    await session.sendText(from, `❌ Error processing location: ${error.message}`);
     return { success: false, error: error.message };
   }
 }
@@ -877,7 +877,7 @@ async function handleMessage(message, context = {}) {
 
     case 'video':
       // Videos no soportados aún
-      await session.sendText(from, '⚠️ Los videos aún no están soportados. Envía una imagen o audio.');
+      await session.sendText(from, '⚠️ Videos are not yet supported. Send an image or audio.');
       return { success: false, error: 'video_not_supported' };
 
     default:

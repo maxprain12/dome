@@ -32,7 +32,7 @@ const ONBOARDING_PROVIDERS = [
   {
     value: 'synthetic' as const,
     label: 'Synthetic',
-    description: '19 modelos gratuitos: MiniMax, DeepSeek, Qwen, Llama',
+    description: '19 free models: MiniMax, DeepSeek, Qwen, Llama',
     icon: Gift,
     badge: 'GRATIS',
     badgeColor: 'green' as const,
@@ -40,38 +40,38 @@ const ONBOARDING_PROVIDERS = [
   },
   {
     value: 'skip' as const,
-    label: 'Configurar más tarde',
-    description: 'Puedes configurar la IA desde los ajustes',
+    label: 'Configure later',
+    description: 'You can configure AI from settings',
     icon: Clock,
   },
   {
     value: 'ollama' as const,
     label: PROVIDERS.ollama.name,
-    description: PROVIDERS.ollama.description + '. Requiere Ollama instalado.',
+    description: PROVIDERS.ollama.description + '. Requires Ollama installed.',
     icon: Cpu,
   },
   {
     value: 'openai' as const,
     label: PROVIDERS.openai.name,
-    description: PROVIDERS.openai.description + '. Requiere API key.',
+    description: PROVIDERS.openai.description + '. Requires API key.',
     icon: Sparkles,
   },
   {
     value: 'anthropic' as const,
     label: PROVIDERS.anthropic.name,
-    description: PROVIDERS.anthropic.description + '. Requiere API key.',
+    description: PROVIDERS.anthropic.description + '. Requires API key.',
     icon: Zap,
   },
   {
     value: 'google' as const,
     label: PROVIDERS.google.name,
-    description: PROVIDERS.google.description + '. Requiere API key.',
+    description: PROVIDERS.google.description + '. Requires API key.',
     icon: Globe,
   },
   {
     value: 'venice' as const,
     label: 'Venice',
-    description: 'Modelos con privacidad total, sin logging.',
+    description: 'Models with total privacy, no logging.',
     icon: Shield,
     badge: 'PRIVADO',
     badgeColor: 'purple' as const,
@@ -145,7 +145,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
       onComplete();
     } catch (error) {
       console.error('[AISetupStep] Error al guardar:', error);
-      setSaveError(error instanceof Error ? error.message : 'Error al guardar la configuración');
+      setSaveError(error instanceof Error ? error.message : 'Error saving configuration');
     }
   };
 
@@ -252,11 +252,11 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             <div className="flex items-center gap-2">
               <Gift className="w-4 h-4 text-green-600" />
               <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                Sin registro necesario
+                No registration required
               </span>
             </div>
             <p className="text-xs mt-1 opacity-70" style={{ color: 'var(--secondary)' }}>
-              Synthetic ofrece acceso gratuito a modelos de última generación.
+              Synthetic offers free access to state-of-the-art models.
             </p>
           </div>
 
@@ -293,23 +293,23 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             <div className="flex items-center gap-2">
               <Shield className="w-4 h-4 text-purple-600" />
               <span className="text-sm font-medium text-purple-700 dark:text-purple-400">
-                Privacidad garantizada
+                Privacy Guaranteed
               </span>
             </div>
             <p className="text-xs mt-1 opacity-70" style={{ color: 'var(--secondary)' }}>
-              Modelos ejecutados de forma privada sin logging. API key opcional para premium.
+              Models run privately without logging. Optional API key for premium.
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
-              API Key <span className="opacity-50">(opcional)</span>
+              API Key <span className="opacity-50">(optional)</span>
             </label>
             <input
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Para modelos premium..."
+              placeholder="For premium models..."
               className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
               style={{
                 backgroundColor: 'var(--bg)',
@@ -366,7 +366,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           />
           {providerConfig.docsUrl && (
             <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary)' }}>
-              Obtén tu API key en{' '}
+              Get your API key at{' '}
               <a 
                 href={providerConfig.docsUrl} 
                 target="_blank" 
@@ -395,7 +395,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           >
             {displayModels.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.name} {m.recommended ? '(Recomendado)' : ''}
+                {m.name} {m.recommended ? '(Recommended)' : ''}
               </option>
             ))}
           </select>
@@ -403,7 +403,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
 
         {!providerConfig.supportsEmbeddings && (
           <p className="text-xs opacity-50" style={{ color: 'var(--secondary)' }}>
-            Nota: {providerConfig.name} no incluye embeddings. Puedes usar Ollama o Google para búsqueda semántica.
+            Note: {providerConfig.name} doesn't include embeddings. You can use Ollama or Google for semantic search.
           </p>
         )}
       </div>
@@ -419,7 +419,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
       )}
 
       <p className="text-sm" style={{ color: 'var(--secondary)' }}>
-        Elige cómo quieres que funcione la inteligencia artificial en Dome.
+        Choose how you want artificial intelligence to work in Dome.
       </p>
 
       {/* Provider Selection */}
@@ -463,7 +463,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                   {option.label}
                   {recommended && !isSelected && (
                     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-500/10 text-green-600">
-                      Recomendado
+                      Recommended
                     </span>
                   )}
                 </div>
@@ -489,25 +489,25 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           <div className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: 'var(--bg)' }}>
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
-                Estado:
+                Status:
               </span>
               {checkingOllama ? (
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--secondary)' }} />
-                  <span className="text-xs" style={{ color: 'var(--secondary)' }}>Verificando...</span>
+                  <span className="text-xs" style={{ color: 'var(--secondary)' }}>Checking...</span>
                 </div>
               ) : ollamaAvailable === true ? (
                 <div className="flex items-center gap-1.5 text-green-600">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span className="text-sm font-medium">Conectado</span>
+                  <span className="text-sm font-medium">Connected</span>
                 </div>
               ) : ollamaAvailable === false ? (
                 <div className="flex items-center gap-1.5 text-red-500">
                   <XCircle className="w-4 h-4" />
-                  <span className="text-sm font-medium">No disponible</span>
+                  <span className="text-sm font-medium">Not available</span>
                 </div>
               ) : (
-                <span className="text-sm" style={{ color: 'var(--secondary)' }}>Sin verificar</span>
+                <span className="text-sm" style={{ color: 'var(--secondary)' }}>Not verified</span>
               )}
             </div>
             <button
@@ -520,14 +520,14 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               }}
             >
               <RefreshCw className={`w-3 h-3 ${checkingOllama ? 'animate-spin' : ''}`} />
-              Probar conexión
+              Test connection
             </button>
           </div>
 
           {ollamaAvailable === false && (
             <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
               <p className="text-sm text-amber-600 dark:text-amber-400">
-                Asegúrate de que Ollama esté instalado y ejecutándose. Descárgalo en ollama.ai
+                Make sure Ollama is installed and running. Download it at ollama.ai
               </p>
             </div>
           )}
@@ -535,7 +535,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           {/* Base URL */}
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
-              URL de Ollama
+              Ollama URL
             </label>
             <input
               type="url"
@@ -555,7 +555,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium" style={{ color: 'var(--primary)' }}>
-                Modelo de chat
+                Chat model
               </label>
               <button
                 onClick={loadOllamaModels}
@@ -564,13 +564,13 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 style={{ color: 'var(--brand-primary)' }}
               >
                 <RefreshCw className={`w-3 h-3 ${loadingModels ? 'animate-spin' : ''}`} />
-                Actualizar lista
+                Refresh list
               </button>
             </div>
             {loadingModels ? (
               <div className="flex items-center gap-2 p-3 rounded-lg" style={{ backgroundColor: 'var(--bg)' }}>
                 <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--secondary)' }} />
-                <span className="text-sm" style={{ color: 'var(--secondary)' }}>Cargando modelos...</span>
+                <span className="text-sm" style={{ color: 'var(--secondary)' }}>Loading models...</span>
               </div>
             ) : ollamaModels.length > 0 ? (
               <select
@@ -608,7 +608,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           {/* Embedding Model */}
           <div>
             <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
-              Modelo de embeddings
+              Embedding model
             </label>
             {ollamaModels.length > 0 ? (
               <select
@@ -642,7 +642,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               />
             )}
             <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary)' }}>
-              Usado para búsqueda semántica. Recomendado: mxbai-embed-large o nomic-embed-text
+              Used for semantic search. Recommended: mxbai-embed-large or nomic-embed-text
             </p>
           </div>
         </div>

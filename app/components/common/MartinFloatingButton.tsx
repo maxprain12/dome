@@ -12,18 +12,18 @@ const HIDDEN_ROUTES = ['/settings', '/onboarding'];
 // Contexto por ruta
 function getContextFromPath(pathname: string): { location: string; description: string } {
   if (pathname === '/' || pathname === '/home') {
-    return { location: 'Home', description: 'en la biblioteca principal' };
+    return { location: 'Home', description: 'in the main library' };
   }
   if (pathname.startsWith('/workspace/note/')) {
-    return { location: 'Editor de Nota', description: 'editando una nota' };
+    return { location: 'Note Editor', description: 'editing a note' };
   }
   if (pathname.startsWith('/workspace/url/')) {
-    return { location: 'Visor de URL', description: 'viendo un recurso web' };
+    return { location: 'URL Viewer', description: 'viewing a web resource' };
   }
   if (pathname.startsWith('/workspace/')) {
-    return { location: 'Workspace', description: 'trabajando en un recurso' };
+    return { location: 'Workspace', description: 'working on a resource' };
   }
-  return { location: 'Dome', description: 'en la aplicación' };
+  return { location: 'Dome', description: 'in the application' };
 }
 
 export default function MartinFloatingButton() {
@@ -66,41 +66,41 @@ export default function MartinFloatingButton() {
     const context = getContextFromPath(pathname || '/');
     const now = new Date();
 
-    let prompt = `Eres Martin, el asistente de IA de Dome. Eres amigable, conversacional y siempre intentas ayudar de manera clara. Hablas en español de manera natural.
+    let prompt = `You are Martin, Dome's AI assistant. You are friendly, conversational, and always try to help clearly. You speak in natural English.
 
-## Tu Personalidad
-- Cercano y profesional al mismo tiempo
-- Usas un lenguaje claro y directo
-- Explicas conceptos complejos de manera sencilla
-- Siempre intentas ser útil y constructivo
-- Mantienes un tono positivo pero no exagerado
+## Your Personality
+- Close and professional at the same time
+- You use clear and direct language
+- You explain complex concepts simply
+- You always try to be useful and constructive
+- You maintain a positive but not exaggerated tone
 
-## Contexto Actual
-- Ubicación: ${context.location}
-- El usuario está ${context.description}
-- Fecha: ${now.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-- Hora: ${now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+## Current Context
+- Location: ${context.location}
+- The user is ${context.description}
+- Date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+- Time: ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
 `;
 
     if (currentResourceTitle) {
-      prompt += `- Recurso activo: "${currentResourceTitle}"\n`;
+      prompt += `- Active resource: "${currentResourceTitle}"\n`;
     }
 
     prompt += `
-## Capacidades
-Puedes ayudar al usuario con:
-- Responder preguntas sobre sus recursos y notas
-- Sugerir ideas y conexiones entre contenidos
-- Ayudar a organizar información
-- Generar resúmenes y análisis
-- Recibir contenido desde WhatsApp${whatsappConnected ? ' (conectado)' : ''}
-- Cualquier otra tarea de productividad
+## Capabilities
+You can help the user with:
+- Answering questions about their resources and notes
+- Suggesting ideas and connections between content
+- Helping organize information
+- Generating summaries and analyses
+- Receiving content from WhatsApp${whatsappConnected ? ' (connected)' : ''}
+- Any other productivity tasks
 
-## Comportamiento
-- Si el usuario pregunta algo fuera de tu conocimiento, sé honesto
-- Si puedes sugerir algo útil basado en el contexto, hazlo
-- Mantén las respuestas concisas pero completas
-- Usa emojis con moderación, solo cuando añadan valor`;
+## Behavior
+- If the user asks something outside your knowledge, be honest
+- If you can suggest something useful based on context, do it
+- Keep responses concise but complete
+- Use emojis in moderation, only when they add value`;
 
     return prompt;
   }, [pathname, currentResourceTitle, whatsappConnected]);
@@ -127,7 +127,7 @@ Puedes ayudar al usuario con:
       if (!config) {
         addMessage({
           role: 'assistant',
-          content: 'No tengo configuración de IA. Ve a Ajustes > IA para configurar un proveedor.',
+          content: 'I don\'t have AI configuration. Go to Settings > AI to configure a provider.',
         });
         return;
       }
@@ -160,7 +160,7 @@ Puedes ayudar al usuario con:
       setStreamingContent('');
       addMessage({
         role: 'assistant',
-        content: `Lo siento, tuve un problema: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        content: `Sorry, I had a problem: ${error instanceof Error ? error.message : 'Unknown error'}`,
       });
     } finally {
       setIsLoading(false);
@@ -191,7 +191,7 @@ Puedes ayudar al usuario con:
       <button
         onClick={toggleOpen}
         className="martin-floating-button"
-        aria-label="Abrir chat con Martin"
+        aria-label="Open chat with Martin"
         style={{
           position: 'fixed',
           bottom: '24px',
@@ -274,7 +274,7 @@ Puedes ayudar al usuario con:
               backgroundColor: '#25D366',
               border: '2px solid #1a1a2e',
             }}
-            title="WhatsApp conectado"
+            title="WhatsApp connected"
           />
         )}
       </button>
@@ -328,9 +328,9 @@ Puedes ayudar al usuario con:
               <div style={{ fontWeight: 600, color: '#ffffff', fontSize: '15px' }}>Martin</div>
               <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)' }}>
                 {status === 'thinking'
-                  ? 'Pensando...'
+                  ? 'Thinking...'
                   : status === 'speaking'
-                    ? 'Respondiendo...'
+                    ? 'Responding...'
                     : context.description}
               </div>
             </div>
@@ -390,10 +390,10 @@ Puedes ayudar al usuario con:
                   <MartinIcon size={56} />
                 </div>
                 <p style={{ marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontWeight: 500 }}>
-                  Hola, soy Martin
+                  Hi, I'm Martin
                 </p>
                 <p style={{ fontSize: '13px', lineHeight: 1.5 }}>
-                  Tu asistente personal en Dome. Pregúntame lo que necesites.
+                  Your personal assistant in Dome. Ask me anything you need.
                 </p>
               </div>
             ) : (
@@ -510,7 +510,7 @@ Puedes ayudar al usuario con:
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyPress}
-                placeholder="Escribe un mensaje..."
+                placeholder="Type a message..."
                 disabled={isLoading}
                 rows={1}
                 style={{

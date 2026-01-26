@@ -19,23 +19,23 @@ interface MartinOnboardingProps {
 
 type Step = 'welcome' | 'profile' | 'ai' | 'complete';
 
-const WELCOME_MESSAGE = `¡Hola! Soy Martin, tu asistente de IA en Dome. 
+const WELCOME_MESSAGE = `Hello! I'm Martin, your AI assistant in Dome. 
 
-Estoy aquí para ayudarte a configurar tu cuenta y preparar todo para que puedas empezar a trabajar con tus recursos de la mejor manera.
+I'm here to help you set up your account and prepare everything so you can start working with your resources in the best way.
 
-Vamos a hacer esto paso a paso. Primero, necesito conocer algunos datos básicos sobre ti.`;
+Let's do this step by step. First, I need to know some basic information about you.`;
 
-const PROFILE_MESSAGE = `Perfecto, ahora necesito que me proporciones tu información de perfil. Esto me ayudará a personalizar tu experiencia.`;
+const PROFILE_MESSAGE = `Perfect, now I need you to provide your profile information. This will help me personalize your experience.`;
 
-const AI_MESSAGE = `Excelente. Ahora, para que pueda ayudarte mejor, necesito configurar tu proveedor de IA. Esto me permitirá generar resúmenes, hacer búsquedas semánticas y responder tus preguntas.
+const AI_MESSAGE = `Excellent. Now, so I can help you better, I need to configure your AI provider. This will allow me to generate summaries, perform semantic searches, and answer your questions.
 
-Puedes configurar esto ahora o hacerlo más tarde desde los ajustes.`;
+You can configure this now or do it later from settings.`;
 
-const COMPLETE_MESSAGE = `¡Perfecto! Ya tenemos todo configurado. 
+const COMPLETE_MESSAGE = `Perfect! Everything is now configured. 
 
-Estoy listo para ayudarte a trabajar con tus recursos. Si necesitas cambiar alguna configuración más adelante, puedes hacerlo desde los ajustes.
+I'm ready to help you work with your resources. If you need to change any settings later, you can do so from settings.
 
-¡Bienvenido a Dome!`;
+Welcome to Dome!`;
 
 export default function MartinOnboarding({
   initialName,
@@ -80,7 +80,7 @@ export default function MartinOnboarding({
       <OnboardingStep
         message={WELCOME_MESSAGE}
         onNext={handleWelcomeNext}
-        nextLabel="Empezar"
+        nextLabel="Start"
         canProceed={true}
       >
         <div className="flex items-center justify-center py-8">
@@ -101,7 +101,7 @@ export default function MartinOnboarding({
           window.dispatchEvent(event);
         }}
         onBack={handleBack}
-        nextLabel="Continuar"
+        nextLabel="Continue"
         canProceed={canProceedProfile}
       >
         <ProfileStep
@@ -122,7 +122,7 @@ export default function MartinOnboarding({
         message={AI_MESSAGE}
         onNext={() => window.dispatchEvent(new CustomEvent('onboarding:finalize'))}
         onBack={handleBack}
-        nextLabel="Finalizar"
+        nextLabel="Finish"
         canProceed={true}
       >
         <AISetupStep onComplete={handleAIComplete} />

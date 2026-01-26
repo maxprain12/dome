@@ -150,12 +150,12 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
 
 export function getSlashCommandItems(): SlashCommandItem[] {
   return [
-    // Básico
+    // Basic
     {
-      title: 'Texto',
-      description: 'Empezar a escribir texto',
+      title: 'Text',
+      description: 'Start writing text',
       icon: '📝',
-      category: 'Básico',
+      category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).setParagraph().run();
@@ -164,10 +164,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       keywords: ['texto', 'parrafo', 'p'],
     },
     {
-      title: 'Título 1',
-      description: 'Título grande',
+      title: 'Heading 1',
+      description: 'Large heading',
       icon: 'H1',
-      category: 'Básico',
+      category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).toggleHeading({ level: 1 }).run();
@@ -176,10 +176,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       keywords: ['h1', 'titulo', 'heading'],
     },
     {
-      title: 'Título 2',
-      description: 'Título mediano',
+      title: 'Heading 2',
+      description: 'Medium heading',
       icon: 'H2',
-      category: 'Básico',
+      category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).toggleHeading({ level: 2 }).run();
@@ -188,10 +188,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       keywords: ['h2', 'subtitulo'],
     },
     {
-      title: 'Título 3',
-      description: 'Título pequeño',
+      title: 'Heading 3',
+      description: 'Small heading',
       icon: 'H3',
-      category: 'Básico',
+      category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).toggleHeading({ level: 3 }).run();
@@ -200,10 +200,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       keywords: ['h3'],
     },
     {
-      title: 'Lista con viñetas',
-      description: 'Crear una lista con viñetas',
+      title: 'Bullet list',
+      description: 'Create a bullet list',
       icon: '•',
-      category: 'Básico',
+      category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).toggleBulletList().run();
@@ -212,10 +212,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       keywords: ['lista', 'bullet', 'viñetas'],
     },
     {
-      title: 'Lista numerada',
-      description: 'Crear una lista numerada',
+      title: 'Numbered list',
+      description: 'Create a numbered list',
       icon: '1.',
-      category: 'Básico',
+      category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).toggleOrderedList().run();
@@ -224,10 +224,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       keywords: ['numerada', 'ordenada', 'numbered'],
     },
     {
-      title: 'Lista de tareas',
-      description: 'Crear una lista de tareas',
+      title: 'Task list',
+      description: 'Create a task list',
       icon: '☑',
-      category: 'Básico',
+      category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).toggleTaskList().run();
@@ -236,10 +236,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       keywords: ['todo', 'tareas', 'checklist'],
     },
     {
-      title: 'Cita',
-      description: 'Crear una cita',
+      title: 'Quote',
+      description: 'Create a quote',
       icon: '"',
-      category: 'Básico',
+      category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).toggleBlockquote().run();
@@ -249,13 +249,13 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     },
     // Media
     {
-      title: 'Imagen',
-      description: 'Insertar una imagen',
+      title: 'Image',
+      description: 'Insert an image',
       icon: '🖼️',
       category: 'Media',
       command: async ({ editor, range }) => {
         if (editor && range) {
-          const url = await showPrompt('URL de la imagen:');
+          const url = await showPrompt('Image URL:');
           if (url) {
             editor.chain().focus().deleteRange(range).setImage({ src: url }).run();
           }
@@ -265,7 +265,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     },
     {
       title: 'PDF',
-      description: 'Embeber un PDF',
+      description: 'Embed a PDF',
       icon: '📄',
       category: 'Media',
       command: async ({ editor, range }) => {
@@ -302,14 +302,14 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     },
     {
       title: 'Video',
-      description: 'Embeber un video',
+      description: 'Embed a video',
       icon: '🎬',
       category: 'Media',
       command: async ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).run();
           
-          const url = await showPrompt('URL del video (YouTube, Vimeo, o archivo):');
+          const url = await showPrompt('Video URL (YouTube, Vimeo, or file):');
           if (url) {
             // Check if it's a YouTube URL
             const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
@@ -349,14 +349,14 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     },
     {
       title: 'Audio',
-      description: 'Embeber audio',
+      description: 'Embed audio',
       icon: '🎵',
       category: 'Media',
       command: async ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).run();
           
-          const url = await showPrompt('URL del audio o seleccionar archivo:');
+          const url = await showPrompt('Audio URL or select file:');
           if (url) {
             editor.chain().focus().insertContent({
               type: 'audioEmbed',
@@ -389,8 +389,8 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       keywords: ['audio', 'music'],
     },
     {
-      title: 'Archivo',
-      description: 'Insertar un archivo',
+      title: 'File',
+      description: 'Insert a file',
       icon: '📎',
       category: 'Media',
       command: async ({ editor, range }) => {
@@ -424,10 +424,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     },
     // Avanzado
     {
-      title: 'Tabla',
-      description: 'Insertar una tabla',
+      title: 'Table',
+      description: 'Insert a table',
       icon: '⊞',
-      category: 'Avanzado',
+      category: 'Advanced',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor
@@ -442,9 +442,9 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     },
     {
       title: 'Callout',
-      description: 'Crear un callout',
+      description: 'Create a callout',
       icon: '💡',
-      category: 'Avanzado',
+      category: 'Advanced',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).setCallout({ icon: '💡', color: 'yellow' }).run();
@@ -454,9 +454,9 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     },
     {
       title: 'Toggle',
-      description: 'Crear contenido colapsable',
+      description: 'Create collapsible content',
       icon: '▶',
-      category: 'Avanzado',
+      category: 'Advanced',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).setToggle().run();
@@ -465,10 +465,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       keywords: ['toggle', 'colapsar', 'expandir'],
     },
     {
-      title: 'Divisor',
-      description: 'Insertar un divisor',
+      title: 'Divider',
+      description: 'Insert a divider',
       icon: '—',
-      category: 'Avanzado',
+      category: 'Advanced',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).setDivider().run();
@@ -477,10 +477,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       keywords: ['divisor', 'divider', 'hr', 'separador'],
     },
     {
-      title: 'Código',
-      description: 'Insertar bloque de código',
+      title: 'Code',
+      description: 'Insert code block',
       icon: '</>',
-      category: 'Avanzado',
+      category: 'Advanced',
       command: ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).toggleCodeBlock().run();
@@ -490,15 +490,15 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     },
     // Referencias
     {
-      title: 'Mencionar recurso',
-      description: 'Mencionar otro recurso',
+      title: 'Mention resource',
+      description: 'Mention another resource',
       icon: '@',
       category: 'Referencias',
       command: async ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).run();
           
-          const searchQuery = await showPrompt('Buscar recurso por nombre:');
+          const searchQuery = await showPrompt('Search resource by name:');
           if (searchQuery && typeof window !== 'undefined' && window.electron?.db?.resources) {
             try {
               const result = await window.electron.db.resources.search(searchQuery);
@@ -511,7 +511,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
                     `${i + 1}. ${r.title}`
                   ).join('\n');
                   const selection = await showPrompt(
-                    `Se encontraron ${result.data.length} recursos:\n${options}\n\nIngresa el número (1-${Math.min(5, result.data.length)}):`
+                    `${result.data.length} resources found:\n${options}\n\nEnter the number (1-${Math.min(5, result.data.length)}):`
                   );
                   const idx = parseInt(selection || '1', 10) - 1;
                   if (idx >= 0 && idx < result.data.length) {
@@ -530,11 +530,11 @@ export function getSlashCommandItems(): SlashCommandItem[] {
                   },
                 }).run();
               } else {
-                window.alert('No se encontraron recursos con ese nombre.');
+                window.alert('No resources found with that name.');
               }
             } catch (error) {
               console.error('Error searching resources:', error);
-              window.alert('Error al buscar recursos.');
+              window.alert('Error searching resources.');
             }
           }
         }
@@ -542,15 +542,15 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       keywords: ['mencion', 'mention', '@', 'recurso'],
     },
     {
-      title: 'Enlace interno',
-      description: 'Crear enlace a otra nota',
+      title: 'Internal link',
+      description: 'Create link to another note',
       icon: '🔗',
       category: 'Referencias',
       command: async ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).run();
           
-          const searchQuery = await showPrompt('Buscar nota por nombre:');
+          const searchQuery = await showPrompt('Search note by name:');
           if (searchQuery && typeof window !== 'undefined' && window.electron?.db?.resources) {
             try {
               // Search for notes specifically
@@ -567,7 +567,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
                       `${i + 1}. ${r.title}`
                     ).join('\n');
                     const selection = await showPrompt(
-                      `Se encontraron ${notes.length} notas:\n${options}\n\nIngresa el número (1-${Math.min(5, notes.length)}):`
+                      `${notes.length} notes found:\n${options}\n\nEnter the number (1-${Math.min(5, notes.length)}):`
                     );
                     const idx = parseInt(selection || '1', 10) - 1;
                     if (idx >= 0 && idx < notes.length) {
@@ -595,7 +595,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
                     },
                   ]).run();
                 } else {
-                  window.alert('No se encontraron notas con ese nombre.');
+                  window.alert('No notes found with that name.');
                 }
               }
             } catch (error) {

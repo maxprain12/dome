@@ -86,8 +86,8 @@ export function BubbleMenu({ editor }: BubbleMenuProps) {
         <button
           onClick={() => editor.chain().focus().toggleCode().run()}
           className={`bubble-menu-button focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2 ${editor.isActive('code') ? 'is-active' : ''}`}
-          title="Código"
-          aria-label="Código"
+          title="Code"
+          aria-label="Code"
         >
           <Code size={16} />
         </button>

@@ -166,7 +166,7 @@ export default function ProfileStep({
           type="text"
           value={name}
           onChange={(e) => handleNameChange(e.target.value)}
-          placeholder="Juan Pérez"
+          placeholder="John Doe"
           className="w-full px-4 py-2.5 rounded-lg text-sm"
           style={{
             backgroundColor: 'var(--bg)',
