@@ -40,9 +40,12 @@ jobs:
         run: |
           if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
             echo "⚠️  No hay credenciales de code signing, deshabilitando signing..."
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
             bun run electron:build -- --mac --config.mac.identity=null --config.mac.notarize=false
           else
             echo "✓ Credenciales de code signing encontradas, habilitando signing..."
+            # No establecer CSC_IDENTITY_AUTO_DISCOVERY cuando hay credenciales
+            # para permitir que electron-builder use el certificado
             bun run electron:build -- --mac
           fi
         env:
@@ -54,8 +57,6 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Deshabilitar auto-descubrimiento de certificados si no hay credenciales
-          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
