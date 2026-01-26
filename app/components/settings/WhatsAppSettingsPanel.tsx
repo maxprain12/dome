@@ -250,7 +250,7 @@ export default function WhatsAppSettingsPanel() {
               </h3>
               <p className="text-sm" style={{ color: 'var(--secondary)' }}>
                 {connectionState === 'connected' && status?.selfId
-                  ? `+${status.selfId.split('@')[0].split(':')[0]}`
+                  ? `+${status.selfId.split('@')[0]?.split(':')[0] ?? ''}`
                   : connectionState === 'pending'
                     ? 'Escanea el codigo QR con tu telefono'
                     : connectionState === 'needs_qr'

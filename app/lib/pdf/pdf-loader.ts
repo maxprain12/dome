@@ -136,7 +136,7 @@ export async function renderPDFPage(
  */
 export async function getPageTextContent(
   page: pdfjsLib.PDFPageProxy
-): Promise<pdfjsLib.TextContent> {
+) {
   return await page.getTextContent();
 }
 
@@ -148,7 +148,7 @@ export async function getPageTextContent(
  * The pdfRect is also in PDF coordinates (from convertViewportRectToPDF)
  */
 export function extractTextFromRegion(
-  textContent: pdfjsLib.TextContent,
+  textContent: Awaited<ReturnType<typeof getPageTextContent>>,
   viewport: pdfjsLib.PageViewport,
   pdfRect: { x: number; y: number; width: number; height: number }
 ): string {
@@ -240,7 +240,7 @@ export function viewportToPDF(
   x: number,
   y: number
 ): [number, number] {
-  return viewport.convertToPdfPoint(x, y);
+  return viewport.convertToPdfPoint(x, y) as [number, number];
 }
 
 /**
@@ -251,5 +251,5 @@ export function pdfToViewport(
   x: number,
   y: number
 ): [number, number] {
-  return viewport.convertToViewportPoint(x, y);
+  return viewport.convertToViewportPoint(x, y) as [number, number];
 }

@@ -35,7 +35,7 @@ export function convertViewportToPDF(
   viewportX: number,
   viewportY: number
 ): [number, number] {
-  return viewport.convertToPdfPoint(viewportX, viewportY);
+  return viewport.convertToPdfPoint(viewportX, viewportY) as [number, number];
 }
 
 /**
@@ -46,7 +46,7 @@ export function convertPDFToViewport(
   pdfX: number,
   pdfY: number
 ): [number, number] {
-  return viewport.convertToViewportPoint(pdfX, pdfY);
+  return viewport.convertToViewportPoint(pdfX, pdfY) as [number, number];
 }
 
 /**

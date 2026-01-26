@@ -197,7 +197,7 @@ Comprehensive source management for academic work:
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/your-username/dome.git
+git clone https://github.com/maxprain12/dome.git
 cd dome-local
 ```
 

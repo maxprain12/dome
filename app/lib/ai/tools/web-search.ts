@@ -147,6 +147,7 @@ function normalizeFreshness(value: string | undefined): string | undefined {
   if (!match) return undefined;
 
   const [, start, end] = match;
+  if (!start || !end) return undefined;
   if (!isValidIsoDate(start) || !isValidIsoDate(end)) return undefined;
   if (start > end) return undefined;
 
@@ -155,7 +156,11 @@ function normalizeFreshness(value: string | undefined): string | undefined {
 
 function isValidIsoDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split('-').map(part => Number.parseInt(part, 10));
+  const parts = value.split('-').map(part => Number.parseInt(part, 10));
+  const year = parts[0];
+  const month = parts[1];
+  const day = parts[2];
+  if (year === undefined || month === undefined || day === undefined) return false;
   if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return false;
 
   const date = new Date(Date.UTC(year, month - 1, day));

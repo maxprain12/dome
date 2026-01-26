@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { DividerAttributes } from '@/types';
+import type { DividerAttributes } from '@/types';
 import { DividerBlock } from '../blocks/DividerBlock';
 
 export const DividerExtension = Node.create({
@@ -34,7 +34,7 @@ export const DividerExtension = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(DividerBlock);
+    return ReactNodeViewRenderer(DividerBlock as any);
   },
 
   addCommands() {

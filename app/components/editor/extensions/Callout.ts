@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { CalloutBlockAttributes } from '@/types';
+import type { CalloutBlockAttributes } from '@/types';
 import { CalloutBlock } from '../blocks/CalloutBlock';
 
 export const CalloutExtension = Node.create({
@@ -70,7 +70,7 @@ export const CalloutExtension = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(CalloutBlock);
+    return ReactNodeViewRenderer(CalloutBlock as any);
   },
 
   addCommands() {

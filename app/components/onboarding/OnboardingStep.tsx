@@ -1,6 +1,7 @@
 'use client';
 
-import { ReactNode, useImperativeHandle, forwardRef } from 'react';
+import { useImperativeHandle, forwardRef } from 'react';
+import type { ReactNode } from 'react';
 import MartinAvatar from '@/components/common/MartinAvatar';
 
 interface OnboardingStepProps {

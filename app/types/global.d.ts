@@ -1,5 +1,28 @@
 export { };
 
+// Tiptap custom commands declaration
+import type { CalloutBlockAttributes, DividerAttributes, ToggleBlockAttributes, PDFEmbedAttributes, FileBlockAttributes } from '@/types';
+
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    callout: {
+      setCallout: (attributes?: CalloutBlockAttributes) => ReturnType;
+    };
+    divider: {
+      setDivider: (attributes?: DividerAttributes) => ReturnType;
+    };
+    toggle: {
+      setToggle: (attributes?: ToggleBlockAttributes) => ReturnType;
+    };
+    pdfEmbed: {
+      setPDFEmbed: (attributes: PDFEmbedAttributes) => ReturnType;
+    };
+    fileBlock: {
+      setFileBlock: (attributes: FileBlockAttributes) => ReturnType;
+    };
+  }
+}
+
 type ThemeChangeCallback = (theme: 'light' | 'dark') => void;
 type RemoveListenerFn = () => void;
 
@@ -149,6 +172,11 @@ declare global {
       selectAvatar: () => Promise<string | null>;
       openSettings: () => Promise<{ success: boolean; windowId?: string; error?: string }>;
 
+      // Avatar management
+      avatar: {
+        copyFile: (sourcePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      };
+
       // IPC Communication
       invoke: (channel: string, ...args: any[]) => Promise<any>;
       on: (channel: string, callback: (...args: any[]) => void) => RemoveListenerFn;
@@ -196,6 +224,10 @@ declare global {
           getRoot: (projectId?: string) => Promise<DBResponse<Resource[]>>;
           moveToFolder: (resourceId: string, folderId: string | null) => Promise<DBResponse<void>>;
           removeFromFolder: (resourceId: string) => Promise<DBResponse<void>>;
+          // Backlinks
+          getBacklinks: (resourceId: string) => Promise<DBResponse<Resource[]>>;
+          // Search for mentions
+          searchForMention: (query: string) => Promise<DBResponse<Resource[]>>;
         };
         interactions: {
           create: (interaction: any) => Promise<DBResponse<ResourceInteraction>>;

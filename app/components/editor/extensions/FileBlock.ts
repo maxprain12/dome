@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { FileBlockAttributes } from '@/types';
+import type { FileBlockAttributes } from '@/types';
 import { FileBlock as FileBlockComponent } from '../blocks/FileBlock';
 
 export const FileBlockExtension = Node.create({
@@ -93,7 +93,7 @@ export const FileBlockExtension = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(FileBlockComponent);
+    return ReactNodeViewRenderer(FileBlockComponent as any);
   },
 
   addCommands() {

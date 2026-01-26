@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { ToggleBlockAttributes } from '@/types';
+import type { ToggleBlockAttributes } from '@/types';
 import { ToggleBlock } from '../blocks/ToggleBlock';
 
 export const ToggleExtension = Node.create({
@@ -55,7 +55,7 @@ export const ToggleExtension = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(ToggleBlock);
+    return ReactNodeViewRenderer(ToggleBlock as any);
   },
 
   addCommands() {

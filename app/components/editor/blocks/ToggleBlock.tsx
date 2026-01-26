@@ -1,7 +1,7 @@
 'use client';
 
-import { NodeViewWrapper } from '@tiptap/react';
-import { ToggleBlockAttributes } from '@/types';
+import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
+import type { ToggleBlockAttributes } from '@/types';
 import { useState } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 

@@ -3,8 +3,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useEditor } from '@tiptap/react';
 import { Editor } from '@tiptap/core';
-import { SlashCommandPluginKey, SlashCommandState } from './extensions/SlashCommandPlugin';
-import { SlashCommandItem } from './extensions/SlashCommand';
+import { SlashCommandPluginKey } from './extensions/SlashCommandPlugin';
+import type { SlashCommandState } from './extensions/SlashCommandPlugin';
+import type { SlashCommandItem } from './extensions/SlashCommand';
 import { showPrompt } from '@/lib/store/usePromptStore';
 
 interface SlashCommandMenuProps {
@@ -52,10 +53,11 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
   }
 
   const groupedItems = state.items.reduce((acc, item) => {
-    if (!acc[item.category]) {
-      acc[item.category] = [];
+    const category = item.category;
+    if (!acc[category]) {
+      acc[category] = [];
     }
-    acc[item.category].push(item);
+    acc[category]!.push(item);
     return acc;
   }, {} as Record<string, SlashCommandItem[]>);
 
@@ -274,11 +276,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
             try {
               const filePaths = await window.electron.selectFile({
                 filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
-                title: 'Seleccionar PDF',
               });
               
               if (filePaths && filePaths.length > 0) {
-                const filePath = filePaths[0];
+                const filePath = filePaths[0]!;
                 const filename = filePath.split('/').pop() || 'document.pdf';
                 
                 // Insert PDF embed node
@@ -367,11 +368,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
             try {
               const filePaths = await window.electron.selectFile({
                 filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac'] }],
-                title: 'Seleccionar Audio',
               });
               
               if (filePaths && filePaths.length > 0) {
-                const filePath = filePaths[0];
+                const filePath = filePaths[0]!;
                 editor.chain().focus().insertContent({
                   type: 'audioEmbed',
                   attrs: {
@@ -399,12 +399,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
           
           if (typeof window !== 'undefined' && window.electron?.selectFile) {
             try {
-              const filePaths = await window.electron.selectFile({
-                title: 'Seleccionar Archivo',
-              });
+              const filePaths = await window.electron.selectFile();
               
               if (filePaths && filePaths.length > 0) {
-                const filePath = filePaths[0];
+                const filePath = filePaths[0]!;
                 const filename = filePath.split('/').pop() || 'file';
                 
                 editor.chain().focus().insertContent({
@@ -503,10 +501,10 @@ export function getSlashCommandItems(): SlashCommandItem[] {
           const searchQuery = await showPrompt('Buscar recurso por nombre:');
           if (searchQuery && typeof window !== 'undefined' && window.electron?.db?.resources) {
             try {
-              const result = await window.electron.db.resources.searchForMention(searchQuery);
+              const result = await window.electron.db.resources.search(searchQuery);
               if (result?.success && result.data && result.data.length > 0) {
                 // Show a simple selection if multiple results
-                let selectedResource = result.data[0];
+                let selectedResource = result.data[0]!;
                 
                 if (result.data.length > 1) {
                   const options = result.data.slice(0, 5).map((r: { title: string }, i: number) => 
@@ -517,7 +515,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
                   );
                   const idx = parseInt(selection || '1', 10) - 1;
                   if (idx >= 0 && idx < result.data.length) {
-                    selectedResource = result.data[idx];
+                    selectedResource = result.data[idx]!;
                   }
                 }
                 
@@ -562,7 +560,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
                 const notes = result.data.filter((r: { type: string }) => r.type === 'note');
                 
                 if (notes.length > 0) {
-                  let selectedNote = notes[0];
+                  let selectedNote = notes[0]!;
                   
                   if (notes.length > 1) {
                     const options = notes.slice(0, 5).map((r: { title: string }, i: number) => 
@@ -573,7 +571,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
                     );
                     const idx = parseInt(selection || '1', 10) - 1;
                     if (idx >= 0 && idx < notes.length) {
-                      selectedNote = notes[idx];
+                      selectedNote = notes[idx]!;
                     }
                   }
                   

@@ -165,7 +165,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
       const config = await getAIConfig();
       if (config) {
         // Handle legacy 'local' provider by converting to 'ollama'
-        const loadedProvider = config.provider === 'local' ? 'ollama' : config.provider;
+        const loadedProvider = (config.provider as string) === 'local' ? 'ollama' : config.provider;
         setProvider(loadedProvider as AIProviderType);
         setApiKey(config.api_key || '');
         setModel(config.model || getDefaultModelId(loadedProvider as AIProviderType));
@@ -190,7 +190,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     try {
       await saveAIConfig({ ollama_base_url: ollamaBaseURL });
       const result = await window.electron.ollama.checkAvailability();
-      setOllamaAvailable(result.success && result.available);
+      setOllamaAvailable(result.success && result.available === true);
     } catch (error) {
       setOllamaAvailable(false);
     } finally {
@@ -442,7 +442,6 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 backgroundColor: isSelected ? 'var(--brand-primary)' : 'var(--bg-secondary)',
                 color: isSelected ? 'white' : 'var(--primary)',
                 border: isSelected ? 'none' : recommended ? undefined : '1px solid var(--border)',
-                ringColor: 'var(--brand-primary)',
               }}
             >
               {badge && (

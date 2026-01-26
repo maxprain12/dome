@@ -143,7 +143,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
 
       // Check if API key is needed
       const needsApiKey = config.provider === 'openai' || config.provider === 'anthropic' || config.provider === 'google';
-      const hasApiKey = config.apiKey || config.oauthToken;
+      const hasApiKey = config.apiKey;
       
       if (needsApiKey && !hasApiKey && config.provider !== 'synthetic' && config.provider !== 'venice') {
         setError('API key no configurada. Ve a Ajustes para configurarla.');
@@ -304,12 +304,13 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
 
     // Find the corresponding user message
     let userMessageIndex = messageIndex - 1;
-    while (userMessageIndex >= 0 && messages[userMessageIndex].role !== 'user') {
+    while (userMessageIndex >= 0 && messages[userMessageIndex]?.role !== 'user') {
       userMessageIndex--;
     }
 
     if (userMessageIndex < 0) return;
-    const userMessage = messages[userMessageIndex].content;
+    const userMessage = messages[userMessageIndex]?.content;
+    if (!userMessage) return;
 
     // Re-send the user message
     setError(null);

@@ -1,7 +1,7 @@
 'use client';
 
 import { NodeViewWrapper } from '@tiptap/react';
-import { DividerAttributes } from '@/types';
+import type { DividerAttributes } from '@/types';
 
 interface DividerBlockProps {
   node: {

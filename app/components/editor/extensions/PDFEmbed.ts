@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { PDFEmbedAttributes } from '@/types';
+import type { PDFEmbedAttributes } from '@/types';
 import { PDFEmbedBlock } from '../blocks/PDFEmbedBlock';
 
 export const PDFEmbedExtension = Node.create({
@@ -90,7 +90,7 @@ export const PDFEmbedExtension = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(PDFEmbedBlock);
+    return ReactNodeViewRenderer(PDFEmbedBlock as any);
   },
 
   addCommands() {

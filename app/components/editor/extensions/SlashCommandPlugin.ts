@@ -1,6 +1,6 @@
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { EditorView } from '@tiptap/pm/view';
-import { SlashCommandItem } from './SlashCommand';
+import type { SlashCommandItem } from './SlashCommand';
 
 export interface SlashCommandState {
   show: boolean;
@@ -59,7 +59,7 @@ export function createSlashCommandPlugin(items: SlashCommandItem[]) {
         // If we're typing after a slash command
         if (value.show && lastChar !== '/') {
           const match = textAfter.match(/\/([^\s]*)$/);
-          if (match) {
+          if (match && match[1] !== undefined) {
             const query = match[1];
             const filteredItems = items.filter((item) => {
               const titleMatch = item.title.toLowerCase().includes(query.toLowerCase());

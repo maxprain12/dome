@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
-import { ResourceMentionAttributes, ResourceType } from '@/types';
+import type { ResourceMentionAttributes, ResourceType } from '@/types';
 import { ResourceMentionBlock } from '../blocks/ResourceMentionBlock';
 
 export const ResourceMentionExtension = Node.create({
@@ -85,6 +85,6 @@ export const ResourceMentionExtension = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(ResourceMentionBlock);
+    return ReactNodeViewRenderer(ResourceMentionBlock as any);
   },
 });

@@ -66,7 +66,7 @@ export default function URLViewer({ resource }: URLViewerProps) {
         const resourceResult = await window.electron.db.resources.getById(resource.id);
         if (resourceResult?.success && resourceResult.data) {
           const updatedResource = resourceResult.data;
-          setMetadata(updatedResource.metadata ? JSON.parse(updatedResource.metadata) : {});
+          setMetadata(updatedResource.metadata ?? {});
         }
       }
     } catch (err) {
@@ -215,15 +215,21 @@ export default function URLViewer({ resource }: URLViewerProps) {
         {viewMode === 'webview' ? (
           <div className="h-full w-full">
             {url && (
-              <webview
-                ref={webviewRef}
-                src={url}
-                className="w-full h-full"
-                style={{ display: 'flex' }}
-                onDidFinishLoad={handleWebViewLoad}
-                onDidFailLoad={handleWebViewError}
-                partition="persist:webview"
-              />
+              /* eslint-disable @typescript-eslint/no-explicit-any */
+              (
+                <webview
+                  ref={webviewRef as any}
+                  src={url}
+                  className="w-full h-full"
+                  style={{ display: 'flex' } as any}
+                  {...{
+                    onDidFinishLoad: handleWebViewLoad,
+                    onDidFailLoad: handleWebViewError,
+                    partition: "persist:webview"
+                  } as any}
+                />
+              )
+              /* eslint-enable @typescript-eslint/no-explicit-any */
             )}
           </div>
         ) : (

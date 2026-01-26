@@ -301,7 +301,7 @@ export class SyntheticProvider implements AIProviderInterface {
 
   async listModels(): Promise<ModelDefinitionConfig[]> {
     // Return static catalog since Synthetic doesn't have a models endpoint
-    return getSyntheticModels();
+    return getSyntheticModels() as ModelDefinitionConfig[];
   }
 
   async isAvailable(): Promise<boolean> {

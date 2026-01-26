@@ -4,7 +4,8 @@ import { FloatingMenu as TiptapFloatingMenu } from '@tiptap/react';
 import { Editor } from '@tiptap/core';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
-import { getSlashCommandItems, SlashCommandItem } from './SlashCommand';
+import { getSlashCommandItems } from './SlashCommand';
+import type { SlashCommandItem } from './extensions/SlashCommand';
 
 interface FloatingMenuProps {
   editor: Editor;
@@ -17,7 +18,7 @@ export function FloatingMenu({ editor }: FloatingMenuProps) {
     return null;
   }
 
-  const items = getSlashCommandItems(editor).slice(0, 8); // Mostrar solo los primeros 8
+  const items = getSlashCommandItems().slice(0, 8); // Mostrar solo los primeros 8
 
   return (
     <TiptapFloatingMenu

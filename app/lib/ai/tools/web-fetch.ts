@@ -156,7 +156,7 @@ function extractMetadata(html: string, url: string): Record<string, string | und
   
   // Extract title
   const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  if (titleMatch) {
+  if (titleMatch && titleMatch[1]) {
     metadata.title = decodeHtmlEntities(titleMatch[1].trim());
   }
   
@@ -165,8 +165,9 @@ function extractMetadata(html: string, url: string): Record<string, string | und
   let match;
   
   while ((match = metaRegex.exec(html)) !== null) {
-    const name = match[1].toLowerCase();
-    const content = decodeHtmlEntities(match[2].trim());
+    const name = match[1]?.toLowerCase();
+    const content = decodeHtmlEntities(match[2]?.trim() ?? '');
+    if (!name) continue;
     
     if (name === 'description' || name === 'og:description') {
       metadata.description = metadata.description || content;
@@ -216,7 +217,7 @@ function extractBySelector(html: string, selector: string): string | null {
     const className = selector.slice(1);
     const regex = new RegExp(`<[^>]+class=["'][^"']*\\b${className}\\b[^"']*["'][^>]*>([\\s\\S]*?)<\\/`, 'i');
     const match = html.match(regex);
-    return match ? match[1] : null;
+    return match?.[1] ?? null;
   }
   
   // Handle ID selectors (#id)
@@ -224,13 +225,13 @@ function extractBySelector(html: string, selector: string): string | null {
     const id = selector.slice(1);
     const regex = new RegExp(`<[^>]+id=["']${id}["'][^>]*>([\\s\\S]*?)<\\/`, 'i');
     const match = html.match(regex);
-    return match ? match[1] : null;
+    return match?.[1] ?? null;
   }
   
   // Handle tag selectors (article, main, etc.)
   const tagRegex = new RegExp(`<${selector}[^>]*>([\\s\\S]*?)<\\/${selector}>`, 'i');
   const tagMatch = html.match(tagRegex);
-  return tagMatch ? tagMatch[1] : null;
+  return tagMatch?.[1] ?? null;
 }
 
 // =============================================================================

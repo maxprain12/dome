@@ -1,5 +1,5 @@
 import { Extension } from '@tiptap/core';
-import { createSlashCommandPlugin, SlashCommandItem } from './SlashCommandPlugin';
+import { createSlashCommandPlugin } from './SlashCommandPlugin';
 
 export interface SlashCommandItem {
   title: string;

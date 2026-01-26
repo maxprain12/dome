@@ -61,7 +61,7 @@ export async function selectAndCopyAvatar(): Promise<string | null> {
     }
 
     // Return relative path (e.g., "avatars/user-avatar-1234567890.jpg")
-    return result.data;
+    return result.data ?? null;
 
   } catch (error) {
     console.error('Error selecting avatar:', error);

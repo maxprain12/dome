@@ -1,7 +1,7 @@
 'use client';
 
 import { NodeViewWrapper } from '@tiptap/react';
-import { PDFEmbedAttributes } from '@/types';
+import type { PDFEmbedAttributes } from '@/types';
 import { useState, useEffect } from 'react';
 import { FileText, X, ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react';
 

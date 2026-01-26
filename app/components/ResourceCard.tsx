@@ -19,9 +19,9 @@ function ProcessingStatusBadge({ status }: { status?: string }) {
   if (!status || status === 'completed') return null;
 
   const statusConfig = {
-    pending: { icon: Loader2, color: 'var(--warning)', label: 'Pending' },
+    pending: { icon: Loader2, color: 'var(--warning)', label: 'Pending', spinning: false },
     processing: { icon: Loader2, color: 'var(--brand-primary)', label: 'Processing', spinning: true },
-    failed: { icon: AlertCircle, color: 'var(--error)', label: 'Failed' },
+    failed: { icon: AlertCircle, color: 'var(--error)', label: 'Failed', spinning: false },
   };
 
   const config = statusConfig[status as keyof typeof statusConfig];

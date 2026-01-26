@@ -139,7 +139,12 @@ export type AIProviderType =
   | 'google' 
   | 'ollama'
   | 'synthetic'
-  | 'venice';
+  | 'venice'
+  | 'copilot'
+  | 'deepseek'
+  | 'minimax'
+  | 'moonshot'
+  | 'qwen';
 
 // Modo de autenticación para Anthropic (API key vs OAuth/Token de suscripción)
 export type AnthropicAuthMode = 'api_key' | 'oauth' | 'token';

@@ -112,15 +112,16 @@ export function BlockHandle({ editor, element }: BlockHandleProps) {
 
         // Only move if position actually changed
         if (targetPos !== null && targetPos !== originalPos.current) {
+          const validTargetPos = targetPos;
           const nodeToMove = doc.nodeAt(originalPos.current);
           if (nodeToMove) {
             const { tr } = state;
             const nodeSize = nodeToMove.nodeSize;
 
             // Adjust target position if moving down
-            let adjustedTarget = targetPos;
-            if (targetPos > originalPos.current) {
-              adjustedTarget = targetPos - nodeSize;
+            let adjustedTarget: number = validTargetPos;
+            if (validTargetPos > originalPos.current) {
+              adjustedTarget = validTargetPos - nodeSize;
             }
 
             // Delete from original position and insert at new position

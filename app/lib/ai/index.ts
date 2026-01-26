@@ -170,6 +170,7 @@ export {
   createMemorySearchStub,
   createMemoryGetStub,
   createDefaultTools,
+  createAllMartinTools,
   createToolRegistry,
   
   // Schema helpers
@@ -209,7 +210,6 @@ export type {
   AgentTool,
   AnyAgentTool,
   AgentToolResult,
-  ToolResultContent,
   ToolUpdate,
   ToolUpdateCallback,
   ToolCall,

@@ -1,7 +1,7 @@
 'use client';
 
 import { NodeViewWrapper } from '@tiptap/react';
-import { FileBlockAttributes } from '@/types';
+import type { FileBlockAttributes } from '@/types';
 import { File, Download } from 'lucide-react';
 
 interface FileBlockProps {

@@ -1,7 +1,7 @@
 'use client';
 
 import { NodeViewWrapper } from '@tiptap/react';
-import { ResourceMentionAttributes, ResourceType } from '@/types';
+import type { ResourceMentionAttributes, ResourceType } from '@/types';
 import { useState, useEffect } from 'react';
 import { FileText, Image as ImageIcon, Video, Music, Link2 } from 'lucide-react';
 

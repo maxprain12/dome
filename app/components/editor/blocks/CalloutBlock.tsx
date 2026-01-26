@@ -1,7 +1,7 @@
 'use client';
 
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
-import { CalloutBlockAttributes } from '@/types';
+import type { CalloutBlockAttributes } from '@/types';
 import { useState } from 'react';
 
 interface CalloutBlockProps {

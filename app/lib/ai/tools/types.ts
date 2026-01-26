@@ -110,7 +110,7 @@ export type ToolExecuteFunction<TParams, TResult = unknown> = (
 /**
  * Agent tool definition
  */
-export interface AgentTool<TSchema extends TSchema = TSchema, TResult = unknown> {
+export interface AgentTool<Schema extends TSchema = TSchema, TResult = unknown> {
   /** Human-readable label for the tool */
   label: string;
   /** Unique tool name (lowercase, snake_case) */
@@ -118,9 +118,9 @@ export interface AgentTool<TSchema extends TSchema = TSchema, TResult = unknown>
   /** Description for the AI model */
   description: string;
   /** TypeBox schema for parameters */
-  parameters: TSchema;
+  parameters: Schema;
   /** Tool execution function */
-  execute: ToolExecuteFunction<Static<TSchema>, TResult>;
+  execute: ToolExecuteFunction<Static<Schema>, TResult>;
   /** Optional metadata */
   metadata?: Record<string, unknown>;
 }

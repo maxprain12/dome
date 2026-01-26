@@ -2,6 +2,23 @@ import path from 'path';
 import os from 'os';
 
 /**
+ * Returns a default user data path based on OS
+ */
+function getDefaultUserDataPath(): string {
+  const platform = os.platform();
+  const homedir = os.homedir();
+  
+  switch (platform) {
+    case 'darwin':
+      return path.join(homedir, 'Library', 'Application Support', 'dome');
+    case 'win32':
+      return path.join(homedir, 'AppData', 'Roaming', 'dome');
+    default:
+      return path.join(homedir, '.dome');
+  }
+}
+
+/**
  * Obtiene la ruta de datos de usuario
  * Funciona tanto en Electron como en modo desarrollo web
  */
@@ -19,7 +36,7 @@ export function getUserDataPath(): string {
   }
 
   // If in Electron main process (or node)
-  if (typeof process !== 'undefined' && process.versions && process.versions.electron && process.type !== 'renderer') {
+  if (typeof process !== 'undefined' && process.versions && process.versions.electron && (process as any).type !== 'renderer') {
     try {
       const { app } = require('electron');
       return app.getPath('userData');

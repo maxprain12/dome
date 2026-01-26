@@ -113,12 +113,12 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
     const containerWidth = container.clientWidth - 32; // Account for padding
 
     if (zoomMode === 'fit-width' && pages[currentPage - 1]) {
-      const page = pages[currentPage - 1];
+      const page = pages[currentPage - 1]!;
       const viewport = page.getViewport({ scale: 1.0 });
       const calculatedZoom = containerWidth / viewport.width;
       setZoom(calculatedZoom);
     } else if (zoomMode === 'fit-page' && pages[currentPage - 1]) {
-      const page = pages[currentPage - 1];
+      const page = pages[currentPage - 1]!;
       const viewport = page.getViewport({ scale: 1.0 });
       const containerHeight = container.clientHeight - 100; // Account for toolbars
       const calculatedZoom = Math.min(
@@ -385,9 +385,9 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
         ) : pages.length > 0 && pages[currentPage - 1] ? (
           <div className="flex flex-col items-center p-4">
             <div className="relative">
-              <PDFPage page={pages[currentPage - 1]} scale={zoom} pageNumber={currentPage} />
+              <PDFPage page={pages[currentPage - 1]!} scale={zoom} pageNumber={currentPage} />
               <AnnotationLayer
-                page={pages[currentPage - 1]}
+                page={pages[currentPage - 1]!}
                 pageIndex={currentPage - 1}
                 scale={zoom}
                 annotations={annotations}

@@ -21,17 +21,18 @@ export default function ChatMessageGroup({
   onRegenerate,
   className = '',
 }: ChatMessageGroupProps) {
-  if (messages.length === 0) return null;
+  const firstMessage = messages[0];
+  if (!firstMessage) return null;
 
-  const role = messages[0].role;
+  const role = firstMessage.role;
   const isUser = role === 'user';
   const isAssistant = role === 'assistant';
 
   // Format group timestamp (first message in group)
   const groupTime = useMemo(() => {
-    const date = new Date(messages[0].timestamp);
+    const date = new Date(firstMessage.timestamp);
     return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  }, [messages]);
+  }, [firstMessage.timestamp]);
 
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''} ${className}`}>

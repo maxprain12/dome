@@ -89,7 +89,7 @@ export default function AISettingsPanel() {
       const config = await getAIConfig();
       if (config) {
         // Handle legacy 'local' provider by converting to 'ollama'
-        const loadedProvider = config.provider === 'local' ? 'ollama' : config.provider;
+        const loadedProvider = (config.provider as string) === 'local' ? 'ollama' : config.provider;
         setProvider(loadedProvider as AIProviderType);
         setApiKey(config.api_key || '');
         
@@ -148,7 +148,7 @@ export default function AISettingsPanel() {
     setCheckingProxy(true);
     try {
       const result = await window.electron.ai.checkClaudeMaxProxy();
-      setClaudeMaxProxyAvailable(result.success && result.available);
+      setClaudeMaxProxyAvailable(result.success && result.available === true);
     } catch (error) {
       console.error('Error checking Claude Max Proxy:', error);
       setClaudeMaxProxyAvailable(false);
@@ -164,7 +164,7 @@ export default function AISettingsPanel() {
     try {
       await saveAIConfig({ ollama_base_url: ollamaBaseURL });
       const result = await window.electron.ollama.checkAvailability();
-      setOllamaAvailable(result.success && result.available);
+      setOllamaAvailable(result.success && result.available === true);
     } catch (error) {
       console.error('Error checking Ollama:', error);
       setOllamaAvailable(false);
@@ -268,7 +268,7 @@ export default function AISettingsPanel() {
   };
 
   // Render model badge
-  const renderModelBadges = (modelDef: { reasoning: boolean; input: Array<'text' | 'image'> }, isFree?: boolean, isPrivate?: boolean) => (
+  const renderModelBadges = (modelDef: { reasoning: boolean; input: string[] }, isFree?: boolean, isPrivate?: boolean) => (
     <span className="flex items-center gap-1.5 ml-2 flex-wrap">
       {isFree && (
         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-green-500/10 text-green-600 dark:text-green-400">
