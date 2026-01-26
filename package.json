@@ -109,11 +109,6 @@
       "target": ["nsis", "portable"],
       "icon": "assets/icon-256.png"
     },
-    "linux": {
-      "target": ["AppImage", "deb"],
-      "category": "Office",
-      "icon": "assets/icon.png"
-    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true

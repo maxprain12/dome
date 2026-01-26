@@ -93,46 +93,46 @@ jobs:
             dist/*.exe
           if-no-files-found: error
 
-  # Linux build
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # Linux build - Comentado temporalmente, sin soporte por ahora
+  # build-linux:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: ${{ env.NODE_VERSION }}
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+  #     - name: Setup Bun
+  #       uses: oven-sh/setup-bun@v2
+  #       with:
+  #         bun-version: latest
 
-      - name: Install dependencies
-        run: bun install
+  #     - name: Install dependencies
+  #       run: bun install
 
-      - name: Build Next.js
-        run: bun run build
+  #     - name: Build Next.js
+  #       run: bun run build
 
-      - name: Build Electron (Linux)
-        run: bun run electron:build -- --linux
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Build Electron (Linux)
+  #       run: bun run electron:build -- --linux
+  #       env:
+  #         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: dome-linux
-          path: |
-            dist/*.AppImage
-            dist/*.deb
-          if-no-files-found: error
+  #     - name: Upload Linux artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: dome-linux
+  #         path: |
+  #           dist/*.AppImage
+  #           dist/*.deb
+  #         if-no-files-found: error
 
   # Create GitHub Release when a tag is pushed
   release:
-    needs: [build-macos, build-windows, build-linux]
+    needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -152,7 +152,7 @@ jobs:
           files: |
             artifacts/dome-macos/*
             artifacts/dome-windows/*
-            artifacts/dome-linux/*
+            # artifacts/dome-linux/*
           draft: false
           prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
           generate_release_notes: true
