@@ -1,0 +1,264 @@
+Dome Pro Open Source License
+Version 1.0, January 2026
+
+Copyright (c) 2024-2026 Dome Pro Contributors
+
+PREAMBLE
+
+Dome Pro is an open-source project created with the goal of building a 
+powerful knowledge management tool through community collaboration. We 
+believe in the power of open source and welcome contributions from everyone.
+
+This license allows you to use, modify, and contribute to Dome Pro while 
+ensuring the project remains sustainable and community-focused.
+
+--------------------------------------------------------------------------------
+
+DEFINITIONS
+
+"Software" refers to Dome Pro and all associated source code, documentation,
+and assets contained in the official repository.
+
+"Official Repository" refers to the main Dome Pro repository maintained by
+the original author(s). This is the authoritative source for the Software.
+
+"Commercial Use" means any use of the Software intended for or directed toward
+commercial advantage or monetary compensation. This includes, but is not
+limited to: selling the Software, using the Software to provide paid services,
+incorporating the Software into a commercial product, or using the Software
+in a business context that generates revenue.
+
+"Personal Use" means use by an individual for personal projects, learning,
+research, or non-commercial purposes.
+
+"Educational Use" means use by educational institutions, students, or 
+educators for teaching, learning, or academic research purposes.
+
+"Contribution" means any work of authorship submitted to the Official 
+Repository, including modifications, additions, or improvements to the 
+Software.
+
+--------------------------------------------------------------------------------
+
+GRANT OF RIGHTS
+
+Subject to the terms and conditions of this License, you are granted the 
+following rights:
+
+1. PERSONAL AND EDUCATIONAL USE
+
+   You may use, copy, modify, and run the Software for personal and 
+   educational purposes without restriction.
+
+2. CONTRIBUTION RIGHTS
+
+   You are encouraged to contribute to the Software by:
+   - Reporting bugs and issues
+   - Submitting feature requests
+   - Contributing code improvements
+   - Improving documentation
+   - Helping other users in the community
+
+   By submitting a Contribution, you grant the project maintainers a 
+   perpetual, worldwide, non-exclusive, royalty-free license to use, 
+   reproduce, modify, and distribute your Contribution as part of the 
+   Software.
+
+3. FORK RIGHTS
+
+   You may fork the Official Repository for the purpose of:
+   - Developing contributions to submit back to the Official Repository
+   - Personal experimentation and learning
+   - Academic study and research
+
+   However, maintaining a separate public fork as an alternative to the 
+   Official Repository is discouraged. We encourage all improvements to 
+   be contributed back to the main project.
+
+4. MODIFICATION RIGHTS
+
+   You may modify the Software for your own use. If you distribute 
+   modified versions, you must:
+   - Clearly indicate that modifications have been made
+   - Include a copy of this License
+   - Provide attribution to the original project
+   - Not use the name "Dome Pro" for modified versions without permission
+
+--------------------------------------------------------------------------------
+
+COMMERCIAL USE RESTRICTION
+
+Commercial Use of the Software requires prior written permission from the 
+project maintainer.
+
+To obtain commercial use permission, please contact:
+
+    Email: alder.velasquezobando@gmail.com
+    Subject: Dome Pro Commercial License Inquiry
+
+Commercial license terms will be discussed on a case-by-case basis. The goal
+is to ensure fair use while supporting the sustainability of the project.
+
+Examples of activities that require commercial permission:
+- Selling the Software or services based on it
+- Using the Software in a paid SaaS offering
+- Bundling the Software with commercial products
+- Using the Software to provide paid consulting services
+
+Examples of activities that DO NOT require commercial permission:
+- Using the Software for personal research
+- Using the Software in academic settings
+- Internal company use for non-revenue-generating activities (evaluation)
+- Contributing improvements back to the project
+
+--------------------------------------------------------------------------------
+
+SUPPORT AND MAINTENANCE
+
+OFFICIAL SUPPORT
+
+Official support is provided only for the Official Repository. The project 
+maintainers are under no obligation to provide support, but community 
+assistance is encouraged through:
+- GitHub Issues for bug reports and feature requests
+- Community discussions for questions and help
+
+NO FORK SUPPORT
+
+We do not provide official support for forks of the Software. If you 
+encounter issues with a forked version:
+- First, verify the issue exists in the Official Repository
+- If unique to your fork, resolve it independently
+- Consider contributing any fixes back to the Official Repository
+
+This policy exists to focus our limited resources on improving the main 
+project for everyone's benefit.
+
+--------------------------------------------------------------------------------
+
+ATTRIBUTION REQUIREMENTS
+
+When using the Software, you must:
+
+1. Retain all copyright notices and license information
+2. Provide visible attribution to Dome Pro in any derivative works
+3. Include a link to the Official Repository when reasonable
+4. Not imply endorsement by the project maintainers without permission
+
+Suggested attribution format:
+
+    "Built with Dome Pro - https://github.com/[official-repo]"
+
+--------------------------------------------------------------------------------
+
+COMMUNITY GUIDELINES
+
+We are building Dome Pro as a community project. To participate:
+
+1. BE RESPECTFUL: Treat all community members with respect
+2. BE COLLABORATIVE: Work together to improve the Software
+3. BE CONSTRUCTIVE: Provide helpful feedback and suggestions
+4. GIVE BACK: Consider contributing improvements to the Official Repository
+5. SHARE KNOWLEDGE: Help others learn and use the Software
+
+--------------------------------------------------------------------------------
+
+DISCLAIMER OF WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+IN NO EVENT SHALL THE AUTHORS, COPYRIGHT HOLDERS, OR CONTRIBUTORS BE LIABLE 
+FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, 
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE 
+OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+You use the Software at your own risk. The project maintainers make no 
+guarantees about:
+- The Software's fitness for any particular purpose
+- The accuracy or completeness of the Software
+- The continued availability or maintenance of the Software
+- Compatibility with any particular system or environment
+
+--------------------------------------------------------------------------------
+
+TERMINATION
+
+This License and the rights granted hereunder will terminate automatically if:
+
+1. You violate any term of this License
+2. You use the Software for Commercial Use without permission
+3. You bring legal action against the project maintainers related to the 
+   Software
+
+Upon termination, you must cease all use of the Software and destroy any 
+copies in your possession. Sections relating to Disclaimer of Warranty, 
+Limitation of Liability, and Attribution Requirements shall survive 
+termination.
+
+--------------------------------------------------------------------------------
+
+MISCELLANEOUS
+
+1. SEVERABILITY: If any provision of this License is found to be 
+   unenforceable, the remaining provisions shall continue in effect.
+
+2. ENTIRE AGREEMENT: This License constitutes the entire agreement between 
+   you and the project maintainers regarding the Software.
+
+3. AMENDMENTS: This License may be updated by the project maintainers. 
+   Continued use of the Software after updates constitutes acceptance of 
+   the new terms.
+
+4. GOVERNING LAW: This License shall be governed by and construed in 
+   accordance with applicable laws.
+
+5. CONTACT: For any questions about this License, contact:
+   alder.velasquezobando@gmail.com
+
+--------------------------------------------------------------------------------
+
+CONTRIBUTION AGREEMENT
+
+By contributing to Dome Pro, you agree that:
+
+1. Your Contribution is your original work or you have the right to submit it
+2. You grant the project the rights described in "Grant of Rights"
+3. Your Contribution may be distributed under this License
+4. You understand that Contributions are voluntary and not compensated
+5. The project maintainers may accept, reject, or modify your Contribution
+
+--------------------------------------------------------------------------------
+
+SUMMARY (NOT LEGALLY BINDING)
+
+ALLOWED:
+- Personal use
+- Educational use  
+- Modification for personal use
+- Contributing to the official project
+- Forking for contribution purposes
+
+REQUIRES PERMISSION:
+- Commercial use
+- Using the "Dome Pro" name for derivatives
+
+NOT SUPPORTED:
+- Maintained forks as alternatives
+- Issues unique to unofficial forks
+
+REQUIRED:
+- Attribution to the original project
+- Including this license with distributions
+- Contacting us for commercial use
+
+--------------------------------------------------------------------------------
+
+For commercial licensing inquiries:
+Email: alder.velasquezobando@gmail.com
+
+For contributions and community:
+Official Repository: [GitHub URL]
+
+Thank you for being part of the Dome Pro community!

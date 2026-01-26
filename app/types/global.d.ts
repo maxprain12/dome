@@ -1,0 +1,585 @@
+export { };
+
+type ThemeChangeCallback = (theme: 'light' | 'dark') => void;
+type RemoveListenerFn = () => void;
+
+// Database types
+interface DBResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  parent_id?: string;
+  created_at: number;
+  updated_at: number;
+}
+
+interface Resource {
+  id: string;
+  project_id: string;
+  type: 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder';
+  title: string;
+  content?: string;
+  // Legacy external file path (deprecated)
+  file_path?: string;
+  // Internal file storage (new system)
+  internal_path?: string;
+  file_mime_type?: string;
+  file_size?: number;
+  file_hash?: string;
+  thumbnail_data?: string;
+  original_filename?: string;
+  // Folder containment
+  folder_id?: string | null;
+  metadata?: Record<string, any>;
+  created_at: number;
+  updated_at: number;
+}
+
+// Resource import result
+interface ResourceImportResult {
+  success: boolean;
+  data?: Resource;
+  thumbnailDataUrl?: string;
+  error?: string;
+  duplicate?: {
+    id: string;
+    title: string;
+    projectId: string;
+  };
+}
+
+// Storage usage statistics
+interface StorageUsage {
+  total: number;
+  byType: Record<string, number>;
+  fileCount: number;
+}
+
+// Migration status
+interface MigrationStatus {
+  pendingMigrations: number;
+  resources: Array<{
+    id: string;
+    title: string;
+    file_path: string;
+  }>;
+}
+
+// Migration result
+interface MigrationResult {
+  migrated: number;
+  failed: number;
+  errors?: Array<{
+    id: string;
+    error: string;
+  }>;
+}
+
+type InteractionType = 'note' | 'annotation' | 'chat';
+
+interface ResourceInteraction {
+  id: string;
+  resource_id: string;
+  type: InteractionType;
+  content: string;
+  position_data?: string;
+  metadata?: string;
+  created_at: number;
+  updated_at: number;
+}
+
+interface ResourceLink {
+  id: string;
+  source_id: string;
+  target_id: string;
+  link_type: string;
+  weight: number;
+  metadata?: string;
+  created_at: number;
+}
+
+interface UnifiedSearchResult {
+  resources: Resource[];
+  interactions: (ResourceInteraction & { resource_title: string })[];
+}
+
+declare global {
+  interface Window {
+    electron: {
+      // System Paths
+      getUserDataPath: () => Promise<string>;
+      getHomePath: () => Promise<string>;
+      getAppVersion: () => Promise<string>;
+
+      // File Dialogs
+      selectFile: (options?: {
+        filters?: Array<{ name: string; extensions: string[] }>;
+        properties?: string[];
+      }) => Promise<string[]>;
+      selectFiles: (options?: {
+        filters?: Array<{ name: string; extensions: string[] }>;
+        properties?: string[];
+      }) => Promise<string[]>;
+      selectFolder: () => Promise<string | undefined>;
+      showSaveDialog: (options?: {
+        defaultPath?: string;
+        filters?: Array<{ name: string; extensions: string[] }>;
+      }) => Promise<string | undefined>;
+
+      // Get file path from dropped File object (drag-and-drop support)
+      getPathForFile: (file: File) => string | null;
+      getPathsForFiles: (files: File[]) => string[];
+
+      // File System Operations
+      openPath: (filePath: string) => Promise<string>;
+      showItemInFolder: (filePath: string) => Promise<void>;
+
+      // Theme
+      getTheme: () => Promise<'light' | 'dark'>;
+      setTheme: (theme: 'light' | 'dark' | 'auto') => Promise<'light' | 'dark'>;
+      onThemeChanged: (callback: ThemeChangeCallback) => RemoveListenerFn;
+
+      // User Settings
+      selectAvatar: () => Promise<string | null>;
+      openSettings: () => Promise<{ success: boolean; windowId?: string; error?: string }>;
+
+      // IPC Communication
+      invoke: (channel: string, ...args: any[]) => Promise<any>;
+      on: (channel: string, callback: (...args: any[]) => void) => RemoveListenerFn;
+      once: (channel: string, callback: (...args: any[]) => void) => void;
+      send: (channel: string, ...args: any[]) => void;
+      removeAllListeners: (channel: string) => void;
+
+      // Platform Info
+      isMac: boolean;
+      isWindows: boolean;
+      isLinux: boolean;
+      platform: string;
+
+      // Environment
+      isDev: boolean;
+      isProduction: boolean;
+      nodeVersion: string;
+      chromeVersion: string;
+      electronVersion: string;
+
+      // Initialization API
+      init: {
+        initialize: () => Promise<{ success: boolean; needsOnboarding: boolean }>;
+        checkOnboarding: () => Promise<{ success: boolean; needsOnboarding: boolean }>;
+        getStatus: () => Promise<{ success: boolean; isInitialized: boolean }>;
+      };
+
+      // Database API
+      db: {
+        projects: {
+          create: (project: any) => Promise<DBResponse<Project>>;
+          getAll: () => Promise<DBResponse<Project[]>>;
+          getById: (id: string) => Promise<DBResponse<Project>>;
+        };
+        resources: {
+          create: (resource: any) => Promise<DBResponse<Resource>>;
+          getByProject: (projectId: string) => Promise<DBResponse<Resource[]>>;
+          getById: (id: string) => Promise<DBResponse<Resource>>;
+          update: (resource: any) => Promise<DBResponse<Resource>>;
+          search: (query: string) => Promise<DBResponse<Resource[]>>;
+          getAll: (limit?: number) => Promise<DBResponse<Resource[]>>;
+          delete: (id: string) => Promise<DBResponse<void>>;
+          // Folder containment
+          getByFolder: (folderId: string) => Promise<DBResponse<Resource[]>>;
+          getRoot: (projectId?: string) => Promise<DBResponse<Resource[]>>;
+          moveToFolder: (resourceId: string, folderId: string | null) => Promise<DBResponse<void>>;
+          removeFromFolder: (resourceId: string) => Promise<DBResponse<void>>;
+        };
+        interactions: {
+          create: (interaction: any) => Promise<DBResponse<ResourceInteraction>>;
+          getByResource: (resourceId: string) => Promise<DBResponse<ResourceInteraction[]>>;
+          getByType: (resourceId: string, type: InteractionType) => Promise<DBResponse<ResourceInteraction[]>>;
+          update: (interaction: any) => Promise<DBResponse<ResourceInteraction>>;
+          delete: (id: string) => Promise<DBResponse<void>>;
+        };
+        links: {
+          create: (link: any) => Promise<DBResponse<ResourceLink>>;
+          getBySource: (sourceId: string) => Promise<DBResponse<ResourceLink[]>>;
+          getByTarget: (targetId: string) => Promise<DBResponse<ResourceLink[]>>;
+          delete: (id: string) => Promise<DBResponse<void>>;
+        };
+        search: {
+          unified: (query: string) => Promise<DBResponse<UnifiedSearchResult>>;
+        };
+        settings: {
+          get: (key: string) => Promise<DBResponse<string>>;
+          set: (key: string, value: string) => Promise<DBResponse<void>>;
+        };
+      };
+
+      // Workspace API
+      workspace: {
+        open: (resourceId: string, resourceType: string) => Promise<{
+          success: boolean;
+          data?: { windowId: string; resourceId: string; title: string };
+          error?: string;
+        }>;
+      };
+
+      // Resource File Storage API
+      resource: {
+        import: (
+          filePath: string,
+          projectId: string,
+          type: string,
+          title?: string
+        ) => Promise<ResourceImportResult>;
+        importMultiple: (
+          filePaths: string[],
+          projectId: string,
+          type?: string
+        ) => Promise<{
+          success: boolean;
+          data: Array<{ success: boolean; data: Resource }>;
+          errors?: Array<{ filePath: string; error: string }>;
+        }>;
+        getFilePath: (resourceId: string) => Promise<DBResponse<string>>;
+        readFile: (resourceId: string) => Promise<DBResponse<string>>;
+        export: (
+          resourceId: string,
+          destinationPath: string
+        ) => Promise<DBResponse<string>>;
+        delete: (resourceId: string) => Promise<DBResponse<void>>;
+        regenerateThumbnail: (resourceId: string) => Promise<DBResponse<string>>;
+      };
+
+      // Storage Management API
+      storage: {
+        getUsage: () => Promise<DBResponse<StorageUsage>>;
+        cleanup: () => Promise<DBResponse<{ deleted: number; freedBytes: number }>>;
+        getPath: () => Promise<DBResponse<string>>;
+      };
+
+      // Migration API
+      migration: {
+        migrateResources: () => Promise<DBResponse<MigrationResult>>;
+        getStatus: () => Promise<DBResponse<MigrationStatus>>;
+      };
+
+      // Web Scraping API
+      web: {
+        scrape: (url: string) => Promise<{
+          success: boolean;
+          url: string;
+          title?: string | null;
+          content?: string | null;
+          metadata?: any;
+          screenshot?: string | null;
+          error?: string;
+        }>;
+        getYouTubeThumbnail: (url: string) => Promise<{
+          success: boolean;
+          videoId?: string | null;
+          thumbnail?: {
+            internalPath: string;
+            hash: string;
+            size: number;
+            dataUrl: string;
+          } | null;
+          metadata?: any;
+          error?: string;
+        }>;
+        saveScreenshot: (
+          resourceId: string,
+          screenshotBase64?: string,
+          internalPath?: string
+        ) => Promise<{
+          success: boolean;
+          thumbnailData?: string;
+          internalPath?: string;
+          error?: string;
+        }>;
+        process: (resourceId: string) => Promise<{
+          success: boolean;
+          metadata?: any;
+          error?: string;
+        }>;
+      };
+
+      // AI Cloud API (OpenAI, Anthropic, Google)
+      ai: {
+        chat: (
+          provider: 'openai' | 'anthropic' | 'google',
+          messages: Array<{ role: string; content: string }>,
+          model?: string
+        ) => Promise<{
+          success: boolean;
+          content?: string;
+          error?: string;
+        }>;
+        stream: (
+          provider: 'openai' | 'anthropic' | 'google',
+          messages: Array<{ role: string; content: string }>,
+          model: string | undefined,
+          streamId: string
+        ) => Promise<{
+          success: boolean;
+          content?: string;
+          error?: string;
+        }>;
+        onStreamChunk: (callback: (data: {
+          streamId: string;
+          type: 'text' | 'done' | 'error';
+          text?: string;
+          error?: string;
+        }) => void) => RemoveListenerFn;
+        embeddings: (
+          provider: 'openai' | 'google',
+          texts: string[],
+          model?: string
+        ) => Promise<{
+          success: boolean;
+          embeddings?: number[][];
+          error?: string;
+        }>;
+        checkClaudeMaxProxy: () => Promise<{
+          success: boolean;
+          available?: boolean;
+          error?: string;
+        }>;
+        // AI Tools for Martin agent
+        tools: {
+          resourceSearch: (
+            query: string,
+            options?: {
+              project_id?: string;
+              type?: string;
+              limit?: number;
+            }
+          ) => Promise<{
+            success: boolean;
+            query?: string;
+            count?: number;
+            results?: Array<{
+              id: string;
+              title: string;
+              type: string;
+              project_id: string;
+              snippet: string;
+              created_at: number;
+              updated_at: number;
+              metadata?: Record<string, any>;
+            }>;
+            error?: string;
+          }>;
+          resourceGet: (
+            resourceId: string,
+            options?: {
+              includeContent?: boolean;
+              maxContentLength?: number;
+            }
+          ) => Promise<{
+            success: boolean;
+            resource?: {
+              id: string;
+              title: string;
+              type: string;
+              project_id: string;
+              content?: string;
+              content_truncated?: boolean;
+              full_length?: number;
+              transcription?: string;
+              transcription_truncated?: boolean;
+              summary?: string;
+              created_at: number;
+              updated_at: number;
+              metadata?: Record<string, any>;
+            };
+            error?: string;
+          }>;
+          resourceList: (options?: {
+            project_id?: string;
+            folder_id?: string | null;
+            type?: string;
+            limit?: number;
+            sort?: 'created_at' | 'updated_at';
+          }) => Promise<{
+            success: boolean;
+            count?: number;
+            resources?: Array<{
+              id: string;
+              title: string;
+              type: string;
+              project_id: string;
+              folder_id?: string | null;
+              created_at: number;
+              updated_at: number;
+              metadata?: Record<string, any>;
+            }>;
+            error?: string;
+          }>;
+          resourceSemanticSearch: (
+            query: string,
+            options?: {
+              project_id?: string;
+              limit?: number;
+            }
+          ) => Promise<{
+            success: boolean;
+            query?: string;
+            method?: 'semantic' | 'fts';
+            count?: number;
+            results?: Array<{
+              id: string;
+              title: string;
+              type: string;
+              project_id: string;
+              similarity?: number;
+              snippet: string;
+              created_at: number;
+              updated_at: number;
+              metadata?: Record<string, any>;
+            }>;
+            error?: string;
+          }>;
+          projectList: () => Promise<{
+            success: boolean;
+            count?: number;
+            projects?: Array<{
+              id: string;
+              name: string;
+              description?: string;
+              parent_id?: string;
+              created_at: number;
+              updated_at: number;
+            }>;
+            error?: string;
+          }>;
+          projectGet: (projectId: string) => Promise<{
+            success: boolean;
+            project?: {
+              id: string;
+              name: string;
+              description?: string;
+              parent_id?: string;
+              created_at: number;
+              updated_at: number;
+              resource_count?: number;
+            };
+            error?: string;
+          }>;
+          interactionList: (
+            resourceId: string,
+            options?: {
+              type?: 'note' | 'annotation' | 'chat';
+              limit?: number;
+            }
+          ) => Promise<{
+            success: boolean;
+            resource_id?: string;
+            count?: number;
+            interactions?: Array<{
+              id: string;
+              type: string;
+              content: string;
+              position_data?: any;
+              metadata?: any;
+              created_at: number;
+              updated_at: number;
+            }>;
+            error?: string;
+          }>;
+          getRecentResources: (limit?: number) => Promise<{
+            success: boolean;
+            resources?: Array<{
+              id: string;
+              title: string;
+              type: string;
+              project_id: string;
+              updated_at: number;
+            }>;
+            error?: string;
+          }>;
+          getCurrentProject: () => Promise<{
+            success: boolean;
+            project?: {
+              id: string;
+              name: string;
+              description?: string;
+            } | null;
+            error?: string;
+          }>;
+        };
+      };
+
+      // Ollama API
+      ollama: {
+        checkAvailability: () => Promise<{
+          success: boolean;
+          available?: boolean;
+          error?: string;
+        }>;
+        listModels: () => Promise<{
+          success: boolean;
+          models?: Array<{ name: string; size: number; modified_at: string }>;
+          error?: string;
+        }>;
+        generateEmbedding: (text: string) => Promise<{
+          success: boolean;
+          embedding?: number[];
+          error?: string;
+        }>;
+        generateSummary: (text: string) => Promise<{
+          success: boolean;
+          summary?: string;
+          error?: string;
+        }>;
+        chat: (
+          messages: Array<{ role: string; content: string }>,
+          model?: string
+        ) => Promise<{
+          success: boolean;
+          content?: string;
+          error?: string;
+        }>;
+      };
+
+      // Vector Database API - Annotations
+      vector: {
+        annotations: {
+          index: (annotationData: {
+            annotationId: string;
+            resourceId: string;
+            text: string;
+            metadata: {
+              annotation_type: 'highlight' | 'note';
+              page_index: number;
+              resource_type: 'pdf';
+              title: string;
+              project_id: string;
+            };
+          }) => Promise<{ success: boolean; error?: string }>;
+          search: (queryData: {
+            queryText?: string;
+            queryVector?: number[];
+            limit?: number;
+            resourceId?: string;
+          }) => Promise<{
+            success: boolean;
+            data?: Array<{
+              annotationId: string;
+              resourceId: string;
+              text: string;
+              score: number;
+              metadata: any;
+            }>;
+            error?: string;
+          }>;
+          delete: (annotationId: string) => Promise<{ success: boolean; error?: string }>;
+        };
+      };
+    };
+  }
+}

@@ -1,0 +1,361 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Link2, MessageSquare, Search, X } from 'lucide-react';
+import NotesTab from './NotesTab';
+import AnnotationsTab from './AnnotationsTab';
+import { type Resource } from '@/types';
+import { useMartinStore } from '@/lib/store/useMartinStore';
+
+type TabType = 'references' | 'backlinks' | 'search';
+
+interface SidePanelProps {
+  resourceId: string;
+  resource: Resource;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function SidePanel({
+  resourceId,
+  resource,
+  isOpen,
+  onClose,
+}: SidePanelProps) {
+  const [activeTab, setActiveTab] = useState<TabType>('references');
+  const { setContext } = useMartinStore();
+
+  // Actualizar el contexto de Martin cuando se abre un recurso
+  useEffect(() => {
+    if (resource) {
+      setContext(resourceId, resource.title);
+    }
+    return () => {
+      setContext(null, null);
+    };
+  }, [resourceId, resource, setContext]);
+
+  if (!isOpen) return null;
+
+  const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
+    { id: 'references', label: 'References', icon: <Link2 size={14} /> },
+    { id: 'backlinks', label: 'Backlinks', icon: <MessageSquare size={14} /> },
+    { id: 'search', label: 'Search', icon: <Search size={14} /> },
+  ];
+
+  return (
+    <div
+      className="flex flex-col h-full border-l transition-all duration-300 ease-in-out"
+      style={{
+        width: '360px',
+        minWidth: '300px',
+        maxWidth: '440px',
+        background: 'var(--bg-secondary)',
+        borderColor: 'var(--border)',
+      }}
+    >
+      {/* Panel Header with Tabs */}
+      <div
+        className="flex items-center justify-between px-4 py-3 border-b shrink-0"
+        style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+      >
+        {/* Tabs */}
+        <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'rgba(0, 0, 0, 0.1)' }}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all"
+              style={{
+                color: activeTab === tab.id ? 'var(--primary)' : 'var(--secondary)',
+                background: activeTab === tab.id ? 'var(--bg)' : 'transparent',
+                boxShadow: activeTab === tab.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="p-1.5 rounded-md transition-all opacity-60 hover:opacity-100"
+          style={{ color: 'var(--secondary)' }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--bg-secondary)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent';
+          }}
+        >
+          <X size={16} />
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div className="flex-1 overflow-hidden relative">
+        {activeTab === 'references' && (
+          <ReferencesTab resourceId={resourceId} />
+        )}
+        {activeTab === 'backlinks' && (
+          <BacklinksTab resourceId={resourceId} />
+        )}
+        {activeTab === 'search' && (
+          <SearchTab resourceId={resourceId} resource={resource} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Referencias - Recursos enlazados desde este recurso
+function ReferencesTab({ resourceId }: { resourceId: string }) {
+  const [links, setLinks] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadLinks() {
+      try {
+        const result = await window.electron.db.links.getBySource(resourceId);
+        if (result.success) {
+          setLinks(result.data || []);
+        }
+      } catch (error) {
+        console.error('Error loading links:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadLinks();
+  }, [resourceId]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full" style={{ color: 'var(--secondary)' }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 h-full overflow-y-auto">
+      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary)' }}>
+        Linked Resources
+      </h3>
+      {links.length === 0 ? (
+        <div className="text-center py-8">
+          <Link2 size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--secondary)' }} />
+          <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+            No references yet. Use the Search tab to find and link resources.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {links.map((link) => (
+            <div
+              key={link.id}
+              className="p-3 rounded-lg transition-colors cursor-pointer"
+              style={{ background: 'var(--bg)' }}
+              onClick={() => {
+                window.electron.workspace.open(link.target_id, 'note');
+              }}
+            >
+              <p className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                {link.target_title || 'Untitled'}
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--tertiary)' }}>
+                {link.link_type || 'related'}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Backlinks - Recursos que enlazan a este recurso
+function BacklinksTab({ resourceId }: { resourceId: string }) {
+  const [backlinks, setBacklinks] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadBacklinks() {
+      try {
+        const result = await window.electron.db.resources.getBacklinks(resourceId);
+        if (result.success) {
+          setBacklinks(result.data || []);
+        }
+      } catch (error) {
+        console.error('Error loading backlinks:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadBacklinks();
+  }, [resourceId]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full" style={{ color: 'var(--secondary)' }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 h-full overflow-y-auto">
+      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary)' }}>
+        Resources Linking Here
+      </h3>
+      {backlinks.length === 0 ? (
+        <div className="text-center py-8">
+          <MessageSquare size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--secondary)' }} />
+          <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+            No backlinks yet. Other resources that reference this one will appear here.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {backlinks.map((link) => (
+            <div
+              key={link.id}
+              className="p-3 rounded-lg transition-colors cursor-pointer"
+              style={{ background: 'var(--bg)' }}
+              onClick={() => {
+                window.electron.workspace.open(link.source_id, link.source_type);
+              }}
+            >
+              <p className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                {link.source_title || 'Untitled'}
+              </p>
+              <p className="text-xs mt-1 capitalize" style={{ color: 'var(--tertiary)' }}>
+                {link.source_type}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Búsqueda de recursos para enlazar
+function SearchTab({ resourceId, resource }: { resourceId: string; resource: Resource }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const handleSearch = async () => {
+    if (!query.trim()) return;
+
+    setIsSearching(true);
+    try {
+      const result = await window.electron.db.resources.searchForMention(query);
+      if (result.success) {
+        // Filtrar el recurso actual de los resultados
+        setResults((result.data || []).filter((r: any) => r.id !== resourceId));
+      }
+    } catch (error) {
+      console.error('Error searching:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleLink = async (targetId: string) => {
+    try {
+      const linkId = `link-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      await window.electron.db.links.create({
+        id: linkId,
+        source_id: resourceId,
+        target_id: targetId,
+        link_type: 'related',
+        weight: 1.0,
+        created_at: Date.now(),
+      });
+      // Mostrar feedback
+      setResults(results.filter((r) => r.id !== targetId));
+    } catch (error) {
+      console.error('Error creating link:', error);
+    }
+  };
+
+  return (
+    <div className="p-4 h-full overflow-y-auto">
+      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary)' }}>
+        Find Resources to Link
+      </h3>
+
+      {/* Search Input */}
+      <div className="flex gap-2 mb-4">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+          placeholder="Search resources..."
+          className="flex-1 px-3 py-2 text-sm rounded-lg"
+          style={{
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            color: 'var(--primary)',
+          }}
+        />
+        <button
+          onClick={handleSearch}
+          disabled={isSearching || !query.trim()}
+          className="px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          style={{
+            background: query.trim() ? 'var(--accent)' : 'var(--bg-tertiary)',
+            color: query.trim() ? 'white' : 'var(--secondary)',
+          }}
+        >
+          {isSearching ? '...' : 'Search'}
+        </button>
+      </div>
+
+      {/* Results */}
+      {results.length > 0 ? (
+        <div className="space-y-2">
+          {results.map((result) => (
+            <div
+              key={result.id}
+              className="p-3 rounded-lg flex items-center justify-between"
+              style={{ background: 'var(--bg)' }}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: 'var(--primary)' }}>
+                  {result.title || 'Untitled'}
+                </p>
+                <p className="text-xs capitalize" style={{ color: 'var(--tertiary)' }}>
+                  {result.type}
+                </p>
+              </div>
+              <button
+                onClick={() => handleLink(result.id)}
+                className="ml-2 px-2 py-1 rounded text-xs font-medium transition-colors"
+                style={{
+                  background: 'var(--accent)',
+                  color: 'white',
+                }}
+              >
+                Link
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : query && !isSearching ? (
+        <p className="text-center text-sm py-4" style={{ color: 'var(--secondary)' }}>
+          No results found
+        </p>
+      ) : (
+        <p className="text-center text-sm py-4" style={{ color: 'var(--secondary)' }}>
+          Search for resources to create links
+        </p>
+      )}
+    </div>
+  );
+}

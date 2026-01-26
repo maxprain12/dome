@@ -1,0 +1,119 @@
+{
+  "name": "dome",
+  "version": "0.1.0",
+  "description": "Aplicación de escritorio inteligente para gestión de conocimiento e investigación",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"bun run dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:build": "bun run build && electron-builder",
+    "postinstall": "electron-rebuild",
+    "rebuild": "electron-rebuild",
+    "test:db": "bun run scripts/test-db.ts",
+    "clean": "bash scripts/clean.sh",
+    "generate-icons": "bun run scripts/generate-icons.ts"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.48",
+    "@tiptap/extension-bubble-menu": "^3.17.1",
+    "@tiptap/extension-code-block-lowlight": "^2.6.0",
+    "@tiptap/extension-color": "^3.17.1",
+    "@tiptap/extension-dropcursor": "^3.17.1",
+    "@tiptap/extension-floating-menu": "^3.17.1",
+    "@tiptap/extension-gapcursor": "^3.17.1",
+    "@tiptap/extension-highlight": "^2.6.0",
+    "@tiptap/extension-image": "^2.6.0",
+    "@tiptap/extension-link": "^2.6.0",
+    "@tiptap/extension-placeholder": "^2.6.0",
+    "@tiptap/extension-subscript": "^3.17.1",
+    "@tiptap/extension-superscript": "^3.17.1",
+    "@tiptap/extension-table": "^3.17.1",
+    "@tiptap/extension-table-cell": "^3.17.1",
+    "@tiptap/extension-table-header": "^3.17.1",
+    "@tiptap/extension-table-row": "^3.17.1",
+    "@tiptap/extension-task-item": "^2.6.0",
+    "@tiptap/extension-task-list": "^2.6.0",
+    "@tiptap/extension-text-align": "^3.17.1",
+    "@tiptap/extension-text-style": "^3.17.1",
+    "@tiptap/extension-typography": "^3.17.1",
+    "@tiptap/extension-underline": "^3.17.1",
+    "@tiptap/react": "^2.6.0",
+    "@tiptap/starter-kit": "^2.6.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "apache-arrow": "^14.0.2",
+    "better-sqlite3": "^12.6.2",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "lowlight": "^3.1.0",
+    "lucide-react": "^0.460.0",
+    "next": "^14.2.0",
+    "pdfjs-dist": "^4.0.0",
+    "qrcode-terminal": "^0.12.0",
+    "qrcode.react": "^4.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "sharp": "^0.34.5",
+    "tailwind-merge": "^2.5.0",
+    "tippy.js": "^6.3.7",
+    "vectordb": "^0.4.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/bun": "latest",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.0",
+    "concurrently": "^9.0.0",
+    "electron": "^32.0.0",
+    "electron-builder": "^25.0.0",
+    "electron-devtools-installer": "^4.0.0",
+    "electron-rebuild": "^3.2.9",
+    "playwright": "^1.40.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5",
+    "wait-on": "^8.0.0"
+  },
+  "build": {
+    "appId": "com.domepro.app",
+    "productName": "Dome",
+    "files": [
+      "out/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "assets",
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.icns",
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "assets/icon-256.png"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Office",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

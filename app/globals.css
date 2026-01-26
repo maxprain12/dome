@@ -1,0 +1,1167 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   CSS VARIABLES - Sistema de Diseño Dome
+   Basado en las mejores prácticas de Pile
+   ============================================ */
+
+:root {
+  /* Safe Area Insets (macOS notch, iOS safe areas) */
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+
+  /* Brand Colors */
+  --brand-primary: #0ea5e9;
+  --brand-secondary: #a855f7;
+  --brand-accent: #10b981;
+
+  /* Pile-style brand */
+  --brand: #00ff29;
+
+  /* Translucent backgrounds (from Pile) */
+  --translucent: rgba(193, 193, 193, 0.5);
+  --bg-translucent: rgba(255, 255, 255, 0.7);
+
+  /* Semantic Colors - Light Mode */
+  --primary: #0b0b0b;
+  --secondary: #626262;
+  --tertiary: #9ca3af;
+
+  /* Background */
+  --bg: #ffffff;
+  --bg-secondary: rgb(246, 246, 246);
+  --bg-tertiary: #dedede;
+  --bg-hover: #e5e7eb;
+  --bg-color-secondary-hover: rgb(226, 226, 226);
+
+  /* Borders */
+  --border: #e4e4e4;
+  --border-hover: #d1d5db;
+
+  /* Interactive Elements - Base (from Pile) */
+  --base: #4d80e6;
+  --base-text: rgb(246, 247, 255);
+  --base-hover: #2b5bbb;
+  --base-active: #0369a1;
+  --base-yellow: #e6e04d;
+  --base-green: #4de64d;
+  --base-red: #e64d4d;
+  --base-red-light: #ffdbdb;
+
+  /* Active state colors (from Pile) */
+  --active: #4d80e6;
+  --active-hover: #2b5bbb;
+  --active-text: #fff;
+
+  /* Status Colors */
+  --success: #10b981;
+  --success-bg: #d1fae5;
+  --warning: #f59e0b;
+  --warning-bg: #fef3c7;
+  --error: #ef4444;
+  --error-bg: #fee2e2;
+  --info: #3b82f6;
+  --info-bg: #dbeafe;
+
+  /* Sidebar & Layout (from Pile) */
+  --sidebar-width: 250px;
+  --sidebar-collapsed-width: 64px;
+  --nav-height: 52px;
+  --header-height: 64px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+
+  /* Transitions (from Pile) */
+  --transition-fast: 120ms ease-in-out;
+  --transition-base: 220ms ease-in-out;
+  --transition-slow: 300ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  /* Spacing Scale (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Z-Index Scale */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+  --z-tooltip: 700;
+  --z-toast: 800;
+  --z-max: 9999;
+
+  /* Focus States */
+  --border-focus: #0ea5e9;
+  --focus-ring: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+/* Dark Mode (enhanced from Pile) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Translucent for dark mode */
+    --translucent: rgba(0, 0, 0, 0.5);
+    --bg-translucent: rgba(15, 20, 25, 0.7);
+
+    /* Semantic Colors - Dark Mode */
+    --primary: #fff;
+    --secondary: #c1c1c1;
+    --tertiary: #9ca3af;
+
+    /* Background (from Pile dark) */
+    --bg: #171717;
+    --bg-secondary: #373737;
+    --bg-tertiary: #575757;
+    --bg-hover: #2d3748;
+    --bg-color-secondary-hover: rgb(108, 108, 108);
+
+    /* Borders */
+    --border: #565656;
+    --border-hover: #6b7280;
+
+    /* Interactive Elements */
+    --base: #4d88ff;
+    --base-text: hsl(213, 100%, 93%);
+    --base-hover: #82acff;
+    --base-active: #2563eb;
+    --base-yellow: #776b0e;
+    --base-green: #128212;
+    --base-red: #cb1d1d;
+    --base-red-light: #3d2323;
+
+    /* Active states */
+    --active: #4d88ff;
+    --active-hover: #82acff;
+    --active-text: #fff;
+
+    /* Status Colors */
+    --success: #10b981;
+    --success-bg: #064e3b;
+    --warning: #f59e0b;
+    --warning-bg: #78350f;
+    --error: #ef4444;
+    --error-bg: #7f1d1d;
+    --info: #3b82f6;
+    --info-bg: #1e3a8a;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.6);
+
+    color-scheme: dark;
+  }
+}
+
+/* ============================================
+   THEME VARIANTS (from Pile)
+   ============================================ */
+
+.blueTheme {
+  --translucent: rgba(162, 212, 255, 0.777);
+  --primary: #1d2730;
+  --secondary: #3c5162;
+  --base: #147dfa;
+  --base-text: #fff;
+  --base-hover: #348fff;
+  --active: #147dfa;
+  --active-hover: #ffb158;
+  --active-text: #fff;
+  --border: #7fb9ff;
+  --bg: #b5dafb;
+  --bg-secondary: #7fc3ff;
+  --bg-tertiary: #85b2da;
+  --bg-color-secondary-hover: rgba(0, 136, 255, 0.333);
+}
+
+@media (prefers-color-scheme: dark) {
+  .blueTheme {
+    --translucent: rgba(162, 212, 255, 0.777);
+    --primary: rgb(205, 232, 255);
+    --secondary: #7fb4f5;
+    --base: #147dfa;
+    --base-hover: #348fff;
+    --active: #f06401;
+    --active-hover: #d55900;
+    --border: #2c6bb7;
+    --bg: #1d4b74;
+    --bg-secondary: #235e91;
+    --bg-tertiary: #0f2e4a;
+  }
+}
+
+.purpleTheme {
+  --translucent: rgba(173, 138, 193, 0.5);
+  --primary: #57168c;
+  --secondary: #794d92;
+  --base: #b846ff;
+  --base-text: hsl(288, 75%, 13%);
+  --base-hover: #c66aff;
+  --active: #248124;
+  --active-hover: #155415;
+  --active-text: #fff;
+  --border: #be84dd;
+  --bg: #f9eeff;
+  --bg-secondary: rgb(229, 174, 255);
+  --bg-tertiary: rgb(207, 178, 225);
+}
+
+@media (prefers-color-scheme: dark) {
+  .purpleTheme {
+    --translucent: rgba(13, 10, 35, 0.5);
+    --primary: #ffe9ff;
+    --secondary: #ab92ae;
+    --base: #ab13b9;
+    --base-hover: #df38e5;
+    --active: #b9df4e;
+    --active-hover: #d0ff50;
+    --active-text: #251b24;
+    --border: #5f4263;
+    --bg: #251b24;
+    --bg-secondary: #45264d;
+    --bg-tertiary: #4d2750;
+    --bg-translucent: rgba(32, 10, 35, 0.45);
+  }
+}
+
+.yellowTheme {
+  --translucent: rgba(173, 138, 193, 0.5);
+  --primary: #412109;
+  --secondary: #88511e;
+  --base: #f18e1c;
+  --base-text: hsl(35, 100%, 93%);
+  --base-hover: #c5751f;
+  --active: #2200ff;
+  --active-hover: #190094;
+  --active-text: #fff;
+  --border: #f6a446;
+  --bg: #fff7ee;
+  --bg-secondary: rgb(230, 154, 82);
+  --bg-tertiary: rgb(225, 208, 178);
+}
+
+@media (prefers-color-scheme: dark) {
+  .yellowTheme {
+    --translucent: rgba(13, 10, 35, 0.5);
+    --primary: #fff7e9;
+    --secondary: #aea392;
+    --base: #ff8818;
+    --base-hover: #df7000;
+    --active: #ff8a2b;
+    --active-hover: rgb(255, 184, 85);
+    --active-text: #2a2420;
+    --border: #635342;
+    --bg: #25201b;
+    --bg-secondary: #51371e;
+    --bg-tertiary: #3b2a1a;
+    --bg-translucent: rgba(32, 10, 35, 0.45);
+  }
+}
+
+.greenTheme {
+  --translucent: rgba(173, 138, 193, 0.5);
+  --primary: #1b4109;
+  --secondary: #306915;
+  --base: #22ff00;
+  --base-text: hsl(118, 66%, 22%);
+  --base-hover: #21ed0a;
+  --active: #193bff;
+  --active-hover: #001e94;
+  --active-text: #fff;
+  --border: #81f646;
+  --bg: #eeffee;
+  --bg-secondary: rgb(155, 230, 151);
+  --bg-tertiary: rgb(151, 198, 154);
+}
+
+@media (prefers-color-scheme: dark) {
+  .greenTheme {
+    --translucent: rgba(13, 10, 35, 0.5);
+    --primary: #f5fff0;
+    --secondary: #95ae92;
+    --base: #149800;
+    --base-hover: #10c500;
+    --active: #ffaa00;
+    --active-hover: #df7000;
+    --active-text: #fff;
+    --border: #3e7138;
+    --bg: #212621;
+    --bg-secondary: #20381e;
+    --bg-tertiary: #2d3d29;
+    --bg-translucent: rgba(32, 10, 35, 0.45);
+  }
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color-scheme: light dark;
+}
+
+body {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding-top: var(--safe-area-inset-top);
+  padding-left: var(--safe-area-inset-left);
+  padding-right: var(--safe-area-inset-right);
+  padding-bottom: var(--safe-area-inset-bottom);
+  overflow: hidden;
+  overscroll-behavior: none;
+  font-family: var(--font-sans);
+  color: var(--primary);
+  background-color: var(--bg);
+}
+
+li {
+  list-style: none;
+}
+
+a {
+  text-decoration: none;
+  height: fit-content;
+  width: fit-content;
+}
+
+a:hover {
+  opacity: 1;
+  text-decoration: none;
+}
+
+/* ============================================
+   TAILWIND LAYERS
+   ============================================ */
+
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold;
+    color: var(--primary);
+    text-wrap: balance;
+  }
+
+  a {
+    color: var(--base);
+    transition: color var(--transition-fast);
+  }
+
+  a:hover {
+    color: var(--base-hover);
+  }
+
+  p {
+    color: var(--primary);
+    line-height: 1.6;
+  }
+  
+  /* Tabular numbers for better alignment in tables and lists */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  
+  /* Ensure buttons have good touch behavior */
+  button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  /* Buttons - Pile style */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium;
+    transition: all var(--transition-fast);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .btn-primary {
+    background-color: var(--active);
+    color: var(--active-text);
+  }
+
+  .btn-primary:hover {
+    background-color: var(--active-hover);
+  }
+
+  .btn-primary:active {
+    transform: scale(0.97);
+  }
+
+  .btn-secondary {
+    background-color: var(--bg-secondary);
+    color: var(--primary);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--bg-tertiary);
+  }
+
+  .btn-ghost {
+    background: transparent;
+  }
+
+  .btn-ghost:hover {
+    background-color: var(--bg-secondary);
+  }
+
+  .btn-ghost:active {
+    background-color: var(--bg-tertiary);
+  }
+
+  /* Cards */
+  .card {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-fast);
+  }
+
+  .card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--border-hover);
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full px-3 py-2 rounded-lg;
+    background-color: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--primary);
+    transition: all var(--transition-fast);
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: var(--base);
+    color: var(--primary);
+  }
+
+  .input::placeholder {
+    color: var(--secondary);
+  }
+
+  .input:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* Icon holders - Pile style */
+  .icon-holder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    min-width: 36px;
+    border-radius: 8px;
+    transition: all var(--transition-fast);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .icon-holder:hover {
+    background: var(--bg-secondary);
+  }
+
+  .icon-holder:active {
+    background: var(--bg-tertiary);
+  }
+
+  .icon-holder.active {
+    background: var(--bg-secondary);
+  }
+
+  /* Tags - Pile style */
+  .tag {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 4px 8px;
+    user-select: none;
+    font-size: 0.875em;
+    transition: all var(--transition-fast);
+  }
+
+  .tag:hover {
+    background: var(--bg-tertiary);
+  }
+
+  /* Dropdown Menu - Reusable component */
+  .dropdown-menu {
+    position: fixed;
+    z-index: var(--z-max);
+    min-width: 180px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 6px;
+    animation: dropdown-appear 0.15s ease-out;
+  }
+
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: all var(--transition-fast);
+  }
+
+  .dropdown-item:hover {
+    background: var(--bg-secondary);
+  }
+
+  .dropdown-item.danger {
+    color: var(--error);
+  }
+
+  .dropdown-item.danger:hover {
+    background: var(--error-bg);
+  }
+
+  .dropdown-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  /* Modal Overlay */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal-backdrop);
+    animation: overlayShow 0.2s ease-out;
+  }
+
+  .modal-content {
+    width: 100%;
+    max-width: 480px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    animation: modal-appear 0.2s ease-out;
+    z-index: var(--z-modal);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .modal-body {
+    padding: 20px;
+  }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+  }
+}
+
+/* ============================================
+   SCROLLBAR - Pile Style (Transparent Track)
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 90px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  cursor: pointer;
+  background: var(--base);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* Custom scrollbar class for overlay scroll */
+.scrollbar-overlay {
+  overflow-x: hidden;
+  overflow-y: overlay;
+}
+
+/* ============================================
+   ANIMATIONS (from Pile)
+   ============================================ */
+
+@keyframes overlayShow {
+  from { opacity: 0; }
+  to { opacity: 0.9; }
+}
+
+@keyframes contentShow {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.8); }
+  70% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(0.8); }
+}
+
+@keyframes dropdown-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes modal-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fadeIn var(--transition-base);
+}
+
+.animate-overlay {
+  animation: overlayShow 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-content {
+  animation: contentShow 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-pulse-custom {
+  animation: pulse 2s infinite;
+}
+
+.animate-dropdown {
+  animation: dropdown-appear 0.15s ease-out;
+}
+
+.animate-modal {
+  animation: modal-appear 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.2s ease-out;
+}
+
+/* ============================================
+   DIALOG / MODAL STYLES (from Pile)
+   ============================================ */
+
+.dialog-overlay {
+  background-color: var(--bg-secondary);
+  position: fixed;
+  inset: 0;
+  animation: overlayShow 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0.9;
+  z-index: 40;
+  overflow-y: overlay;
+}
+
+.dialog-content {
+  z-index: 50;
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+  animation: contentShow 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: overlay;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dialog-content:focus {
+  outline: none;
+}
+
+/* ============================================
+   GLASS EFFECTS
+   ============================================ */
+
+.glass {
+  background: var(--bg-translucent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+}
+
+.glass-strong {
+  background: var(--translucent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ============================================
+   TIPTAP / PROSEMIRROR EDITOR STYLES
+   ============================================ */
+
+/* Notion-style Editor */
+.notion-editor-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.notion-editor-content {
+  width: 100%;
+}
+
+.ProseMirror {
+  outline: none;
+  min-height: 200px;
+  padding: 96px 96px 96px 96px;
+  color: var(--primary);
+  max-width: 900px;
+  margin: 0 auto;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.ProseMirror > * + * {
+  margin-top: 3px;
+}
+
+.ProseMirror p {
+  margin: 0;
+  padding: 3px 2px;
+  min-height: 1.5em;
+  line-height: 1.6;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--secondary);
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin-top: 2em;
+  margin-bottom: 4px;
+  padding: 3px 2px;
+  line-height: 1.2;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin-top: 1.4em;
+  margin-bottom: 1px;
+  padding: 3px 2px;
+  line-height: 1.3;
+}
+
+.ProseMirror h3 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 1px;
+  padding: 3px 2px;
+  line-height: 1.4;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.625em;
+  margin: 0;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+.ProseMirror li {
+  margin: 0;
+  padding: 0;
+  padding-left: 0.3em;
+}
+
+.ProseMirror li > p {
+  margin: 0;
+}
+
+.ProseMirror code {
+  background-color: rgba(135, 131, 120, 0.15);
+  color: var(--primary);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 85%;
+}
+
+.ProseMirror pre {
+  background-color: rgba(135, 131, 120, 0.15);
+  color: var(--primary);
+  padding: 1em;
+  border-radius: 3px;
+  overflow-x: auto;
+  margin: 4px 0;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 85%;
+  line-height: 1.5;
+}
+
+.ProseMirror pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+  font-size: 100%;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid currentColor;
+  padding-left: 0.9em;
+  padding-right: 0.9em;
+  margin: 6px 0;
+  color: var(--secondary);
+  font-style: normal;
+}
+
+.ProseMirror mark {
+  background-color: rgba(255, 212, 0, 0.4);
+  padding: 0.1em 0;
+  border-radius: 2px;
+}
+
+.ProseMirror a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ProseMirror a:hover {
+  background-color: rgba(55, 53, 47, 0.08);
+}
+
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 3px;
+  margin: 4px 0;
+}
+
+/* Task Lists */
+.ProseMirror ul[data-type='taskList'] {
+  list-style: none;
+  padding: 0;
+  padding-left: 0;
+}
+
+.ProseMirror ul[data-type='taskList'] li {
+  display: flex;
+  align-items: flex-start;
+  padding-left: 0;
+}
+
+.ProseMirror ul[data-type='taskList'] li > label {
+  flex: 0 0 auto;
+  margin-right: 0.5rem;
+  user-select: none;
+  padding-top: 3px;
+}
+
+.ProseMirror ul[data-type='taskList'] li > div {
+  flex: 1 1 auto;
+}
+
+/* Bubble Menu */
+.bubble-menu {
+  z-index: 1000;
+}
+
+.bubble-menu-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background-color 0.15s;
+}
+
+.bubble-menu-button:hover {
+  background-color: var(--bg-hover);
+}
+
+.bubble-menu-button.is-active {
+  background-color: var(--bg-hover);
+  color: var(--brand-primary);
+}
+
+/* Slash Command Menu */
+.slash-command-menu {
+  z-index: 1001;
+}
+
+/* Custom Blocks */
+.callout-block {
+  margin: 4px 0;
+}
+
+.toggle-block {
+  margin: 4px 0;
+}
+
+.divider-block {
+  margin: 4px 0;
+}
+
+.pdf-embed-block {
+  margin: 16px 0;
+}
+
+.resource-mention {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background-color: rgba(55, 53, 47, 0.08);
+  border-radius: 3px;
+  color: var(--brand-primary);
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.resource-mention:hover {
+  background-color: rgba(55, 53, 47, 0.12);
+}
+
+.file-block {
+  margin: 4px 0;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.text-nowrap {
+  white-space: nowrap;
+}
+
+.user-select-none {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ============================================
+   ELECTRON - Drag Regions & App Region
+   ============================================ */
+
+.drag-region,
+.-webkit-app-region-drag {
+  -webkit-app-region: drag;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.no-drag,
+.-webkit-app-region-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* All interactive elements inside drag region should be no-drag */
+.drag-region button,
+.drag-region input,
+.drag-region textarea,
+.drag-region a,
+.drag-region select,
+.drag-region [role="button"],
+.drag-region [tabindex] {
+  -webkit-app-region: no-drag;
+}
+
+/* ============================================
+   RESPONSIVE BREAKPOINTS (from Pile)
+   ============================================ */
+
+@media only screen and (max-width: 909px) {
+  :root {
+    --sidebar-width: 0px;
+  }
+  
+  .sidebar-responsive {
+    display: none;
+    width: 0px;
+    opacity: 0;
+  }
+  
+  .content-responsive {
+    margin-left: 0;
+  }
+  
+  .nav-mac-responsive {
+    padding-left: 70px;
+  }
+}
+
+/* Windows nav adjustment */
+.nav-win {
+  padding-right: 130px;
+}
+
+/* Mac nav adjustment for traffic lights */
+.nav-mac {
+  padding-left: 70px;
+}
+
+/* ============================================
+   LAYOUT UTILITIES
+   ============================================ */
+
+.layout-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: var(--sidebar-width);
+  border-right: 1px solid rgba(0, 0, 0, 0.03);
+}
+
+.layout-content {
+  flex: 1 0 calc(100vw - var(--sidebar-width));
+  margin-left: var(--sidebar-width);
+  background: var(--bg);
+  min-height: 100vh;
+  overflow-y: overlay;
+  overflow-x: hidden;
+}
+
+.layout-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  height: var(--nav-height);
+  font-size: 0.85em;
+  background: linear-gradient(to bottom, var(--bg), 90%, transparent);
+  -webkit-app-region: drag;
+  transition: all var(--transition-base);
+}
+
+/* ============================================
+   ACCESSIBILITY - Reduced Motion
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

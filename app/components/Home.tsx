@@ -1,0 +1,643 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import { FolderOpen, FolderInput, Plus, Loader2, CheckCircle2, AlertCircle, Upload, ChevronRight, Home as HomeIcon, X } from 'lucide-react';
+import { useUserStore } from '@/lib/store/useUserStore';
+import { useAppStore } from '@/lib/store/useAppStore';
+import UserMenu from './user/UserMenu';
+import { CommandCenter } from './CommandCenter';
+import FilterBar from './FilterBar';
+import ResourceCard from './ResourceCard';
+import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
+
+function parseJsonField<T = Record<string, unknown>>(val: unknown): T {
+  if (val == null) return {} as T;
+  if (typeof val === 'object') return val as T;
+  try {
+    return (typeof val === 'string' ? JSON.parse(val || '{}') : {}) as T;
+  } catch {
+    return {} as T;
+  }
+}
+
+function getSearchSnippetForResource(
+  resourceId: string,
+  interactions: { resource_id?: string; content?: string; metadata?: unknown; position_data?: unknown }[]
+): string | undefined {
+  for (const i of interactions) {
+    if (i.resource_id !== resourceId) continue;
+    const metadata = parseJsonField<{ type?: string }>(i.metadata);
+    const positionData = parseJsonField<{ selectedText?: string }>(i.position_data);
+    const snippet = (metadata?.type === 'highlight' ? (positionData?.selectedText || null) : null) || i.content || '';
+    const t = snippet.trim();
+    if (t) return t.length > 80 ? t.slice(0, 80) + '…' : t;
+  }
+  return undefined;
+}
+
+export default function Home() {
+  const { name } = useUserStore();
+  const searchQuery = useAppStore((s) => s.searchQuery);
+  const searchResults = useAppStore((s) => s.searchResults);
+
+  // Resource fetching and filtering
+  const [selectedTypes, setSelectedTypes] = useState<ResourceType[]>([]);
+  const [sortBy, setSortBy] = useState<'updated_at' | 'created_at' | 'title'>('updated_at');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  // Folder navigation state
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+
+  // Move to folder modal state
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [resourceToMove, setResourceToMove] = useState<Resource | null>(null);
+
+  const {
+    folders,
+    nonFolderResources,
+    allFolders,
+    isLoading,
+    error,
+    importProgress,
+    refetch,
+    createResource,
+    importFiles,
+    deleteResource,
+    moveToFolder,
+    getFolderById
+  } = useResources({
+    types: selectedTypes.length > 0 ? selectedTypes : undefined,
+    folderId: currentFolderId, // Filter by current folder
+    sortBy,
+    sortOrder: 'desc'
+  });
+
+  // Get current folder for breadcrumbs
+  const currentFolder = currentFolderId ? getFolderById(currentFolderId) : null;
+
+  // Search mode: when there is a query and we have results (or explicit empty) from CommandCenter
+  const isSearchMode = Boolean(searchQuery && searchResults !== null);
+  const resourcesToShow = isSearchMode ? (searchResults?.resources ?? []) : nonFolderResources;
+
+  // Command Center handlers
+  const handleResourceSelect = useCallback(async (resource: any) => {
+    console.log('Selected resource:', resource);
+
+    // Handle URL resources - open in browser
+    if (resource.type === 'url' && resource.metadata?.url) {
+      if (typeof window !== 'undefined' && window.electron) {
+        window.electron.invoke('open-external-url', resource.metadata.url);
+      } else {
+        window.open(resource.metadata.url, '_blank');
+      }
+      return;
+    }
+
+    // Handle folder resources - navigate into the folder
+    if (resource.type === 'folder') {
+      setCurrentFolderId(resource.id);
+      return;
+    }
+
+    // For all other resources (pdf, video, audio, image, document, note)
+    // Open in a workspace window
+    if (typeof window !== 'undefined' && window.electron?.workspace) {
+      try {
+        const result = await window.electron.workspace.open(resource.id, resource.type);
+        if (!result.success) {
+          console.error('Failed to open workspace:', result.error);
+        }
+      } catch (err) {
+        console.error('Failed to open workspace:', err);
+      }
+    }
+  }, []);
+
+  const handleCreateNote = useCallback(async () => {
+    try {
+      await createResource({
+        type: 'note',
+        title: 'Untitled Note',
+        project_id: 'default',
+        content: '',
+      });
+      // NO refetch - el listener se encargará de actualizar
+    } catch (err) {
+      console.error('Failed to create note:', err);
+    }
+  }, [createResource]);
+
+  const handleUpload = useCallback((files: File[]) => {
+    console.log('Upload files:', files);
+    // File objects from drag-drop - would need to extract paths
+    // For Electron, we handle file paths directly via handleImportFiles
+  }, []);
+
+  const handleImportFiles = useCallback(async (filePaths: string[]) => {
+    console.log('Importing files:', filePaths, 'into folder:', currentFolderId);
+    // Pass currentFolderId so files are imported directly into the current folder
+    const result = await importFiles(filePaths, 'default', currentFolderId);
+    if (result.success) {
+      console.log(`Successfully imported ${result.imported} files`);
+    } else {
+      console.error(`Import completed with ${result.failed} failures:`, result.errors);
+    }
+  }, [importFiles, currentFolderId]);
+
+  const handleAddUrl = useCallback(async (url: string, type: 'youtube' | 'article') => {
+    console.log('Adding URL resource:', url, 'Type:', type);
+    try {
+      // Always create as 'url' type for consistency
+      const resourceType = 'url';
+
+      const result = await createResource({
+        type: resourceType as ResourceType,
+        title: type === 'youtube' ? 'YouTube Video' : 'Web Article', // Will be updated after processing
+        project_id: 'default',
+        content: url,
+        folder_id: currentFolderId,
+        metadata: {
+          url: url,
+          url_type: type,
+          processing_status: 'pending',
+        }
+      });
+
+      // Start processing in background
+      if (result?.id && window.electron?.web?.process) {
+        // Process asynchronously without blocking
+        window.electron.web.process(result.id).catch((error) => {
+          console.error('Error processing URL resource:', error);
+        });
+      }
+
+      // NO refetch - el listener se encargará de actualizar
+    } catch (err) {
+      console.error('Failed to add URL resource:', err);
+    }
+  }, [createResource, currentFolderId]);
+
+  const handleCreateFolder = useCallback(async () => {
+    if (!newFolderName.trim()) return;
+
+    try {
+      await createResource({
+        type: 'folder' as ResourceType,
+        title: newFolderName,
+        project_id: 'default',
+        folder_id: currentFolderId, // Create inside current folder if any
+      });
+      setNewFolderName('');
+      setShowNewFolderModal(false);
+      // NO refetch - el listener se encargará de actualizar
+    } catch (err) {
+      console.error('Failed to create folder:', err);
+    }
+  }, [newFolderName, createResource, currentFolderId]);
+
+  const handleFolderClick = useCallback((folder: Resource) => {
+    setCurrentFolderId(folder.id);
+  }, []);
+
+  const handleNavigateToRoot = useCallback(() => {
+    setCurrentFolderId(null);
+  }, []);
+
+  const handleMoveToFolderRequest = useCallback((resource: Resource) => {
+    setResourceToMove(resource);
+    setShowMoveModal(true);
+  }, []);
+
+  const handleMoveToFolder = useCallback(async (targetFolderId: string | null) => {
+    if (!resourceToMove) return;
+
+    const success = await moveToFolder(resourceToMove.id, targetFolderId);
+    if (success) {
+      console.log(`Moved ${resourceToMove.title} to folder`);
+    } else {
+      console.error('Failed to move resource');
+    }
+
+    setShowMoveModal(false);
+    setResourceToMove(null);
+  }, [resourceToMove, moveToFolder]);
+
+  const handleDeleteResource = useCallback(async (resource: Resource) => {
+    if (confirm(`Are you sure you want to delete "${resource.title}"?`)) {
+      await deleteResource(resource.id);
+    }
+  }, [deleteResource]);
+
+  return (
+    <div className="min-h-screen p-8" style={{ background: 'var(--bg)' }}>
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="text-xl font-medium" style={{ color: 'var(--primary)' }}>
+            Welcome back, {name || 'User'}
+          </h1>
+          <div className="flex items-center gap-3">
+            <button
+              className="px-3 py-1.5 text-sm rounded-md transition-colors"
+              style={{
+                color: 'var(--secondary)',
+                background: 'var(--bg-secondary)'
+              }}
+            >
+              View Updates
+            </button>
+            <UserMenu />
+          </div>
+        </div>
+
+        {/* Command Center - AI-powered search */}
+        <div className="mb-8">
+          <CommandCenter
+            onResourceSelect={handleResourceSelect}
+            onCreateNote={handleCreateNote}
+            onUpload={handleUpload}
+            onImportFiles={handleImportFiles}
+            onAddUrl={handleAddUrl}
+          />
+        </div>
+
+        {/* Import Progress Indicator */}
+        {importProgress.status !== 'idle' && (
+          <div
+            className="fixed bottom-6 right-6 p-4 rounded-xl shadow-lg z-50 min-w-[300px]"
+            style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <div className="flex items-center gap-3">
+              {importProgress.status === 'importing' && (
+                <>
+                  <div className="relative">
+                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--brand-primary)' }} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                      Importing files ({importProgress.current}/{importProgress.total})
+                    </div>
+                    <div className="text-xs truncate" style={{ color: 'var(--secondary)' }}>
+                      {importProgress.currentFile}
+                    </div>
+                  </div>
+                </>
+              )}
+              {importProgress.status === 'complete' && (
+                <>
+                  <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--success)' }} />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                      Import complete!
+                    </div>
+                    <div className="text-xs" style={{ color: 'var(--secondary)' }}>
+                      {importProgress.total} file(s) imported successfully
+                    </div>
+                  </div>
+                </>
+              )}
+              {importProgress.status === 'error' && (
+                <>
+                  <AlertCircle className="w-5 h-5" style={{ color: 'var(--warning)' }} />
+                  <div className="flex-1">
+                    <div className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                      Import completed with errors
+                    </div>
+                    <div className="text-xs" style={{ color: 'var(--secondary)' }}>
+                      {importProgress.error}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+            {importProgress.status === 'importing' && (
+              <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
+                <div
+                  className="h-full transition-all duration-300 rounded-full"
+                  style={{
+                    width: `${(importProgress.current / importProgress.total) * 100}%`,
+                    background: 'var(--brand-primary)',
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Filter Bar */}
+        <FilterBar
+          selectedTypes={selectedTypes}
+          onTypesChange={setSelectedTypes}
+          sortBy={sortBy}
+          onSortByChange={setSortBy}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onCreateFolder={() => setShowNewFolderModal(true)}
+        />
+
+        {/* Breadcrumb Navigation */}
+        {currentFolderId && (
+          <div className="mb-6 flex items-center gap-2" style={{ color: 'var(--secondary)' }}>
+            <button
+              onClick={handleNavigateToRoot}
+              className="flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
+              style={{ color: 'var(--brand-primary)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-hover)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <HomeIcon className="w-4 h-4" />
+              <span className="text-sm">Home</span>
+            </button>
+            <ChevronRight className="w-4 h-4" />
+            <span className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+              {currentFolder?.title || 'Unknown Folder'}
+            </span>
+          </div>
+        )}
+
+        {/* Folders Section - Only show subfolders or root folders */}
+        {folders.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xs font-medium uppercase tracking-wide mb-4" style={{ color: 'var(--secondary)' }}>
+              {currentFolderId ? 'Subfolders' : 'Folders'}
+            </h2>
+            <div className="grid grid-cols-8 gap-3">
+              {folders.map((folder) => (
+                <button
+                  key={folder.id}
+                  onClick={() => handleFolderClick(folder)}
+                  className="flex flex-col items-center gap-2 p-2 rounded-lg transition-colors group"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--bg-hover)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <div
+                    className="w-14 h-14 rounded-lg flex items-center justify-center shadow-sm"
+                    style={{ backgroundColor: folder.metadata?.color || 'var(--brand-primary)' }}
+                  >
+                    <FolderOpen className="w-7 h-7 text-white opacity-90" />
+                  </div>
+                  <span className="text-xs text-center truncate w-full leading-tight" style={{ color: 'var(--primary)' }}>
+                    {folder.title}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Resources Grid/List */}
+        <div className="mb-4">
+          <h2 className="text-xs font-medium uppercase tracking-wide mb-4" style={{ color: 'var(--secondary)' }}>
+            {isSearchMode
+              ? `Coincidencias para "${searchQuery}"`
+              : currentFolderId
+                ? 'Contents'
+                : 'Recent Resources'}
+          </h2>
+        </div>
+
+        {!isSearchMode && isLoading && (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--brand-primary)' }} />
+          </div>
+        )}
+
+        {!isSearchMode && error && (
+          <div className="text-center py-20">
+            <p className="mb-2" style={{ color: 'var(--error)' }}>Failed to load resources</p>
+            <button
+              onClick={refetch}
+              className="text-sm hover:underline"
+              style={{ color: 'var(--brand-primary)' }}
+            >
+              Try again
+            </button>
+          </div>
+        )}
+
+        {isSearchMode && resourcesToShow.length === 0 && (
+          <div className="text-center py-20">
+            <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+              No hay coincidencias para &quot;{searchQuery}&quot;
+            </p>
+          </div>
+        )}
+
+        {!isSearchMode && !isLoading && !error && nonFolderResources.length === 0 && folders.length === 0 && (
+          <div className="text-center py-20">
+            <FolderOpen className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--tertiary)' }} />
+            <p className="text-lg font-medium mb-2" style={{ color: 'var(--primary)' }}>
+              {currentFolderId ? 'This folder is empty' : 'No resources yet'}
+            </p>
+            <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+              {currentFolderId
+                ? 'Drag files here or move resources into this folder'
+                : 'Drop files or use the command center to add your first resource'}
+            </p>
+          </div>
+        )}
+
+        {((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) && (
+          <div className={viewMode === 'grid'
+            ? 'grid grid-cols-4 gap-4'
+            : 'flex flex-col gap-2'
+          }>
+            {resourcesToShow.map((resource) => (
+              <ResourceCard
+                key={resource.id}
+                resource={resource}
+                viewMode={viewMode}
+                onClick={() => handleResourceSelect(resource)}
+                onMoveToFolder={() => handleMoveToFolderRequest(resource)}
+                onDelete={() => handleDeleteResource(resource)}
+                searchSnippet={isSearchMode && searchResults?.interactions
+                  ? getSearchSnippetForResource(resource.id, searchResults.interactions)
+                  : undefined}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* New Folder Modal */}
+        {showNewFolderModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div
+              className="w-full max-w-md p-6 rounded-xl shadow-xl"
+              style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
+            >
+              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--primary)' }}>
+                Create New Folder
+              </h3>
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="Folder name..."
+                className="w-full px-4 py-3 rounded-lg text-sm mb-4"
+                style={{
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--primary)',
+                }}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateFolder();
+                  if (e.key === 'Escape') setShowNewFolderModal(false);
+                }}
+              />
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowNewFolderModal(false)}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  style={{ color: 'var(--secondary)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateFolder}
+                  disabled={!newFolderName.trim()}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50"
+                  style={{ background: 'var(--brand-primary)' }}
+                >
+                  <Plus size={16} className="inline mr-1" />
+                  Create Folder
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Move to Folder Modal */}
+        {showMoveModal && resourceToMove && (
+          <div
+            className="fixed inset-0 flex items-center justify-center animate-overlay"
+            style={{
+              zIndex: 'var(--z-modal-backdrop)',
+              background: 'rgba(0, 0, 0, 0.5)',
+              backdropFilter: 'blur(4px)'
+            }}
+            onClick={() => { setShowMoveModal(false); setResourceToMove(null); }}
+          >
+            <div
+              className="w-full max-w-md rounded-xl overflow-hidden animate-modal"
+              style={{
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--shadow-xl)',
+                zIndex: 'var(--z-modal)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                className="flex items-center justify-between p-4"
+                style={{ borderBottom: '1px solid var(--border)' }}
+              >
+                <h3 className="text-lg font-semibold" style={{ color: 'var(--primary)' }}>
+                  Move "{resourceToMove.title}"
+                </h3>
+                <button
+                  onClick={() => { setShowMoveModal(false); setResourceToMove(null); }}
+                  className="p-1 rounded-md transition-colors"
+                  style={{ background: 'transparent' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <X size={20} style={{ color: 'var(--secondary)' }} />
+                </button>
+              </div>
+
+              <div className="p-4 max-h-80 overflow-y-auto">
+                {/* Move to Root option */}
+                {resourceToMove.folder_id && (
+                  <button
+                    onClick={() => handleMoveToFolder(null)}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors mb-2"
+                    style={{ background: 'transparent' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <HomeIcon className="w-5 h-5" style={{ color: 'var(--brand-primary)' }} />
+                    <span className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                      Move to Root
+                    </span>
+                  </button>
+                )}
+
+                {/* Folder list */}
+                {allFolders.length === 0 ? (
+                  <p className="text-sm text-center py-4" style={{ color: 'var(--secondary)' }}>
+                    No folders yet. Create a folder first.
+                  </p>
+                ) : (
+                  <div className="space-y-1">
+                    {allFolders
+                      .filter(folder => folder.id !== resourceToMove.id) // Don't show self if moving a folder
+                      .map((folder) => (
+                        <button
+                          key={folder.id}
+                          onClick={() => handleMoveToFolder(folder.id)}
+                          disabled={folder.id === resourceToMove.folder_id}
+                          className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{ background: 'transparent' }}
+                          onMouseEnter={(e) => {
+                            if (folder.id !== resourceToMove.folder_id) {
+                              e.currentTarget.style.background = 'var(--bg-secondary)';
+                            }
+                          }}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <div
+                            className="w-8 h-8 rounded-md flex items-center justify-center"
+                            style={{ backgroundColor: folder.metadata?.color || 'var(--brand-primary)' }}
+                          >
+                            <FolderOpen className="w-4 h-4 text-white" />
+                          </div>
+                          <span className="text-sm" style={{ color: 'var(--primary)' }}>
+                            {folder.title}
+                          </span>
+                          {folder.id === resourceToMove.folder_id && (
+                            <span className="ml-auto text-xs" style={{ color: 'var(--secondary)' }}>
+                              (current)
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              <div
+                className="p-4 flex justify-end"
+                style={{ borderTop: '1px solid var(--border)' }}
+              >
+                <button
+                  onClick={() => { setShowMoveModal(false); setResourceToMove(null); }}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  style={{ color: 'var(--secondary)', background: 'transparent' }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
