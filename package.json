@@ -102,10 +102,7 @@
       "gatekeeperAssess": false,
       "entitlements": "assets/entitlements.mac.plist",
       "entitlementsInherit": "assets/entitlements.mac.plist",
-      "notarize": {
-        "teamId": "${APPLE_TEAM_ID}"
-      },
-      "identity": null
+      "notarize": true
     },
     "win": {
       "target": ["nsis", "portable"],
