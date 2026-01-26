@@ -1,0 +1,11 @@
+# Configuración específica para Coolify
+
+# Variables de entorno necesarias para el despliegue
+NODE_ENV=production
+NPM_CONFIG_PRODUCTION=false
+HOST=0.0.0.0
+PORT=3000
+
+# Comandos de construcción
+BUILD_CMD=npm run build
+START_CMD=node ./dist/server/entry.mjs
