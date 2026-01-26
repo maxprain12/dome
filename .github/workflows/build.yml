@@ -36,30 +36,26 @@ jobs:
       - name: Build Next.js
         run: bun run build
 
-      - name: Build Electron (macOS) - Sin signing
-        if: ${{ secrets.CSC_LINK == '' || secrets.CSC_LINK == null }}
+      - name: Build Electron (macOS)
         run: |
-          echo "⚠️  No hay credenciales de code signing, deshabilitando signing..."
-          bun run electron:build -- --mac --config.mac.identity=null --config.mac.notarize=false
+          if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
+            echo "⚠️  No hay credenciales de code signing, deshabilitando signing..."
+            bun run electron:build -- --mac --config.mac.identity=null --config.mac.notarize=false
+          else
+            echo "✓ Credenciales de code signing encontradas, habilitando signing..."
+            bun run electron:build -- --mac
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Deshabilitar auto-descubrimiento de certificados
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-
-      - name: Build Electron (macOS) - Con signing
-        if: ${{ secrets.CSC_LINK != '' && secrets.CSC_LINK != null }}
-        run: |
-          echo "✓ Credenciales de code signing encontradas, habilitando signing..."
-          bun run electron:build -- --mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Code signing
+          # Code signing - solo si las credenciales están disponibles
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          # Notarization
+          # Notarization - solo si las credenciales están disponibles
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Deshabilitar auto-descubrimiento de certificados si no hay credenciales
+          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
