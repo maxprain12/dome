@@ -12,6 +12,7 @@ const database = require('./database.cjs');
 
 let vectorDB = null;
 let isInitialized = false;
+let vectorDBAvailable = false;
 
 /**
  * Initialize SQLite database
@@ -102,11 +103,25 @@ function createAvatarsDirectory() {
 
 /**
  * Initialize LanceDB vector database
+ * Returns true if successful, false if failed (non-blocking)
+ * @returns {Promise<boolean>}
  */
 async function initVectorDB() {
   try {
     console.log('🔮 Inicializando base de datos vectorial...');
-    const vectordb = require('vectordb');
+    
+    // Try to load vectordb module - this can fail with native module issues
+    let vectordb;
+    try {
+      vectordb = require('vectordb');
+    } catch (loadError) {
+      console.warn('⚠️ No se pudo cargar el módulo vectordb:', loadError.message);
+      console.warn('⚠️ La búsqueda semántica estará deshabilitada');
+      console.warn('⚠️ Esto puede ocurrir si los módulos nativos no están compilados para esta versión de Electron');
+      vectorDBAvailable = false;
+      return false;
+    }
+    
     const userDataPath = app.getPath('userData');
     const vectorDBPath = path.join(userDataPath, 'dome-vector');
 
@@ -116,20 +131,25 @@ async function initVectorDB() {
     }
 
     vectorDB = await vectordb.connect(vectorDBPath);
+    vectorDBAvailable = true;
     console.log('✅ Base de datos vectorial inicializada correctamente');
-    return vectorDB;
+    return true;
   } catch (error) {
-    console.error('❌ Error al inicializar base de datos vectorial:', error);
-    throw error;
+    console.error('❌ Error al inicializar base de datos vectorial:', error.message);
+    console.warn('⚠️ La búsqueda semántica estará deshabilitada');
+    vectorDBAvailable = false;
+    return false;
   }
 }
 
 /**
  * Create resource embeddings table
+ * Returns null if vectorDB is not available
  */
 async function createResourceEmbeddingsTable() {
-  if (!vectorDB) {
-    throw new Error('Base de datos vectorial no inicializada');
+  if (!vectorDB || !vectorDBAvailable) {
+    console.log('⚠️ Saltando creación de resource_embeddings (vectorDB no disponible)');
+    return null;
   }
 
   try {
@@ -162,17 +182,19 @@ async function createResourceEmbeddingsTable() {
     console.log('✅ Tabla resource_embeddings creada');
     return table;
   } catch (error) {
-    console.error('❌ Error al crear tabla de embeddings:', error);
-    throw error;
+    console.error('❌ Error al crear tabla de embeddings:', error.message);
+    return null;
   }
 }
 
 /**
  * Create source embeddings table
+ * Returns null if vectorDB is not available
  */
 async function createSourceEmbeddingsTable() {
-  if (!vectorDB) {
-    throw new Error('Base de datos vectorial no inicializada');
+  if (!vectorDB || !vectorDBAvailable) {
+    console.log('⚠️ Saltando creación de source_embeddings (vectorDB no disponible)');
+    return null;
   }
 
   try {
@@ -203,8 +225,8 @@ async function createSourceEmbeddingsTable() {
     console.log('✅ Tabla source_embeddings creada');
     return table;
   } catch (error) {
-    console.error('❌ Error al crear tabla de fuentes:', error);
-    throw error;
+    console.error('❌ Error al crear tabla de fuentes:', error.message);
+    return null;
   }
 }
 
@@ -237,12 +259,14 @@ function buildAnnotationEmbeddingsSchema(embeddingDimension) {
 /**
  * Create annotation embeddings table
  * Uses 1024 dimensions by default (Ollama bge-m3), but can be overridden
+ * Returns null if vectorDB is not available
  * @param {number} embeddingDimension - Dimension of embedding vectors
  * @param {boolean} forceRecreate - If true, drop existing table and recreate
  */
 async function createAnnotationEmbeddingsTable(embeddingDimension = 1024, forceRecreate = false) {
-  if (!vectorDB) {
-    throw new Error('Base de datos vectorial no inicializada');
+  if (!vectorDB || !vectorDBAvailable) {
+    console.log('⚠️ Saltando creación de annotation_embeddings (vectorDB no disponible)');
+    return null;
   }
 
   try {
@@ -295,8 +319,8 @@ async function createAnnotationEmbeddingsTable(embeddingDimension = 1024, forceR
     console.log(`✅ Tabla annotation_embeddings creada con dimensión ${embeddingDimension}`);
     return table;
   } catch (error) {
-    console.error('❌ Error al crear tabla de embeddings de anotaciones:', error);
-    throw error;
+    console.error('❌ Error al crear tabla de embeddings de anotaciones:', error.message);
+    return null;
   }
 }
 
@@ -357,11 +381,15 @@ async function initializeApp() {
     // 4. Create avatars directory
     createAvatarsDirectory();
 
-    // 5. Initialize vector database
-    await initVectorDB();
-    await createResourceEmbeddingsTable();
-    await createSourceEmbeddingsTable();
-    await createAnnotationEmbeddingsTable();
+    // 5. Initialize vector database (optional - app works without it)
+    const vectorInitialized = await initVectorDB();
+    if (vectorInitialized) {
+      await createResourceEmbeddingsTable();
+      await createSourceEmbeddingsTable();
+      await createAnnotationEmbeddingsTable();
+    } else {
+      console.warn('⚠️ Vector database skipped - semantic search will be disabled');
+    }
 
     // 6. Check onboarding status
     const needsOnboarding = checkOnboardingStatus();
@@ -395,5 +423,6 @@ module.exports = {
   checkOnboardingStatus,
   getVectorDB,
   isInitialized: () => isInitialized,
+  isVectorDBAvailable: () => vectorDBAvailable,
   createAnnotationEmbeddingsTable,
 };

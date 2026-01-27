@@ -12,8 +12,7 @@
     "electron": "electron .",
     "electron:dev": "concurrently \"bun run dev\" \"wait-on http://localhost:3000 && electron .\"",
     "electron:build": "bun run build && electron-builder",
-    "postinstall": "electron-rebuild",
-    "rebuild": "electron-rebuild",
+    "postinstall": "electron-builder install-app-deps",
     "test:db": "bun run scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "bun run scripts/generate-icons.ts"
@@ -73,7 +72,6 @@
     "electron": "^32.0.0",
     "electron-builder": "^25.0.0",
     "electron-devtools-installer": "^4.0.0",
-    "electron-rebuild": "^3.2.9",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
     "typescript": "^5",

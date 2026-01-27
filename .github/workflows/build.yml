@@ -16,6 +16,7 @@ jobs:
   # macOS build - prioritized
   build-macos:
     runs-on: macos-latest
+    timeout-minutes: 45  # Timeout para evitar que el job se quede atascado en notarización
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,6 +45,7 @@ jobs:
             bun run electron:build -- --mac --config.mac.identity=null --config.mac.notarize=false
           else
             echo "✓ Credenciales de code signing encontradas, habilitando signing..."
+            echo "📝 Notarización habilitada - puede tardar varios minutos..."
             # No establecer CSC_IDENTITY_AUTO_DISCOVERY cuando hay credenciales
             # para permitir que electron-builder use el certificado
             bun run electron:build -- --mac
@@ -53,10 +55,12 @@ jobs:
           # Code signing - solo si las credenciales están disponibles
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          # Notarization - solo si las credenciales están disponibles
+          # Notarization - electron-builder espera APPLE_ID_PASSWORD (no APPLE_APP_SPECIFIC_PASSWORD)
           APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Debug mode para ver progreso de notarización
+          DEBUG: electron-builder
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4

@@ -200,9 +200,17 @@ app
     // Database initialization is now handled by initModule
     // but we still need to ensure it's ready
     database.initDatabase();
-    // Initialize the app (SQLite, LanceDB, filesystem, settings)
-    await initModule.initializeApp();
+    
+    // IMPORTANTE: Crear ventana PRIMERO para que la UI se muestre inmediatamente
+    // La inicializacion de LanceDB puede fallar o bloquearse con modulos nativos
     createWindow();
+    
+    // Initialize the app in background (SQLite settings, LanceDB, filesystem)
+    // No bloquea la UI - si falla, la app sigue funcionando sin busqueda vectorial
+    initModule.initializeApp().catch(err => {
+      console.error('❌ Background initialization failed:', err);
+      console.warn('⚠️ Vector search will be disabled');
+    });
   })
   .catch(console.error);
 
