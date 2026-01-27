@@ -83,7 +83,21 @@
     "files": [
       "out/**/*",
       "electron/**/*",
-      "package.json"
+      "package.json",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,readme.md,readme,test,__tests__,tests,powered-test,*.ts,*.map}",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/node_modules/*/{example,examples,doc,docs}"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*",
+      "node_modules/sharp/**/*",
+      "node_modules/@img/**/*",
+      "node_modules/vectordb/**/*",
+      "node_modules/@lancedb/**/*"
     ],
     "directories": {
       "buildResources": "assets",
