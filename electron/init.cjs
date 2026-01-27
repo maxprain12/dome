@@ -12,6 +12,8 @@ const database = require('./database.cjs');
 
 let vectorDB = null;
 let isInitialized = false;
+let isInitializing = false;
+let initializationPromise = null;
 let vectorDBAvailable = false;
 
 /**
@@ -109,19 +111,35 @@ function createAvatarsDirectory() {
 async function initVectorDB() {
   try {
     console.log('🔮 Inicializando base de datos vectorial...');
-    
+
     // Try to load vectordb module - this can fail with native module issues
     let vectordb;
     try {
+      // In production (packaged), native modules are unpacked from asar
+      // We need to help Node.js find them
+      if (app.isPackaged) {
+        const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules');
+        console.log('[VectorDB] Looking for native modules in:', unpackedPath);
+
+        // Add unpacked path to module paths
+        if (!require('module').globalPaths.includes(unpackedPath)) {
+          require('module').globalPaths.push(unpackedPath);
+        }
+      }
+
       vectordb = require('vectordb');
+      console.log('[VectorDB] Module loaded successfully');
     } catch (loadError) {
       console.warn('⚠️ No se pudo cargar el módulo vectordb:', loadError.message);
+      if (app.isPackaged) {
+        console.warn('⚠️ Possible native module issue in production build');
+        console.warn('⚠️ Check that vectordb was properly unpacked from asar');
+      }
       console.warn('⚠️ La búsqueda semántica estará deshabilitada');
-      console.warn('⚠️ Esto puede ocurrir si los módulos nativos no están compilados para esta versión de Electron');
       vectorDBAvailable = false;
       return false;
     }
-    
+
     const userDataPath = app.getPath('userData');
     const vectorDBPath = path.join(userDataPath, 'dome-vector');
 
@@ -130,12 +148,14 @@ async function initVectorDB() {
       fs.mkdirSync(vectorDBPath, { recursive: true });
     }
 
+    console.log('[VectorDB] Connecting to:', vectorDBPath);
     vectorDB = await vectordb.connect(vectorDBPath);
     vectorDBAvailable = true;
     console.log('✅ Base de datos vectorial inicializada correctamente');
     return true;
   } catch (error) {
     console.error('❌ Error al inicializar base de datos vectorial:', error.message);
+    console.error('[VectorDB] Stack:', error.stack);
     console.warn('⚠️ La búsqueda semántica estará deshabilitada');
     vectorDBAvailable = false;
     return false;
@@ -359,11 +379,13 @@ function withTimeout(promise, timeoutMs, operationName) {
 
 /**
  * Main initialization function
+ * Uses a mutex to prevent concurrent initializations
  */
 async function initializeApp() {
   const startTime = Date.now();
   console.log('[Init] Starting initialization...');
 
+  // If already initialized, return immediately
   if (isInitialized) {
     console.log('[Init] ⚠️ App already initialized');
     return {
@@ -371,6 +393,30 @@ async function initializeApp() {
       needsOnboarding: checkOnboardingStatus(),
     };
   }
+
+  // If initialization is in progress, wait for it
+  if (isInitializing && initializationPromise) {
+    console.log('[Init] ⚠️ Initialization already in progress, waiting...');
+    return initializationPromise;
+  }
+
+  // Mark as initializing and create the promise
+  isInitializing = true;
+  initializationPromise = doInitialize(startTime);
+  
+  try {
+    const result = await initializationPromise;
+    return result;
+  } finally {
+    isInitializing = false;
+    initializationPromise = null;
+  }
+}
+
+/**
+ * Internal initialization function
+ */
+async function doInitialize(startTime) {
 
   console.log('🚀 Inicializando Dome...');
 

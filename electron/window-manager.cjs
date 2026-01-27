@@ -93,23 +93,32 @@ class WindowManager {
       !require('electron').app.isPackaged ||
       !fs.existsSync(indexPath);
 
-    // Logging for debugging production issues
-    console.log('[WindowManager] Creating window:', id);
-    console.log('[WindowManager] Route:', route);
-    console.log('[WindowManager] isDev:', isDev);
-    console.log('[WindowManager] app.isPackaged:', require('electron').app.isPackaged);
-    console.log('[WindowManager] Index path:', indexPath);
-    console.log('[WindowManager] Index exists:', fs.existsSync(indexPath));
+    // Logging for debugging production issues (only in debug mode or development)
+    const isDebug = isDev || process.env.DEBUG_PROD === 'true';
+    if (isDebug) {
+      console.log('[WindowManager] Creating window:', id);
+      console.log('[WindowManager] Route:', route);
+      console.log('[WindowManager] isDev:', isDev);
+      console.log('[WindowManager] app.isPackaged:', require('electron').app.isPackaged);
+      console.log('[WindowManager] Index path:', indexPath);
+      console.log('[WindowManager] Index exists:', fs.existsSync(indexPath));
+    }
 
     // Cargar contenido
     if (isDev) {
-      console.log('[WindowManager] Loading URL: http://localhost:3000' + route);
-      window.loadURL(`http://localhost:3000${route}`);
+      const devUrl = `http://localhost:3000${route}`;
+      if (isDebug) {
+        console.log('[WindowManager] Loading URL:', devUrl);
+      }
+      window.loadURL(devUrl);
     } else {
-      console.log('[WindowManager] Loading file:', indexPath, 'with hash:', route);
-      window.loadFile(indexPath, {
-        hash: route,
-      });
+      // Use custom app:// protocol for production
+      // This allows absolute paths like /_next/static/... to work correctly
+      const appUrl = `app://dome${route === '/' ? '/index.html' : route}`;
+      if (isDebug) {
+        console.log('[WindowManager] Loading URL:', appUrl);
+      }
+      window.loadURL(appUrl);
     }
 
     // Mostrar cuando esté lista (evitar flash blanco)

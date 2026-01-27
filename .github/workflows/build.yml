@@ -5,16 +5,71 @@ on:
     branches: [main]
     tags:
       - 'v*'
-  pull_request:
-    branches: [main]
+  # PRs use pr-checks.yml (faster, no full build)
   workflow_dispatch:
 
 env:
   NODE_VERSION: '20'
 
 jobs:
+  # Verification job - runs first
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Rebuild native modules
+        run: bun run rebuild:natives
+
+      - name: Verify native modules
+        run: bun run verify:natives
+
+      - name: Type check
+        run: bunx tsc --noEmit
+
+      - name: Build Next.js
+        run: bun run build
+
+      - name: Verify build output
+        run: |
+          if [ ! -f "out/index.html" ]; then
+            echo "❌ out/index.html not found!"
+            exit 1
+          fi
+          echo "✅ Build output verified"
+
   # macOS build - prioritized
   build-macos:
+    needs: verify
     runs-on: macos-latest
     timeout-minutes: 45  # Timeout para evitar que el job se quede atascado en notarización
     steps:
@@ -26,13 +81,34 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - name: Install dependencies
         run: bun install
+
+      - name: Rebuild native modules
+        run: bun run rebuild:natives
+
+      - name: Verify native modules
+        run: bun run verify:natives
 
       - name: Build Next.js
         run: bun run build
@@ -63,6 +139,19 @@ jobs:
           # Debug mode para ver progreso de notarización
           DEBUG: electron-builder
 
+      - name: Verify build artifacts
+        run: |
+          echo "📦 Verificando artefactos de build..."
+          ls -la dist/
+
+          # Verificar que se crearon los archivos
+          if [ ! -f dist/*.dmg ] && [ ! -f dist/*.zip ]; then
+            echo "❌ No se encontraron archivos .dmg o .zip en dist/"
+            exit 1
+          fi
+
+          echo "✅ Artefactos de build verificados"
+
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -74,6 +163,7 @@ jobs:
 
   # Windows build
   build-windows:
+    needs: verify
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -84,13 +174,34 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.bun/install/cache
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - name: Install dependencies
         run: bun install
+
+      - name: Rebuild native modules
+        run: bun run rebuild:natives
+
+      - name: Verify native modules
+        run: bun run verify:natives
 
       - name: Build Next.js
         run: bun run build
@@ -99,6 +210,21 @@ jobs:
         run: bun run electron:build -- --win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify build artifacts
+        run: |
+          echo "📦 Verificando artefactos de build..."
+          dir dist
+
+          # PowerShell command to check if .exe files exist
+          $exeFiles = Get-ChildItem -Path dist -Filter *.exe
+          if ($exeFiles.Count -eq 0) {
+            echo "❌ No se encontraron archivos .exe en dist/"
+            exit 1
+          }
+
+          echo "✅ Artefactos de build verificados"
+        shell: pwsh
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4

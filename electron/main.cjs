@@ -6,10 +6,28 @@ const {
   shell,
   nativeTheme,
   Menu,
+  protocol,
+  net,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { pathToFileURL } = require('url');
+
+// Register custom protocol scheme as privileged before app is ready
+// This allows the app:// protocol to work like https:// with full privileges
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+    },
+  },
+]);
 const windowManager = require('./window-manager.cjs');
 const database = require('./database.cjs');
 const initModule = require('./init.cjs');
@@ -203,6 +221,87 @@ app.on('activate', () => {
 app
   .whenReady()
   .then(async () => {
+    // Register custom protocol handler for serving static files
+    // This allows Next.js static export to work with absolute paths like /_next/static/...
+    const outDir = path.join(__dirname, '../out');
+    console.log('[Protocol] Registering app:// protocol, serving from:', outDir);
+    
+    // Cache for file paths to avoid repeated fs.existsSync calls
+    const fileCache = new Map();
+    const CACHE_TTL = 60000; // 1 minute cache TTL
+
+    protocol.handle('app', (request) => {
+      // Parse the URL and get the pathname
+      const url = new URL(request.url);
+      let filePath = url.pathname;
+
+      // Remove leading slash and decode URI components
+      filePath = decodeURIComponent(filePath);
+      if (filePath.startsWith('/')) {
+        filePath = filePath.slice(1);
+      }
+
+      // Default to index.html for root or directory requests
+      if (!filePath || filePath.endsWith('/')) {
+        filePath = filePath + 'index.html';
+      }
+
+      // Construct the full file path
+      const fullPath = path.join(outDir, filePath);
+
+      // Security: ensure the path is within outDir
+      const normalizedPath = path.normalize(fullPath);
+      if (!normalizedPath.startsWith(outDir)) {
+        console.error('[Protocol] Security: path traversal attempt blocked:', filePath);
+        return new Response('Forbidden', { status: 403 });
+      }
+
+      // Check cache first
+      const cacheKey = normalizedPath;
+      const cached = fileCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        if (cached.exists) {
+          return net.fetch(pathToFileURL(cached.path).href);
+        } else {
+          return new Response('Not Found', { status: 404 });
+        }
+      }
+
+      // Check if file exists (minimize fs calls)
+      try {
+        const stats = fs.statSync(normalizedPath);
+        if (stats.isDirectory()) {
+          const indexPath = path.join(normalizedPath, 'index.html');
+          if (fs.existsSync(indexPath)) {
+            fileCache.set(cacheKey, { exists: true, path: indexPath, timestamp: Date.now() });
+            return net.fetch(pathToFileURL(indexPath).href);
+          }
+          fileCache.set(cacheKey, { exists: false, timestamp: Date.now() });
+          return new Response('Not Found', { status: 404 });
+        }
+        // Regular file
+        fileCache.set(cacheKey, { exists: true, path: normalizedPath, timestamp: Date.now() });
+        return net.fetch(pathToFileURL(normalizedPath).href);
+      } catch (err) {
+        // File doesn't exist, try with .html extension for Next.js routes
+        const htmlPath = normalizedPath + '.html';
+        if (fs.existsSync(htmlPath)) {
+          fileCache.set(cacheKey, { exists: true, path: htmlPath, timestamp: Date.now() });
+          return net.fetch(pathToFileURL(htmlPath).href);
+        }
+        // Try index.html in directory
+        const indexPath = path.join(normalizedPath, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          fileCache.set(cacheKey, { exists: true, path: indexPath, timestamp: Date.now() });
+          return net.fetch(pathToFileURL(indexPath).href);
+        }
+        fileCache.set(cacheKey, { exists: false, timestamp: Date.now() });
+        return new Response('Not Found', { status: 404 });
+      }
+    });
+    
+    console.log('[Protocol] app:// protocol registered successfully');
+    
     setupUserDataFolder();
     // Initialize file storage
     fileStorage.initStorage();

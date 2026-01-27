@@ -14,26 +14,48 @@ export default function Page() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('Starting...');
   const { loadUserProfile, isOnboardingCompleted } = useUserStore();
   const { loadPreferences } = useAppStore();
 
   useEffect(() => {
     async function init() {
+      console.log('[Page] Init effect starting...');
+      setDebugInfo('Init effect starting...');
+      
       try {
         // Wait a bit to ensure Electron preload script has loaded
+        console.log('[Page] Checking for window.electron...');
+        setDebugInfo('Checking for window.electron...');
+        
         if (typeof window !== 'undefined' && !window.electron) {
           // Wait for Electron API to be available (max 2 seconds)
+          console.log('[Page] window.electron not found, waiting...');
+          setDebugInfo('Waiting for Electron API...');
           let retries = 0;
           while (!window.electron && retries < 20) {
             await new Promise(resolve => setTimeout(resolve, 100));
             retries++;
           }
+          console.log(`[Page] Waited ${retries * 100}ms for electron API`);
+          setDebugInfo(`Waited ${retries * 100}ms for Electron API`);
         }
+
+        // Log electron availability
+        const hasElectron = typeof window !== 'undefined' && !!window.electron;
+        console.log('[Page] window.electron available:', hasElectron);
+        if (hasElectron) {
+          console.log('[Page] Electron APIs:', Object.keys(window.electron || {}));
+        }
+        setDebugInfo(`Electron available: ${hasElectron}`);
 
         // Create timeout promise
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('Initialization timeout')), INIT_TIMEOUT_MS);
         });
+
+        console.log('[Page] Calling initializeApp...');
+        setDebugInfo('Calling initializeApp...');
 
         // Race initialization against timeout
         const result = await Promise.race([
@@ -41,33 +63,43 @@ export default function Page() {
           timeoutPromise,
         ]);
 
+        console.log('[Page] initializeApp result:', result);
+        setDebugInfo(`Init result: ${JSON.stringify(result)}`);
+
         if (result.success) {
           // Load user profile and preferences from DB
           // These functions now handle the case when DB is not available
           // Also add timeout for these operations
+          console.log('[Page] Loading profile and preferences...');
+          setDebugInfo('Loading profile and preferences...');
+          
           await Promise.race([
             Promise.all([loadUserProfile(), loadPreferences()]),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Profile load timeout')), 5000)),
           ]).catch(err => {
-            console.warn('Failed to load profile/preferences:', err);
+            console.warn('[Page] Failed to load profile/preferences:', err);
             // Continue anyway - defaults will be used
           });
+
+          console.log('[Page] Profile loaded, checking onboarding...');
 
           // Check if onboarding is needed
           if (result.needsOnboarding) {
             setShowOnboarding(true);
           }
 
+          console.log('[Page] Setting isInitialized to true');
           setIsInitialized(true);
         } else {
-          console.error('Failed to initialize app');
+          console.error('[Page] Failed to initialize app');
           setIsInitialized(true);
           setShowOnboarding(true);
         }
       } catch (error) {
         // Handle timeout or any other initialization error
-        console.error('Initialization failed or timed out:', error);
+        console.error('[Page] Initialization failed or timed out:', error);
         setInitError(error instanceof Error ? error.message : 'Unknown error');
+        setDebugInfo(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         setIsInitialized(true);
         setShowOnboarding(true);
       }
@@ -92,6 +124,10 @@ export default function Page() {
           </div>
           <div className="text-sm" style={{ color: 'var(--secondary)' }}>
             Initializing your workspace
+          </div>
+          {/* Debug info - shows what step we're on */}
+          <div className="text-xs mt-4 opacity-50" style={{ color: 'var(--secondary)' }}>
+            {debugInfo}
           </div>
         </div>
       </div>

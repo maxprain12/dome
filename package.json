@@ -12,9 +12,11 @@
     "start": "next start",
     "electron": "electron .",
     "electron:dev": "concurrently \"bun run dev\" \"wait-on http://localhost:3000 && electron .\"",
-    "electron:build": "bun run build && DEBUG= electron-builder",
-    "electron:build:verbose": "bun run build && DEBUG=electron-builder electron-builder",
-    "postinstall": "electron-builder install-app-deps",
+    "electron:build": "bun run build && bun run rebuild:natives && bun run verify:natives && DEBUG= electron-builder",
+    "electron:build:verbose": "bun run build && bun run rebuild:natives && bun run verify:natives && DEBUG=electron-builder electron-builder",
+    "rebuild:natives": "electron-rebuild -f -w=better-sqlite3,sharp",
+    "verify:natives": "node scripts/verify-natives.cjs",
+    "postinstall": "electron-builder install-app-deps && bun run rebuild:natives",
     "test:db": "bun run scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "bun run scripts/generate-icons.ts"
@@ -65,6 +67,7 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.6.3",
     "@types/better-sqlite3": "^7.6.0",
     "@types/bun": "latest",
     "@types/react": "^18.3.0",
@@ -99,8 +102,10 @@
       "node_modules/sharp/**/*",
       "node_modules/@img/**/*",
       "node_modules/vectordb/**/*",
-      "node_modules/@lancedb/**/*"
+      "node_modules/@lancedb/**/*",
+      "node_modules/apache-arrow/**/*"
     ],
+    "afterPack": "./scripts/after-pack.cjs",
     "directories": {
       "buildResources": "assets",
       "output": "dist"
