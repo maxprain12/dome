@@ -140,20 +140,29 @@ export default function AISettingsPanel() {
   }, [provider, authMode]);
 
   const checkClaudeMaxProxy = async () => {
+    console.log('[AISettings] Checking Claude Max Proxy...');
+
     if (!window.electron?.ai?.checkClaudeMaxProxy) {
+      console.error('[AISettings] window.electron.ai.checkClaudeMaxProxy not available');
       setClaudeMaxProxyAvailable(false);
       return;
     }
 
     setCheckingProxy(true);
     try {
+      console.log('[AISettings] Calling IPC handler...');
       const result = await window.electron.ai.checkClaudeMaxProxy();
-      setClaudeMaxProxyAvailable(result.success && result.available === true);
+      console.log('[AISettings] IPC result:', result);
+
+      const isAvailable = result.success && result.available === true;
+      setClaudeMaxProxyAvailable(isAvailable);
+      console.log('[AISettings] Claude CLI available:', isAvailable);
     } catch (error) {
-      console.error('Error checking Claude Max Proxy:', error);
+      console.error('[AISettings] Error checking Claude Max Proxy:', error);
       setClaudeMaxProxyAvailable(false);
     } finally {
       setCheckingProxy(false);
+      console.log('[AISettings] Check complete');
     }
   };
 

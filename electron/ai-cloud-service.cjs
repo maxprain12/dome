@@ -535,19 +535,71 @@ function mapToCliModel(model) {
 }
 
 /**
+ * Find Claude CLI binary in common installation paths
+ * @returns {string|null} Path to claude binary or null if not found
+ */
+function findClaudeBinary() {
+  const { existsSync } = require('fs');
+  const { homedir } = require('os');
+  const { join } = require('path');
+
+  // Common paths where npm/bun install global binaries
+  const possiblePaths = [
+    join(homedir(), '.local', 'bin', 'claude'),          // ~/.local/bin/claude
+    join(homedir(), '.bun', 'bin', 'claude'),            // ~/.bun/bin/claude
+    '/usr/local/bin/claude',                              // Homebrew Intel
+    '/opt/homebrew/bin/claude',                           // Homebrew ARM
+    join(homedir(), '.npm-global', 'bin', 'claude'),     // npm global
+    '/usr/bin/claude',                                    // System
+  ];
+
+  for (const path of possiblePaths) {
+    if (existsSync(path)) {
+      console.log('[Claude CLI] Found binary at:', path);
+      return path;
+    }
+  }
+
+  console.log('[Claude CLI] Binary not found in any common path:', possiblePaths);
+  return null;
+}
+
+/**
  * Check if Claude CLI is available and authenticated
  * @returns {Promise<boolean>}
  */
 async function checkClaudeMaxProxy() {
   return new Promise((resolve) => {
     try {
-      const result = spawnSync('claude', ['--version'], {
+      console.log('[Claude CLI] Checking availability...');
+
+      // First try to find the binary explicitly
+      const claudePath = findClaudeBinary();
+      if (!claudePath) {
+        console.log('[Claude CLI] Binary not found in common paths');
+        resolve(false);
+        return;
+      }
+
+      // Execute the found binary
+      const result = spawnSync(claudePath, ['--version'], {
         encoding: 'utf8',
         timeout: 5000,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
-      resolve(result.status === 0);
-    } catch {
+
+      console.log('[Claude CLI] Check result:', {
+        path: claudePath,
+        status: result.status,
+        stdout: result.stdout?.substring(0, 100),
+        stderr: result.stderr?.substring(0, 100),
+        error: result.error?.message
+      });
+
+      const available = result.status === 0 && !result.error;
+      resolve(available);
+    } catch (error) {
+      console.error('[Claude CLI] Check failed:', error.message);
       resolve(false);
     }
   });
@@ -562,13 +614,21 @@ async function checkClaudeMaxProxy() {
  */
 function runClaudeCliCommand(args, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
+    // Find Claude CLI binary
+    const claudePath = findClaudeBinary();
+    if (!claudePath) {
+      return reject(new Error('Claude CLI not found. Please install: npm install -g @anthropic-ai/claude-code'));
+    }
+
     // Limpiar variables de entorno que puedan interferir con Claude CLI
     // (como hace clawdbot en clearEnv)
     const env = { ...process.env };
     delete env.ANTHROPIC_API_KEY;
     delete env.ANTHROPIC_API_KEY_OLD;
 
-    const child = spawn('claude', args, {
+    console.log('[Claude CLI] Running command:', claudePath, args);
+
+    const child = spawn(claudePath, args, {
       // stdin: 'ignore' porque no necesitamos enviar input
       // stdout/stderr: 'pipe' para capturar la salida
       stdio: ['ignore', 'pipe', 'pipe'],
