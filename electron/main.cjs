@@ -751,13 +751,15 @@ ipcMain.handle('window:open-workspace', async (event, { resourceId, resourceType
     }
 
     // Determine the route based on resource type
+    // Use query parameters instead of dynamic routes for production compatibility
+    // Next.js static export doesn't support dynamic routes like /note/[id]
     let route;
     if (resourceType === 'note') {
-      route = `/workspace/note/${resourceId}`;
+      route = `/workspace/note?id=${resourceId}`;
     } else if (resourceType === 'url') {
-      route = `/workspace/url/${resourceId}`;
+      route = `/workspace/url?id=${resourceId}`;
     } else {
-      route = `/workspace/${resourceId}`;
+      route = `/workspace?id=${resourceId}`;
     }
 
     // Create window

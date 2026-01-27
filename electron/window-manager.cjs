@@ -126,6 +126,15 @@ class WindowManager {
       window.show();
     });
 
+    // Enable DevTools with keyboard shortcut (all windows, including production)
+    window.webContents.on('before-input-event', (event, input) => {
+      const isMac = process.platform === 'darwin';
+      const modifierKey = isMac ? input.meta : input.control;
+      if (modifierKey && input.shift && input.key.toLowerCase() === 'i') {
+        window.webContents.toggleDevTools();
+      }
+    });
+
     // Cleanup automático
     window.on('closed', () => {
       this.windows.delete(id);

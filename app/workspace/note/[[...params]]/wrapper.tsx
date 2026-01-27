@@ -1,13 +1,13 @@
 'use client';
 
 import NoteWorkspaceClient from './client';
-import { useParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 
 export default function NoteWorkspaceClientWrapper() {
-  const params = useParams();
-  // For catch-all routes, params is an array or undefined
-  const paramArray = params.params as string[] | undefined;
-  const resourceId = paramArray?.[0] || '';
+  const searchParams = useSearchParams();
+  // Read resource ID from query parameter instead of route parameter
+  // This is required for Next.js static export which doesn't support dynamic routes
+  const resourceId = searchParams.get('id') || '';
 
   if (!resourceId) {
     return (
