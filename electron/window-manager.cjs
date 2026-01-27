@@ -87,16 +87,27 @@ class WindowManager {
     this.authorizedWindows.add(webContentsId);
 
     // Determinar modo (dev o prod)
+    const indexPath = path.join(__dirname, '../out/index.html');
     const isDev =
       process.env.NODE_ENV === 'development' ||
       !require('electron').app.isPackaged ||
-      !fs.existsSync(path.join(__dirname, '../out/index.html'));
+      !fs.existsSync(indexPath);
+
+    // Logging for debugging production issues
+    console.log('[WindowManager] Creating window:', id);
+    console.log('[WindowManager] Route:', route);
+    console.log('[WindowManager] isDev:', isDev);
+    console.log('[WindowManager] app.isPackaged:', require('electron').app.isPackaged);
+    console.log('[WindowManager] Index path:', indexPath);
+    console.log('[WindowManager] Index exists:', fs.existsSync(indexPath));
 
     // Cargar contenido
     if (isDev) {
+      console.log('[WindowManager] Loading URL: http://localhost:3000' + route);
       window.loadURL(`http://localhost:3000${route}`);
     } else {
-      window.loadFile(path.join(__dirname, '../out/index.html'), {
+      console.log('[WindowManager] Loading file:', indexPath, 'with hash:', route);
+      window.loadFile(indexPath, {
         hash: route,
       });
     }

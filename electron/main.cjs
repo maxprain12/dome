@@ -172,6 +172,15 @@ async function createWindow() {
     }
   });
 
+  // Enable DevTools in production with Cmd+Shift+I (Mac) or Ctrl+Shift+I (Windows/Linux)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    const isMac = process.platform === 'darwin';
+    const modifierKey = isMac ? input.meta : input.control;
+    if (modifierKey && input.shift && input.key.toLowerCase() === 'i') {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
+
   return mainWindow;
 }
 

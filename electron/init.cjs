@@ -340,11 +340,32 @@ function checkOnboardingStatus() {
 }
 
 /**
+ * Helper to wrap a promise with a timeout
+ * @param {Promise} promise - The promise to wrap
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @param {string} operationName - Name of operation for logging
+ * @returns {Promise}
+ */
+function withTimeout(promise, timeoutMs, operationName) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`${operationName} timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    }),
+  ]);
+}
+
+/**
  * Main initialization function
  */
 async function initializeApp() {
+  const startTime = Date.now();
+  console.log('[Init] Starting initialization...');
+
   if (isInitialized) {
-    console.log('⚠️ App already initialized');
+    console.log('[Init] ⚠️ App already initialized');
     return {
       success: true,
       needsOnboarding: checkOnboardingStatus(),
@@ -354,10 +375,13 @@ async function initializeApp() {
   console.log('🚀 Inicializando Dome...');
 
   try {
-    // 1. Initialize SQLite database
+    // 1. Initialize SQLite database (critical - must succeed)
+    console.log('[Init] Step 1: SQLite database...');
     initSQLite();
+    console.log('[Init] Step 1 completed in', Date.now() - startTime, 'ms');
 
     // 1.1. Check database integrity and repair if needed
+    console.log('[Init] Step 1.1: Database integrity check...');
     const integrity = database.checkIntegrity();
     if (!integrity.ok) {
       console.warn('[DB] ⚠️ Database integrity check failed:', integrity.errors);
@@ -372,38 +396,64 @@ async function initializeApp() {
       console.log('[DB] ✅ Database integrity check passed');
     }
 
-    // 2. Initialize default settings
+    // 2. Initialize default settings (critical - must succeed)
+    console.log('[Init] Step 2: Default settings...');
     initializeDefaultSettings();
+    console.log('[Init] Step 2 completed in', Date.now() - startTime, 'ms');
 
-    // 3. Initialize file system
-    await initFileSystem();
+    // 3. Initialize file system (critical - must succeed)
+    console.log('[Init] Step 3: File system...');
+    await withTimeout(initFileSystem(), 5000, 'File system initialization');
+    console.log('[Init] Step 3 completed in', Date.now() - startTime, 'ms');
 
     // 4. Create avatars directory
+    console.log('[Init] Step 4: Avatars directory...');
     createAvatarsDirectory();
+    console.log('[Init] Step 4 completed in', Date.now() - startTime, 'ms');
 
     // 5. Initialize vector database (optional - app works without it)
-    const vectorInitialized = await initVectorDB();
-    if (vectorInitialized) {
-      await createResourceEmbeddingsTable();
-      await createSourceEmbeddingsTable();
-      await createAnnotationEmbeddingsTable();
-    } else {
-      console.warn('⚠️ Vector database skipped - semantic search will be disabled');
+    // Use a timeout to prevent blocking if vectordb hangs
+    console.log('[Init] Step 5: Vector database (optional)...');
+    try {
+      const vectorInitialized = await withTimeout(initVectorDB(), 10000, 'VectorDB initialization');
+      if (vectorInitialized) {
+        // Create tables with timeout
+        await withTimeout(
+          Promise.all([
+            createResourceEmbeddingsTable(),
+            createSourceEmbeddingsTable(),
+            createAnnotationEmbeddingsTable(),
+          ]),
+          15000,
+          'VectorDB tables creation'
+        );
+      } else {
+        console.warn('[Init] ⚠️ Vector database skipped - semantic search will be disabled');
+      }
+    } catch (vectorError) {
+      console.warn('[Init] ⚠️ Vector database initialization failed:', vectorError.message);
+      console.warn('[Init] ⚠️ Continuing without semantic search');
+      vectorDBAvailable = false;
     }
+    console.log('[Init] Step 5 completed in', Date.now() - startTime, 'ms');
 
     // 6. Check onboarding status
+    console.log('[Init] Step 6: Onboarding status...');
     const needsOnboarding = checkOnboardingStatus();
+    console.log('[Init] Step 6 completed in', Date.now() - startTime, 'ms');
 
     isInitialized = true;
-    console.log('✅ Dome inicializado correctamente');
+    console.log('[Init] ✅ Dome inicializado correctamente en', Date.now() - startTime, 'ms');
 
     return {
       success: true,
       needsOnboarding,
     };
   } catch (error) {
-    console.error('❌ Error al inicializar Dome:', error);
+    console.error('[Init] ❌ Error al inicializar Dome:', error);
+    console.error('[Init] Stack:', error.stack);
     // Return success but with onboarding needed to at least show the UI
+    isInitialized = true; // Mark as initialized to prevent retries
     return {
       success: true,
       needsOnboarding: true,

@@ -10,6 +10,8 @@ const nextConfig = {
   // Esto evita el error de generateStaticParams con rutas dinámicas en desarrollo
   ...(process.env.NODE_ENV === 'production' ? { output: 'export' } : {}),
   distDir: 'out',
+  // trailingSlash ensures routes are generated as /page/index.html for proper file:// loading in Electron
+  trailingSlash: true,
   images: {
     unoptimized: true,
   },

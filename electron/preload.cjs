@@ -1,6 +1,12 @@
 /* eslint-disable no-unused-vars */
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
+// Log to verify preload script is loading
+console.log('[Preload] Script loading...');
+console.log('[Preload] Node version:', process.versions.node);
+console.log('[Preload] Electron version:', process.versions.electron);
+console.log('[Preload] Chrome version:', process.versions.chrome);
+
 /**
  * Electron Handler
  * Expone APIs de Electron de manera segura usando contextBridge
@@ -672,7 +678,15 @@ const electronHandler = {
 };
 
 // Expose to renderer
-contextBridge.exposeInMainWorld('electron', electronHandler);
+try {
+  contextBridge.exposeInMainWorld('electron', electronHandler);
+  console.log('[Preload] contextBridge.exposeInMainWorld succeeded');
+  console.log('[Preload] Available APIs:', Object.keys(electronHandler).join(', '));
+} catch (error) {
+  console.error('[Preload] Failed to expose electron API:', error);
+}
+
+console.log('[Preload] Script loaded successfully');
 
 // Export type for TypeScript
 // (will be used in global.d.ts)
