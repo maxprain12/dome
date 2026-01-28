@@ -35,7 +35,54 @@ This document analyzes the integration of PageIndex (vectorless, reasoning-based
 
 ## 2. Integration Options
 
-### Option A: MCP (Model Context Protocol) Integration
+### Option A: ZeroRPC Integration ⚡ **FASTEST PROTOTYPE**
+**Description:** Direct Python-Node.js communication via ZeroRPC
+
+**Architecture:**
+```
+┌─────────────────────────┐
+│   Dome (Electron)       │
+│   └─ Main Process       │──┐
+└─────────────────────────┘  │ ZeroRPC (TCP)
+                             │
+┌─────────────────────────┐  │
+│   Python Backend        │◄─┘
+│   ├─ zerorpc Server     │
+│   └─ PageIndex          │
+└─────────────────────────┘
+```
+
+**Pros:**
+- ✅ **Extremely simple** - ~50 lines of code
+- ✅ **Very fast to implement** - 1-2 days for working prototype
+- ✅ **Direct RPC calls** - No HTTP overhead
+- ✅ **Auto serialization** - JSON/msgpack built-in
+- ✅ **Proven pattern** - [electron-zerorpc-example](https://github.com/pazrul/electron-zerorpc-example)
+
+**Cons:**
+- ❌ **Legacy technology** - Last updated 2020
+- ❌ **Electron compatibility issues** - Problems with modern Electron
+- ❌ **Packaging challenges** - Known issues with electron-builder ([#95](https://github.com/0rpc/zerorpc-node/issues/95))
+- ❌ **Not industry standard** - Proprietary to 0rpc project
+- ❌ **Windows compatibility** - More issues than Linux/Mac
+
+**Recommendation:** ✅ **For rapid prototyping and validation ONLY**
+- Use to test if PageIndex is worth it
+- Plan to migrate to MCP for production
+
+**Implementation Steps:**
+1. Install ZMQ library (`libzmq3-dev` on Ubuntu)
+2. Install Python zerorpc: `pip install zerorpc`
+3. Install Node zerorpc: `npm install zerorpc`
+4. Create Python server with PageIndex integration
+5. Connect from Electron main process
+6. Test with sample PDFs
+
+**Reference:** See `ZERORPC_VS_MCP_ANALYSIS.md` for detailed comparison and code examples
+
+---
+
+### Option B: MCP (Model Context Protocol) Integration 🏆 **PRODUCTION READY**
 **Description:** Connect to PageIndex as an external MCP server
 
 **Architecture:**
@@ -78,7 +125,7 @@ This document analyzes the integration of PageIndex (vectorless, reasoning-based
 
 ---
 
-### Option B: PageIndex API Integration
+### Option C: PageIndex API Integration
 **Description:** Use PageIndex's beta API as a service
 
 **Architecture:**
@@ -112,7 +159,7 @@ This document analyzes the integration of PageIndex (vectorless, reasoning-based
 
 ---
 
-### Option C: Custom TypeScript Hierarchical RAG
+### Option D: Custom TypeScript Hierarchical RAG
 **Description:** Reimplement PageIndex concepts natively in TypeScript
 
 **Architecture:**
@@ -159,7 +206,7 @@ This document analyzes the integration of PageIndex (vectorless, reasoning-based
 
 ---
 
-### Option D: Hybrid Approach ⭐ **RECOMMENDED**
+### Option E: Hybrid Approach ⭐ **LONG-TERM STRATEGY**
 **Description:** Combine LanceDB vector search with hierarchical indexing
 
 **Architecture:**
@@ -391,27 +438,85 @@ Main Process (electron/)
 
 ## 7. Recommendations
 
-### Immediate Next Steps (This Branch)
-1. **Set up MCP prototype**
-   - Install `@modelcontextprotocol/sdk`
-   - Create test client in `electron/pageindex-mcp-client.cjs`
-   - Connect to PageIndex MCP server
-   - Test with sample documents
+### ⚡ UPDATED: Two-Phase Approach (ZeroRPC → MCP)
 
-2. **Benchmark comparison**
-   - Test same query on LanceDB vs PageIndex
-   - Measure accuracy, speed, cost
+After discovering [electron-zerorpc-example](https://github.com/pazrul/electron-zerorpc-example), we now recommend a **two-phase validation strategy**:
+
+---
+
+### Phase 1: Rapid Validation (1-2 weeks) ⚡
+
+**Goal:** Determine if PageIndex is worth the investment
+
+**Implementation:**
+1. **Set up ZeroRPC prototype** (2-3 days)
+   - Install ZeroRPC: `pip install zerorpc && npm install zerorpc`
+   - Create Python server: `electron/pageindex-server.py`
+   - Connect from Electron main process
+   - Basic IPC handlers for testing
+
+2. **Integrate PageIndex** (1-2 days)
+   - Install PageIndex in Python venv
+   - Test tree building with sample PDFs
+   - Test reasoning-based search
+   - Verify functionality
+
+3. **Benchmark vs LanceDB** (2-3 days)
+   - Test with 10-20 representative documents
+   - Compare accuracy (same queries)
+   - Measure latency
+   - Calculate API costs (OpenAI)
    - Document findings
 
-3. **Design hybrid architecture**
-   - Create detailed schema for tree storage
-   - Design query router algorithm
-   - Plan gradual rollout strategy
+**Decision Point:** Is PageIndex > 10% better?
+- ✅ **YES** → Proceed to Phase 2 (migrate to MCP)
+- ❌ **NO** → Fall back to Option D (TypeScript native implementation)
 
-### Long-term Strategy
-- **Short term (1-2 months):** MCP prototype and testing
-- **Medium term (3-4 months):** Hybrid implementation
-- **Long term (6+ months):** Optimize based on usage data
+**Why ZeroRPC first:**
+- ✅ Fastest way to validate (1-2 weeks vs 1-2 months)
+- ✅ Low investment if PageIndex doesn't meet expectations
+- ✅ Code is throwaway - no technical debt
+- ✅ Data-driven decision instead of speculation
+
+**Known limitations:**
+- ⚠️ Not production-ready (legacy technology)
+- ⚠️ May have Electron compatibility issues
+- ⚠️ For testing purposes only
+
+---
+
+### Phase 2: Production Implementation (2-4 weeks)
+
+**If Phase 1 validates PageIndex value, then:**
+
+**Option 2A: Migrate to MCP** (3-5 days)
+- Install `@modelcontextprotocol/sdk`
+- Rewrite Python server as MCP server
+- Update Electron client to use MCP
+- Production-ready, industry standard
+
+**Option 2B: TypeScript Native** (2-3 weeks)
+- Reimplement PageIndex concepts in TypeScript
+- No Python dependency
+- Full control, works offline
+- See Option D in Section 2
+
+---
+
+### Alternative: Skip to TypeScript Native
+
+**If you want to avoid Python entirely:**
+
+Jump directly to **Option D: Custom TypeScript Hierarchical RAG**
+- No dependency issues
+- Works 100% offline with Ollama
+- 8-11 weeks development time
+- Full control over implementation
+
+**Trade-off:**
+- Takes longer upfront
+- No validation of PageIndex algorithm effectiveness
+- Higher initial risk
 
 ### Success Metrics
 - [ ] Retrieval accuracy improvement (target: >10% over current)
@@ -429,11 +534,19 @@ Main Process (electron/)
 - [MCP Integration](https://pageindex.ai/mcp)
 - [API Documentation](https://docs.pageindex.ai/quickstart)
 
-### Model Context Protocol
+### ZeroRPC (Rapid Prototyping)
+- [electron-zerorpc-example](https://github.com/pazrul/electron-zerorpc-example) - Working example
+- [zerorpc-python](https://github.com/0rpc/zerorpc-python)
+- [zerorpc-node](https://github.com/0rpc/zerorpc-node)
+- [Electron-Python Guide](https://medium.com/@abulka/electron-python-4e8c807bfa5e)
+- [Packaging Issues](https://github.com/0rpc/zerorpc-node/issues/95) - Known problems
+
+### Model Context Protocol (Production)
 - [TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk)
 - [Anthropic MCP Announcement](https://www.anthropic.com/news/model-context-protocol)
 - [Building MCP Clients - Node.js](https://modelcontextprotocol.info/docs/tutorials/building-a-client-node/)
 - [MCP Integration Guide](https://claudecode.io/guides/mcp-integration)
+- [MCP Alternatives 2026](https://www.merge.dev/blog/model-context-protocol-alternatives)
 
 ### Hierarchical RAG Research
 - [RAPTOR - Hierarchical Indices](https://github.com/NirDiamant/RAG_Techniques/blob/main/all_rag_techniques/hierarchical_indices.ipynb)
@@ -448,24 +561,63 @@ Main Process (electron/)
 
 ---
 
-## 9. Conclusion
+## 9. Conclusion (Updated)
 
-**PageIndex represents a paradigm shift in RAG** - from similarity matching to reasoning-based retrieval. While it cannot directly replace LanceDB as a drop-in solution due to its Python-based architecture, a **hybrid approach** offers the best path forward for Dome:
+**PageIndex represents a paradigm shift in RAG** - from similarity matching to reasoning-based retrieval. After discovering [electron-zerorpc-example](https://github.com/pazrul/electron-zerorpc-example), we now have a **fast validation path** before committing to full implementation.
+
+### Recommended Strategy: Two-Phase Validation
+
+**Phase 1 (1-2 weeks): ZeroRPC Prototype**
+1. Rapid integration with PageIndex via ZeroRPC
+2. Benchmark against current LanceDB implementation
+3. Validate if 10%+ accuracy improvement is achievable
+4. Measure real-world API costs and latency
+
+**Phase 2 (Decision-based):**
+- **If PageIndex wins:** Migrate to MCP (production) or TypeScript native
+- **If PageIndex doesn't impress:** Implement TypeScript hierarchical RAG from scratch
+- **If neither worth it:** Optimize current LanceDB system
+
+### Why This Approach?
+
+- ✅ **Data-driven decision** - Test before major investment
+- ✅ **Low risk** - 1-2 weeks vs 2-3 months commitment
+- ✅ **Fast feedback** - Know if PageIndex algorithms work for Dome
+- ✅ **Backwards compatible** - LanceDB stays functional throughout
+- ✅ **Flexible** - Can pivot based on results
+
+### Three Possible Outcomes:
+
+**Outcome A: PageIndex > 10% better**
+→ Invest in production implementation (MCP or TypeScript)
+→ Hybrid system with smart routing
+→ Differentiated product feature
+
+**Outcome B: PageIndex marginal improvement**
+→ Optimize LanceDB with better chunking/ranking
+→ Add query expansion and re-ranking
+→ Lower complexity, good enough
+
+**Outcome C: PageIndex underwhelming**
+→ Focus on TypeScript hierarchical implementation
+→ Control over algorithms
+→ Offline-first, no API costs
+
+### Long-term Vision
+
+Regardless of PageIndex adoption, the **hybrid approach** remains valuable:
 
 1. **Keep LanceDB** for fast, fuzzy semantic search
 2. **Add hierarchical tree indexing** for deep, reasoning-based retrieval
 3. **Implement smart routing** to use the right system for each query
-4. **Leverage MCP** for potential future PageIndex integration
+4. **Maintain backward compatibility** throughout
 
-This strategy provides:
-- ✅ Immediate value (incremental improvement)
-- ✅ Low risk (backwards compatible)
-- ✅ Future-proof (can integrate PageIndex later via MCP)
-- ✅ Native Electron support (no Python dependency for core features)
+This provides:
+- ✅ Best-in-class search (fast + accurate)
+- ✅ Explainable results (reasoning paths)
 - ✅ Offline capability (with local Ollama)
-
-The research phase on this branch should focus on **prototyping the MCP integration** and **designing the hybrid architecture** before committing to full implementation.
+- ✅ Future-proof architecture
 
 ---
 
-**Next Action:** Begin MCP prototype implementation (see Section 7)
+**Next Action:** Begin ZeroRPC prototype implementation (Phase 1) - see `ZERORPC_VS_MCP_ANALYSIS.md` for code examples
