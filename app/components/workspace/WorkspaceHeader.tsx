@@ -1,14 +1,37 @@
 'use client';
 
-import { ArrowLeft, StickyNote, MessageSquare, Info, PanelRightClose, PanelRightOpen, FileText, Video, Music, Image, FileEdit, File, Folder } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  Info,
+  PanelRightClose,
+  PanelRightOpen,
+  FileText,
+  Video,
+  Music,
+  Image,
+  FileEdit,
+  File,
+  Folder,
+  MoreHorizontal,
+  ExternalLink,
+  FolderOpen,
+} from 'lucide-react';
 import { type Resource } from '@/types';
+
+interface EditableTitle {
+  value: string;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+  placeholder?: string;
+}
 
 interface WorkspaceHeaderProps {
   resource: Resource;
   sidePanelOpen: boolean;
   onToggleSidePanel: () => void;
   onShowMetadata: () => void;
-  onBack: () => void;
+  editableTitle?: EditableTitle;
+  savingIndicator?: React.ReactNode;
 }
 
 export default function WorkspaceHeader({
@@ -16,8 +39,73 @@ export default function WorkspaceHeader({
   sidePanelOpen,
   onToggleSidePanel,
   onShowMetadata,
-  onBack,
+  editableTitle,
+  savingIndicator,
 }: WorkspaceHeaderProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const hasFile = !!(resource.internal_path || resource.file_path);
+
+  // Close menu on click outside
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target as Node) &&
+        menuButtonRef.current && !menuButtonRef.current.contains(e.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  // Close menu on Escape
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [menuOpen]);
+
+  const handleOpenExternal = useCallback(async () => {
+    setMenuOpen(false);
+    if (typeof window === 'undefined' || !window.electron) return;
+    try {
+      const result = await window.electron.resource.getFilePath(resource.id);
+      if (result.success && result.data) {
+        await window.electron.openPath(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to open file:', err);
+    }
+  }, [resource.id]);
+
+  const handleShowInFinder = useCallback(async () => {
+    setMenuOpen(false);
+    if (typeof window === 'undefined' || !window.electron) return;
+    try {
+      const result = await window.electron.resource.getFilePath(resource.id);
+      if (result.success && result.data) {
+        await window.electron.showItemInFolder(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to show in folder:', err);
+    }
+  }, [resource.id]);
+
+  const handleShowInfo = useCallback(() => {
+    setMenuOpen(false);
+    onShowMetadata();
+  }, [onShowMetadata]);
+
   const getTypeIcon = () => {
     const iconProps = { size: 18, className: 'shrink-0' };
     switch (resource.type) {
@@ -31,6 +119,16 @@ export default function WorkspaceHeader({
     }
   };
 
+  // Calculate dropdown position from button ref
+  const getMenuPosition = () => {
+    if (!menuButtonRef.current) return { top: 0, right: 0 };
+    const rect = menuButtonRef.current.getBoundingClientRect();
+    return {
+      top: rect.bottom + 4,
+      right: window.innerWidth - rect.right,
+    };
+  };
+
   return (
     <header
       className="flex items-center justify-between px-4 py-3 border-b app-region-drag"
@@ -41,46 +139,172 @@ export default function WorkspaceHeader({
       }}
     >
       {/* Left section */}
-      <div className="flex items-center gap-3 app-region-no-drag">
+      <div className="flex items-center gap-3 min-w-0 app-region-no-drag">
         {/* macOS traffic lights spacing */}
-        <div className="w-16" />
-
-        <button
-          onClick={onBack}
-          className="p-2 rounded-lg transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-          style={{ background: 'transparent', color: 'var(--secondary-text)' }}
-          aria-label="Volver"
-          title="Back to Home"
-        >
-          <ArrowLeft size={18} />
-        </button>
+        <div className="w-16 shrink-0" />
 
         <div className="flex items-center gap-2 min-w-0">
-          <div style={{ color: 'var(--secondary-text)' }}>
+          <div style={{ color: 'var(--secondary-text)' }} className="shrink-0">
             {getTypeIcon()}
           </div>
-          <h1
-            className="text-sm font-medium truncate max-w-md font-display"
-            style={{ color: 'var(--primary-text)' }}
-            title={resource.title}
-          >
-            {resource.title}
-          </h1>
+
+          {editableTitle ? (
+            <input
+              type="text"
+              value={editableTitle.value}
+              onChange={(e) => editableTitle.onChange(e.target.value)}
+              onBlur={editableTitle.onBlur}
+              className="text-sm font-medium bg-transparent border-none outline-none min-w-0 font-display"
+              style={{ color: 'var(--primary-text)' }}
+              placeholder={editableTitle.placeholder || 'Untitled'}
+            />
+          ) : (
+            <h1
+              className="text-sm font-medium truncate max-w-md font-display"
+              style={{ color: 'var(--primary-text)' }}
+              title={resource.title}
+            >
+              {resource.title}
+            </h1>
+          )}
+
+          {savingIndicator}
         </div>
       </div>
 
+      {/* Right section */}
       <div className="flex items-center gap-2 app-region-no-drag">
-        <button
-          onClick={onShowMetadata}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-          style={{ background: 'transparent', color: 'var(--secondary-text)' }}
-          title="View metadata"
-          aria-label="Ver metadatos"
-        >
-          <Info size={16} />
-          <span>Info</span>
-        </button>
+        {/* More options menu */}
+        <div className="relative">
+          <button
+            ref={menuButtonRef}
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            style={{
+              background: menuOpen ? 'var(--bg-secondary)' : 'transparent',
+              color: 'var(--secondary-text)',
+            }}
+            title="More options"
+            aria-label="More options"
+            aria-expanded={menuOpen}
+            aria-haspopup="true"
+          >
+            <MoreHorizontal size={16} />
+          </button>
 
+          {menuOpen && (
+            <div
+              ref={menuRef}
+              className="dropdown-menu"
+              style={{
+                position: 'fixed',
+                ...getMenuPosition(),
+                zIndex: 9999,
+                minWidth: '200px',
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                padding: '6px',
+                animation: 'dropdown-appear 0.15s ease-out',
+              }}
+              role="menu"
+            >
+              <button
+                onClick={handleShowInfo}
+                className="dropdown-item"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: 'var(--primary-text)',
+                  cursor: 'pointer',
+                  width: '100%',
+                  background: 'transparent',
+                  border: 'none',
+                  textAlign: 'left',
+                  transition: 'background 150ms ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                role="menuitem"
+              >
+                <Info size={16} style={{ color: 'var(--secondary-text)' }} />
+                Resource info
+              </button>
+
+              {hasFile && (
+                <>
+                  <div
+                    style={{
+                      height: '1px',
+                      background: 'var(--border)',
+                      margin: '4px 0',
+                    }}
+                  />
+                  <button
+                    onClick={handleOpenExternal}
+                    className="dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--primary-text)',
+                      cursor: 'pointer',
+                      width: '100%',
+                      background: 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      transition: 'background 150ms ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    role="menuitem"
+                  >
+                    <ExternalLink size={16} style={{ color: 'var(--secondary-text)' }} />
+                    Open with default app
+                  </button>
+                  <button
+                    onClick={handleShowInFinder}
+                    className="dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--primary-text)',
+                      cursor: 'pointer',
+                      width: '100%',
+                      background: 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      transition: 'background 150ms ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    role="menuitem"
+                  >
+                    <FolderOpen size={16} style={{ color: 'var(--secondary-text)' }} />
+                    Show in Finder
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Panel toggle */}
         <button
           onClick={onToggleSidePanel}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"

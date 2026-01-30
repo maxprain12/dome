@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, File, ExternalLink } from 'lucide-react';
 import WorkspaceHeader from './WorkspaceHeader';
 import SidePanel from './SidePanel';
 import MetadataModal from './MetadataModal';
@@ -70,13 +70,6 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
     return unsubscribe;
   }, [resourceId, resource]);
 
-  const handleBack = useCallback(() => {
-    // Close the window
-    if (typeof window !== 'undefined') {
-      window.close();
-    }
-  }, []);
-
   const handleToggleSidePanel = useCallback(() => {
     setSidePanelOpen((prev) => !prev);
   }, []);
@@ -111,6 +104,25 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
     }
   }, [resource]);
 
+  const handleOpenExternally = useCallback(async () => {
+    if (!resource || typeof window === 'undefined' || !window.electron) return;
+    try {
+      const result = await window.electron.resource.getFilePath(resource.id);
+      if (result.success && result.data) {
+        await window.electron.openPath(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to open file externally:', err);
+    }
+  }, [resource]);
+
+  // Check if a document resource is actually a PDF
+  const isDocumentPdf = (res: Resource): boolean => {
+    const mimeType = res.file_mime_type || '';
+    const filename = (res.original_filename || res.title || '').toLowerCase();
+    return mimeType === 'application/pdf' || filename.endsWith('.pdf');
+  };
+
   // Render the appropriate viewer based on resource type
   const renderViewer = () => {
     if (!resource) return null;
@@ -125,8 +137,27 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
       case 'image':
         return <ImageViewer resource={resource} />;
       case 'document':
-        // For general documents, try to use PDF viewer or show a placeholder
-        return <PDFViewer resource={resource} />;
+        if (isDocumentPdf(resource)) {
+          return <PDFViewer resource={resource} />;
+        }
+        return (
+          <div className="flex flex-col items-center justify-center h-full p-8">
+            <File className="w-16 h-16 mb-4" style={{ color: 'var(--tertiary-text)' }} />
+            <p className="text-lg font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
+              {resource.original_filename || resource.title}
+            </p>
+            <p className="text-sm mb-6" style={{ color: 'var(--secondary-text)' }}>
+              This document type cannot be previewed. Open it with your default application.
+            </p>
+            <button
+              onClick={handleOpenExternally}
+              className="btn btn-primary flex items-center gap-2"
+            >
+              <ExternalLink size={16} />
+              Open with default app
+            </button>
+          </div>
+        );
       default:
         return (
           <div className="flex flex-col items-center justify-center h-full p-8">
@@ -175,7 +206,10 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
           <p className="text-sm text-center mb-6 max-w-md" style={{ color: 'var(--secondary-text)' }}>
             {error ?? 'The requested resource could not be found.'}
           </p>
-          <button onClick={handleBack} className="btn btn-primary">
+          <button
+            onClick={() => { if (typeof window !== 'undefined') window.close(); }}
+            className="btn btn-primary"
+          >
             Close Window
           </button>
         </div>
@@ -191,7 +225,6 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
         sidePanelOpen={sidePanelOpen}
         onToggleSidePanel={handleToggleSidePanel}
         onShowMetadata={handleShowMetadata}
-        onBack={handleBack}
       />
 
       {/* Main Content */}
