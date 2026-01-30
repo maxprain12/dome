@@ -71,7 +71,7 @@ Dome supports multiple AI providers for maximum flexibility:
 - Synthetic (Custom providers)
 
 **AI Capabilities:**
-- **Martin AI Assistant**: Built-in chat assistant for research help
+- **Many AI Assistant**: Built-in chat assistant for research help
 - **Semantic Search**: Find resources by meaning, not just keywords
 - **Auto-Transcription**: Convert audio/video to text
 - **Document Summarization**: Get quick summaries of long documents
@@ -296,11 +296,11 @@ Add different types of content to your projects:
 - Or use **+ New Resource** → select type
 - YouTube URLs are automatically detected
 
-### 4. Using the AI Assistant (Martin)
+### 4. Using the AI Assistant (Many)
 
 The built-in AI assistant helps with research:
 
-1. Click the **Martin** floating button
+1. Click the **Many** floating button
 2. Ask questions about your resources
 3. Request summaries, analysis, or explanations
 4. Use context from your current resource
@@ -377,7 +377,7 @@ dome/
 │   ├── components/               # React Components
 │   │   ├── chat/                 # AI Chat components
 │   │   ├── CommandCenter/        # Search and command palette
-│   │   ├── common/               # Shared components (Martin avatar, etc.)
+│   │   ├── common/               # Shared components (Many avatar, etc.)
 │   │   ├── editor/               # Notion-style editor
 │   │   │   ├── blocks/           # Custom block components
 │   │   │   └── extensions/       # Tiptap extensions

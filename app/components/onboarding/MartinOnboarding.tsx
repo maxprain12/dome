@@ -19,7 +19,7 @@ interface MartinOnboardingProps {
 
 type Step = 'welcome' | 'profile' | 'ai' | 'complete';
 
-const WELCOME_MESSAGE = `Hello! I'm Martin, your AI assistant in Dome. 
+const WELCOME_MESSAGE = `Hello! I'm Many, your AI assistant in Dome. 
 
 I'm here to help you set up your account and prepare everything so you can start working with your resources in the best way.
 

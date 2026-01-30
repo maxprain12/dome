@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, Cpu, Sparkles, Zap, Globe, Gift, Shield } from 'lucide-react';
+import type { ComponentType } from 'react';
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, Gift, Shield } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -11,6 +12,7 @@ import {
   type AIProviderType,
   type ModelDefinition,
 } from '@/lib/ai/models';
+import { AI_PROVIDER_OPTIONS } from '@/lib/ai/provider-options';
 import { getSyntheticModels } from '@/lib/ai/catalogs/synthetic';
 import { getVeniceModels } from '@/lib/ai/catalogs/venice';
 
@@ -26,55 +28,34 @@ interface OllamaModel {
 
 type OnboardingProviderType = AIProviderType | 'skip';
 
-// Provider options with icons and descriptions for onboarding
-// Synthetic first as it's free and recommended
-const ONBOARDING_PROVIDERS = [
+/** Onboarding-only option: configure AI later from settings. */
+const SKIP_OPTION = {
+  value: 'skip' as const,
+  label: 'Configure later',
+  description: 'You can configure AI from settings',
+  icon: Clock,
+};
+
+/** Sections for provider selection: Gratis, Cloud, Local, Later. */
+const SECTIONS: Array<{
+  title: string;
+  options: Array<{ value: OnboardingProviderType; label: string; description: string; icon: ComponentType<{ className?: string }>; badge?: string; badgeColor?: 'green' | 'purple'; recommended?: boolean }>;
+}> = [
   {
-    value: 'synthetic' as const,
-    label: 'Synthetic',
-    description: '19 free models: MiniMax, DeepSeek, Qwen, Llama',
-    icon: Gift,
-    badge: 'GRATIS',
-    badgeColor: 'green' as const,
-    recommended: true,
+    title: 'Gratis',
+    options: AI_PROVIDER_OPTIONS.filter((o) => o.value === 'synthetic').map((o) => ({ ...o, value: o.value as OnboardingProviderType })),
   },
   {
-    value: 'skip' as const,
-    label: 'Configure later',
-    description: 'You can configure AI from settings',
-    icon: Clock,
+    title: 'En la nube',
+    options: AI_PROVIDER_OPTIONS.filter((o) => ['openai', 'anthropic', 'google', 'venice'].includes(o.value)).map((o) => ({ ...o, value: o.value as OnboardingProviderType })),
   },
   {
-    value: 'ollama' as const,
-    label: PROVIDERS.ollama.name,
-    description: PROVIDERS.ollama.description + '. Requires Ollama installed.',
-    icon: Cpu,
+    title: 'Local',
+    options: AI_PROVIDER_OPTIONS.filter((o) => o.value === 'ollama').map((o) => ({ ...o, value: o.value as OnboardingProviderType })),
   },
   {
-    value: 'openai' as const,
-    label: PROVIDERS.openai.name,
-    description: PROVIDERS.openai.description + '. Requires API key.',
-    icon: Sparkles,
-  },
-  {
-    value: 'anthropic' as const,
-    label: PROVIDERS.anthropic.name,
-    description: PROVIDERS.anthropic.description + '. Requires API key.',
-    icon: Zap,
-  },
-  {
-    value: 'google' as const,
-    label: PROVIDERS.google.name,
-    description: PROVIDERS.google.description + '. Requires API key.',
-    icon: Globe,
-  },
-  {
-    value: 'venice' as const,
-    label: 'Venice',
-    description: 'Models with total privacy, no logging.',
-    icon: Shield,
-    badge: 'PRIVADO',
-    badgeColor: 'purple' as const,
+    title: 'Más tarde',
+    options: [{ ...SKIP_OPTION, value: 'skip' as const }],
   },
 ];
 
@@ -255,13 +236,13 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 No registration required
               </span>
             </div>
-            <p className="text-xs mt-1 opacity-70" style={{ color: 'var(--secondary)' }}>
+            <p className="text-xs mt-1 opacity-70" style={{ color: 'var(--secondary-text)' }}>
               Synthetic offers free access to state-of-the-art models.
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               Modelo
             </label>
             <select
@@ -270,7 +251,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 cursor-pointer"
               style={{
                 backgroundColor: 'var(--bg)',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
                 border: '1px solid var(--border)',
               }}
             >
@@ -296,13 +277,13 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 Privacy Guaranteed
               </span>
             </div>
-            <p className="text-xs mt-1 opacity-70" style={{ color: 'var(--secondary)' }}>
+            <p className="text-xs mt-1 opacity-70" style={{ color: 'var(--secondary-text)' }}>
               Models run privately without logging. Optional API key for premium.
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               API Key <span className="opacity-50">(optional)</span>
             </label>
             <input
@@ -313,14 +294,14 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
               style={{
                 backgroundColor: 'var(--bg)',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
                 border: '1px solid var(--border)',
               }}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               Modelo
             </label>
             <select
@@ -329,7 +310,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 cursor-pointer"
               style={{
                 backgroundColor: 'var(--bg)',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
                 border: '1px solid var(--border)',
               }}
             >
@@ -349,7 +330,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     return (
       <div className="space-y-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
             API Key
           </label>
           <input
@@ -360,12 +341,12 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
             style={{
               backgroundColor: 'var(--bg)',
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               border: '1px solid var(--border)',
             }}
           />
           {providerConfig.docsUrl && (
-            <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary)' }}>
+            <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
               Get your API key at{' '}
               <a 
                 href={providerConfig.docsUrl} 
@@ -380,7 +361,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
             Modelo
           </label>
           <select
@@ -389,7 +370,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 cursor-pointer"
             style={{
               backgroundColor: 'var(--bg)',
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               border: '1px solid var(--border)',
             }}
           >
@@ -402,7 +383,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
         </div>
 
         {!providerConfig.supportsEmbeddings && (
-          <p className="text-xs opacity-50" style={{ color: 'var(--secondary)' }}>
+          <p className="text-xs opacity-50" style={{ color: 'var(--secondary-text)' }}>
             Note: {providerConfig.name} doesn't include embeddings. You can use Ollama or Google for semantic search.
           </p>
         )}
@@ -418,65 +399,72 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
         </div>
       )}
 
-      <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+      <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
         Choose how you want artificial intelligence to work in Dome.
       </p>
 
-      {/* Provider Selection */}
-      <div className="space-y-2">
-        {ONBOARDING_PROVIDERS.map((option) => {
-          const Icon = option.icon;
-          const isSelected = provider === option.value;
-          const badge = 'badge' in option ? option.badge : undefined;
-          const badgeColor = 'badgeColor' in option ? option.badgeColor : undefined;
-          const recommended = 'recommended' in option ? option.recommended : false;
-          
-          return (
-            <button
-              key={option.value}
-              onClick={() => handleProviderSelect(option.value)}
-              className={`w-full p-4 rounded-xl text-left transition-all flex items-start gap-4 relative ${
-                isSelected ? 'ring-2 ring-offset-2' : 'hover:bg-black/5 dark:hover:bg-white/5'
-              } ${recommended && !isSelected ? 'border-2 border-green-500/50' : ''}`}
-              style={{
-                backgroundColor: isSelected ? 'var(--brand-primary)' : 'var(--bg-secondary)',
-                color: isSelected ? 'white' : 'var(--primary)',
-                border: isSelected ? 'none' : recommended ? undefined : '1px solid var(--border)',
-              }}
-            >
-              {badge && (
-                <span 
-                  className={`absolute -top-2 -right-2 px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                    badgeColor === 'green' 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-purple-500 text-white'
-                  }`}
-                >
-                  {badge}
-                </span>
-              )}
-              <div className={`p-2 rounded-lg ${isSelected ? 'bg-white/20' : recommended ? 'bg-green-500/10' : 'bg-black/5 dark:bg-white/10'}`}>
-                <Icon className={`w-5 h-5 ${recommended && !isSelected ? 'text-green-600' : ''}`} />
-              </div>
-              <div className="flex-1">
-                <div className="font-semibold flex items-center gap-2">
-                  {option.label}
-                  {recommended && !isSelected && (
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-500/10 text-green-600">
-                      Recommended
-                    </span>
-                  )}
-                </div>
-                <div className={`text-sm mt-0.5 ${isSelected ? 'opacity-80' : 'opacity-60'}`}>
-                  {option.description}
-                </div>
-              </div>
-              {isSelected && (
-                <CheckCircle2 className="w-5 h-5 mt-1" />
-              )}
-            </button>
-          );
-        })}
+      {/* Provider Selection by section */}
+      <div className="space-y-6">
+        {SECTIONS.map((section) => (
+          <div key={section.title} className="space-y-2">
+            <h4 className="text-xs uppercase tracking-wider font-semibold opacity-60" style={{ color: 'var(--secondary-text)' }}>
+              {section.title}
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {section.options.map((option) => {
+                const Icon = option.icon;
+                const isSelected = provider === option.value;
+                const badge = option.badge;
+                const badgeColor = option.badgeColor;
+                const recommended = option.recommended ?? false;
+
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => handleProviderSelect(option.value)}
+                    className={`w-full p-4 rounded-xl text-left transition-all flex items-start gap-4 relative ${
+                      isSelected ? 'ring-2 ring-offset-2' : 'hover:bg-black/5 dark:hover:bg-white/5'
+                    } ${recommended && !isSelected ? 'border-2 border-green-500/50' : ''}`}
+                    style={{
+                      backgroundColor: isSelected ? 'var(--accent)' : 'var(--bg-secondary)',
+                      color: isSelected ? 'white' : 'var(--primary-text)',
+                      border: isSelected ? 'none' : recommended ? undefined : '1px solid var(--border)',
+                    }}
+                  >
+                    {badge && (
+                      <span
+                        className={`absolute -top-2 -right-2 px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                          badgeColor === 'green' ? 'bg-green-500 text-white' : 'bg-purple-500 text-white'
+                        }`}
+                      >
+                        {badge}
+                      </span>
+                    )}
+                    <div
+                      className={`p-2 rounded-lg ${isSelected ? 'bg-white/20' : recommended ? 'bg-green-500/10' : 'bg-black/5 dark:bg-white/10'}`}
+                    >
+                      <Icon className={`w-5 h-5 ${recommended && !isSelected ? 'text-green-600' : ''}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold flex items-center gap-2">
+                        {option.label}
+                        {recommended && !isSelected && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 shrink-0">
+                            Recommended
+                          </span>
+                        )}
+                      </div>
+                      <div className={`text-sm mt-0.5 ${isSelected ? 'opacity-80' : 'opacity-60'}`}>
+                        {option.description}
+                      </div>
+                    </div>
+                    {isSelected && <CheckCircle2 className="w-5 h-5 mt-1 shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Cloud Provider Configuration (OpenAI, Anthropic, Google) */}
@@ -488,13 +476,13 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           {/* Connection Status */}
           <div className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: 'var(--bg)' }}>
             <div className="flex items-center gap-3">
-              <span className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+              <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                 Status:
               </span>
               {checkingOllama ? (
                 <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--secondary)' }} />
-                  <span className="text-xs" style={{ color: 'var(--secondary)' }}>Checking...</span>
+                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--secondary-text)' }} />
+                  <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>Checking...</span>
                 </div>
               ) : ollamaAvailable === true ? (
                 <div className="flex items-center gap-1.5 text-green-600">
@@ -507,7 +495,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                   <span className="text-sm font-medium">Not available</span>
                 </div>
               ) : (
-                <span className="text-sm" style={{ color: 'var(--secondary)' }}>Not verified</span>
+                <span className="text-sm" style={{ color: 'var(--secondary-text)' }}>Not verified</span>
               )}
             </div>
             <button
@@ -515,7 +503,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               disabled={checkingOllama}
               className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50 hover:opacity-80"
               style={{
-                backgroundColor: 'var(--brand-primary)',
+                backgroundColor: 'var(--accent)',
                 color: 'white',
               }}
             >
@@ -534,7 +522,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
 
           {/* Base URL */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               Ollama URL
             </label>
             <input
@@ -545,7 +533,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
               style={{
                 backgroundColor: 'var(--bg)',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
                 border: '1px solid var(--border)',
               }}
             />
@@ -554,14 +542,14 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           {/* Model Selector */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium" style={{ color: 'var(--primary)' }}>
+              <label className="block text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                 Chat model
               </label>
               <button
                 onClick={loadOllamaModels}
                 disabled={loadingModels}
                 className="text-xs font-medium transition-colors flex items-center gap-1 disabled:opacity-50 hover:opacity-80"
-                style={{ color: 'var(--brand-primary)' }}
+                style={{ color: 'var(--accent)' }}
               >
                 <RefreshCw className={`w-3 h-3 ${loadingModels ? 'animate-spin' : ''}`} />
                 Refresh list
@@ -569,8 +557,8 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             </div>
             {loadingModels ? (
               <div className="flex items-center gap-2 p-3 rounded-lg" style={{ backgroundColor: 'var(--bg)' }}>
-                <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--secondary)' }} />
-                <span className="text-sm" style={{ color: 'var(--secondary)' }}>Loading models...</span>
+                <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--secondary-text)' }} />
+                <span className="text-sm" style={{ color: 'var(--secondary-text)' }}>Loading models...</span>
               </div>
             ) : ollamaModels.length > 0 ? (
               <select
@@ -579,7 +567,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 cursor-pointer"
                 style={{
                   backgroundColor: 'var(--bg)',
-                  color: 'var(--primary)',
+                  color: 'var(--primary-text)',
                   border: '1px solid var(--border)',
                 }}
               >
@@ -598,7 +586,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
                 style={{
                   backgroundColor: 'var(--bg)',
-                  color: 'var(--primary)',
+                  color: 'var(--primary-text)',
                   border: '1px solid var(--border)',
                 }}
               />
@@ -607,7 +595,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
 
           {/* Embedding Model */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
+            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               Embedding model
             </label>
             {ollamaModels.length > 0 ? (
@@ -617,7 +605,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 cursor-pointer"
                 style={{
                   backgroundColor: 'var(--bg)',
-                  color: 'var(--primary)',
+                  color: 'var(--primary-text)',
                   border: '1px solid var(--border)',
                 }}
               >
@@ -636,12 +624,12 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
                 style={{
                   backgroundColor: 'var(--bg)',
-                  color: 'var(--primary)',
+                  color: 'var(--primary-text)',
                   border: '1px solid var(--border)',
                 }}
               />
             )}
-            <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary)' }}>
+            <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
               Used for semantic search. Recommended: mxbai-embed-large or nomic-embed-text
             </p>
           </div>

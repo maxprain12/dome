@@ -12,7 +12,7 @@ export default function URLWorkspaceClientWrapper() {
   if (!resourceId) {
     return (
       <div className="h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <p style={{ color: 'var(--secondary)' }}>No URL selected</p>
+        <p style={{ color: 'var(--secondary-text)' }}>No URL selected</p>
       </div>
     );
   }

@@ -89,225 +89,133 @@ export default function MetadataModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      style={{
-        background: 'rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(4px)',
-      }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-lg rounded-xl overflow-hidden"
-        style={{
-          background: 'var(--bg)',
-          border: '1px solid var(--border)',
-          boxShadow: 'var(--shadow-xl)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-5 py-4"
-          style={{ borderBottom: '1px solid var(--border)' }}
-        >
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--primary)' }}>
+    <div className="modal-overlay animate-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="metadata-modal-title">
+      <div className="modal-content max-w-lg animate-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 id="metadata-modal-title" className="text-lg font-semibold font-display" style={{ color: 'var(--primary-text)' }}>
             Resource Info
           </h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-md transition-colors"
-            style={{ color: 'var(--secondary)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-secondary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <X size={18} />
+          <button onClick={onClose} className="btn btn-ghost p-1.5 rounded-lg" aria-label="Close">
+            <X size={18} style={{ color: 'var(--secondary-text)' }} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-5 space-y-4">
-          {/* Title (Editable) */}
+        <div className="modal-body space-y-4">
           <div>
-            <label
-              className="block text-xs font-medium mb-1.5"
-              style={{ color: 'var(--secondary)' }}
-            >
+            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--secondary-text)' }}>
               Title
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-lg"
-              style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
-                color: 'var(--primary)',
-              }}
+              className="input"
             />
           </div>
 
-          {/* Type */}
           <div className="flex items-center gap-3">
-            <FileText size={16} style={{ color: 'var(--secondary)' }} />
+            <FileText size={16} style={{ color: 'var(--secondary-text)' }} />
             <div>
-              <p className="text-xs" style={{ color: 'var(--tertiary)' }}>
+              <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
                 Type
               </p>
-              <p className="text-sm font-medium capitalize" style={{ color: 'var(--primary)' }}>
+              <p className="text-sm font-medium capitalize" style={{ color: 'var(--primary-text)' }}>
                 {resource.type}
               </p>
             </div>
           </div>
 
-          {/* File Size */}
-          {resource.file_size && (
+          {resource.file_size ? (
             <div className="flex items-center gap-3">
-              <HardDrive size={16} style={{ color: 'var(--secondary)' }} />
+              <HardDrive size={16} style={{ color: 'var(--secondary-text)' }} />
               <div>
-                <p className="text-xs" style={{ color: 'var(--tertiary)' }}>
+                <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
                   File Size
                 </p>
-                <p className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                   {formatFileSize(resource.file_size)}
                 </p>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* File Hash */}
-          {resource.file_hash && (
+          {resource.file_hash ? (
             <div className="flex items-center gap-3">
-              <Hash size={16} style={{ color: 'var(--secondary)' }} />
+              <Hash size={16} style={{ color: 'var(--secondary-text)' }} />
               <div>
-                <p className="text-xs" style={{ color: 'var(--tertiary)' }}>
+                <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
                   Hash
                 </p>
                 <p
                   className="text-sm font-mono"
-                  style={{ color: 'var(--primary)' }}
+                  style={{ color: 'var(--primary-text)' }}
                 >
                   {resource.file_hash}
                 </p>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Original Filename */}
-          {resource.original_filename && (
+          {resource.original_filename ? (
             <div className="flex items-center gap-3">
-              <FileText size={16} style={{ color: 'var(--secondary)' }} />
+              <FileText size={16} style={{ color: 'var(--secondary-text)' }} />
               <div>
-                <p className="text-xs" style={{ color: 'var(--tertiary)' }}>
+                <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
                   Original Filename
                 </p>
-                <p className="text-sm" style={{ color: 'var(--primary)' }}>
+                <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
                   {resource.original_filename}
                 </p>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Created */}
           <div className="flex items-center gap-3">
-            <Calendar size={16} style={{ color: 'var(--secondary)' }} />
+            <Calendar size={16} style={{ color: 'var(--secondary-text)' }} />
             <div>
-              <p className="text-xs" style={{ color: 'var(--tertiary)' }}>
+              <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
                 Created
               </p>
-              <p className="text-sm" style={{ color: 'var(--primary)' }}>
+                <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
                 {formatDate(resource.created_at)}
               </p>
             </div>
           </div>
 
-          {/* Modified */}
           <div className="flex items-center gap-3">
-            <Calendar size={16} style={{ color: 'var(--secondary)' }} />
+            <Calendar size={16} style={{ color: 'var(--secondary-text)' }} />
             <div>
-              <p className="text-xs" style={{ color: 'var(--tertiary)' }}>
+              <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
                 Modified
               </p>
-              <p className="text-sm" style={{ color: 'var(--primary)' }}>
+                <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
                 {formatDate(resource.updated_at)}
               </p>
             </div>
           </div>
 
-          {/* File Actions */}
-          {(resource.internal_path || resource.file_path) && (
+          {(resource.internal_path || resource.file_path) ? (
             <div className="flex gap-2 pt-2">
-              <button
-                onClick={handleOpenFile}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors"
-                style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--primary)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--bg-tertiary)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--bg-secondary)';
-                }}
-              >
+              <button onClick={handleOpenFile} className="btn btn-secondary flex items-center gap-1.5">
                 <ExternalLink size={14} />
                 Open with default app
               </button>
-              <button
-                onClick={handleShowInFolder}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors"
-                style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--primary)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--bg-tertiary)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'var(--bg-secondary)';
-                }}
-              >
+              <button onClick={handleShowInFolder} className="btn btn-secondary flex items-center gap-1.5">
                 <FolderOpen size={14} />
                 Show in Finder
               </button>
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Footer */}
-        <div
-          className="flex items-center justify-end gap-3 px-5 py-4"
-          style={{ borderTop: '1px solid var(--border)' }}
-        >
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg transition-colors"
-            style={{ color: 'var(--secondary)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-secondary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
-          >
+        <div className="modal-footer">
+          <button onClick={onClose} className="btn btn-ghost">
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving || title === resource.title}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-            style={{
-              background: 'var(--brand-primary)',
-              color: 'white',
-            }}
+            className="btn btn-primary flex items-center gap-1.5"
           >
             {isSaving ? (
               <Loader2 className="w-4 h-4 animate-spin" />

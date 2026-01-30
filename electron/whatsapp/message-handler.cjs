@@ -5,7 +5,7 @@
  * Comandos soportados:
  * - /nota [texto] - Crear nota rápida
  * - /url [link] - Guardar enlace como recurso
- * - /pregunta [texto] - Consultar a Martin
+ * - /pregunta [texto] - Consultar a Many
  * - Enviar audio - Se transcribe y guarda como nota
  * - Enviar documento/imagen - Se guarda automáticamente
  */
@@ -27,7 +27,7 @@ let session = null;
 // Lista de números autorizados (allowlist)
 let _allowedNumbers = new Set();
 
-// Callback para procesar con Martin
+// Callback para procesar con Many
 let _martinCallback = null;
 
 /**
@@ -229,7 +229,7 @@ async function processTextMessage(message, text) {
     }
   }
 
-  // Mensaje de texto normal - preguntar a Martin
+  // Mensaje de texto normal - preguntar a Many
   return await askMartin(from, text);
 }
 
@@ -338,7 +338,7 @@ async function createUrlResource(from, url) {
  * @returns {string}
  */
 async function buildEnhancedSystemPrompt(context = {}) {
-  let prompt = `You are Martin, Dome's AI assistant. You are friendly, conversational, and always try to help clearly. You speak in natural English.
+  let prompt = `You are Many, Dome's AI assistant. You are friendly, conversational, and always try to help clearly. You speak in natural English.
 
 ## Your Role
 You help the user work with their knowledge resources: notes, PDFs, videos, audios, etc.
@@ -435,16 +435,16 @@ async function searchResourcesForContext(query) {
 }
 
 /**
- * Procesa una consulta a Martin
+ * Procesa una consulta a Many
  * @param {string} from - JID del remitente
- * @param {string} question - Pregunta para Martin
+ * @param {string} question - Pregunta para Many
  */
 async function askMartin(from, question) {
   try {
     // Notificar que estamos procesando
     await session.sendText(from, '🤔 Thinking...');
 
-    // Si hay un callback de Martin configurado, usarlo
+    // Si hay un callback de Many configurado, usarlo
     if (_martinCallback) {
       const response = await _martinCallback(question, { from });
       await session.sendText(from, response);
@@ -532,7 +532,7 @@ async function askMartin(from, question) {
     await session.sendText(from, 'Sorry, I can\'t process your question right now. Configure an AI provider in Dome (Settings > AI).');
     return { success: false, error: 'No AI provider available' };
   } catch (error) {
-    console.error('[WhatsApp Handler] Error asking Martin:', error);
+    console.error('[WhatsApp Handler] Error asking Many:', error);
     await session.sendText(from, `❌ Error: ${error.message}`);
     return { success: false, error: error.message };
   }
@@ -888,7 +888,7 @@ async function handleMessage(message, context = {}) {
 }
 
 /**
- * Configura el callback para procesar preguntas con Martin
+ * Configura el callback para procesar preguntas con Many
  * @param {Function} callback - Función que recibe (question, context) y devuelve respuesta
  */
 function setMartinCallback(callback) {

@@ -43,7 +43,7 @@ export default function ChatMessageGroup({
         ) : isUser ? (
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: 'var(--brand-primary)' }}
+            style={{ backgroundColor: 'var(--accent)' }}
           >
             <User size={16} className="text-white" />
           </div>

@@ -91,21 +91,21 @@ export default function UserMenu() {
       {/* Dropdown Menu */}
       {isOpen && (
         <div
-          className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg py-2 z-50"
+          className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg py-2 z-[110]"
           style={{
             backgroundColor: 'var(--bg)',
             border: '1px solid var(--border)',
           }}
         >
           {/* User Info */}
-          <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
-            <div className="flex items-center gap-3">
-              <UserAvatar name={name || 'User'} avatarData={avatarData} size="lg" />
+          <div className="px-4 py-3 border-b overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+            <div className="flex items-center gap-3 min-w-0">
+              <UserAvatar name={name || 'User'} avatarData={avatarData} size="lg" className="shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="font-medium truncate" style={{ color: 'var(--primary)' }}>
+                <div className="font-medium truncate" style={{ color: 'var(--primary-text)' }}>
                   {name || 'User'}
                 </div>
-                <div className="text-xs truncate" style={{ color: 'var(--secondary)' }}>
+                <div className="text-xs truncate" style={{ color: 'var(--secondary-text)' }}>
                   {email || 'No email set'}
                 </div>
               </div>
@@ -118,7 +118,7 @@ export default function UserMenu() {
               onClick={handleOpenSettings}
               className="w-full px-4 py-2 text-left flex items-center gap-3 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
               style={{
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';

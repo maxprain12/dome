@@ -1,16 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  Loader2,
-  AlertCircle,
-  ZoomIn,
-  ZoomOut,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  Maximize2,
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ChevronLeft, ChevronRight, ExternalLink, Maximize2 } from 'lucide-react';
 import type { Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
 import { loadPDFDocument, getPDFPage } from '@/lib/pdf/pdf-loader';
@@ -20,6 +11,9 @@ import PDFPage from './pdf/PDFPage';
 import AnnotationLayer from './pdf/AnnotationLayer';
 import AnnotationToolbar from './pdf/AnnotationToolbar';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
+import LoadingState from '../workspace/shared/LoadingState';
+import ErrorState from '../workspace/shared/ErrorState';
+import ZoomControls from '../workspace/shared/ZoomControls';
 
 interface PDFViewerProps {
   resource: Resource;
@@ -27,7 +21,7 @@ interface PDFViewerProps {
 
 type ZoomMode = 'fit-width' | 'fit-page' | 'custom';
 
-export default function PDFViewer({ resource }: PDFViewerProps) {
+function PDFViewerComponent({ resource }: PDFViewerProps) {
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [pages, setPages] = useState<PDFPageProxy[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -110,7 +104,7 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
     if (!containerRef.current || pages.length === 0) return;
 
     const container = containerRef.current;
-    const containerWidth = container.clientWidth - 32; // Account for padding
+    const containerWidth = container.clientWidth - 32;
 
     if (zoomMode === 'fit-width' && pages[currentPage - 1]) {
       const page = pages[currentPage - 1]!;
@@ -120,7 +114,7 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
     } else if (zoomMode === 'fit-page' && pages[currentPage - 1]) {
       const page = pages[currentPage - 1]!;
       const viewport = page.getViewport({ scale: 1.0 });
-      const containerHeight = container.clientHeight - 100; // Account for toolbars
+      const containerHeight = container.clientHeight - 100;
       const calculatedZoom = Math.min(
         (container.clientWidth - 32) / viewport.width,
         containerHeight / viewport.height
@@ -128,6 +122,59 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
       setZoom(calculatedZoom);
     }
   }, [zoomMode, currentPage, pages, containerRef]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (e.key) {
+        case 'PageUp':
+        case 'ArrowUp':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            handlePreviousPage();
+          }
+          break;
+        case 'PageDown':
+        case 'ArrowDown':
+          if (!e.ctrlKey && !e.metaKey) {
+            e.preventDefault();
+            handleNextPage();
+          }
+          break;
+        case 'Home':
+          e.preventDefault();
+          setCurrentPage(1);
+          break;
+        case 'End':
+          e.preventDefault();
+          if (pdfDocument) {
+            setCurrentPage(pdfDocument.numPages);
+          }
+          break;
+        case '+':
+        case '=':
+          e.preventDefault();
+          handleZoomIn();
+          break;
+        case '-':
+          e.preventDefault();
+          handleZoomOut();
+          break;
+        case '0':
+          e.preventDefault();
+          handleResetZoom();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [pdfDocument, currentPage]);
 
   const handleZoomIn = useCallback(() => {
     setZoomMode('custom');
@@ -167,21 +214,18 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
     async (annotation: Omit<PDFAnnotation, 'id'>) => {
       const serialized = serializeAnnotationForDB(annotation as PDFAnnotation);
       const interaction = await addInteraction('annotation', serialized.content, serialized.position_data, serialized.metadata);
-      
+
       // Index annotation in LanceDB if interaction was created successfully
       if (interaction && typeof window !== 'undefined' && window.electron) {
         try {
-          // Get resource info for metadata
           const resourceResult = await window.electron.db.resources.getById(resource.id);
           const resourceData = resourceResult.success ? resourceResult.data : null;
-          
-          // Determine text to index
-          const textToIndex = annotation.type === 'highlight' 
-            ? (annotation.selectedText || '') 
+
+          const textToIndex = annotation.type === 'highlight'
+            ? (annotation.selectedText || '')
             : (annotation.content || '');
-          
+
           if (textToIndex.trim()) {
-            // Index asynchronously to not block UI
             window.electron.vector.annotations.index({
               annotationId: interaction.id,
               resourceId: resource.id,
@@ -195,12 +239,10 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
               },
             }).catch((error) => {
               console.error('Error indexing annotation:', error);
-              // Don't throw - annotation is still saved in SQLite
             });
           }
         } catch (error) {
           console.error('Error preparing annotation for indexing:', error);
-          // Don't throw - annotation is still saved in SQLite
         }
       }
     },
@@ -210,14 +252,13 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
-        <AlertCircle className="w-12 h-12 mb-4 text-red-500" />
-        <p className="text-sm text-red-500 mb-4">{error}</p>
+        <ErrorState error={error} />
         {filePath && (
           <button
             onClick={handleOpenExternal}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm mt-4 transition-all hover:brightness-110"
             style={{
-              background: 'var(--brand-primary)',
+              background: 'var(--accent)',
               color: 'white',
             }}
           >
@@ -241,8 +282,8 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
           <button
             onClick={handlePreviousPage}
             disabled={currentPage <= 1}
-            className="p-2 rounded-md transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--secondary)' }}
+            className="p-2 rounded-md transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            style={{ color: 'var(--secondary-text)' }}
             onMouseEnter={(e) => {
               if (currentPage > 1) {
                 e.currentTarget.style.background = 'var(--bg-secondary)';
@@ -251,7 +292,7 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'transparent';
             }}
-            title="Previous page"
+            title="Previous page (Page Up)"
             aria-label="Previous page"
           >
             <ChevronLeft size={18} />
@@ -259,7 +300,7 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
 
           <span
             className="text-sm font-medium min-w-[100px] text-center"
-            style={{ color: 'var(--primary)' }}
+            style={{ color: 'var(--primary-text)' }}
           >
             {pdfDocument ? `${currentPage} / ${pdfDocument.numPages}` : '0 / 0'}
           </span>
@@ -267,8 +308,8 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
           <button
             onClick={handleNextPage}
             disabled={!pdfDocument || currentPage >= pdfDocument.numPages}
-            className="p-2 rounded-md transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--secondary)' }}
+            className="p-2 rounded-md transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            style={{ color: 'var(--secondary-text)' }}
             onMouseEnter={(e) => {
               if (pdfDocument && currentPage < pdfDocument.numPages) {
                 e.currentTarget.style.background = 'var(--bg-secondary)';
@@ -277,8 +318,8 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'transparent';
             }}
-            title="Next page"
-            aria-label="Página siguiente"
+            title="Next page (Page Down)"
+            aria-label="Next page"
           >
             <ChevronRight size={18} />
           </button>
@@ -286,53 +327,21 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
           <div className="w-px h-5 mx-2" style={{ background: 'var(--border)' }} />
 
           {/* Zoom Controls */}
-          <button
-            onClick={handleZoomOut}
-            className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--secondary)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-secondary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
-            title="Zoom out"
-            aria-label="Zoom out"
-          >
-            <ZoomOut size={18} />
-          </button>
-
-          <span
-            className="text-sm font-medium min-w-[60px] text-center cursor-pointer"
-            style={{ color: 'var(--primary)' }}
-            onClick={handleResetZoom}
-            title="Click to reset zoom"
-          >
-            {Math.round(zoom * 100)}%
-          </span>
-
-          <button
-            onClick={handleZoomIn}
-            className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--secondary)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-secondary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
-            title="Zoom in"
-            aria-label="Zoom in"
-          >
-            <ZoomIn size={18} />
-          </button>
+          <ZoomControls
+            zoom={zoom}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onReset={handleResetZoom}
+            minZoom={0.5}
+            maxZoom={3.0}
+          />
 
           <div className="w-px h-5 mx-2" style={{ background: 'var(--border)' }} />
 
           <button
             onClick={handleFitToPage}
-            className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--secondary)' }}
+            className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            style={{ color: 'var(--secondary-text)' }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'var(--bg-secondary)';
             }}
@@ -349,8 +358,8 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
         <div className="flex items-center gap-2">
           <button
             onClick={handleOpenExternal}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--secondary)' }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            style={{ color: 'var(--secondary-text)' }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'var(--bg-secondary)';
             }}
@@ -363,6 +372,11 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
             <ExternalLink size={16} />
             Open
           </button>
+
+          {/* Keyboard Shortcuts Hint */}
+          <span className="text-xs ml-2" style={{ color: 'var(--tertiary-text)' }}>
+            PgUp/PgDn: Navigate • +/-: Zoom • 0: Reset • Home/End: First/Last
+          </span>
         </div>
       </div>
 
@@ -380,7 +394,7 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
       <div ref={containerRef} className="flex-1 overflow-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--brand-primary)' }} />
+            <LoadingState message="Loading PDF..." />
           </div>
         ) : pages.length > 0 && pages[currentPage - 1] ? (
           <div className="flex flex-col items-center p-4">
@@ -403,3 +417,5 @@ export default function PDFViewer({ resource }: PDFViewerProps) {
     </div>
   );
 }
+
+export default React.memo(PDFViewerComponent);

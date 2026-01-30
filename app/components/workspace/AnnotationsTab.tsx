@@ -64,7 +64,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--brand-primary)' }} />
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     );
   }
@@ -116,7 +116,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
                 <div
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium mb-2"
                   style={{
-                    background: 'var(--brand-primary)',
+                    background: 'var(--accent)',
                     color: 'white',
                   }}
                 >
@@ -131,7 +131,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
                   className="p-2 rounded mb-2 text-sm italic"
                   style={{
                     background: 'rgba(14, 165, 233, 0.1)',
-                    borderLeft: '3px solid var(--brand-primary)',
+                    borderLeft: '3px solid var(--accent)',
                     color: 'var(--secondary)',
                   }}
                 >
@@ -143,7 +143,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
               {annotation.content && (
                 <p
                   className="text-sm whitespace-pre-wrap"
-                  style={{ color: 'var(--primary)' }}
+                  style={{ color: 'var(--primary-text)' }}
                 >
                   {annotation.content}
                 </p>

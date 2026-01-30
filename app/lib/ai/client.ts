@@ -717,7 +717,7 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
 
   const { resourceContext, toolsEnabled = false, location = 'workspace', includeDateTime = true } = opts;
 
-  let prompt = `You are Martin, Dome's AI assistant. You are friendly, conversational, and always try to help clearly. You speak in natural English.
+  let prompt = `You are Many, Dome's AI assistant. You are friendly, conversational, and always try to help clearly. You speak in natural English.
 
 ## Your Personality
 - Close and professional at the same time

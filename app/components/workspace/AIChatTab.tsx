@@ -37,7 +37,7 @@ const WEB_TOOLS: AnyAgentTool[] = [
   createWebFetchTool(),
 ];
 
-// All Martin tools including resource access
+// All Many tools including resource access
 const ALL_MARTIN_TOOLS: AnyAgentTool[] = createAllMartinTools();
 
 export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
@@ -333,7 +333,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
   if (isLoadingHistory) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--brand-primary)' }} />
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     );
   }
@@ -351,10 +351,10 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
             <div className="flex justify-center mb-4">
               <MartinAvatar size="lg" />
             </div>
-            <p className="text-base font-medium" style={{ color: 'var(--primary)' }}>
-              Hi, I'm Martin
+            <p className="text-base font-medium" style={{ color: 'var(--primary-text)' }}>
+              Hi, I'm Many
             </p>
-            <p className="text-sm mt-2 max-w-xs mx-auto" style={{ color: 'var(--secondary)' }}>
+            <p className="text-sm mt-2 max-w-xs mx-auto" style={{ color: 'var(--secondary-text)' }}>
               You can ask me questions about this resource, ask for summaries, or explore ideas together.
             </p>
             
@@ -374,7 +374,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
                   className="px-3 py-1.5 text-xs rounded-full border transition-colors hover:bg-black/5 dark:hover:bg-white/10"
                   style={{
                     borderColor: 'var(--border)',
-                    color: 'var(--secondary)',
+                    color: 'var(--secondary-text)',
                   }}
                 >
                   {prompt}
@@ -437,7 +437,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
               }`}
               style={{
                 border: toolsEnabled && resourceToolsEnabled ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border)',
-                color: toolsEnabled && resourceToolsEnabled ? undefined : 'var(--secondary)',
+                color: toolsEnabled && resourceToolsEnabled ? undefined : 'var(--secondary-text)',
               }}
               title={resourceToolsEnabled ? 'Resource access enabled' : 'Enable resource access'}
             >
@@ -451,7 +451,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
               }`}
               style={{
                 border: toolsEnabled ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--border)',
-                color: toolsEnabled ? undefined : 'var(--secondary)',
+                color: toolsEnabled ? undefined : 'var(--secondary-text)',
               }}
               title={toolsEnabled ? 'Tools enabled' : 'Enable tools'}
             >
@@ -465,7 +465,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
               }`}
               style={{
                 border: toolsEnabled ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--border)',
-                color: toolsEnabled ? undefined : 'var(--secondary)',
+                color: toolsEnabled ? undefined : 'var(--secondary-text)',
               }}
               title={toolsEnabled ? 'Tools enabled' : 'Enable tools'}
             >
@@ -492,7 +492,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
               style={{
                 backgroundColor: 'var(--bg-secondary)',
                 border: '1px solid var(--border)',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
                 minHeight: '48px',
                 maxHeight: '160px',
               }}
@@ -518,8 +518,8 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
               disabled={!inputValue.trim()}
               className="p-3 rounded-xl transition-all disabled:opacity-40 active:scale-95"
               style={{
-                backgroundColor: inputValue.trim() ? 'var(--brand-primary)' : 'var(--bg-secondary)',
-                color: inputValue.trim() ? 'white' : 'var(--secondary)',
+                backgroundColor: inputValue.trim() ? 'var(--accent)' : 'var(--bg-secondary)',
+                color: inputValue.trim() ? 'white' : 'var(--secondary-text)',
               }}
               title="Send message"
             >
@@ -528,7 +528,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
           )}
         </div>
         
-        <p className="text-[11px] mt-2 text-center opacity-50" style={{ color: 'var(--secondary)' }}>
+        <p className="text-[11px] mt-2 text-center opacity-50" style={{ color: 'var(--secondary-text)' }}>
           Enter to send · Shift+Enter for new line
         </p>
       </div>

@@ -255,7 +255,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <div className="animate-pulse" style={{ color: 'var(--secondary)' }}>Loading note...</div>
+        <div className="animate-pulse" style={{ color: 'var(--secondary-text)' }}>Loading note...</div>
       </div>
     );
   }
@@ -267,7 +267,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
         <button
           onClick={handleBack}
           className="px-4 py-2 rounded-md"
-          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--primary)' }}
+          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--primary-text)' }}
         >
           Go Back
         </button>
@@ -299,7 +299,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
             className="p-2 rounded-md hover:bg-opacity-80 transition-colors"
             style={{ backgroundColor: 'var(--bg-tertiary)' }}
           >
-            <ArrowLeft size={18} style={{ color: 'var(--primary)' }} />
+            <ArrowLeft size={18} style={{ color: 'var(--primary-text)' }} />
           </button>
           <input
             type="text"
@@ -307,11 +307,11 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
             onChange={(e) => setTitle(e.target.value)}
             onBlur={handleTitleBlur}
             className="text-lg font-semibold bg-transparent border-none outline-none"
-            style={{ color: 'var(--primary)' }}
+            style={{ color: 'var(--primary-text)' }}
             placeholder="Untitled Note"
           />
           {isSaving && (
-            <span className="text-xs" style={{ color: 'var(--secondary)' }}>Saving...</span>
+            <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>Saving...</span>
           )}
         </div>
 
@@ -320,8 +320,8 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
             onClick={() => setIsPanelOpen(!isPanelOpen)}
             className="p-2 rounded-md transition-colors"
             style={{
-              backgroundColor: isPanelOpen ? 'var(--brand-primary)' : 'var(--bg-tertiary)',
-              color: isPanelOpen ? 'white' : 'var(--primary)',
+              backgroundColor: isPanelOpen ? 'var(--accent)' : 'var(--bg-tertiary)',
+              color: isPanelOpen ? 'white' : 'var(--primary-text)',
             }}
           >
             <FileText size={18} />
@@ -330,7 +330,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
             className="p-2 rounded-md hover:bg-opacity-80 transition-colors"
             style={{ backgroundColor: 'var(--bg-tertiary)' }}
           >
-            <MoreVertical size={18} style={{ color: 'var(--primary)' }} />
+            <MoreVertical size={18} style={{ color: 'var(--primary-text)' }} />
           </button>
         </div>
       </header>
@@ -366,8 +366,8 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
                   onClick={() => setActiveTab(tab.id)}
                   className="flex-1 py-3 px-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
                   style={{
-                    color: activeTab === tab.id ? 'var(--brand-primary)' : 'var(--secondary)',
-                    borderBottom: activeTab === tab.id ? '2px solid var(--brand-primary)' : '2px solid transparent',
+                    color: activeTab === tab.id ? 'var(--accent)' : 'var(--secondary-text)',
+                    borderBottom: activeTab === tab.id ? '2px solid var(--accent)' : '2px solid transparent',
                   }}
                 >
                   <tab.icon size={14} />
@@ -380,11 +380,11 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
             <div className="flex-1 overflow-auto">
                 {activeTab === 'references' && (
                   <div className="p-4">
-                    <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary)' }}>
+                    <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
                       Linked Resources
                     </h3>
                     {references.length === 0 ? (
-                      <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+                      <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
                         No references yet. Use the Search tab to find and link resources.
                       </p>
                     ) : (
@@ -398,14 +398,14 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
                             <span>{getResourceIcon(ref.target?.type || '')}</span>
                             <span
                               className="flex-1 text-sm truncate"
-                              style={{ color: 'var(--primary)' }}
+                              style={{ color: 'var(--primary-text)' }}
                             >
                               {ref.target?.title || 'Unknown'}
                             </span>
                             <button
                               onClick={() => handleRemoveReference(ref.id)}
                               className="p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                              style={{ color: 'var(--secondary)' }}
+                              style={{ color: 'var(--secondary-text)' }}
                             >
                               <X size={14} />
                             </button>
@@ -418,11 +418,11 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
 
                 {activeTab === 'backlinks' && (
                   <div className="p-4">
-                    <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary)' }}>
+                    <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
                       Backlinks
                     </h3>
                     {backlinks.length === 0 ? (
-                      <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+                      <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
                         No other resources link to this note yet.
                       </p>
                     ) : (
@@ -440,7 +440,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
                             <span>{getResourceIcon(link.source?.type || '')}</span>
                             <span
                               className="flex-1 text-sm truncate"
-                              style={{ color: 'var(--primary)' }}
+                              style={{ color: 'var(--primary-text)' }}
                             >
                               {link.source?.title || link.source_title || 'Unknown'}
                             </span>
@@ -463,7 +463,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
                         className="flex-1 px-3 py-2 rounded-md text-sm"
                         style={{
                           backgroundColor: 'var(--bg-tertiary)',
-                          color: 'var(--primary)',
+                          color: 'var(--primary-text)',
                           border: '1px solid var(--border)',
                         }}
                       />
@@ -472,7 +472,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
                         disabled={isSearching}
                         className="px-3 py-2 rounded-md text-sm font-medium"
                         style={{
-                          backgroundColor: 'var(--brand-primary)',
+                          backgroundColor: 'var(--accent)',
                           color: 'white',
                           opacity: isSearching ? 0.5 : 1,
                         }}
@@ -483,7 +483,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
 
                     {searchResults.length > 0 && (
                       <div className="space-y-2">
-                        <h4 className="text-xs font-medium uppercase" style={{ color: 'var(--secondary)' }}>
+                        <h4 className="text-xs font-medium uppercase" style={{ color: 'var(--secondary-text)' }}>
                           Results
                         </h4>
                         {searchResults.map((result) => (
@@ -496,11 +496,11 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
                             <span>{getResourceIcon(result.type)}</span>
                             <span
                               className="flex-1 text-sm truncate"
-                              style={{ color: 'var(--primary)' }}
+                              style={{ color: 'var(--primary-text)' }}
                             >
                               {result.title}
                             </span>
-                            <Link2 size={14} style={{ color: 'var(--secondary)' }} />
+                            <Link2 size={14} style={{ color: 'var(--secondary-text)' }} />
                           </div>
                         ))}
                       </div>

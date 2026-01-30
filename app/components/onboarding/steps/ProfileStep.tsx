@@ -112,7 +112,7 @@ export default function ProfileStep({
     <div className="space-y-6">
       {/* Avatar Section */}
       <div>
-        <label className="block text-sm font-medium mb-3" style={{ color: 'var(--primary)' }}>
+        <label className="block text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
           Foto de perfil (opcional)
         </label>
         <div className="flex items-center gap-4">
@@ -122,7 +122,7 @@ export default function ProfileStep({
               onClick={handleChangeAvatar}
               className="absolute bottom-0 right-0 p-2 rounded-full text-white transition-transform hover:scale-110"
               style={{
-                backgroundColor: 'var(--brand-primary)',
+                backgroundColor: 'var(--accent)',
               }}
             >
               <Camera className="w-4 h-4" />
@@ -134,7 +134,7 @@ export default function ProfileStep({
               className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
                 border: '1px solid var(--border)',
               }}
             >
@@ -159,7 +159,7 @@ export default function ProfileStep({
 
       {/* Name */}
       <div>
-        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
+        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
           Nombre completo *
         </label>
         <input
@@ -170,7 +170,7 @@ export default function ProfileStep({
           className="w-full px-4 py-2.5 rounded-lg text-sm"
           style={{
             backgroundColor: 'var(--bg)',
-            color: 'var(--primary)',
+            color: 'var(--primary-text)',
             border: errors.name ? '1px solid var(--error)' : '1px solid var(--border)',
           }}
           autoFocus
@@ -180,7 +180,7 @@ export default function ProfileStep({
 
       {/* Email */}
       <div>
-        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary)' }}>
+        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
           Email *
         </label>
         <input
@@ -194,7 +194,7 @@ export default function ProfileStep({
           className="w-full px-4 py-2.5 rounded-lg text-sm"
           style={{
             backgroundColor: 'var(--bg)',
-            color: 'var(--primary)',
+            color: 'var(--primary-text)',
             border: errors.email ? '1px solid var(--error)' : '1px solid var(--border)',
           }}
         />

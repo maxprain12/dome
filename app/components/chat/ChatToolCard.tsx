@@ -81,7 +81,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
             <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />
           )}
           {toolCall.status === 'running' && (
-            <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--brand-primary)' }} />
+            <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--accent)' }} />
           )}
           {toolCall.status === 'success' && (
             <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -93,7 +93,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
 
         {/* Icon and label */}
         <Icon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--secondary)' }} />
-        <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--primary)' }}>
+        <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--primary-text)' }}>
           {label}
         </span>
 

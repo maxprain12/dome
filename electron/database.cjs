@@ -613,7 +613,7 @@ function runMigrations(db) {
       // Gmail tables removed - functionality deprecated
       // Tables are kept for backward compatibility with existing databases
 
-      // Martin memory table - stores conversation context and learnings
+      // Many memory table - stores conversation context and learnings
       db.exec(`
         CREATE TABLE IF NOT EXISTS martin_memory (
           id TEXT PRIMARY KEY,

@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, StickyNote, MessageSquare, Info, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { ArrowLeft, StickyNote, MessageSquare, Info, PanelRightClose, PanelRightOpen, FileText, Video, Music, Image, FileEdit, File, Folder } from 'lucide-react';
 import { type Resource } from '@/types';
 
 interface WorkspaceHeaderProps {
@@ -19,14 +19,15 @@ export default function WorkspaceHeader({
   onBack,
 }: WorkspaceHeaderProps) {
   const getTypeIcon = () => {
+    const iconProps = { size: 18, className: 'shrink-0' };
     switch (resource.type) {
-      case 'pdf': return '📄';
-      case 'video': return '🎬';
-      case 'audio': return '🎵';
-      case 'image': return '🖼️';
-      case 'note': return '📝';
-      case 'document': return '📑';
-      default: return '📁';
+      case 'pdf': return <FileText {...iconProps} />;
+      case 'video': return <Video {...iconProps} />;
+      case 'audio': return <Music {...iconProps} />;
+      case 'image': return <Image {...iconProps} />;
+      case 'note': return <FileEdit {...iconProps} />;
+      case 'document': return <File {...iconProps} />;
+      default: return <Folder {...iconProps} />;
     }
   };
 
@@ -46,30 +47,21 @@ export default function WorkspaceHeader({
 
         <button
           onClick={onBack}
-          className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-          style={{
-            background: 'transparent',
-            color: 'var(--secondary)',
-          }}
+          className="p-2 rounded-lg transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          style={{ background: 'transparent', color: 'var(--secondary-text)' }}
           aria-label="Volver"
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--bg-secondary)';
-            e.currentTarget.style.color = 'var(--primary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'var(--secondary)';
-          }}
           title="Back to Home"
         >
           <ArrowLeft size={18} />
         </button>
 
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{getTypeIcon()}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <div style={{ color: 'var(--secondary-text)' }}>
+            {getTypeIcon()}
+          </div>
           <h1
-            className="text-sm font-medium truncate max-w-md"
-            style={{ color: 'var(--primary)' }}
+            className="text-sm font-medium truncate max-w-md font-display"
+            style={{ color: 'var(--primary-text)' }}
             title={resource.title}
           >
             {resource.title}
@@ -77,23 +69,11 @@ export default function WorkspaceHeader({
         </div>
       </div>
 
-      {/* Right section */}
       <div className="flex items-center gap-2 app-region-no-drag">
         <button
           onClick={onShowMetadata}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-          style={{
-            background: 'transparent',
-            color: 'var(--secondary)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--bg-secondary)';
-            e.currentTarget.style.color = 'var(--primary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'var(--secondary)';
-          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          style={{ background: 'transparent', color: 'var(--secondary-text)' }}
           title="View metadata"
           aria-label="Ver metadatos"
         >
@@ -103,18 +83,10 @@ export default function WorkspaceHeader({
 
         <button
           onClick={onToggleSidePanel}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           style={{
             background: sidePanelOpen ? 'var(--bg-secondary)' : 'transparent',
-            color: sidePanelOpen ? 'var(--primary)' : 'var(--secondary)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--bg-secondary)';
-            e.currentTarget.style.color = 'var(--primary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = sidePanelOpen ? 'var(--bg-secondary)' : 'transparent';
-            e.currentTarget.style.color = sidePanelOpen ? 'var(--primary)' : 'var(--secondary)';
+            color: sidePanelOpen ? 'var(--primary-text)' : 'var(--secondary-text)',
           }}
           title={sidePanelOpen ? 'Hide panel' : 'Show panel'}
           aria-label={sidePanelOpen ? 'Ocultar panel' : 'Mostrar panel'}

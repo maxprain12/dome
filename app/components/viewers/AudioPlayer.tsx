@@ -1,15 +1,20 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2, AlertCircle, Play, Pause, Volume2, VolumeX, Rewind, FastForward, Music, Bookmark } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Rewind, FastForward, Music } from 'lucide-react';
 import { type Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
+import LoadingState from '../workspace/shared/LoadingState';
+import ErrorState from '../workspace/shared/ErrorState';
+import MediaControls from '../workspace/shared/MediaControls';
+import SeekBar from '../workspace/shared/SeekBar';
+import AnnotationInput from '../workspace/shared/AnnotationInput';
 
 interface AudioPlayerProps {
   resource: Resource;
 }
 
-export default function AudioPlayer({ resource }: AudioPlayerProps) {
+function AudioPlayerComponent({ resource }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,10 +25,11 @@ export default function AudioPlayer({ resource }: AudioPlayerProps) {
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showAnnotationInput, setShowAnnotationInput] = useState(false);
-  const [annotationContent, setAnnotationContent] = useState('');
+  const [playbackRate, setPlaybackRate] = useState(1);
 
   const { addInteraction } = useInteractions(resource.id);
 
+  // Load audio file
   useEffect(() => {
     async function loadAudio() {
       if (typeof window === 'undefined' || !window.electron) return;
@@ -32,7 +38,6 @@ export default function AudioPlayer({ resource }: AudioPlayerProps) {
         setIsLoading(true);
         setError(null);
 
-        // Get the file path to use as source
         const result = await window.electron.resource.getFilePath(resource.id);
 
         if (result.success && result.data) {
@@ -50,6 +55,46 @@ export default function AudioPlayer({ resource }: AudioPlayerProps) {
 
     loadAudio();
   }, [resource.id]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (e.key.toLowerCase()) {
+        case ' ':
+          e.preventDefault();
+          handlePlayPause();
+          break;
+        case 'm':
+          e.preventDefault();
+          handleToggleMute();
+          break;
+        case 'arrowleft':
+          e.preventDefault();
+          handleSkip(-10);
+          break;
+        case 'arrowright':
+          e.preventDefault();
+          handleSkip(10);
+          break;
+        case 'arrowup':
+          e.preventDefault();
+          handleVolumeChange(Math.min(1, volume + 0.1));
+          break;
+        case 'arrowdown':
+          e.preventDefault();
+          handleVolumeChange(Math.max(0, volume - 0.1));
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [volume, isPlaying]);
 
   const handlePlayPause = useCallback(() => {
     if (!audioRef.current) return;
@@ -71,9 +116,8 @@ export default function AudioPlayer({ resource }: AudioPlayerProps) {
     setDuration(audioRef.current.duration);
   }, []);
 
-  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeek = useCallback((time: number) => {
     if (!audioRef.current) return;
-    const time = parseFloat(e.target.value);
     audioRef.current.currentTime = time;
     setCurrentTime(time);
   }, []);
@@ -83,9 +127,8 @@ export default function AudioPlayer({ resource }: AudioPlayerProps) {
     audioRef.current.currentTime = Math.max(0, Math.min(audioRef.current.currentTime + seconds, duration));
   }, [duration]);
 
-  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVolumeChange = useCallback((vol: number) => {
     if (!audioRef.current) return;
-    const vol = parseFloat(e.target.value);
     audioRef.current.volume = vol;
     setVolume(vol);
     setIsMuted(vol === 0);
@@ -103,17 +146,18 @@ export default function AudioPlayer({ resource }: AudioPlayerProps) {
     }
   }, [isMuted, volume]);
 
-  const handleCreateAnnotation = useCallback(async () => {
-    if (!annotationContent.trim()) return;
-
-    await addInteraction('annotation', annotationContent.trim(), {
+  const handleSaveAnnotation = useCallback(async (content: string) => {
+    await addInteraction('annotation', content, {
       type: 'audio_timestamp',
       timestamp: currentTime,
     });
+  }, [currentTime, addInteraction]);
 
-    setAnnotationContent('');
-    setShowAnnotationInput(false);
-  }, [annotationContent, currentTime, addInteraction]);
+  const handlePlaybackRateChange = useCallback((rate: number) => {
+    if (!audioRef.current) return;
+    audioRef.current.playbackRate = rate;
+    setPlaybackRate(rate);
+  }, []);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -122,12 +166,7 @@ export default function AudioPlayer({ resource }: AudioPlayerProps) {
   };
 
   if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8">
-        <AlertCircle className="w-12 h-12 mb-4 text-red-500" />
-        <p className="text-sm text-red-500">{error}</p>
-      </div>
-    );
+    return <ErrorState error={error} />;
   }
 
   return (
@@ -150,16 +189,14 @@ export default function AudioPlayer({ resource }: AudioPlayerProps) {
       {/* Visual Container */}
       <div className="w-full max-w-md">
         {isLoading && !audioUrl ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--brand-primary)' }} />
-          </div>
+          <LoadingState message="Loading audio..." />
         ) : (
           <>
             {/* Album Art Placeholder */}
             <div
               className="aspect-square rounded-xl mb-8 flex items-center justify-center"
               style={{
-                background: 'linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%)',
+                background: 'linear-gradient(135deg, var(--accent) 0%, var(--secondary) 100%)',
               }}
             >
               <Music className="w-24 h-24 text-white opacity-50" />
@@ -168,171 +205,107 @@ export default function AudioPlayer({ resource }: AudioPlayerProps) {
             {/* Title */}
             <h2
               className="text-xl font-semibold text-center mb-2 truncate"
-              style={{ color: 'var(--primary)' }}
+              style={{ color: 'var(--primary-text)' }}
             >
               {resource.title}
             </h2>
-            <p className="text-sm text-center mb-6" style={{ color: 'var(--secondary)' }}>
+            <p className="text-sm text-center mb-6" style={{ color: 'var(--secondary-text)' }}>
               {resource.original_filename || 'Audio file'}
             </p>
 
             {/* Progress Bar */}
             <div className="mb-4">
-              <input
-                type="range"
-                min={0}
-                max={duration || 100}
-                value={currentTime}
-                onChange={handleSeek}
-                className="w-full h-2 rounded-full appearance-none cursor-pointer"
-                style={{
-                  background: `linear-gradient(to right, var(--brand-primary) 0%, var(--brand-primary) ${
-                    (currentTime / duration) * 100
-                  }%, var(--border) ${(currentTime / duration) * 100}%, var(--border) 100%)`,
-                }}
+              <SeekBar
+                currentTime={currentTime}
+                duration={duration}
+                onSeek={handleSeek}
+                formatTime={formatTime}
               />
-              <div className="flex justify-between mt-1">
-                <span className="text-xs" style={{ color: 'var(--secondary)' }}>
-                  {formatTime(currentTime)}
-                </span>
-                <span className="text-xs" style={{ color: 'var(--secondary)' }}>
-                  {formatTime(duration)}
-                </span>
-              </div>
             </div>
 
             {/* Controls */}
             <div className="flex items-center justify-center gap-4 mb-6">
               <button
                 onClick={() => handleSkip(-10)}
-                className="p-3 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-                style={{ color: 'var(--secondary)' }}
+                className="p-3 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                style={{ color: 'var(--secondary-text)' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'var(--bg-tertiary)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = 'transparent';
                 }}
-                title="Rewind 10s"
-                aria-label="Retroceder 10 segundos"
+                title="Rewind 10s (←)"
+                aria-label="Rewind 10 seconds"
               >
                 <Rewind size={24} />
               </button>
 
-              <button
-                onClick={handlePlayPause}
-                className="p-4 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-                style={{
-                  background: 'var(--brand-primary)',
-                  color: 'white',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.filter = 'brightness(1.1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.filter = 'brightness(1)';
-                }}
-                aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
-              >
-                {isPlaying ? <Pause size={28} /> : <Play size={28} className="ml-1" />}
-              </button>
+              <MediaControls
+                isPlaying={isPlaying}
+                isMuted={isMuted}
+                volume={volume}
+                onPlayPause={handlePlayPause}
+                onToggleMute={handleToggleMute}
+                onVolumeChange={handleVolumeChange}
+              />
 
               <button
                 onClick={() => handleSkip(10)}
-                className="p-3 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-                style={{ color: 'var(--secondary)' }}
+                className="p-3 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                style={{ color: 'var(--secondary-text)' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'var(--bg-tertiary)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = 'transparent';
                 }}
-                title="Forward 10s"
-                aria-label="Avanzar 10 segundos"
+                title="Forward 10s (→)"
+                aria-label="Forward 10 seconds"
               >
                 <FastForward size={24} />
               </button>
             </div>
 
-            {/* Volume & Annotation */}
+            {/* Playback Speed & Annotation */}
             <div className="flex items-center justify-between">
+              {/* Playback Speed */}
               <div className="flex items-center gap-2">
-                <button
-                  onClick={handleToggleMute}
-                  className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-                  style={{ color: 'var(--secondary)' }}
-                  aria-label={isMuted ? 'Activar sonido' : 'Silenciar'}
-                >
-                  {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  value={isMuted ? 0 : volume}
-                  onChange={handleVolumeChange}
-                  className="w-24 h-1.5 rounded-full appearance-none cursor-pointer"
+                <select
+                  value={playbackRate}
+                  onChange={(e) => handlePlaybackRateChange(parseFloat(e.target.value))}
+                  className="px-2 py-1 text-sm rounded"
                   style={{
-                    background: `linear-gradient(to right, var(--brand-primary) 0%, var(--brand-primary) ${
-                      (isMuted ? 0 : volume) * 100
-                    }%, var(--border) ${(isMuted ? 0 : volume) * 100}%, var(--border) 100%)`,
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--primary-text)',
                   }}
-                />
+                  aria-label="Playback speed"
+                >
+                  <option value={0.5}>0.5x</option>
+                  <option value={0.75}>0.75x</option>
+                  <option value={1}>1x</option>
+                  <option value={1.25}>1.25x</option>
+                  <option value={1.5}>1.5x</option>
+                  <option value={2}>2x</option>
+                </select>
               </div>
 
-              {showAnnotationInput ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={annotationContent}
-                    onChange={(e) => setAnnotationContent(e.target.value)}
-                    placeholder="Note at this timestamp..."
-                    className="px-2 py-1 text-sm rounded"
-                    style={{
-                      background: 'var(--bg)',
-                      border: '1px solid var(--border)',
-                      color: 'var(--primary)',
-                      width: '180px',
-                    }}
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleCreateAnnotation();
-                      if (e.key === 'Escape') setShowAnnotationInput(false);
-                    }}
-                  />
-                  <button
-                    onClick={handleCreateAnnotation}
-                    className="px-2 py-1 text-sm rounded"
-                    style={{
-                      background: 'var(--brand-primary)',
-                      color: 'white',
-                    }}
-                  >
-                    Save
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowAnnotationInput(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-                  style={{
-                    color: 'var(--secondary)',
-                    border: '1px solid var(--border)',
-                  }}
-                  aria-label="Agregar nota"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--bg-tertiary)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                  }}
-                  title="Add annotation at current time"
-                >
-                  <Bookmark size={14} />
-                  Add Note
-                </button>
-              )}
+              {/* Annotation Input */}
+              <AnnotationInput
+                isOpen={showAnnotationInput}
+                onClose={() => setShowAnnotationInput(!showAnnotationInput)}
+                onSave={handleSaveAnnotation}
+                currentTime={currentTime}
+                placeholder="Note at this timestamp..."
+              />
+            </div>
+
+            {/* Keyboard Shortcuts Hint */}
+            <div className="mt-4 text-center">
+              <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+                Space: Play/Pause • M: Mute • ←/→: Skip • ↑/↓: Volume
+              </p>
             </div>
           </>
         )}
@@ -340,3 +313,5 @@ export default function AudioPlayer({ resource }: AudioPlayerProps) {
     </div>
   );
 }
+
+export default React.memo(AudioPlayerComponent);

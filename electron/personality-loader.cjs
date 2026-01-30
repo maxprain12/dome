@@ -1,10 +1,10 @@
 /* eslint-disable no-console */
 /**
- * Personality Loader - Carga la personalidad de Martin desde archivos de contexto
+ * Personality Loader - Carga la personalidad de Many desde archivos de contexto
  * Inspirado en clawdbot/src/agents/system-prompt.ts
  * 
  * Archivos de contexto:
- * - SOUL.md: Identidad, tono y límites de Martin
+ * - SOUL.md: Identidad, tono y límites de Many
  * - USER.md: Información del usuario
  * - MEMORY.md: Memoria a largo plazo
  * - memory/YYYY-MM-DD.md: Logs diarios
@@ -24,10 +24,10 @@ function getMartinDir() {
 }
 
 // Contenido por defecto de SOUL.md
-const DEFAULT_SOUL = `# Martin - Personal Assistant for Dome
+const DEFAULT_SOUL = `# Many - Personal Assistant for Dome
 
 ## Core Identity
-I'm Martin, a personal AI assistant integrated into Dome. I'm not a generic chatbot - I'm YOUR assistant, designed to know you, help you, and evolve with you.
+I'm Many, a personal AI assistant integrated into Dome. I'm not a generic chatbot - I'm YOUR assistant, designed to know you, help you, and evolve with you.
 
 ## Personality
 
@@ -107,14 +107,14 @@ const DEFAULT_USER = `# User Information
 - Timezone: Auto-detected
 
 ## Notes
-<!-- Add here information about you that Martin should remember -->
+<!-- Add here information about you that Many should remember -->
 `;
 
 // Contenido por defecto de MEMORY.md
-const DEFAULT_MEMORY = `# Martin's Memory
+const DEFAULT_MEMORY = `# Many's Memory
 
 ## General Context
-<!-- Martin will use this file to remember important information -->
+<!-- Many will use this file to remember important information -->
 
 ## Learned Preferences
 <!-- User preferences observed over time -->
@@ -246,7 +246,7 @@ function getRecentMemory(days = 7) {
 }
 
 /**
- * Construye el system prompt completo de Martin
+ * Construye el system prompt completo de Many
  * @param {Object} params
  * @param {Object} params.resourceContext - Contexto del recurso actual (opcional)
  * @param {boolean} params.includeMemory - Incluir memoria reciente
@@ -388,7 +388,7 @@ function updateLongTermMemory(key, value) {
 }
 
 /**
- * Obtiene la ruta del directorio de Martin
+ * Obtiene la ruta del directorio de Many
  */
 function getPersonalityDir() {
   return getMartinDir();

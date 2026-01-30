@@ -12,7 +12,7 @@ export default function NoteWorkspaceClientWrapper() {
   if (!resourceId) {
     return (
       <div className="h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <p style={{ color: 'var(--secondary)' }}>No note selected</p>
+        <p style={{ color: 'var(--secondary-text)' }}>No note selected</p>
       </div>
     );
   }

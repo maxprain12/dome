@@ -78,7 +78,7 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--brand-primary)' }} />
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     );
   }
@@ -104,7 +104,7 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
             style={{
               background: 'var(--bg-secondary)',
               border: '1px solid var(--border)',
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               minHeight: '60px',
             }}
             onKeyDown={(e) => {
@@ -118,7 +118,7 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
             disabled={!newNote.trim() || isAdding}
             className="p-2 rounded-md transition-colors self-end disabled:opacity-50"
             style={{
-              background: 'var(--brand-primary)',
+              background: 'var(--accent)',
               color: 'white',
             }}
             title="Add note (⌘+Enter)"
@@ -161,8 +161,8 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
                     className="w-full p-2 text-sm rounded-md resize-none"
                     style={{
                       background: 'var(--bg)',
-                      border: '1px solid var(--brand-primary)',
-                      color: 'var(--primary)',
+                      border: '1px solid var(--accent)',
+                      color: 'var(--primary-text)',
                       minHeight: '80px',
                     }}
                     autoFocus
@@ -178,7 +178,7 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
                     <button
                       onClick={handleSaveEdit}
                       className="p-1.5 rounded-md transition-colors"
-                      style={{ color: 'var(--brand-primary)' }}
+                      style={{ color: 'var(--accent)' }}
                     >
                       <Check size={16} />
                     </button>
@@ -189,7 +189,7 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
                 <>
                   <p
                     className="text-sm whitespace-pre-wrap"
-                    style={{ color: 'var(--primary)' }}
+                    style={{ color: 'var(--primary-text)' }}
                   >
                     {note.content}
                   </p>

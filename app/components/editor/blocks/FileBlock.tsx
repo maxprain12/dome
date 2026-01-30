@@ -79,17 +79,17 @@ export function FileBlock({ node }: FileBlockProps) {
             height: '40px',
             borderRadius: 'var(--radius-sm)',
             backgroundColor: 'var(--bg-tertiary)',
-            color: 'var(--primary)',
+            color: 'var(--primary-text)',
           }}
         >
           <File size={20} />
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ color: 'var(--primary)', fontSize: '14px', fontWeight: 500 }}>
+          <div style={{ color: 'var(--primary-text)', fontSize: '14px', fontWeight: 500 }}>
             {filename}
           </div>
           {size && (
-            <div style={{ color: 'var(--secondary)', fontSize: '12px', marginTop: '2px' }}>
+            <div style={{ color: 'var(--secondary-text)', fontSize: '12px', marginTop: '2px' }}>
               {formatFileSize(size)}
             </div>
           )}

@@ -180,7 +180,7 @@ export function createDefaultTools(config?: DefaultToolsConfig): AnyAgentTool[] 
 }
 
 /**
- * Create all available tools for the Martin agent.
+ * Create all available tools for the Many agent.
  * This includes web, memory, resource, and context tools.
  */
 export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[] {

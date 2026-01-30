@@ -20,7 +20,7 @@ function ProcessingStatusBadge({ status }: { status?: string }) {
 
   const statusConfig = {
     pending: { icon: Loader2, color: 'var(--warning)', label: 'Pending', spinning: false },
-    processing: { icon: Loader2, color: 'var(--brand-primary)', label: 'Processing', spinning: true },
+    processing: { icon: Loader2, color: 'var(--accent)', label: 'Processing', spinning: true },
     failed: { icon: AlertCircle, color: 'var(--error)', label: 'Failed', spinning: false },
   };
 
@@ -131,7 +131,7 @@ export default memo(function ResourceCard({
   const getTypeColor = () => {
     switch (resource.type) {
       case 'note':
-        return 'var(--brand-primary)';
+        return 'var(--accent)';
       case 'image':
         return 'var(--brand-accent)';
       case 'video':
@@ -282,7 +282,7 @@ export default memo(function ResourceCard({
           }
 
           .resource-card-list:hover {
-            border-color: var(--brand-primary);
+            border-color: var(--accent);
             background: var(--bg-hover);
           }
 
@@ -309,7 +309,7 @@ export default memo(function ResourceCard({
           .list-title {
             font-size: 14px;
             font-weight: 500;
-            color: var(--primary);
+            color: var(--primary-text);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -321,7 +321,7 @@ export default memo(function ResourceCard({
             gap: 6px;
             margin-top: 2px;
             font-size: 12px;
-            color: var(--tertiary);
+            color: var(--tertiary-text);
           }
 
           .list-type {
@@ -330,7 +330,7 @@ export default memo(function ResourceCard({
 
           .list-snippet {
             font-size: 11px;
-            color: var(--secondary);
+            color: var(--secondary-text);
             margin-top: 4px;
             white-space: nowrap;
             overflow: hidden;
@@ -353,14 +353,14 @@ export default memo(function ResourceCard({
             background: transparent;
             border: none;
             border-radius: var(--radius-sm);
-            color: var(--secondary);
+            color: var(--secondary-text);
             cursor: pointer;
             transition: all var(--transition-fast);
           }
 
           .action-btn:hover {
             background: var(--bg-tertiary);
-            color: var(--primary);
+            color: var(--primary-text);
           }
 
           .action-btn.delete:hover {
@@ -469,7 +469,7 @@ export default memo(function ResourceCard({
         }
 
         .resource-card-grid:hover {
-          border-color: var(--brand-primary);
+          border-color: var(--accent);
           transform: translateY(-2px);
           box-shadow: var(--shadow-md);
         }
@@ -516,7 +516,7 @@ export default memo(function ResourceCard({
 
         .card-preview :global(.content-preview p) {
           font-size: 12px;
-          color: var(--secondary);
+          color: var(--secondary-text);
           line-height: 1.5;
           display: -webkit-box;
           -webkit-line-clamp: 5;
@@ -558,7 +558,7 @@ export default memo(function ResourceCard({
         .card-title {
           font-size: 13px;
           font-weight: 500;
-          color: var(--primary);
+          color: var(--primary-text);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -566,13 +566,13 @@ export default memo(function ResourceCard({
 
         .card-date {
           font-size: 11px;
-          color: var(--tertiary);
+          color: var(--tertiary-text);
           margin-top: 2px;
         }
 
         .card-snippet {
           font-size: 11px;
-          color: var(--secondary);
+          color: var(--secondary-text);
           margin-top: 4px;
           white-space: nowrap;
           overflow: hidden;
@@ -594,14 +594,14 @@ export default memo(function ResourceCard({
           background: var(--bg-tertiary);
           border: none;
           border-radius: var(--radius-sm);
-          color: var(--secondary);
+          color: var(--secondary-text);
           cursor: pointer;
           transition: all var(--transition-fast);
         }
 
         .menu-btn:hover {
           background: var(--bg-hover);
-          color: var(--primary);
+          color: var(--primary-text);
         }
 
         .dropdown-menu {
@@ -636,7 +636,7 @@ export default memo(function ResourceCard({
           background: transparent;
           border: none;
           border-radius: var(--radius-md);
-          color: var(--primary);
+          color: var(--primary-text);
           font-size: 13px;
           font-weight: 500;
           cursor: pointer;

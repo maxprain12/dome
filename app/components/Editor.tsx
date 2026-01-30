@@ -99,7 +99,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().toggleBold().run()}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('bold') ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -121,7 +121,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().toggleItalic().run()}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('italic') ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -143,7 +143,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().toggleStrike().run()}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('strike') ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -165,7 +165,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().toggleCode().run()}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('code') ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -187,7 +187,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().toggleHighlight().run()}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('highlight') ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -212,7 +212,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('heading', { level: 1 }) ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -234,7 +234,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('heading', { level: 2 }) ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -256,7 +256,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('heading', { level: 3 }) ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -281,7 +281,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().toggleBulletList().run()}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('bulletList') ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -303,7 +303,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().toggleOrderedList().run()}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('orderedList') ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -325,7 +325,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().toggleBlockquote().run()}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('blockquote') ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -355,7 +355,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             }}
             className="p-2 rounded transition-colors"
             style={{
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               background: editor.isActive('link') ? 'var(--bg-hover)' : 'transparent',
             }}
             onMouseEnter={(e) => {
@@ -381,7 +381,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
               }
             }}
             className="p-2 rounded transition-colors"
-            style={{ color: 'var(--primary)' }}
+            style={{ color: 'var(--primary-text)' }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'var(--bg-hover)';
             }}
@@ -400,7 +400,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().undo().run()}
             disabled={!editor.can().undo()}
             className="p-2 rounded transition-colors disabled:opacity-50"
-            style={{ color: 'var(--primary)' }}
+            style={{ color: 'var(--primary-text)' }}
             onMouseEnter={(e) => {
               if (!e.currentTarget.disabled) {
                 e.currentTarget.style.background = 'var(--bg-hover)';
@@ -418,7 +418,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
             onClick={() => editor.chain().focus().redo().run()}
             disabled={!editor.can().redo()}
             className="p-2 rounded transition-colors disabled:opacity-50"
-            style={{ color: 'var(--primary)' }}
+            style={{ color: 'var(--primary-text)' }}
             onMouseEnter={(e) => {
               if (!e.currentTarget.disabled) {
                 e.currentTarget.style.background = 'var(--bg-hover)';
@@ -437,7 +437,7 @@ export default function Editor({ content = '', onChange, editable = true, placeh
       <EditorContent 
         editor={editor} 
         className="min-h-[300px]" 
-        style={{ background: 'var(--bg)', color: 'var(--primary)' }}
+        style={{ background: 'var(--bg)', color: 'var(--primary-text)' }}
       />
     </div>
   );

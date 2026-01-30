@@ -115,18 +115,18 @@ export default function Page() {
   if (!isInitialized) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center"
+        className="min-h-screen flex items-center justify-center animate-in"
         style={{ background: 'var(--bg)' }}
       >
-        <div className="text-center">
-          <div className="text-lg font-medium mb-2" style={{ color: 'var(--primary)' }}>
+        <div className="text-center animate-slide-up">
+          <div className="text-lg font-medium mb-2 font-display" style={{ color: 'var(--primary-text)' }}>
             Loading Dome...
           </div>
-          <div className="text-sm" style={{ color: 'var(--secondary)' }}>
+          <div className="text-sm" style={{ color: 'var(--secondary-text)' }}>
             Initializing your workspace
           </div>
           {/* Debug info - shows what step we're on */}
-          <div className="text-xs mt-4 opacity-50" style={{ color: 'var(--secondary)' }}>
+          <div className="text-xs mt-4 opacity-50" style={{ color: 'var(--secondary-text)' }}>
             {debugInfo}
           </div>
         </div>

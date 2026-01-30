@@ -50,7 +50,7 @@ export function FloatingMenu({ editor }: FloatingMenuProps) {
             borderRadius: 'var(--radius-sm)',
             backgroundColor: showMenu ? 'var(--bg-hover)' : 'var(--bg-secondary)',
             border: '1px solid var(--border)',
-            color: 'var(--primary)',
+            color: 'var(--primary-text)',
             cursor: 'pointer',
             transition: 'all 0.2s',
           }}
@@ -107,9 +107,9 @@ export function FloatingMenu({ editor }: FloatingMenuProps) {
                 }}
               >
                 {item.icon && (
-                  <div style={{ color: 'var(--primary)' }}>{item.icon}</div>
+                  <div style={{ color: 'var(--primary-text)' }}>{item.icon}</div>
                 )}
-                <div style={{ color: 'var(--primary)', fontSize: '14px' }}>
+                <div style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
                   {item.title}
                 </div>
               </div>

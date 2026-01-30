@@ -183,14 +183,15 @@ export function FilterBar({
           background: var(--bg-secondary);
           border: 1px solid var(--border);
           border-radius: var(--radius-md);
-          color: var(--primary);
+          color: var(--primary-text);
           font-size: 13px;
           cursor: pointer;
           outline: none;
         }
 
         .sort-select:focus {
-          border-color: var(--brand-primary);
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px var(--translucent);
         }
 
         .filter-dropdown-container {
@@ -213,13 +214,13 @@ export function FilterBar({
 
         .filter-btn:hover,
         .filter-btn.active {
-          border-color: var(--brand-primary);
-          color: var(--primary);
+          border-color: var(--accent);
+          color: var(--primary-text);
         }
 
         .filter-count {
-          background: var(--brand-primary);
-          color: white;
+          background: var(--accent);
+          color: var(--base-text);
           font-size: 11px;
           font-weight: 600;
           padding: 2px 6px;
@@ -252,7 +253,7 @@ export function FilterBar({
         .clear-btn {
           background: none;
           border: none;
-          color: var(--brand-primary);
+          color: var(--accent);
           font-size: 12px;
           cursor: pointer;
         }
@@ -271,7 +272,7 @@ export function FilterBar({
           background: transparent;
           border: none;
           border-radius: var(--radius-md);
-          color: var(--primary);
+          color: var(--primary-text);
           font-size: 13px;
           cursor: pointer;
           text-align: left;
@@ -283,8 +284,8 @@ export function FilterBar({
         }
 
         .filter-option.selected {
-          background: color-mix(in srgb, var(--brand-primary) 10%, transparent);
-          color: var(--brand-primary);
+          background: var(--translucent);
+          color: var(--accent);
         }
 
         .remove-icon {
@@ -302,17 +303,17 @@ export function FilterBar({
           align-items: center;
           gap: 4px;
           padding: 4px 8px;
-          background: color-mix(in srgb, var(--brand-primary) 10%, transparent);
-          border: 1px solid var(--brand-primary);
+          background: var(--translucent);
+          border: 1px solid var(--accent);
           border-radius: var(--radius-full);
-          color: var(--brand-primary);
+          color: var(--accent);
           font-size: 12px;
           cursor: pointer;
           transition: all var(--transition-fast);
         }
 
         .filter-chip:hover {
-          background: color-mix(in srgb, var(--brand-primary) 20%, transparent);
+          background: var(--primary-subtle);
         }
 
         .create-folder-btn {
@@ -320,10 +321,10 @@ export function FilterBar({
           align-items: center;
           gap: 6px;
           padding: 8px 14px;
-          background: var(--brand-primary);
+          background: var(--accent);
           border: none;
           border-radius: var(--radius-md);
-          color: white;
+          color: var(--base-text);
           font-size: 13px;
           font-weight: 500;
           cursor: pointer;
@@ -356,12 +357,12 @@ export function FilterBar({
         }
 
         .view-btn:hover {
-          color: var(--primary);
+          color: var(--primary-text);
         }
 
         .view-btn.active {
           background: var(--bg-hover);
-          color: var(--brand-primary);
+          color: var(--accent);
         }
 
         .view-btn + .view-btn {

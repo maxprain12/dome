@@ -63,7 +63,7 @@ export default function NotionEditor({
         },
       }),
       Dropcursor.configure({
-        color: 'var(--brand-primary)',
+        color: 'var(--accent)',
         width: 2,
       }),
       Gapcursor,

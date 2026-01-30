@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Loader2, ZoomIn, ZoomOut, RotateCw, Maximize2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { RotateCw, Maximize2 } from 'lucide-react';
 import { type Resource } from '@/types';
+import LoadingState from '../workspace/shared/LoadingState';
+import ErrorState from '../workspace/shared/ErrorState';
+import ZoomControls from '../workspace/shared/ZoomControls';
 
 interface ImageViewerProps {
   resource: Resource;
 }
 
-export default function ImageViewer({ resource }: ImageViewerProps) {
+function ImageViewerComponent({ resource }: ImageViewerProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +50,39 @@ export default function ImageViewer({ resource }: ImageViewerProps) {
     loadImage();
   }, [resource.id, resource.thumbnail_data]);
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (e.key.toLowerCase()) {
+        case '+':
+        case '=':
+          e.preventDefault();
+          handleZoomIn();
+          break;
+        case '-':
+          e.preventDefault();
+          handleZoomOut();
+          break;
+        case '0':
+          e.preventDefault();
+          handleResetView();
+          break;
+        case 'r':
+          e.preventDefault();
+          handleRotate();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
   const handleZoomIn = useCallback(() => {
     setZoom((prev) => Math.min(prev + 0.25, 4));
   }, []);
@@ -65,103 +101,71 @@ export default function ImageViewer({ resource }: ImageViewerProps) {
   }, []);
 
   if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8">
-        <AlertCircle className="w-12 h-12 mb-4 text-red-500" />
-        <p className="text-sm text-red-500">{error}</p>
-      </div>
-    );
+    return <ErrorState error={error} />;
   }
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--bg-secondary)' }}>
       {/* Toolbar */}
       <div
-        className="flex items-center justify-center gap-2 px-4 py-2 border-b"
+        className="flex items-center justify-between px-4 py-2 border-b"
         style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
       >
-        <button
-          onClick={handleZoomOut}
-          disabled={zoom <= 0.25}
-          className="p-2 rounded-md transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-          style={{ color: 'var(--secondary)' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--bg-secondary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
-          title="Zoom out"
-          aria-label="Alejar"
-        >
-          <ZoomOut size={18} />
-        </button>
+        <div className="flex items-center gap-2">
+          <ZoomControls
+            zoom={zoom}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onReset={handleResetView}
+            minZoom={0.25}
+            maxZoom={4}
+          />
 
-        <span
-          className="text-sm font-medium min-w-[60px] text-center"
-          style={{ color: 'var(--primary)' }}
-        >
-          {Math.round(zoom * 100)}%
+          <div className="w-px h-5 mx-2" style={{ background: 'var(--border)' }} />
+
+          <button
+            onClick={handleRotate}
+            className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            style={{ color: 'var(--secondary-text)' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--bg-secondary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
+            title="Rotate 90° (R)"
+            aria-label="Rotate image"
+          >
+            <RotateCw size={18} />
+          </button>
+
+          <button
+            onClick={handleResetView}
+            className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            style={{ color: 'var(--secondary-text)' }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--bg-secondary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
+            title="Reset view (0)"
+            aria-label="Reset view"
+          >
+            <Maximize2 size={18} />
+          </button>
+        </div>
+
+        {/* Keyboard Shortcuts Hint */}
+        <span className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+          +/-: Zoom • R: Rotate • 0: Reset
         </span>
-
-        <button
-          onClick={handleZoomIn}
-          disabled={zoom >= 4}
-          className="p-2 rounded-md transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-          style={{ color: 'var(--secondary)' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--bg-secondary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
-          title="Zoom in"
-          aria-label="Acercar"
-        >
-          <ZoomIn size={18} />
-        </button>
-
-        <div
-          className="w-px h-5 mx-2"
-          style={{ background: 'var(--border)' }}
-        />
-
-        <button
-          onClick={handleRotate}
-          className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-          style={{ color: 'var(--secondary)' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--bg-secondary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
-          title="Rotate"
-          aria-label="Rotar imagen"
-        >
-          <RotateCw size={18} />
-        </button>
-
-        <button
-          onClick={handleResetView}
-          className="p-2 rounded-md transition-colors"
-          style={{ color: 'var(--secondary)' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--bg-secondary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
-          title="Reset view"
-        >
-          <Maximize2 size={18} />
-        </button>
       </div>
 
       {/* Image Container */}
       <div className="flex-1 overflow-auto flex items-center justify-center p-4">
         {isLoading && !imageUrl ? (
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--brand-primary)' }} />
+          <LoadingState message="Loading image..." />
         ) : imageUrl ? (
           <img
             src={imageUrl}
@@ -178,3 +182,5 @@ export default function ImageViewer({ resource }: ImageViewerProps) {
     </div>
   );
 }
+
+export default React.memo(ImageViewerComponent);

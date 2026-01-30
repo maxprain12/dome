@@ -381,7 +381,7 @@ declare global {
           available?: boolean;
           error?: string;
         }>;
-        // AI Tools for Martin agent
+        // AI Tools for Many agent
         tools: {
           resourceSearch: (
             query: string,

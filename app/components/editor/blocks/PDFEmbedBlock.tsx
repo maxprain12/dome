@@ -103,8 +103,8 @@ export function PDFEmbedBlock({ node, updateAttributes }: PDFEmbedBlockProps) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FileText size={16} style={{ color: 'var(--primary)' }} />
-            <span style={{ color: 'var(--primary)', fontSize: '14px', fontWeight: 500 }}>
+            <FileText size={16} style={{ color: 'var(--primary-text)' }} />
+            <span style={{ color: 'var(--primary-text)', fontSize: '14px', fontWeight: 500 }}>
               {pdfData.title}
             </span>
           </div>
@@ -116,7 +116,7 @@ export function PDFEmbedBlock({ node, updateAttributes }: PDFEmbedBlockProps) {
                 backgroundColor: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
               }}
               title="Alejar"
             >
@@ -132,7 +132,7 @@ export function PDFEmbedBlock({ node, updateAttributes }: PDFEmbedBlockProps) {
                 backgroundColor: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
               }}
               title="Acercar"
             >
@@ -159,7 +159,7 @@ export function PDFEmbedBlock({ node, updateAttributes }: PDFEmbedBlockProps) {
               borderRadius: 'var(--radius-md)',
               padding: '32px',
               textAlign: 'center',
-              color: 'var(--secondary)',
+              color: 'var(--secondary-text)',
             }}
           >
             <FileText size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
@@ -191,12 +191,12 @@ export function PDFEmbedBlock({ node, updateAttributes }: PDFEmbedBlockProps) {
               border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)',
               cursor: currentPage <= 1 ? 'not-allowed' : 'pointer',
-              color: currentPage <= 1 ? 'var(--secondary)' : 'var(--primary)',
+              color: currentPage <= 1 ? 'var(--secondary-text)' : 'var(--primary-text)',
             }}
           >
             <ChevronLeft size={16} />
           </button>
-          <span style={{ color: 'var(--primary)', fontSize: '14px', minWidth: '80px', textAlign: 'center' }}>
+          <span style={{ color: 'var(--primary-text)', fontSize: '14px', minWidth: '80px', textAlign: 'center' }}>
             {currentPage} {pageEnd ? `de ${pageEnd}` : ''}
           </span>
           <button
@@ -208,7 +208,7 @@ export function PDFEmbedBlock({ node, updateAttributes }: PDFEmbedBlockProps) {
               border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)',
               cursor: pageEnd && currentPage >= pageEnd ? 'not-allowed' : 'pointer',
-              color: pageEnd && currentPage >= pageEnd ? 'var(--secondary)' : 'var(--primary)',
+              color: pageEnd && currentPage >= pageEnd ? 'var(--secondary-text)' : 'var(--primary-text)',
             }}
           >
             <ChevronRight size={16} />

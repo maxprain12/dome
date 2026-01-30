@@ -69,14 +69,14 @@ export default function PromptModal() {
         >
           <h2 
             className="text-lg font-semibold"
-            style={{ color: 'var(--primary)' }}
+            style={{ color: 'var(--primary-text)' }}
           >
             Entrada
           </h2>
           <button
             onClick={handleCancel}
             className="p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
-            style={{ color: 'var(--secondary)' }}
+            style={{ color: 'var(--secondary-text)' }}
             aria-label="Cerrar"
           >
             <X className="w-4 h-4" />
@@ -87,7 +87,7 @@ export default function PromptModal() {
         <form onSubmit={onSubmit} className="p-4">
           <label 
             className="block text-sm mb-2"
-            style={{ color: 'var(--secondary)' }}
+            style={{ color: 'var(--secondary-text)' }}
           >
             {message}
           </label>
@@ -100,7 +100,7 @@ export default function PromptModal() {
             style={{ 
               backgroundColor: 'var(--bg-secondary)',
               border: '1px solid var(--border)',
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
             }}
             onFocus={(e) => {
               e.currentTarget.style.borderColor = 'var(--base)';
@@ -117,7 +117,7 @@ export default function PromptModal() {
               type="button"
               onClick={handleCancel}
               className="px-4 py-2 rounded-lg text-sm transition-colors hover:bg-[var(--bg-hover)]"
-              style={{ color: 'var(--secondary)' }}
+              style={{ color: 'var(--secondary-text)' }}
             >
               Cancelar
             </button>

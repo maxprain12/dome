@@ -59,8 +59,8 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" style={{ color: 'var(--brand-primary)' }} />
-          <p style={{ color: 'var(--secondary)' }}>Loading resource...</p>
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" style={{ color: 'var(--accent)' }} />
+          <p style={{ color: 'var(--secondary-text)' }}>Loading resource...</p>
         </div>
       </div>
     );
@@ -70,17 +70,17 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center max-w-md">
-          <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--primary)' }}>
+          <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--primary-text)' }}>
             Error
           </h2>
-          <p className="text-sm mb-4" style={{ color: 'var(--secondary)' }}>
+          <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
             {error || 'Resource not found'}
           </p>
           <button
             onClick={handleBack}
             className="px-4 py-2 rounded-lg text-sm font-medium"
             style={{
-              backgroundColor: 'var(--brand-primary)',
+              backgroundColor: 'var(--accent)',
               color: 'white',
             }}
           >
@@ -104,11 +104,11 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
         <button
           onClick={handleBack}
           className="p-2 rounded-lg hover:bg-opacity-10 transition-colors"
-          style={{ color: 'var(--primary)' }}
+          style={{ color: 'var(--primary-text)' }}
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-lg font-semibold flex-1" style={{ color: 'var(--primary)' }}>
+        <h1 className="text-lg font-semibold flex-1" style={{ color: 'var(--primary-text)' }}>
           {resource.title}
         </h1>
       </div>

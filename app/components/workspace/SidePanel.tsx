@@ -25,7 +25,7 @@ export default function SidePanel({
   const [activeTab, setActiveTab] = useState<TabType>('references');
   const { setContext } = useMartinStore();
 
-  // Actualizar el contexto de Martin cuando se abre un recurso
+  // Actualizar el contexto de Many cuando se abre un recurso
   useEffect(() => {
     if (resource) {
       setContext(resourceId, resource.title);
@@ -45,31 +45,29 @@ export default function SidePanel({
 
   return (
     <div
-      className="flex flex-col h-full border-l transition-all duration-300 ease-in-out"
+      className="flex flex-col h-full border-l transition-all duration-300 ease-out"
       style={{
         width: '360px',
         minWidth: '300px',
         maxWidth: '440px',
-        background: 'var(--bg-secondary)',
+        background: 'var(--bg)',
         borderColor: 'var(--border)',
       }}
     >
-      {/* Panel Header with Tabs */}
       <div
         className="flex items-center justify-between px-4 py-3 border-b shrink-0"
         style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
       >
-        {/* Tabs */}
-        <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: 'rgba(0, 0, 0, 0.1)' }}>
+        <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-secondary)' }}>
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{
-                color: activeTab === tab.id ? 'var(--primary)' : 'var(--secondary)',
+                color: activeTab === tab.id ? 'var(--primary-text)' : 'var(--secondary-text)',
                 background: activeTab === tab.id ? 'var(--bg)' : 'transparent',
-                boxShadow: activeTab === tab.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                boxShadow: activeTab === tab.id ? 'var(--shadow-sm)' : 'none',
               }}
             >
               {tab.icon}
@@ -78,17 +76,11 @@ export default function SidePanel({
           ))}
         </div>
 
-        {/* Close button */}
         <button
           onClick={onClose}
-          className="p-1.5 rounded-md transition-all opacity-60 hover:opacity-100"
-          style={{ color: 'var(--secondary)' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--bg-secondary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
+          className="p-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--bg-secondary)] opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          style={{ color: 'var(--secondary-text)' }}
+          aria-label="Close panel"
         >
           <X size={16} />
         </button>
@@ -134,20 +126,20 @@ function ReferencesTab({ resourceId }: { resourceId: string }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full" style={{ color: 'var(--secondary)' }} />
+        <div className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full" style={{ color: 'var(--secondary-text)' }} />
       </div>
     );
   }
 
   return (
     <div className="p-4 h-full overflow-y-auto">
-      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary)' }}>
+      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
         Linked Resources
       </h3>
       {links.length === 0 ? (
         <div className="text-center py-8">
-          <Link2 size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--secondary)' }} />
-          <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+          <Link2 size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--secondary-text)' }} />
+          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
             No references yet. Use the Search tab to find and link resources.
           </p>
         </div>
@@ -162,7 +154,7 @@ function ReferencesTab({ resourceId }: { resourceId: string }) {
                 window.electron.workspace.open(link.target_id, 'note');
               }}
             >
-              <p className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+              <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                 {link.target_title || 'Untitled'}
               </p>
               <p className="text-xs mt-1" style={{ color: 'var(--tertiary)' }}>
@@ -200,20 +192,20 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full" style={{ color: 'var(--secondary)' }} />
+        <div className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full" style={{ color: 'var(--secondary-text)' }} />
       </div>
     );
   }
 
   return (
     <div className="p-4 h-full overflow-y-auto">
-      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary)' }}>
+      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
         Resources Linking Here
       </h3>
       {backlinks.length === 0 ? (
         <div className="text-center py-8">
-          <MessageSquare size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--secondary)' }} />
-          <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+          <MessageSquare size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--secondary-text)' }} />
+          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
             No backlinks yet. Other resources that reference this one will appear here.
           </p>
         </div>
@@ -228,7 +220,7 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
                 window.electron.workspace.open(link.source_id, link.source_type);
               }}
             >
-              <p className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+              <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                 {link.source_title || 'Untitled'}
               </p>
               <p className="text-xs mt-1 capitalize" style={{ color: 'var(--tertiary)' }}>
@@ -285,7 +277,7 @@ function SearchTab({ resourceId, resource }: { resourceId: string; resource: Res
 
   return (
     <div className="p-4 h-full overflow-y-auto">
-      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary)' }}>
+      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
         Find Resources to Link
       </h3>
 
@@ -301,7 +293,7 @@ function SearchTab({ resourceId, resource }: { resourceId: string; resource: Res
           style={{
             background: 'var(--bg)',
             border: '1px solid var(--border)',
-            color: 'var(--primary)',
+            color: 'var(--primary-text)',
           }}
         />
         <button
@@ -310,7 +302,7 @@ function SearchTab({ resourceId, resource }: { resourceId: string; resource: Res
           className="px-3 py-2 rounded-lg text-sm font-medium transition-colors"
           style={{
             background: query.trim() ? 'var(--accent)' : 'var(--bg-tertiary)',
-            color: query.trim() ? 'white' : 'var(--secondary)',
+            color: query.trim() ? 'white' : 'var(--secondary-text)',
           }}
         >
           {isSearching ? '...' : 'Search'}
@@ -327,7 +319,7 @@ function SearchTab({ resourceId, resource }: { resourceId: string; resource: Res
               style={{ background: 'var(--bg)' }}
             >
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: 'var(--primary)' }}>
+                <p className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
                   {result.title || 'Untitled'}
                 </p>
                 <p className="text-xs capitalize" style={{ color: 'var(--tertiary)' }}>
@@ -348,11 +340,11 @@ function SearchTab({ resourceId, resource }: { resourceId: string; resource: Res
           ))}
         </div>
       ) : query && !isSearching ? (
-        <p className="text-center text-sm py-4" style={{ color: 'var(--secondary)' }}>
+        <p className="text-center text-sm py-4" style={{ color: 'var(--secondary-text)' }}>
           No results found
         </p>
       ) : (
-        <p className="text-center text-sm py-4" style={{ color: 'var(--secondary)' }}>
+        <p className="text-center text-sm py-4" style={{ color: 'var(--secondary-text)' }}>
           Search for resources to create links
         </p>
       )}

@@ -44,17 +44,17 @@ export default function AppearanceSettings() {
     <div className="space-y-12 animate-in fade-in duration-500">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--primary)' }}>
+        <h2 className="text-xl font-display font-semibold mb-1" style={{ color: 'var(--primary-text)' }}>
           Appearance
         </h2>
-        <p className="text-sm opacity-70" style={{ color: 'var(--secondary)' }}>
+        <p className="text-sm opacity-70" style={{ color: 'var(--secondary-text)' }}>
           Customize how Dome looks and feels
         </p>
       </div>
 
       {/* Theme Selection */}
       <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary)' }}>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary-text)' }}>
           Theme Mode
         </h3>
 
@@ -66,8 +66,18 @@ export default function AppearanceSettings() {
               className={`p-4 rounded-xl transition-all duration-200 border text-left group hover:scale-[1.02] active:scale-[0.98] ${theme === option.value ? 'ring-1 ring-blue-500/50 shadow-md' : 'hover:shadow-sm'
                 }`}
               style={{
-                backgroundColor: theme === option.value ? 'var(--bg-secondary)' : 'transparent',
-                borderColor: theme === option.value ? 'var(--brand-primary)' : 'var(--border)',
+                backgroundColor: theme === option.value ? 'var(--primary-subtle)' : 'transparent',
+                borderColor: theme === option.value ? 'var(--accent)' : 'var(--border)',
+              }}
+              onMouseEnter={(e) => {
+                if (theme !== option.value) {
+                  e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (theme !== option.value) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
               }}
             >
               <div className="flex flex-col items-center gap-4 py-2">
@@ -75,17 +85,17 @@ export default function AppearanceSettings() {
                   className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${theme === option.value ? 'shadow-inner' : ''
                     }`}
                   style={{
-                    backgroundColor: theme === option.value ? 'var(--brand-primary)' : 'var(--bg-secondary)',
-                    color: theme === option.value ? 'white' : 'var(--secondary)',
+                    backgroundColor: theme === option.value ? 'var(--accent)' : 'var(--bg-secondary)',
+                    color: theme === option.value ? 'white' : 'var(--secondary-text)',
                   }}
                 >
                   {option.icon}
                 </div>
                 <div className="text-center">
-                  <div className="text-sm font-medium mb-1" style={{ color: 'var(--primary)' }}>
+                  <div className="text-sm font-medium mb-1" style={{ color: 'var(--primary-text)' }}>
                     {option.label}
                   </div>
-                  <div className="text-xs opacity-70" style={{ color: 'var(--secondary)' }}>
+                  <div className="text-xs opacity-70" style={{ color: 'var(--secondary-text)' }}>
                     {option.description}
                   </div>
                 </div>
@@ -97,11 +107,11 @@ export default function AppearanceSettings() {
 
       {/* Additional Appearance Settings (Future) */}
       <section className="opacity-50 pointer-events-none grayscale">
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-4 opacity-60" style={{ color: 'var(--secondary)' }}>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-4 opacity-60" style={{ color: 'var(--secondary-text)' }}>
           Advanced Customization
         </h3>
         <div className="p-4 border border-dashed rounded-lg" style={{ borderColor: 'var(--border)' }}>
-          <p className="text-xs text-center" style={{ color: 'var(--secondary)' }}>
+          <p className="text-xs text-center" style={{ color: 'var(--secondary-text)' }}>
             Additional appearance customization options coming soon
           </p>
         </div>

@@ -44,7 +44,7 @@ export function ToggleBlock({ node, updateAttributes }: ToggleBlockProps) {
             backgroundColor: 'var(--bg-secondary)',
             border: 'none',
             cursor: 'pointer',
-            color: 'var(--primary)',
+            color: 'var(--primary-text)',
             fontSize: '14px',
             fontWeight: 500,
             textAlign: 'left',

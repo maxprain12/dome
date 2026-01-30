@@ -7,6 +7,27 @@ import { SlashCommandPluginKey } from './extensions/SlashCommandPlugin';
 import type { SlashCommandState } from './extensions/SlashCommandPlugin';
 import type { SlashCommandItem } from './extensions/SlashCommand';
 import { showPrompt } from '@/lib/store/usePromptStore';
+import {
+  FileText,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  CheckSquare,
+  Quote,
+  Image,
+  Video,
+  Music,
+  Paperclip,
+  Table,
+  Lightbulb,
+  ChevronRight,
+  Minus,
+  Code,
+  AtSign,
+  Link,
+} from 'lucide-react';
 
 interface SlashCommandMenuProps {
   editor: Editor;
@@ -125,16 +146,16 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
                 }}
               >
                 {item.icon && (
-                  <div style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', fontSize: '18px' }}>
+                  <div style={{ color: 'var(--primary-text)', display: 'flex', alignItems: 'center', fontSize: '18px' }}>
                     {item.icon}
                   </div>
                 )}
                 <div style={{ flex: 1 }}>
-                  <div style={{ color: 'var(--primary)', fontSize: '14px', fontWeight: 500 }}>
+                  <div style={{ color: 'var(--primary-text)', fontSize: '14px', fontWeight: 500 }}>
                     {item.title}
                   </div>
                   {item.description && (
-                    <div style={{ color: 'var(--secondary)', fontSize: '12px', marginTop: '2px' }}>
+                    <div style={{ color: 'var(--secondary-text)', fontSize: '12px', marginTop: '2px' }}>
                       {item.description}
                     </div>
                   )}
@@ -154,7 +175,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Text',
       description: 'Start writing text',
-      icon: '📝',
+      icon: <FileText size={18} />,
       category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -166,7 +187,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Heading 1',
       description: 'Large heading',
-      icon: 'H1',
+      icon: <Heading1 size={18} />,
       category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -178,7 +199,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Heading 2',
       description: 'Medium heading',
-      icon: 'H2',
+      icon: <Heading2 size={18} />,
       category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -190,7 +211,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Heading 3',
       description: 'Small heading',
-      icon: 'H3',
+      icon: <Heading3 size={18} />,
       category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -202,7 +223,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Bullet list',
       description: 'Create a bullet list',
-      icon: '•',
+      icon: <List size={18} />,
       category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -214,7 +235,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Numbered list',
       description: 'Create a numbered list',
-      icon: '1.',
+      icon: <ListOrdered size={18} />,
       category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -226,7 +247,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Task list',
       description: 'Create a task list',
-      icon: '☑',
+      icon: <CheckSquare size={18} />,
       category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -238,7 +259,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Quote',
       description: 'Create a quote',
-      icon: '"',
+      icon: <Quote size={18} />,
       category: 'Basic',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -251,7 +272,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Image',
       description: 'Insert an image',
-      icon: '🖼️',
+      icon: <Image size={18} />,
       category: 'Media',
       command: async ({ editor, range }) => {
         if (editor && range) {
@@ -266,7 +287,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'PDF',
       description: 'Embed a PDF',
-      icon: '📄',
+      icon: <FileText size={18} />,
       category: 'Media',
       command: async ({ editor, range }) => {
         if (editor && range) {
@@ -303,7 +324,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Video',
       description: 'Embed a video',
-      icon: '🎬',
+      icon: <Video size={18} />,
       category: 'Media',
       command: async ({ editor, range }) => {
         if (editor && range) {
@@ -350,7 +371,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Audio',
       description: 'Embed audio',
-      icon: '🎵',
+      icon: <Music size={18} />,
       category: 'Media',
       command: async ({ editor, range }) => {
         if (editor && range) {
@@ -391,7 +412,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'File',
       description: 'Insert a file',
-      icon: '📎',
+      icon: <Paperclip size={18} />,
       category: 'Media',
       command: async ({ editor, range }) => {
         if (editor && range) {
@@ -426,7 +447,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Table',
       description: 'Insert a table',
-      icon: '⊞',
+      icon: <Table size={18} />,
       category: 'Advanced',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -443,7 +464,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Callout',
       description: 'Create a callout',
-      icon: '💡',
+      icon: <Lightbulb size={18} />,
       category: 'Advanced',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -455,7 +476,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Toggle',
       description: 'Create collapsible content',
-      icon: '▶',
+      icon: <ChevronRight size={18} />,
       category: 'Advanced',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -467,7 +488,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Divider',
       description: 'Insert a divider',
-      icon: '—',
+      icon: <Minus size={18} />,
       category: 'Advanced',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -479,7 +500,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Code',
       description: 'Insert code block',
-      icon: '</>',
+      icon: <Code size={18} />,
       category: 'Advanced',
       command: ({ editor, range }) => {
         if (editor && range) {
@@ -492,7 +513,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Mention resource',
       description: 'Mention another resource',
-      icon: '@',
+      icon: <AtSign size={18} />,
       category: 'Referencias',
       command: async ({ editor, range }) => {
         if (editor && range) {
@@ -544,7 +565,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
     {
       title: 'Internal link',
       description: 'Create link to another note',
-      icon: '🔗',
+      icon: <Link size={18} />,
       category: 'Referencias',
       command: async ({ editor, range }) => {
         if (editor && range) {

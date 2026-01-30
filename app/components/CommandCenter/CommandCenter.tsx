@@ -587,13 +587,13 @@ export function CommandCenter({
         }
 
         .command-center.expanded .command-center-container {
-          box-shadow: var(--shadow-xl), 0 0 0 1px rgba(var(--brand-primary-rgb), 0.3);
-          border-color: var(--brand-primary);
+          box-shadow: var(--shadow-xl), 0 0 0 1px var(--translucent);
+          border-color: var(--accent);
         }
 
         .command-center.drop-active .command-center-container {
-          border-color: var(--brand-accent);
-          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+          border-color: var(--success);
+          box-shadow: 0 0 0 3px var(--success-bg);
         }
 
         .command-center-input-wrapper {
@@ -614,7 +614,7 @@ export function CommandCenter({
           width: 20px;
           height: 20px;
           border: 2px solid var(--border);
-          border-top-color: var(--brand-primary);
+          border-top-color: var(--accent);
           border-radius: 50%;
           animation: spin 0.8s linear infinite;
         }
@@ -629,12 +629,12 @@ export function CommandCenter({
           border: none;
           outline: none;
           font-size: 16px;
-          color: var(--primary);
+          color: var(--primary-text);
           font-family: var(--font-sans);
         }
 
         .command-center-input::placeholder {
-          color: var(--tertiary);
+          color: var(--tertiary-text);
           transition: opacity 0.3s ease;
         }
 
@@ -659,7 +659,7 @@ export function CommandCenter({
 
         .command-center-clear:hover {
           background: var(--bg-hover);
-          color: var(--primary);
+          color: var(--primary-text);
         }
 
         .command-center-shortcut {
@@ -682,12 +682,12 @@ export function CommandCenter({
           align-items: center;
           gap: 4px;
           padding: 4px 10px;
-          background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(14, 165, 233, 0.15));
-          border: 1px solid rgba(168, 85, 247, 0.3);
+          background: var(--translucent);
+          border: 1px solid var(--border-hover);
           border-radius: var(--radius-full);
           font-size: 11px;
           font-weight: 600;
-          color: var(--brand-secondary);
+          color: var(--secondary);
           transition: all var(--transition-fast);
         }
 
@@ -696,18 +696,12 @@ export function CommandCenter({
         }
 
         .ai-mode-indicator :global(svg) {
-          color: var(--brand-secondary);
+          color: var(--secondary);
         }
 
         @keyframes pulse-glow {
-          0%, 100% { 
-            opacity: 1;
-            box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.4);
-          }
-          50% { 
-            opacity: 0.8;
-            box-shadow: 0 0 12px 2px rgba(168, 85, 247, 0.3);
-          }
+          0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--translucent); }
+          50% { opacity: 0.9; box-shadow: 0 0 12px 2px var(--translucent); }
         }
 
         .command-center-dropdown {
@@ -746,11 +740,11 @@ export function CommandCenter({
         }
 
         .globe-icon {
-          color: var(--brand-primary);
+          color: var(--accent);
         }
 
         .command-center-input.url-mode {
-          color: var(--brand-primary);
+          color: var(--accent);
         }
 
         .url-type-indicator {
@@ -771,9 +765,9 @@ export function CommandCenter({
         }
 
         .url-type-indicator.article {
-          background: color-mix(in srgb, var(--brand-primary) 10%, transparent);
-          border: 1px solid var(--brand-primary);
-          color: var(--brand-primary);
+          background: var(--translucent);
+          border: 1px solid var(--accent);
+          color: var(--accent);
         }
 
         .url-submit-btn {
@@ -781,10 +775,10 @@ export function CommandCenter({
           align-items: center;
           gap: 4px;
           padding: 6px 12px;
-          background: var(--brand-primary);
+          background: var(--accent);
           border: none;
           border-radius: var(--radius-md);
-          color: white;
+          color: var(--base-text);
           font-size: 12px;
           font-weight: 600;
           cursor: pointer;
@@ -792,7 +786,7 @@ export function CommandCenter({
         }
 
         .url-submit-btn:hover {
-          background: var(--brand-primary-hover);
+          background: var(--base-hover);
           transform: scale(1.02);
         }
 
@@ -807,7 +801,7 @@ export function CommandCenter({
           gap: 8px;
           font-size: 14px;
           font-weight: 600;
-          color: var(--primary);
+          color: var(--primary-text);
           margin-bottom: 12px;
         }
 
@@ -875,17 +869,17 @@ export function CommandCenter({
 
         .url-action-btn.secondary:hover {
           background: var(--bg-hover);
-          color: var(--primary);
+          color: var(--primary-text);
         }
 
         .url-action-btn.primary {
-          background: var(--brand-primary);
+          background: var(--accent);
           border: none;
-          color: white;
+          color: var(--base-text);
         }
 
         .url-action-btn.primary:hover:not(:disabled) {
-          background: var(--brand-primary-hover);
+          background: var(--base-hover);
           transform: translateY(-1px);
         }
 
@@ -903,14 +897,14 @@ export function CommandCenter({
           background: var(--bg-tertiary);
           border: 1px solid var(--border);
           border-radius: var(--radius-lg);
-          color: var(--primary);
+          color: var(--primary-text);
           cursor: pointer;
           transition: all var(--transition-fast);
         }
 
         .quick-action-btn:hover {
           background: var(--bg-hover);
-          border-color: var(--brand-primary);
+          border-color: var(--accent);
           transform: translateY(-2px);
         }
 
@@ -953,7 +947,7 @@ export function CommandCenter({
         .no-results p {
           font-size: 15px;
           font-weight: 500;
-          color: var(--primary);
+          color: var(--primary-text);
           margin-bottom: 4px;
         }
 
@@ -982,7 +976,7 @@ export function CommandCenter({
             background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(14, 165, 233, 0.08));
           }
           50% {
-            border-color: var(--brand-primary);
+            border-color: var(--accent);
             background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(14, 165, 233, 0.12));
           }
         }
@@ -1003,7 +997,7 @@ export function CommandCenter({
         .drop-overlay-content p {
           font-size: 18px;
           font-weight: 600;
-          color: var(--primary);
+          color: var(--primary-text);
         }
 
         .drop-overlay-content span {

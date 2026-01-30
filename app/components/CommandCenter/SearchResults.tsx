@@ -179,7 +179,7 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
         .section-label {
           font-size: 11px;
           font-weight: 600;
-          color: var(--secondary);
+          color: var(--secondary-text);
           text-transform: uppercase;
           letter-spacing: 0.05em;
           padding: 8px 12px 4px;
@@ -207,6 +207,7 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
 
         .result-item:hover {
           background: var(--bg-hover);
+          border-radius: var(--radius-lg);
         }
 
         .result-icon {
@@ -217,13 +218,13 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
           height: 32px;
           border-radius: var(--radius-md);
           background: var(--bg-tertiary);
-          color: var(--secondary);
+          color: var(--secondary-text);
           flex-shrink: 0;
         }
 
         .result-icon[data-type="note"] {
-          background: color-mix(in srgb, var(--brand-primary) 10%, transparent);
-          color: var(--brand-primary);
+          background: var(--translucent);
+          color: var(--accent);
         }
 
         .result-icon[data-type="pdf"],
@@ -234,7 +235,7 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
 
         .result-icon[data-type="image"] {
           background: var(--success-bg);
-          color: var(--brand-accent);
+          color: var(--success);
         }
 
         .result-icon[data-type="video"] {
@@ -248,8 +249,8 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
         }
 
         .result-icon[data-type="url"] {
-          background: color-mix(in srgb, var(--brand-secondary) 10%, transparent);
-          color: var(--brand-secondary);
+          background: var(--translucent);
+          color: var(--secondary);
         }
 
         .result-content {
@@ -260,7 +261,7 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
         .result-title {
           font-size: 14px;
           font-weight: 500;
-          color: var(--primary);
+          color: var(--primary-text);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -268,7 +269,7 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
 
         .result-preview {
           font-size: 13px;
-          color: var(--secondary);
+          color: var(--secondary-text);
           line-height: 1.4;
           margin-top: 2px;
           display: -webkit-box;
@@ -280,7 +281,7 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
         .result-type {
           font-size: 11px;
           font-weight: 500;
-          color: var(--tertiary);
+          color: var(--tertiary-text);
           text-transform: uppercase;
           padding: 2px 6px;
           background: var(--bg-tertiary);
@@ -291,8 +292,8 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
         .result-item.interaction .result-icon {
           width: 28px;
           height: 28px;
-          background: rgba(168, 85, 247, 0.1);
-          color: var(--brand-secondary);
+          background: var(--translucent);
+          color: var(--secondary);
         }
 
         .interaction-title {
@@ -306,14 +307,14 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
           font-weight: 600;
           text-transform: uppercase;
           padding: 2px 6px;
-          background: rgba(168, 85, 247, 0.15);
-          color: var(--brand-secondary);
+          background: var(--translucent);
+          color: var(--secondary);
           border-radius: var(--radius-sm);
         }
 
         .search-results :global(.highlight) {
-          background: color-mix(in srgb, var(--brand-primary) 20%, transparent);
-          color: var(--brand-primary);
+          background: var(--primary-light);
+          color: var(--accent);
           padding: 0 2px;
           border-radius: 2px;
         }

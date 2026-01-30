@@ -31,17 +31,17 @@ export default function AdvancedSettings() {
     <div className="space-y-12 animate-in fade-in duration-500">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--primary)' }}>
+        <h2 className="text-xl font-display font-semibold mb-1" style={{ color: 'var(--primary-text)' }}>
           Advanced
         </h2>
-        <p className="text-sm opacity-70" style={{ color: 'var(--secondary)' }}>
+        <p className="text-sm opacity-80" style={{ color: 'var(--secondary-text)' }}>
           Configure advanced settings and preferences
         </p>
       </div>
 
       {/* System Preferences */}
       <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary)' }}>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
           System Preferences
         </h3>
 
@@ -49,19 +49,18 @@ export default function AdvancedSettings() {
           {/* Auto-Save */}
           <div className="flex items-center justify-between py-2">
             <div className="flex-1 pr-8">
-              <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--primary)' }}>
+              <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--primary-text)' }}>
                 Auto-Save
               </h3>
-              <p className="text-xs opacity-70" style={{ color: 'var(--secondary)' }}>
+              <p className="text-xs opacity-80" style={{ color: 'var(--secondary-text)' }}>
                 Automatically save your work as you type
               </p>
             </div>
             <button
               onClick={handleToggleAutoSave}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoSave ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
-                }`}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoSave ? '' : ''}`}
               style={{
-                backgroundColor: autoSave ? 'var(--brand-primary)' : 'var(--border)',
+                backgroundColor: autoSave ? 'var(--accent)' : 'var(--border)',
               }}
             >
               <span
@@ -74,10 +73,10 @@ export default function AdvancedSettings() {
           {/* Auto-Backup */}
           <div className="flex items-center justify-between py-2">
             <div className="flex-1 pr-8">
-              <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--primary)' }}>
+              <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--primary-text)' }}>
                 Auto-Backup
               </h3>
-              <p className="text-xs opacity-70" style={{ color: 'var(--secondary)' }}>
+              <p className="text-xs opacity-80" style={{ color: 'var(--secondary-text)' }}>
                 Automatically create backups of your data
               </p>
             </div>
@@ -86,7 +85,7 @@ export default function AdvancedSettings() {
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoBackup ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
                 }`}
               style={{
-                backgroundColor: autoBackup ? 'var(--brand-primary)' : 'var(--border)',
+                backgroundColor: autoBackup ? 'var(--accent)' : 'var(--border)',
               }}
             >
               <span
@@ -100,7 +99,7 @@ export default function AdvancedSettings() {
 
       {/* Citation Style */}
       <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary)' }}>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
           Citation Style
         </h3>
 
@@ -113,10 +112,10 @@ export default function AdvancedSettings() {
                 }`}
               style={{
                 backgroundColor: citationStyle === style.value ? 'var(--bg-secondary)' : 'transparent',
-                borderColor: citationStyle === style.value ? 'var(--brand-primary)' : 'var(--border)',
+                borderColor: citationStyle === style.value ? 'var(--accent)' : 'var(--border)',
               }}
             >
-              <div className="font-medium text-sm mb-1" style={{ color: 'var(--primary)' }}>
+              <div className="font-medium text-sm mb-1" style={{ color: 'var(--primary-text)' }}>
                 {style.label}
               </div>
               <div className="text-xs opacity-70" style={{ color: 'var(--secondary)' }}>

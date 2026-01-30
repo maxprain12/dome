@@ -1,16 +1,22 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2, AlertCircle, Play, Pause, Volume2, VolumeX, Maximize, Bookmark } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Maximize } from 'lucide-react';
 import { type Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
+import LoadingState from '../workspace/shared/LoadingState';
+import ErrorState from '../workspace/shared/ErrorState';
+import MediaControls from '../workspace/shared/MediaControls';
+import SeekBar from '../workspace/shared/SeekBar';
+import AnnotationInput from '../workspace/shared/AnnotationInput';
 
 interface VideoPlayerProps {
   resource: Resource;
 }
 
-export default function VideoPlayer({ resource }: VideoPlayerProps) {
+function VideoPlayerComponent({ resource }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,10 +26,12 @@ export default function VideoPlayer({ resource }: VideoPlayerProps) {
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [showAnnotationInput, setShowAnnotationInput] = useState(false);
-  const [annotationContent, setAnnotationContent] = useState('');
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [showControls, setShowControls] = useState(true);
 
   const { addInteraction } = useInteractions(resource.id);
 
+  // Load video file
   useEffect(() => {
     async function loadVideo() {
       if (typeof window === 'undefined' || !window.electron) return;
@@ -32,11 +40,9 @@ export default function VideoPlayer({ resource }: VideoPlayerProps) {
         setIsLoading(true);
         setError(null);
 
-        // Get the file path to use as source
         const result = await window.electron.resource.getFilePath(resource.id);
 
         if (result.success && result.data) {
-          // For video, we use the file path directly with file:// protocol
           setVideoUrl(`file://${result.data}`);
         } else {
           setError(result.error || 'Failed to load video');
@@ -51,6 +57,88 @@ export default function VideoPlayer({ resource }: VideoPlayerProps) {
 
     loadVideo();
   }, [resource.id]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (e.key.toLowerCase()) {
+        case ' ':
+          e.preventDefault();
+          handlePlayPause();
+          break;
+        case 'f':
+          e.preventDefault();
+          handleFullscreen();
+          break;
+        case 'm':
+          e.preventDefault();
+          handleToggleMute();
+          break;
+        case 'arrowleft':
+          e.preventDefault();
+          handleSkip(-10);
+          break;
+        case 'arrowright':
+          e.preventDefault();
+          handleSkip(10);
+          break;
+        case ',':
+          // Frame backward (0.04s = 1 frame at 25fps)
+          e.preventDefault();
+          handleSkip(-0.04);
+          break;
+        case '.':
+          // Frame forward
+          e.preventDefault();
+          handleSkip(0.04);
+          break;
+        case 'arrowup':
+          e.preventDefault();
+          handleVolumeChange(Math.min(1, volume + 0.1));
+          break;
+        case 'arrowdown':
+          e.preventDefault();
+          handleVolumeChange(Math.max(0, volume - 0.1));
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [volume, isPlaying]);
+
+  // Auto-hide controls
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+
+    const handleMouseMove = () => {
+      setShowControls(true);
+      clearTimeout(timeout);
+      if (isPlaying) {
+        timeout = setTimeout(() => setShowControls(false), 3000);
+      }
+    };
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('mousemove', handleMouseMove);
+      container.addEventListener('mouseleave', () => {
+        if (isPlaying) setShowControls(false);
+      });
+    }
+
+    return () => {
+      clearTimeout(timeout);
+      if (container) {
+        container.removeEventListener('mousemove', handleMouseMove);
+      }
+    };
+  }, [isPlaying]);
 
   const handlePlayPause = useCallback(() => {
     if (!videoRef.current) return;
@@ -72,16 +160,19 @@ export default function VideoPlayer({ resource }: VideoPlayerProps) {
     setDuration(videoRef.current.duration);
   }, []);
 
-  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeek = useCallback((time: number) => {
     if (!videoRef.current) return;
-    const time = parseFloat(e.target.value);
     videoRef.current.currentTime = time;
     setCurrentTime(time);
   }, []);
 
-  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSkip = useCallback((seconds: number) => {
     if (!videoRef.current) return;
-    const vol = parseFloat(e.target.value);
+    videoRef.current.currentTime = Math.max(0, Math.min(videoRef.current.currentTime + seconds, duration));
+  }, [duration]);
+
+  const handleVolumeChange = useCallback((vol: number) => {
+    if (!videoRef.current) return;
     videoRef.current.volume = vol;
     setVolume(vol);
     setIsMuted(vol === 0);
@@ -109,17 +200,18 @@ export default function VideoPlayer({ resource }: VideoPlayerProps) {
     }
   }, []);
 
-  const handleCreateAnnotation = useCallback(async () => {
-    if (!annotationContent.trim()) return;
-
-    await addInteraction('annotation', annotationContent.trim(), {
+  const handleSaveAnnotation = useCallback(async (content: string) => {
+    await addInteraction('annotation', content, {
       type: 'video_timestamp',
       timestamp: currentTime,
     });
+  }, [currentTime, addInteraction]);
 
-    setAnnotationContent('');
-    setShowAnnotationInput(false);
-  }, [annotationContent, currentTime, addInteraction]);
+  const handlePlaybackRateChange = useCallback((rate: number) => {
+    if (!videoRef.current) return;
+    videoRef.current.playbackRate = rate;
+    setPlaybackRate(rate);
+  }, []);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -128,20 +220,17 @@ export default function VideoPlayer({ resource }: VideoPlayerProps) {
   };
 
   if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8">
-        <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--error)' }} />
-        <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>
-      </div>
-    );
+    return <ErrorState error={error} />;
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: '#000' }}>
+    <div ref={containerRef} className="flex flex-col h-full" style={{ background: '#000' }}>
       {/* Video Container */}
       <div className="flex-1 flex items-center justify-center relative">
         {isLoading && !videoUrl ? (
-          <Loader2 className="w-8 h-8 animate-spin text-white" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <LoadingState message="Loading video..." />
+          </div>
         ) : videoUrl ? (
           <video
             ref={videoRef}
@@ -158,7 +247,9 @@ export default function VideoPlayer({ resource }: VideoPlayerProps) {
 
       {/* Controls */}
       <div
-        className="px-4 py-3 space-y-2"
+        className={`px-4 py-3 space-y-2 transition-opacity duration-300 ${
+          showControls || !isPlaying ? 'opacity-100' : 'opacity-0'
+        }`}
         style={{ background: 'rgba(0, 0, 0, 0.9)' }}
       >
         {/* Progress Bar */}
@@ -166,19 +257,16 @@ export default function VideoPlayer({ resource }: VideoPlayerProps) {
           <span className="text-xs text-white/70 min-w-[40px]">
             {formatTime(currentTime)}
           </span>
-          <input
-            type="range"
-            min={0}
-            max={duration || 100}
-            value={currentTime}
-            onChange={handleSeek}
-            className="flex-1 h-1 rounded-full appearance-none cursor-pointer"
-            style={{
-              background: `linear-gradient(to right, var(--brand-primary) 0%, var(--brand-primary) ${
-                (currentTime / duration) * 100
-              }%, rgba(255,255,255,0.3) ${(currentTime / duration) * 100}%, rgba(255,255,255,0.3) 100%)`,
-            }}
-          />
+          <div className="flex-1">
+            <SeekBar
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={handleSeek}
+              formatTime={formatTime}
+              showTimestamps={false}
+              variant="video"
+            />
+          </div>
           <span className="text-xs text-white/70 min-w-[40px] text-right">
             {formatTime(duration)}
           </span>
@@ -186,85 +274,69 @@ export default function VideoPlayer({ resource }: VideoPlayerProps) {
 
         {/* Buttons */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* Play/Pause */}
-            <button
-              onClick={handlePlayPause}
-              className="p-2 rounded-md transition-colors text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
-              aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
-            >
-              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-            </button>
+          <div className="flex items-center gap-3">
+            {/* Play/Pause & Volume */}
+            <div style={{ filter: 'invert(1)' }}>
+              <MediaControls
+                isPlaying={isPlaying}
+                isMuted={isMuted}
+                volume={volume}
+                onPlayPause={handlePlayPause}
+                onToggleMute={handleToggleMute}
+                onVolumeChange={handleVolumeChange}
+                variant="compact"
+              />
+            </div>
 
-            {/* Volume */}
-            <button
-              onClick={handleToggleMute}
-              className="p-2 rounded-md transition-colors text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
-              aria-label={isMuted ? 'Activar sonido' : 'Silenciar'}
+            {/* Playback Speed */}
+            <select
+              value={playbackRate}
+              onChange={(e) => handlePlaybackRateChange(parseFloat(e.target.value))}
+              className="px-2 py-1 text-sm rounded bg-white/10 text-white border border-white/20"
+              aria-label="Playback speed"
             >
-              {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.1}
-              value={isMuted ? 0 : volume}
-              onChange={handleVolumeChange}
-              className="w-20 h-1 rounded-full appearance-none cursor-pointer"
-              style={{
-                background: `linear-gradient(to right, white 0%, white ${
-                  (isMuted ? 0 : volume) * 100
-                }%, rgba(255,255,255,0.3) ${(isMuted ? 0 : volume) * 100}%, rgba(255,255,255,0.3) 100%)`,
-              }}
-            />
+              <option value={0.5}>0.5x</option>
+              <option value={0.75}>0.75x</option>
+              <option value={1}>1x</option>
+              <option value={1.25}>1.25x</option>
+              <option value={1.5}>1.5x</option>
+              <option value={2}>2x</option>
+            </select>
           </div>
 
           <div className="flex items-center gap-2">
             {/* Annotation */}
-            {showAnnotationInput ? (
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={annotationContent}
-                  onChange={(e) => setAnnotationContent(e.target.value)}
-                  placeholder="Add note at this timestamp..."
-                  className="px-2 py-1 text-sm rounded bg-white/10 text-white border border-white/20 w-48"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateAnnotation();
-                    if (e.key === 'Escape') setShowAnnotationInput(false);
-                  }}
-                />
-                <button
-                  onClick={handleCreateAnnotation}
-                  className="px-2 py-1 text-sm rounded bg-white/20 text-white hover:bg-white/30"
-                >
-                  Save
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowAnnotationInput(true)}
-                className="p-2 rounded-md transition-colors text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
-                title="Add annotation at current time"
-                aria-label="Add annotation at current time"
-              >
-                <Bookmark size={20} />
-              </button>
-            )}
+            <div style={{ filter: 'invert(1)' }}>
+              <AnnotationInput
+                isOpen={showAnnotationInput}
+                onClose={() => setShowAnnotationInput(!showAnnotationInput)}
+                onSave={handleSaveAnnotation}
+                currentTime={currentTime}
+                placeholder="Add note at this timestamp..."
+              />
+            </div>
 
             {/* Fullscreen */}
             <button
               onClick={handleFullscreen}
               className="p-2 rounded-md transition-colors text-white hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2"
-              aria-label="Pantalla completa"
+              title="Fullscreen (F)"
+              aria-label="Fullscreen"
             >
               <Maximize size={20} />
             </button>
           </div>
         </div>
+
+        {/* Keyboard Shortcuts Hint */}
+        <div className="text-center">
+          <p className="text-xs text-white/50">
+            Space: Play/Pause • F: Fullscreen • M: Mute • ←/→: Skip • ,/.: Frame
+          </p>
+        </div>
       </div>
     </div>
   );
 }
+
+export default React.memo(VideoPlayerComponent);

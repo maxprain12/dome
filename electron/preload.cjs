@@ -138,7 +138,7 @@ const ALLOWED_CHANNELS = {
     'ai:stream',
     'ai:embeddings',
     'ai:checkClaudeMaxProxy',
-    // AI Tools (for Martin agent)
+    // AI Tools (for Many agent)
     'ai:tools:resourceSearch',
     'ai:tools:resourceGet',
     'ai:tools:resourceList',
@@ -516,7 +516,7 @@ const electronHandler = {
     checkClaudeMaxProxy: () =>
       ipcRenderer.invoke('ai:checkClaudeMaxProxy'),
 
-    // AI Tools for Martin agent
+    // AI Tools for Many agent
     tools: {
       // Search resources using full-text search
       resourceSearch: (query, options) =>

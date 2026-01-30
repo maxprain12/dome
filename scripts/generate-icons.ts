@@ -10,7 +10,7 @@ import { mkdirSync, existsSync, rmSync } from 'fs';
 import { join } from 'path';
 
 const ASSETS_DIR = join(import.meta.dir, '..', 'assets');
-const SVG_PATH = join(ASSETS_DIR, 'martin.svg');
+const SVG_PATH = join(ASSETS_DIR, 'many.svg');
 const ICONSET_DIR = join(ASSETS_DIR, 'icon.iconset');
 
 // Tamaños necesarios para macOS iconset
@@ -23,11 +23,11 @@ const WIN_SIZE = 256;
 const LINUX_SIZE = 512;
 
 async function generateIcons() {
-  console.log('🎨 Generando iconos desde martin.svg...\n');
+  console.log('🎨 Generando iconos desde many.svg...\n');
 
   // Verificar que existe el SVG
   if (!existsSync(SVG_PATH)) {
-    console.error('❌ No se encontró assets/martin.svg');
+    console.error('❌ No se encontró assets/many.svg');
     process.exit(1);
   }
 

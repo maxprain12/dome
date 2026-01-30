@@ -234,15 +234,15 @@ export default function Home() {
     <div className="min-h-screen p-8" style={{ background: 'var(--bg)' }}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-medium" style={{ color: 'var(--primary)' }}>
+        <header className="mb-8 flex items-center justify-between">
+          <h1 className="text-2xl font-display font-semibold tracking-tight" style={{ color: 'var(--primary-text)' }}>
             Welcome back, {name || 'User'}
           </h1>
           <div className="flex items-center gap-3">
             <button
-              className="px-3 py-1.5 text-sm rounded-md transition-colors"
+              className="btn btn-ghost px-3 py-1.5 text-sm rounded-lg transition-all duration-200"
               style={{
-                color: 'var(--secondary)',
+                color: 'var(--secondary-text)',
                 background: 'var(--bg-secondary)'
               }}
             >
@@ -250,10 +250,10 @@ export default function Home() {
             </button>
             <UserMenu />
           </div>
-        </div>
+        </header>
 
-        {/* Command Center - AI-powered search */}
-        <div className="mb-8">
+        {/* Command Center - AI-powered search (primary focus) */}
+        <div className="mb-10">
           <CommandCenter
             onResourceSelect={handleResourceSelect}
             onCreateNote={handleCreateNote}
@@ -276,13 +276,13 @@ export default function Home() {
               {importProgress.status === 'importing' && (
                 <>
                   <div className="relative">
-                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--brand-primary)' }} />
+                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--accent)' }} />
                   </div>
                   <div className="flex-1">
-                    <div className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                    <div className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                       Importing files ({importProgress.current}/{importProgress.total})
                     </div>
-                    <div className="text-xs truncate" style={{ color: 'var(--secondary)' }}>
+                    <div className="text-xs truncate" style={{ color: 'var(--secondary-text)' }}>
                       {importProgress.currentFile}
                     </div>
                   </div>
@@ -292,10 +292,10 @@ export default function Home() {
                 <>
                   <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--success)' }} />
                   <div className="flex-1">
-                    <div className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                    <div className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                       Import complete!
                     </div>
-                    <div className="text-xs" style={{ color: 'var(--secondary)' }}>
+                    <div className="text-xs" style={{ color: 'var(--secondary-text)' }}>
                       {importProgress.total} file(s) imported successfully
                     </div>
                   </div>
@@ -305,27 +305,27 @@ export default function Home() {
                 <>
                   <AlertCircle className="w-5 h-5" style={{ color: 'var(--warning)' }} />
                   <div className="flex-1">
-                    <div className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                    <div className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                       Import completed with errors
                     </div>
-                    <div className="text-xs" style={{ color: 'var(--secondary)' }}>
+                    <div className="text-xs" style={{ color: 'var(--secondary-text)' }}>
                       {importProgress.error}
                     </div>
                   </div>
                 </>
               )}
             </div>
-            {importProgress.status === 'importing' && (
+            {importProgress.status === 'importing' ? (
               <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
                 <div
                   className="h-full transition-all duration-300 rounded-full"
                   style={{
                     width: `${(importProgress.current / importProgress.total) * 100}%`,
-                    background: 'var(--brand-primary)',
+                    background: 'var(--accent)',
                   }}
                 />
               </div>
-            )}
+            ) : null}
           </div>
         )}
 
@@ -341,96 +341,84 @@ export default function Home() {
         />
 
         {/* Breadcrumb Navigation */}
-        {currentFolderId && (
-          <div className="mb-6 flex items-center gap-2" style={{ color: 'var(--secondary)' }}>
+        {currentFolderId ? (
+          <nav className="mb-6 flex items-center gap-2" style={{ color: 'var(--secondary-text)' }} aria-label="Breadcrumb">
             <button
               onClick={handleNavigateToRoot}
-              className="flex items-center gap-1 px-2 py-1 rounded-md transition-colors"
-              style={{ color: 'var(--brand-primary)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-hover)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--bg-hover)]"
+              style={{ color: 'var(--accent)' }}
             >
               <HomeIcon className="w-4 h-4" />
-              <span className="text-sm">Home</span>
+              <span className="text-sm font-medium">Home</span>
             </button>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
-              {currentFolder?.title || 'Unknown Folder'}
+            <ChevronRight className="w-4 h-4 opacity-70" />
+            <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+              {currentFolder?.title ?? 'Unknown Folder'}
             </span>
-          </div>
-        )}
+          </nav>
+        ) : null}
 
         {/* Folders Section - Only show subfolders or root folders */}
-        {folders.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xs font-medium uppercase tracking-wide mb-4" style={{ color: 'var(--secondary)' }}>
+        {folders.length > 0 ? (
+          <section className="mb-10" aria-label="Folders">
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--secondary-text)' }}>
               {currentFolderId ? 'Subfolders' : 'Folders'}
             </h2>
-            <div className="grid grid-cols-8 gap-3">
+            <div className="grid grid-cols-8 gap-4">
               {folders.map((folder) => (
                 <button
                   key={folder.id}
                   onClick={() => handleFolderClick(folder)}
-                  className="flex flex-col items-center gap-2 p-2 rounded-lg transition-colors group"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--bg-hover)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                  }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl transition-all duration-200 hover:bg-[var(--bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 >
                   <div
-                    className="w-14 h-14 rounded-lg flex items-center justify-center shadow-sm"
-                    style={{ backgroundColor: folder.metadata?.color || 'var(--brand-primary)' }}
+                    className="w-14 h-14 rounded-xl flex items-center justify-center shadow-md transition-transform duration-200 group-hover:scale-105"
+                    style={{ backgroundColor: folder.metadata?.color ?? 'var(--accent)' }}
                   >
                     <FolderOpen className="w-7 h-7 text-white opacity-90" />
                   </div>
-                  <span className="text-xs text-center truncate w-full leading-tight" style={{ color: 'var(--primary)' }}>
+                  <span className="text-xs text-center truncate w-full leading-tight font-medium" style={{ color: 'var(--primary-text)' }}>
                     {folder.title}
                   </span>
                 </button>
               ))}
             </div>
-          </div>
-        )}
+          </section>
+        ) : null}
 
         {/* Resources Grid/List */}
-        <div className="mb-4">
-          <h2 className="text-xs font-medium uppercase tracking-wide mb-4" style={{ color: 'var(--secondary)' }}>
+        <section className="mb-6" aria-label="Resources">
+          <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--secondary-text)' }}>
             {isSearchMode
               ? `Coincidencias para "${searchQuery}"`
               : currentFolderId
                 ? 'Contents'
                 : 'Recent Resources'}
           </h2>
-        </div>
+        </section>
 
-        {!isSearchMode && isLoading && (
+        {!isSearchMode && isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--brand-primary)' }} />
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
           </div>
-        )}
+        ) : null}
 
-        {!isSearchMode && error && (
+        {!isSearchMode && error ? (
           <div className="text-center py-20">
             <p className="mb-2" style={{ color: 'var(--error)' }}>Failed to load resources</p>
             <button
               onClick={refetch}
-              className="text-sm hover:underline"
-              style={{ color: 'var(--brand-primary)' }}
+              className="btn btn-secondary text-sm"
+              style={{ color: 'var(--accent)' }}
             >
               Try again
             </button>
           </div>
-        )}
+        ) : null}
 
         {isSearchMode && resourcesToShow.length === 0 && (
           <div className="text-center py-20">
-            <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
               No hay coincidencias para &quot;{searchQuery}&quot;
             </p>
           </div>
@@ -438,11 +426,11 @@ export default function Home() {
 
         {!isSearchMode && !isLoading && !error && nonFolderResources.length === 0 && folders.length === 0 && (
           <div className="text-center py-20">
-            <FolderOpen className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--tertiary)' }} />
-            <p className="text-lg font-medium mb-2" style={{ color: 'var(--primary)' }}>
+            <FolderOpen className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--tertiary-text)' }} />
+            <p className="text-lg font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               {currentFolderId ? 'This folder is empty' : 'No resources yet'}
             </p>
-            <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
               {currentFolderId
                 ? 'Drag files here or move resources into this folder'
                 : 'Drop files or use the command center to add your first resource'}
@@ -450,11 +438,14 @@ export default function Home() {
           </div>
         )}
 
-        {((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) && (
-          <div className={viewMode === 'grid'
-            ? 'grid grid-cols-4 gap-4'
-            : 'flex flex-col gap-2'
-          }>
+        {((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) ? (
+          <div
+            className={viewMode === 'grid'
+              ? 'grid grid-cols-4 gap-4'
+              : 'flex flex-col gap-2'
+            }
+            style={{ contentVisibility: 'auto' }}
+          >
             {resourcesToShow.map((resource) => (
               <ResourceCard
                 key={resource.id}
@@ -469,48 +460,48 @@ export default function Home() {
               />
             ))}
           </div>
-        )}
+        ) : null}
 
         {/* New Folder Modal */}
-        {showNewFolderModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+        {showNewFolderModal ? (
+          <div
+            className="modal-overlay"
+            onClick={() => setShowNewFolderModal(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-folder-title"
+          >
             <div
-              className="w-full max-w-md p-6 rounded-xl shadow-xl"
-              style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
+              className="modal-content max-w-md animate-modal"
+              onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--primary)' }}>
-                Create New Folder
-              </h3>
-              <input
-                type="text"
-                value={newFolderName}
-                onChange={(e) => setNewFolderName(e.target.value)}
-                placeholder="Folder name..."
-                className="w-full px-4 py-3 rounded-lg text-sm mb-4"
-                style={{
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--primary)',
-                }}
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleCreateFolder();
-                  if (e.key === 'Escape') setShowNewFolderModal(false);
-                }}
-              />
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => setShowNewFolderModal(false)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                  style={{ color: 'var(--secondary)' }}
-                >
+              <div className="modal-header">
+                <h3 id="new-folder-title" className="text-lg font-semibold font-display" style={{ color: 'var(--primary-text)' }}>
+                  Create New Folder
+                </h3>
+              </div>
+              <div className="modal-body">
+                <input
+                  type="text"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  placeholder="Folder name..."
+                  className="input mb-4"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateFolder();
+                    if (e.key === 'Escape') setShowNewFolderModal(false);
+                  }}
+                />
+              </div>
+              <div className="modal-footer">
+                <button onClick={() => setShowNewFolderModal(false)} className="btn btn-ghost">
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateFolder}
                   disabled={!newFolderName.trim()}
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-50"
-                  style={{ background: 'var(--brand-primary)' }}
+                  className="btn btn-primary"
                 >
                   <Plus size={16} className="inline mr-1" />
                   Create Folder
@@ -518,124 +509,93 @@ export default function Home() {
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Move to Folder Modal */}
-        {showMoveModal && resourceToMove && (
+        {showMoveModal && resourceToMove ? (
           <div
-            className="fixed inset-0 flex items-center justify-center animate-overlay"
-            style={{
-              zIndex: 'var(--z-modal-backdrop)',
-              background: 'rgba(0, 0, 0, 0.5)',
-              backdropFilter: 'blur(4px)'
-            }}
+            className="modal-overlay"
             onClick={() => { setShowMoveModal(false); setResourceToMove(null); }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="move-resource-title"
           >
             <div
-              className="w-full max-w-md rounded-xl overflow-hidden animate-modal"
-              style={{
-                background: 'var(--bg)',
-                border: '1px solid var(--border)',
-                boxShadow: 'var(--shadow-xl)',
-                zIndex: 'var(--z-modal)'
-              }}
+              className="modal-content max-w-md animate-modal"
               onClick={(e) => e.stopPropagation()}
             >
-              <div
-                className="flex items-center justify-between p-4"
-                style={{ borderBottom: '1px solid var(--border)' }}
-              >
-                <h3 className="text-lg font-semibold" style={{ color: 'var(--primary)' }}>
-                  Move "{resourceToMove.title}"
+              <div className="modal-header">
+                <h3 id="move-resource-title" className="text-lg font-semibold font-display" style={{ color: 'var(--primary-text)' }}>
+                  Move &quot;{resourceToMove.title}&quot;
                 </h3>
                 <button
                   onClick={() => { setShowMoveModal(false); setResourceToMove(null); }}
-                  className="p-1 rounded-md transition-colors"
-                  style={{ background: 'transparent' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  className="btn btn-ghost p-1.5 rounded-md"
+                  aria-label="Close"
                 >
-                  <X size={20} style={{ color: 'var(--secondary)' }} />
+                  <X size={20} style={{ color: 'var(--secondary-text)' }} />
                 </button>
               </div>
 
-              <div className="p-4 max-h-80 overflow-y-auto">
-                {/* Move to Root option */}
-                {resourceToMove.folder_id && (
+              <div className="modal-body max-h-80 overflow-y-auto">
+                {resourceToMove.folder_id ? (
                   <button
                     onClick={() => handleMoveToFolder(null)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors mb-2"
-                    style={{ background: 'transparent' }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors mb-2 hover:bg-[var(--bg-secondary)]"
                   >
-                    <HomeIcon className="w-5 h-5" style={{ color: 'var(--brand-primary)' }} />
-                    <span className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                    <HomeIcon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+                    <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                       Move to Root
                     </span>
                   </button>
-                )}
+                ) : null}
 
-                {/* Folder list */}
                 {allFolders.length === 0 ? (
-                  <p className="text-sm text-center py-4" style={{ color: 'var(--secondary)' }}>
+                  <p className="text-sm text-center py-4" style={{ color: 'var(--secondary-text)' }}>
                     No folders yet. Create a folder first.
                   </p>
                 ) : (
                   <div className="space-y-1">
                     {allFolders
-                      .filter(folder => folder.id !== resourceToMove.id) // Don't show self if moving a folder
+                      .filter(folder => folder.id !== resourceToMove.id)
                       .map((folder) => (
                         <button
                           key={folder.id}
                           onClick={() => handleMoveToFolder(folder.id)}
                           disabled={folder.id === resourceToMove.folder_id}
-                          className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          style={{ background: 'transparent' }}
-                          onMouseEnter={(e) => {
-                            if (folder.id !== resourceToMove.folder_id) {
-                              e.currentTarget.style.background = 'var(--bg-secondary)';
-                            }
-                          }}
-                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                          className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-secondary)]"
                         >
                           <div
-                            className="w-8 h-8 rounded-md flex items-center justify-center"
-                            style={{ backgroundColor: folder.metadata?.color || 'var(--brand-primary)' }}
+                            className="w-8 h-8 rounded-md flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: folder.metadata?.color ?? 'var(--accent)' }}
                           >
                             <FolderOpen className="w-4 h-4 text-white" />
                           </div>
-                          <span className="text-sm" style={{ color: 'var(--primary)' }}>
+                          <span className="text-sm" style={{ color: 'var(--primary-text)' }}>
                             {folder.title}
                           </span>
-                          {folder.id === resourceToMove.folder_id && (
-                            <span className="ml-auto text-xs" style={{ color: 'var(--secondary)' }}>
+                          {folder.id === resourceToMove.folder_id ? (
+                            <span className="ml-auto text-xs" style={{ color: 'var(--secondary-text)' }}>
                               (current)
                             </span>
-                          )}
+                          ) : null}
                         </button>
                       ))}
                   </div>
                 )}
               </div>
 
-              <div
-                className="p-4 flex justify-end"
-                style={{ borderTop: '1px solid var(--border)' }}
-              >
+              <div className="modal-footer">
                 <button
                   onClick={() => { setShowMoveModal(false); setResourceToMove(null); }}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                  style={{ color: 'var(--secondary)', background: 'transparent' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  className="btn btn-ghost"
                 >
                   Cancel
                 </button>
               </div>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

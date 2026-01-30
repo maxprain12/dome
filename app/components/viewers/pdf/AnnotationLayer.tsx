@@ -379,7 +379,7 @@ export default function AnnotationLayer({
               style={{
                 background: 'var(--bg-secondary)',
                 border: '1px solid var(--border)',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
                 minHeight: '100px',
               }}
               rows={4}
@@ -389,7 +389,7 @@ export default function AnnotationLayer({
                 onClick={handleNoteSubmit}
                 className="px-3 py-1 text-xs rounded"
                 style={{
-                  background: 'var(--brand-primary)',
+                  background: 'var(--accent)',
                   color: 'white',
                 }}
               >
@@ -404,7 +404,7 @@ export default function AnnotationLayer({
                 className="px-3 py-1 text-xs rounded"
                 style={{
                   background: 'var(--bg-secondary)',
-                  color: 'var(--secondary)',
+                  color: 'var(--secondary-text)',
                 }}
               >
                 Cancel

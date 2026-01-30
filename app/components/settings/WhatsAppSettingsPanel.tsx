@@ -180,7 +180,7 @@ export default function WhatsAppSettingsPanel() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-semibold flex items-center gap-3" style={{ color: 'var(--primary)' }}>
+        <h2 className="text-2xl font-semibold flex items-center gap-3" style={{ color: 'var(--primary-text)' }}>
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center"
             style={{ backgroundColor: '#25D36615' }}
@@ -189,8 +189,8 @@ export default function WhatsAppSettingsPanel() {
           </div>
           WhatsApp
         </h2>
-        <p className="mt-2 text-sm" style={{ color: 'var(--secondary)' }}>
-          Conecta tu WhatsApp para enviar contenido a Dome y hablar con Martin desde tu telefono.
+        <p className="mt-2 text-sm" style={{ color: 'var(--secondary-text)' }}>
+          Conecta tu WhatsApp para enviar contenido a Dome y hablar con Many desde tu telefono.
         </p>
       </div>
 
@@ -233,13 +233,13 @@ export default function WhatsAppSettingsPanel() {
               ) : connectionState === 'pending' ? (
                 <Scan className="w-6 h-6 animate-pulse" style={{ color: 'var(--warning)' }} />
               ) : (
-                <WifiOff className="w-6 h-6" style={{ color: 'var(--secondary)' }} />
+                <WifiOff className="w-6 h-6" style={{ color: 'var(--secondary-text)' }} />
               )}
             </div>
 
             {/* Status Text */}
             <div>
-              <h3 className="font-semibold text-lg" style={{ color: 'var(--primary)' }}>
+              <h3 className="font-semibold text-lg" style={{ color: 'var(--primary-text)' }}>
                 {connectionState === 'connected'
                   ? 'Conectado'
                   : connectionState === 'pending'
@@ -248,7 +248,7 @@ export default function WhatsAppSettingsPanel() {
                       ? 'Sin sesion'
                       : 'Desconectado'}
               </h3>
-              <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
                 {connectionState === 'connected' && status?.selfId
                   ? `+${status.selfId.split('@')[0]?.split(':')[0] ?? ''}`
                   : connectionState === 'pending'
@@ -277,7 +277,7 @@ export default function WhatsAppSettingsPanel() {
                   ? '#25D366'
                   : connectionState === 'pending'
                     ? 'var(--warning)'
-                    : 'var(--secondary)',
+                    : 'var(--secondary-text)',
             }}
           >
             {connectionState === 'connected' ? (
@@ -320,10 +320,10 @@ export default function WhatsAppSettingsPanel() {
 
               {/* Instructions */}
               <div className="mt-5 text-center max-w-xs">
-                <p className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
+                <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                   Escanea con WhatsApp
                 </p>
-                <p className="text-xs mt-1" style={{ color: 'var(--secondary)' }}>
+                <p className="text-xs mt-1" style={{ color: 'var(--secondary-text)' }}>
                   Abre WhatsApp en tu telefono → Menu (tres puntos) → Dispositivos vinculados → Vincular dispositivo
                 </p>
               </div>
@@ -342,10 +342,10 @@ export default function WhatsAppSettingsPanel() {
                 <Smartphone className="w-5 h-5" style={{ color: 'var(--success)' }} />
               </div>
               <div className="flex-1">
-                <p className="font-medium text-sm" style={{ color: 'var(--primary)' }}>
+                <p className="font-medium text-sm" style={{ color: 'var(--primary-text)' }}>
                   Sesion guardada
                 </p>
-                <p className="text-xs" style={{ color: 'var(--secondary)' }}>
+                <p className="text-xs" style={{ color: 'var(--secondary-text)' }}>
                   Tu sesion anterior esta disponible. Puedes reconectar sin escanear QR.
                 </p>
               </div>
@@ -364,10 +364,10 @@ export default function WhatsAppSettingsPanel() {
                 <Scan className="w-5 h-5" style={{ color: 'var(--info)' }} />
               </div>
               <div className="flex-1">
-                <p className="font-medium text-sm" style={{ color: 'var(--primary)' }}>
+                <p className="font-medium text-sm" style={{ color: 'var(--primary-text)' }}>
                   Vincula tu WhatsApp
                 </p>
-                <p className="text-xs" style={{ color: 'var(--secondary)' }}>
+                <p className="text-xs" style={{ color: 'var(--secondary-text)' }}>
                   Pulsa "Conectar" para generar un codigo QR y vincular tu telefono.
                 </p>
               </div>
@@ -401,7 +401,7 @@ export default function WhatsAppSettingsPanel() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all"
                 style={{
                   backgroundColor: 'var(--bg-tertiary)',
-                  color: 'var(--primary)',
+                  color: 'var(--primary-text)',
                   opacity: isLoading ? 0.5 : 1,
                 }}
               >
@@ -448,7 +448,7 @@ export default function WhatsAppSettingsPanel() {
             onClick={loadStatus}
             disabled={isLoading}
             className="flex items-center justify-center w-10 h-10 rounded-lg transition-all ml-auto"
-            style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary)' }}
+            style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)' }}
             title="Actualizar estado"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -470,13 +470,13 @@ export default function WhatsAppSettingsPanel() {
               className="w-8 h-8 rounded-lg flex items-center justify-center"
               style={{ backgroundColor: 'var(--bg-tertiary)' }}
             >
-              <Shield className="w-4 h-4" style={{ color: 'var(--secondary)' }} />
+              <Shield className="w-4 h-4" style={{ color: 'var(--secondary-text)' }} />
             </div>
             <div>
-              <h3 className="font-medium" style={{ color: 'var(--primary)' }}>
+              <h3 className="font-medium" style={{ color: 'var(--primary-text)' }}>
                 Numeros autorizados
               </h3>
-              <p className="text-xs" style={{ color: 'var(--secondary)' }}>
+              <p className="text-xs" style={{ color: 'var(--secondary-text)' }}>
                 {allowlist.length === 0
                   ? 'Sin restricciones - acepta todos los mensajes'
                   : `${allowlist.length} numero${allowlist.length !== 1 ? 's' : ''} autorizado${allowlist.length !== 1 ? 's' : ''}`}
@@ -498,7 +498,7 @@ export default function WhatsAppSettingsPanel() {
               style={{
                 backgroundColor: 'var(--bg)',
                 border: '1px solid var(--border)',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
               }}
             />
             <button
@@ -507,7 +507,7 @@ export default function WhatsAppSettingsPanel() {
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all"
               style={{
                 backgroundColor: newNumber.trim() ? 'var(--base)' : 'var(--bg-tertiary)',
-                color: newNumber.trim() ? 'var(--base-text)' : 'var(--secondary)',
+                color: newNumber.trim() ? 'var(--base-text)' : 'var(--secondary-text)',
                 opacity: newNumber.trim() ? 1 : 0.6,
               }}
             >
@@ -532,7 +532,7 @@ export default function WhatsAppSettingsPanel() {
                     >
                       <Smartphone className="w-4 h-4" style={{ color: '#25D366' }} />
                     </div>
-                    <span className="font-medium text-sm" style={{ color: 'var(--primary)' }}>
+                    <span className="font-medium text-sm" style={{ color: 'var(--primary-text)' }}>
                       {formatPhoneNumber(number)}
                     </span>
                   </div>
@@ -551,8 +551,8 @@ export default function WhatsAppSettingsPanel() {
               className="text-center py-6 rounded-lg"
               style={{ backgroundColor: 'var(--bg)', border: '1px dashed var(--border)' }}
             >
-              <Shield className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--secondary)', opacity: 0.5 }} />
-              <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+              <Shield className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--secondary-text)', opacity: 0.5 }} />
+              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
                 Lista vacia - todos los mensajes son aceptados
               </p>
             </div>
@@ -571,14 +571,14 @@ export default function WhatsAppSettingsPanel() {
         <button
           onClick={() => setShowInstructions(!showInstructions)}
           className="w-full px-6 py-4 flex items-center justify-between"
-          style={{ color: 'var(--primary)' }}
+          style={{ color: 'var(--primary-text)' }}
         >
           <div className="flex items-center gap-3">
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center"
               style={{ backgroundColor: 'var(--bg-tertiary)' }}
             >
-              <HelpCircle className="w-4 h-4" style={{ color: 'var(--secondary)' }} />
+              <HelpCircle className="w-4 h-4" style={{ color: 'var(--secondary-text)' }} />
             </div>
             <span className="font-medium">Como usar WhatsApp con Dome</span>
           </div>
@@ -594,7 +594,7 @@ export default function WhatsAppSettingsPanel() {
               height="12"
               viewBox="0 0 12 12"
               fill="none"
-              style={{ color: 'var(--secondary)' }}
+              style={{ color: 'var(--secondary-text)' }}
             >
               <path
                 d="M2.5 4.5L6 8L9.5 4.5"
@@ -611,9 +611,9 @@ export default function WhatsAppSettingsPanel() {
           <div className="px-6 pb-6">
             <div
               className="p-4 rounded-lg space-y-3 text-sm"
-              style={{ backgroundColor: 'var(--bg)', color: 'var(--secondary)' }}
+              style={{ backgroundColor: 'var(--bg)', color: 'var(--secondary-text)' }}
             >
-              <p style={{ color: 'var(--primary)' }}>
+              <p style={{ color: 'var(--primary-text)' }}>
                 Una vez conectado, envia mensajes a tu propio chat de WhatsApp:
               </p>
               <ul className="space-y-2">
@@ -633,7 +633,7 @@ export default function WhatsAppSettingsPanel() {
                   <span className="font-mono text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                     /pregunta
                   </span>
-                  <span>Consultar a Martin</span>
+                  <span>Consultar a Many</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-lg leading-none">🎤</span>
@@ -649,7 +649,7 @@ export default function WhatsAppSettingsPanel() {
                 </li>
               </ul>
               <p className="pt-2" style={{ borderTop: '1px solid var(--border)' }}>
-                Los mensajes de texto normales se envian a Martin para que te responda.
+                Los mensajes de texto normales se envian a Many para que te responda.
               </p>
             </div>
           </div>

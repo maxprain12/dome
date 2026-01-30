@@ -121,7 +121,7 @@ export default function PDFPage({ page, scale, pageNumber }: PDFPageProps) {
           className="absolute inset-0 flex items-center justify-center"
           style={{ background: 'rgba(255, 255, 255, 0.8)' }}
         >
-          <div className="text-sm" style={{ color: 'var(--secondary)' }}>
+          <div className="text-sm" style={{ color: 'var(--secondary-text)' }}>
             Loading page {pageNumber}...
           </div>
         </div>

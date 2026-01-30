@@ -160,7 +160,7 @@ dome-local/
 │   ├── components/             # React components
 │   │   ├── editor/             # Tiptap editor and extensions
 │   │   ├── viewers/            # PDF, Video, Audio, Image viewers
-│   │   ├── chat/               # AI chat interface (Martin assistant)
+│   │   ├── chat/               # AI chat interface (Many assistant)
 │   │   ├── CommandCenter/      # Cmd+K search palette
 │   │   ├── settings/           # Settings panels
 │   │   ├── workspace/          # Main workspace layout
@@ -179,7 +179,7 @@ dome-local/
 │   │   ├── store/              # Zustand state management
 │   │   │   ├── useAppStore.ts  # Global app state
 │   │   │   ├── useUserStore.ts # User profile state
-│   │   │   └── useMartinStore.ts # Chat state
+│   │   │   └── useMartinStore.ts # Chat state (Many agent)
 │   │   │
 │   │   ├── utils/              # Utilities (pure functions only)
 │   │   ├── hooks/              # React hooks

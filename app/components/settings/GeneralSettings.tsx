@@ -76,17 +76,17 @@ export default function GeneralSettings() {
     <div className="space-y-12 animate-in fade-in duration-500">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--primary)' }}>
+        <h2 className="text-xl font-display font-semibold mb-1" style={{ color: 'var(--primary-text)' }}>
           General
         </h2>
-        <p className="text-sm opacity-70" style={{ color: 'var(--secondary)' }}>
+        <p className="text-sm opacity-80" style={{ color: 'var(--secondary-text)' }}>
           Manage your profile and account settings
         </p>
       </div>
 
       {/* Avatar Section */}
       <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary)' }}>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
           Profile Picture
         </h3>
 
@@ -100,27 +100,20 @@ export default function GeneralSettings() {
 
           <div className="flex flex-col gap-3">
             <div className="flex gap-3">
-              <button
-                onClick={handleChangeAvatar}
-                className="px-4 py-2 text-sm font-medium rounded-md transition-all hover:bg-black/5 dark:hover:bg-white/5 active:scale-95"
-                style={{
-                  backgroundColor: 'transparent',
-                  color: 'var(--primary)',
-                  border: '1px solid var(--border)',
-                }}
-              >
+              <button onClick={handleChangeAvatar} className="btn btn-secondary">
                 Change Avatar
               </button>
-              {(avatarData || avatarPath) && (
+              {(avatarData || avatarPath) ? (
                 <button
                   onClick={handleRemoveAvatar}
-                  className="px-4 py-2 text-sm font-medium rounded-md text-red-500 transition-all hover:bg-red-50 dark:hover:bg-red-900/10 active:scale-95"
+                  className="btn btn-ghost text-sm font-medium transition-colors hover:bg-[var(--error-bg)]"
+                  style={{ color: 'var(--error)' }}
                 >
                   Remove
                 </button>
-              )}
+              ) : null}
             </div>
-            <p className="text-xs opacity-60 max-w-[200px]" style={{ color: 'var(--secondary)' }}>
+            <p className="text-xs opacity-80 max-w-[200px]" style={{ color: 'var(--secondary-text)' }}>
               Recommended: Square JPG, PNG, or GIF, at least 400x400.
             </p>
           </div>
@@ -129,13 +122,13 @@ export default function GeneralSettings() {
 
       {/* Profile Information */}
       <section className="max-w-md">
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary)' }}>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
           Personal Details
         </h3>
 
         <div className="space-y-6">
-          <div className="group">
-            <label htmlFor="user-name" className="block text-sm font-medium mb-2 transition-colors group-focus-within:text-blue-500" style={{ color: 'var(--primary)' }}>
+          <div>
+            <label htmlFor="user-name" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               Full Name
             </label>
             <input
@@ -150,17 +143,16 @@ export default function GeneralSettings() {
               }}
               placeholder="John Doe"
               autoComplete="name"
-              className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2 transition-colors"
+              className="input"
               style={{
-                color: 'var(--primary)',
-                borderColor: errors.name ? 'var(--error)' : 'var(--border)',
+                borderColor: errors.name ? 'var(--error)' : undefined,
               }}
             />
-            {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
+            {errors.name ? <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{errors.name}</p> : null}
           </div>
 
-          <div className="group">
-            <label htmlFor="user-email" className="block text-sm font-medium mb-2 transition-colors group-focus-within:text-blue-500" style={{ color: 'var(--primary)' }}>
+          <div>
+            <label htmlFor="user-email" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               Email Address
             </label>
             <input
@@ -170,7 +162,6 @@ export default function GeneralSettings() {
               value={localEmail}
               onChange={(e) => {
                 const value = e.target.value;
-                console.log(`[GeneralSettings] Email onChange: "${value}" (length: ${value.length})`);
                 setLocalEmail(value);
                 if (errors.email && validateEmail(value)) {
                   setErrors((prev) => ({ ...prev, email: undefined }));
@@ -178,28 +169,21 @@ export default function GeneralSettings() {
               }}
               placeholder="john@example.com"
               autoComplete="email"
-              className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2 transition-colors"
+              className="input"
               style={{
-                color: 'var(--primary)',
-                borderColor: errors.email ? 'var(--error)' : 'var(--border)',
+                borderColor: errors.email ? 'var(--error)' : undefined,
               }}
             />
-            {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
+            {errors.email ? <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{errors.email}</p> : null}
           </div>
 
           <div className="pt-4 flex items-center gap-4">
-            <button
-              onClick={handleSave}
-              className="px-6 py-2 text-sm font-medium text-white rounded-full shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 transition-all hover:-translate-y-0.5 active:translate-y-0"
-              style={{
-                backgroundColor: 'var(--brand-primary)',
-              }}
-            >
+            <button onClick={handleSave} className="btn btn-primary">
               Save Changes
             </button>
-            {isSaved && (
-              <span className="text-sm text-green-600 animate-in fade-in slide-in-from-left-2">Saved successfully</span>
-            )}
+            {isSaved ? (
+              <span className="text-sm animate-in fade-in" style={{ color: 'var(--success)' }}>Saved successfully</span>
+            ) : null}
           </div>
         </div>
       </section>

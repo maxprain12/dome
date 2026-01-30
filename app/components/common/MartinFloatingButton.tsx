@@ -6,7 +6,7 @@ import MartinIcon from './MartinIcon';
 import { useMartinStore } from '@/lib/store/useMartinStore';
 import { getAIConfig, chatStream } from '@/lib/ai/client';
 
-// Rutas donde Martin NO debe aparecer
+// Rutas donde Many NO debe aparecer
 const HIDDEN_ROUTES = ['/settings', '/onboarding'];
 
 // Contexto por ruta
@@ -66,7 +66,7 @@ export default function MartinFloatingButton() {
     const context = getContextFromPath(pathname || '/');
     const now = new Date();
 
-    let prompt = `You are Martin, Dome's AI assistant. You are friendly, conversational, and always try to help clearly. You speak in natural English.
+    let prompt = `You are Many, Dome's AI assistant. You are friendly, conversational, and always try to help clearly. You speak in natural English.
 
 ## Your Personality
 - Close and professional at the same time
@@ -156,7 +156,7 @@ You can help the user with:
       setStreamingContent('');
       addMessage({ role: 'assistant', content: response });
     } catch (error) {
-      console.error('[Martin] Error:', error);
+      console.error('[Many] Error:', error);
       setStreamingContent('');
       addMessage({
         role: 'assistant',
@@ -191,7 +191,7 @@ You can help the user with:
       <button
         onClick={toggleOpen}
         className="martin-floating-button"
-        aria-label="Open chat with Martin"
+        aria-label="Open chat with Many"
         style={{
           position: 'fixed',
           bottom: '24px',
@@ -325,7 +325,7 @@ You can help the user with:
               <MartinIcon size={26} />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, color: '#ffffff', fontSize: '15px' }}>Martin</div>
+              <div style={{ fontWeight: 600, color: '#ffffff', fontSize: '15px' }}>Many</div>
               <div style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.5)' }}>
                 {status === 'thinking'
                   ? 'Thinking...'
@@ -390,7 +390,7 @@ You can help the user with:
                   <MartinIcon size={56} />
                 </div>
                 <p style={{ marginBottom: '8px', color: 'rgba(255, 255, 255, 0.7)', fontWeight: 500 }}>
-                  Hi, I'm Martin
+                  Hi, I'm Many
                 </p>
                 <p style={{ fontSize: '13px', lineHeight: 1.5 }}>
                   Your personal assistant in Dome. Ask me anything you need.

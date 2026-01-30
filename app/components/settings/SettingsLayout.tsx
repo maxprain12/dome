@@ -51,33 +51,41 @@ export default function SettingsLayout({ activeSection, onSectionChange, childre
       <div
         className="w-64 border-r flex flex-col pt-8" // Added pt-8 for safe zone (traffic lights)
         style={{
-          borderColor: 'var(--border-subtle)', // Softer border
+          borderColor: 'var(--border)',
           backgroundColor: 'var(--bg-secondary)',
         }}
       >
         {/* Header */}
-        <div className="px-6 py-4">
-          {/* Removed border-b for cleaner look */}
-          <h1 className="text-sm font-semibold uppercase tracking-wider opacity-70" style={{ color: 'var(--secondary)' }}>
+        <div className="px-6 py-5">
+          <h1 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--secondary-text)' }}>
             Settings
           </h1>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-3 space-y-1">
+        <nav className="flex-1 px-3 space-y-0.5" aria-label="Settings sections">
           {sidebarItems.map((item) => (
             <button
               key={item.id}
               onClick={() => onSectionChange(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-200 ${activeSection === item.id ? 'bg-white/10 shadow-sm' : 'hover:bg-white/5'
-                }`}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-secondary)]"
               style={{
-                backgroundColor: activeSection === item.id ? 'var(--active-item-bg)' : 'transparent',
-                color: activeSection === item.id ? 'var(--primary)' : 'var(--secondary)',
+                backgroundColor: activeSection === item.id ? 'var(--primary-subtle)' : 'transparent',
+                color: activeSection === item.id ? 'var(--accent)' : 'var(--secondary-text)',
+              }}
+              onMouseEnter={(e) => {
+                if (activeSection !== item.id) {
+                  e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeSection !== item.id) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
               }}
             >
-              {/* Icons slightly smaller/subtler */}
-              <span className="opacity-80">{item.icon}</span>
+              <span className="shrink-0 opacity-90" style={{ color: activeSection === item.id ? 'var(--accent)' : 'var(--secondary-text)' }}>
+                {item.icon}
+              </span>
               <span>{item.label}</span>
             </button>
           ))}
@@ -89,8 +97,8 @@ export default function SettingsLayout({ activeSection, onSectionChange, childre
         {/* Top padding for drag region/safe zone interaction */}
         <div className="h-8 w-full app-drag-region shrink-0" />
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
-          <div className="max-w-3xl mx-auto p-8 pt-4 pb-20">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar scrollbar-gutter-stable">
+          <div className="max-w-3xl mx-auto pl-8 pr-12 pt-4 pb-20">
             {children}
           </div>
         </div>

@@ -12,31 +12,16 @@ import {
   type AIProviderType,
   type ModelDefinition,
 } from '@/lib/ai/models';
+import { AI_PROVIDER_OPTIONS } from '@/lib/ai/provider-options';
 import { getSyntheticModels } from '@/lib/ai/catalogs/synthetic';
 import { getVeniceModels, type VenicePrivacyMode } from '@/lib/ai/catalogs/venice';
+import ModelSelector from './ModelSelector';
 
 interface OllamaModel {
   name: string;
   size: number;
   modified_at: string;
 }
-
-// Provider options for the selector
-const CLOUD_PROVIDERS: Array<{
-  value: AIProviderType;
-  name: string;
-  description: string;
-  icon?: string;
-  badge?: string;
-  badgeColor?: string;
-}> = [
-  { value: 'synthetic', name: 'Synthetic', description: 'Modelos gratuitos: MiniMax, DeepSeek, Qwen', badge: 'GRATIS', badgeColor: 'green' },
-  { value: 'openai', name: PROVIDERS.openai.name, description: PROVIDERS.openai.description },
-  { value: 'anthropic', name: PROVIDERS.anthropic.name, description: PROVIDERS.anthropic.description },
-  { value: 'google', name: PROVIDERS.google.name, description: PROVIDERS.google.description },
-  { value: 'venice', name: 'Venice', description: 'Privacidad y anonimato', badge: 'PRIVADO', badgeColor: 'purple' },
-  { value: 'ollama', name: PROVIDERS.ollama.name, description: PROVIDERS.ollama.description },
-];
 
 export default function AISettingsPanel() {
   const [provider, setProvider] = useState<AIProviderType>('openai');
@@ -310,57 +295,63 @@ export default function AISettingsPanel() {
     <div className="space-y-12 animate-in fade-in duration-500">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--primary)' }}>
+        <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--primary-text)' }}>
           AI Configuration
         </h2>
-        <p className="text-sm opacity-70" style={{ color: 'var(--secondary)' }}>
+        <p className="text-sm opacity-70" style={{ color: 'var(--secondary-text)' }}>
           Configure your AI provider for semantic search, transcriptions, and assistant
         </p>
       </div>
 
-      {/* Provider Selection */}
+      {/* Provider Selection - same order and labels as onboarding */}
       <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary)' }}>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary-text)' }}>
           Provider
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {CLOUD_PROVIDERS.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => handleProviderChange(option.value)}
-              className={`px-4 py-3 rounded-lg text-left transition-all relative ${
-                provider === option.value ? 'bg-blue-500/10' : 'hover:bg-black/5 dark:hover:bg-white/5'
-              }`}
-              style={{
-                color: provider === option.value ? 'var(--brand-primary)' : 'var(--primary)',
-                border: provider === option.value ? '2px solid var(--brand-primary)' : '1px solid var(--border)',
-              }}
-            >
-              {option.badge && (
-                <span 
-                  className={`absolute -top-2 -right-2 px-1.5 py-0.5 text-[9px] font-bold rounded ${
-                    option.badgeColor === 'green' 
-                      ? 'bg-green-500 text-white' 
-                      : 'bg-purple-500 text-white'
-                  }`}
-                >
-                  {option.badge}
-                </span>
-              )}
-              <div className="font-medium flex items-center gap-1.5">
-                {option.value === 'synthetic' && <Gift className="w-4 h-4" />}
-                {option.value === 'venice' && <Shield className="w-4 h-4" />}
-                {option.name}
-              </div>
-              <div className="text-xs opacity-60 mt-0.5">{option.description}</div>
-            </button>
-          ))}
+          {AI_PROVIDER_OPTIONS.map((option) => {
+            const Icon = option.icon;
+            const isSelected = provider === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() => handleProviderChange(option.value)}
+                className={`px-4 py-3 rounded-lg text-left transition-all relative ${
+                  isSelected ? 'bg-blue-500/10' : 'hover:bg-black/5 dark:hover:bg-white/5'
+                }`}
+                style={{
+                  color: isSelected ? 'var(--accent)' : 'var(--primary-text)',
+                  border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
+                }}
+              >
+                {option.badge && (
+                  <span
+                    className={`absolute -top-2 -right-2 px-1.5 py-0.5 text-[9px] font-bold rounded ${
+                      option.badgeColor === 'green' ? 'bg-green-500 text-white' : 'bg-purple-500 text-white'
+                    }`}
+                  >
+                    {option.badge}
+                  </span>
+                )}
+                <div className="font-medium flex items-center gap-1.5">
+                  <Icon className="w-4 h-4" />
+                  {option.label}
+                  {option.recommended && (
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400">
+                      Recommended
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs opacity-60 mt-0.5">{option.description}</div>
+              </button>
+            );
+          })}
         </div>
       </section>
 
       {/* API Configuration */}
       <section className="space-y-6 max-w-lg">
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary)' }}>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary-text)' }}>
           Configuration
         </h3>
 
@@ -371,7 +362,7 @@ export default function AISettingsPanel() {
               <Gift className="w-5 h-5 text-green-600" />
               <span className="font-medium text-green-700 dark:text-green-400">Free Models</span>
             </div>
-            <p className="text-sm opacity-80" style={{ color: 'var(--secondary)' }}>
+            <p className="text-sm opacity-80" style={{ color: 'var(--secondary-text)' }}>
               Synthetic ofrece acceso gratuito a modelos de MiniMax, DeepSeek, Qwen, Llama y más.
               No requiere API key ni registro.
             </p>
@@ -386,14 +377,14 @@ export default function AISettingsPanel() {
                 <Shield className="w-5 h-5 text-purple-600" />
                 <span className="font-medium text-purple-700 dark:text-purple-400">Privacy Guaranteed</span>
               </div>
-              <p className="text-sm opacity-80" style={{ color: 'var(--secondary)' }}>
+              <p className="text-sm opacity-80" style={{ color: 'var(--secondary-text)' }}>
                 Venice runs models privately without logging. Optional API key for premium models.
               </p>
             </div>
 
             {/* Privacy Mode Toggle */}
             <div className="group">
-              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary)' }}>
+              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
                 Privacy Mode
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -404,7 +395,7 @@ export default function AISettingsPanel() {
                     venicePrivacyMode === 'private' ? 'bg-purple-500/10' : 'hover:bg-black/5'
                   }`}
                   style={{
-                    border: venicePrivacyMode === 'private' ? '2px solid var(--brand-primary)' : '1px solid var(--border)',
+                    border: venicePrivacyMode === 'private' ? '2px solid var(--accent)' : '1px solid var(--border)',
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -420,7 +411,7 @@ export default function AISettingsPanel() {
                     venicePrivacyMode === 'anonymized' ? 'bg-purple-500/10' : 'hover:bg-black/5'
                   }`}
                   style={{
-                    border: venicePrivacyMode === 'anonymized' ? '2px solid var(--brand-primary)' : '1px solid var(--border)',
+                    border: venicePrivacyMode === 'anonymized' ? '2px solid var(--accent)' : '1px solid var(--border)',
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -434,7 +425,7 @@ export default function AISettingsPanel() {
 
             {/* Optional API Key */}
             <div className="group">
-              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary)' }}>
+              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
                 API Key <span className="opacity-50">(optional)</span>
               </label>
               <div className="relative">
@@ -445,7 +436,7 @@ export default function AISettingsPanel() {
                   placeholder="For premium models..."
                   className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
                   style={{
-                    color: 'var(--primary)',
+                    color: 'var(--primary-text)',
                     borderColor: 'var(--border)',
                   }}
                 />
@@ -453,7 +444,7 @@ export default function AISettingsPanel() {
                   type="button"
                   onClick={() => setShowApiKey(!showApiKey)}
                   className="absolute right-0 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100"
-                  style={{ color: 'var(--secondary)' }}
+                  style={{ color: 'var(--secondary-text)' }}
                 >
                   {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -465,7 +456,7 @@ export default function AISettingsPanel() {
         {/* API Key for OpenAI and Google */}
         {(provider === 'openai' || provider === 'google') && (
           <div className="group">
-            <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary)' }}>
+            <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
               API Key
             </label>
             <div className="relative">
@@ -476,7 +467,7 @@ export default function AISettingsPanel() {
                 placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || 'Enter API key...'}
                 className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
                 style={{
-                  color: 'var(--primary)',
+                  color: 'var(--primary-text)',
                   borderColor: 'var(--border)',
                 }}
               />
@@ -484,13 +475,13 @@ export default function AISettingsPanel() {
                 type="button"
                 onClick={() => setShowApiKey(!showApiKey)}
                 className="absolute right-0 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100"
-                style={{ color: 'var(--secondary)' }}
+                style={{ color: 'var(--secondary-text)' }}
               >
                 {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
             {PROVIDERS[provider]?.docsUrl && (
-              <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary)' }}>
+              <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
                 Obtén tu API key en{' '}
                 <a 
                   href={PROVIDERS[provider].docsUrl} 
@@ -510,7 +501,7 @@ export default function AISettingsPanel() {
           <div className="space-y-4">
             {/* Auth Mode Toggle */}
             <div className="group">
-              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary)' }}>
+              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
                 Authentication Method
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -521,7 +512,7 @@ export default function AISettingsPanel() {
                     authMode === 'api_key' ? 'bg-blue-500/10' : 'hover:bg-black/5'
                   }`}
                   style={{
-                    border: authMode === 'api_key' ? '2px solid var(--brand-primary)' : '1px solid var(--border)',
+                    border: authMode === 'api_key' ? '2px solid var(--accent)' : '1px solid var(--border)',
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -537,7 +528,7 @@ export default function AISettingsPanel() {
                     authMode === 'oauth' || authMode === 'token' ? 'bg-blue-500/10' : 'hover:bg-black/5'
                   }`}
                   style={{
-                    border: authMode === 'oauth' || authMode === 'token' ? '2px solid var(--brand-primary)' : '1px solid var(--border)',
+                    border: authMode === 'oauth' || authMode === 'token' ? '2px solid var(--accent)' : '1px solid var(--border)',
                   }}
                 >
                   <div className="flex items-center gap-2">
@@ -552,7 +543,7 @@ export default function AISettingsPanel() {
             {/* API Key Input */}
             {authMode === 'api_key' && (
               <div className="group">
-                <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary)' }}>
+                <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
                   API Key
                 </label>
                 <div className="relative">
@@ -563,7 +554,7 @@ export default function AISettingsPanel() {
                     placeholder="sk-ant-..."
                     className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
                     style={{
-                      color: 'var(--primary)',
+                      color: 'var(--primary-text)',
                       borderColor: 'var(--border)',
                     }}
                   />
@@ -571,12 +562,12 @@ export default function AISettingsPanel() {
                     type="button"
                     onClick={() => setShowApiKey(!showApiKey)}
                     className="absolute right-0 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100"
-                    style={{ color: 'var(--secondary)' }}
+                    style={{ color: 'var(--secondary-text)' }}
                   >
                     {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary)' }}>
+                <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
                   Obtén tu API key en{' '}
                   <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">
                     console.anthropic.com
@@ -596,13 +587,13 @@ export default function AISettingsPanel() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       {checkingProxy ? (
-                        <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--secondary)' }} />
+                        <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--secondary-text)' }} />
                       ) : claudeMaxProxyAvailable ? (
                         <CheckCircle2 className="w-4 h-4 text-green-500" />
                       ) : (
                         <XCircle className="w-4 h-4 text-amber-500" />
                       )}
-                      <span className="font-medium text-sm" style={{ color: 'var(--primary)' }}>
+                      <span className="font-medium text-sm" style={{ color: 'var(--primary-text)' }}>
                         Claude Code CLI
                       </span>
                     </div>
@@ -620,7 +611,7 @@ export default function AISettingsPanel() {
                       Claude Code CLI available. Your Claude Pro/Max subscription is ready to use.
                     </p>
                   ) : (
-                    <div className="text-xs" style={{ color: 'var(--secondary)' }}>
+                    <div className="text-xs" style={{ color: 'var(--secondary-text)' }}>
                       <p className="mb-2 text-amber-600 dark:text-amber-400 font-medium">
                         Claude Code CLI not found. To use your Claude Pro/Max subscription:
                       </p>
@@ -645,14 +636,14 @@ export default function AISettingsPanel() {
           <>
             <div className="group">
               <div className="flex items-center justify-between mb-2">
-                <label htmlFor="ai-model" className="text-sm font-medium opacity-80" style={{ color: 'var(--primary)' }}>
+                <label htmlFor="ai-model" className="text-sm font-medium opacity-80" style={{ color: 'var(--primary-text)' }}>
                   Model
                 </label>
                 <button
                   type="button"
                   onClick={() => setCustomModel(!customModel)}
                   className="text-xs font-medium"
-                  style={{ color: 'var(--brand-primary)' }}
+                  style={{ color: 'var(--accent)' }}
                 >
                   {customModel ? 'Use presets' : 'Custom model'}
                 </button>
@@ -667,94 +658,64 @@ export default function AISettingsPanel() {
                   autoComplete="off"
                   className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
                   style={{
-                    color: 'var(--primary)',
+                    color: 'var(--primary-text)',
                     borderColor: 'var(--border)',
                   }}
                 />
               ) : (
-                <div className="space-y-1">
-                  {currentProviderModels.map((m) => (
-                    <label
-                      key={m.id}
-                      className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
-                        model === m.id 
-                          ? 'bg-blue-500/10 border-blue-500' 
-                          : 'hover:bg-black/5 dark:hover:bg-white/5'
-                      }`}
-                      style={{
-                        border: model === m.id ? '1px solid var(--brand-primary)' : '1px solid var(--border)',
-                      }}
-                    >
-                      <div className="flex items-center">
-                        <input
-                          type="radio"
-                          name="model"
-                          value={m.id}
-                          checked={model === m.id}
-                          onChange={(e) => setModel(e.target.value)}
-                          className="sr-only"
-                        />
-                        <div>
-                          <div className="flex items-center">
-                            <span className="text-sm font-medium" style={{ color: 'var(--primary)' }}>
-                              {m.name}
-                            </span>
-                            {m.recommended && (
-                              <span className="ml-2 px-1.5 py-0.5 text-[10px] font-medium rounded bg-green-500/10 text-green-600 dark:text-green-400">
-                                Recommended
-                              </span>
-                            )}
-                            {renderModelBadges(m, provider === 'synthetic', provider === 'venice')}
-                          </div>
-                          {m.description && (
-                            <span className="text-xs opacity-60" style={{ color: 'var(--secondary)' }}>
-                              {m.description}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-xs opacity-50" style={{ color: 'var(--secondary)' }}>
-                        {formatContextWindow(m.contextWindow)} ctx
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                <ModelSelector
+                  models={currentProviderModels}
+                  selectedModelId={model}
+                  onChange={setModel}
+                  showBadges={true}
+                  showDescription={true}
+                  showContextWindow={true}
+                  searchable={currentProviderModels.length > 5}
+                  isFreeProvider={provider === 'synthetic'}
+                  isPrivateProvider={provider === 'venice'}
+                  placeholder="Selecciona un modelo..."
+                  providerType="cloud"
+                />
               )}
             </div>
 
             {/* Embedding Model for providers that support it */}
             {PROVIDERS[provider]?.supportsEmbeddings && currentProviderEmbeddingModels.length > 0 && (
               <div className="group">
-                <label htmlFor="ai-embedding-model" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary)' }}>
+                <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
                   Embedding Model
                 </label>
-                <select
-                  id="ai-embedding-model"
-                  value={embeddingModel}
-                  onChange={(e) => setEmbeddingModel(e.target.value)}
-                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none cursor-pointer"
-                  style={{
-                    color: 'var(--primary)',
-                    borderColor: 'var(--border)',
-                  }}
-                >
-                  {currentProviderEmbeddingModels.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} {m.recommended ? '(Recommended)' : ''}
-                    </option>
-                  ))}
-                </select>
+                <ModelSelector
+                  models={currentProviderEmbeddingModels.map((em) => ({
+                    id: em.id,
+                    name: em.name,
+                    description: em.dimensions ? `${em.dimensions} dimensiones` : undefined,
+                    recommended: em.recommended,
+                    reasoning: false,
+                    input: ['text'],
+                    contextWindow: em.dimensions || 0,
+                    maxTokens: 0,
+                  }))}
+                  selectedModelId={embeddingModel}
+                  onChange={setEmbeddingModel}
+                  showBadges={true}
+                  showDescription={false}
+                  showContextWindow={false}
+                  searchable={false}
+                  providerType="embedding"
+                  placeholder="Selecciona modelo de embeddings..."
+                />
               </div>
             )}
 
             {/* Note for providers that don't support embeddings */}
             {(provider === 'anthropic' || provider === 'synthetic' || provider === 'venice') && (
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <p className="text-xs" style={{ color: 'var(--secondary)' }}>
+                <p className="text-xs" style={{ color: 'var(--secondary-text)' }}>
                   <strong className="text-amber-600 dark:text-amber-400">Note:</strong>{' '}
                   {provider === 'anthropic' ? 'Anthropic' : provider === 'synthetic' ? 'Synthetic' : 'Venice'} doesn't support embeddings for semantic search.
                 </p>
-                <p className="text-xs mt-1 opacity-80" style={{ color: 'var(--secondary)' }}>
+                <p className="text-xs mt-1 opacity-80" style={{ color: 'var(--secondary-text)' }}>
                   To enable semantic search, install <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline text-blue-500">Ollama</a> with an embedding model:
                 </p>
                 <code className="block mt-2 text-xs bg-black/10 dark:bg-white/10 px-2 py-1 rounded font-mono">
@@ -771,11 +732,11 @@ export default function AISettingsPanel() {
             {/* Connection Status */}
             <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'var(--border)' }}>
               <div className="flex items-center gap-2">
-                <span className="text-sm opacity-80" style={{ color: 'var(--primary)' }}>
+                <span className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
                   Status
                 </span>
                 {checkingOllama ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--secondary)' }} />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--secondary-text)' }} />
                 ) : ollamaAvailable === true ? (
                   <div className="flex items-center gap-1 text-green-500">
                     <CheckCircle2 className="w-3.5 h-3.5" />
@@ -787,7 +748,7 @@ export default function AISettingsPanel() {
                     <span className="text-xs font-medium">Offline</span>
                   </div>
                 ) : (
-                  <span className="text-xs" style={{ color: 'var(--secondary)' }}>Unknown</span>
+                  <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>Unknown</span>
                 )}
               </div>
               <button
@@ -801,7 +762,7 @@ export default function AISettingsPanel() {
 
             {/* Ollama Base URL */}
             <div className="group">
-              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary)' }}>
+              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
                 Base URL
               </label>
               <input
@@ -811,7 +772,7 @@ export default function AISettingsPanel() {
                 placeholder="http://localhost:11434"
                 className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
                 style={{
-                  color: 'var(--primary)',
+                  color: 'var(--primary-text)',
                   borderColor: 'var(--border)',
                 }}
               />
@@ -820,7 +781,7 @@ export default function AISettingsPanel() {
             {/* Ollama Model Selector */}
             <div className="group">
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium opacity-80" style={{ color: 'var(--primary)' }}>
+                <label className="block text-sm font-medium opacity-80" style={{ color: 'var(--primary-text)' }}>
                   Chat Model
                 </label>
                 <button
@@ -832,26 +793,30 @@ export default function AISettingsPanel() {
                 </button>
               </div>
 
-              {ollamaModels.length > 0 ? (
-                <select
-                  value={ollamaModel}
-                  onChange={(e) => {
-                    const selectedValue = e.target.value;
-                    console.log('[AISettings] Model selected:', selectedValue);
-                    setOllamaModel(selectedValue);
+{ollamaModels.length > 0 ? (
+                <ModelSelector
+                  models={ollamaModels.map((m) => ({
+                    id: m.name,
+                    name: m.name,
+                    description: `${Math.round(m.size / 1024 / 1024 / 1024)}GB`,
+                    reasoning: false,
+                    input: ['text'],
+                    contextWindow: 0,
+                    maxTokens: 0,
+                  }))}
+                  selectedModelId={ollamaModel}
+                  onChange={(modelId) => {
+                    console.log('[AISettings] Model selected:', modelId);
+                    setOllamaModel(modelId);
                   }}
-                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none"
-                  style={{
-                    color: 'var(--primary)',
-                    borderColor: 'var(--border)',
-                  }}
-                >
-                  {ollamaModels.map((m) => (
-                    <option key={m.name} value={m.name}>
-                      {m.name} ({Math.round(m.size / 1024 / 1024 / 1024)}GB)
-                    </option>
-                  ))}
-                </select>
+                  searchable={true}
+                  showBadges={false}
+                  showDescription={true}
+                  showContextWindow={false}
+                  placeholder="Selecciona modelo Ollama..."
+                  disabled={loadingModels}
+                  providerType="ollama"
+                />
               ) : (
                 <input
                   type="text"
@@ -860,7 +825,7 @@ export default function AISettingsPanel() {
                   placeholder="llama3.2"
                   className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
                   style={{
-                    color: 'var(--primary)',
+                    color: 'var(--primary-text)',
                     borderColor: 'var(--border)',
                   }}
                 />
@@ -870,27 +835,32 @@ export default function AISettingsPanel() {
             {/* Ollama Embedding Model Selector */}
             <div className="group">
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium opacity-80" style={{ color: 'var(--primary)' }}>
+                <label className="block text-sm font-medium opacity-80" style={{ color: 'var(--primary-text)' }}>
                   Embedding Model
                 </label>
               </div>
 
-              {ollamaModels.length > 0 ? (
-                <select
-                  value={ollamaEmbeddingModel}
-                  onChange={(e) => setOllamaEmbeddingModel(e.target.value)}
-                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none"
-                  style={{
-                    color: 'var(--primary)',
-                    borderColor: 'var(--border)',
-                  }}
-                >
-                  {ollamaModels.map((m) => (
-                    <option key={m.name} value={m.name}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
+{ollamaModels.length > 0 ? (
+                <ModelSelector
+                  models={ollamaModels.map((m) => ({
+                    id: m.name,
+                    name: m.name,
+                    description: undefined,
+                    reasoning: false,
+                    input: ['text'],
+                    contextWindow: 0,
+                    maxTokens: 0,
+                  }))}
+                  selectedModelId={ollamaEmbeddingModel}
+                  onChange={setOllamaEmbeddingModel}
+                  searchable={true}
+                  showBadges={false}
+                  showDescription={false}
+                  showContextWindow={false}
+                  placeholder="Selecciona modelo de embeddings..."
+                  disabled={loadingModels}
+                  providerType="embedding"
+                />
               ) : (
                 <input
                   type="text"
@@ -899,7 +869,7 @@ export default function AISettingsPanel() {
                   placeholder="mxbai-embed-large"
                   className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
                   style={{
-                    color: 'var(--primary)',
+                    color: 'var(--primary-text)',
                     borderColor: 'var(--border)',
                   }}
                 />
@@ -908,17 +878,17 @@ export default function AISettingsPanel() {
 
             {/* Advanced Ollama Settings */}
             <div className="pt-6">
-              <h4 className="text-xs uppercase tracking-wider font-semibold mb-4 opacity-60" style={{ color: 'var(--secondary)' }}>
+              <h4 className="text-xs uppercase tracking-wider font-semibold mb-4 opacity-60" style={{ color: 'var(--secondary-text)' }}>
                 Fine Tuning
               </h4>
 
               <div className="space-y-6">
                 <div>
                   <div className="flex justify-between mb-2">
-                    <label className="text-sm opacity-80" style={{ color: 'var(--primary)' }}>
+                    <label className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
                       Temperature
                     </label>
-                    <span className="text-xs font-mono opacity-60" style={{ color: 'var(--primary)' }}>{ollamaTemperature}</span>
+                    <span className="text-xs font-mono opacity-60" style={{ color: 'var(--primary-text)' }}>{ollamaTemperature}</span>
                   </div>
                   <input
                     type="range"
@@ -933,10 +903,10 @@ export default function AISettingsPanel() {
 
                 <div>
                   <div className="flex justify-between mb-2">
-                    <label className="text-sm opacity-80" style={{ color: 'var(--primary)' }}>
+                    <label className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
                       Top P
                     </label>
-                    <span className="text-xs font-mono opacity-60" style={{ color: 'var(--primary)' }}>{ollamaTopP}</span>
+                    <span className="text-xs font-mono opacity-60" style={{ color: 'var(--primary-text)' }}>{ollamaTopP}</span>
                   </div>
                   <input
                     type="range"
@@ -947,6 +917,27 @@ export default function AISettingsPanel() {
                     onChange={(e) => setOllamaTopP(parseFloat(e.target.value))}
                     className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
                   />
+                </div>
+
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
+                      Num Predict
+                    </label>
+                    <span className="text-xs font-mono opacity-60" style={{ color: 'var(--primary-text)' }}>{ollamaNumPredict}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="100"
+                    max="4096"
+                    step="100"
+                    value={ollamaNumPredict}
+                    onChange={(e) => setOllamaNumPredict(parseInt(e.target.value, 10))}
+                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                  />
+                  <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
+                    Maximum tokens to generate per response.
+                  </p>
                 </div>
               </div>
             </div>
@@ -959,7 +950,7 @@ export default function AISettingsPanel() {
             onClick={handleSave}
             className="w-full px-6 py-3 text-sm font-medium text-white rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.99] transition-all"
             style={{
-              backgroundColor: 'var(--brand-primary)',
+              backgroundColor: 'var(--accent)',
             }}
           >
             Save Configuration

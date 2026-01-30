@@ -54,10 +54,10 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
     <div className="flex flex-col items-center justify-center min-h-[400px] px-8">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--primary)' }}>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--primary-text)' }}>
             Welcome to Dome
           </h1>
-          <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
             Let's get started by setting up your profile
           </p>
         </div>
@@ -67,7 +67,7 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
             <label
               htmlFor="name"
               className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--primary)' }}
+              style={{ color: 'var(--primary-text)' }}
             >
               Full Name
             </label>
@@ -80,7 +80,7 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
                 border: errors.name ? '1px solid #ef4444' : '1px solid var(--border)',
               }}
               autoFocus
@@ -94,7 +94,7 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
             <label
               htmlFor="email"
               className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--primary)' }}
+              style={{ color: 'var(--primary-text)' }}
             >
               Email Address
             </label>
@@ -107,7 +107,7 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
               className="w-full px-4 py-2.5 rounded-lg text-sm"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
                 border: errors.email ? '1px solid #ef4444' : '1px solid var(--border)',
               }}
             />
@@ -120,14 +120,14 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
             type="submit"
             className="w-full py-2.5 rounded-lg font-medium text-sm text-white transition-colors"
             style={{
-              backgroundColor: 'var(--brand-primary)',
+              backgroundColor: 'var(--accent)',
             }}
           >
             Continue
           </button>
         </form>
 
-        <p className="text-xs text-center mt-6" style={{ color: 'var(--secondary)' }}>
+        <p className="text-xs text-center mt-6" style={{ color: 'var(--secondary-text)' }}>
           This information is stored locally and never shared
         </p>
       </div>

@@ -102,7 +102,7 @@ export const useMartinStore = create<MartinState>((set, get) => ({
       messages: [...state.messages, newMessage],
     }));
 
-    // Si el chat está cerrado y es un mensaje de Martin, incrementar unread
+    // Si el chat está cerrado y es un mensaje de Many, incrementar unread
     const { isOpen } = get();
     if (!isOpen && message.role === 'assistant') {
       set((state) => ({ unreadCount: state.unreadCount + 1 }));

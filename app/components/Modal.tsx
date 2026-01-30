@@ -79,7 +79,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
           <h2 
             id="modal-title"
             className="text-xl font-semibold"
-            style={{ color: 'var(--primary)' }}
+            style={{ color: 'var(--primary-text)' }}
           >
             {title}
           </h2>

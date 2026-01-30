@@ -41,7 +41,7 @@ const OnboardingStep = forwardRef<OnboardingStepRef, OnboardingStepProps>(
 
     return (
       <div className="p-8 flex flex-col flex-1 min-h-0">
-        {/* Martin's message */}
+        {/* Many's message */}
         <div className="flex gap-4 mb-6 flex-shrink-0">
           <MartinAvatar size="lg" />
           <div
@@ -51,7 +51,7 @@ const OnboardingStep = forwardRef<OnboardingStepRef, OnboardingStepProps>(
               border: '1px solid var(--border)',
             }}
           >
-            <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: 'var(--primary)' }}>
+            <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: 'var(--primary-text)' }}>
               {message}
             </p>
           </div>
@@ -68,7 +68,7 @@ const OnboardingStep = forwardRef<OnboardingStepRef, OnboardingStepProps>(
             className="px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               backgroundColor: onBack ? 'var(--bg-secondary)' : 'transparent',
-              color: 'var(--primary)',
+              color: 'var(--primary-text)',
               border: onBack ? '1px solid var(--border)' : 'none',
             }}
           >
@@ -79,7 +79,7 @@ const OnboardingStep = forwardRef<OnboardingStepRef, OnboardingStepProps>(
             disabled={!canProceed || !onNext}
             className="px-6 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              backgroundColor: canProceed && onNext ? 'var(--brand-primary)' : 'var(--bg-secondary)',
+              backgroundColor: canProceed && onNext ? 'var(--accent)' : 'var(--bg-secondary)',
             }}
           >
             {nextLabel}

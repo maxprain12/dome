@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { Loader2, AlertCircle } from 'lucide-react';
 import WorkspaceHeader from './WorkspaceHeader';
 import SidePanel from './SidePanel';
 import MetadataModal from './MetadataModal';
-import PDFViewer from '../viewers/PDFViewer';
-import VideoPlayer from '../viewers/VideoPlayer';
-import AudioPlayer from '../viewers/AudioPlayer';
-import ImageViewer from '../viewers/ImageViewer';
 import { type Resource } from '@/types';
+
+const PDFViewer = dynamic(() => import('../viewers/PDFViewer').then((m) => m.default), { ssr: false });
+const VideoPlayer = dynamic(() => import('../viewers/VideoPlayer').then((m) => m.default), { ssr: false });
+const AudioPlayer = dynamic(() => import('../viewers/AudioPlayer').then((m) => m.default), { ssr: false });
+const ImageViewer = dynamic(() => import('../viewers/ImageViewer').then((m) => m.default), { ssr: false });
 
 interface WorkspaceLayoutProps {
   resourceId: string;
@@ -128,11 +130,11 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
       default:
         return (
           <div className="flex flex-col items-center justify-center h-full p-8">
-            <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--tertiary)' }} />
-            <p className="text-lg font-medium" style={{ color: 'var(--primary)' }}>
+            <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--tertiary-text)' }} />
+            <p className="text-lg font-medium" style={{ color: 'var(--primary-text)' }}>
               Unsupported file type
             </p>
-            <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
               This resource type ({resource.type}) cannot be previewed in the workspace.
             </p>
           </div>
@@ -143,15 +145,15 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
   if (isLoading) {
     return (
       <div
-        className="flex items-center justify-center min-h-screen"
+        className="flex items-center justify-center min-h-screen animate-in"
         style={{ background: 'var(--bg)' }}
       >
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-5 animate-slide-up">
           <Loader2
-            className="w-8 h-8 animate-spin"
-            style={{ color: 'var(--brand-primary)' }}
+            className="w-10 h-10 animate-spin"
+            style={{ color: 'var(--accent)' }}
           />
-          <p className="text-sm" style={{ color: 'var(--secondary)' }}>
+          <p className="text-sm font-medium" style={{ color: 'var(--secondary-text)' }}>
             Loading workspace...
           </p>
         </div>
@@ -162,26 +164,21 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
   if (error || !resource) {
     return (
       <div
-        className="flex flex-col items-center justify-center min-h-screen p-8"
+        className="flex flex-col items-center justify-center min-h-screen p-8 animate-in"
         style={{ background: 'var(--bg)' }}
       >
-        <AlertCircle className="w-16 h-16 mb-4 text-red-500" />
-        <h1 className="text-xl font-semibold mb-2" style={{ color: 'var(--primary)' }}>
-          Failed to load resource
-        </h1>
-        <p className="text-sm mb-6" style={{ color: 'var(--secondary)' }}>
-          {error || 'The requested resource could not be found.'}
-        </p>
-        <button
-          onClick={handleBack}
-          className="px-4 py-2 rounded-lg text-sm font-medium"
-          style={{
-            background: 'var(--brand-primary)',
-            color: 'white',
-          }}
-        >
-          Close Window
-        </button>
+        <div className="flex flex-col items-center gap-5 animate-slide-up">
+          <AlertCircle className="w-16 h-16 shrink-0" style={{ color: 'var(--error)' }} />
+          <h1 className="text-xl font-display font-semibold text-center" style={{ color: 'var(--primary-text)' }}>
+            Failed to load resource
+          </h1>
+          <p className="text-sm text-center mb-6 max-w-md" style={{ color: 'var(--secondary-text)' }}>
+            {error ?? 'The requested resource could not be found.'}
+          </p>
+          <button onClick={handleBack} className="btn btn-primary">
+            Close Window
+          </button>
+        </div>
       </div>
     );
   }

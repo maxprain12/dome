@@ -75,8 +75,8 @@ export default function ChatMessage({
                 : 'rounded-2xl rounded-tl-md'
             }`}
             style={{
-              backgroundColor: isUser ? 'var(--brand-primary)' : 'var(--bg-secondary)',
-              color: isUser ? 'white' : 'var(--primary)',
+              backgroundColor: isUser ? 'var(--accent)' : 'var(--bg-secondary)',
+              color: isUser ? 'white' : 'var(--primary-text)',
             }}
           >
             {/* Message text */}

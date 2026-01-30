@@ -48,7 +48,7 @@ export default function AnnotationToolbar({
             className="p-2 rounded-md transition-colors"
             style={{
               background: activeTool === tool.type ? 'var(--bg-secondary)' : 'transparent',
-              color: activeTool === tool.type ? 'var(--brand-primary)' : 'var(--secondary)',
+              color: activeTool === tool.type ? 'var(--accent)' : 'var(--secondary)',
             }}
             onMouseEnter={(e) => {
               if (activeTool !== tool.type) {
@@ -79,7 +79,7 @@ export default function AnnotationToolbar({
               className="w-6 h-6 rounded border-2 transition-all"
               style={{
                 background: c,
-                borderColor: color === c ? 'var(--brand-primary)' : 'var(--border)',
+                borderColor: color === c ? 'var(--accent)' : 'var(--border)',
                 transform: color === c ? 'scale(1.1)' : 'scale(1)',
               }}
               title={c}
@@ -90,7 +90,7 @@ export default function AnnotationToolbar({
 
       {/* Help Text */}
       <div className="flex-1 text-right">
-        <span className="text-xs" style={{ color: 'var(--tertiary)' }}>
+        <span className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
           {activeTool
             ? `Active: ${TOOLS.find((t) => t.type === activeTool)?.label || activeTool}`
             : 'Select a tool to annotate'}

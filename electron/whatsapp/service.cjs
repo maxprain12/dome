@@ -191,7 +191,7 @@ async function sendImage(phoneNumber, image, caption = '') {
 }
 
 /**
- * Configura el callback para procesar preguntas con Martin
+ * Configura el callback para procesar preguntas con Many
  * @param {Function} callback - Función que recibe (question, context) y devuelve respuesta
  */
 function setMartinCallback(callback) {
@@ -220,7 +220,7 @@ module.exports = {
   sendMessage,
   sendImage,
 
-  // Martin
+  // Many
   setMartinCallback,
 
   // Allowlist

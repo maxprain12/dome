@@ -73,7 +73,7 @@ export function ResourceMentionBlock({ node }: ResourceMentionBlockProps) {
           padding: '2px 6px',
           backgroundColor: 'var(--bg-hover)',
           borderRadius: 'var(--radius-sm)',
-          color: 'var(--brand-primary)',
+          color: 'var(--accent)',
           cursor: 'pointer',
           textDecoration: 'none',
           fontSize: '14px',
@@ -97,10 +97,10 @@ export function ResourceMentionBlock({ node }: ResourceMentionBlockProps) {
             marginTop: '8px',
           }}
         >
-          <div style={{ fontWeight: 500, color: 'var(--primary)', marginBottom: '4px' }}>
+          <div style={{ fontWeight: 500, color: 'var(--primary-text)', marginBottom: '4px' }}>
             {resource.title}
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--secondary)' }}>
+          <div style={{ fontSize: '12px', color: 'var(--secondary-text)' }}>
             {resource.type}
           </div>
         </div>
