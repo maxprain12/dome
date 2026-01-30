@@ -112,6 +112,11 @@ const ALLOWED_CHANNELS = {
     'vector:annotations:index',
     'vector:annotations:search',
     'vector:annotations:delete',
+    // General Vector Database
+    'vector:add',
+    'vector:search',
+    'vector:delete',
+    'vector:count',
     // WhatsApp
     'whatsapp:status',
     'whatsapp:start',
@@ -577,9 +582,15 @@ const electronHandler = {
   },
 
   // ============================================
-  // VECTOR DATABASE API - ANNOTATIONS
+  // VECTOR DATABASE API
   // ============================================
   vector: {
+    // General methods
+    add: (items) => ipcRenderer.invoke('vector:add', items),
+    search: (queryData) => ipcRenderer.invoke('vector:search', queryData),
+    delete: (filter) => ipcRenderer.invoke('vector:delete', filter),
+    count: () => ipcRenderer.invoke('vector:count'),
+
     annotations: {
       // Index annotation in LanceDB
       index: (annotationData) => ipcRenderer.invoke('vector:annotations:index', annotationData),

@@ -37,6 +37,7 @@ const webScraper = require('./web-scraper.cjs');
 const youtubeService = require('./youtube-service.cjs');
 const ollamaService = require('./ollama-service.cjs');
 const aiToolsHandler = require('./ai-tools-handler.cjs');
+const vectorHandler = require('./vector-handler.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
 
 // Environment detection
@@ -305,6 +306,8 @@ app
     setupUserDataFolder();
     // Initialize file storage
     fileStorage.initStorage();
+    // Initialize vector handler
+    vectorHandler.initialize(app.getPath('userData')).catch(console.error);
     // Database initialization is now handled by initModule
     // but we still need to ensure it's ready
     database.initDatabase();

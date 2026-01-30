@@ -72,21 +72,17 @@ export async function createSourceEmbeddingsTable() {
 
 /**
  * Insert resource embeddings
- * TODO: Implement via IPC
  */
 export async function insertResourceEmbeddings(embeddings: ResourceEmbedding[]) {
   if (typeof window === 'undefined' || !window.electron) {
     throw new Error('Vector DB operations require Electron');
   }
   
-  // TODO: Implement IPC handler for insertResourceEmbeddings
-  console.warn('⚠️ insertResourceEmbeddings: IPC handler not yet implemented');
-  throw new Error('insertResourceEmbeddings not yet implemented via IPC');
+  return window.electron.vector.add(embeddings);
 }
 
 /**
  * Search resource embeddings
- * TODO: Implement via IPC
  */
 export async function searchResourceEmbeddings(
   queryVector: number[],
@@ -97,42 +93,33 @@ export async function searchResourceEmbeddings(
     throw new Error('Vector DB operations require Electron');
   }
   
-  // TODO: Implement IPC handler for searchResourceEmbeddings
-  console.warn('⚠️ searchResourceEmbeddings: IPC handler not yet implemented');
-  throw new Error('searchResourceEmbeddings not yet implemented via IPC');
+  return window.electron.vector.search({ vector: queryVector, limit, filter });
 }
 
 /**
  * Delete resource embeddings
- * TODO: Implement via IPC
  */
 export async function deleteResourceEmbeddings(resourceId: string) {
   if (typeof window === 'undefined' || !window.electron) {
     throw new Error('Vector DB operations require Electron');
   }
   
-  // TODO: Implement IPC handler for deleteResourceEmbeddings
-  console.warn('⚠️ deleteResourceEmbeddings: IPC handler not yet implemented');
-  throw new Error('deleteResourceEmbeddings not yet implemented via IPC');
+  return window.electron.vector.delete(`resource_id = '${resourceId}'`);
 }
 
 /**
  * Insert source embeddings
- * TODO: Implement via IPC
  */
 export async function insertSourceEmbeddings(embeddings: SourceEmbedding[]) {
   if (typeof window === 'undefined' || !window.electron) {
     throw new Error('Vector DB operations require Electron');
   }
   
-  // TODO: Implement IPC handler for insertSourceEmbeddings
-  console.warn('⚠️ insertSourceEmbeddings: IPC handler not yet implemented');
-  throw new Error('insertSourceEmbeddings not yet implemented via IPC');
+  return window.electron.vector.add(embeddings);
 }
 
 /**
  * Search source embeddings
- * TODO: Implement via IPC
  */
 export async function searchSourceEmbeddings(
   queryVector: number[],
@@ -143,9 +130,7 @@ export async function searchSourceEmbeddings(
     throw new Error('Vector DB operations require Electron');
   }
   
-  // TODO: Implement IPC handler for searchSourceEmbeddings
-  console.warn('⚠️ searchSourceEmbeddings: IPC handler not yet implemented');
-  throw new Error('searchSourceEmbeddings not yet implemented via IPC');
+  return window.electron.vector.search({ vector: queryVector, limit, filter });
 }
 
 // ============================================
