@@ -38,6 +38,8 @@ const youtubeService = require('./youtube-service.cjs');
 const ollamaService = require('./ollama-service.cjs');
 const aiToolsHandler = require('./ai-tools-handler.cjs');
 const vectorHandler = require('./vector-handler.cjs');
+const graphService = require('./graph-service.cjs');
+const llmGraphExtractor = require('./llm-graph-extractor.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
 
 // Environment detection
@@ -3554,6 +3556,43 @@ ipcMain.handle('ai:tools:getCurrentProject', async (event) => {
     return { success: true, project };
   } catch (error) {
     console.error('[AI Tools] getCurrentProject error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============================================
+// KNOWLEDGE GRAPH HANDLERS
+// ============================================
+
+ipcMain.handle('graph:add-relation', async (event, { sourceId, targetId, relationType, metadata }) => {
+  try {
+    validateSender(event, windowManager);
+    const result = graphService.addRelation(sourceId, targetId, relationType, metadata);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('[Graph] Error adding relation:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('graph:get-neighbors', async (event, id) => {
+  try {
+    validateSender(event, windowManager);
+    const result = graphService.getNeighbors(id);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('[Graph] Error getting neighbors:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('graph:extract-from-note', async (event, { resourceId, text, model }) => {
+  try {
+    validateSender(event, windowManager);
+    const result = await llmGraphExtractor.extractAndPersistGraph(resourceId, text, model);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('[Graph] Error extracting graph:', error);
     return { success: false, error: error.message };
   }
 });

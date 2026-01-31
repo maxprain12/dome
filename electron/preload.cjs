@@ -161,6 +161,10 @@ const ALLOWED_CHANNELS = {
     'vector:annotations:index',
     'vector:annotations:search',
     'vector:annotations:delete',
+    // Graph
+    'graph:add-relation',
+    'graph:get-neighbors',
+    'graph:extract-from-note',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -685,6 +689,20 @@ const electronHandler = {
 
     // List context files
     listFiles: () => ipcRenderer.invoke('personality:list-files'),
+  },
+
+  // ============================================
+  // KNOWLEDGE GRAPH API
+  // ============================================
+  graph: {
+    addRelation: (sourceId, targetId, relationType, metadata) => 
+      ipcRenderer.invoke('graph:add-relation', { sourceId, targetId, relationType, metadata }),
+    
+    getNeighbors: (id) => 
+      ipcRenderer.invoke('graph:get-neighbors', id),
+    
+    extractFromNote: (resourceId, text, model) => 
+      ipcRenderer.invoke('graph:extract-from-note', { resourceId, text, model }),
   },
 };
 

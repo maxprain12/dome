@@ -178,6 +178,72 @@ function initDatabase() {
     )
   `);
 
+  // --- KNOWLEDGE GRAPH TABLES ---
+
+  // Graph Nodes (Entities + Resources)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS graph_nodes (
+      id TEXT PRIMARY KEY,
+      resource_id TEXT UNIQUE, -- Optional link to a file/resource
+      label TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'concept', -- 'resource', 'concept', 'person', etc.
+      properties TEXT, -- JSON properties
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Graph Edges (Relationships)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS graph_edges (
+      id TEXT PRIMARY KEY,
+      source_id TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      relation_type TEXT NOT NULL, -- e.g. 'MENTIONS', 'RELATED_TO'
+      weight REAL DEFAULT 1.0,
+      metadata TEXT, -- JSON metadata
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (source_id) REFERENCES graph_nodes(id) ON DELETE CASCADE,
+      FOREIGN KEY (target_id) REFERENCES graph_nodes(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Triggers to sync Resources -> Graph Nodes
+  // When a resource is created, create a corresponding node
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS resources_to_graph_ai AFTER INSERT ON resources BEGIN
+      INSERT INTO graph_nodes (id, resource_id, label, type, created_at, updated_at)
+      VALUES (
+        lower(hex(randomblob(16))), -- Generate a UUID-like ID for the node
+        new.id,
+        new.title,
+        'resource',
+        strftime('%s', 'now') * 1000,
+        strftime('%s', 'now') * 1000
+      );
+    END
+  `);
+
+  // When a resource title is updated, update the node label
+  db.exec(`
+    CREATE TRIGGER IF NOT EXISTS resources_to_graph_au AFTER UPDATE OF title ON resources BEGIN
+      UPDATE graph_nodes 
+      SET label = new.title, updated_at = strftime('%s', 'now') * 1000
+      WHERE resource_id = new.id;
+    END
+  `);
+  
+  // Note: DELETE is handled by ON DELETE CASCADE on the foreign key.
+
+  // Indexes for Graph
+  db.exec('CREATE INDEX IF NOT EXISTS idx_graph_nodes_resource ON graph_nodes(resource_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_graph_nodes_type ON graph_nodes(type)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_graph_nodes_label ON graph_nodes(label)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_graph_edges_source ON graph_edges(source_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_graph_edges_target ON graph_edges(target_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_graph_edges_relation ON graph_edges(relation_type)');
+
   // Search Index Cache (precomputed search metadata)
   db.exec(`
     CREATE TABLE IF NOT EXISTS search_index (
@@ -279,7 +345,47 @@ function initDatabase() {
   // Create default project if it doesn't exist
   createDefaultProject(db);
 
+  // Ensure all resources have corresponding graph nodes (backfill)
+  ensureGraphNodesExist(db);
+
   console.log('✅ Database schema initialized');
+}
+
+/**
+ * Backfill graph nodes for resources that don't have them
+ * @param {import('better-sqlite3').Database} db
+ */
+function ensureGraphNodesExist(db) {
+  try {
+    const missingCount = db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM resources r 
+      LEFT JOIN graph_nodes n ON r.id = n.resource_id 
+      WHERE n.id IS NULL
+    `).get();
+
+    if (missingCount.count > 0) {
+      console.log(`[DB] Backfilling ${missingCount.count} missing graph nodes...`);
+      // We can't use uuid here easily as it's not a SQL function in standard build usually,
+      // but we can use randomblob + hex.
+      db.exec(`
+        INSERT INTO graph_nodes (id, resource_id, label, type, created_at, updated_at)
+        SELECT 
+          lower(hex(randomblob(16))),
+          r.id,
+          r.title,
+          'resource',
+          r.created_at,
+          r.updated_at
+        FROM resources r
+        LEFT JOIN graph_nodes n ON r.id = n.resource_id
+        WHERE n.id IS NULL
+      `);
+      console.log('[DB] Graph nodes backfill complete');
+    }
+  } catch (error) {
+    console.error('[DB] Error backfilling graph nodes:', error.message);
+  }
 }
 
 /**
@@ -783,6 +889,37 @@ function getQueries() {
       JOIN resources r ON l.source_id = r.id
       WHERE l.target_id = ?
       ORDER BY l.created_at DESC
+    `),
+
+    // --- GRAPH QUERIES ---
+    createGraphNode: db.prepare(`
+      INSERT INTO graph_nodes (id, resource_id, label, type, properties, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    getGraphNodeByResourceId: db.prepare('SELECT * FROM graph_nodes WHERE resource_id = ?'),
+    getGraphNodeById: db.prepare('SELECT * FROM graph_nodes WHERE id = ?'),
+    findGraphNodesByLabel: db.prepare('SELECT * FROM graph_nodes WHERE label LIKE ?'),
+    
+    createGraphEdge: db.prepare(`
+      INSERT INTO graph_edges (id, source_id, target_id, relation_type, weight, metadata, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    
+    // Get direct neighbors
+    getGraphNeighbors: db.prepare(`
+      SELECT 
+        e.id as edge_id, e.relation_type, e.weight,
+        n.id as node_id, n.label, n.type, n.resource_id, n.properties
+      FROM graph_edges e
+      JOIN graph_nodes n ON (e.target_id = n.id)
+      WHERE e.source_id = ?
+      UNION
+      SELECT 
+        e.id as edge_id, e.relation_type, e.weight,
+        n.id as node_id, n.label, n.type, n.resource_id, n.properties
+      FROM graph_edges e
+      JOIN graph_nodes n ON (e.source_id = n.id)
+      WHERE e.target_id = ?
     `),
   };
 
