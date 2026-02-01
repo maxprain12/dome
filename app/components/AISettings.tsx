@@ -12,18 +12,25 @@ export default function AISettings() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
-    // TODO: Guardar en la base de datos usando la función saveAIConfig
-    console.log('Guardando configuración:', {
-      provider,
-      apiKey,
-      model,
-      embeddingModel,
-      baseURL,
-    });
+  const handleSave = async () => {
+    try {
+      const result = await (window as any).electron.db.settings.saveAI({
+        provider,
+        apiKey,
+        model,
+        embeddingModel,
+        baseURL,
+      });
 
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+      if (result.success) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        console.error('Error saving AI settings:', result.error);
+      }
+    } catch (error) {
+      console.error('Error saving AI settings:', error);
+    }
   };
 
   return (

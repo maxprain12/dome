@@ -640,6 +640,93 @@ function runMigrations(db) {
       ON CONFLICT(key) DO UPDATE SET value = '4', updated_at = excluded.updated_at
     `).run(Date.now());
   }
+
+  // Migration 5: Add knowledge graph tables (nodes and edges)
+  if (version < 5) {
+    console.log('[DB] Running migration 5: Add knowledge graph tables');
+
+    try {
+      // Graph nodes table - represents entities in the knowledge graph
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS graph_nodes (
+          id TEXT PRIMARY KEY,
+          resource_id TEXT,
+          label TEXT NOT NULL,
+          type TEXT NOT NULL CHECK(type IN ('resource', 'concept', 'person', 'location', 'event', 'topic')),
+          properties TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_graph_nodes_type ON graph_nodes(type)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_graph_nodes_resource ON graph_nodes(resource_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_graph_nodes_label ON graph_nodes(label)');
+
+      // Graph edges table - represents relationships between nodes
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS graph_edges (
+          id TEXT PRIMARY KEY,
+          source_id TEXT NOT NULL,
+          target_id TEXT NOT NULL,
+          relation TEXT NOT NULL,
+          weight REAL DEFAULT 1.0,
+          metadata TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (source_id) REFERENCES graph_nodes(id) ON DELETE CASCADE,
+          FOREIGN KEY (target_id) REFERENCES graph_nodes(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_graph_edges_source ON graph_edges(source_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_graph_edges_target ON graph_edges(target_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_graph_edges_relation ON graph_edges(relation)');
+
+      // Create trigger to auto-create graph nodes for existing resources
+      db.exec(`
+        CREATE TRIGGER IF NOT EXISTS auto_create_graph_node
+        AFTER INSERT ON resources
+        BEGIN
+          INSERT INTO graph_nodes (id, resource_id, label, type, properties, created_at, updated_at)
+          VALUES (
+            'node-' || NEW.id,
+            NEW.id,
+            NEW.title,
+            'resource',
+            json_object('resource_type', NEW.type),
+            NEW.created_at,
+            NEW.updated_at
+          );
+        END
+      `);
+
+      // Sync existing resources to graph_nodes
+      console.log('[DB] Syncing existing resources to graph_nodes...');
+      db.exec(`
+        INSERT OR IGNORE INTO graph_nodes (id, resource_id, label, type, properties, created_at, updated_at)
+        SELECT
+          'node-' || id,
+          id,
+          title,
+          'resource',
+          json_object('resource_type', type),
+          created_at,
+          updated_at
+        FROM resources
+      `);
+
+      console.log('[DB] Migration 5 complete - knowledge graph tables added');
+    } catch (error) {
+      console.error('[DB] Migration 5 error:', error.message);
+    }
+
+    // Update schema version to 5
+    db.prepare(`
+      INSERT INTO settings (key, value, updated_at)
+      VALUES ('schema_version', '5', ?)
+      ON CONFLICT(key) DO UPDATE SET value = '5', updated_at = excluded.updated_at
+    `).run(Date.now());
+  }
 }
 
 /**
@@ -783,6 +870,53 @@ function getQueries() {
       JOIN resources r ON l.source_id = r.id
       WHERE l.target_id = ?
       ORDER BY l.created_at DESC
+    `),
+
+    // Knowledge Graph - Nodes
+    createGraphNode: db.prepare(`
+      INSERT INTO graph_nodes (id, resource_id, label, type, properties, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    getGraphNodeById: db.prepare('SELECT * FROM graph_nodes WHERE id = ?'),
+    getGraphNodesByType: db.prepare('SELECT * FROM graph_nodes WHERE type = ? ORDER BY created_at DESC'),
+    getGraphNodeByResource: db.prepare('SELECT * FROM graph_nodes WHERE resource_id = ?'),
+    updateGraphNode: db.prepare(`
+      UPDATE graph_nodes
+      SET label = ?, properties = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deleteGraphNode: db.prepare('DELETE FROM graph_nodes WHERE id = ?'),
+    searchGraphNodes: db.prepare(`
+      SELECT * FROM graph_nodes
+      WHERE label LIKE ? OR properties LIKE ?
+      ORDER BY created_at DESC
+      LIMIT 50
+    `),
+
+    // Knowledge Graph - Edges
+    createGraphEdge: db.prepare(`
+      INSERT INTO graph_edges (id, source_id, target_id, relation, weight, metadata, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getGraphEdgeById: db.prepare('SELECT * FROM graph_edges WHERE id = ?'),
+    getGraphEdgesBySource: db.prepare('SELECT * FROM graph_edges WHERE source_id = ?'),
+    getGraphEdgesByTarget: db.prepare('SELECT * FROM graph_edges WHERE target_id = ?'),
+    getGraphEdgesByRelation: db.prepare('SELECT * FROM graph_edges WHERE relation = ?'),
+    updateGraphEdge: db.prepare(`
+      UPDATE graph_edges
+      SET relation = ?, weight = ?, metadata = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deleteGraphEdge: db.prepare('DELETE FROM graph_edges WHERE id = ?'),
+
+    // Knowledge Graph - Traversal (1-hop)
+    getNodeNeighbors: db.prepare(`
+      SELECT DISTINCT n.*, e.relation, e.weight
+      FROM graph_edges e
+      JOIN graph_nodes n ON (e.target_id = n.id OR e.source_id = n.id)
+      WHERE (e.source_id = ? OR e.target_id = ?) AND n.id != ?
+      ORDER BY e.weight DESC
+      LIMIT 100
     `),
   };
 

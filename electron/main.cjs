@@ -323,6 +323,27 @@ app
       console.error('❌ Background initialization failed:', err);
       console.warn('⚠️ Vector search will be disabled');
     });
+
+    // Schedule orphan file cleanup after app is ready (non-blocking)
+    setTimeout(() => {
+      try {
+        console.log('[App] Running automatic orphan file cleanup...');
+        const queries = database.getQueries();
+        const internalPaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
+        const avatarSetting = queries.getSetting.get('user_avatar_path');
+        const currentAvatarPath = avatarSetting?.value || null;
+
+        const result = fileStorage.cleanupOrphanedFiles(internalPaths, currentAvatarPath);
+
+        if (result.deleted > 0) {
+          console.log(`[App] Auto-cleanup: removed ${result.deleted} orphan files, freed ${(result.freedBytes / 1024 / 1024).toFixed(2)}MB`);
+        } else {
+          console.log('[App] Auto-cleanup: no orphan files found');
+        }
+      } catch (error) {
+        console.error('[App] Auto-cleanup failed:', error);
+      }
+    }, 30000); // 30 seconds delay to let app stabilize
   })
   .catch(console.error);
 
@@ -589,6 +610,45 @@ ipcMain.handle('avatar:copy', async (event, sourcePath) => {
     return { success: true, data: relativePath };
   } catch (error) {
     console.error('[Avatar] Error copying avatar:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Delete an avatar file
+ */
+ipcMain.handle('avatar:delete', (event, relativePath) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    if (!relativePath) {
+      return { success: false, error: 'No path provided' };
+    }
+
+    // Validate path is within avatars directory
+    const avatarsDir = path.join(app.getPath('userData'), 'avatars');
+    const fullPath = path.join(app.getPath('userData'), relativePath);
+
+    if (!fullPath.startsWith(avatarsDir)) {
+      console.error('[Avatar] Attempted to delete file outside avatars directory:', fullPath);
+      return { success: false, error: 'Invalid path' };
+    }
+
+    // Delete file if it exists
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+      console.log('[Avatar] Deleted:', relativePath);
+      return { success: true };
+    }
+
+    // File doesn't exist - this is OK (might have been already deleted)
+    console.log('[Avatar] File not found (already deleted?):', relativePath);
+    return { success: true };
+
+  } catch (error) {
+    console.error('[Avatar] Error deleting avatar:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1222,6 +1282,27 @@ ipcMain.handle('db:settings:set', (event, key, value) => {
   }
 });
 
+ipcMain.handle('db:settings:saveAI', (event, config) => {
+  try {
+    validateSender(event, windowManager);
+    const queries = database.getQueries();
+
+    const { provider, apiKey, model, embeddingModel, baseURL } = config;
+
+    if (provider) queries.setSetting.run('ai_provider', provider, Date.now());
+    if (apiKey) queries.setSetting.run('ai_api_key', apiKey, Date.now());
+    if (model) queries.setSetting.run('ai_model', model, Date.now());
+    if (embeddingModel) queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
+    if (baseURL) queries.setSetting.run('ai_base_url', baseURL, Date.now());
+
+    console.log('[DB] AI settings saved successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('[DB] Error saving AI settings:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // ============================================
 // RESOURCE INTERACTIONS IPC HANDLERS
 // ============================================
@@ -1381,6 +1462,124 @@ ipcMain.handle('db:links:delete', (event, id) => {
     return { success: true };
   } catch (error) {
     console.error('[DB] Error deleting link:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============================================
+// KNOWLEDGE GRAPH IPC HANDLERS
+// ============================================
+
+// Create graph node
+ipcMain.handle('db:graph:createNode', (event, node) => {
+  try {
+    validateSender(event, windowManager);
+    const queries = database.getQueries();
+    queries.createGraphNode.run(
+      node.id,
+      node.resource_id || null,
+      node.label,
+      node.type,
+      node.properties ? JSON.stringify(node.properties) : null,
+      node.created_at,
+      node.updated_at
+    );
+    return { success: true, data: node };
+  } catch (error) {
+    console.error('[DB] Error creating graph node:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get graph node by ID
+ipcMain.handle('db:graph:getNode', (event, nodeId) => {
+  try {
+    validateSender(event, windowManager);
+    const queries = database.getQueries();
+    const node = queries.getGraphNodeById.get(nodeId);
+    if (node && node.properties) {
+      node.properties = JSON.parse(node.properties);
+    }
+    return { success: true, data: node };
+  } catch (error) {
+    console.error('[DB] Error getting graph node:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get nodes by type
+ipcMain.handle('db:graph:getNodesByType', (event, type) => {
+  try {
+    validateSender(event, windowManager);
+    const queries = database.getQueries();
+    const nodes = queries.getGraphNodesByType.all(type);
+    nodes.forEach(node => {
+      if (node.properties) {
+        node.properties = JSON.parse(node.properties);
+      }
+    });
+    return { success: true, data: nodes };
+  } catch (error) {
+    console.error('[DB] Error getting nodes by type:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Create graph edge
+ipcMain.handle('db:graph:createEdge', (event, edge) => {
+  try {
+    validateSender(event, windowManager);
+    const queries = database.getQueries();
+    queries.createGraphEdge.run(
+      edge.id,
+      edge.source_id,
+      edge.target_id,
+      edge.relation,
+      edge.weight || 1.0,
+      edge.metadata ? JSON.stringify(edge.metadata) : null,
+      edge.created_at,
+      edge.updated_at
+    );
+    return { success: true, data: edge };
+  } catch (error) {
+    console.error('[DB] Error creating graph edge:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Get node neighbors (1-hop traversal)
+ipcMain.handle('db:graph:getNeighbors', (event, nodeId) => {
+  try {
+    validateSender(event, windowManager);
+    const queries = database.getQueries();
+    const neighbors = queries.getNodeNeighbors.all(nodeId, nodeId, nodeId);
+    neighbors.forEach(node => {
+      if (node.properties) {
+        node.properties = JSON.parse(node.properties);
+      }
+    });
+    return { success: true, data: neighbors };
+  } catch (error) {
+    console.error('[DB] Error getting node neighbors:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Search graph nodes
+ipcMain.handle('db:graph:searchNodes', (event, query) => {
+  try {
+    validateSender(event, windowManager);
+    const queries = database.getQueries();
+    const searchPattern = `%${query}%`;
+    const nodes = queries.searchGraphNodes.all(searchPattern, searchPattern);
+    nodes.forEach(node => {
+      if (node.properties) {
+        node.properties = JSON.parse(node.properties);
+      }
+    });
+    return { success: true, data: nodes };
+  } catch (error) {
+    console.error('[DB] Error searching graph nodes:', error);
     return { success: false, error: error.message };
   }
 });
@@ -1682,6 +1881,19 @@ ipcMain.handle('resource:import', async (event, { filePath, projectId, type, tit
       importResult.mimeType
     );
 
+    // Extract video metadata if applicable
+    let metadata = null;
+    if (type === 'video') {
+      try {
+        metadata = await thumbnail.extractVideoMetadata(fullPath);
+        if (metadata) {
+          console.log(`[Resource] Video metadata: ${metadata.duration}s, ${metadata.width}x${metadata.height}, ${metadata.codec}`);
+        }
+      } catch (metadataError) {
+        console.warn('[Resource] Video metadata extraction failed:', metadataError.message);
+      }
+    }
+
     // Extract text content for document types (for card preview)
     let contentText = null;
     if (type === 'document') {
@@ -1710,7 +1922,7 @@ ipcMain.handle('resource:import', async (event, { filePath, projectId, type, tit
       importResult.hash,
       thumbnailData,
       importResult.originalName,
-      null, // metadata
+      metadata ? JSON.stringify(metadata) : null, // metadata - JSON string for video info
       now,
       now
     );
@@ -2101,8 +2313,16 @@ ipcMain.handle('storage:cleanup', (event) => {
 
   try {
     const queries = database.getQueries();
+
+    // Get all valid file paths from database
     const internalPaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
-    const result = fileStorage.cleanupOrphanedFiles(internalPaths);
+
+    // Get current avatar path from settings
+    const avatarSetting = queries.getSetting.get('user_avatar_path');
+    const currentAvatarPath = avatarSetting?.value || null;
+
+    // Clean up orphaned files including avatars
+    const result = fileStorage.cleanupOrphanedFiles(internalPaths, currentAvatarPath);
 
     console.log(`[Storage] Cleanup: deleted ${result.deleted} orphaned files, freed ${result.freedBytes} bytes`);
 
@@ -2122,6 +2342,183 @@ ipcMain.handle('storage:getPath', (event) => {
   }
 
   return { success: true, data: fileStorage.getStorageDir() };
+});
+
+// ============================================
+// FILE OPERATIONS IPC HANDLERS
+// ============================================
+
+/**
+ * Generate hash for a file
+ */
+ipcMain.handle('file:generateHash', (event, filePath) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'File not found' };
+    }
+
+    const buffer = fs.readFileSync(filePath);
+    const hash = crypto.createHash('sha256')
+      .update(buffer)
+      .digest('hex')
+      .slice(0, 16);
+
+    return { success: true, data: hash };
+  } catch (error) {
+    console.error('[File] Error generating hash:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Read file contents
+ */
+ipcMain.handle('file:readFile', (event, filePath) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const buffer = fs.readFileSync(filePath);
+    return { success: true, data: buffer };
+  } catch (error) {
+    console.error('[File] Error reading file:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Delete a file
+ */
+ipcMain.handle('file:deleteFile', (event, filePath) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const safePath = security.sanitizePath(filePath);
+    if (fs.existsSync(safePath)) {
+      fs.unlinkSync(safePath);
+      return { success: true };
+    }
+    return { success: false, error: 'File not found' };
+  } catch (error) {
+    console.error('[File] Error deleting file:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Get file information
+ */
+ipcMain.handle('file:getInfo', (event, filePath) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'File not found' };
+    }
+
+    const stats = fs.statSync(filePath);
+    const info = {
+      size: stats.size,
+      created: stats.birthtime,
+      modified: stats.mtime,
+      isDirectory: stats.isDirectory(),
+      isFile: stats.isFile(),
+    };
+
+    return { success: true, data: info };
+  } catch (error) {
+    console.error('[File] Error getting file info:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Convert image to base64
+ */
+ipcMain.handle('file:imageToBase64', (event, filePath) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const buffer = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const mimeTypes = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+    };
+    const mimeType = mimeTypes[ext] || 'image/jpeg';
+    const base64 = buffer.toString('base64');
+    const dataUrl = `data:${mimeType};base64,${base64}`;
+
+    return { success: true, data: dataUrl };
+  } catch (error) {
+    console.error('[File] Error converting to base64:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Clean temporary files
+ */
+ipcMain.handle('file:cleanTemp', (event) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const tempDir = path.join(app.getPath('userData'), 'temp');
+    if (fs.existsSync(tempDir)) {
+      const files = fs.readdirSync(tempDir);
+      let deleted = 0;
+
+      files.forEach(file => {
+        const filePath = path.join(tempDir, file);
+        try {
+          fs.unlinkSync(filePath);
+          deleted++;
+        } catch (err) {
+          console.error('[File] Error deleting temp file:', err);
+        }
+      });
+
+      return { success: true, data: { deleted } };
+    }
+    return { success: true, data: { deleted: 0 } };
+  } catch (error) {
+    console.error('[File] Error cleaning temp files:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Extract text from PDF
+ */
+ipcMain.handle('file:extractPDFText', async (event, filePath) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const documentExtractor = require('./document-extractor.cjs');
+    const text = await documentExtractor.extractTextFromPDF(filePath);
+    return { success: true, data: text };
+  } catch (error) {
+    console.error('[File] Error extracting PDF text:', error);
+    return { success: false, error: error.message };
+  }
 });
 
 // ============================================
@@ -2745,8 +3142,27 @@ ipcMain.handle('vector:annotations:index', async (event, annotationData) => {
           embeddingDimension = embedding.length;
         }
       } else {
-        // TODO: Add OpenAI embedding support if needed
-        console.warn('[Vector] Ollama not available, skipping embedding generation');
+        // Fallback to OpenAI if configured
+        const aiApiKey = queries.getSetting.get('ai_api_key');
+        const aiProvider = queries.getSetting.get('ai_provider');
+
+        if (aiApiKey?.value && aiProvider?.value === 'openai') {
+          try {
+            const embeddingModel = queries.getSetting.get('ai_embedding_model')?.value || 'text-embedding-3-small';
+            const embeddings = await require('./ai-cloud-service.cjs').embeddingsOpenAI(
+              [text],
+              aiApiKey.value,
+              embeddingModel
+            );
+            embedding = embeddings[0];
+            embeddingDimension = embedding.length;
+            console.log('[Vector] Using OpenAI embeddings (Ollama unavailable)');
+          } catch (error) {
+            console.error('[Vector] OpenAI embedding failed:', error);
+          }
+        } else {
+          console.warn('[Vector] No embedding provider available (Ollama offline, OpenAI not configured)');
+        }
       }
     } catch (error) {
       console.error('[Vector] Error generating embedding:', error);
@@ -2903,6 +3319,87 @@ ipcMain.handle('vector:annotations:search', async (event, queryData) => {
     };
   } catch (error) {
     console.error('[Vector] Error searching annotations:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Generic vector search across all embedding tables
+ */
+ipcMain.handle('vector:search:generic', async (event, query, options = {}) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    // Validar query
+    if (!query || typeof query !== 'string' || query.length > 1000) {
+      throw new Error('Query must be a non-empty string with max 1000 characters');
+    }
+
+    const vectorDB = initModule.getVectorDB();
+    if (!vectorDB) {
+      console.warn('[Vector] Vector database not available, returning empty results');
+      return { success: true, data: [] };
+    }
+
+    const { limit = 10, threshold = 0.3, filter = null } = options;
+
+    // Generate query embedding
+    let queryVector;
+    try {
+      const queries = database.getQueries();
+      const isOllamaAvailable = await ollamaService.checkAvailability();
+
+      if (isOllamaAvailable) {
+        const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
+        const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
+        const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
+        const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
+
+        queryVector = await ollamaService.generateEmbedding(query, embeddingModel, baseUrl);
+      } else {
+        console.warn('[Vector] Ollama not available for embedding generation');
+        return { success: true, data: [] };
+      }
+    } catch (error) {
+      console.error('[Vector] Error generating query embedding:', error);
+      return { success: true, data: [] }; // Fail gracefully
+    }
+
+    // Try to search in resource_embeddings table first
+    let results = [];
+    try {
+      const tableNames = await vectorDB.tableNames();
+
+      // Search resource embeddings if available
+      if (tableNames.includes('resource_embeddings')) {
+        const table = await vectorDB.openTable('resource_embeddings');
+        const searchResults = await table.search(queryVector)
+          .limit(limit)
+          .execute();
+
+        results = searchResults
+          .filter(r => !threshold || (1 - r._distance) >= threshold)
+          .map((result) => ({
+            id: result.id,
+            resource_id: result.resource_id,
+            text: result.text,
+            score: 1 - (result._distance || 0), // Convert distance to similarity score
+            _distance: result._distance,
+            metadata: result.metadata,
+          }));
+      }
+    } catch (error) {
+      console.error('[Vector] Error searching resource embeddings:', error);
+    }
+
+    return {
+      success: true,
+      data: results,
+    };
+  } catch (error) {
+    console.error('[Vector] Error in generic search:', error);
     return { success: false, error: error.message };
   }
 });

@@ -132,6 +132,28 @@ interface UnifiedSearchResult {
   interactions: (ResourceInteraction & { resource_title: string })[];
 }
 
+// Knowledge Graph Types
+interface GraphNode {
+  id: string;
+  resource_id?: string;
+  label: string;
+  type: 'resource' | 'concept' | 'person' | 'location' | 'event' | 'topic';
+  properties?: Record<string, any>;
+  created_at: number;
+  updated_at: number;
+}
+
+interface GraphEdge {
+  id: string;
+  source_id: string;
+  target_id: string;
+  relation: string;
+  weight: number;
+  metadata?: Record<string, any>;
+  created_at: number;
+  updated_at: number;
+}
+
 declare global {
   interface Window {
     electron: {
@@ -241,6 +263,14 @@ declare global {
           getBySource: (sourceId: string) => Promise<DBResponse<ResourceLink[]>>;
           getByTarget: (targetId: string) => Promise<DBResponse<ResourceLink[]>>;
           delete: (id: string) => Promise<DBResponse<void>>;
+        };
+        graph: {
+          createNode: (node: Partial<GraphNode>) => Promise<DBResponse<GraphNode>>;
+          getNode: (nodeId: string) => Promise<DBResponse<GraphNode>>;
+          getNodesByType: (type: string) => Promise<DBResponse<GraphNode[]>>;
+          createEdge: (edge: Partial<GraphEdge>) => Promise<DBResponse<GraphEdge>>;
+          getNeighbors: (nodeId: string) => Promise<DBResponse<GraphNode[]>>;
+          searchNodes: (query: string) => Promise<DBResponse<GraphNode[]>>;
         };
         search: {
           unified: (query: string) => Promise<DBResponse<UnifiedSearchResult>>;
@@ -585,8 +615,26 @@ declare global {
         }>;
       };
 
-      // Vector Database API - Annotations
+      // Vector Database API - Annotations and Resources
       vector: {
+        // Generic search across all embeddings
+        search: (query: string, options?: {
+          limit?: number;
+          threshold?: number;
+          filter?: Record<string, any>;
+        }) => Promise<{
+          success: boolean;
+          data?: Array<{
+            id: string;
+            resource_id?: string;
+            text: string;
+            score: number;
+            _distance?: number;
+            metadata: any;
+          }>;
+          error?: string;
+        }>;
+        // Annotation-specific operations
         annotations: {
           index: (annotationData: {
             annotationId: string;

@@ -1,19 +1,11 @@
 /**
  * File System Manager - Renderer Process
- * 
+ *
  * NOTE: This file runs in the renderer process (browser context).
  * Node.js APIs like 'fs' and 'crypto' are NOT available directly.
- * All file operations should be performed via IPC to the main process.
- * 
- * TODO: Implement IPC handlers in main process for:
- * - generateFileHash
- * - saveFile
- * - readFile
- * - deleteFile
- * - getFileInfo
- * - imageToBase64
- * - cleanTempFiles
- * - getStorageUsage
+ * All file operations are performed via IPC to the main process.
+ *
+ * All file operations use IPC handlers defined in electron/main.cjs
  */
 
 import path from 'path';
@@ -70,16 +62,14 @@ export function getFileType(filename: string): keyof typeof SUPPORTED_FILE_TYPES
 }
 
 // Generar un hash único para el archivo
-// TODO: Implement via IPC
 export async function generateFileHash(filePath: string): Promise<string> {
-  console.warn('⚠️ generateFileHash: IPC handler not yet implemented');
-  // Return a placeholder hash based on file path
-  // In production, this should be handled by main process
-  return `placeholder-${Date.now().toString(16)}`;
+  const result = await (window as any).electron.file.generateHash(filePath);
+  if (!result.success) throw new Error(result.error || 'Failed to generate hash');
+  return result.data;
 }
 
 // Guardar archivo en el sistema
-// TODO: Implement via IPC
+// NOTE: Use window.electron.resource.import() instead - it handles file saving internally
 export async function saveFile(
   sourceFilePath: string,
   resourceId: string
@@ -90,44 +80,43 @@ export async function saveFile(
     throw new Error('Tipo de archivo no soportado');
   }
 
-  console.warn('⚠️ saveFile: IPC handler not yet implemented');
-  // This should be implemented via IPC to main process
-  throw new Error('saveFile not yet implemented via IPC - use main process');
+  // This functionality is handled by resource:import IPC handler
+  // Use window.electron.resource.import() for saving files
+  throw new Error('Use window.electron.resource.import() for saving files');
 }
 
 // Leer archivo
-// TODO: Implement via IPC
 export async function readFile(filePath: string): Promise<Buffer> {
-  console.warn('⚠️ readFile: IPC handler not yet implemented');
-  throw new Error('readFile not yet implemented via IPC - use main process');
+  const result = await (window as any).electron.file.readFile(filePath);
+  if (!result.success) throw new Error(result.error || 'Failed to read file');
+  return Buffer.from(result.data);
 }
 
 // Eliminar archivo
-// TODO: Implement via IPC
 export async function deleteFile(filePath: string): Promise<void> {
-  console.warn('⚠️ deleteFile: IPC handler not yet implemented');
-  throw new Error('deleteFile not yet implemented via IPC - use main process');
+  const result = await (window as any).electron.file.deleteFile(filePath);
+  if (!result.success) throw new Error(result.error || 'Failed to delete file');
 }
 
 // Obtener información del archivo
-// TODO: Implement via IPC
 export async function getFileInfo(filePath: string) {
-  console.warn('⚠️ getFileInfo: IPC handler not yet implemented');
-  throw new Error('getFileInfo not yet implemented via IPC - use main process');
+  const result = await (window as any).electron.file.getInfo(filePath);
+  if (!result.success) throw new Error(result.error || 'Failed to get file info');
+  return result.data;
 }
 
-// Extraer texto de PDF (requiere pdf-parse o similar)
+// Extraer texto de PDF
 export async function extractTextFromPDF(filePath: string): Promise<string> {
-  // TODO: Implementar extracción de texto de PDF
-  // Requiere instalar pdf-parse u otra librería
-  throw new Error('Extracción de PDF no implementada aún');
+  const result = await (window as any).electron.file.extractPDFText(filePath);
+  if (!result.success) throw new Error(result.error || 'Failed to extract PDF text');
+  return result.data;
 }
 
 // Convertir imagen a base64 para preview
-// TODO: Implement via IPC
 export async function imageToBase64(filePath: string): Promise<string> {
-  console.warn('⚠️ imageToBase64: IPC handler not yet implemented');
-  throw new Error('imageToBase64 not yet implemented via IPC - use main process');
+  const result = await (window as any).electron.file.imageToBase64(filePath);
+  if (!result.success) throw new Error(result.error || 'Failed to convert image');
+  return result.data;
 }
 
 // Obtener MIME type por extensión
@@ -151,24 +140,21 @@ function getMimeType(ext: string): string {
 }
 
 // Limpiar archivos temporales
-// TODO: Implement via IPC
 export async function cleanTempFiles(): Promise<void> {
-  console.warn('⚠️ cleanTempFiles: IPC handler not yet implemented');
-  // Should be implemented via IPC to main process
+  const result = await (window as any).electron.file.cleanTemp();
+  if (!result.success) throw new Error(result.error || 'Failed to clean temp files');
 }
 
 // Obtener espacio usado
-// TODO: Implement via IPC
 export async function getStorageUsage(): Promise<{
   total: number;
   byType: Record<string, number>;
 }> {
-  console.warn('⚠️ getStorageUsage: IPC handler not yet implemented');
-  // Return empty usage until IPC is implemented
-  return {
-    total: 0,
-    byType: {},
-  };
+  const result = await (window as any).electron.storage.getUsage();
+  if (!result.success) {
+    return { total: 0, byType: {} };
+  }
+  return result.data;
 }
 
 export { FILES_DIR };

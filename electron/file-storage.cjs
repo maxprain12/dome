@@ -306,16 +306,18 @@ function getStorageUsage() {
 }
 
 /**
- * Clean up orphaned files (files not in database)
+ * Clean up orphaned files (files not in database) and old avatars
  * @param {string[]} validInternalPaths - Array of valid internal paths from database
+ * @param {string|null} currentAvatarPath - Current avatar path from settings (e.g., 'avatars/user-avatar-123.jpg')
  * @returns {{deleted: number, freedBytes: number}}
  */
-function cleanupOrphanedFiles(validInternalPaths) {
+function cleanupOrphanedFiles(validInternalPaths, currentAvatarPath = null) {
   const storageDir = getStorageDir();
   const validSet = new Set(validInternalPaths);
   let deleted = 0;
   let freedBytes = 0;
 
+  // Cleanup dome-files/ orphans
   Object.values(TYPE_DIRECTORIES).forEach((typeDir) => {
     const typePath = path.join(storageDir, typeDir);
     if (fs.existsSync(typePath)) {
@@ -324,15 +326,42 @@ function cleanupOrphanedFiles(validInternalPaths) {
         const internalPath = `${typeDir}/${file}`;
         if (!validSet.has(internalPath)) {
           const fullPath = path.join(typePath, file);
-          const stats = fs.statSync(fullPath);
-          freedBytes += stats.size;
-          fs.unlinkSync(fullPath);
-          deleted++;
-          console.log(`[FileStorage] Cleaned up orphaned: ${internalPath}`);
+          try {
+            const stats = fs.statSync(fullPath);
+            fs.unlinkSync(fullPath);
+            deleted++;
+            freedBytes += stats.size;
+            console.log(`[FileStorage] Cleaned up orphaned: ${internalPath}`);
+          } catch (error) {
+            console.error(`[FileStorage] Error deleting ${internalPath}:`, error.message);
+          }
         }
       });
     }
   });
+
+  // Cleanup orphaned avatars
+  const avatarsDir = path.join(require('electron').app.getPath('userData'), 'avatars');
+  if (fs.existsSync(avatarsDir)) {
+    const avatarFiles = fs.readdirSync(avatarsDir);
+    avatarFiles.forEach((file) => {
+      const relativePath = `avatars/${file}`;
+
+      // Keep only the current avatar
+      if (relativePath !== currentAvatarPath) {
+        const fullPath = path.join(avatarsDir, file);
+        try {
+          const stats = fs.statSync(fullPath);
+          fs.unlinkSync(fullPath);
+          deleted++;
+          freedBytes += stats.size;
+          console.log(`[FileStorage] Cleaned up orphaned avatar: ${relativePath}`);
+        } catch (error) {
+          console.error(`[FileStorage] Error deleting avatar ${relativePath}:`, error.message);
+        }
+      }
+    });
+  }
 
   return { deleted, freedBytes };
 }

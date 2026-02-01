@@ -154,7 +154,8 @@ export default function NotionEditor({
         else if (['mp3', 'wav', 'ogg'].includes(ext || '')) type = 'audio';
 
         // Import file via IPC
-        const projectId = 'default'; // TODO: Get from context/store
+        const activeProject = useAppStore.getState().activeProject;
+        const projectId = activeProject?.id || 'default';
         const result = await (window.electron as any).resource.import(filePath, projectId, type, file.name);
 
         if (result?.success && result.data) {

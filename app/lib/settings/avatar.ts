@@ -72,17 +72,27 @@ export async function selectAndCopyAvatar(): Promise<string | null> {
 /**
  * Delete an avatar file
  * @param relativePath - Relative path to the avatar file
- * 
- * Note: This function currently does not delete the file directly.
- * Avatar files are managed by the main process and should be deleted
- * through the avatar management system or when the user changes their avatar.
- * If direct deletion is needed, an IPC handler should be created.
+ * @returns True if successful, false otherwise
  */
 export async function deleteAvatar(relativePath: string): Promise<boolean> {
-  // TODO: Create IPC handler for safe file deletion if needed
-  // For now, avatar files are cleaned up automatically when replaced
-  console.warn('[deleteAvatar] Direct file deletion not implemented. Files are managed by main process.');
-  return false;
+  if (!relativePath) {
+    return false;
+  }
+
+  try {
+    const result = await (window as any).electron.avatar.deleteAvatar(relativePath);
+
+    if (result.success) {
+      console.log('[Avatar] Successfully deleted:', relativePath);
+      return true;
+    } else {
+      console.error('[Avatar] Failed to delete:', result.error);
+      return false;
+    }
+  } catch (error) {
+    console.error('[Avatar] Error deleting avatar:', error);
+    return false;
+  }
 }
 
 /**

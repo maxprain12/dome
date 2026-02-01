@@ -5,7 +5,7 @@ import { Camera } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
 import UserAvatar from '@/components/user/UserAvatar';
 import { validateEmail, validateName } from '@/lib/utils/validation';
-import { selectAndCopyAvatar } from '@/lib/settings/avatar';
+import { selectAndCopyAvatar, deleteAvatar } from '@/lib/settings/avatar';
 
 export default function GeneralSettings() {
   const { name, email, avatarData, avatarPath, updateUserProfile, setAvatarPath, loadUserProfile } = useUserStore();
@@ -60,6 +60,11 @@ export default function GeneralSettings() {
   };
 
   const handleChangeAvatar = async () => {
+    // Delete old avatar before setting new one
+    if (avatarPath) {
+      await deleteAvatar(avatarPath);
+    }
+
     const relativePath = await selectAndCopyAvatar();
 
     if (relativePath) {
@@ -68,8 +73,13 @@ export default function GeneralSettings() {
     }
   };
 
-  const handleRemoveAvatar = () => {
-    setAvatarPath(null);
+  const handleRemoveAvatar = async () => {
+    // Delete the file before clearing the path
+    if (avatarPath) {
+      await deleteAvatar(avatarPath);
+    }
+
+    await setAvatarPath(null);
   };
 
   return (

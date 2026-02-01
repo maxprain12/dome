@@ -148,8 +148,8 @@ function ReferencesTab({ resourceId }: { resourceId: string }) {
           {links.map((link) => (
             <div
               key={link.id}
-              className="p-3 rounded-lg transition-colors cursor-pointer"
-              style={{ background: 'var(--bg)' }}
+              className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-[var(--bg-hover)]"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
               onClick={() => {
                 window.electron.workspace.open(link.target_id, 'note');
               }}
@@ -157,9 +157,22 @@ function ReferencesTab({ resourceId }: { resourceId: string }) {
               <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                 {link.target_title || 'Untitled'}
               </p>
-              <p className="text-xs mt-1" style={{ color: 'var(--tertiary)' }}>
-                {link.link_type || 'related'}
-              </p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full font-medium"
+                  style={{
+                    background: 'var(--bg-tertiary)',
+                    color: 'var(--secondary-text)',
+                  }}
+                >
+                  {link.link_type || 'related'}
+                </span>
+                {link.weight && link.weight !== 1.0 && (
+                  <span className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+                    Weight: {link.weight}
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -214,8 +227,8 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
           {backlinks.map((link) => (
             <div
               key={link.id}
-              className="p-3 rounded-lg transition-colors cursor-pointer"
-              style={{ background: 'var(--bg)' }}
+              className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-[var(--bg-hover)]"
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
               onClick={() => {
                 window.electron.workspace.open(link.source_id, link.source_type);
               }}
@@ -223,9 +236,29 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
               <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                 {link.source_title || 'Untitled'}
               </p>
-              <p className="text-xs mt-1 capitalize" style={{ color: 'var(--tertiary)' }}>
-                {link.source_type}
-              </p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
+                  style={{
+                    background: 'var(--bg-tertiary)',
+                    color: 'var(--secondary-text)',
+                  }}
+                >
+                  {link.source_type}
+                </span>
+                {link.link_type && link.link_type !== 'related' && (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full font-medium"
+                    style={{
+                      background: 'var(--accent)',
+                      color: 'white',
+                      opacity: 0.8,
+                    }}
+                  >
+                    {link.link_type}
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -234,11 +267,24 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
   );
 }
 
+// Link types for knowledge graph
+const LINK_TYPES = [
+  { value: 'related', label: 'Related To', description: 'General relationship' },
+  { value: 'cites', label: 'Cites', description: 'This cites the target' },
+  { value: 'cited_by', label: 'Cited By', description: 'This is cited by target' },
+  { value: 'authored_by', label: 'Authored By', description: 'Created by this author' },
+  { value: 'depends_on', label: 'Depends On', description: 'Requires understanding target first' },
+  { value: 'expands', label: 'Expands', description: 'Elaborates on target idea' },
+  { value: 'contradicts', label: 'Contradicts', description: 'Disagrees with target' },
+  { value: 'mentions', label: 'Mentions', description: 'References target' },
+];
+
 // Búsqueda de recursos para enlazar
 function SearchTab({ resourceId, resource }: { resourceId: string; resource: Resource }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedLinkType, setSelectedLinkType] = useState('related');
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -264,7 +310,7 @@ function SearchTab({ resourceId, resource }: { resourceId: string; resource: Res
         id: linkId,
         source_id: resourceId,
         target_id: targetId,
-        link_type: 'related',
+        link_type: selectedLinkType,
         weight: 1.0,
         created_at: Date.now(),
       });
@@ -280,6 +326,29 @@ function SearchTab({ resourceId, resource }: { resourceId: string; resource: Res
       <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
         Find Resources to Link
       </h3>
+
+      {/* Link Type Selector */}
+      <div className="mb-3">
+        <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--secondary-text)' }}>
+          Link Type
+        </label>
+        <select
+          value={selectedLinkType}
+          onChange={(e) => setSelectedLinkType(e.target.value)}
+          className="w-full px-3 py-2 text-sm rounded-lg"
+          style={{
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            color: 'var(--primary-text)',
+          }}
+        >
+          {LINK_TYPES.map((type) => (
+            <option key={type.value} value={type.value}>
+              {type.label} - {type.description}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* Search Input */}
       <div className="flex gap-2 mb-4">

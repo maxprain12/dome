@@ -35,6 +35,7 @@ const ALLOWED_CHANNELS = {
     // Avatar
     'select-avatar',
     'avatar:copy',
+    'avatar:delete',
     // Window management
     'window:create',
     'window:create-modal',
@@ -77,11 +78,19 @@ const ALLOWED_CHANNELS = {
     'db:links:getBySource',
     'db:links:getByTarget',
     'db:links:delete',
+    // Database - Knowledge Graph
+    'db:graph:createNode',
+    'db:graph:getNode',
+    'db:graph:getNodesByType',
+    'db:graph:createEdge',
+    'db:graph:getNeighbors',
+    'db:graph:searchNodes',
     // Database - Search
     'db:search:unified',
     // Database - Settings
     'db:settings:get',
     'db:settings:set',
+    'db:settings:saveAI',
     // Resource file storage
     'resource:import',
     'resource:importMultiple',
@@ -91,6 +100,14 @@ const ALLOWED_CHANNELS = {
     'resource:export',
     'resource:delete',
     'resource:regenerateThumbnail',
+    // File operations
+    'file:generateHash',
+    'file:readFile',
+    'file:deleteFile',
+    'file:getInfo',
+    'file:imageToBase64',
+    'file:cleanTemp',
+    'file:extractPDFText',
     // Storage management
     'storage:getUsage',
     'storage:cleanup',
@@ -113,6 +130,7 @@ const ALLOWED_CHANNELS = {
     'vector:annotations:index',
     'vector:annotations:search',
     'vector:annotations:delete',
+    'vector:search:generic',
     // General Vector Database
     'vector:add',
     'vector:search',
@@ -162,6 +180,7 @@ const ALLOWED_CHANNELS = {
     'vector:annotations:index',
     'vector:annotations:search',
     'vector:annotations:delete',
+    'vector:search:generic',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -260,6 +279,7 @@ const electronHandler = {
   // ============================================
   avatar: {
     copyFile: (sourcePath) => ipcRenderer.invoke('avatar:copy', sourcePath),
+    deleteAvatar: (relativePath) => ipcRenderer.invoke('avatar:delete', relativePath),
   },
 
   // ============================================
@@ -390,6 +410,16 @@ const electronHandler = {
       delete: (id) => ipcRenderer.invoke('db:links:delete', id),
     },
 
+    // Knowledge Graph
+    graph: {
+      createNode: (node) => ipcRenderer.invoke('db:graph:createNode', node),
+      getNode: (nodeId) => ipcRenderer.invoke('db:graph:getNode', nodeId),
+      getNodesByType: (type) => ipcRenderer.invoke('db:graph:getNodesByType', type),
+      createEdge: (edge) => ipcRenderer.invoke('db:graph:createEdge', edge),
+      getNeighbors: (nodeId) => ipcRenderer.invoke('db:graph:getNeighbors', nodeId),
+      searchNodes: (query) => ipcRenderer.invoke('db:graph:searchNodes', query),
+    },
+
     // Unified Search
     search: {
       unified: (query) => ipcRenderer.invoke('db:search:unified', query),
@@ -407,6 +437,7 @@ const electronHandler = {
         }
         return ipcRenderer.invoke('db:settings:set', key, value);
       },
+      saveAI: (config) => ipcRenderer.invoke('db:settings:saveAI', config),
     },
   },
 
@@ -468,6 +499,32 @@ const electronHandler = {
 
     // Get storage directory path
     getPath: () => ipcRenderer.invoke('storage:getPath'),
+  },
+
+  // ============================================
+  // FILE OPERATIONS API
+  // ============================================
+  file: {
+    // Generate hash for a file
+    generateHash: (filePath) => ipcRenderer.invoke('file:generateHash', filePath),
+
+    // Read file contents
+    readFile: (filePath) => ipcRenderer.invoke('file:readFile', filePath),
+
+    // Delete a file
+    deleteFile: (filePath) => ipcRenderer.invoke('file:deleteFile', filePath),
+
+    // Get file information
+    getInfo: (filePath) => ipcRenderer.invoke('file:getInfo', filePath),
+
+    // Convert image to base64
+    imageToBase64: (filePath) => ipcRenderer.invoke('file:imageToBase64', filePath),
+
+    // Clean temporary files
+    cleanTemp: () => ipcRenderer.invoke('file:cleanTemp'),
+
+    // Extract text from PDF
+    extractPDFText: (filePath) => ipcRenderer.invoke('file:extractPDFText', filePath),
   },
 
   // ============================================
@@ -592,7 +649,7 @@ const electronHandler = {
   vector: {
     // General methods
     add: (items) => ipcRenderer.invoke('vector:add', items),
-    search: (queryData) => ipcRenderer.invoke('vector:search', queryData),
+    search: (query, options) => ipcRenderer.invoke('vector:search:generic', query, options),
     delete: (filter) => ipcRenderer.invoke('vector:delete', filter),
     count: () => ipcRenderer.invoke('vector:count'),
 
