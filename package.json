@@ -54,7 +54,9 @@
     "clsx": "^2.1.0",
     "lowlight": "^3.1.0",
     "lucide-react": "^0.460.0",
+    "mammoth": "^1.11.0",
     "next": "^14.2.0",
+    "papaparse": "^5.5.3",
     "pdfjs-dist": "^4.0.0",
     "qrcode-terminal": "^0.12.0",
     "qrcode.react": "^4.2.0",
@@ -64,12 +66,14 @@
     "tailwind-merge": "^2.5.0",
     "tippy.js": "^6.3.7",
     "vectordb": "^0.4.0",
+    "xlsx": "^0.18.5",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.6.3",
     "@types/better-sqlite3": "^7.6.0",
     "@types/bun": "latest",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.0",
@@ -114,8 +118,14 @@
       "category": "public.app-category.productivity",
       "icon": "assets/icon.icns",
       "target": [
-        { "target": "dmg", "arch": ["x64", "arm64"] },
-        { "target": "zip", "arch": ["x64", "arm64"] }
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
       ],
       "hardenedRuntime": true,
       "gatekeeperAssess": false,

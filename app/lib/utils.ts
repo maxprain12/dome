@@ -33,6 +33,21 @@ export function formatDistanceToNow(timestamp: number): string {
   return 'hace un momento';
 }
 
+// Compact time distance format (e.g., "now", "3m", "2h", "5d")
+export function formatShortDistance(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return 'now';
+  if (minutes < 60) return `${minutes}m`;
+  if (hours < 24) return `${hours}h`;
+  if (days < 7) return `${days}d`;
+  if (days < 30) return `${Math.floor(days / 7)}w`;
+  return `${Math.floor(days / 30)}mo`;
+}
+
 // Formatear fecha completa
 export function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('es-ES', {

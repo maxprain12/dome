@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect, memo } from 'react';
 import type { Resource } from '@/types';
-import { FileText, File, Video, Music, Image as ImageIcon, Link2, Trash2, Edit, MoreVertical, FolderOpen, FolderInput, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import { formatDistanceToNow } from '@/lib/utils';
+import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, Edit, MoreVertical, FolderOpen, FolderInput, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { formatDistanceToNow, formatShortDistance } from '@/lib/utils';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -109,7 +109,37 @@ export default memo(function ResourceCard({
       window.removeEventListener('scroll', handleScroll, true);
     };
   }, [showMenu]);
+  // Detect document sub-type for type-specific icons and colors
+  const getDocumentSubType = (): 'docx' | 'xlsx' | 'csv' | 'txt' | 'generic' => {
+    if (resource.type !== 'document') return 'generic';
+    const filename = (resource.original_filename || resource.title || '').toLowerCase();
+    const mime = resource.file_mime_type || '';
+    if (filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword')) return 'docx';
+    if (filename.endsWith('.xlsx') || filename.endsWith('.xls') || mime.includes('spreadsheetml') || mime.includes('ms-excel')) return 'xlsx';
+    if (filename.endsWith('.csv') || mime === 'text/csv') return 'csv';
+    if (filename.endsWith('.txt') || filename.endsWith('.md') || mime.startsWith('text/')) return 'txt';
+    return 'generic';
+  };
+
+  const docSubType = getDocumentSubType();
+
   const getIcon = () => {
+    // Document sub-type specific icons
+    if (resource.type === 'document') {
+      switch (docSubType) {
+        case 'docx':
+          return <FileText className="resource-icon" />;
+        case 'xlsx':
+          return <FileSpreadsheet className="resource-icon" />;
+        case 'csv':
+          return <Table2 className="resource-icon" />;
+        case 'txt':
+          return <FileType className="resource-icon" />;
+        default:
+          return <File className="resource-icon" />;
+      }
+    }
+
     switch (resource.type) {
       case 'note':
         return <FileText className="resource-icon" />;
@@ -129,6 +159,17 @@ export default memo(function ResourceCard({
   };
 
   const getTypeColor = () => {
+    // Document sub-type specific colors
+    if (resource.type === 'document') {
+      switch (docSubType) {
+        case 'docx': return '#2b579a';
+        case 'xlsx': return '#217346';
+        case 'csv': return '#00838f';
+        case 'txt': return '#6b7280';
+        default: return 'var(--tertiary)';
+      }
+    }
+
     switch (resource.type) {
       case 'note':
         return 'var(--accent)';
@@ -147,6 +188,17 @@ export default memo(function ResourceCard({
     }
   };
 
+  // Get document sub-type label for badge
+  const getDocTypeBadge = () => {
+    const labels: Record<string, { label: string; bg: string; fg: string }> = {
+      docx: { label: 'DOCX', bg: '#e8f0fe', fg: '#2b579a' },
+      xlsx: { label: 'XLSX', bg: '#e6f4ea', fg: '#217346' },
+      csv: { label: 'CSV', bg: '#e0f7fa', fg: '#00838f' },
+      txt: { label: 'TXT', bg: '#f3f4f6', fg: '#6b7280' },
+    };
+    return labels[docSubType] || null;
+  };
+
   const getPreviewContent = () => {
     // Use thumbnail_data (Base64) for fast preview - new internal storage system
     if (resource.thumbnail_data) {
@@ -157,6 +209,9 @@ export default memo(function ResourceCard({
           style={{ backgroundImage: `url(${resource.thumbnail_data})` }}
         >
           {isVideo && <div className="video-play-icon">▶</div>}
+          {resource.type === 'video' && (
+            <div className="time-badge">{formatShortDistance(resource.updated_at)}</div>
+          )}
         </div>
       );
     }
@@ -168,7 +223,9 @@ export default memo(function ResourceCard({
         <div
           className="preview-image"
           style={{ backgroundImage: `url(${imageSrc})` }}
-        />
+        >
+          <div className="time-badge">{formatShortDistance(resource.updated_at)}</div>
+        </div>
       );
     }
 
@@ -209,6 +266,25 @@ export default memo(function ResourceCard({
       const plainText = resource.content.replace(/<[^>]+>/g, '').substring(0, 200);
       return (
         <div className="content-preview">
+          <p>{plainText}</p>
+        </div>
+      );
+    }
+
+    // Document content preview (text extracted at import time)
+    if (resource.type === 'document' && resource.content) {
+      const badge = getDocTypeBadge();
+      const plainText = resource.content.substring(0, 200);
+      return (
+        <div className="content-preview document-preview">
+          {badge && (
+            <span
+              className="doc-type-badge"
+              style={{ background: badge.bg, color: badge.fg }}
+            >
+              {badge.label}
+            </span>
+          )}
           <p>{plainText}</p>
         </div>
       );
@@ -525,6 +601,35 @@ export default memo(function ResourceCard({
           margin: 0;
         }
 
+        .card-preview :global(.document-preview) {
+          position: relative;
+        }
+
+        .card-preview :global(.doc-type-badge) {
+          display: inline-flex;
+          align-items: center;
+          padding: 2px 8px;
+          border-radius: 4px;
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          margin-bottom: 8px;
+          letter-spacing: 0.5px;
+        }
+
+        .card-preview :global(.time-badge) {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          background: rgba(0, 0, 0, 0.6);
+          color: white;
+          font-size: 11px;
+          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: 4px;
+          backdrop-filter: blur(4px);
+        }
+
         .card-preview :global(.icon-preview) {
           display: flex;
           align-items: center;
@@ -671,6 +776,10 @@ export default memo(function ResourceCard({
     prevProps.resource.title === nextProps.resource.title &&
     prevProps.resource.updated_at === nextProps.resource.updated_at &&
     prevProps.resource.type === nextProps.resource.type &&
+    prevProps.resource.content === nextProps.resource.content &&
+    prevProps.resource.thumbnail_data === nextProps.resource.thumbnail_data &&
+    prevProps.resource.file_mime_type === nextProps.resource.file_mime_type &&
+    prevProps.resource.original_filename === nextProps.resource.original_filename &&
     prevProps.viewMode === nextProps.viewMode &&
     prevProps.searchSnippet === nextProps.searchSnippet
   );

@@ -87,6 +87,7 @@ const ALLOWED_CHANNELS = {
     'resource:importMultiple',
     'resource:getFilePath',
     'resource:readFile',
+    'resource:readDocumentContent',
     'resource:export',
     'resource:delete',
     'resource:regenerateThumbnail',
@@ -437,6 +438,10 @@ const electronHandler = {
     // Read file content as Base64 data URL
     readFile: (resourceId) =>
       ipcRenderer.invoke('resource:readFile', resourceId),
+
+    // Read document content as raw Base64 for renderer-side parsing (DOCX, XLSX, CSV)
+    readDocumentContent: (resourceId) =>
+      ipcRenderer.invoke('resource:readDocumentContent', resourceId),
 
     // Export resource to user-selected location
     export: (resourceId, destinationPath) =>

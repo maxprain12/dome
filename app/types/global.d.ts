@@ -279,6 +279,13 @@ declare global {
         }>;
         getFilePath: (resourceId: string) => Promise<DBResponse<string>>;
         readFile: (resourceId: string) => Promise<DBResponse<string>>;
+        readDocumentContent: (resourceId: string) => Promise<{
+          success: boolean;
+          data?: string;
+          mimeType?: string;
+          filename?: string;
+          error?: string;
+        }>;
         export: (
           resourceId: string,
           destinationPath: string

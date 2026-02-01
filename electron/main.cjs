@@ -38,6 +38,7 @@ const youtubeService = require('./youtube-service.cjs');
 const ollamaService = require('./ollama-service.cjs');
 const aiToolsHandler = require('./ai-tools-handler.cjs');
 const vectorHandler = require('./vector-handler.cjs');
+const documentExtractor = require('./document-extractor.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
 
 // Environment detection
@@ -1681,6 +1682,16 @@ ipcMain.handle('resource:import', async (event, { filePath, projectId, type, tit
       importResult.mimeType
     );
 
+    // Extract text content for document types (for card preview)
+    let contentText = null;
+    if (type === 'document') {
+      try {
+        contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
+      } catch (extractError) {
+        console.warn('[Resource] Text extraction failed, continuing without content:', extractError.message);
+      }
+    }
+
     // Create resource in database
     const resourceId = generateId();
     const now = Date.now();
@@ -1691,7 +1702,7 @@ ipcMain.handle('resource:import', async (event, { filePath, projectId, type, tit
       projectId,
       type,
       resourceTitle,
-      null, // content
+      contentText, // content - extracted text for documents
       null, // file_path (legacy, not used)
       importResult.internalPath,
       importResult.mimeType,
@@ -1894,6 +1905,46 @@ ipcMain.handle('resource:readFile', (event, resourceId) => {
     return { success: false, error: 'File not found' };
   } catch (error) {
     console.error('[Resource] Error reading file:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Read document content as base64 for renderer-side parsing (DOCX, XLSX, CSV)
+ */
+ipcMain.handle('resource:readDocumentContent', (event, resourceId) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const queries = database.getQueries();
+    const resource = queries.getResourceById.get(resourceId);
+
+    if (!resource) {
+      return { success: false, error: 'Resource not found' };
+    }
+
+    if (!resource.internal_path) {
+      return { success: false, error: 'No internal file path' };
+    }
+
+    const fullPath = fileStorage.getFullPath(resource.internal_path);
+    if (!fs.existsSync(fullPath)) {
+      return { success: false, error: 'File not found on disk' };
+    }
+
+    const buffer = fs.readFileSync(fullPath);
+    const base64 = buffer.toString('base64');
+
+    return {
+      success: true,
+      data: base64,
+      mimeType: resource.file_mime_type,
+      filename: resource.original_filename || resource.title,
+    };
+  } catch (error) {
+    console.error('[Resource] Error reading document content:', error);
     return { success: false, error: error.message };
   }
 });

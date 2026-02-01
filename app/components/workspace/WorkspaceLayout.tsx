@@ -12,6 +12,8 @@ const PDFViewer = dynamic(() => import('../viewers/PDFViewer').then((m) => m.def
 const VideoPlayer = dynamic(() => import('../viewers/VideoPlayer').then((m) => m.default), { ssr: false });
 const AudioPlayer = dynamic(() => import('../viewers/AudioPlayer').then((m) => m.default), { ssr: false });
 const ImageViewer = dynamic(() => import('../viewers/ImageViewer').then((m) => m.default), { ssr: false });
+const DocxViewer = dynamic(() => import('../viewers/DocxViewer').then((m) => m.default), { ssr: false });
+const SpreadsheetViewer = dynamic(() => import('../viewers/SpreadsheetViewer').then((m) => m.default), { ssr: false });
 
 interface WorkspaceLayoutProps {
   resourceId: string;
@@ -136,10 +138,30 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
         return <AudioPlayer resource={resource} />;
       case 'image':
         return <ImageViewer resource={resource} />;
-      case 'document':
+      case 'document': {
         if (isDocumentPdf(resource)) {
           return <PDFViewer resource={resource} />;
         }
+
+        const filename = (resource.original_filename || resource.title || '').toLowerCase();
+        const mime = resource.file_mime_type || '';
+
+        // DOCX / DOC
+        if (filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword')) {
+          return <DocxViewer resource={resource} />;
+        }
+
+        // XLSX / XLS
+        if (filename.endsWith('.xlsx') || filename.endsWith('.xls') || mime.includes('spreadsheetml') || mime.includes('ms-excel')) {
+          return <SpreadsheetViewer resource={resource} />;
+        }
+
+        // CSV
+        if (filename.endsWith('.csv') || mime === 'text/csv') {
+          return <SpreadsheetViewer resource={resource} />;
+        }
+
+        // Fallback for unsupported document types
         return (
           <div className="flex flex-col items-center justify-center h-full p-8">
             <File className="w-16 h-16 mb-4" style={{ color: 'var(--tertiary-text)' }} />
@@ -158,6 +180,7 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
             </button>
           </div>
         );
+      }
       default:
         return (
           <div className="flex flex-col items-center justify-center h-full p-8">
