@@ -36,6 +36,7 @@ import { BubbleMenu } from './BubbleMenu';
 import { FloatingMenu } from './FloatingMenu';
 import { SlashCommandMenu } from './SlashCommand';
 import { getSlashCommandItems } from './SlashCommand';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 // Configurar lowlight
 const lowlight = createLowlight();
@@ -154,8 +155,8 @@ export default function NotionEditor({
         else if (['mp3', 'wav', 'ogg'].includes(ext || '')) type = 'audio';
 
         // Import file via IPC
-        const activeProject = useAppStore.getState().activeProject;
-        const projectId = activeProject?.id || 'default';
+        const currentProject = useAppStore.getState().currentProject;
+        const projectId = currentProject?.id || 'default';
         const result = await (window.electron as any).resource.import(filePath, projectId, type, file.name);
 
         if (result?.success && result.data) {

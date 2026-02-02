@@ -613,12 +613,57 @@ declare global {
           content?: string;
           error?: string;
         }>;
+        // Native Ollama Manager (binary management and lifecycle)
+        manager: {
+          start: (version?: string) => Promise<{
+            success: boolean;
+            message?: string;
+            error?: string;
+          }>;
+          stop: () => Promise<{
+            success: boolean;
+            message?: string;
+            error?: string;
+          }>;
+          status: () => Promise<{
+            success: boolean;
+            status?: 'stopped' | 'starting' | 'downloading' | 'running' | 'error';
+            version?: string | null;
+            downloadProgress?: number;
+            error?: string | null;
+            isRunning?: boolean;
+          }>;
+          download: (version?: string) => Promise<{
+            success: boolean;
+            message?: string;
+            error?: string;
+          }>;
+          versions: () => Promise<{
+            success: boolean;
+            versions?: string[];
+            error?: string;
+          }>;
+          onDownloadProgress: (callback: (data: { percent: number; status: string }) => void) => RemoveListenerFn;
+          onServerLog: (callback: (message: string) => void) => RemoveListenerFn;
+          onStatusChanged: (callback: (status: { status: string; version?: string; error?: string }) => void) => RemoveListenerFn;
+        };
       };
 
       // Vector Database API - Annotations and Resources
       vector: {
-        // Generic search across all embeddings
-        search: (query: string, options?: {
+        // Add embeddings to vector database
+        add: (embeddings: any[]) => Promise<{
+          success: boolean;
+          data?: any;
+          error?: string;
+        }>;
+        // Generic search across all embeddings (text-based or vector-based)
+        search: (query: string | {
+          vector: number[];
+          limit?: number;
+          filter?: string;
+          threshold?: number;
+        }, options?: {
           limit?: number;
           threshold?: number;
           filter?: Record<string, any>;
@@ -632,6 +677,11 @@ declare global {
             _distance?: number;
             metadata: any;
           }>;
+          error?: string;
+        }>;
+        // Delete embeddings by filter
+        delete: (filter: string) => Promise<{
+          success: boolean;
           error?: string;
         }>;
         // Annotation-specific operations

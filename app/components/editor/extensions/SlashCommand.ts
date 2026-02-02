@@ -1,10 +1,11 @@
 import { Extension } from '@tiptap/core';
 import { createSlashCommandPlugin } from './SlashCommandPlugin';
+import type { ReactNode } from 'react';
 
 export interface SlashCommandItem {
   title: string;
   description?: string;
-  icon?: string;
+  icon?: ReactNode;
   category: string;
   command: (props: { editor: any; range: { from: number; to: number } }) => void;
   keywords?: string[];

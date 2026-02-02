@@ -1,21 +1,12 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Source_Sans_3, Fraunces } from 'next/font/google';
 import ThemeProvider from '@/components/ThemeProvider';
 import MartinFloatingButton from '@/components/common/MartinFloatingButton';
 import PromptModal from '@/components/PromptModal';
 
-const sourceSans = Source_Sans_3({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-body',
-});
-
-const fraunces = Fraunces({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-display',
-});
+// Using system fonts to avoid network issues during build
+// Original fonts: Source_Sans_3, Fraunces
+// System font fallbacks are configured in globals.css
 
 export const metadata: Metadata = {
   title: 'Dome - Gestión Inteligente de Conocimiento',
@@ -33,7 +24,7 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="color-scheme" content="light dark" />
       </head>
-      <body className={`${sourceSans.variable} ${fraunces.variable}`} suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <ThemeProvider>
           {/* Drag region para mover la ventana (macOS traffic lights) */}
           <div

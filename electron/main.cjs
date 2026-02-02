@@ -36,6 +36,7 @@ const thumbnail = require('./thumbnail.cjs');
 const webScraper = require('./web-scraper.cjs');
 const youtubeService = require('./youtube-service.cjs');
 const ollamaService = require('./ollama-service.cjs');
+const ollamaManager = require('./ollama-manager.cjs');
 const aiToolsHandler = require('./ai-tools-handler.cjs');
 const vectorHandler = require('./vector-handler.cjs');
 const documentExtractor = require('./document-extractor.cjs');
@@ -201,6 +202,10 @@ async function createWindow() {
     }
   });
 
+  // Initialize Ollama Manager
+  ollamaManager.initialize(mainWindow);
+  console.log('[Main] Ollama Manager initialized');
+
   return mainWindow;
 }
 
@@ -348,8 +353,9 @@ app
   .catch(console.error);
 
 // Cleanup before quit
-app.on('before-quit', () => {
+app.on('before-quit', async () => {
   console.log('👋 Cerrando Dome...');
+  await ollamaManager.cleanup();
   database.closeDB();
 });
 
@@ -3074,6 +3080,100 @@ ipcMain.handle('ollama:chat', async (event, { messages, model }) => {
     return { success: true, content: response };
   } catch (error) {
     console.error('[Ollama] Error in chat:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// ============================================
+// OLLAMA MANAGER IPC HANDLERS (Native Integration)
+// ============================================
+
+/**
+ * Start Ollama server (downloads if needed)
+ */
+ipcMain.handle('ollama:manager:start', async (event, version) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const result = await ollamaManager.ensureRunning(version || 'latest');
+    return result;
+  } catch (error) {
+    console.error('[OllamaManager] Error starting:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Stop Ollama server
+ */
+ipcMain.handle('ollama:manager:stop', async (event) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const result = await ollamaManager.stop();
+    return result;
+  } catch (error) {
+    console.error('[OllamaManager] Error stopping:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Get Ollama manager status
+ */
+ipcMain.handle('ollama:manager:status', async (event) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const status = ollamaManager.getStatus();
+    const isRunning = await ollamaManager.isRunning();
+    return {
+      success: true,
+      ...status,
+      isRunning
+    };
+  } catch (error) {
+    console.error('[OllamaManager] Error getting status:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Download Ollama version without starting
+ */
+ipcMain.handle('ollama:manager:download', async (event, version) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const result = await ollamaManager.download(version || 'latest');
+    return result;
+  } catch (error) {
+    console.error('[OllamaManager] Error downloading:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+/**
+ * Get list of downloaded versions
+ */
+ipcMain.handle('ollama:manager:versions', async (event) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const versions = ollamaManager.getDownloadedVersions();
+    return { success: true, versions };
+  } catch (error) {
+    console.error('[OllamaManager] Error getting versions:', error);
     return { success: false, error: error.message };
   }
 });

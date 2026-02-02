@@ -85,9 +85,10 @@
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
 
   /* Typography - Refined editorial: display for headings, body for UI */
-  --font-sans: var(--font-body), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-display: var(--font-display), Georgia, serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  /* Using system fonts to avoid network issues during build */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
 
   /* Transitions (from Pile) */
   --transition-fast: 120ms ease-in-out;

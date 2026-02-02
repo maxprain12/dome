@@ -1,5 +1,7 @@
-import { chunkText, ChunkingOptions } from './chunking';
-import { insertResourceEmbeddings, ResourceEmbedding } from '../db/vector';
+import { chunkText } from './chunking';
+import type { ChunkingOptions } from './chunking';
+import { insertResourceEmbeddings } from '../db/vector';
+import type { ResourceEmbedding } from '../db/vector';
 
 export interface IngestionResult {
   success: boolean;
@@ -61,11 +63,11 @@ export async function ingestResource(
                         text: chunk.text,
                         vector: vector,
                         metadata: {
+                            ...metadata,
                             resource_type: metadata.type,
                             title: metadata.title,
                             project_id: metadata.projectId,
-                            created_at: Date.now(),
-                            ...metadata
+                            created_at: Date.now()
                         }
                     });
                 }
