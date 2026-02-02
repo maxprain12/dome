@@ -243,11 +243,11 @@ export async function getRelatedResources(
               id: neighborId,
               title: neighbor.label,
               type: neighbor.properties?.resource_type || neighbor.type,
-              score: weight * (neighbor.weight || 0.5),
+              score: weight * ((neighbor as any).weight || 0.5),
               source: 'graph',
               metadata: {
                 depth,
-                relation: neighbor.relation,
+                relation: (neighbor as any).relation,
                 nodeType: neighbor.type,
               },
             });
