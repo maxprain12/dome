@@ -4,8 +4,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, AlertCircle, ExternalLink, RefreshCw, FileText, Globe, Copy, Check } from 'lucide-react';
 import { type Resource } from '@/types';
 import { processUrlResource, isYouTubeUrl } from '@/lib/web/processor';
-import LoadingState from '../workspace/shared/LoadingState';
-import ErrorState from '../workspace/shared/ErrorState';
+import LoadingState from '@/components/ui/LoadingState';
+import ErrorState from '@/components/ui/ErrorState';
 
 interface URLViewerProps {
   resource: Resource;

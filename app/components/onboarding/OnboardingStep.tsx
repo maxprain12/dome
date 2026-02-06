@@ -2,7 +2,7 @@
 
 import { useImperativeHandle, forwardRef } from 'react';
 import type { ReactNode } from 'react';
-import MartinAvatar from '@/components/common/MartinAvatar';
+import MartinAvatar from '@/components/martin/MartinAvatar';
 
 interface OnboardingStepProps {
   message: string;

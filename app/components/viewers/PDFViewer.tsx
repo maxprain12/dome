@@ -11,9 +11,9 @@ import PDFPage from './pdf/PDFPage';
 import AnnotationLayer from './pdf/AnnotationLayer';
 import AnnotationToolbar from './pdf/AnnotationToolbar';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
-import LoadingState from '../workspace/shared/LoadingState';
-import ErrorState from '../workspace/shared/ErrorState';
-import ZoomControls from '../workspace/shared/ZoomControls';
+import LoadingState from '@/components/ui/LoadingState';
+import ErrorState from '@/components/ui/ErrorState';
+import ZoomControls from './shared/ZoomControls';
 
 interface PDFViewerProps {
   resource: Resource;

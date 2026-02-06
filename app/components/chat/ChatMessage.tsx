@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import { Copy, Check, RefreshCw } from 'lucide-react';
 import ChatToolCard, { type ToolCallData } from './ChatToolCard';
 import ReadingIndicator from './ReadingIndicator';
+import MarkdownRenderer from './MarkdownRenderer';
 
 /**
  * ChatMessage - Individual message with actions
@@ -81,8 +82,12 @@ export default function ChatMessage({
           >
             {/* Message text */}
             {message.content ? (
-              <div className="text-sm whitespace-pre-wrap break-words">
-                {message.content}
+              <div className="text-sm break-words">
+                {isUser ? (
+                  <span className="whitespace-pre-wrap">{message.content}</span>
+                ) : (
+                  <MarkdownRenderer content={message.content} />
+                )}
               </div>
             ) : message.isStreaming ? (
               <ReadingIndicator className="opacity-60" />
@@ -112,25 +117,31 @@ export default function ChatMessage({
         >
           <button
             onClick={handleCopy}
-            className="p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-md transition-colors"
+            style={{ color: 'var(--secondary-text)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             title="Copiar mensaje"
           >
             {copied ? (
-              <Check className="w-3.5 h-3.5 text-green-500" />
+              <Check className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
             ) : (
-              <Copy className="w-3.5 h-3.5" style={{ color: 'var(--secondary)' }} />
+              <Copy className="w-3.5 h-3.5" />
             )}
           </button>
           {onRegenerate && (
             <button
               onClick={onRegenerate}
-              className="p-1.5 rounded-md hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-md transition-colors"
+              style={{ color: 'var(--secondary-text)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
               title="Regenerar respuesta"
             >
-              <RefreshCw className="w-3.5 h-3.5" style={{ color: 'var(--secondary)' }} />
+              <RefreshCw className="w-3.5 h-3.5" />
             </button>
           )}
-          <span className="text-[10px] opacity-40 ml-1" style={{ color: 'var(--secondary)' }}>
+          <span className="text-[10px] opacity-40 ml-1" style={{ color: 'var(--tertiary-text)' }}>
             {formattedTime}
           </span>
         </div>

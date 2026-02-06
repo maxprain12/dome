@@ -168,6 +168,7 @@ const ALLOWED_CHANNELS = {
     'ai:stream',
     'ai:embeddings',
     'ai:checkClaudeMaxProxy',
+    'ai:testConnection',
     // AI Tools (for Many agent)
     'ai:tools:resourceSearch',
     'ai:tools:resourceGet',
@@ -596,6 +597,10 @@ const electronHandler = {
     // Check if claude-max-api-proxy is available (for Claude Pro/Max subscriptions)
     checkClaudeMaxProxy: () =>
       ipcRenderer.invoke('ai:checkClaudeMaxProxy'),
+
+    // Test AI connection (minimal API call to verify config)
+    testConnection: () =>
+      ipcRenderer.invoke('ai:testConnection'),
 
     // AI Tools for Many agent
     tools: {

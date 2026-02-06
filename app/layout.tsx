@@ -1,8 +1,9 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import ThemeProvider from '@/components/ThemeProvider';
-import MartinFloatingButton from '@/components/common/MartinFloatingButton';
-import PromptModal from '@/components/PromptModal';
+import ThemeProvider from '@/components/ui/ThemeProvider';
+import MartinFloatingButton from '@/components/martin/MartinFloatingButton';
+import PromptModal from '@/components/ui/PromptModal';
+import ToastContainer from '@/components/ui/Toast';
 
 // Using system fonts to avoid network issues during build
 // Original fonts: Source_Sans_3, Fraunces
@@ -45,6 +46,9 @@ export default function RootLayout({
 
           {/* Modal global para prompts (reemplazo de window.prompt para Electron) */}
           <PromptModal />
+
+          {/* Sistema de notificaciones toast */}
+          <ToastContainer />
         </ThemeProvider>
       </body>
     </html>

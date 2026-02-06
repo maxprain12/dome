@@ -431,6 +431,13 @@ declare global {
           available?: boolean;
           error?: string;
         }>;
+        testConnection: () => Promise<{
+          success: boolean;
+          provider?: string;
+          model?: string;
+          message?: string;
+          error?: string;
+        }>;
         // AI Tools for Many agent
         tools: {
           resourceSearch: (

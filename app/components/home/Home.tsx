@@ -4,11 +4,11 @@ import { useState, useCallback } from 'react';
 import { FolderOpen, FolderInput, Plus, Loader2, CheckCircle2, AlertCircle, Upload, ChevronRight, Home as HomeIcon, X } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
-import UserMenu from './user/UserMenu';
-import { CommandCenter } from './CommandCenter';
+import UserMenu from '@/components/user/UserMenu';
+import { CommandCenter } from '@/components/CommandCenter';
 import FilterBar from './FilterBar';
 import ResourceCard from './ResourceCard';
-import { ConfirmDialog } from './common/ConfirmDialog';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 
 function parseJsonField<T = Record<string, unknown>>(val: unknown): T {

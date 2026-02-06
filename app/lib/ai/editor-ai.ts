@@ -62,7 +62,13 @@ export async function executeEditorAIAction(
 ): Promise<string> {
   const config = await getAIConfig();
   if (!config) {
-    throw new Error('AI not configured. Go to Settings to set up your API key.');
+    throw new Error('AI not configured. Go to Settings > AI to configure your provider and API key.');
+  }
+
+  // Pre-validate API key for providers that need one
+  const needsApiKey = config.provider !== 'synthetic' && config.provider !== 'ollama';
+  if (needsApiKey && !config.apiKey) {
+    throw new Error(`API key missing for ${config.provider}. Go to Settings > AI to add your key.`);
   }
 
   const actionPrompt =
@@ -120,7 +126,13 @@ export async function executeEditorAIActionStreaming(
 ): Promise<string> {
   const config = await getAIConfig();
   if (!config) {
-    throw new Error('AI not configured. Go to Settings to set up your API key.');
+    throw new Error('AI not configured. Go to Settings > AI to configure your provider and API key.');
+  }
+
+  // Pre-validate API key for providers that need one
+  const needsApiKey = config.provider !== 'synthetic' && config.provider !== 'ollama';
+  if (needsApiKey && !config.apiKey) {
+    throw new Error(`API key missing for ${config.provider}. Go to Settings > AI to add your key.`);
   }
 
   const actionPrompt =

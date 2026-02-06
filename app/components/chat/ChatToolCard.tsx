@@ -73,33 +73,35 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-black/5 dark:hover:bg-white/5 transition-colors rounded-lg"
+        className="w-full px-3 py-2 flex items-center gap-2 text-left transition-colors rounded-lg"
+        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
       >
         {/* Status indicator */}
         <div className="flex-shrink-0">
           {toolCall.status === 'pending' && (
-            <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-600" />
+            <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: 'var(--border)' }} />
           )}
           {toolCall.status === 'running' && (
             <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--accent)' }} />
           )}
           {toolCall.status === 'success' && (
-            <CheckCircle2 className="w-4 h-4 text-green-500" />
+            <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--success)' }} />
           )}
           {toolCall.status === 'error' && (
-            <XCircle className="w-4 h-4 text-red-500" />
+            <XCircle className="w-4 h-4" style={{ color: 'var(--error)' }} />
           )}
         </div>
 
         {/* Icon and label */}
-        <Icon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--secondary)' }} />
+        <Icon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--secondary-text)' }} />
         <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--primary-text)' }}>
           {label}
         </span>
 
         {/* Expand/collapse */}
         {(toolCall.result || toolCall.error) && (
-          <div className="flex-shrink-0" style={{ color: 'var(--secondary)' }}>
+          <div className="flex-shrink-0" style={{ color: 'var(--secondary-text)' }}>
             {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </div>
         )}
@@ -108,7 +110,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
       {/* Arguments preview (always visible) */}
       {argsText && (
         <div className="px-3 pb-2 -mt-1">
-          <p className="text-xs opacity-60 truncate" style={{ color: 'var(--secondary)' }}>
+          <p className="text-xs opacity-60 truncate" style={{ color: 'var(--secondary-text)' }}>
             {argsText}
           </p>
         </div>
@@ -118,18 +120,18 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
       {(toolCall.result || toolCall.error) && (
         <div className="border-t px-3 py-2" style={{ borderColor: 'var(--border)' }}>
           {toolCall.error ? (
-            <p className="text-xs text-red-500">{toolCall.error}</p>
+            <p className="text-xs" style={{ color: 'var(--error)' }}>{toolCall.error}</p>
           ) : expanded ? (
             <pre 
               className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-64"
-              style={{ color: 'var(--secondary)' }}
+              style={{ color: 'var(--secondary-text)' }}
             >
               {resultText}
             </pre>
           ) : (
             <p 
               className="text-xs truncate cursor-pointer"
-              style={{ color: 'var(--secondary)' }}
+              style={{ color: 'var(--secondary-text)' }}
               onClick={() => setExpanded(true)}
             >
               {previewText}

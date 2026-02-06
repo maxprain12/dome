@@ -32,6 +32,7 @@ export function BubbleMenu({ editor }: BubbleMenuProps) {
   return (
     <TiptapBubbleMenu
       editor={editor}
+      pluginKey="formattingBubbleMenu"
       tippyOptions={{ duration: 100 }}
       className="bubble-menu"
     >

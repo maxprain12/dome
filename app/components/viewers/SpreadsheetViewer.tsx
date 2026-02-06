@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { type Resource } from '@/types';
-import LoadingState from '../workspace/shared/LoadingState';
-import ErrorState from '../workspace/shared/ErrorState';
+import LoadingState from '@/components/ui/LoadingState';
+import ErrorState from '@/components/ui/ErrorState';
 
 interface SheetData {
   name: string;

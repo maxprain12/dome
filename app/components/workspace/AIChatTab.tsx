@@ -17,11 +17,12 @@ import {
   type AIProviderType,
 } from '@/lib/ai';
 import { type Resource } from '@/types';
-import MartinAvatar from '@/components/common/MartinAvatar';
+import MartinAvatar from '@/components/martin/MartinAvatar';
 import { 
-  ChatMessageGroup, 
-  groupMessagesByRole, 
+  ChatMessageGroup,
+  groupMessagesByRole,
   ReadingIndicator,
+  MarkdownRenderer,
   type ChatMessageData,
   type ToolCallData,
 } from '@/components/chat';
@@ -56,7 +57,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
   const [resourceToolsEnabled, setResourceToolsEnabled] = useState(true); // Resource tools enabled by default
   const [supportsTools, setSupportsTools] = useState(false);
 
-  // Check if current provider supports tools
+  // Check if current provider supports tools (and re-check on config change)
   useEffect(() => {
     const checkToolSupport = async () => {
       const config = await getAIConfig();
@@ -66,6 +67,15 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
       }
     };
     checkToolSupport();
+
+    // Listen for AI config changes from Settings
+    const handleConfigChanged = () => {
+      checkToolSupport();
+    };
+    window.addEventListener('dome:ai-config-changed', handleConfigChanged);
+    return () => {
+      window.removeEventListener('dome:ai-config-changed', handleConfigChanged);
+    };
   }, []);
 
   // Get the active tools based on settings
@@ -371,7 +381,9 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
                     setInputValue(prompt);
                     inputRef.current?.focus();
                   }}
-                  className="px-3 py-1.5 text-xs rounded-full border transition-colors hover:bg-black/5 dark:hover:bg-white/10"
+                  className="px-3 py-1.5 text-xs rounded-full border transition-colors"
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   style={{
                     borderColor: 'var(--border)',
                     color: 'var(--secondary-text)',
@@ -411,13 +423,13 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
           <div
             className="flex items-center gap-3 p-4 rounded-xl mx-auto max-w-md"
             style={{
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
+              backgroundColor: 'color-mix(in srgb, var(--error) 10%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--error) 20%, transparent)',
             }}
           >
-            <AlertCircle size={18} className="flex-shrink-0 text-red-500" />
+            <AlertCircle size={18} className="flex-shrink-0" style={{ color: 'var(--error)' }} />
             <div className="flex-1">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>
             </div>
           </div>
         )}
@@ -432,12 +444,21 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <button
               onClick={() => setResourceToolsEnabled(!resourceToolsEnabled)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                toolsEnabled && resourceToolsEnabled ? 'bg-emerald-500/10 text-emerald-600' : 'hover:bg-black/5'
-              }`}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
               style={{
-                border: toolsEnabled && resourceToolsEnabled ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid var(--border)',
-                color: toolsEnabled && resourceToolsEnabled ? undefined : 'var(--secondary-text)',
+                border: toolsEnabled && resourceToolsEnabled
+                  ? '1px solid color-mix(in srgb, var(--success) 30%, transparent)'
+                  : '1px solid var(--border)',
+                backgroundColor: toolsEnabled && resourceToolsEnabled
+                  ? 'color-mix(in srgb, var(--success) 10%, transparent)'
+                  : 'transparent',
+                color: toolsEnabled && resourceToolsEnabled ? 'var(--success)' : 'var(--secondary-text)',
+              }}
+              onMouseEnter={(e) => {
+                if (!(toolsEnabled && resourceToolsEnabled)) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+              }}
+              onMouseLeave={(e) => {
+                if (!(toolsEnabled && resourceToolsEnabled)) e.currentTarget.style.backgroundColor = 'transparent';
               }}
               title={resourceToolsEnabled ? 'Resource access enabled' : 'Enable resource access'}
             >
@@ -446,31 +467,26 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
             </button>
             <button
               onClick={() => setToolsEnabled(!toolsEnabled)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                toolsEnabled ? 'bg-blue-500/10 text-blue-600' : 'hover:bg-black/5'
-              }`}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
               style={{
-                border: toolsEnabled ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--border)',
-                color: toolsEnabled ? undefined : 'var(--secondary-text)',
+                border: toolsEnabled
+                  ? '1px solid color-mix(in srgb, var(--accent) 30%, transparent)'
+                  : '1px solid var(--border)',
+                backgroundColor: toolsEnabled
+                  ? 'color-mix(in srgb, var(--accent) 10%, transparent)'
+                  : 'transparent',
+                color: toolsEnabled ? 'var(--accent)' : 'var(--secondary-text)',
+              }}
+              onMouseEnter={(e) => {
+                if (!toolsEnabled) e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
+              }}
+              onMouseLeave={(e) => {
+                if (!toolsEnabled) e.currentTarget.style.backgroundColor = 'transparent';
               }}
               title={toolsEnabled ? 'Tools enabled' : 'Enable tools'}
             >
               <Search size={12} />
               Web search
-            </button>
-            <button
-              onClick={() => setToolsEnabled(!toolsEnabled)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                toolsEnabled ? 'bg-blue-500/10 text-blue-600' : 'hover:bg-black/5'
-              }`}
-              style={{
-                border: toolsEnabled ? '1px solid rgba(59, 130, 246, 0.3)' : '1px solid var(--border)',
-                color: toolsEnabled ? undefined : 'var(--secondary-text)',
-              }}
-              title={toolsEnabled ? 'Tools enabled' : 'Enable tools'}
-            >
-              <Globe size={12} />
-              Get pages
             </button>
           </div>
         )}
@@ -488,7 +504,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
                   ? "Type your question (with web search)..." 
                   : "Type your question..."}
               disabled={isStreaming}
-              className="w-full px-4 py-3 text-sm rounded-xl resize-none disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              className="w-full px-4 py-3 text-sm rounded-xl resize-none disabled:opacity-50 focus:outline-none"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
                 border: '1px solid var(--border)',

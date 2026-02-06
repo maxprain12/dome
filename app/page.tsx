@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Home from '@/components/Home';
+import Home from '@/components/home/Home';
 import Onboarding from '@/components/onboarding/Onboarding';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';

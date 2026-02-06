@@ -4,7 +4,7 @@ import { useState } from 'react';
 import OnboardingStep from './OnboardingStep';
 import ProfileStep from './steps/ProfileStep';
 import AISetupStep from './steps/AISetupStep';
-import MartinAvatar from '@/components/common/MartinAvatar';
+import MartinAvatar from '@/components/martin/MartinAvatar';
 
 interface MartinOnboardingProps {
   initialName?: string;

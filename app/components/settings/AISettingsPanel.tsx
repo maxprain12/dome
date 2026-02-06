@@ -37,6 +37,8 @@ export default function AISettingsPanel() {
   const [ollamaNumPredict, setOllamaNumPredict] = useState(500);
   const [showApiKey, setShowApiKey] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Anthropic auth mode (api_key vs oauth/token)
   const [authMode, setAuthMode] = useState<AnthropicAuthMode>('api_key');
@@ -256,8 +258,45 @@ export default function AISettingsPanel() {
       await saveAIConfig(config);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+
+      // Notify other components that AI config has changed
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
+      }
     } catch (error) {
       console.error('[AISettings] Error saving config:', error);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    // Save first to ensure latest config is persisted
+    await handleSave();
+
+    // Synthetic always works
+    if (provider === 'synthetic') {
+      setTestResult({ success: true, message: 'Synthetic provider is always available.' });
+      return;
+    }
+
+    setTesting(true);
+    setTestResult(null);
+
+    try {
+      if (window.electron?.ai?.testConnection) {
+        const result = await window.electron.ai.testConnection();
+        if (result.success) {
+          setTestResult({ success: true, message: `Connected to ${result.provider} (${result.model})` });
+        } else {
+          setTestResult({ success: false, message: result.error || 'Connection failed' });
+        }
+      } else {
+        setTestResult({ success: false, message: 'Test connection not available (Electron API missing)' });
+      }
+    } catch (error) {
+      console.error('[AISettings] Test connection error:', error);
+      setTestResult({ success: false, message: error instanceof Error ? error.message : 'Unknown error' });
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -944,20 +983,68 @@ export default function AISettingsPanel() {
           </div>
         )}
 
-        {/* Save Button */}
-        <div className="pt-6">
-          <button
-            onClick={handleSave}
-            className="w-full px-6 py-3 text-sm font-medium text-white rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 active:scale-[0.99] transition-all"
-            style={{
-              backgroundColor: 'var(--accent)',
-            }}
-          >
-            Save Configuration
-          </button>
+        {/* Save & Test Buttons */}
+        <div className="pt-6 space-y-3">
+          <div className="flex gap-3">
+            <button
+              onClick={handleSave}
+              className="flex-1 px-6 py-3 text-sm font-medium text-white rounded-full active:scale-[0.99] transition-all"
+              style={{
+                backgroundColor: 'var(--accent)',
+              }}
+            >
+              Save Configuration
+            </button>
+            <button
+              onClick={handleTestConnection}
+              disabled={testing}
+              className="px-5 py-3 text-sm font-medium rounded-full active:scale-[0.99] transition-all disabled:opacity-50"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                border: '1px solid var(--border)',
+                color: 'var(--primary-text)',
+              }}
+            >
+              {testing ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Testing...
+                </span>
+              ) : (
+                'Test Connection'
+              )}
+            </button>
+          </div>
+
+          {/* Save feedback */}
           {saved && (
-            <div className="mt-2 text-center text-sm text-green-600 animate-in fade-in">
+            <div className="text-center text-sm text-green-600 animate-in fade-in">
               Configuration saved successfully
+            </div>
+          )}
+
+          {/* Test result indicator */}
+          {testResult && (
+            <div
+              className="flex items-center gap-2 p-3 rounded-lg animate-in fade-in"
+              style={{
+                backgroundColor: testResult.success ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                border: `1px solid ${testResult.success ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+              }}
+            >
+              {testResult.success ? (
+                <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+              ) : (
+                <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+              )}
+              <span
+                className="text-sm"
+                style={{
+                  color: testResult.success ? 'var(--success, #22c55e)' : 'var(--error, #ef4444)',
+                }}
+              >
+                {testResult.message}
+              </span>
             </div>
           )}
         </div>

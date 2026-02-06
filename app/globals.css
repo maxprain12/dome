@@ -1163,6 +1163,10 @@ a:hover {
   z-index: 1000;
 }
 
+.ai-bubble-menu {
+  z-index: 999;
+}
+
 .bubble-menu-button {
   display: flex;
   align-items: center;

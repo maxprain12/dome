@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { RotateCw, Maximize2 } from 'lucide-react';
 import { type Resource } from '@/types';
-import LoadingState from '../workspace/shared/LoadingState';
-import ErrorState from '../workspace/shared/ErrorState';
-import ZoomControls from '../workspace/shared/ZoomControls';
+import LoadingState from '@/components/ui/LoadingState';
+import ErrorState from '@/components/ui/ErrorState';
+import ZoomControls from './shared/ZoomControls';
 
 interface ImageViewerProps {
   resource: Resource;

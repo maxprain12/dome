@@ -4,11 +4,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Maximize } from 'lucide-react';
 import { type Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
-import LoadingState from '../workspace/shared/LoadingState';
-import ErrorState from '../workspace/shared/ErrorState';
-import MediaControls from '../workspace/shared/MediaControls';
-import SeekBar from '../workspace/shared/SeekBar';
-import AnnotationInput from '../workspace/shared/AnnotationInput';
+import LoadingState from '@/components/ui/LoadingState';
+import ErrorState from '@/components/ui/ErrorState';
+import MediaControls from './shared/MediaControls';
+import SeekBar from './shared/SeekBar';
+import AnnotationInput from './shared/AnnotationInput';
 
 interface VideoPlayerProps {
   resource: Resource;

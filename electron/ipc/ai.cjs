@@ -1,0 +1,427 @@
+/* eslint-disable no-console */
+
+/**
+ * Convert OpenAI-format tool definitions to Anthropic format
+ * OpenAI: { type: 'function', function: { name, description, parameters } }
+ * Anthropic: { name, description, input_schema }
+ * @param {Array} tools - OpenAI-format tool definitions
+ * @returns {Array} Anthropic-format tool definitions
+ */
+function convertToolsToAnthropic(tools) {
+  if (!tools || !Array.isArray(tools)) return undefined;
+
+  return tools.map(tool => {
+    if (tool.type === 'function' && tool.function) {
+      return {
+        name: tool.function.name,
+        description: tool.function.description || '',
+        input_schema: tool.function.parameters || { type: 'object', properties: {} },
+      };
+    }
+    // Already in Anthropic format or unknown format
+    if (tool.name && tool.input_schema) {
+      return tool;
+    }
+    // Passthrough
+    return {
+      name: tool.name || 'unknown',
+      description: tool.description || '',
+      input_schema: tool.parameters || tool.input_schema || { type: 'object', properties: {} },
+    };
+  });
+}
+
+function register({ ipcMain, windowManager, database, aiCloudService }) {
+  /**
+   * Chat with cloud AI provider (OpenAI, Anthropic, Google)
+   * This runs in main process to avoid CORS issues
+   */
+  ipcMain.handle('ai:chat', async (event, { provider, messages, model }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      // Validate inputs
+      if (!provider || !['openai', 'anthropic', 'google'].includes(provider)) {
+        throw new Error('Invalid provider. Must be openai, anthropic, or google');
+      }
+      if (!Array.isArray(messages) || messages.length === 0) {
+        throw new Error('Messages must be a non-empty array');
+      }
+      if (messages.length > 100) {
+        throw new Error('Too many messages. Maximum 100');
+      }
+
+      // Get API key and auth mode from settings
+      const queries = database.getQueries();
+      let apiKey;
+      let authType = 'api_key';
+      let useProxy = false;
+
+      // For Anthropic, check if using OAuth/Token authentication (subscription)
+      if (provider === 'anthropic') {
+        const authModeResult = queries.getSetting.get('ai_auth_mode');
+        authType = authModeResult?.value || 'api_key';
+
+        if (authType === 'oauth' || authType === 'token') {
+          // Try OAuth token first (works directly with Anthropic API via x-api-key header)
+          const oauthTokenResult = queries.getSetting.get('ai_oauth_token');
+          const oauthToken = oauthTokenResult?.value;
+
+          if (oauthToken) {
+            apiKey = oauthToken;
+            useProxy = false;
+          } else {
+            // Fallback: try regular API key
+            const apiKeyResult = queries.getSetting.get('ai_api_key');
+            apiKey = apiKeyResult?.value;
+            if (!apiKey) {
+              // Last resort: CLI proxy
+              useProxy = true;
+              const proxyAvailable = await aiCloudService.checkClaudeMaxProxy();
+              if (!proxyAvailable) {
+                throw new Error(
+                  'No API key or OAuth token configured for Anthropic, and Claude CLI is not available.\n\n' +
+                  'Configure an API key in Settings, or install Claude CLI: npm install -g @anthropic-ai/claude-code'
+                );
+              }
+            }
+          }
+        } else {
+          const apiKeyResult = queries.getSetting.get('ai_api_key');
+          apiKey = apiKeyResult?.value;
+          if (!apiKey) {
+            throw new Error('API key not configured for Anthropic');
+          }
+        }
+      } else {
+        const apiKeyResult = queries.getSetting.get('ai_api_key');
+        apiKey = apiKeyResult?.value;
+        if (!apiKey) {
+          throw new Error(`API key not configured for ${provider}`);
+        }
+      }
+
+      // Get default model if not provided
+      if (!model) {
+        const modelResult = queries.getSetting.get('ai_model');
+        model = modelResult?.value;
+      }
+
+      console.log(`[AI Cloud] Chat - Provider: ${provider}, Model: ${model}, AuthType: ${authType}, UseProxy: ${useProxy}`);
+
+      let response;
+      if (useProxy) {
+        // Use Claude CLI for subscription (last resort)
+        response = await aiCloudService.chatAnthropicViaProxy(messages, model);
+      } else {
+        response = await aiCloudService.chat(provider, messages, apiKey, model);
+      }
+
+      return { success: true, content: response };
+    } catch (error) {
+      console.error('[AI Cloud] Chat error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Stream chat with cloud AI provider
+   * Uses webContents.send to stream chunks back to renderer
+   */
+  ipcMain.handle('ai:stream', async (event, { provider, messages, model, streamId, tools }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      // Validate inputs
+      if (!provider || !['openai', 'anthropic', 'google'].includes(provider)) {
+        throw new Error('Invalid provider. Must be openai, anthropic, or google');
+      }
+      if (!Array.isArray(messages) || messages.length === 0) {
+        throw new Error('Messages must be a non-empty array');
+      }
+      if (!streamId) {
+        throw new Error('streamId is required for streaming');
+      }
+
+      // Get API key and auth mode from settings
+      const queries = database.getQueries();
+      let apiKey;
+      let authType = 'api_key';
+      let useProxy = false;
+
+      // For Anthropic, check if using OAuth/Token authentication (subscription)
+      if (provider === 'anthropic') {
+        const authModeResult = queries.getSetting.get('ai_auth_mode');
+        authType = authModeResult?.value || 'api_key';
+
+        if (authType === 'oauth' || authType === 'token') {
+          // Try OAuth token first (works directly with Anthropic API via x-api-key header)
+          const oauthTokenResult = queries.getSetting.get('ai_oauth_token');
+          const oauthToken = oauthTokenResult?.value;
+
+          if (oauthToken) {
+            apiKey = oauthToken;
+            useProxy = false;
+          } else {
+            // Fallback: try regular API key
+            const apiKeyResult = queries.getSetting.get('ai_api_key');
+            apiKey = apiKeyResult?.value;
+            if (!apiKey) {
+              // Last resort: CLI proxy
+              useProxy = true;
+              const proxyAvailable = await aiCloudService.checkClaudeMaxProxy();
+              if (!proxyAvailable) {
+                throw new Error(
+                  'No API key or OAuth token configured for Anthropic, and Claude CLI is not available.\n\n' +
+                  'Configure an API key in Settings, or install Claude CLI: npm install -g @anthropic-ai/claude-code'
+                );
+              }
+            }
+          }
+        } else {
+          const apiKeyResult = queries.getSetting.get('ai_api_key');
+          apiKey = apiKeyResult?.value;
+          if (!apiKey) {
+            throw new Error('API key not configured for Anthropic');
+          }
+        }
+      } else {
+        const apiKeyResult = queries.getSetting.get('ai_api_key');
+        apiKey = apiKeyResult?.value;
+        if (!apiKey) {
+          throw new Error(`API key not configured for ${provider}`);
+        }
+      }
+
+      // Get default model if not provided
+      if (!model) {
+        const modelResult = queries.getSetting.get('ai_model');
+        model = modelResult?.value;
+      }
+
+      console.log(`[AI Cloud] Stream - Provider: ${provider}, Model: ${model}, StreamId: ${streamId}, AuthType: ${authType}, UseProxy: ${useProxy}, Tools: ${tools ? tools.length : 0}`);
+
+      // Smart onChunk handler - supports both string (legacy) and object (rich) chunks
+      const onChunk = (data) => {
+        if (event.sender && !event.sender.isDestroyed()) {
+          if (typeof data === 'string') {
+            // Legacy text-only chunk from providers that don't support rich chunks
+            event.sender.send('ai:stream:chunk', { streamId, type: 'text', text: data });
+          } else if (data && typeof data === 'object') {
+            // Rich chunk (text, tool_call, etc.) from enhanced streamAnthropic
+            event.sender.send('ai:stream:chunk', { streamId, ...data });
+          }
+        }
+      };
+
+      let fullResponse;
+      if (useProxy) {
+        // Use Claude CLI for subscription (last resort, no tool support)
+        fullResponse = await aiCloudService.streamAnthropicViaProxy(messages, model, (text) => {
+          onChunk({ type: 'text', text });
+        });
+      } else if (provider === 'anthropic') {
+        // Use direct Anthropic API with full tool support
+        // Convert OpenAI-format tools to Anthropic format if provided
+        const anthropicTools = tools ? convertToolsToAnthropic(tools) : undefined;
+        fullResponse = await aiCloudService.streamAnthropic(messages, apiKey, model, onChunk, anthropicTools);
+      } else {
+        fullResponse = await aiCloudService.stream(provider, messages, apiKey, model, (text) => {
+          onChunk({ type: 'text', text });
+        });
+      }
+
+      // Send done signal
+      if (event.sender && !event.sender.isDestroyed()) {
+        event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
+      }
+
+      return { success: true, content: fullResponse };
+    } catch (error) {
+      console.error('[AI Cloud] Stream error:', error);
+      // Send error to stream
+      if (event.sender && !event.sender.isDestroyed()) {
+        event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: error.message });
+      }
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Generate embeddings with cloud AI provider
+   */
+  ipcMain.handle('ai:embeddings', async (event, { provider, texts, model }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      // Validate inputs
+      if (!provider || !['openai', 'google'].includes(provider)) {
+        throw new Error('Invalid provider for embeddings. Must be openai or google');
+      }
+      if (!Array.isArray(texts) || texts.length === 0) {
+        throw new Error('Texts must be a non-empty array');
+      }
+      if (texts.length > 100) {
+        throw new Error('Too many texts. Maximum 100');
+      }
+
+      // Get API key from settings
+      const queries = database.getQueries();
+      const apiKeyResult = queries.getSetting.get('ai_api_key');
+      const apiKey = apiKeyResult?.value;
+
+      if (!apiKey) {
+        throw new Error(`API key not configured for ${provider}`);
+      }
+
+      // Get default embedding model if not provided
+      if (!model) {
+        const modelResult = queries.getSetting.get('ai_embedding_model');
+        model = modelResult?.value;
+      }
+
+      console.log(`[AI Cloud] Embeddings - Provider: ${provider}, Model: ${model}, Texts: ${texts.length}`);
+      const embeddings = await aiCloudService.embeddings(provider, texts, apiKey, model);
+      return { success: true, embeddings };
+    } catch (error) {
+      console.error('[AI Cloud] Embeddings error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Test AI connection by making a minimal API call
+   * Returns { success, provider, model } or { success: false, error }
+   */
+  ipcMain.handle('ai:testConnection', async (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const queries = database.getQueries();
+
+      // Read provider config
+      const providerResult = queries.getSetting.get('ai_provider');
+      const provider = providerResult?.value;
+
+      if (!provider) {
+        return { success: false, error: 'No AI provider configured. Go to Settings > AI to configure one.' };
+      }
+
+      // Synthetic provider doesn't need API key
+      if (provider === 'synthetic') {
+        return { success: true, provider: 'synthetic', model: 'synthetic', message: 'Synthetic provider is always available.' };
+      }
+
+      // Ollama check
+      if (provider === 'ollama') {
+        try {
+          const http = require('http');
+          const available = await new Promise((resolve) => {
+            const req = http.get('http://127.0.0.1:11434/api/tags', { timeout: 5000 }, (res) => {
+              resolve(res.statusCode === 200);
+            });
+            req.on('error', () => resolve(false));
+            req.on('timeout', () => { req.destroy(); resolve(false); });
+          });
+          if (available) {
+            const modelResult = queries.getSetting.get('ai_model');
+            return { success: true, provider: 'ollama', model: modelResult?.value || 'default' };
+          } else {
+            return { success: false, error: 'Ollama is not running. Start Ollama first.' };
+          }
+        } catch (err) {
+          return { success: false, error: `Ollama error: ${err.message}` };
+        }
+      }
+
+      // Cloud providers: openai, anthropic, google, venice
+      const modelResult = queries.getSetting.get('ai_model');
+      const model = modelResult?.value;
+
+      let apiKey;
+      let useProxy = false;
+
+      if (provider === 'anthropic') {
+        const authModeResult = queries.getSetting.get('ai_auth_mode');
+        const authType = authModeResult?.value || 'api_key';
+
+        if (authType === 'oauth' || authType === 'token') {
+          const oauthTokenResult = queries.getSetting.get('ai_oauth_token');
+          const oauthToken = oauthTokenResult?.value;
+          if (oauthToken) {
+            apiKey = oauthToken;
+          } else {
+            const apiKeyResult = queries.getSetting.get('ai_api_key');
+            apiKey = apiKeyResult?.value;
+            if (!apiKey) {
+              useProxy = true;
+              const proxyAvailable = await aiCloudService.checkClaudeMaxProxy();
+              if (!proxyAvailable) {
+                return { success: false, error: 'No API key or OAuth token configured for Anthropic, and Claude CLI is not available.' };
+              }
+            }
+          }
+        } else {
+          const apiKeyResult = queries.getSetting.get('ai_api_key');
+          apiKey = apiKeyResult?.value;
+          if (!apiKey) {
+            return { success: false, error: 'API key not configured for Anthropic. Go to Settings > AI.' };
+          }
+        }
+      } else {
+        const apiKeyResult = queries.getSetting.get('ai_api_key');
+        apiKey = apiKeyResult?.value;
+        if (!apiKey) {
+          return { success: false, error: `API key not configured for ${provider}. Go to Settings > AI.` };
+        }
+      }
+
+      // Make a minimal test call
+      const testMessages = [{ role: 'user', content: 'Reply with OK' }];
+      let response;
+
+      if (useProxy) {
+        response = await aiCloudService.chatAnthropicViaProxy(testMessages, model);
+      } else {
+        response = await aiCloudService.chat(provider, testMessages, apiKey, model);
+      }
+
+      if (response) {
+        return { success: true, provider, model: model || 'default' };
+      } else {
+        return { success: false, error: 'Connection succeeded but got empty response.' };
+      }
+    } catch (error) {
+      console.error('[AI Cloud] Test connection error:', error);
+      return { success: false, error: error.message || 'Unknown error testing connection.' };
+    }
+  });
+
+  /**
+   * Check if claude-max-api-proxy is available
+   * Used to verify if Claude Pro/Max subscription can be used
+   */
+  ipcMain.handle('ai:checkClaudeMaxProxy', async (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const available = await aiCloudService.checkClaudeMaxProxy();
+      return { success: true, available };
+    } catch (error) {
+      console.error('[AI Cloud] Check proxy error:', error);
+      return { success: false, error: error.message, available: false };
+    }
+  });
+}
+
+module.exports = { register };

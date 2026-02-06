@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { User } from 'lucide-react';
 import ChatMessage, { type ChatMessageData } from './ChatMessage';
-import MartinAvatar from '@/components/common/MartinAvatar';
+import MartinAvatar from '@/components/martin/MartinAvatar';
 
 /**
  * ChatMessageGroup - Groups consecutive messages from the same role
