@@ -148,7 +148,7 @@ export async function* streamOpenAI(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
   model: string = 'gpt-4o',
-  _tools?: ToolDefinition[],
+  tools?: ToolDefinition[],
   _signal?: AbortSignal,
 ): AsyncIterable<ChatStreamChunk> {
   if (!isElectron()) {
@@ -156,7 +156,7 @@ export async function* streamOpenAI(
   }
 
   const streamId = generateStreamId();
-  
+
   // Create a queue for incoming chunks
   const chunks: ChatStreamChunk[] = [];
   let done = false;
@@ -164,11 +164,20 @@ export async function* streamOpenAI(
   let resolveWait: (() => void) | null = null;
 
   // Subscribe to stream chunks
-  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string }) => {
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
     if (data.streamId !== streamId) return;
-    
+
     if (data.type === 'text' && data.text) {
       chunks.push({ type: 'text', text: data.text });
+    } else if (data.type === 'tool_call' && data.toolCall) {
+      chunks.push({
+        type: 'tool_call',
+        toolCall: {
+          id: data.toolCall.id,
+          name: data.toolCall.name,
+          arguments: data.toolCall.arguments,
+        },
+      });
     } else if (data.type === 'done') {
       chunks.push({ type: 'done' });
       done = true;
@@ -176,12 +185,12 @@ export async function* streamOpenAI(
       error = new Error(data.error || 'Stream error');
       done = true;
     }
-    
+
     if (resolveWait) resolveWait();
   });
 
-  // Start the stream
-  window.electron.ai.stream('openai', messages, model, streamId);
+  // Start the stream (pass tools for provider-level handling)
+  window.electron.ai.stream('openai', messages, model, streamId, tools);
 
   try {
     while (!done || chunks.length > 0) {
@@ -222,7 +231,7 @@ export async function* streamClaude(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
   model: string = 'claude-3-5-sonnet-20241022',
-  _tools?: ToolDefinition[],
+  tools?: ToolDefinition[],
   _signal?: AbortSignal,
 ): AsyncIterable<ChatStreamChunk> {
   if (!isElectron()) {
@@ -230,17 +239,26 @@ export async function* streamClaude(
   }
 
   const streamId = generateStreamId();
-  
+
   const chunks: ChatStreamChunk[] = [];
   let done = false;
   let error: Error | null = null;
   let resolveWait: (() => void) | null = null;
 
-  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string }) => {
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
     if (data.streamId !== streamId) return;
-    
+
     if (data.type === 'text' && data.text) {
       chunks.push({ type: 'text', text: data.text });
+    } else if (data.type === 'tool_call' && data.toolCall) {
+      chunks.push({
+        type: 'tool_call',
+        toolCall: {
+          id: data.toolCall.id,
+          name: data.toolCall.name,
+          arguments: data.toolCall.arguments,
+        },
+      });
     } else if (data.type === 'done') {
       chunks.push({ type: 'done' });
       done = true;
@@ -248,11 +266,12 @@ export async function* streamClaude(
       error = new Error(data.error || 'Stream error');
       done = true;
     }
-    
+
     if (resolveWait) resolveWait();
   });
 
-  window.electron.ai.stream('anthropic', messages, model, streamId);
+  // Pass tools to main process for Anthropic API integration
+  window.electron.ai.stream('anthropic', messages, model, streamId, tools);
 
   try {
     while (!done || chunks.length > 0) {
@@ -298,17 +317,26 @@ export async function* streamGemini(
   }
 
   const streamId = generateStreamId();
-  
+
   const chunks: ChatStreamChunk[] = [];
   let done = false;
   let error: Error | null = null;
   let resolveWait: (() => void) | null = null;
 
-  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string }) => {
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
     if (data.streamId !== streamId) return;
-    
+
     if (data.type === 'text' && data.text) {
       chunks.push({ type: 'text', text: data.text });
+    } else if (data.type === 'tool_call' && data.toolCall) {
+      chunks.push({
+        type: 'tool_call',
+        toolCall: {
+          id: data.toolCall.id,
+          name: data.toolCall.name,
+          arguments: data.toolCall.arguments,
+        },
+      });
     } else if (data.type === 'done') {
       chunks.push({ type: 'done' });
       done = true;
@@ -316,7 +344,7 @@ export async function* streamGemini(
       error = new Error(data.error || 'Stream error');
       done = true;
     }
-    
+
     if (resolveWait) resolveWait();
   });
 
@@ -766,6 +794,11 @@ You have access to tools you can use to better help the user:
 - **resource_list**: List available resources
 - **resource_semantic_search**: Search resources by meaning (semantic search)
 
+### Resource Actions
+- **resource_create**: Create a new note or resource in the knowledge base
+- **resource_update**: Edit the content or title of an existing resource
+- **resource_delete**: Delete a resource (always ask the user for confirmation first)
+
 ### Context Information
 - **project_list**: View the user's projects
 - **project_get**: Get project details
@@ -777,10 +810,13 @@ You have access to tools you can use to better help the user:
 - **web_fetch**: Get content from a web page
 
 ## When to Use Tools
-1. When the user asks about their resources → use resource_search
+1. When the user asks about their resources → use resource_search or resource_semantic_search
 2. If you need more detail from a resource → use resource_get
 3. For updated or external information → use web_search
-4. Cite sources when using information from resources or web`;
+4. When the user asks to create a note or save information → use resource_create
+5. When the user asks to edit or update a resource → use resource_update
+6. When the user asks to delete a resource → use resource_delete (always confirm first)
+7. Cite sources when using information from resources or web`;
   }
 
   prompt += `

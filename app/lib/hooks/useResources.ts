@@ -335,6 +335,34 @@ export function useResources(filter?: ResourceFilter) {
         return { success: failed === 0, imported, failed, errors, resourceIds };
     }, [importFile, fetchResources]);
 
+    // Update a resource
+    const updateResource = useCallback(async (
+        resourceId: string,
+        updates: Partial<Pick<Resource, 'title' | 'content' | 'metadata'>>
+    ): Promise<boolean> => {
+        try {
+            if (typeof window === 'undefined' || !window.electron?.db) {
+                throw new Error('Database API not available');
+            }
+
+            const result = await window.electron.db.resources.update({
+                id: resourceId,
+                ...updates,
+                updated_at: Date.now(),
+            });
+
+            if (result.success) {
+                fetchResources();
+                return true;
+            }
+
+            return false;
+        } catch (err) {
+            console.error('Error updating resource:', err);
+            return false;
+        }
+    }, [fetchResources]);
+
     // Delete a resource
     const deleteResource = useCallback(async (resourceId: string): Promise<boolean> => {
         try {
@@ -399,6 +427,7 @@ export function useResources(filter?: ResourceFilter) {
         importProgress,
         refetch: fetchResources,
         createResource,
+        updateResource,
         importFile,
         importFiles,
         deleteResource,

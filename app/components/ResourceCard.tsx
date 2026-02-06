@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, memo } from 'react';
 import type { Resource } from '@/types';
-import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, Edit, MoreVertical, FolderOpen, FolderInput, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, Edit, MoreVertical, FolderOpen, FolderInput, Loader2, CheckCircle2, AlertCircle, Pencil } from 'lucide-react';
 import { formatDistanceToNow, formatShortDistance } from '@/lib/utils';
 
 interface ResourceCardProps {
@@ -10,6 +10,7 @@ interface ResourceCardProps {
   onClick?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onRename?: (newTitle: string) => void;
   onMoveToFolder?: () => void;
   viewMode?: 'grid' | 'list';
   searchSnippet?: string;
@@ -56,6 +57,7 @@ export default memo(function ResourceCard({
   onClick,
   onEdit,
   onDelete,
+  onRename,
   onMoveToFolder,
   viewMode = 'grid',
   searchSnippet,
@@ -63,6 +65,9 @@ export default memo(function ResourceCard({
   const [showMenu, setShowMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(resource.title);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   // Position the menu when opened
@@ -73,11 +78,14 @@ export default memo(function ResourceCard({
       const menuWidth = 180;
       const menuHeight = 150; // approximate
 
-      // Calculate position - prefer bottom-right, but adjust if near edges
+      // Calculate position - align dropdown below button, left-aligned
       let top = rect.bottom + 4;
-      let left = rect.right - menuWidth;
+      let left = rect.left;
 
       // Check if menu would go off-screen
+      if (left + menuWidth > window.innerWidth - 8) {
+        left = window.innerWidth - menuWidth - 8;
+      }
       if (left < 8) left = 8;
       if (top + menuHeight > window.innerHeight - 8) {
         top = rect.top - menuHeight - 4;
@@ -153,6 +161,8 @@ export default memo(function ResourceCard({
         return <ImageIcon className="resource-icon" />;
       case 'url':
         return <Link2 className="resource-icon" />;
+      case 'folder':
+        return <FolderOpen className="resource-icon" />;
       default:
         return <File className="resource-icon" />;
     }
@@ -183,6 +193,8 @@ export default memo(function ResourceCard({
         return 'var(--error)';
       case 'url':
         return 'var(--brand-secondary)';
+      case 'folder':
+        return 'var(--accent)';
       default:
         return 'var(--tertiary)';
     }
@@ -448,100 +460,159 @@ export default memo(function ResourceCard({
     );
   }
 
-  // Grid view
+  // Grid view — overlay design
+  const hasImagePreview = !!(
+    resource.thumbnail_data ||
+    (resource.type === 'image' && (resource.metadata?.preview_image || resource.file_path)) ||
+    (resource.type === 'url' && resource.metadata?.preview_image) ||
+    (resource.type === 'pdf' && resource.metadata?.thumbnail) ||
+    (resource.type === 'video' && resource.metadata?.thumbnail)
+  );
+
   return (
     <div
       className="resource-card-grid"
       onClick={onClick}
       style={{ cursor: onClick ? 'pointer' : 'default' }}
     >
+      {/* Full card preview area */}
       <div className="card-preview">
         {getPreviewContent()}
       </div>
-        <div className="card-footer">
-          <div className="card-icon" style={{ color: getTypeColor() }}>
-            {getIcon()}
-          </div>
-          <div className="card-info">
-            <div className="card-title">{resource.title || 'Untitled'}</div>
-            <div className="card-date">
-              {formatDistanceToNow(resource.updated_at)}
-              {resource.type === 'url' && resource.metadata && (
-                <ProcessingStatusBadge 
-                  status={typeof resource.metadata === 'string' 
-                    ? JSON.parse(resource.metadata).processing_status 
-                    : resource.metadata.processing_status} 
-                />
+
+      {/* Time badge — top right */}
+      <div className="overlay-time-badge">
+        {formatShortDistance(resource.updated_at)}
+      </div>
+
+      {/* 3-dot menu — top right, offset from time badge */}
+      {(onEdit || onDelete || onMoveToFolder || onRename) && (
+        <div className="overlay-menu">
+          <button
+            ref={buttonRef}
+            className="overlay-menu-btn focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
+            onClick={handleMenuToggle}
+            aria-label="Options menu"
+            aria-expanded={showMenu}
+          >
+            <MoreVertical size={14} />
+          </button>
+          {showMenu && (
+            <div
+              ref={menuRef}
+              className="dropdown-menu"
+              style={{ top: menuPosition.top, left: menuPosition.left }}
+            >
+              {onRename && (
+                <button
+                  className="dropdown-item"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(false);
+                    setRenameValue(resource.title);
+                    setIsRenaming(true);
+                    setTimeout(() => renameInputRef.current?.focus(), 50);
+                  }}
+                >
+                  <Pencil size={14} />
+                  <span>Rename</span>
+                </button>
+              )}
+              {onMoveToFolder && (
+                <button
+                  className="dropdown-item"
+                  onClick={(e) => { e.stopPropagation(); setShowMenu(false); onMoveToFolder(); }}
+                >
+                  <FolderInput size={14} />
+                  <span>Move to folder</span>
+                </button>
+              )}
+              {onEdit && (
+                <button
+                  className="dropdown-item"
+                  onClick={(e) => { e.stopPropagation(); setShowMenu(false); onEdit(); }}
+                >
+                  <Edit size={14} />
+                  <span>Edit</span>
+                </button>
+              )}
+              {onDelete && (
+                <>
+                  <div className="dropdown-divider" />
+                  <button
+                    className="dropdown-item delete"
+                    onClick={(e) => { e.stopPropagation(); setShowMenu(false); onDelete(); }}
+                  >
+                    <Trash2 size={14} />
+                    <span>Delete</span>
+                  </button>
+                </>
               )}
             </div>
-            {searchSnippet && (
-              <div className="card-snippet" title={searchSnippet}>
-                {searchSnippet}
-              </div>
-            )}
-          </div>
-        {(onEdit || onDelete || onMoveToFolder) && (
-          <div className="card-actions">
-            <button
-              ref={buttonRef}
-              className="menu-btn focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-              onClick={handleMenuToggle}
-              aria-label="Options menu"
-              aria-expanded={showMenu}
-            >
-              <MoreVertical size={16} />
-            </button>
-            {showMenu && (
-              <div
-                ref={menuRef}
-                className="dropdown-menu"
-                style={{ top: menuPosition.top, left: menuPosition.left }}
-              >
-                {onMoveToFolder && (
-                  <button
-                    className="dropdown-item"
-                    onClick={(e) => { e.stopPropagation(); setShowMenu(false); onMoveToFolder(); }}
-                  >
-                    <FolderInput size={14} />
-                    <span>Move to folder</span>
-                  </button>
-                )}
-                {onEdit && (
-                  <button
-                    className="dropdown-item"
-                    onClick={(e) => { e.stopPropagation(); setShowMenu(false); onEdit(); }}
-                  >
-                    <Edit size={14} />
-                    <span>Edit</span>
-                  </button>
-                )}
-                {onDelete && (
-                  <>
-                    <div className="dropdown-divider" />
-                    <button
-                      className="dropdown-item delete"
-                      onClick={(e) => { e.stopPropagation(); setShowMenu(false); onDelete(); }}
-                    >
-                      <Trash2 size={14} />
-                      <span>Delete</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+          )}
+        </div>
+      )}
+
+      {/* Overlay footer — bottom */}
+      <div className={`card-footer-overlay ${hasImagePreview ? 'on-image' : 'on-content'}`}>
+        <div className="footer-icon" style={{ color: hasImagePreview ? 'white' : getTypeColor() }}>
+          {getIcon()}
+        </div>
+        <div className="footer-info">
+          {isRenaming ? (
+            <input
+              ref={renameInputRef}
+              className="footer-title-input"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (renameValue.trim() && renameValue !== resource.title && onRename) {
+                    onRename(renameValue.trim());
+                  }
+                  setIsRenaming(false);
+                }
+                if (e.key === 'Escape') {
+                  setIsRenaming(false);
+                  setRenameValue(resource.title);
+                }
+              }}
+              onBlur={() => {
+                if (renameValue.trim() && renameValue !== resource.title && onRename) {
+                  onRename(renameValue.trim());
+                }
+                setIsRenaming(false);
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <div className="footer-title">{resource.title || 'Untitled'}</div>
+          )}
+          {searchSnippet && (
+            <div className="footer-snippet" title={searchSnippet}>
+              {searchSnippet}
+            </div>
+          )}
+        </div>
+        {resource.type === 'url' && resource.metadata && (
+          <ProcessingStatusBadge
+            status={typeof resource.metadata === 'string'
+              ? JSON.parse(resource.metadata).processing_status
+              : resource.metadata.processing_status}
+          />
         )}
       </div>
 
       <style jsx>{`
         .resource-card-grid {
-          display: flex;
-          flex-direction: column;
+          position: relative;
           background: var(--bg-secondary);
           border: 1px solid var(--border);
           border-radius: var(--radius-lg);
           overflow: hidden;
           transition: all var(--transition-fast);
+          aspect-ratio: 4/3;
         }
 
         .resource-card-grid:hover {
@@ -551,12 +622,13 @@ export default memo(function ResourceCard({
         }
 
         .card-preview {
-          aspect-ratio: 4/3;
-          background: var(--bg-tertiary);
+          width: 100%;
+          height: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
           overflow: hidden;
+          background: var(--bg-tertiary);
         }
 
         .card-preview :global(.preview-image) {
@@ -572,33 +644,46 @@ export default memo(function ResourceCard({
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          width: 48px;
-          height: 48px;
-          background: rgba(0, 0, 0, 0.6);
+          width: 44px;
+          height: 44px;
+          background: rgba(0, 0, 0, 0.55);
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
           color: white;
-          font-size: 18px;
+          font-size: 16px;
+          backdrop-filter: blur(4px);
         }
 
         .card-preview :global(.content-preview) {
-          padding: 12px;
+          padding: 16px;
           width: 100%;
           height: 100%;
           overflow: hidden;
+          position: relative;
         }
 
         .card-preview :global(.content-preview p) {
-          font-size: 12px;
+          font-size: 13px;
           color: var(--secondary-text);
-          line-height: 1.5;
+          line-height: 1.6;
           display: -webkit-box;
-          -webkit-line-clamp: 5;
+          -webkit-line-clamp: 6;
           -webkit-box-orient: vertical;
           overflow: hidden;
           margin: 0;
+        }
+
+        .card-preview :global(.content-preview::after) {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 48px;
+          background: linear-gradient(transparent, var(--bg-tertiary));
+          pointer-events: none;
         }
 
         .card-preview :global(.document-preview) {
@@ -618,97 +703,147 @@ export default memo(function ResourceCard({
         }
 
         .card-preview :global(.time-badge) {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          background: rgba(0, 0, 0, 0.6);
-          color: white;
-          font-size: 11px;
-          font-weight: 600;
-          padding: 2px 8px;
-          border-radius: 4px;
-          backdrop-filter: blur(4px);
+          display: none;
         }
 
         .card-preview :global(.icon-preview) {
           display: flex;
           align-items: center;
           justify-content: center;
+          width: 100%;
+          height: 100%;
         }
 
         .card-preview :global(.icon-preview .resource-icon) {
-          width: 48px;
-          height: 48px;
-          opacity: 0.8;
+          width: 40px;
+          height: 40px;
+          opacity: 0.4;
         }
 
-        .card-footer {
+        /* Overlay time badge */
+        .overlay-time-badge {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          background: rgba(0, 0, 0, 0.55);
+          color: white;
+          font-size: 11px;
+          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: 6px;
+          backdrop-filter: blur(8px);
+          z-index: 3;
+          pointer-events: none;
+        }
+
+        /* Overlay menu (3-dot) */
+        .overlay-menu {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          z-index: 4;
+          opacity: 0;
+          transition: opacity var(--transition-fast);
+        }
+
+        .resource-card-grid:hover .overlay-menu {
+          opacity: 1;
+        }
+
+        .overlay-menu-btn {
+          padding: 5px;
+          background: rgba(0, 0, 0, 0.45);
+          border: none;
+          border-radius: 6px;
+          color: white;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 12px;
-          border-top: 1px solid var(--border);
+          justify-content: center;
         }
 
-        .card-icon :global(.resource-icon) {
+        .overlay-menu-btn:hover {
+          background: rgba(0, 0, 0, 0.7);
+        }
+
+        /* Overlay footer */
+        .card-footer-overlay {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 12px;
+          z-index: 2;
+        }
+
+        .card-footer-overlay.on-image {
+          background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+          color: white;
+          padding-top: 28px;
+        }
+
+        .card-footer-overlay.on-content {
+          background: var(--bg-secondary);
+          border-top: 1px solid var(--border);
+          color: var(--primary-text);
+        }
+
+        .footer-icon {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+        }
+
+        .footer-icon :global(.resource-icon) {
           width: 16px;
           height: 16px;
         }
 
-        .card-info {
+        .footer-info {
           flex: 1;
           min-width: 0;
         }
 
-        .card-title {
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--primary-text);
+        .footer-title {
+          font-size: 12px;
+          font-weight: 600;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        .card-date {
-          font-size: 11px;
-          color: var(--tertiary-text);
-          margin-top: 2px;
+        .card-footer-overlay.on-image .footer-title {
+          color: white;
+          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         }
 
-        .card-snippet {
-          font-size: 11px;
-          color: var(--secondary-text);
-          margin-top: 4px;
+        .footer-snippet {
+          font-size: 10px;
+          opacity: 0.7;
+          margin-top: 1px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
-        .card-actions {
-          opacity: 0;
-          transition: opacity var(--transition-fast);
-          position: static;
-        }
-
-        .resource-card-grid:hover .card-actions {
-          opacity: 1;
-        }
-
-        .menu-btn {
-          padding: 6px;
-          background: var(--bg-tertiary);
-          border: none;
-          border-radius: var(--radius-sm);
-          color: var(--secondary-text);
-          cursor: pointer;
-          transition: all var(--transition-fast);
-        }
-
-        .menu-btn:hover {
-          background: var(--bg-hover);
+        .footer-title-input {
+          width: 100%;
+          padding: 2px 4px;
+          border: 1px solid var(--accent);
+          border-radius: 4px;
+          background: var(--bg);
           color: var(--primary-text);
+          font-size: 12px;
+          font-weight: 600;
+          outline: none;
         }
 
+        /* Dropdown (shared with both layouts) */
         .dropdown-menu {
           position: fixed;
           z-index: 9999;

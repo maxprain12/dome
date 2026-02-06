@@ -178,6 +178,10 @@ const ALLOWED_CHANNELS = {
     'ai:tools:interactionList',
     'ai:tools:getRecentResources',
     'ai:tools:getCurrentProject',
+    // AI Tools - Resource Actions (for Many agent)
+    'ai:tools:resourceCreate',
+    'ai:tools:resourceUpdate',
+    'ai:tools:resourceDelete',
     'ollama:list-models',
     'ollama:generate-embedding',
     'ollama:generate-summary',
@@ -574,9 +578,9 @@ const electronHandler = {
     chat: (provider, messages, model) => 
       ipcRenderer.invoke('ai:chat', { provider, messages, model }),
 
-    // Stream chat with cloud provider
-    stream: (provider, messages, model, streamId) =>
-      ipcRenderer.invoke('ai:stream', { provider, messages, model, streamId }),
+    // Stream chat with cloud provider (tools passed for provider-level tool support)
+    stream: (provider, messages, model, streamId, tools) =>
+      ipcRenderer.invoke('ai:stream', { provider, messages, model, streamId, tools }),
 
     // Listen for stream chunks
     onStreamChunk: (callback) => {
@@ -630,6 +634,16 @@ const electronHandler = {
       // Get current/default project
       getCurrentProject: () =>
         ipcRenderer.invoke('ai:tools:getCurrentProject'),
+
+      // Resource Actions (Create, Update, Delete)
+      resourceCreate: (data) =>
+        ipcRenderer.invoke('ai:tools:resourceCreate', { data }),
+
+      resourceUpdate: (resourceId, updates) =>
+        ipcRenderer.invoke('ai:tools:resourceUpdate', { resourceId, updates }),
+
+      resourceDelete: (resourceId) =>
+        ipcRenderer.invoke('ai:tools:resourceDelete', { resourceId }),
     },
   },
 

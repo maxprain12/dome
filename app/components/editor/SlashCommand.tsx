@@ -27,6 +27,10 @@ import {
   Code,
   AtSign,
   Link,
+  Sparkles,
+  BookOpen,
+  PenLine,
+  Languages,
 } from 'lucide-react';
 
 interface SlashCommandMenuProps {
@@ -627,6 +631,124 @@ export function getSlashCommandItems(): SlashCommandItem[] {
         }
       },
       keywords: ['enlace', 'link', 'interno'],
+    },
+    // AI
+    {
+      title: 'Ask Many',
+      description: 'Generate content with AI',
+      icon: <Sparkles size={18} />,
+      category: 'AI',
+      command: async ({ editor, range }) => {
+        if (editor && range) {
+          editor.chain().focus().deleteRange(range).run();
+
+          const prompt = await showPrompt('What would you like Many to write?');
+          if (prompt) {
+            try {
+              const { executeEditorAIAction } = await import('@/lib/ai/editor-ai');
+              const docContext = editor.getText().slice(0, 2000);
+              const result = await executeEditorAIAction('custom', '', docContext, prompt);
+              if (result) {
+                editor.chain().focus().insertContent(result).run();
+              }
+            } catch (error) {
+              console.error('AI generation error:', error);
+            }
+          }
+        }
+      },
+      keywords: ['ai', 'ia', 'many', 'generate', 'write', 'crear', 'generar'],
+    },
+    {
+      title: 'Summarize document',
+      description: 'Summarize the current document',
+      icon: <BookOpen size={18} />,
+      category: 'AI',
+      command: async ({ editor, range }) => {
+        if (editor && range) {
+          editor.chain().focus().deleteRange(range).run();
+
+          try {
+            const { executeEditorAIAction } = await import('@/lib/ai/editor-ai');
+            const fullText = editor.getText();
+            if (!fullText.trim()) return;
+
+            const result = await executeEditorAIAction('summarize', fullText, '');
+            if (result) {
+              editor
+                .chain()
+                .focus()
+                .setCallout({ icon: '📝', color: 'blue' })
+                .insertContent(result)
+                .run();
+            }
+          } catch (error) {
+            console.error('AI summarize error:', error);
+          }
+        }
+      },
+      keywords: ['ai', 'ia', 'summarize', 'resumen', 'resumir'],
+    },
+    {
+      title: 'Continue writing',
+      description: 'Expand from current position',
+      icon: <PenLine size={18} />,
+      category: 'AI',
+      command: async ({ editor, range }) => {
+        if (editor && range) {
+          editor.chain().focus().deleteRange(range).run();
+
+          try {
+            const { executeEditorAIAction } = await import('@/lib/ai/editor-ai');
+            // Get text before cursor as context
+            const { from } = editor.state.selection;
+            const textBefore = editor.state.doc.textBetween(0, from, '\n');
+            const contextSlice = textBefore.slice(-2000);
+
+            const result = await executeEditorAIAction('continue', contextSlice, '');
+            if (result) {
+              editor.chain().focus().insertContent(result).run();
+            }
+          } catch (error) {
+            console.error('AI continue error:', error);
+          }
+        }
+      },
+      keywords: ['ai', 'ia', 'continue', 'continuar', 'expand', 'more'],
+    },
+    {
+      title: 'Translate',
+      description: 'Translate content to another language',
+      icon: <Languages size={18} />,
+      category: 'AI',
+      command: async ({ editor, range }) => {
+        if (editor && range) {
+          editor.chain().focus().deleteRange(range).run();
+
+          const language = await showPrompt('Translate to which language? (e.g. English, Spanish, French)');
+          if (language) {
+            try {
+              const { executeEditorAIAction } = await import('@/lib/ai/editor-ai');
+              const fullText = editor.getText();
+              if (!fullText.trim()) return;
+
+              const result = await executeEditorAIAction(
+                'custom',
+                fullText,
+                '',
+                `Translate the following text to ${language}. Return only the translated text, preserving all formatting.`
+              );
+              if (result) {
+                // Replace entire content with translation
+                editor.commands.setContent(result);
+              }
+            } catch (error) {
+              console.error('AI translate error:', error);
+            }
+          }
+        }
+      },
+      keywords: ['ai', 'ia', 'translate', 'traducir', 'idioma', 'language'],
     },
   ];
 }

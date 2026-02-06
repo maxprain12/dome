@@ -1596,22 +1596,39 @@ ipcMain.handle('db:graph:searchNodes', (event, query) => {
 
 // Search across resources and interactions
 ipcMain.handle('db:search:unified', (event, query) => {
+  // Validate and sanitize query BEFORE the try block so retry catch blocks can use it
+  validateSender(event, windowManager);
+  if (typeof query !== 'string') {
+    return { success: false, error: 'Query must be a string' };
+  }
+  if (query.length > 1000) {
+    return { success: false, error: 'Query too long. Maximum 1000 characters' };
+  }
+
+  // Sanitize query for FTS5 — quote each term to prevent special chars
+  // (like /, -, etc.) from being interpreted as FTS5 operators
+  const sanitizedQuery = query
+    .replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ')  // Replace special chars with spaces
+    .split(/\s+/)
+    .filter(term => term.length > 0)
+    .map(term => `"${term}"`)
+    .join(' ');
+
+  if (!sanitizedQuery) {
+    return {
+      success: true,
+      data: { resources: [], interactions: [] },
+    };
+  }
+
   try {
-    validateSender(event, windowManager);
-    // Validar query
-    if (typeof query !== 'string') {
-      throw new Error('Query must be a string');
-    }
-    if (query.length > 1000) {
-      throw new Error('Query too long. Maximum 1000 characters');
-    }
     const queries = database.getQueries();
 
     // Search resources
-    const resourceResults = queries.searchResources.all(query);
+    const resourceResults = queries.searchResources.all(sanitizedQuery);
 
     // Search interactions
-    const interactionResults = queries.searchInteractions.all(query);
+    const interactionResults = queries.searchInteractions.all(sanitizedQuery);
 
     // Enrich resources: add parent resources for interactions that matched
     // but whose resource did not match in FTS (e.g. match only in annotation)
@@ -1644,9 +1661,9 @@ ipcMain.handle('db:search:unified', (event, query) => {
       // Queries are automatically invalidated by handleCorruptionError
       try {
         const queries = database.getQueries();
-        const resourceResults = queries.searchResources.all(query);
-        const interactionResults = queries.searchInteractions.all(query);
-        
+        const resourceResults = queries.searchResources.all(sanitizedQuery);
+        const interactionResults = queries.searchInteractions.all(sanitizedQuery);
+
         const resourceIds = new Set(resourceResults.map((r) => r.id));
         for (const interaction of interactionResults) {
           const rid = interaction.resource_id;
@@ -1658,7 +1675,7 @@ ipcMain.handle('db:search:unified', (event, query) => {
             }
           }
         }
-        
+
         return {
           success: true,
           data: {
@@ -1676,8 +1693,8 @@ ipcMain.handle('db:search:unified', (event, query) => {
           if (repairedAgain) {
             try {
               const queries = database.getQueries();
-              const resourceResults = queries.searchResources.all(query);
-              const interactionResults = queries.searchInteractions.all(query);
+              const resourceResults = queries.searchResources.all(sanitizedQuery);
+              const interactionResults = queries.searchInteractions.all(sanitizedQuery);
               
               const resourceIds = new Set(resourceResults.map((r) => r.id));
               for (const interaction of interactionResults) {
@@ -3813,6 +3830,38 @@ ipcMain.handle('personality:list-files', (event) => {
 const aiCloudService = require('./ai-cloud-service.cjs');
 
 /**
+ * Convert OpenAI-format tool definitions to Anthropic format
+ * OpenAI: { type: 'function', function: { name, description, parameters } }
+ * Anthropic: { name, description, input_schema }
+ * @param {Array} tools - OpenAI-format tool definitions
+ * @returns {Array} Anthropic-format tool definitions
+ */
+function convertToolsToAnthropic(tools) {
+  if (!tools || !Array.isArray(tools)) return undefined;
+
+  return tools.map(tool => {
+    if (tool.type === 'function' && tool.function) {
+      return {
+        name: tool.function.name,
+        description: tool.function.description || '',
+        input_schema: tool.function.parameters || { type: 'object', properties: {} },
+      };
+    }
+    // Already in Anthropic format or unknown format
+    if (tool.name && tool.input_schema) {
+      return tool;
+    }
+    // Passthrough
+    return {
+      name: tool.name || 'unknown',
+      description: tool.description || '',
+      input_schema: tool.parameters || tool.input_schema || { type: 'object', properties: {} },
+    };
+  });
+}
+
+
+/**
  * Chat with cloud AI provider (OpenAI, Anthropic, Google)
  * This runs in main process to avoid CORS issues
  */
@@ -3845,17 +3894,28 @@ ipcMain.handle('ai:chat', async (event, { provider, messages, model }) => {
       authType = authModeResult?.value || 'api_key';
 
       if (authType === 'oauth' || authType === 'token') {
-        // Subscription mode - use claude-max-api-proxy
-        useProxy = true;
-        const proxyAvailable = await aiCloudService.checkClaudeMaxProxy();
-        if (!proxyAvailable) {
-          throw new Error(
-            'Claude Max Proxy no está disponible. Para usar tu suscripción Claude Pro/Max:\n\n' +
-            '1. Instala el proxy: npm install -g claude-max-api-proxy\n' +
-            '2. Ejecuta: claude-max-api\n' +
-            '3. El servidor estará en http://localhost:3456\n\n' +
-            'Alternativamente, usa una API key de console.anthropic.com'
-          );
+        // Try OAuth token first (works directly with Anthropic API via x-api-key header)
+        const oauthTokenResult = queries.getSetting.get('ai_oauth_token');
+        const oauthToken = oauthTokenResult?.value;
+
+        if (oauthToken) {
+          apiKey = oauthToken;
+          useProxy = false;
+        } else {
+          // Fallback: try regular API key
+          const apiKeyResult = queries.getSetting.get('ai_api_key');
+          apiKey = apiKeyResult?.value;
+          if (!apiKey) {
+            // Last resort: CLI proxy
+            useProxy = true;
+            const proxyAvailable = await aiCloudService.checkClaudeMaxProxy();
+            if (!proxyAvailable) {
+              throw new Error(
+                'No API key or OAuth token configured for Anthropic, and Claude CLI is not available.\n\n' +
+                'Configure an API key in Settings, or install Claude CLI: npm install -g @anthropic-ai/claude-code'
+              );
+            }
+          }
         }
       } else {
         const apiKeyResult = queries.getSetting.get('ai_api_key');
@@ -3879,10 +3939,10 @@ ipcMain.handle('ai:chat', async (event, { provider, messages, model }) => {
     }
 
     console.log(`[AI Cloud] Chat - Provider: ${provider}, Model: ${model}, AuthType: ${authType}, UseProxy: ${useProxy}`);
-    
+
     let response;
     if (useProxy) {
-      // Use claude-max-api-proxy for subscription
+      // Use Claude CLI for subscription (last resort)
       response = await aiCloudService.chatAnthropicViaProxy(messages, model);
     } else {
       response = await aiCloudService.chat(provider, messages, apiKey, model);
@@ -3899,7 +3959,7 @@ ipcMain.handle('ai:chat', async (event, { provider, messages, model }) => {
  * Stream chat with cloud AI provider
  * Uses webContents.send to stream chunks back to renderer
  */
-ipcMain.handle('ai:stream', async (event, { provider, messages, model, streamId }) => {
+ipcMain.handle('ai:stream', async (event, { provider, messages, model, streamId, tools }) => {
   if (!windowManager.isAuthorized(event.sender.id)) {
     return { success: false, error: 'Unauthorized' };
   }
@@ -3928,17 +3988,28 @@ ipcMain.handle('ai:stream', async (event, { provider, messages, model, streamId 
       authType = authModeResult?.value || 'api_key';
 
       if (authType === 'oauth' || authType === 'token') {
-        // Subscription mode - use claude-max-api-proxy
-        useProxy = true;
-        const proxyAvailable = await aiCloudService.checkClaudeMaxProxy();
-        if (!proxyAvailable) {
-          throw new Error(
-            'Claude Max Proxy no está disponible. Para usar tu suscripción Claude Pro/Max:\n\n' +
-            '1. Instala el proxy: npm install -g claude-max-api-proxy\n' +
-            '2. Ejecuta: claude-max-api\n' +
-            '3. El servidor estará en http://localhost:3456\n\n' +
-            'Alternativamente, usa una API key de console.anthropic.com'
-          );
+        // Try OAuth token first (works directly with Anthropic API via x-api-key header)
+        const oauthTokenResult = queries.getSetting.get('ai_oauth_token');
+        const oauthToken = oauthTokenResult?.value;
+
+        if (oauthToken) {
+          apiKey = oauthToken;
+          useProxy = false;
+        } else {
+          // Fallback: try regular API key
+          const apiKeyResult = queries.getSetting.get('ai_api_key');
+          apiKey = apiKeyResult?.value;
+          if (!apiKey) {
+            // Last resort: CLI proxy
+            useProxy = true;
+            const proxyAvailable = await aiCloudService.checkClaudeMaxProxy();
+            if (!proxyAvailable) {
+              throw new Error(
+                'No API key or OAuth token configured for Anthropic, and Claude CLI is not available.\n\n' +
+                'Configure an API key in Settings, or install Claude CLI: npm install -g @anthropic-ai/claude-code'
+              );
+            }
+          }
         }
       } else {
         const apiKeyResult = queries.getSetting.get('ai_api_key');
@@ -3961,23 +4032,38 @@ ipcMain.handle('ai:stream', async (event, { provider, messages, model, streamId 
       model = modelResult?.value;
     }
 
-    console.log(`[AI Cloud] Stream - Provider: ${provider}, Model: ${model}, StreamId: ${streamId}, AuthType: ${authType}, UseProxy: ${useProxy}`);
+    console.log(`[AI Cloud] Stream - Provider: ${provider}, Model: ${model}, StreamId: ${streamId}, AuthType: ${authType}, UseProxy: ${useProxy}, Tools: ${tools ? tools.length : 0}`);
 
-    // Stream chunks to renderer using fixed channel with streamId in payload
-    const onChunk = (text) => {
+    // Smart onChunk handler - supports both string (legacy) and object (rich) chunks
+    const onChunk = (data) => {
       if (event.sender && !event.sender.isDestroyed()) {
-        event.sender.send('ai:stream:chunk', { streamId, type: 'text', text });
+        if (typeof data === 'string') {
+          // Legacy text-only chunk from providers that don't support rich chunks
+          event.sender.send('ai:stream:chunk', { streamId, type: 'text', text: data });
+        } else if (data && typeof data === 'object') {
+          // Rich chunk (text, tool_call, etc.) from enhanced streamAnthropic
+          event.sender.send('ai:stream:chunk', { streamId, ...data });
+        }
       }
     };
 
     let fullResponse;
     if (useProxy) {
-      // Use claude-max-api-proxy for subscription
-      fullResponse = await aiCloudService.streamAnthropicViaProxy(messages, model, onChunk);
+      // Use Claude CLI for subscription (last resort, no tool support)
+      fullResponse = await aiCloudService.streamAnthropicViaProxy(messages, model, (text) => {
+        onChunk({ type: 'text', text });
+      });
+    } else if (provider === 'anthropic') {
+      // Use direct Anthropic API with full tool support
+      // Convert OpenAI-format tools to Anthropic format if provided
+      const anthropicTools = tools ? convertToolsToAnthropic(tools) : undefined;
+      fullResponse = await aiCloudService.streamAnthropic(messages, apiKey, model, onChunk, anthropicTools);
     } else {
-      fullResponse = await aiCloudService.stream(provider, messages, apiKey, model, onChunk);
+      fullResponse = await aiCloudService.stream(provider, messages, apiKey, model, (text) => {
+        onChunk({ type: 'text', text });
+      });
     }
-    
+
     // Send done signal
     if (event.sender && !event.sender.isDestroyed()) {
       event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
@@ -4202,6 +4288,58 @@ ipcMain.handle('ai:tools:getCurrentProject', async (event) => {
     return { success: true, project };
   } catch (error) {
     console.error('[AI Tools] getCurrentProject error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// AI Tools - Resource Actions (Create, Update, Delete)
+ipcMain.handle('ai:tools:resourceCreate', async (event, { data }) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const result = await aiToolsHandler.resourceCreate(data);
+    if (result.success && result.resource) {
+      windowManager.broadcast('resource:created', result.resource);
+    }
+    return result;
+  } catch (error) {
+    console.error('[AI Tools] resourceCreate error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ai:tools:resourceUpdate', async (event, { resourceId, updates }) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const result = await aiToolsHandler.resourceUpdate(resourceId, updates);
+    if (result.success && result.resource) {
+      windowManager.broadcast('resource:updated', result.resource);
+    }
+    return result;
+  } catch (error) {
+    console.error('[AI Tools] resourceUpdate error:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ai:tools:resourceDelete', async (event, { resourceId }) => {
+  if (!windowManager.isAuthorized(event.sender.id)) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  try {
+    const result = await aiToolsHandler.resourceDelete(resourceId);
+    if (result.success && result.deleted) {
+      windowManager.broadcast('resource:deleted', { id: resourceId });
+    }
+    return result;
+  } catch (error) {
+    console.error('[AI Tools] resourceDelete error:', error);
     return { success: false, error: error.message };
   }
 });

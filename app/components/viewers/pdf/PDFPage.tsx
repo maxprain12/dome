@@ -64,6 +64,7 @@ export default function PDFPage({ page, scale, pageNumber }: PDFPageProps) {
         const renderContext = {
           canvasContext: context,
           viewport: viewport,
+          canvas: canvas,
         };
 
         const renderTask = page.render(renderContext);

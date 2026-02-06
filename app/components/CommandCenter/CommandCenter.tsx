@@ -15,7 +15,9 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { SearchResults } from './SearchResults';
+import { SearchFilterChips } from './SearchFilterChips';
 import { DropZone } from './DropZone';
+import { hybridSearch } from '@/lib/search/hybrid-search';
 
 interface CommandCenterProps {
     onResourceSelect?: (resource: any) => void;
@@ -96,6 +98,8 @@ export function CommandCenter({
     const [urlMode, setUrlMode] = useState(false);
     const [urlInput, setUrlInput] = useState('https://');
 
+    const [filterTypes, setFilterTypes] = useState<string[]>([]);
+
     const inputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const { setSearchQuery, searchResults, setSearchResults } = useAppStore();
@@ -157,6 +161,8 @@ export function CommandCenter({
     }, []);
 
     // Debounced search - ONLY when NOT in URL mode
+    // Uses hybrid search (vector + graph + FTS) for resources,
+    // and unified FTS for interactions (annotations/notes)
     useEffect(() => {
         if (urlMode) {
             setSearchResults(null);
@@ -165,17 +171,52 @@ export function CommandCenter({
 
         if (!query.trim()) {
             setSearchResults(null);
+            setFilterTypes([]);
             return;
         }
 
+        setFilterTypes([]);
         const timer = setTimeout(async () => {
             setIsSearching(true);
             try {
                 if (typeof window !== 'undefined' && window.electron?.db) {
-                    const result = await window.electron.db.search.unified(query);
-                    if (result.success && result.data) {
-                        setSearchResults(result.data);
-                    }
+                    // Run hybrid search and FTS interactions in parallel
+                    const [hybridResults, ftsResult] = await Promise.all([
+                        hybridSearch(query, {
+                            vectorWeight: 0.7,
+                            graphWeight: 0.3,
+                            maxResults: 20,
+                            semanticThreshold: 0.3,
+                        }).catch((err) => {
+                            console.warn('Hybrid search failed, falling back:', err);
+                            return [];
+                        }),
+                        window.electron.db.search.unified(query).catch(() => ({
+                            success: false,
+                            data: { resources: [], interactions: [] },
+                        })),
+                    ]);
+
+                    // Map hybrid results to search results format
+                    const resources = hybridResults.length > 0
+                        ? hybridResults.map((r) => ({
+                            id: r.id,
+                            title: r.title,
+                            type: r.type,
+                            content: r.metadata?.content || '',
+                            source: r.source,
+                            score: r.score,
+                        }))
+                        : (ftsResult as any).success && (ftsResult as any).data
+                            ? (ftsResult as any).data.resources
+                            : [];
+
+                    const interactions =
+                        (ftsResult as any).success && (ftsResult as any).data
+                            ? (ftsResult as any).data.interactions
+                            : [];
+
+                    setSearchResults({ resources, interactions });
                 }
             } catch (error) {
                 console.error('Search error:', error);
@@ -345,6 +386,23 @@ export function CommandCenter({
         setUrlMode(false);
         setUrlInput('https://');
     }, []);
+
+    // Derive available types from search results for filter chips
+    const availableTypes = React.useMemo(() => {
+        if (!searchResults?.resources) return [];
+        const types = new Set(searchResults.resources.map((r: any) => r.type));
+        return Array.from(types).sort();
+    }, [searchResults]);
+
+    // Filter results by selected types
+    const filteredResults = React.useMemo(() => {
+        if (!searchResults) return null;
+        if (filterTypes.length === 0) return searchResults;
+        return {
+            ...searchResults,
+            resources: searchResults.resources.filter((r: any) => filterTypes.includes(r.type)),
+        };
+    }, [searchResults, filterTypes]);
 
     const hasResults = Boolean(searchResults && (searchResults.resources.length > 0 || searchResults.interactions.length > 0));
 
@@ -534,14 +592,28 @@ export function CommandCenter({
                                 </div>
                             )}
 
-                            {/* Search results - only when not in URL mode */}
+                            {/* Filter chips + Search results - only when not in URL mode */}
                             {!urlMode && query && hasResults && searchResults && (
-                                <SearchResults
-                                    results={searchResults}
-                                    query={query}
-                                    isLoading={isSearching}
-                                    onSelect={handleResourceClick}
-                                />
+                                <>
+                                    <SearchFilterChips
+                                        availableTypes={availableTypes}
+                                        selectedTypes={filterTypes}
+                                        onToggle={(type) =>
+                                            setFilterTypes((prev) =>
+                                                prev.includes(type)
+                                                    ? prev.filter((t) => t !== type)
+                                                    : [...prev, type]
+                                            )
+                                        }
+                                        onClear={() => setFilterTypes([])}
+                                    />
+                                    <SearchResults
+                                        results={filteredResults || searchResults}
+                                        query={query}
+                                        isLoading={isSearching}
+                                        onSelect={handleResourceClick}
+                                    />
+                                </>
                             )}
 
                             {/* No results - only when not in URL mode */}

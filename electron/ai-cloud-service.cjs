@@ -205,14 +205,15 @@ async function chatAnthropic(messages, apiKey, model = 'claude-3-5-sonnet-202410
 }
 
 /**
- * Stream chat with Anthropic Claude
+ * Stream chat with Anthropic Claude (with full tool support)
  * @param {Array<{role: string, content: string}>} messages
  * @param {string} apiKey - API key or OAuth token (both use x-api-key header)
  * @param {string} model
- * @param {Function} onChunk - callback(text)
+ * @param {Function} onChunk - callback(data) where data is string or { type, text?, toolCall? }
+ * @param {Array|undefined} tools - Anthropic-format tool definitions
  * @returns {Promise<string>}
  */
-async function streamAnthropic(messages, apiKey, model, onChunk) {
+async function streamAnthropic(messages, apiKey, model, onChunk, tools) {
   const systemMessage = messages.find((m) => m.role === 'system');
   const otherMessages = messages.filter((m) => m.role !== 'system');
 
@@ -225,6 +226,11 @@ async function streamAnthropic(messages, apiKey, model, onChunk) {
 
   if (systemMessage) {
     body.system = systemMessage.content;
+  }
+
+  // Add tools if provided
+  if (tools && Array.isArray(tools) && tools.length > 0) {
+    body.tools = tools;
   }
 
   // Both API keys (sk-ant-api03-...) and OAuth tokens (sk-ant-oat01-...) use x-api-key header
@@ -248,6 +254,10 @@ async function streamAnthropic(messages, apiKey, model, onChunk) {
   let buffer = '';
   let fullResponse = '';
 
+  // Tool call tracking
+  let currentToolCall = null;
+  let toolInputJson = '';
+
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -263,9 +273,39 @@ async function streamAnthropic(messages, apiKey, model, onChunk) {
 
         try {
           const event = JSON.parse(data);
+
+          // Text content streaming
           if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
             fullResponse += event.delta.text;
-            onChunk(event.delta.text);
+            onChunk({ type: 'text', text: event.delta.text });
+          }
+
+          // Tool use: content block start
+          else if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
+            currentToolCall = {
+              id: event.content_block.id,
+              name: event.content_block.name,
+            };
+            toolInputJson = '';
+          }
+
+          // Tool use: accumulate JSON input
+          else if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta') {
+            toolInputJson += event.delta.partial_json;
+          }
+
+          // Tool use: content block stop — emit the complete tool call
+          else if (event.type === 'content_block_stop' && currentToolCall) {
+            onChunk({
+              type: 'tool_call',
+              toolCall: {
+                id: currentToolCall.id,
+                name: currentToolCall.name,
+                arguments: toolInputJson,
+              },
+            });
+            currentToolCall = null;
+            toolInputJson = '';
           }
         } catch {
           // Skip invalid JSON

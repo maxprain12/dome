@@ -8,6 +8,7 @@ import UserMenu from './user/UserMenu';
 import { CommandCenter } from './CommandCenter';
 import FilterBar from './FilterBar';
 import ResourceCard from './ResourceCard';
+import { ConfirmDialog } from './common/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 
 function parseJsonField<T = Record<string, unknown>>(val: unknown): T {
@@ -54,6 +55,9 @@ export default function Home() {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [resourceToMove, setResourceToMove] = useState<Resource | null>(null);
 
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<Resource | null>(null);
+
   const {
     folders,
     nonFolderResources,
@@ -65,6 +69,7 @@ export default function Home() {
     createResource,
     importFiles,
     deleteResource,
+    updateResource,
     moveToFolder,
     getFolderById
   } = useResources({
@@ -224,11 +229,16 @@ export default function Home() {
     setResourceToMove(null);
   }, [resourceToMove, moveToFolder]);
 
-  const handleDeleteResource = useCallback(async (resource: Resource) => {
-    if (confirm(`Are you sure you want to delete "${resource.title}"?`)) {
-      await deleteResource(resource.id);
+  const handleDeleteResource = useCallback((resource: Resource) => {
+    setDeleteTarget(resource);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (deleteTarget) {
+      await deleteResource(deleteTarget.id);
+      setDeleteTarget(null);
     }
-  }, [deleteResource]);
+  }, [deleteTarget, deleteResource]);
 
   return (
     <div className="min-h-screen p-8" style={{ background: 'var(--bg)' }}>
@@ -454,6 +464,7 @@ export default function Home() {
                 onClick={() => handleResourceSelect(resource)}
                 onMoveToFolder={() => handleMoveToFolderRequest(resource)}
                 onDelete={() => handleDeleteResource(resource)}
+                onRename={(newTitle) => updateResource(resource.id, { title: newTitle })}
                 searchSnippet={isSearchMode && searchResults?.interactions
                   ? getSearchSnippetForResource(resource.id, searchResults.interactions)
                   : undefined}
@@ -596,6 +607,18 @@ export default function Home() {
             </div>
           </div>
         ) : null}
+
+        {/* Delete Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={!!deleteTarget}
+          title="Delete resource"
+          message={`Are you sure you want to delete "${deleteTarget?.title || ''}"? This action cannot be undone.`}
+          variant="danger"
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       </div>
     </div>
   );

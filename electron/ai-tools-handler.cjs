@@ -623,6 +623,178 @@ async function getCurrentProject() {
 }
 
 // =============================================================================
+// Resource Action Tools (Create, Update, Delete)
+// =============================================================================
+
+/**
+ * Create a new resource via AI tool
+ * @param {Object} data - Resource data
+ * @param {string} data.title - Resource title
+ * @param {string} [data.type='note'] - Resource type
+ * @param {string} [data.content=''] - Resource content (HTML or plain text)
+ * @param {string} [data.project_id] - Project ID (defaults to current project)
+ * @param {string} [data.folder_id] - Folder ID
+ * @returns {Promise<Object>}
+ */
+async function resourceCreate(data) {
+  try {
+    if (!data || !data.title || !data.title.trim()) {
+      return { success: false, error: 'Title is required' };
+    }
+
+    const db = database.getDB();
+    const queries = database.getQueries();
+
+    const type = data.type || 'note';
+    const validTypes = ['note', 'document', 'url', 'folder'];
+    if (!validTypes.includes(type)) {
+      return { success: false, error: `AI can only create resources of type: ${validTypes.join(', ')}` };
+    }
+
+    // Determine project ID
+    let projectId = data.project_id;
+    if (!projectId) {
+      const currentProject = await getCurrentProject();
+      projectId = currentProject?.id || 'default';
+    }
+
+    const now = Date.now();
+    const id = `res_${now}_${Math.random().toString(36).substr(2, 9)}`;
+
+    queries.createResource.run(
+      id,
+      projectId,
+      type,
+      data.title.trim(),
+      data.content || '',
+      null, // file_path
+      data.metadata ? JSON.stringify(data.metadata) : null,
+      now,
+      now
+    );
+
+    const resource = {
+      id,
+      title: data.title.trim(),
+      type,
+      project_id: projectId,
+      folder_id: data.folder_id || null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    // Move to folder if specified
+    if (data.folder_id) {
+      const moveStmt = db.prepare('UPDATE resources SET folder_id = ? WHERE id = ?');
+      moveStmt.run(data.folder_id, id);
+      resource.folder_id = data.folder_id;
+    }
+
+    return { success: true, resource };
+  } catch (error) {
+    console.error('[AI Tools] resourceCreate error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Update an existing resource via AI tool
+ * @param {string} resourceId - Resource ID
+ * @param {Object} updates - Fields to update
+ * @param {string} [updates.title] - New title
+ * @param {string} [updates.content] - New content
+ * @param {Object} [updates.metadata] - Metadata to merge
+ * @returns {Promise<Object>}
+ */
+async function resourceUpdate(resourceId, updates) {
+  try {
+    if (!resourceId) {
+      return { success: false, error: 'Resource ID is required' };
+    }
+
+    const queries = database.getQueries();
+    const existing = queries.getResourceById.get(resourceId);
+
+    if (!existing) {
+      return { success: false, error: 'Resource not found' };
+    }
+
+    const title = updates.title !== undefined ? updates.title.trim() : existing.title;
+    const content = updates.content !== undefined ? updates.content : existing.content;
+
+    // Merge metadata
+    let metadata = existing.metadata;
+    if (updates.metadata) {
+      let existingMeta = {};
+      try { existingMeta = metadata ? JSON.parse(metadata) : {}; } catch { existingMeta = {}; }
+      metadata = JSON.stringify({ ...existingMeta, ...updates.metadata });
+    }
+
+    const now = Date.now();
+    queries.updateResource.run(title, content, metadata, now, resourceId);
+
+    return {
+      success: true,
+      resource: {
+        id: resourceId,
+        title,
+        type: existing.type,
+        project_id: existing.project_id,
+        updated_at: now,
+      },
+    };
+  } catch (error) {
+    console.error('[AI Tools] resourceUpdate error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete a resource via AI tool
+ * @param {string} resourceId - Resource ID
+ * @returns {Promise<Object>}
+ */
+async function resourceDelete(resourceId) {
+  try {
+    if (!resourceId) {
+      return { success: false, error: 'Resource ID is required' };
+    }
+
+    const queries = database.getQueries();
+    const resource = queries.getResourceById.get(resourceId);
+
+    if (!resource) {
+      return { success: false, error: 'Resource not found' };
+    }
+
+    // Delete internal file if exists
+    if (resource.internal_path) {
+      try {
+        const fileStorage = require('./file-storage.cjs');
+        fileStorage.deleteFile(resource.internal_path);
+      } catch (e) {
+        console.warn('[AI Tools] Could not delete file:', e.message);
+      }
+    }
+
+    // Delete from database
+    queries.deleteResource.run(resourceId);
+
+    return {
+      success: true,
+      deleted: {
+        id: resourceId,
+        title: resource.title,
+        type: resource.type,
+      },
+    };
+  } catch (error) {
+    console.error('[AI Tools] resourceDelete error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -630,20 +802,25 @@ module.exports = {
   // Vector DB management
   setVectorDB,
   getVectorDB,
-  
-  // Resource tools
+
+  // Resource tools (read)
   resourceSearch,
   resourceGet,
   resourceList,
   resourceSemanticSearch,
-  
+
+  // Resource tools (write)
+  resourceCreate,
+  resourceUpdate,
+  resourceDelete,
+
   // Project tools
   projectList,
   projectGet,
-  
+
   // Interaction tools
   interactionList,
-  
+
   // Context helpers
   getRecentResources,
   getCurrentProject,

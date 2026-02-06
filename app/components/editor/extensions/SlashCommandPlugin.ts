@@ -62,9 +62,11 @@ export function createSlashCommandPlugin(items: SlashCommandItem[]) {
           if (match && match[1] !== undefined) {
             const query = match[1];
             const filteredItems = items.filter((item) => {
-              const titleMatch = item.title.toLowerCase().includes(query.toLowerCase());
-              const keywordMatch = item.keywords?.some((kw) => kw.toLowerCase().includes(query.toLowerCase()));
-              return titleMatch || keywordMatch;
+              const q = query.toLowerCase();
+              const titleMatch = item.title.toLowerCase().includes(q);
+              const keywordMatch = item.keywords?.some((kw) => kw.toLowerCase().includes(q));
+              const categoryMatch = item.category?.toLowerCase().includes(q);
+              return titleMatch || keywordMatch || categoryMatch;
             });
 
             return {

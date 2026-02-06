@@ -10,6 +10,9 @@ import {
     File,
     MessageSquare,
     StickyNote,
+    Brain,
+    GitBranch,
+    Search,
 } from 'lucide-react';
 
 interface SearchResultsProps {
@@ -75,6 +78,27 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
         return text.substring(0, maxLength) + '…';
     };
 
+    const getSourceBadge = (resource: any) => {
+        const source = resource.source;
+        if (!source) return null;
+
+        const config: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
+            vector: { label: 'Semantic', icon: <Brain size={10} />, className: 'source-badge source-semantic' },
+            graph: { label: 'Related', icon: <GitBranch size={10} />, className: 'source-badge source-graph' },
+            fts: { label: 'Text', icon: <Search size={10} />, className: 'source-badge source-text' },
+        };
+
+        const badge = config[source];
+        if (!badge) return null;
+
+        return (
+            <span className={badge.className}>
+                {badge.icon}
+                {badge.label}
+            </span>
+        );
+    };
+
     const hasResources = results.resources.length > 0;
     const hasInteractions = results.interactions.length > 0;
 
@@ -117,7 +141,10 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
                                         </div>
                                     )}
                                 </div>
-                                <div className="result-type">{resource.type}</div>
+                                <div className="result-meta">
+                                    {getSourceBadge(resource)}
+                                    <div className="result-type">{resource.type}</div>
+                                </div>
                             </button>
                         ))}
                     </div>
@@ -278,6 +305,14 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
           overflow: hidden;
         }
 
+        .result-meta {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 4px;
+          flex-shrink: 0;
+        }
+
         .result-type {
           font-size: 11px;
           font-weight: 500;
@@ -287,6 +322,32 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
           background: var(--bg-tertiary);
           border-radius: var(--radius-sm);
           flex-shrink: 0;
+        }
+
+        .source-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 3px;
+          font-size: 10px;
+          font-weight: 600;
+          padding: 1px 6px;
+          border-radius: var(--radius-full);
+          white-space: nowrap;
+        }
+
+        .source-semantic {
+          background: rgba(124, 58, 237, 0.1);
+          color: #7c3aed;
+        }
+
+        .source-graph {
+          background: rgba(16, 185, 129, 0.1);
+          color: #10b981;
+        }
+
+        .source-text {
+          background: rgba(59, 130, 246, 0.1);
+          color: #3b82f6;
         }
 
         .result-item.interaction .result-icon {

@@ -33,6 +33,7 @@ import { FileBlockExtension } from './extensions/FileBlock';
 import { DragHandleExtension } from './extensions/DragHandle';
 import { SlashCommandExtension } from './extensions/SlashCommand';
 import { BubbleMenu } from './BubbleMenu';
+import { AIBubbleMenu } from './AIBubbleMenu';
 import { FloatingMenu } from './FloatingMenu';
 import { SlashCommandMenu } from './SlashCommand';
 import { getSlashCommandItems } from './SlashCommand';
@@ -208,6 +209,7 @@ export default function NotionEditor({
       {editable && (
         <>
           <BubbleMenu editor={editor} />
+          <AIBubbleMenu editor={editor} />
           <FloatingMenu editor={editor} />
           <SlashCommandMenu editor={editor} />
         </>

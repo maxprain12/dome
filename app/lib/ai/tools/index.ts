@@ -119,7 +119,7 @@ export {
   type MemoryDocument,
 } from './memory';
 
-// Tools - Resources
+// Tools - Resources (Read)
 export {
   createResourceSearchTool,
   createResourceGetTool,
@@ -127,6 +127,14 @@ export {
   createResourceSemanticSearchTool,
   createResourceTools,
 } from './resources';
+
+// Tools - Resources (Write)
+export {
+  createResourceCreateTool,
+  createResourceUpdateTool,
+  createResourceDeleteTool,
+  createResourceActionTools,
+} from './resource-actions';
 
 // Tools - Context
 export {
@@ -147,6 +155,7 @@ import { createWebSearchTool, type WebSearchConfig } from './web-search';
 import { createWebFetchTool, type WebFetchConfig } from './web-fetch';
 import { createMemoryTools } from './memory';
 import { createResourceTools } from './resources';
+import { createResourceActionTools } from './resource-actions';
 import { createContextTools } from './context';
 
 /**
@@ -195,9 +204,10 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
     tools.push(...createMemoryTools());
   }
 
-  // Resource tools
+  // Resource tools (read + write)
   if (config?.includeResources !== false) {
     tools.push(...createResourceTools());
+    tools.push(...createResourceActionTools());
   }
 
   // Context tools

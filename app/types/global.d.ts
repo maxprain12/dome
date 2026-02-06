@@ -392,7 +392,15 @@ declare global {
           provider: 'openai' | 'anthropic' | 'google',
           messages: Array<{ role: string; content: string }>,
           model: string | undefined,
-          streamId: string
+          streamId: string,
+          tools?: Array<{
+            type: string;
+            function: {
+              name: string;
+              description: string;
+              parameters: Record<string, any>;
+            };
+          }>
         ) => Promise<{
           success: boolean;
           content?: string;
@@ -400,9 +408,14 @@ declare global {
         }>;
         onStreamChunk: (callback: (data: {
           streamId: string;
-          type: 'text' | 'done' | 'error';
+          type: 'text' | 'tool_call' | 'done' | 'error';
           text?: string;
           error?: string;
+          toolCall?: {
+            id: string;
+            name: string;
+            arguments: string;
+          };
         }) => void) => RemoveListenerFn;
         embeddings: (
           provider: 'openai' | 'google',
@@ -578,6 +591,48 @@ declare global {
               name: string;
               description?: string;
             } | null;
+            error?: string;
+          }>;
+          resourceCreate: (data: {
+            title: string;
+            type?: string;
+            content?: string;
+            project_id?: string;
+          }) => Promise<{
+            success: boolean;
+            resource?: {
+              id: string;
+              title: string;
+              type: string;
+              project_id: string;
+              created_at: number;
+              updated_at: number;
+            };
+            error?: string;
+          }>;
+          resourceUpdate: (
+            resourceId: string,
+            updates: {
+              title?: string;
+              content?: string;
+              metadata?: Record<string, any>;
+            }
+          ) => Promise<{
+            success: boolean;
+            resource?: {
+              id: string;
+              title: string;
+              type: string;
+              updated_at: number;
+            };
+            error?: string;
+          }>;
+          resourceDelete: (resourceId: string) => Promise<{
+            success: boolean;
+            deleted?: {
+              id: string;
+              title: string;
+            };
             error?: string;
           }>;
         };
