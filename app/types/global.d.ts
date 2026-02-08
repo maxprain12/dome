@@ -275,6 +275,31 @@ declare global {
         search: {
           unified: (query: string) => Promise<DBResponse<UnifiedSearchResult>>;
         };
+        flashcards: {
+          createDeck: (deck: any) => Promise<DBResponse<any>>;
+          getDeck: (id: string) => Promise<DBResponse<any>>;
+          getDecksByProject: (projectId: string) => Promise<DBResponse<any[]>>;
+          getAllDecks: (limit?: number) => Promise<DBResponse<any[]>>;
+          updateDeck: (deck: any) => Promise<DBResponse<any>>;
+          deleteDeck: (id: string) => Promise<DBResponse<void>>;
+          createCard: (card: any) => Promise<DBResponse<any>>;
+          createCards: (deckId: string, cards: any[]) => Promise<DBResponse<any>>;
+          getCards: (deckId: string) => Promise<DBResponse<any[]>>;
+          getDueCards: (deckId: string, limit?: number) => Promise<DBResponse<any[]>>;
+          reviewCard: (cardId: string, quality: number) => Promise<DBResponse<any>>;
+          updateCard: (card: any) => Promise<DBResponse<any>>;
+          deleteCard: (id: string) => Promise<DBResponse<void>>;
+          getStats: (deckId: string) => Promise<DBResponse<any>>;
+          createSession: (session: any) => Promise<DBResponse<any>>;
+          getSessions: (deckId: string, limit?: number) => Promise<DBResponse<any[]>>;
+        };
+        studio: {
+          create: (data: any) => Promise<DBResponse<any>>;
+          getByProject: (projectId: string) => Promise<DBResponse<any[]>>;
+          getById: (id: string) => Promise<DBResponse<any>>;
+          update: (id: string, updates: any) => Promise<DBResponse<void>>;
+          delete: (id: string) => Promise<DBResponse<void>>;
+        };
         settings: {
           get: (key: string) => Promise<DBResponse<string>>;
           set: (key: string, value: string) => Promise<DBResponse<void>>;
@@ -642,7 +667,76 @@ declare global {
             };
             error?: string;
           }>;
+          flashcardCreate: (data: {
+            resource_id?: string;
+            project_id: string;
+            title: string;
+            description?: string;
+            cards: Array<{
+              question: string;
+              answer: string;
+              difficulty?: string;
+              tags?: string;
+            }>;
+          }) => Promise<{
+            success: boolean;
+            deck?: {
+              id: string;
+              title: string;
+              card_count: number;
+            };
+            error?: string;
+          }>;
         };
+      };
+
+      // Audio API (TTS)
+      audio: {
+        generateSpeech: (
+          text: string,
+          voice?: string,
+          options?: { model?: string; response_format?: string; speed?: number }
+        ) => Promise<{
+          success: boolean;
+          audioPath?: string;
+          size?: number;
+          error?: string;
+        }>;
+        generatePodcast: (
+          lines: Array<{ speaker: string; text: string }>,
+          options?: {
+            model?: string;
+            voices?: Record<string, string>;
+          }
+        ) => Promise<{
+          success: boolean;
+          audioPath?: string;
+          duration?: number;
+          transcript?: Array<{ speaker: string; text: string; startTime: number }>;
+          generationId?: string;
+          error?: string;
+        }>;
+        getStatus: (generationId: string) => Promise<{
+          success: boolean;
+          data?: {
+            status: string;
+            progress?: number;
+            total?: number;
+            error?: string;
+          } | null;
+          error?: string;
+        }>;
+        list: () => Promise<{
+          success: boolean;
+          data?: Array<{
+            filename: string;
+            path: string;
+            size: number;
+            created: number;
+          }>;
+          error?: string;
+        }>;
+        onGenerationProgress: (callback: (data: { current: number; total: number }) => void) => RemoveListenerFn;
       };
 
       // Ollama API

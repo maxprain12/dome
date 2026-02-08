@@ -128,6 +128,17 @@
   /* Focus States */
   --border-focus: var(--accent);
   --focus-ring: 0 0 0 3px var(--translucent);
+
+  /* Dome Dashboard Palette */
+  --dome-bg: #FAFAFA;
+  --dome-surface: #FFFFFF;
+  --dome-text: #1A1A1A;
+  --dome-text-secondary: #6B6B6B;
+  --dome-text-muted: #8A8A8A;
+  --dome-border: #E5E5E5;
+  --dome-accent: #596037;
+  --dome-accent-bg: #F5F3EE;
+  --dome-accent-hover: #4A502E;
 }
 
 /* Dark Mode Theme */
@@ -195,6 +206,17 @@
   --shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.6);
   --shadow-lg: 0 10px 20px -3px rgb(0 0 0 / 0.7);
   --shadow-xl: 0 20px 30px -5px rgb(0 0 0 / 0.8);
+
+  /* Dome Dashboard Palette - Dark */
+  --dome-bg: #111111;
+  --dome-surface: #1A1A1A;
+  --dome-text: #E5E5E5;
+  --dome-text-secondary: #999999;
+  --dome-text-muted: #666666;
+  --dome-border: #2A2A2A;
+  --dome-accent: #8B9A5A;
+  --dome-accent-bg: #1E1F1A;
+  --dome-accent-hover: #A0B06A;
 
   color-scheme: dark;
 }
@@ -265,6 +287,17 @@
     --shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.6);
     --shadow-lg: 0 10px 20px -3px rgb(0 0 0 / 0.7);
     --shadow-xl: 0 20px 30px -5px rgb(0 0 0 / 0.8);
+
+    /* Dome Dashboard Palette - Dark */
+    --dome-bg: #111111;
+    --dome-surface: #1A1A1A;
+    --dome-text: #E5E5E5;
+    --dome-text-secondary: #999999;
+    --dome-text-muted: #666666;
+    --dome-border: #2A2A2A;
+    --dome-accent: #8B9A5A;
+    --dome-accent-bg: #1E1F1A;
+    --dome-accent-hover: #A0B06A;
 
     color-scheme: dark;
   }
@@ -790,6 +823,31 @@ a:hover {
     flex-shrink: 0;
     background: var(--bg-secondary);
   }
+
+  /* Citation Badge */
+  .citation-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--dome-accent-bg, rgba(89, 96, 55, 0.1));
+    color: var(--dome-accent, #596037);
+    cursor: pointer;
+    vertical-align: super;
+    line-height: 1;
+    margin: 0 1px;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+  }
+
+  .citation-badge:hover {
+    background: var(--dome-accent, #596037);
+    color: #FFFFFF;
+  }
 }
 
 /* ============================================
@@ -922,6 +980,80 @@ a:hover {
 
 .animate-slide-up {
   animation: slide-up 0.2s ease-out;
+}
+
+/* ============================================
+   FLASHCARD ANIMATIONS
+   ============================================ */
+
+.flashcard-container {
+  perspective: 1000px;
+}
+
+.flashcard-flip {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.5s ease;
+  transform-style: preserve-3d;
+}
+
+.flashcard-flip.flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: var(--radius-xl, 12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.flashcard-front {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+}
+
+.flashcard-back {
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  transform: rotateY(180deg);
+}
+
+.flashcard-swipe {
+  touch-action: pan-y;
+  user-select: none;
+  cursor: grab;
+}
+
+.flashcard-swipe:active {
+  cursor: grabbing;
+}
+
+@keyframes flashcard-fly-left {
+  to {
+    transform: translateX(-150%) rotate(-20deg);
+    opacity: 0;
+  }
+}
+
+@keyframes flashcard-fly-right {
+  to {
+    transform: translateX(150%) rotate(20deg);
+    opacity: 0;
+  }
+}
+
+.flashcard-exit-left {
+  animation: flashcard-fly-left 0.3s ease-out forwards;
+}
+
+.flashcard-exit-right {
+  animation: flashcard-fly-right 0.3s ease-out forwards;
 }
 
 /* ============================================

@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1440, height=900">
+    <title>Dome - Dashboard with Sidebar</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            width: 1440px;
+            height: 900px;
+            overflow: hidden;
+            background: #FAFAFA;
+            color: #1A1A1A;
+        }
+        
+        .app-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background: #FFFFFF;
+            border-right: 1px solid #E5E5E5;
+            display: flex;
+            flex-direction: column;
+            padding: 24px 0;
+        }
+        
+        .sidebar-header {
+            padding: 0 20px 24px;
+            border-bottom: 1px solid #E5E5E5;
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo {
+            width: 36px;
+            height: 36px;
+        }
+        
+        .app-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1A1A1A;
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            padding: 24px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .nav-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #6B6B6B;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .nav-item:hover {
+            background: #FAFAFA;
+            color: #1A1A1A;
+        }
+        
+        .nav-item.active {
+            background: #F5F3EE;
+            color: #596037;
+        }
+        
+        .nav-item svg {
+            width: 18px;
+            height: 18px;
+            stroke-width: 2;
+        }
+        
+        .nav-section {
+            padding: 16px 12px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #8A8A8A;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid #E5E5E5;
+        }
+        
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        
+        .user-profile:hover {
+            background: #FAFAFA;
+        }
+        
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #596037;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .user-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .user-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1A1A1A;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .user-status {
+            font-size: 11px;
+            color: #8A8A8A;
+        }
+        
+        /* Main Area */
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* Top Bar */
+        .top-bar {
+            background: #FFFFFF;
+            border-bottom: 1px solid #E5E5E5;
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .search-bar {
+            position: relative;
+            width: 400px;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 8px 16px 8px 36px;
+            background: #FAFAFA;
+            border: 1px solid #E5E5E5;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #1A1A1A;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            border-color: #596037;
+            background: #FFFFFF;
+        }
+        
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: #8A8A8A;
+        }
+        
+        .top-bar-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: transparent;
+            border: 1px solid #E5E5E5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .icon-btn:hover {
+            background: #FAFAFA;
+            border-color: #596037;
+        }
+        
+        .icon-btn svg {
+            width: 18px;
+            height: 18px;
+            color: #6B6B6B;
+        }
+        
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 32px;
+        }
+        
+        .page-header {
+            margin-bottom: 32px;
+        }
+        
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1A1A1A;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+        
+        .page-subtitle {
+            font-size: 14px;
+            color: #6B6B6B;
+        }
+        
+        .controls-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+        }
+        
+        .controls-left {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn {
+            padding: 8px 14px;
+            background: #FFFFFF;
+            border: 1px solid #E5E5E5;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #1A1A1A;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .btn:hover {
+            border-color: #596037;
+            background: #FAFAFA;
+        }
+        
+        .btn-primary {
+            background: #596037;
+            color: #FFFFFF;
+            border-color: #596037;
+        }
+        
+        .btn-primary:hover {
+            background: #4A502E;
+        }
+        
+        .btn svg {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .view-toggle {
+            display: flex;
+            background: #FFFFFF;
+            border: 1px solid #E5E5E5;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .view-btn {
+            padding: 8px 10px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .view-btn svg {
+            width: 16px;
+            height: 16px;
+            color: #8A8A8A;
+        }
+        
+        .view-btn.active {
+            background: #FAFAFA;
+        }
+        
+        .view-btn.active svg {
+            color: #596037;
+        }
+        
+        .resources-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .resource-card {
+            background: #FFFFFF;
+            border: 1px solid #E5E5E5;
+            border-radius: 10px;
+            padding: 16px;
+            transition: all 0.2s;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        
+        .resource-card:hover {
+            border-color: #596037;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .card-preview {
+            width: 100%;
+            height: 160px;
+            border-radius: 6px;
+            background: #FAFAFA;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            color: #8A8A8A;
+        }
+        
+        .card-icon.link { color: #8B7BE5; }
+        .card-icon.note { color: #5B9FED; }
+        .card-icon.pdf { color: #E57B7B; }
+        
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .card-type-icon {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .card-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #1A1A1A;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .card-meta {
+            font-size: 11px;
+            color: #8A8A8A;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-section">
+                    <div class="logo">
+                        <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M328.634 306.098V235.894C328.634 182.087 286.288 138.468 234.051 138.468C181.814 138.468 139.467 182.087 139.467 235.894V306.098C139.467 318.605 152.245 326.74 163.106 321.146C171.884 316.625 182.34 317.296 190.506 322.903C199.692 329.212 211.659 329.212 220.846 322.903L224.181 320.613C230.158 316.509 237.944 316.509 243.92 320.613L247.256 322.903C256.442 329.212 268.409 329.212 277.596 322.903C285.761 317.296 296.218 316.625 304.996 321.146C315.856 326.74 328.634 318.605 328.634 306.098Z" fill="#E0EAB4"/>
+                            <path d="M288.333 235.312C288.333 243.148 284.099 249.5 278.875 249.5C273.651 249.5 269.417 243.148 269.417 235.312C269.417 227.477 273.651 221.125 278.875 221.125C284.099 221.125 288.333 227.477 288.333 235.312Z" fill="#596037"/>
+                            <ellipse cx="222.125" cy="235.312" rx="9.45833" ry="14.1875" fill="#596037"/>
+                            <path d="M345.083 322.547V252.343C345.083 198.536 302.737 154.917 250.5 154.917C198.263 154.917 155.917 198.536 155.917 252.343V322.547C155.917 335.054 168.695 343.189 179.555 337.595C188.333 333.075 198.789 333.745 206.955 339.353C216.141 345.661 228.109 345.661 237.295 339.353L240.63 337.062C246.607 332.958 254.393 332.958 260.37 337.062L263.705 339.353C272.891 345.661 284.859 345.661 294.045 339.353C302.211 333.745 312.667 333.075 321.445 337.595C332.305 343.189 345.083 335.054 345.083 322.547Z" stroke="#596037" stroke-width="7.59957"/>
+                        </svg>
+                    </div>
+                    <span class="app-name">Dome</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-item active">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
+                    <span>Home</span>
+                </div>
+                
+                <div class="nav-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.3-4.3"/>
+                    </svg>
+                    <span>Search</span>
+                </div>
+                
+                <div class="nav-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/>
+                        <path d="M7 7h.01"/>
+                    </svg>
+                    <span>Tags</span>
+                </div>
+                
+                <div class="nav-section">Collections</div>
+                
+                <div class="nav-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/>
+                    </svg>
+                    <span>Research Papers</span>
+                </div>
+                
+                <div class="nav-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/>
+                    </svg>
+                    <span>Notes</span>
+                </div>
+                
+                <div class="nav-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/>
+                    </svg>
+                    <span>Web Links</span>
+                </div>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="user-avatar">AV</div>
+                    <div class="user-info">
+                        <div class="user-name">Alder Velasquez</div>
+                        <div class="user-status">Online</div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Area -->
+        <div class="main-area">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="search-bar">
+                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.3-4.3"/>
+                    </svg>
+                    <input type="text" class="search-input" placeholder="Search resources...">
+                </div>
+                <div class="top-bar-actions">
+                    <button class="icon-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
+                            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+                        </svg>
+                    </button>
+                    <button class="icon-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Content -->
+            <div class="content-area">
+                <div class="page-header">
+                    <h1 class="page-title">Recent Resources</h1>
+                    <p class="page-subtitle">Your recently updated files and links</p>
+                </div>
+                
+                <div class="controls-bar">
+                    <div class="controls-left">
+                        <button class="btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 6h18"/>
+                                <path d="M7 12h10"/>
+                                <path d="M10 18h4"/>
+                            </svg>
+                            Sort
+                        </button>
+                        <button class="btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                            </svg>
+                            Filter
+                        </button>
+                    </div>
+                    <div class="view-toggle">
+                        <button class="view-btn active">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect width="7" height="7" x="3" y="3" rx="1"/>
+                                <rect width="7" height="7" x="14" y="3" rx="1"/>
+                                <rect width="7" height="7" x="14" y="14" rx="1"/>
+                                <rect width="7" height="7" x="3" y="14" rx="1"/>
+                            </svg>
+                        </button>
+                        <button class="view-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="8" x2="21" y1="6" y2="6"/>
+                                <line x1="8" x2="21" y1="12" y2="12"/>
+                                <line x1="8" x2="21" y1="18" y2="18"/>
+                                <line x1="3" x2="3.01" y1="6" y2="6"/>
+                                <line x1="3" x2="3.01" y1="12" y2="12"/>
+                                <line x1="3" x2="3.01" y1="18" y2="18"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="resources-grid">
+                    <!-- Cards (same as before, simplified) -->
+                    <div class="resource-card">
+                        <div class="card-preview">
+                            <svg class="card-icon link" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                            </svg>
+                        </div>
+                        <div class="card-content">
+                            <div class="card-header">
+                                <svg class="card-type-icon" style="color: #8B7BE5;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                                </svg>
+                                <span class="card-title">dribbble.com/shots/...</span>
+                            </div>
+                            <div class="card-meta">hace 1 hora</div>
+                        </div>
+                    </div>
+                    
+                    <div class="resource-card">
+                        <div class="card-preview">
+                            <svg class="card-icon link" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                            </svg>
+                        </div>
+                        <div class="card-content">
+                            <div class="card-header">
+                                <svg class="card-type-icon" style="color: #8B7BE5;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                                </svg>
+                                <span class="card-title">linkedin.com/feed/...</span>
+                            </div>
+                            <div class="card-meta">hace 1 hora</div>
+                        </div>
+                    </div>
+                    
+                    <div class="resource-card">
+                        <div class="card-preview">
+                            <svg class="card-icon note" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" x2="8" y1="13" y2="13"/>
+                                <line x1="16" x2="8" y1="17" y2="17"/>
+                                <line x1="10" x2="8" y1="9" y2="9"/>
+                            </svg>
+                        </div>
+                        <div class="card-content">
+                            <div class="card-header">
+                                <svg class="card-type-icon" style="color: #5B9FED;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                </svg>
+                                <span class="card-title">Untitled Note</span>
+                            </div>
+                            <div class="card-meta">hace 1 hora</div>
+                        </div>
+                    </div>
+                    
+                    <div class="resource-card">
+                        <div class="card-preview">
+                            <svg class="card-icon pdf" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                        </div>
+                        <div class="card-content">
+                            <div class="card-header">
+                                <svg class="card-type-icon" style="color: #E57B7B;" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                </svg>
+                                <span class="card-title">C Alder.pdf</span>
+                            </div>
+                            <div class="card-meta">hace 1 hora</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

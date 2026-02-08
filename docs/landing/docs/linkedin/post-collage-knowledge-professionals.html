@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1200, height=1500">
+    <title>Dome - Knowledge Professionals (Collage)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:ital,wght@0,700;1,400&family=Libre+Baskerville:ital,wght@0,700;1,400&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; width: 1200px; height: 1500px; overflow: hidden; background: #1A1A1A; }
+        .post-container {
+            width: 100%; height: 100%; position: relative;
+            background: #1A1A1A;
+            box-sizing: border-box;
+        }
+        .collage-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            gap: 0;
+            width: 100%;
+            height: calc(100% - 72px);
+            position: relative;
+        }
+        .zone {
+            position: relative;
+            overflow: hidden;
+            margin: -2px;
+            min-height: 0;
+        }
+        .zone-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: sepia(0.22) contrast(1.06) saturate(0.88);
+        }
+        .zone-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, transparent 35%, rgba(0,0,0,0.4) 100%);
+            z-index: 0.5;
+        }
+        .zone-content { position: relative; z-index: 1; }
+        .grain-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 40;
+            opacity: 0.07;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+        .many-logo-wrap {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 15;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.94);
+            padding: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.28), 0 0 0 1px rgba(255,255,255,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .many-logo { width: 72px; height: 72px; display: block; }
+        .newspaper-title {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-0.8deg);
+            z-index: 25;
+            font-family: 'Libre Baskerville', 'Times New Roman', Georgia, serif;
+            font-size: 38px;
+            font-weight: 700;
+            line-height: 1.2;
+            color: #1A1A1A;
+            text-align: center;
+            background: rgba(255, 252, 240, 0.97);
+            padding: 28px 56px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.08);
+            max-width: 85%;
+            letter-spacing: 0.02em;
+        }
+        .paper-cut {
+            position: absolute;
+            background: #FFFFFF;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+            border: 1px solid #E5E5E5;
+            padding: 20px 24px;
+            font-family: 'Inter', sans-serif;
+            max-width: 280px;
+            z-index: 20;
+        }
+        .paper-cut-text { font-size: 16px; color: #1A1A1A; font-weight: 400; line-height: 1.45; }
+        .paper-cut-small { padding: 14px 18px; max-width: 220px; }
+        .paper-cut-small .paper-cut-text { font-size: 14px; }
+        .footer-cta {
+            position: absolute; bottom: 0; left: 0; right: 0; height: 72px;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 32px; background: #FFFFFF; border-top: 1px solid #E5E5E5;
+            z-index: 30;
+        }
+        .cta-content { display: flex; align-items: center; gap: 10px; }
+        .cta-icon { width: 20px; height: 20px; color: #596037; stroke-width: 2; }
+        .cta-text { font-size: 16px; font-weight: 600; color: #1A1A1A; }
+        .github-link { font-size: 14px; color: #8A8A8A; font-weight: 500; }
+    </style>
+</head>
+<body>
+    <div class="post-container">
+        <div class="collage-grid">
+        <div class="zone">
+            <img class="zone-img" src="https://picsum.photos/seed/pro-office-desk/400/476" alt="">
+            <div class="zone-overlay"></div>
+            <div class="zone-content">
+            <div class="many-logo-wrap">
+                <svg class="many-logo" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M328.634 306.098V235.894C328.634 182.087 286.288 138.468 234.051 138.468C181.814 138.468 139.467 182.087 139.467 235.894V306.098C139.467 318.605 152.245 326.74 163.106 321.146C171.884 316.625 182.34 317.296 190.506 322.903C199.692 329.212 211.659 329.212 220.846 322.903L224.181 320.613C230.158 316.509 237.944 316.509 243.92 320.613L247.256 322.903C256.442 329.212 268.409 329.212 277.596 322.903C285.761 317.296 296.218 316.625 304.996 321.146C315.856 326.74 328.634 318.605 328.634 306.098Z" fill="#E0EAB4"/>
+                    <path d="M288.333 235.312C288.333 243.148 284.099 249.5 278.875 249.5C273.651 249.5 269.417 243.148 269.417 235.312C269.417 227.477 273.651 221.125 278.875 221.125C284.099 221.125 288.333 227.477 288.333 235.312Z" fill="#596037"/>
+                    <ellipse cx="222.125" cy="235.312" rx="9.45833" ry="14.1875" fill="#596037"/>
+                    <path d="M345.083 322.547V252.343C345.083 198.536 302.737 154.917 250.5 154.917C198.263 154.917 155.917 198.536 155.917 252.343V322.547C155.917 335.054 168.695 343.189 179.555 337.595C188.333 333.075 198.789 333.745 206.955 339.353C216.141 345.661 228.109 345.661 237.295 339.353L240.63 337.062C246.607 332.958 254.393 332.958 260.37 337.062L263.705 339.353C272.891 345.661 284.859 345.661 294.045 339.353C302.211 333.745 312.667 333.075 321.445 337.595C332.305 343.189 345.083 335.054 345.083 322.547Z" stroke="#596037" stroke-width="7.59957"/>
+                </svg>
+            </div>
+            </div>
+        </div>
+        <div class="zone">
+            <img class="zone-img" src="https://picsum.photos/seed/pro-laptop-work/400/476" alt="">
+            <div class="zone-overlay"></div>
+        </div>
+        <div class="zone">
+            <img class="zone-img" src="https://picsum.photos/seed/pro-meeting-team/400/476" alt="">
+            <div class="zone-overlay"></div>
+        </div>
+        <div class="zone">
+            <img class="zone-img" src="https://picsum.photos/seed/pro-documents-files/400/476" alt="">
+            <div class="zone-overlay"></div>
+        </div>
+        <div class="zone">
+            <img class="zone-img" src="https://picsum.photos/seed/pro-project-client/400/476" alt="">
+            <div class="zone-overlay"></div>
+        </div>
+        <div class="zone">
+            <img class="zone-img" src="https://picsum.photos/seed/pro-data-summary/400/476" alt="">
+            <div class="zone-overlay"></div>
+        </div>
+        <div class="zone">
+            <img class="zone-img" src="https://picsum.photos/seed/pro-article-web/400/476" alt="">
+            <div class="zone-overlay"></div>
+        </div>
+        <div class="zone">
+            <img class="zone-img" src="https://picsum.photos/seed/pro-ai-research/400/476" alt="">
+            <div class="zone-overlay"></div>
+        </div>
+        <div class="zone">
+            <img class="zone-img" src="https://picsum.photos/seed/pro-whatsapp-mobile/400/476" alt="">
+            <div class="zone-overlay"></div>
+        </div>
+        </div>
+
+        <div class="newspaper-title">Un hub para cada fuente</div>
+        <div class="grain-overlay"></div>
+
+        <div class="paper-cut" style="top: 95px; left: 330px; transform: rotate(-1.4deg);">
+            <p class="paper-cut-text">Guardo artículos web, ordeno por cliente o proyecto y resumo documentos largos con IA. Todo centralizado.</p>
+        </div>
+        <div class="paper-cut paper-cut-small" style="top: 350px; left: 65px; transform: rotate(1deg);">
+            <p class="paper-cut-text">Es absolutamente mi herramienta de referencia.</p>
+        </div>
+        <div class="paper-cut" style="top: 510px; left: 410px; transform: rotate(-0.6deg);">
+            <p class="paper-cut-text">Acceso desde el móvil por WhatsApp. Capturo ideas al vuelo y las tengo en Dome.</p>
+        </div>
+        <div class="paper-cut paper-cut-small" style="top: 750px; left: 150px; transform: rotate(0.7deg);">
+            <p class="paper-cut-text">Menos tiempo buscando, más en entregar.</p>
+        </div>
+        <div class="paper-cut" style="top: 890px; left: 490px; transform: rotate(-1.1deg);">
+            <p class="paper-cut-text">Toda la información bajo mi control. Sin depender de la nube.</p>
+        </div>
+
+        <div class="footer-cta">
+            <div class="cta-content">
+                <svg class="cta-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                <span class="cta-text">Pruébalo</span>
+            </div>
+            <div class="github-link">github.com/maxprain12/dome</div>
+        </div>
+    </div>
+</body>
+</html>

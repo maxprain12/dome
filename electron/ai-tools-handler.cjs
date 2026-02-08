@@ -795,6 +795,99 @@ async function resourceDelete(resourceId) {
 }
 
 // =============================================================================
+// Flashcard Tools
+// =============================================================================
+
+/**
+ * Create a flashcard deck from AI-generated Q&A pairs
+ * @param {Object} data - Flashcard deck data
+ * @param {string} [data.resource_id] - Source resource ID
+ * @param {string} data.project_id - Project ID
+ * @param {string} data.title - Deck title
+ * @param {string} [data.description] - Deck description
+ * @param {Array<{question: string, answer: string, difficulty?: string, tags?: string}>} data.cards - Cards to create
+ * @returns {Promise<Object>}
+ */
+async function flashcardCreate(data) {
+  try {
+    if (!data || !data.title || !data.cards || !Array.isArray(data.cards) || data.cards.length === 0) {
+      return { success: false, error: 'Title and at least one card are required' };
+    }
+
+    const db = database.getDB();
+    const queries = database.getQueries();
+    const crypto = require('crypto');
+
+    // Determine project ID
+    let projectId = data.project_id;
+    if (!projectId) {
+      const currentProject = await getCurrentProject();
+      projectId = currentProject?.id || 'default';
+    }
+
+    const now = Date.now();
+    const deckId = crypto.randomUUID();
+
+    // Create deck
+    queries.createFlashcardDeck.run(
+      deckId,
+      data.resource_id || null,
+      projectId,
+      data.title.trim(),
+      data.description || null,
+      data.cards.length,
+      null, // tags
+      null, // settings
+      now,
+      now
+    );
+
+    // Bulk create cards in a transaction
+    const insertCards = db.transaction((cards) => {
+      for (const card of cards) {
+        if (!card.question || !card.answer) continue;
+        const cardId = crypto.randomUUID();
+        queries.createFlashcard.run(
+          cardId,
+          deckId,
+          card.question.trim(),
+          card.answer.trim(),
+          card.difficulty || 'medium',
+          card.tags || null,
+          null, // metadata
+          2.5, // ease_factor
+          0,   // interval
+          0,   // repetitions
+          null, // next_review_at
+          null, // last_reviewed_at
+          now,
+          now
+        );
+      }
+    });
+
+    insertCards(data.cards);
+
+    // Get final card count
+    const allCards = queries.getFlashcardsByDeck.all(deckId);
+
+    return {
+      success: true,
+      deck: {
+        id: deckId,
+        title: data.title.trim(),
+        card_count: allCards.length,
+        resource_id: data.resource_id || null,
+        project_id: projectId,
+      },
+    };
+  } catch (error) {
+    console.error('[AI Tools] flashcardCreate error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -824,4 +917,7 @@ module.exports = {
   // Context helpers
   getRecentResources,
   getCurrentProject,
+
+  // Flashcard tools
+  flashcardCreate,
 };

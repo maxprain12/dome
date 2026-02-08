@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { FolderOpen, FolderInput, Plus, Loader2, CheckCircle2, AlertCircle, Upload, ChevronRight, Home as HomeIcon, X } from 'lucide-react';
+import { FolderOpen, FolderInput, Plus, Loader2, CheckCircle2, AlertCircle, Upload, ChevronRight, Home as HomeIcon, X, Clock, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, Search, Bell, Settings, SlidersHorizontal, Filter, Grid3X3, List, Link2, FileText, File, Video, Music, Image as ImageIcon } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import UserMenu from '@/components/user/UserMenu';
 import { CommandCenter } from '@/components/CommandCenter';
 import FilterBar from './FilterBar';
 import ResourceCard from './ResourceCard';
+import HomeLayout from './HomeLayout';
+import { FlashcardDeckList } from '@/components/flashcards';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 
@@ -31,7 +33,7 @@ function getSearchSnippetForResource(
     const positionData = parseJsonField<{ selectedText?: string }>(i.position_data);
     const snippet = (metadata?.type === 'highlight' ? (positionData?.selectedText || null) : null) || i.content || '';
     const t = snippet.trim();
-    if (t) return t.length > 80 ? t.slice(0, 80) + '…' : t;
+    if (t) return t.length > 80 ? t.slice(0, 80) + '...' : t;
   }
   return undefined;
 }
@@ -40,6 +42,7 @@ export default function Home() {
   const { name } = useUserStore();
   const searchQuery = useAppStore((s) => s.searchQuery);
   const searchResults = useAppStore((s) => s.searchResults);
+  const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
 
   // Resource fetching and filtering
   const [selectedTypes, setSelectedTypes] = useState<ResourceType[]>([]);
@@ -74,7 +77,7 @@ export default function Home() {
     getFolderById
   } = useResources({
     types: selectedTypes.length > 0 ? selectedTypes : undefined,
-    folderId: currentFolderId, // Filter by current folder
+    folderId: currentFolderId,
     sortBy,
     sortOrder: 'desc'
   });
@@ -128,7 +131,6 @@ export default function Home() {
         project_id: 'default',
         content: '',
       });
-      // NO refetch - el listener se encargará de actualizar
     } catch (err) {
       console.error('Failed to create note:', err);
     }
@@ -136,13 +138,10 @@ export default function Home() {
 
   const handleUpload = useCallback((files: File[]) => {
     console.log('Upload files:', files);
-    // File objects from drag-drop - would need to extract paths
-    // For Electron, we handle file paths directly via handleImportFiles
   }, []);
 
   const handleImportFiles = useCallback(async (filePaths: string[]) => {
     console.log('Importing files:', filePaths, 'into folder:', currentFolderId);
-    // Pass currentFolderId so files are imported directly into the current folder
     const result = await importFiles(filePaths, 'default', currentFolderId);
     if (result.success) {
       console.log(`Successfully imported ${result.imported} files`);
@@ -154,12 +153,11 @@ export default function Home() {
   const handleAddUrl = useCallback(async (url: string, type: 'youtube' | 'article') => {
     console.log('Adding URL resource:', url, 'Type:', type);
     try {
-      // Always create as 'url' type for consistency
       const resourceType = 'url';
 
       const result = await createResource({
         type: resourceType as ResourceType,
-        title: type === 'youtube' ? 'YouTube Video' : 'Web Article', // Will be updated after processing
+        title: type === 'youtube' ? 'YouTube Video' : 'Web Article',
         project_id: 'default',
         content: url,
         folder_id: currentFolderId,
@@ -170,15 +168,11 @@ export default function Home() {
         }
       });
 
-      // Start processing in background
       if (result?.id && window.electron?.web?.process) {
-        // Process asynchronously without blocking
-        window.electron.web.process(result.id).catch((error) => {
+        window.electron.web.process(result.id).catch((error: unknown) => {
           console.error('Error processing URL resource:', error);
         });
       }
-
-      // NO refetch - el listener se encargará de actualizar
     } catch (err) {
       console.error('Failed to add URL resource:', err);
     }
@@ -192,11 +186,10 @@ export default function Home() {
         type: 'folder' as ResourceType,
         title: newFolderName,
         project_id: 'default',
-        folder_id: currentFolderId, // Create inside current folder if any
+        folder_id: currentFolderId,
       });
       setNewFolderName('');
       setShowNewFolderModal(false);
-      // NO refetch - el listener se encargará de actualizar
     } catch (err) {
       console.error('Failed to create folder:', err);
     }
@@ -240,37 +233,371 @@ export default function Home() {
     }
   }, [deleteTarget, deleteResource]);
 
+  // Render content based on active section
+  const renderSectionContent = () => {
+    switch (homeSidebarSection) {
+      case 'flashcards':
+        return <FlashcardDeckList />;
+
+      case 'chat':
+        return (
+          <div className="text-center py-20">
+            <div
+              className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center"
+              style={{ background: 'rgba(123, 118, 208, 0.08)' }}
+            >
+              <MessageCircle className="w-10 h-10" style={{ color: 'var(--dome-accent)' }} />
+            </div>
+            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
+              Martin Chat
+            </h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--dome-text-secondary)' }}>
+              Abre un recurso para chatear con Martin sobre su contenido.
+            </p>
+          </div>
+        );
+
+      case 'projects':
+        return (
+          <div className="text-center py-20">
+            <div
+              className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center"
+              style={{ background: 'rgba(123, 118, 208, 0.08)' }}
+            >
+              <ProjectIcon className="w-10 h-10" style={{ color: 'var(--dome-accent)' }} />
+            </div>
+            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
+              Proyectos
+            </h3>
+            <p className="text-sm" style={{ color: 'var(--dome-text-secondary)' }}>
+              Organiza tus recursos por proyecto. Proximamente.
+            </p>
+          </div>
+        );
+
+      case 'recent':
+        return renderLibraryContent();
+
+      case 'tags':
+        return (
+          <div className="text-center py-20">
+            <div
+              className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center"
+              style={{ background: 'rgba(123, 118, 208, 0.08)' }}
+            >
+              <TagsIcon className="w-10 h-10" style={{ color: 'var(--dome-accent)' }} />
+            </div>
+            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
+              Etiquetas
+            </h3>
+            <p className="text-sm" style={{ color: 'var(--dome-text-secondary)' }}>
+              Navega tus recursos por etiquetas. Proximamente.
+            </p>
+          </div>
+        );
+
+      case 'library':
+      default:
+        return renderLibraryContent();
+    }
+  };
+
+  const renderLibraryContent = () => (
+    <>
+      {/* Command Center - AI-powered search (primary focus) */}
+      <div className="mb-10">
+        <CommandCenter
+          onResourceSelect={handleResourceSelect}
+          onCreateNote={handleCreateNote}
+          onUpload={handleUpload}
+          onImportFiles={handleImportFiles}
+          onAddUrl={handleAddUrl}
+        />
+      </div>
+
+      {/* Filter Bar */}
+      <FilterBar
+        selectedTypes={selectedTypes}
+        onTypesChange={setSelectedTypes}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onCreateFolder={() => setShowNewFolderModal(true)}
+      />
+
+      {/* Breadcrumb Navigation */}
+      {currentFolderId ? (
+        <nav className="mb-6 flex items-center gap-2" style={{ color: 'var(--dome-text-secondary)' }} aria-label="Breadcrumb">
+          <button
+            onClick={handleNavigateToRoot}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--dome-accent-bg)]"
+            style={{ color: 'var(--dome-accent)' }}
+          >
+            <HomeIcon className="w-4 h-4" />
+            <span className="text-sm font-medium">Home</span>
+          </button>
+          <ChevronRight className="w-4 h-4 opacity-70" />
+          <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+            {currentFolder?.title ?? 'Unknown Folder'}
+          </span>
+        </nav>
+      ) : null}
+
+      {/* Folders Section */}
+      {folders.length > 0 ? (
+        <section className="mb-10" aria-label="Folders">
+          <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--dome-text-secondary)' }}>
+            {currentFolderId ? 'Subfolders' : 'Folders'}
+          </h2>
+          <div className="grid grid-cols-8 gap-4">
+            {folders.map((folder) => (
+              <button
+                key={folder.id}
+                onClick={() => handleFolderClick(folder)}
+                className="flex flex-col items-center gap-2 p-3 rounded-xl transition-all duration-200 hover:bg-[var(--dome-accent-bg)] focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+              >
+                <div
+                  className="w-14 h-14 rounded-xl flex items-center justify-center shadow-md transition-transform duration-200 group-hover:scale-105"
+                  style={{ backgroundColor: folder.metadata?.color ?? 'var(--dome-accent)' }}
+                >
+                  <FolderOpen className="w-7 h-7 text-white opacity-90" />
+                </div>
+                <span className="text-xs text-center truncate w-full leading-tight font-medium" style={{ color: 'var(--dome-text)' }}>
+                  {folder.title}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {/* Resources Grid/List */}
+      <section className="mb-6" aria-label="Resources">
+        <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--dome-text-secondary)' }}>
+          {isSearchMode
+            ? `Coincidencias para "${searchQuery}"`
+            : currentFolderId
+              ? 'Contents'
+              : homeSidebarSection === 'recent' ? 'Recientes' : 'Recent Resources'}
+        </h2>
+      </section>
+
+      {!isSearchMode && isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+        </div>
+      ) : null}
+
+      {!isSearchMode && error ? (
+        <div className="text-center py-20">
+          <p className="mb-2" style={{ color: 'var(--error)' }}>Failed to load resources</p>
+          <button
+            onClick={refetch}
+            className="btn btn-secondary text-sm"
+            style={{ color: 'var(--dome-accent)' }}
+          >
+            Try again
+          </button>
+        </div>
+      ) : null}
+
+      {isSearchMode && resourcesToShow.length === 0 && (
+        <div className="text-center py-20">
+          <p className="text-sm" style={{ color: 'var(--dome-text-secondary)' }}>
+            No hay coincidencias para &quot;{searchQuery}&quot;
+          </p>
+        </div>
+      )}
+
+      {!isSearchMode && !isLoading && !error && nonFolderResources.length === 0 && folders.length === 0 && (
+        <div className="text-center py-20">
+          <FolderOpen className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--dome-text-muted)' }} />
+          <p className="text-lg font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
+            {currentFolderId ? 'This folder is empty' : 'No resources yet'}
+          </p>
+          <p className="text-sm" style={{ color: 'var(--dome-text-secondary)' }}>
+            {currentFolderId
+              ? 'Drag files here or move resources into this folder'
+              : 'Drop files or use the command center to add your first resource'}
+          </p>
+        </div>
+      )}
+
+      {((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) ? (
+        <div
+          className={viewMode === 'grid'
+            ? 'gap-5'
+            : 'flex flex-col gap-2'
+          }
+          style={viewMode === 'grid' ? {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            contentVisibility: 'auto',
+          } : {
+            contentVisibility: 'auto',
+          }}
+        >
+          {resourcesToShow.map((resource) => (
+            <ResourceCard
+              key={resource.id}
+              resource={resource}
+              viewMode={viewMode}
+              onClick={() => handleResourceSelect(resource)}
+              onMoveToFolder={() => handleMoveToFolderRequest(resource)}
+              onDelete={() => handleDeleteResource(resource)}
+              onRename={(newTitle) => updateResource(resource.id, { title: newTitle })}
+              searchSnippet={isSearchMode && searchResults?.interactions
+                ? getSearchSnippetForResource(resource.id, searchResults.interactions)
+                : undefined}
+            />
+          ))}
+        </div>
+      ) : null}
+    </>
+  );
+
   return (
-    <div className="min-h-screen p-8" style={{ background: 'var(--bg)' }}>
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <header className="mb-8 flex items-center justify-between">
-          <h1 className="text-2xl font-display font-semibold tracking-tight" style={{ color: 'var(--primary-text)' }}>
-            Welcome back, {name || 'User'}
-          </h1>
-          <div className="flex items-center gap-3">
-            <button
-              className="btn btn-ghost px-3 py-1.5 text-sm rounded-lg transition-all duration-200"
+    <HomeLayout>
+      <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
+        {/* Top Bar */}
+        <div
+          className="flex items-center justify-between shrink-0"
+          style={{
+            background: 'var(--dome-surface)',
+            borderBottom: '1px solid var(--dome-border)',
+            padding: '16px 32px',
+          }}
+        >
+          {/* Search bar */}
+          <div className="relative" style={{ width: '400px' }}>
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2"
+              style={{ width: '16px', height: '16px', color: 'var(--dome-text-muted)' }}
+            />
+            <input
+              type="text"
+              placeholder="Search resources..."
+              className="w-full"
               style={{
-                color: 'var(--secondary-text)',
-                background: 'var(--bg-secondary)'
+                padding: '8px 16px 8px 36px',
+                background: 'var(--dome-bg)',
+                border: '1px solid var(--dome-border)',
+                borderRadius: '8px',
+                fontSize: '13px',
+                color: 'var(--dome-text)',
+                fontFamily: 'inherit',
+                outline: 'none',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'var(--dome-accent)';
+                e.currentTarget.style.background = 'var(--dome-surface)';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'var(--dome-border)';
+                e.currentTarget.style.background = 'var(--dome-bg)';
+              }}
+            />
+          </div>
+
+          {/* Top bar actions */}
+          <div className="flex gap-2">
+            <button
+              className="flex items-center justify-center transition-all duration-200"
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                background: 'transparent',
+                border: '1px solid var(--dome-border)',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--dome-bg)';
+                e.currentTarget.style.borderColor = 'var(--dome-accent)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.borderColor = 'var(--dome-border)';
               }}
             >
-              View Updates
+              <Bell style={{ width: '18px', height: '18px', color: 'var(--dome-text-secondary)' }} />
             </button>
-            <UserMenu />
+            <button
+              className="flex items-center justify-center transition-all duration-200"
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                background: 'transparent',
+                border: '1px solid var(--dome-border)',
+                cursor: 'pointer',
+              }}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.electron?.openSettings) {
+                  window.electron.openSettings();
+                }
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--dome-bg)';
+                e.currentTarget.style.borderColor = 'var(--dome-accent)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.borderColor = 'var(--dome-border)';
+              }}
+            >
+              <Settings style={{ width: '18px', height: '18px', color: 'var(--dome-text-secondary)' }} />
+            </button>
           </div>
-        </header>
+        </div>
 
-        {/* Command Center - AI-powered search (primary focus) */}
-        <div className="mb-10">
-          <CommandCenter
-            onResourceSelect={handleResourceSelect}
-            onCreateNote={handleCreateNote}
-            onUpload={handleUpload}
-            onImportFiles={handleImportFiles}
-            onAddUrl={handleAddUrl}
-          />
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto" style={{ padding: '32px' }}>
+          <div className="max-w-6xl mx-auto">
+            {/* Page header */}
+            <div style={{ marginBottom: '32px' }}>
+              <h1
+                style={{
+                  fontSize: '28px',
+                  fontWeight: 700,
+                  color: 'var(--dome-text)',
+                  marginBottom: '8px',
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                {homeSidebarSection === 'library'
+                  ? 'Recent Resources'
+                  : homeSidebarSection === 'flashcards'
+                  ? 'Flashcards'
+                  : homeSidebarSection === 'recent'
+                  ? 'Recent Resources'
+                  : homeSidebarSection === 'tags'
+                  ? 'Tags'
+                  : homeSidebarSection === 'chat'
+                  ? 'Martin Chat'
+                  : homeSidebarSection === 'projects'
+                  ? 'Projects'
+                  : 'Recent Resources'}
+              </h1>
+              <p style={{ fontSize: '14px', color: 'var(--dome-text-secondary)' }}>
+                {homeSidebarSection === 'library' || homeSidebarSection === 'recent'
+                  ? 'Your recently updated files and links'
+                  : homeSidebarSection === 'flashcards'
+                  ? 'Review your flashcard decks'
+                  : homeSidebarSection === 'tags'
+                  ? 'Browse resources by tag'
+                  : homeSidebarSection === 'chat'
+                  ? 'Chat with Martin about your resources'
+                  : homeSidebarSection === 'projects'
+                  ? 'Organize resources by project'
+                  : 'Your recently updated files and links'}
+              </p>
+            </div>
+
+            {/* Section Content */}
+            {renderSectionContent()}
+          </div>
         </div>
 
         {/* Import Progress Indicator */}
@@ -278,21 +605,21 @@ export default function Home() {
           <div
             className="fixed bottom-6 right-6 p-4 rounded-xl shadow-lg z-50 min-w-[300px]"
             style={{
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border)',
+              background: 'var(--dome-surface)',
+              border: '1px solid var(--dome-border)',
             }}
           >
             <div className="flex items-center gap-3">
               {importProgress.status === 'importing' && (
                 <>
                   <div className="relative">
-                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--accent)' }} />
+                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--dome-accent)' }} />
                   </div>
                   <div className="flex-1">
-                    <div className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+                    <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                       Importing files ({importProgress.current}/{importProgress.total})
                     </div>
-                    <div className="text-xs truncate" style={{ color: 'var(--secondary-text)' }}>
+                    <div className="text-xs truncate" style={{ color: 'var(--dome-text-secondary)' }}>
                       {importProgress.currentFile}
                     </div>
                   </div>
@@ -302,10 +629,10 @@ export default function Home() {
                 <>
                   <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--success)' }} />
                   <div className="flex-1">
-                    <div className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+                    <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                       Import complete!
                     </div>
-                    <div className="text-xs" style={{ color: 'var(--secondary-text)' }}>
+                    <div className="text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
                       {importProgress.total} file(s) imported successfully
                     </div>
                   </div>
@@ -315,10 +642,10 @@ export default function Home() {
                 <>
                   <AlertCircle className="w-5 h-5" style={{ color: 'var(--warning)' }} />
                   <div className="flex-1">
-                    <div className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+                    <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                       Import completed with errors
                     </div>
-                    <div className="text-xs" style={{ color: 'var(--secondary-text)' }}>
+                    <div className="text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
                       {importProgress.error}
                     </div>
                   </div>
@@ -331,147 +658,13 @@ export default function Home() {
                   className="h-full transition-all duration-300 rounded-full"
                   style={{
                     width: `${(importProgress.current / importProgress.total) * 100}%`,
-                    background: 'var(--accent)',
+                    background: 'var(--dome-accent)',
                   }}
                 />
               </div>
             ) : null}
           </div>
         )}
-
-        {/* Filter Bar */}
-        <FilterBar
-          selectedTypes={selectedTypes}
-          onTypesChange={setSelectedTypes}
-          sortBy={sortBy}
-          onSortByChange={setSortBy}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          onCreateFolder={() => setShowNewFolderModal(true)}
-        />
-
-        {/* Breadcrumb Navigation */}
-        {currentFolderId ? (
-          <nav className="mb-6 flex items-center gap-2" style={{ color: 'var(--secondary-text)' }} aria-label="Breadcrumb">
-            <button
-              onClick={handleNavigateToRoot}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--bg-hover)]"
-              style={{ color: 'var(--accent)' }}
-            >
-              <HomeIcon className="w-4 h-4" />
-              <span className="text-sm font-medium">Home</span>
-            </button>
-            <ChevronRight className="w-4 h-4 opacity-70" />
-            <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
-              {currentFolder?.title ?? 'Unknown Folder'}
-            </span>
-          </nav>
-        ) : null}
-
-        {/* Folders Section - Only show subfolders or root folders */}
-        {folders.length > 0 ? (
-          <section className="mb-10" aria-label="Folders">
-            <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--secondary-text)' }}>
-              {currentFolderId ? 'Subfolders' : 'Folders'}
-            </h2>
-            <div className="grid grid-cols-8 gap-4">
-              {folders.map((folder) => (
-                <button
-                  key={folder.id}
-                  onClick={() => handleFolderClick(folder)}
-                  className="flex flex-col items-center gap-2 p-3 rounded-xl transition-all duration-200 hover:bg-[var(--bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-                >
-                  <div
-                    className="w-14 h-14 rounded-xl flex items-center justify-center shadow-md transition-transform duration-200 group-hover:scale-105"
-                    style={{ backgroundColor: folder.metadata?.color ?? 'var(--accent)' }}
-                  >
-                    <FolderOpen className="w-7 h-7 text-white opacity-90" />
-                  </div>
-                  <span className="text-xs text-center truncate w-full leading-tight font-medium" style={{ color: 'var(--primary-text)' }}>
-                    {folder.title}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        {/* Resources Grid/List */}
-        <section className="mb-6" aria-label="Resources">
-          <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--secondary-text)' }}>
-            {isSearchMode
-              ? `Coincidencias para "${searchQuery}"`
-              : currentFolderId
-                ? 'Contents'
-                : 'Recent Resources'}
-          </h2>
-        </section>
-
-        {!isSearchMode && isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
-          </div>
-        ) : null}
-
-        {!isSearchMode && error ? (
-          <div className="text-center py-20">
-            <p className="mb-2" style={{ color: 'var(--error)' }}>Failed to load resources</p>
-            <button
-              onClick={refetch}
-              className="btn btn-secondary text-sm"
-              style={{ color: 'var(--accent)' }}
-            >
-              Try again
-            </button>
-          </div>
-        ) : null}
-
-        {isSearchMode && resourcesToShow.length === 0 && (
-          <div className="text-center py-20">
-            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-              No hay coincidencias para &quot;{searchQuery}&quot;
-            </p>
-          </div>
-        )}
-
-        {!isSearchMode && !isLoading && !error && nonFolderResources.length === 0 && folders.length === 0 && (
-          <div className="text-center py-20">
-            <FolderOpen className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--tertiary-text)' }} />
-            <p className="text-lg font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
-              {currentFolderId ? 'This folder is empty' : 'No resources yet'}
-            </p>
-            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-              {currentFolderId
-                ? 'Drag files here or move resources into this folder'
-                : 'Drop files or use the command center to add your first resource'}
-            </p>
-          </div>
-        )}
-
-        {((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) ? (
-          <div
-            className={viewMode === 'grid'
-              ? 'grid grid-cols-4 gap-4'
-              : 'flex flex-col gap-2'
-            }
-            style={{ contentVisibility: 'auto' }}
-          >
-            {resourcesToShow.map((resource) => (
-              <ResourceCard
-                key={resource.id}
-                resource={resource}
-                viewMode={viewMode}
-                onClick={() => handleResourceSelect(resource)}
-                onMoveToFolder={() => handleMoveToFolderRequest(resource)}
-                onDelete={() => handleDeleteResource(resource)}
-                onRename={(newTitle) => updateResource(resource.id, { title: newTitle })}
-                searchSnippet={isSearchMode && searchResults?.interactions
-                  ? getSearchSnippetForResource(resource.id, searchResults.interactions)
-                  : undefined}
-              />
-            ))}
-          </div>
-        ) : null}
 
         {/* New Folder Modal */}
         {showNewFolderModal ? (
@@ -487,7 +680,7 @@ export default function Home() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="modal-header">
-                <h3 id="new-folder-title" className="text-lg font-semibold font-display" style={{ color: 'var(--primary-text)' }}>
+                <h3 id="new-folder-title" className="text-lg font-semibold font-display" style={{ color: 'var(--dome-text)' }}>
                   Create New Folder
                 </h3>
               </div>
@@ -536,7 +729,7 @@ export default function Home() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="modal-header">
-                <h3 id="move-resource-title" className="text-lg font-semibold font-display" style={{ color: 'var(--primary-text)' }}>
+                <h3 id="move-resource-title" className="text-lg font-semibold font-display" style={{ color: 'var(--dome-text)' }}>
                   Move &quot;{resourceToMove.title}&quot;
                 </h3>
                 <button
@@ -544,7 +737,7 @@ export default function Home() {
                   className="btn btn-ghost p-1.5 rounded-md"
                   aria-label="Close"
                 >
-                  <X size={20} style={{ color: 'var(--secondary-text)' }} />
+                  <X size={20} style={{ color: 'var(--dome-text-secondary)' }} />
                 </button>
               </div>
 
@@ -552,17 +745,17 @@ export default function Home() {
                 {resourceToMove.folder_id ? (
                   <button
                     onClick={() => handleMoveToFolder(null)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors mb-2 hover:bg-[var(--bg-secondary)]"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors mb-2 hover:bg-[var(--dome-accent-bg)]"
                   >
-                    <HomeIcon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-                    <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+                    <HomeIcon className="w-5 h-5" style={{ color: 'var(--dome-accent)' }} />
+                    <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                       Move to Root
                     </span>
                   </button>
                 ) : null}
 
                 {allFolders.length === 0 ? (
-                  <p className="text-sm text-center py-4" style={{ color: 'var(--secondary-text)' }}>
+                  <p className="text-sm text-center py-4" style={{ color: 'var(--dome-text-secondary)' }}>
                     No folders yet. Create a folder first.
                   </p>
                 ) : (
@@ -574,19 +767,19 @@ export default function Home() {
                           key={folder.id}
                           onClick={() => handleMoveToFolder(folder.id)}
                           disabled={folder.id === resourceToMove.folder_id}
-                          className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-secondary)]"
+                          className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--dome-accent-bg)]"
                         >
                           <div
                             className="w-8 h-8 rounded-md flex items-center justify-center shrink-0"
-                            style={{ backgroundColor: folder.metadata?.color ?? 'var(--accent)' }}
+                            style={{ backgroundColor: folder.metadata?.color ?? 'var(--dome-accent)' }}
                           >
                             <FolderOpen className="w-4 h-4 text-white" />
                           </div>
-                          <span className="text-sm" style={{ color: 'var(--primary-text)' }}>
+                          <span className="text-sm" style={{ color: 'var(--dome-text)' }}>
                             {folder.title}
                           </span>
                           {folder.id === resourceToMove.folder_id ? (
-                            <span className="ml-auto text-xs" style={{ color: 'var(--secondary-text)' }}>
+                            <span className="ml-auto text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
                               (current)
                             </span>
                           ) : null}
@@ -620,7 +813,6 @@ export default function Home() {
           onCancel={() => setDeleteTarget(null)}
         />
       </div>
-    </div>
+    </HomeLayout>
   );
 }
-

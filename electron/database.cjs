@@ -727,6 +727,119 @@ function runMigrations(db) {
       ON CONFLICT(key) DO UPDATE SET value = '5', updated_at = excluded.updated_at
     `).run(Date.now());
   }
+
+  // Migration 6: Add flashcard tables for spaced repetition study
+  if (version < 6) {
+    console.log('[DB] Running migration 6: Add flashcard tables');
+
+    try {
+      // Flashcard decks table
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS flashcard_decks (
+          id TEXT PRIMARY KEY,
+          resource_id TEXT,
+          project_id TEXT NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          card_count INTEGER DEFAULT 0,
+          tags TEXT,
+          settings TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE SET NULL,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_flashcard_decks_project ON flashcard_decks(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_flashcard_decks_resource ON flashcard_decks(resource_id)');
+
+      // Individual flashcards with SM-2 spaced repetition fields
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS flashcards (
+          id TEXT PRIMARY KEY,
+          deck_id TEXT NOT NULL,
+          question TEXT NOT NULL,
+          answer TEXT NOT NULL,
+          difficulty TEXT DEFAULT 'medium',
+          tags TEXT,
+          metadata TEXT,
+          ease_factor REAL DEFAULT 2.5,
+          interval INTEGER DEFAULT 0,
+          repetitions INTEGER DEFAULT 0,
+          next_review_at INTEGER,
+          last_reviewed_at INTEGER,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (deck_id) REFERENCES flashcard_decks(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_flashcards_deck ON flashcards(deck_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_flashcards_next_review ON flashcards(next_review_at)');
+
+      // Study sessions tracking
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS flashcard_sessions (
+          id TEXT PRIMARY KEY,
+          deck_id TEXT NOT NULL,
+          cards_studied INTEGER DEFAULT 0,
+          cards_correct INTEGER DEFAULT 0,
+          cards_incorrect INTEGER DEFAULT 0,
+          duration_ms INTEGER DEFAULT 0,
+          started_at INTEGER NOT NULL,
+          completed_at INTEGER,
+          FOREIGN KEY (deck_id) REFERENCES flashcard_decks(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_flashcard_sessions_deck ON flashcard_sessions(deck_id)');
+
+      console.log('[DB] Migration 6 complete - flashcard tables added');
+    } catch (error) {
+      console.error('[DB] Migration 6 error:', error.message);
+    }
+
+    // Update schema version to 6
+    db.prepare(`
+      INSERT INTO settings (key, value, updated_at)
+      VALUES ('schema_version', '6', ?)
+      ON CONFLICT(key) DO UPDATE SET value = '6', updated_at = excluded.updated_at
+    `).run(Date.now());
+  }
+
+  // Migration 7: Add studio_outputs table
+  if (version < 7) {
+    console.log('[DB] Running migration 7: Add studio_outputs table');
+
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS studio_outputs (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          content TEXT,
+          source_ids TEXT,
+          file_path TEXT,
+          metadata TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+        )
+      `);
+
+      db.exec('CREATE INDEX IF NOT EXISTS idx_studio_outputs_project ON studio_outputs(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_studio_outputs_type ON studio_outputs(type)');
+
+      console.log('[DB] Migration 7 complete - studio_outputs table added');
+    } catch (error) {
+      console.error('[DB] Migration 7 error:', error.message);
+    }
+
+    db.prepare(`
+      INSERT INTO settings (key, value, updated_at)
+      VALUES ('schema_version', '7', ?)
+      ON CONFLICT(key) DO UPDATE SET value = '7', updated_at = excluded.updated_at
+    `).run(Date.now());
+  }
 }
 
 /**
@@ -918,6 +1031,52 @@ function getQueries() {
       ORDER BY e.weight DESC
       LIMIT 100
     `),
+
+    // Flashcard Decks
+    createFlashcardDeck: db.prepare(`
+      INSERT INTO flashcard_decks (id, resource_id, project_id, title, description, card_count, tags, settings, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getFlashcardDeckById: db.prepare('SELECT * FROM flashcard_decks WHERE id = ?'),
+    getFlashcardDecksByProject: db.prepare('SELECT * FROM flashcard_decks WHERE project_id = ? ORDER BY updated_at DESC'),
+    getAllFlashcardDecks: db.prepare('SELECT * FROM flashcard_decks ORDER BY updated_at DESC LIMIT ?'),
+    updateFlashcardDeck: db.prepare(`
+      UPDATE flashcard_decks SET title = ?, description = ?, card_count = ?, tags = ?, settings = ?, updated_at = ? WHERE id = ?
+    `),
+    deleteFlashcardDeck: db.prepare('DELETE FROM flashcard_decks WHERE id = ?'),
+
+    // Flashcards
+    createFlashcard: db.prepare(`
+      INSERT INTO flashcards (id, deck_id, question, answer, difficulty, tags, metadata, ease_factor, interval, repetitions, next_review_at, last_reviewed_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getFlashcardsByDeck: db.prepare('SELECT * FROM flashcards WHERE deck_id = ? ORDER BY created_at ASC'),
+    getFlashcardById: db.prepare('SELECT * FROM flashcards WHERE id = ?'),
+    getDueFlashcards: db.prepare(`
+      SELECT * FROM flashcards WHERE deck_id = ? AND (next_review_at IS NULL OR next_review_at <= ?) ORDER BY next_review_at ASC LIMIT ?
+    `),
+    updateFlashcardReview: db.prepare(`
+      UPDATE flashcards SET ease_factor = ?, interval = ?, repetitions = ?, next_review_at = ?, last_reviewed_at = ?, updated_at = ? WHERE id = ?
+    `),
+    updateFlashcard: db.prepare(`
+      UPDATE flashcards SET question = ?, answer = ?, difficulty = ?, tags = ?, metadata = ?, updated_at = ? WHERE id = ?
+    `),
+    deleteFlashcard: db.prepare('DELETE FROM flashcards WHERE id = ?'),
+    getFlashcardStats: db.prepare(`
+      SELECT
+        COUNT(*) as total,
+        SUM(CASE WHEN next_review_at IS NULL THEN 1 ELSE 0 END) as new_cards,
+        SUM(CASE WHEN next_review_at IS NOT NULL AND next_review_at <= ? THEN 1 ELSE 0 END) as due_cards,
+        SUM(CASE WHEN interval >= 21 THEN 1 ELSE 0 END) as mastered_cards
+      FROM flashcards WHERE deck_id = ?
+    `),
+
+    // Flashcard Sessions
+    createFlashcardSession: db.prepare(`
+      INSERT INTO flashcard_sessions (id, deck_id, cards_studied, cards_correct, cards_incorrect, duration_ms, started_at, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getSessionsByDeck: db.prepare('SELECT * FROM flashcard_sessions WHERE deck_id = ? ORDER BY started_at DESC LIMIT ?'),
   };
 
   return _queries;

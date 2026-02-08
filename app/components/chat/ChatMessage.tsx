@@ -5,10 +5,13 @@ import { Copy, Check, RefreshCw } from 'lucide-react';
 import ChatToolCard, { type ToolCallData } from './ChatToolCard';
 import ReadingIndicator from './ReadingIndicator';
 import MarkdownRenderer from './MarkdownRenderer';
+import SourceReference from './SourceReference';
+import MessageActions from './MessageActions';
+import { extractCitationNumbers, type ParsedCitation } from '@/lib/utils/citations';
 
 /**
  * ChatMessage - Individual message with actions
- * Supports markdown rendering, copy, and tool cards
+ * Supports markdown rendering, copy, tool cards, and inline citations
  */
 
 export interface ChatMessageData {
@@ -18,6 +21,7 @@ export interface ChatMessageData {
   timestamp: number;
   isStreaming?: boolean;
   toolCalls?: ToolCallData[];
+  citationMap?: Map<number, ParsedCitation>;
 }
 
 interface ChatMessageProps {
@@ -26,6 +30,8 @@ interface ChatMessageProps {
   isFirstInGroup?: boolean;
   isLastInGroup?: boolean;
   onRegenerate?: () => void;
+  onSaveAsNote?: (content: string) => void;
+  onClickCitation?: (number: number) => void;
   className?: string;
 }
 
@@ -35,6 +41,8 @@ export default function ChatMessage({
   isFirstInGroup = true,
   isLastInGroup = true,
   onRegenerate,
+  onSaveAsNote,
+  onClickCitation,
   className = '',
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
@@ -59,6 +67,26 @@ export default function ChatMessage({
     const date = new Date(message.timestamp);
     return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
   }, [message.timestamp]);
+
+  // Build source references from citation map and message content
+  const sourceReferences = useMemo(() => {
+    if (!message.citationMap || message.citationMap.size === 0 || !message.content) {
+      return [];
+    }
+
+    const citationNumbers = extractCitationNumbers(message.content);
+    return citationNumbers
+      .filter((num) => message.citationMap!.has(num))
+      .map((num) => {
+        const citation = message.citationMap!.get(num)!;
+        return {
+          number: num,
+          id: citation.sourceId || '',
+          title: citation.sourceTitle || `Source ${num}`,
+          type: 'resource',
+        };
+      });
+  }, [message.content, message.citationMap]);
 
   return (
     <div
@@ -86,7 +114,11 @@ export default function ChatMessage({
                 {isUser ? (
                   <span className="whitespace-pre-wrap">{message.content}</span>
                 ) : (
-                  <MarkdownRenderer content={message.content} />
+                  <MarkdownRenderer
+                    content={message.content}
+                    citationMap={message.citationMap}
+                    onClickCitation={onClickCitation}
+                  />
                 )}
               </div>
             ) : message.isStreaming ? (
@@ -96,6 +128,20 @@ export default function ChatMessage({
             {/* Streaming cursor */}
             {message.isStreaming && message.content && (
               <span className="inline-block w-0.5 h-4 ml-0.5 bg-current animate-pulse" />
+            )}
+
+            {/* Source references footer (only for assistant messages with citations) */}
+            {isAssistant && !message.isStreaming && sourceReferences.length > 0 && (
+              <SourceReference
+                sources={sourceReferences}
+                onClickSource={(sourceId) => {
+                  // Find the citation number for this source
+                  const citation = sourceReferences.find((s) => s.id === sourceId);
+                  if (citation && onClickCitation) {
+                    onClickCitation(citation.number);
+                  }
+                }}
+              />
             )}
           </div>
 
@@ -112,7 +158,7 @@ export default function ChatMessage({
 
       {/* Actions (shown on hover for assistant messages) */}
       {isAssistant && isLastInGroup && isHovered && !message.isStreaming && (
-        <div 
+        <div
           className="absolute -bottom-6 left-0 flex items-center gap-1 animate-in fade-in duration-150"
         >
           <button

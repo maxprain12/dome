@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1200, height=1200">
+    <title>Dome - Tech Deep Dive (Minimal)</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            width: 1200px;
+            height: 1200px;
+            overflow: hidden;
+        }
+        
+        .post-container {
+            width: 100%;
+            height: 100%;
+            background: #1A1A1A;
+            padding: 80px;
+            position: relative;
+            color: #FFFFFF;
+        }
+        
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 80px;
+        }
+        
+        .many-logo {
+            width: 90px;
+            height: 90px;
+        }
+        
+        .logo-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 24px;
+            font-weight: 500;
+            color: #E0EAB4;
+            letter-spacing: -0.02em;
+        }
+        
+        /* Main Title */
+        .main-title {
+            margin-bottom: 80px;
+        }
+        
+        .title-icon {
+            width: 40px;
+            height: 40px;
+            color: #E0EAB4;
+            margin-bottom: 24px;
+            stroke-width: 1.5;
+        }
+        
+        h1 {
+            font-size: 72px;
+            font-weight: 700;
+            color: #FFFFFF;
+            line-height: 0.95;
+            letter-spacing: -0.02em;
+            margin-bottom: 20px;
+        }
+        
+        .subtitle {
+            font-size: 24px;
+            color: #8A8A8A;
+            font-weight: 400;
+        }
+        
+        /* Tech Stack */
+        .tech-stack {
+            margin-bottom: 60px;
+        }
+        
+        .tech-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 18px;
+            font-weight: 500;
+            color: #596037;
+            margin-bottom: 32px;
+            letter-spacing: -0.01em;
+        }
+        
+        .tech-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .tech-item {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+        }
+        
+        .tech-icon {
+            width: 28px;
+            height: 28px;
+            color: #E0EAB4;
+            stroke-width: 2;
+            flex-shrink: 0;
+        }
+        
+        .tech-content h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #FFFFFF;
+            margin-bottom: 4px;
+        }
+        
+        .tech-content p {
+            font-size: 14px;
+            color: #8A8A8A;
+        }
+        
+        /* Code Block */
+        .code-section {
+            background: #0F0F0F;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 32px;
+            margin-bottom: 60px;
+        }
+        
+        .code-header {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .code-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .code-content {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px;
+            line-height: 1.8;
+            color: #E0EAB4;
+        }
+        
+        .code-comment {
+            color: #596037;
+        }
+        
+        .code-keyword {
+            color: #FFFFFF;
+        }
+        
+        /* Why Section */
+        .why-section {
+            padding: 32px 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .why-title {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .why-icon {
+            width: 24px;
+            height: 24px;
+            color: #E0EAB4;
+            stroke-width: 2;
+        }
+        
+        .why-title h2 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #FFFFFF;
+            letter-spacing: -0.01em;
+        }
+        
+        .why-text {
+            font-size: 18px;
+            line-height: 1.7;
+            color: #B0B0B0;
+        }
+        
+        .why-highlight {
+            color: #E0EAB4;
+            font-weight: 500;
+        }
+        
+        /* Footer */
+        .footer {
+            position: absolute;
+            bottom: 80px;
+            left: 80px;
+            right: 80px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .hashtags {
+            font-size: 14px;
+            color: #596037;
+            font-weight: 400;
+        }
+        
+        .github-link {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px;
+            color: #8A8A8A;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="post-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="many-logo">
+                <svg width="90" height="90" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M328.634 306.098V235.894C328.634 182.087 286.288 138.468 234.051 138.468C181.814 138.468 139.467 182.087 139.467 235.894V306.098C139.467 318.605 152.245 326.74 163.106 321.146C171.884 316.625 182.34 317.296 190.506 322.903C199.692 329.212 211.659 329.212 220.846 322.903L224.181 320.613C230.158 316.509 237.944 316.509 243.92 320.613L247.256 322.903C256.442 329.212 268.409 329.212 277.596 322.903C285.761 317.296 296.218 316.625 304.996 321.146C315.856 326.74 328.634 318.605 328.634 306.098Z" fill="#E0EAB4"/>
+                    <path d="M288.333 235.312C288.333 243.148 284.099 249.5 278.875 249.5C273.651 249.5 269.417 243.148 269.417 235.312C269.417 227.477 273.651 221.125 278.875 221.125C284.099 221.125 288.333 227.477 288.333 235.312Z" fill="#596037"/>
+                    <ellipse cx="222.125" cy="235.312" rx="9.45833" ry="14.1875" fill="#596037"/>
+                    <path d="M345.083 322.547V252.343C345.083 198.536 302.737 154.917 250.5 154.917C198.263 154.917 155.917 198.536 155.917 252.343V322.547C155.917 335.054 168.695 343.189 179.555 337.595C188.333 333.075 198.789 333.745 206.955 339.353C216.141 345.661 228.109 345.661 237.295 339.353L240.63 337.062C246.607 332.958 254.393 332.958 260.37 337.062L263.705 339.353C272.891 345.661 284.859 345.661 294.045 339.353C302.211 333.745 312.667 333.075 321.445 337.595C332.305 343.189 345.083 335.054 345.083 322.547Z" stroke="#596037" stroke-width="7.59957"/>
+                </svg>
+            </div>
+            <div class="logo-text">dome/tech</div>
+        </div>
+        
+        <!-- Main Title -->
+        <div class="main-title">
+            <svg class="title-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            <h1>Tech Stack</h1>
+            <p class="subtitle">Built with privacy & performance in mind</p>
+        </div>
+        
+        <!-- Tech Stack -->
+        <div class="tech-stack">
+            <div class="tech-title">&gt; core_technologies</div>
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <svg class="tech-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v20M2 12h20"/>
+                    </svg>
+                    <div class="tech-content">
+                        <h3>Rust</h3>
+                        <p>Performance & safety</p>
+                    </div>
+                </div>
+                <div class="tech-item">
+                    <svg class="tech-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                        <path d="M3 5V19A9 3 0 0 0 21 19V5"/>
+                        <path d="M3 12A9 3 0 0 0 21 12"/>
+                    </svg>
+                    <div class="tech-content">
+                        <h3>SQLite</h3>
+                        <p>Local-first database</p>
+                    </div>
+                </div>
+                <div class="tech-item">
+                    <svg class="tech-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                    <div class="tech-content">
+                        <h3>Vector Search</h3>
+                        <p>Semantic similarity</p>
+                    </div>
+                </div>
+                <div class="tech-item">
+                    <svg class="tech-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                    <div class="tech-content">
+                        <h3>E2E Encryption</h3>
+                        <p>Zero-knowledge</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Code Example -->
+        <div class="code-section">
+            <div class="code-header">
+                <span class="code-dot"></span>
+                <span class="code-dot"></span>
+                <span class="code-dot"></span>
+            </div>
+            <div class="code-content">
+                <span class="code-comment">// Everything stays on your machine</span><br>
+                <span class="code-keyword">let</span> research = Dome::new()<br>
+                &nbsp;&nbsp;.local_only(<span class="code-keyword">true</span>)<br>
+                &nbsp;&nbsp;.encrypted(<span class="code-keyword">true</span>)<br>
+                &nbsp;&nbsp;.build();<br>
+                <br>
+                <span class="code-comment">// No cloud, no tracking</span>
+            </div>
+        </div>
+        
+        <!-- Why Section -->
+        <div class="why-section">
+            <div class="why-title">
+                <svg class="why-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                    <path d="M12 17h.01"/>
+                </svg>
+                <h2>Why offline-first matters</h2>
+            </div>
+            <p class="why-text">
+                Your research is <span class="why-highlight">private</span>. Your ideas are <span class="why-highlight">valuable</span>. 
+                With Dome, everything stays on your machine—no servers, no data mining, no surprises. 
+                Work anywhere, anytime, with <span class="why-highlight">complete control</span>.
+            </p>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <div class="hashtags">#OpenSource #PrivacyFirst #OfflineFirst</div>
+            <div class="github-link">github.com/maxprain12/dome</div>
+        </div>
+    </div>
+</body>
+</html>

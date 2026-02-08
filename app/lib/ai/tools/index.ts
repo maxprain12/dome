@@ -136,6 +136,12 @@ export {
   createResourceActionTools,
 } from './resource-actions';
 
+// Tools - Flashcards
+export {
+  createFlashcardCreateTool,
+  createFlashcardTools,
+} from './flashcards';
+
 // Tools - Context
 export {
   createProjectListTool,
@@ -145,6 +151,25 @@ export {
   createGetCurrentProjectTool,
   createContextTools,
 } from './context';
+
+// Tools - Studio Outputs
+export {
+  createGenerateMindmapTool,
+  createGenerateQuizTool,
+  createStudioTools,
+} from './studio-outputs';
+
+// Tools - Audio Overview
+export {
+  createGenerateAudioScriptTool,
+  createAudioOverviewTools,
+} from './audio-overview';
+
+// Tools - Deep Research
+export {
+  createDeepResearchTool,
+  createDeepResearchTools,
+} from './deep-research';
 
 // =============================================================================
 // Default Tools
@@ -156,7 +181,11 @@ import { createWebFetchTool, type WebFetchConfig } from './web-fetch';
 import { createMemoryTools } from './memory';
 import { createResourceTools } from './resources';
 import { createResourceActionTools } from './resource-actions';
+import { createFlashcardTools } from './flashcards';
 import { createContextTools } from './context';
+import { createStudioTools } from './studio-outputs';
+import { createAudioOverviewTools } from './audio-overview';
+import { createDeepResearchTools } from './deep-research';
 
 /**
  * Configuration for creating default tools
@@ -208,12 +237,22 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   if (config?.includeResources !== false) {
     tools.push(...createResourceTools());
     tools.push(...createResourceActionTools());
+    tools.push(...createFlashcardTools());
   }
 
   // Context tools
   if (config?.includeContext !== false) {
     tools.push(...createContextTools());
   }
+
+  // Studio output tools (mind map, quiz)
+  tools.push(...createStudioTools());
+
+  // Audio overview tools (podcast script generation)
+  tools.push(...createAudioOverviewTools());
+
+  // Deep research tools
+  tools.push(...createDeepResearchTools());
 
   return tools;
 }

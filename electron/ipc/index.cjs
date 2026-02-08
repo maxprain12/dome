@@ -21,6 +21,9 @@ const authHandlers = require('./auth.cjs');
 const personalityHandlers = require('./personality.cjs');
 const aiHandlers = require('./ai.cjs');
 const aiToolsHandlers = require('./ai-tools.cjs');
+const flashcardsHandlers = require('./flashcards.cjs');
+const studioHandlers = require('./studio.cjs');
+const audioHandlers = require('./audio.cjs');
 
 /**
  * Register all IPC handlers
@@ -40,6 +43,7 @@ function registerAll(deps) {
     ollamaManager,
     aiToolsHandler,
     aiCloudService,
+    ttsService,
     vectorHandler,
     documentExtractor,
     authManager,
@@ -73,6 +77,9 @@ function registerAll(deps) {
   personalityHandlers.register({ ipcMain, windowManager, personalityLoader });
   aiHandlers.register({ ipcMain, windowManager, database, aiCloudService });
   aiToolsHandlers.register({ ipcMain, windowManager, aiToolsHandler });
+  flashcardsHandlers.register({ ipcMain, windowManager, database, validateSender });
+  studioHandlers.register({ ipcMain, windowManager, database, validateSender });
+  audioHandlers.register({ ipcMain, windowManager, database, ttsService });
 
   console.log('[IPC] All handlers registered successfully');
 }

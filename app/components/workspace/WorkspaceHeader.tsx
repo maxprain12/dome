@@ -15,7 +15,10 @@ import {
   MoreHorizontal,
   ExternalLink,
   FolderOpen,
+  BookOpen,
+  Sparkles,
 } from 'lucide-react';
+import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
 
 interface EditableTitle {
@@ -45,6 +48,11 @@ export default function WorkspaceHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
+  const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
+  const toggleSourcesPanel = useAppStore((s) => s.toggleSourcesPanel);
+  const toggleStudioPanel = useAppStore((s) => s.toggleStudioPanel);
 
   const hasFile = !!(resource.internal_path || resource.file_path);
 
@@ -174,6 +182,38 @@ export default function WorkspaceHeader({
 
       {/* Right section */}
       <div className="flex items-center gap-2 app-region-no-drag">
+        {/* Sources panel toggle */}
+        <button
+          onClick={toggleSourcesPanel}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          style={{
+            background: sourcesPanelOpen ? 'var(--bg-secondary)' : 'transparent',
+            color: sourcesPanelOpen ? 'var(--primary-text)' : 'var(--secondary-text)',
+          }}
+          title={sourcesPanelOpen ? 'Hide sources' : 'Show sources'}
+          aria-label={sourcesPanelOpen ? 'Hide sources panel' : 'Show sources panel'}
+          aria-expanded={sourcesPanelOpen}
+        >
+          <BookOpen size={16} />
+          <span>Sources</span>
+        </button>
+
+        {/* Studio panel toggle */}
+        <button
+          onClick={toggleStudioPanel}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          style={{
+            background: studioPanelOpen ? 'var(--bg-secondary)' : 'transparent',
+            color: studioPanelOpen ? 'var(--primary-text)' : 'var(--secondary-text)',
+          }}
+          title={studioPanelOpen ? 'Hide studio' : 'Show studio'}
+          aria-label={studioPanelOpen ? 'Hide studio panel' : 'Show studio panel'}
+          aria-expanded={studioPanelOpen}
+        >
+          <Sparkles size={16} />
+          <span>Studio</span>
+        </button>
+
         {/* More options menu */}
         <div className="relative">
           <button

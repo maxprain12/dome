@@ -183,6 +183,36 @@ const ALLOWED_CHANNELS = {
     'ai:tools:resourceCreate',
     'ai:tools:resourceUpdate',
     'ai:tools:resourceDelete',
+    // AI Tools - Flashcards
+    'ai:tools:flashcardCreate',
+    // Database - Flashcards
+    'db:flashcards:createDeck',
+    'db:flashcards:getDeck',
+    'db:flashcards:getDecksByProject',
+    'db:flashcards:getAllDecks',
+    'db:flashcards:updateDeck',
+    'db:flashcards:deleteDeck',
+    'db:flashcards:createCard',
+    'db:flashcards:createCards',
+    'db:flashcards:getCards',
+    'db:flashcards:getDueCards',
+    'db:flashcards:reviewCard',
+    'db:flashcards:updateCard',
+    'db:flashcards:deleteCard',
+    'db:flashcards:getStats',
+    'db:flashcards:createSession',
+    'db:flashcards:getSessions',
+    // Audio (TTS)
+    'audio:generate-speech',
+    'audio:generate-podcast',
+    'audio:get-status',
+    'audio:list',
+    // Database - Studio Outputs
+    'db:studio:create',
+    'db:studio:getByProject',
+    'db:studio:getById',
+    'db:studio:update',
+    'db:studio:delete',
     'ollama:list-models',
     'ollama:generate-embedding',
     'ollama:generate-summary',
@@ -214,6 +244,8 @@ const ALLOWED_CHANNELS = {
     'whatsapp:disconnected',
     // AI Cloud streaming
     'ai:stream:chunk',
+    // Audio events
+    'audio:generation-progress',
     // Ollama Manager events
     'ollama:download-progress',
     'ollama:server-log',
@@ -440,6 +472,26 @@ const electronHandler = {
       unified: (query) => ipcRenderer.invoke('db:search:unified', query),
     },
 
+    // Flashcards
+    flashcards: {
+      createDeck: (deck) => ipcRenderer.invoke('db:flashcards:createDeck', deck),
+      getDeck: (id) => ipcRenderer.invoke('db:flashcards:getDeck', id),
+      getDecksByProject: (projectId) => ipcRenderer.invoke('db:flashcards:getDecksByProject', projectId),
+      getAllDecks: (limit) => ipcRenderer.invoke('db:flashcards:getAllDecks', limit),
+      updateDeck: (deck) => ipcRenderer.invoke('db:flashcards:updateDeck', deck),
+      deleteDeck: (id) => ipcRenderer.invoke('db:flashcards:deleteDeck', id),
+      createCard: (card) => ipcRenderer.invoke('db:flashcards:createCard', card),
+      createCards: (deckId, cards) => ipcRenderer.invoke('db:flashcards:createCards', { deckId, cards }),
+      getCards: (deckId) => ipcRenderer.invoke('db:flashcards:getCards', deckId),
+      getDueCards: (deckId, limit) => ipcRenderer.invoke('db:flashcards:getDueCards', { deckId, limit }),
+      reviewCard: (cardId, quality) => ipcRenderer.invoke('db:flashcards:reviewCard', { cardId, quality }),
+      updateCard: (card) => ipcRenderer.invoke('db:flashcards:updateCard', card),
+      deleteCard: (id) => ipcRenderer.invoke('db:flashcards:deleteCard', id),
+      getStats: (deckId) => ipcRenderer.invoke('db:flashcards:getStats', deckId),
+      createSession: (session) => ipcRenderer.invoke('db:flashcards:createSession', session),
+      getSessions: (deckId, limit) => ipcRenderer.invoke('db:flashcards:getSessions', { deckId, limit }),
+    },
+
     // Settings
     settings: {
       get: (key) => ipcRenderer.invoke('db:settings:get', key),
@@ -649,6 +701,37 @@ const electronHandler = {
 
       resourceDelete: (resourceId) =>
         ipcRenderer.invoke('ai:tools:resourceDelete', { resourceId }),
+
+      // Flashcard creation (for AI-generated study decks)
+      flashcardCreate: (data) =>
+        ipcRenderer.invoke('ai:tools:flashcardCreate', { data }),
+    },
+  },
+
+  // ============================================
+  // AUDIO API (TTS)
+  // ============================================
+  audio: {
+    // Generate speech from single text
+    generateSpeech: (text, voice, options) =>
+      ipcRenderer.invoke('audio:generate-speech', { text, voice, options }),
+
+    // Generate full podcast from dialogue lines
+    generatePodcast: (lines, options) =>
+      ipcRenderer.invoke('audio:generate-podcast', { lines, options }),
+
+    // Get generation status
+    getStatus: (generationId) =>
+      ipcRenderer.invoke('audio:get-status', { generationId }),
+
+    // List generated audio files
+    list: () => ipcRenderer.invoke('audio:list'),
+
+    // Listen to generation progress
+    onGenerationProgress: (callback) => {
+      const subscription = (event, data) => callback(data);
+      ipcRenderer.on('audio:generation-progress', subscription);
+      return () => ipcRenderer.removeListener('audio:generation-progress', subscription);
     },
   },
 

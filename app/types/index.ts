@@ -278,6 +278,93 @@ export interface WhatsAppMessage {
 // MARTIN TYPES
 // ============================================
 
+// ============================================
+// FLASHCARD TYPES
+// ============================================
+
+export interface FlashcardDeck {
+  id: string;
+  resource_id?: string;
+  project_id: string;
+  title: string;
+  description?: string;
+  card_count: number;
+  tags?: string;
+  settings?: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface Flashcard {
+  id: string;
+  deck_id: string;
+  question: string;
+  answer: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  tags?: string;
+  metadata?: string;
+  ease_factor: number;
+  interval: number;
+  repetitions: number;
+  next_review_at: number | null;
+  last_reviewed_at: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface FlashcardStudySession {
+  id: string;
+  deck_id: string;
+  cards_studied: number;
+  cards_correct: number;
+  cards_incorrect: number;
+  duration_ms: number;
+  started_at: number;
+  completed_at: number | null;
+}
+
+export interface FlashcardDeckStats {
+  total: number;
+  new_cards: number;
+  due_cards: number;
+  mastered_cards: number;
+}
+
+// ============================================
+// DEEP RESEARCH TYPES
+// ============================================
+
+export interface ResearchPlan {
+  topic: string;
+  subtopics: Array<{
+    id: string;
+    title: string;
+    status: 'pending' | 'searching' | 'analyzing' | 'done';
+    queries?: string[];
+  }>;
+}
+
+export interface ResearchReport {
+  title: string;
+  sections: Array<{
+    id: string;
+    heading: string;
+    content: string;
+  }>;
+  sources: Array<{
+    id: string;
+    title: string;
+    url?: string;
+    snippet: string;
+  }>;
+}
+
+export interface ResearchLogEntry {
+  timestamp: number;
+  type: 'search' | 'fetch' | 'analyze' | 'synthesize' | 'info';
+  message: string;
+}
+
 export type MartinStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
 
 export interface MartinMessage {
@@ -292,4 +379,96 @@ export interface MartinState {
   isThinking: boolean;
   unreadCount: number;
   currentContext?: string;
+}
+
+// ============================================
+// STUDIO OUTPUT TYPES
+// ============================================
+
+export type StudioOutputType = 'mindmap' | 'quiz' | 'guide' | 'faq' | 'timeline' | 'table' | 'audio' | 'video' | 'research';
+
+export interface StudioOutput {
+  id: string;
+  project_id: string;
+  type: StudioOutputType;
+  title: string;
+  content?: string; // JSON structure specific to type
+  source_ids?: string; // JSON array of resource IDs used
+  file_path?: string; // for audio/video files
+  metadata?: string; // JSON additional data
+  created_at: number;
+  updated_at: number;
+}
+
+export interface MindMapNode {
+  id: string;
+  label: string;
+  children?: MindMapNode[];
+}
+
+export interface MindMapData {
+  nodes: Array<{ id: string; label: string; position?: { x: number; y: number } }>;
+  edges: Array<{ id: string; source: string; target: string; label?: string }>;
+}
+
+export interface QuizQuestion {
+  id: string;
+  type: 'multiple_choice' | 'true_false' | 'fill_blank';
+  question: string;
+  options?: string[];
+  correct: number | string;
+  explanation: string;
+  source_citation?: { source_id: string; passage: string };
+}
+
+export interface QuizData {
+  questions: QuizQuestion[];
+}
+
+export interface StudyGuideData {
+  sections: Array<{
+    title: string;
+    content: string; // markdown
+  }>;
+}
+
+export interface FAQData {
+  pairs: Array<{
+    question: string;
+    answer: string;
+    source_id?: string;
+  }>;
+}
+
+export interface TimelineEvent {
+  date: string;
+  title: string;
+  description: string;
+  source_id?: string;
+}
+
+export interface TimelineData {
+  events: TimelineEvent[];
+}
+
+export interface DataTableData {
+  columns: Array<{ key: string; label: string }>;
+  rows: Array<Record<string, string | number>>;
+}
+
+// ============================================
+// AUDIO OVERVIEW TYPES
+// ============================================
+
+export interface AudioOverviewData {
+  format: 'podcast' | 'briefing' | 'debate';
+  transcript: {
+    lines: Array<{
+      speaker: string;
+      text: string;
+      startTime?: number;
+    }>;
+  };
+  audioPath?: string;
+  duration?: number;
 }

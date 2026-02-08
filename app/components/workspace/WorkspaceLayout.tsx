@@ -5,7 +5,11 @@ import dynamic from 'next/dynamic';
 import { Loader2, AlertCircle, File, ExternalLink } from 'lucide-react';
 import WorkspaceHeader from './WorkspaceHeader';
 import SidePanel from './SidePanel';
+import SourcesPanel from './SourcesPanel';
+import StudioPanel from './StudioPanel';
+import StudioOutputViewer from './StudioOutputViewer';
 import MetadataModal from './MetadataModal';
+import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
 
 const PDFViewer = dynamic(() => import('../viewers/PDFViewer').then((m) => m.default), { ssr: false });
@@ -25,6 +29,10 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
   const [error, setError] = useState<string | null>(null);
   const [sidePanelOpen, setSidePanelOpen] = useState(true);
   const [showMetadata, setShowMetadata] = useState(false);
+  const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
+  const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
+  const activeStudioOutput = useAppStore((s) => s.activeStudioOutput);
+  const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
 
   // Load resource data
   useEffect(() => {
@@ -251,10 +259,26 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
       />
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
+        {/* Sources Panel */}
+        {sourcesPanelOpen && resource && (
+          <SourcesPanel
+            resourceId={resourceId}
+            projectId={resource.project_id}
+          />
+        )}
+
         {/* Viewer */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden relative">
           {renderViewer()}
+
+          {/* Studio Output Viewer Overlay */}
+          {activeStudioOutput && (
+            <StudioOutputViewer
+              output={activeStudioOutput}
+              onClose={() => setActiveStudioOutput(null)}
+            />
+          )}
         </div>
 
         {/* Side Panel */}
@@ -264,6 +288,11 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
           isOpen={sidePanelOpen}
           onClose={() => setSidePanelOpen(false)}
         />
+
+        {/* Studio Panel */}
+        {studioPanelOpen && (
+          <StudioPanel />
+        )}
       </div>
 
       {/* Metadata Modal */}

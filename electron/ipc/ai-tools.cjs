@@ -181,6 +181,24 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     }
   });
 
+  // AI Tools - Flashcard Creation
+  ipcMain.handle('ai:tools:flashcardCreate', async (event, { data }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const result = await aiToolsHandler.flashcardCreate(data);
+      if (result.success && result.deck) {
+        windowManager.broadcast('flashcard:deckCreated', result.deck);
+      }
+      return result;
+    } catch (error) {
+      console.error('[AI Tools] flashcardCreate error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('ai:tools:resourceDelete', async (event, { resourceId }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };

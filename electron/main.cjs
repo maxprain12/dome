@@ -43,6 +43,7 @@ const documentExtractor = require('./document-extractor.cjs');
 const authManager = require('./auth-manager.cjs');
 const personalityLoader = require('./personality-loader.cjs');
 const aiCloudService = require('./ai-cloud-service.cjs');
+const ttsService = require('./tts-service.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
 
 // IPC handlers (modularized)
@@ -338,6 +339,7 @@ app
       ollamaManager,
       aiToolsHandler,
       aiCloudService,
+      ttsService,
       vectorHandler,
       documentExtractor,
       authManager,

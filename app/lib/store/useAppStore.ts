@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Project, Resource, Source, Tag, AppPreferences, CitationStyle } from '@/types';
+import type { Project, Resource, Source, Tag, AppPreferences, CitationStyle, StudioOutput } from '@/types';
 import { getAppPreferences, saveAppPreferences, setTheme as saveTheme, setCitationStyle } from '../settings';
 
 interface AppState {
@@ -37,12 +37,35 @@ interface AppState {
   // UI Estado
   sidebarOpen: boolean;
   toggleSidebar: () => void;
+  homeSidebarSection: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags';
+  setHomeSidebarSection: (section: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags') => void;
+  homeSidebarCollapsed: boolean;
+  toggleHomeSidebar: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   searchResults: { resources: any[]; interactions: any[] } | null;
   setSearchResults: (data: { resources: any[]; interactions: any[] } | null) => void;
   viewMode: 'grid' | 'list';
   setViewMode: (mode: 'grid' | 'list') => void;
+
+  // Workspace Panel State
+  sourcesPanelOpen: boolean;
+  studioPanelOpen: boolean;
+  selectedSourceIds: string[];
+  toggleSourcesPanel: () => void;
+  toggleStudioPanel: () => void;
+  setSelectedSourceIds: (ids: string[]) => void;
+  toggleSourceId: (id: string) => void;
+  selectAllSources: (ids: string[]) => void;
+  deselectAllSources: () => void;
+
+  // Studio Output State
+  activeStudioOutput: StudioOutput | null;
+  setActiveStudioOutput: (output: StudioOutput | null) => void;
+  studioOutputs: StudioOutput[];
+  setStudioOutputs: (outputs: StudioOutput[]) => void;
+  addStudioOutput: (output: StudioOutput) => void;
+  removeStudioOutput: (id: string) => void;
 
   // App Preferences
   theme: 'light' | 'dark' | 'auto';
@@ -114,12 +137,44 @@ export const useAppStore = create<AppState>((set) => ({
   // UI Estado
   sidebarOpen: true,
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  homeSidebarSection: 'library',
+  setHomeSidebarSection: (section) => set({ homeSidebarSection: section }),
+  homeSidebarCollapsed: false,
+  toggleHomeSidebar: () => set((state) => ({ homeSidebarCollapsed: !state.homeSidebarCollapsed })),
   searchQuery: '',
   setSearchQuery: (query) => set({ searchQuery: query }),
   searchResults: null,
   setSearchResults: (data) => set({ searchResults: data }),
   viewMode: 'grid',
   setViewMode: (mode) => set({ viewMode: mode }),
+
+  // Workspace Panel State
+  sourcesPanelOpen: true,
+  studioPanelOpen: false,
+  selectedSourceIds: [],
+  toggleSourcesPanel: () => set((state) => ({ sourcesPanelOpen: !state.sourcesPanelOpen })),
+  toggleStudioPanel: () => set((state) => ({ studioPanelOpen: !state.studioPanelOpen })),
+  setSelectedSourceIds: (ids) => set({ selectedSourceIds: ids }),
+  toggleSourceId: (id) => set((state) => ({
+    selectedSourceIds: state.selectedSourceIds.includes(id)
+      ? state.selectedSourceIds.filter((sid) => sid !== id)
+      : [...state.selectedSourceIds, id]
+  })),
+  selectAllSources: (ids) => set({ selectedSourceIds: ids }),
+  deselectAllSources: () => set({ selectedSourceIds: [] }),
+
+  // Studio Output State
+  activeStudioOutput: null,
+  setActiveStudioOutput: (output) => set({ activeStudioOutput: output }),
+  studioOutputs: [],
+  setStudioOutputs: (outputs) => set({ studioOutputs: outputs }),
+  addStudioOutput: (output) => set((state) => ({
+    studioOutputs: [output, ...state.studioOutputs],
+  })),
+  removeStudioOutput: (id) => set((state) => ({
+    studioOutputs: state.studioOutputs.filter((o) => o.id !== id),
+    activeStudioOutput: state.activeStudioOutput?.id === id ? null : state.activeStudioOutput,
+  })),
 
   // App Preferences
   theme: 'auto',

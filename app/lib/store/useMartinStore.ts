@@ -54,6 +54,11 @@ interface MartinState {
   // WhatsApp Actions
   setWhatsappConnected: (connected: boolean) => void;
   setWhatsappPendingMessages: (count: number) => void;
+
+  // Suggested Questions
+  suggestedQuestions: string[];
+  setSuggestedQuestions: (questions: string[]) => void;
+  clearSuggestedQuestions: () => void;
 }
 
 export const useMartinStore = create<MartinState>((set, get) => ({
@@ -133,6 +138,11 @@ export const useMartinStore = create<MartinState>((set, get) => ({
 
   // WhatsApp Actions
   setWhatsappConnected: (connected) => set({ whatsappConnected: connected }),
-  
+
   setWhatsappPendingMessages: (count) => set({ whatsappPendingMessages: count }),
+
+  // Suggested Questions
+  suggestedQuestions: [],
+  setSuggestedQuestions: (questions) => set({ suggestedQuestions: questions }),
+  clearSuggestedQuestions: () => set({ suggestedQuestions: [] }),
 }));
