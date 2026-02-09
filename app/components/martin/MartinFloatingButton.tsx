@@ -1,7 +1,5 @@
-'use client';
-
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { usePathname } from 'next/navigation';
+import { useLocation } from 'react-router-dom';
 import { Trash2, Copy, RefreshCw, X, Send, Loader2 } from 'lucide-react';
 import MartinIcon from './MartinIcon';
 import { useMartinStore } from '@/lib/store/useMartinStore';
@@ -36,7 +34,7 @@ const QUICK_PROMPTS = [
 ];
 
 export default function MartinFloatingButton() {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
   const {
     isOpen,
     toggleOpen,

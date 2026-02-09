@@ -1,4 +1,3 @@
-'use client';
 
 import { useState, useCallback } from 'react';
 import { CheckCircle2, XCircle, ArrowRight, RotateCcw, X } from 'lucide-react';

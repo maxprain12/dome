@@ -1,4 +1,3 @@
-'use client';
 
 import { X, Calendar } from 'lucide-react';
 import type { TimelineData } from '@/types';

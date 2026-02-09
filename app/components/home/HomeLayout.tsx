@@ -1,4 +1,3 @@
-'use client';
 
 import HomeSidebar from './HomeSidebar';
 

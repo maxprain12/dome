@@ -1,4 +1,3 @@
-'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Plus, Save, Loader2 } from 'lucide-react';

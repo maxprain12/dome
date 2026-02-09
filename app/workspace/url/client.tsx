@@ -1,7 +1,5 @@
-'use client';
-
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import URLViewer from '@/components/viewers/URLViewer';
 import type { Resource } from '@/types';
@@ -14,7 +12,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
   const [resource, setResource] = useState<Resource | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const navigate = useNavigate();
 
   useEffect(() => {
     async function loadResource() {
@@ -52,7 +50,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
   }, [resourceId]);
 
   const handleBack = () => {
-    router.push('/');
+    navigate('/');
   };
 
   if (isLoading) {

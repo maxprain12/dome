@@ -1,4 +1,3 @@
-'use client';
 
 interface MartinIconProps {
   className?: string;

@@ -1,4 +1,3 @@
-'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink, Maximize2 } from 'lucide-react';

@@ -1,4 +1,3 @@
-'use client';
 
 import { useAppStore } from '@/lib/store/useAppStore';
 import { Sun, Moon, Monitor } from 'lucide-react';

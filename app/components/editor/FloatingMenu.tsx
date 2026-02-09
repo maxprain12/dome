@@ -1,4 +1,3 @@
-'use client';
 
 import { FloatingMenu as TiptapFloatingMenu } from '@tiptap/react';
 import { Editor } from '@tiptap/core';

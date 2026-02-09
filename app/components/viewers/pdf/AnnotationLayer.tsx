@@ -1,4 +1,3 @@
-'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { PDFPageProxy } from 'pdfjs-dist';
@@ -273,7 +272,6 @@ export default function AnnotationLayer({
       scale,
     ]
   );
-
 
   // Handle note input submission
   const handleNoteSubmit = useCallback(() => {

@@ -1,4 +1,3 @@
-'use client';
 
 import { useState } from 'react';
 import { Trash2, GripVertical } from 'lucide-react';

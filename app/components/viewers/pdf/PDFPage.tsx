@@ -1,4 +1,3 @@
-'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import type { PDFPageProxy } from 'pdfjs-dist';

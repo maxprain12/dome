@@ -1,4 +1,3 @@
-'use client';
 
 import { Home, Search, Tag, Folder, Settings } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';

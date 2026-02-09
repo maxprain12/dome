@@ -106,7 +106,7 @@ class WindowManager {
 
     // Cargar contenido
     if (isDev) {
-      const devUrl = `http://localhost:3000${route}`;
+      const devUrl = `http://localhost:5173${route}`;
       if (isDebug) {
         console.log('[WindowManager] Loading URL:', devUrl);
       }

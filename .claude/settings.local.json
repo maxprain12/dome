@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(bun add:*)",
+      "Bash(bun run:*)",
+      "Bash(bash scripts/remove-use-client.sh:*)",
+      "Bash(bun remove:*)",
+      "Bash(git restore:*)"
+    ]
+  }
+}

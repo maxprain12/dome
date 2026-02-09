@@ -1,4 +1,3 @@
-'use client';
 
 import React, { useState, useMemo } from 'react';
 import { Filter, Grid3X3, List, Calendar, Tag, FileText, Image as ImageIcon, Video, Music, Link2, File, FolderOpen, X } from 'lucide-react';

@@ -1,4 +1,3 @@
-'use client';
 
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { ToggleBlockAttributes } from '@/types';

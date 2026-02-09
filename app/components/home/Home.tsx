@@ -1,4 +1,3 @@
-'use client';
 
 import { useState, useCallback } from 'react';
 import { FolderOpen, FolderInput, Plus, Loader2, CheckCircle2, AlertCircle, Upload, ChevronRight, Home as HomeIcon, X, Clock, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, Search, Bell, Settings, SlidersHorizontal, Filter, Grid3X3, List, Link2, FileText, File, Video, Music, Image as ImageIcon } from 'lucide-react';

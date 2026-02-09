@@ -1,4 +1,3 @@
-'use client';
 
 import { Highlighter, StickyNote } from 'lucide-react';
 import type { AnnotationType } from '@/lib/pdf/annotation-utils';

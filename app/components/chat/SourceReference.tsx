@@ -1,4 +1,3 @@
-'use client';
 
 interface SourceRef {
   number: number;

@@ -1,4 +1,3 @@
-'use client';
 
 import { useState, useRef, useEffect, memo } from 'react';
 import type { Resource } from '@/types';

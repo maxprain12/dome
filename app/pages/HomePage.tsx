@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useState } from 'react';
 import Home from '@/components/home/Home';
 import Onboarding from '@/components/onboarding/Onboarding';
@@ -10,7 +8,7 @@ import { initializeApp } from '@/lib/init';
 // Timeout for initialization (10 seconds)
 const INIT_TIMEOUT_MS = 10000;
 
-export default function Page() {
+export default function HomePage() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
@@ -22,12 +20,12 @@ export default function Page() {
     async function init() {
       console.log('[Page] Init effect starting...');
       setDebugInfo('Init effect starting...');
-      
+
       try {
         // Wait a bit to ensure Electron preload script has loaded
         console.log('[Page] Checking for window.electron...');
         setDebugInfo('Checking for window.electron...');
-        
+
         if (typeof window !== 'undefined' && !window.electron) {
           // Wait for Electron API to be available (max 2 seconds)
           console.log('[Page] window.electron not found, waiting...');
@@ -72,7 +70,7 @@ export default function Page() {
           // Also add timeout for these operations
           console.log('[Page] Loading profile and preferences...');
           setDebugInfo('Loading profile and preferences...');
-          
+
           await Promise.race([
             Promise.all([loadUserProfile(), loadPreferences()]),
             new Promise((_, reject) => setTimeout(() => reject(new Error('Profile load timeout')), 5000)),

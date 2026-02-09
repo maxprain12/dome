@@ -1,4 +1,3 @@
-'use client';
 
 import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle } from 'lucide-react';
 

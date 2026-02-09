@@ -1,4 +1,3 @@
-'use client';
 
 import { useMemo, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';

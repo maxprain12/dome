@@ -1,4 +1,3 @@
-'use client';
 
 import { Trophy, Target, Zap, Clock } from 'lucide-react';
 

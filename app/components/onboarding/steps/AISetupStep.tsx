@@ -1,4 +1,3 @@
-'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { ComponentType } from 'react';

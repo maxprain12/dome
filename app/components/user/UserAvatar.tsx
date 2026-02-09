@@ -1,4 +1,3 @@
-'use client';
 
 import { getInitials } from '@/lib/utils/validation';
 import { useState, useEffect } from 'react';

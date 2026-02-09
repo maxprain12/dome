@@ -1,4 +1,3 @@
-'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronDown, Search, CheckCircle2, Gift, Shield, Brain, ImageIcon } from 'lucide-react';

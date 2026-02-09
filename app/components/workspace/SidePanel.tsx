@@ -1,4 +1,3 @@
-'use client';
 
 import { useState, useEffect } from 'react';
 import { Link2, MessageSquare, Search, X } from 'lucide-react';

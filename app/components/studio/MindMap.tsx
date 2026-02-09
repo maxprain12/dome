@@ -1,4 +1,3 @@
-'use client';
 
 import { useState, useCallback, useRef } from 'react';
 import { Download, ZoomIn, ZoomOut, Maximize2, X } from 'lucide-react';

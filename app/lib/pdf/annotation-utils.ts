@@ -206,7 +206,6 @@ function renderHighlight(
   }
 }
 
-
 function renderNote(
   ctx: CanvasRenderingContext2D,
   annotation: PDFAnnotation & { coordinates: { x: number; y: number; width?: number; height?: number } }

@@ -1,4 +1,3 @@
-'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { usePromptStore } from '@/lib/store/usePromptStore';

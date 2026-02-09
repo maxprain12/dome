@@ -1,4 +1,3 @@
-'use client';
 
 import { NodeViewWrapper } from '@tiptap/react';
 import type { ResourceMentionAttributes, ResourceType } from '@/types';

@@ -1,4 +1,3 @@
-'use client';
 
 /**
  * ReadingIndicator - Animated typing indicator (3 dots)

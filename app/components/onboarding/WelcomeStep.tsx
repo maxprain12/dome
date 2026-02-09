@@ -1,4 +1,3 @@
-'use client';
 
 import { useState } from 'react';
 import { validateEmail, validateName } from '@/lib/utils/validation';

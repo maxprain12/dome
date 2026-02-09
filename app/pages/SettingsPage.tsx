@@ -1,5 +1,3 @@
-'use client';
-
 import { useEffect, useState } from 'react';
 import SettingsLayout from '@/components/settings/SettingsLayout';
 import GeneralSettings from '@/components/settings/GeneralSettings';

@@ -1,4 +1,3 @@
-'use client';
 
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Globe, Search, FileText, Loader2, CheckCircle2, XCircle } from 'lucide-react';

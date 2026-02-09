@@ -1,7 +1,4 @@
-'use client';
-
-import { useState, useEffect, useCallback } from 'react';
-import dynamic from 'next/dynamic';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { Loader2, AlertCircle, File, ExternalLink } from 'lucide-react';
 import WorkspaceHeader from './WorkspaceHeader';
 import SidePanel from './SidePanel';
@@ -12,12 +9,12 @@ import MetadataModal from './MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
 
-const PDFViewer = dynamic(() => import('../viewers/PDFViewer').then((m) => m.default), { ssr: false });
-const VideoPlayer = dynamic(() => import('../viewers/VideoPlayer').then((m) => m.default), { ssr: false });
-const AudioPlayer = dynamic(() => import('../viewers/AudioPlayer').then((m) => m.default), { ssr: false });
-const ImageViewer = dynamic(() => import('../viewers/ImageViewer').then((m) => m.default), { ssr: false });
-const DocxViewer = dynamic(() => import('../viewers/DocxViewer').then((m) => m.default), { ssr: false });
-const SpreadsheetViewer = dynamic(() => import('../viewers/SpreadsheetViewer').then((m) => m.default), { ssr: false });
+const PDFViewer = lazy(() => import('../viewers/PDFViewer'));
+const VideoPlayer = lazy(() => import('../viewers/VideoPlayer'));
+const AudioPlayer = lazy(() => import('../viewers/AudioPlayer'));
+const ImageViewer = lazy(() => import('../viewers/ImageViewer'));
+const DocxViewer = lazy(() => import('../viewers/DocxViewer'));
+const SpreadsheetViewer = lazy(() => import('../viewers/SpreadsheetViewer'));
 
 interface WorkspaceLayoutProps {
   resourceId: string;
@@ -137,9 +134,10 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
   const renderViewer = () => {
     if (!resource) return null;
 
-    switch (resource.type) {
-      case 'pdf':
-        return <PDFViewer resource={resource} />;
+    const ViewerComponent = () => {
+      switch (resource.type) {
+        case 'pdf':
+          return <PDFViewer resource={resource} />;
       case 'video':
         return <VideoPlayer resource={resource} />;
       case 'audio':
@@ -201,7 +199,20 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
             </p>
           </div>
         );
-    }
+      }
+    };
+
+    return (
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
+          </div>
+        }
+      >
+        <ViewerComponent />
+      </Suspense>
+    );
   };
 
   if (isLoading) {

@@ -52,7 +52,7 @@ const { registerAll } = require('./ipc/index.cjs');
 // Environment detection
 const isDev = process.env.NODE_ENV === 'development' ||
   !app.isPackaged ||
-  !fs.existsSync(path.join(__dirname, '../out/index.html'));
+  !fs.existsSync(path.join(__dirname, '../dist/index.html'));
 const isDebug = isDev || process.env.DEBUG_PROD === 'true';
 
 // Create application menu with Edit submenu for copy/paste/etc.
@@ -236,8 +236,8 @@ app
   .whenReady()
   .then(async () => {
     // Register custom protocol handler for serving static files
-    // This allows Next.js static export to work with absolute paths like /_next/static/...
-    const outDir = path.join(__dirname, '../out');
+    // This allows Vite build to work with absolute paths
+    const outDir = path.join(__dirname, '../dist');
     console.log('[Protocol] Registering app:// protocol, serving from:', outDir);
 
     // Cache for file paths to avoid repeated fs.existsSync calls
@@ -297,18 +297,18 @@ app
         fileCache.set(cacheKey, { exists: true, path: normalizedPath, timestamp: Date.now() });
         return net.fetch(pathToFileURL(normalizedPath).href);
       } catch (err) {
-        // File doesn't exist, try with .html extension for Next.js routes
-        const htmlPath = normalizedPath + '.html';
-        if (fs.existsSync(htmlPath)) {
-          fileCache.set(cacheKey, { exists: true, path: htmlPath, timestamp: Date.now() });
-          return net.fetch(pathToFileURL(htmlPath).href);
+        // For SPA routing: if file doesn't exist and it's not a static asset,
+        // fallback to index.html to let React Router handle it
+        const isStaticAsset = /\.(js|css|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map)$/i.test(normalizedPath);
+
+        if (!isStaticAsset) {
+          const indexPath = path.join(outDir, 'index.html');
+          if (fs.existsSync(indexPath)) {
+            fileCache.set(cacheKey, { exists: true, path: indexPath, timestamp: Date.now() });
+            return net.fetch(pathToFileURL(indexPath).href);
+          }
         }
-        // Try index.html in directory
-        const indexPath = path.join(normalizedPath, 'index.html');
-        if (fs.existsSync(indexPath)) {
-          fileCache.set(cacheKey, { exists: true, path: indexPath, timestamp: Date.now() });
-          return net.fetch(pathToFileURL(indexPath).href);
-        }
+
         fileCache.set(cacheKey, { exists: false, timestamp: Date.now() });
         return new Response('Not Found', { status: 404 });
       }

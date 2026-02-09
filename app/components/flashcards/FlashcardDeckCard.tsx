@@ -1,4 +1,3 @@
-'use client';
 
 import { useEffect } from 'react';
 import { Brain, Clock, MoreVertical, Trash2, Edit3, Play } from 'lucide-react';

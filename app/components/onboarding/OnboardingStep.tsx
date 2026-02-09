@@ -1,4 +1,3 @@
-'use client';
 
 import { useImperativeHandle, forwardRef } from 'react';
 import type { ReactNode } from 'react';
