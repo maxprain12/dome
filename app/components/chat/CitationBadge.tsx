@@ -39,7 +39,7 @@ export default function CitationBadge({ number, sourceTitle, sourcePassage, onCl
           }}
         >
           {sourceTitle && (
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--dome-accent, #596037)', marginBottom: '4px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--dome-text)', marginBottom: '4px' }}>
               {sourceTitle}
             </div>
           )}

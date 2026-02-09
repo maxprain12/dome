@@ -1,13 +1,23 @@
+import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import type { Metadata } from 'next';
 import ThemeProvider from '@/components/ui/ThemeProvider';
 import MartinFloatingButton from '@/components/martin/MartinFloatingButton';
 import PromptModal from '@/components/ui/PromptModal';
 import ToastContainer from '@/components/ui/Toast';
+import WindowControls from '@/components/ui/WindowControls';
 
-// Using system fonts to avoid network issues during build
-// Original fonts: Source_Sans_3, Fraunces
-// System font fallbacks are configured in globals.css
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-jetbrains-mono',
+});
 
 export const metadata: Metadata = {
   title: 'Dome - Gestión Inteligente de Conocimiento',
@@ -20,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" data-theme="light">
+    <html lang="es" data-theme="light" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="color-scheme" content="light dark" />
@@ -34,6 +44,8 @@ export default function RootLayout({
           >
             {/* Espacio para los traffic lights de macOS */}
             <div className="absolute top-0 left-0 w-20 h-11" />
+            {/* Controles de ventana para Windows/Linux */}
+            <WindowControls />
           </div>
 
           {/* Contenido principal con padding-top para evitar la drag region */}

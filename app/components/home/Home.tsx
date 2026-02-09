@@ -331,10 +331,10 @@ export default function Home() {
         <nav className="mb-6 flex items-center gap-2" style={{ color: 'var(--dome-text-secondary)' }} aria-label="Breadcrumb">
           <button
             onClick={handleNavigateToRoot}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--dome-accent-bg)]"
-            style={{ color: 'var(--dome-accent)' }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--dome-accent-bg)] hover:text-[var(--dome-text)]"
+            style={{ color: 'var(--dome-text-secondary)' }}
           >
-            <HomeIcon className="w-4 h-4" />
+            <HomeIcon className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />
             <span className="text-sm font-medium">Home</span>
           </button>
           <ChevronRight className="w-4 h-4 opacity-70" />
@@ -395,7 +395,7 @@ export default function Home() {
           <button
             onClick={refetch}
             className="btn btn-secondary text-sm"
-            style={{ color: 'var(--dome-accent)' }}
+            style={{ color: 'var(--dome-text)' }}
           >
             Try again
           </button>
@@ -569,29 +569,29 @@ export default function Home() {
                 {homeSidebarSection === 'library'
                   ? 'Recent Resources'
                   : homeSidebarSection === 'flashcards'
-                  ? 'Flashcards'
-                  : homeSidebarSection === 'recent'
-                  ? 'Recent Resources'
-                  : homeSidebarSection === 'tags'
-                  ? 'Tags'
-                  : homeSidebarSection === 'chat'
-                  ? 'Martin Chat'
-                  : homeSidebarSection === 'projects'
-                  ? 'Projects'
-                  : 'Recent Resources'}
+                    ? 'Flashcards'
+                    : homeSidebarSection === 'recent'
+                      ? 'Recent Resources'
+                      : homeSidebarSection === 'tags'
+                        ? 'Tags'
+                        : homeSidebarSection === 'chat'
+                          ? 'Martin Chat'
+                          : homeSidebarSection === 'projects'
+                            ? 'Projects'
+                            : 'Recent Resources'}
               </h1>
               <p style={{ fontSize: '14px', color: 'var(--dome-text-secondary)' }}>
                 {homeSidebarSection === 'library' || homeSidebarSection === 'recent'
                   ? 'Your recently updated files and links'
                   : homeSidebarSection === 'flashcards'
-                  ? 'Review your flashcard decks'
-                  : homeSidebarSection === 'tags'
-                  ? 'Browse resources by tag'
-                  : homeSidebarSection === 'chat'
-                  ? 'Chat with Martin about your resources'
-                  : homeSidebarSection === 'projects'
-                  ? 'Organize resources by project'
-                  : 'Your recently updated files and links'}
+                    ? 'Review your flashcard decks'
+                    : homeSidebarSection === 'tags'
+                      ? 'Browse resources by tag'
+                      : homeSidebarSection === 'chat'
+                        ? 'Chat with Martin about your resources'
+                        : homeSidebarSection === 'projects'
+                          ? 'Organize resources by project'
+                          : 'Your recently updated files and links'}
               </p>
             </div>
 

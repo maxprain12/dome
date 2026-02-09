@@ -706,7 +706,7 @@ export function CommandCenter({
         }
 
         .command-center-input::placeholder {
-          color: var(--tertiary-text);
+          color: var(--secondary-text);
           transition: opacity 0.3s ease;
         }
 
@@ -790,7 +790,7 @@ export function CommandCenter({
         .quick-actions-label {
           font-size: 12px;
           font-weight: 500;
-          color: var(--secondary);
+          color: var(--secondary-text);
           text-transform: uppercase;
           letter-spacing: 0.05em;
           margin-bottom: 12px;
@@ -994,11 +994,11 @@ export function CommandCenter({
           background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(14, 165, 233, 0.1));
           border-radius: var(--radius-md);
           font-size: 13px;
-          color: var(--secondary);
+          color: var(--secondary-text);
         }
 
         .ai-hint :global(svg) {
-          color: var(--brand-secondary);
+          color: var(--accent);
         }
 
         /* No Results */
@@ -1008,7 +1008,7 @@ export function CommandCenter({
           align-items: center;
           padding: 40px 20px;
           text-align: center;
-          color: var(--secondary);
+          color: var(--secondary-text);
         }
 
         .no-results-icon {
@@ -1074,7 +1074,7 @@ export function CommandCenter({
 
         .drop-overlay-content span {
           font-size: 13px;
-          color: var(--secondary);
+          color: var(--secondary-text);
         }
       `}</style>
         </DropZone>

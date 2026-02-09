@@ -6,31 +6,8 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
-        },
-        secondary: {
-          50: '#faf5ff',
-          100: '#f3e8ff',
-          200: '#e9d5ff',
-          300: '#d8b4fe',
-          400: '#c084fc',
-          500: '#a855f7',
-          600: '#9333ea',
-          700: '#7e22ce',
-          800: '#6b21a8',
-          900: '#581c87',
-        },
         /* Design system tokens - use CSS variables for theme-aware colors */
+        background: 'var(--background)',
         surface: 'var(--bg)',
         'surface-secondary': 'var(--bg-secondary)',
         'surface-tertiary': 'var(--bg-tertiary)',
@@ -39,11 +16,17 @@ module.exports = {
         'text-primary': 'var(--primary-text)',
         'text-secondary': 'var(--secondary-text)',
         'text-tertiary': 'var(--tertiary-text)',
+
+        /* Interactive */
+        base: 'var(--base)',
+        'base-text': 'var(--base-text)',
+        'base-hover': 'var(--base-hover)',
+        'base-active': 'var(--base-active)',
       },
       fontFamily: {
-        sans: ['var(--font-body)', 'system-ui', 'sans-serif'],
-        display: ['var(--font-display)', 'Georgia', 'serif'],
-        mono: ['JetBrains Mono', 'Menlo', 'monospace'],
+        sans: ['var(--font-inter)', 'var(--font-sans)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-inter)', 'var(--font-display)', 'Georgia', 'serif'],
+        mono: ['var(--font-jetbrains-mono)', 'var(--font-mono)', 'monospace'],
       },
       borderRadius: {
         sm: 'var(--radius-sm)',

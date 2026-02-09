@@ -118,7 +118,7 @@ export default function AdvancedSettings() {
               <div className="font-medium text-sm mb-1" style={{ color: 'var(--primary-text)' }}>
                 {style.label}
               </div>
-              <div className="text-xs opacity-70" style={{ color: 'var(--secondary)' }}>
+              <div className="text-xs opacity-70" style={{ color: 'var(--secondary-text)' }}>
                 {style.description}
               </div>
             </button>

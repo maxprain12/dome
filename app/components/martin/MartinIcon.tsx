@@ -7,11 +7,11 @@ interface MartinIconProps {
   darkColor?: string; // Optional: allows parent to control dark accent color
 }
 
-export default function MartinIcon({ 
-  className = '', 
+export default function MartinIcon({
+  className = '',
   size = 24,
-  primaryColor = 'var(--primary)',
-  darkColor = '#596037'
+  primaryColor = 'var(--secondary)', // Body: Light Green
+  darkColor = 'var(--primary)' // Outline/Features: Dark Green
 }: MartinIconProps) {
   return (
     <svg

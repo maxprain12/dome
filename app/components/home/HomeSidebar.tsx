@@ -48,17 +48,17 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
   // Generate initials from user name
   const initials = name
     ? name
-        .split(' ')
-        .map((part) => part.charAt(0).toUpperCase())
-        .slice(0, 2)
-        .join('')
+      .split(' ')
+      .map((part) => part.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('')
     : 'U';
 
   return (
     <aside
       className="flex flex-col h-full shrink-0"
       style={{
-        width: '240px',
+        width: 'var(--sidebar-width)',
         background: 'var(--dome-surface)',
         borderRight: '1px solid var(--dome-border)',
       }}
@@ -117,7 +117,7 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
               style={{
                 padding: '10px 12px',
                 background: isActive ? 'var(--dome-accent-bg)' : 'transparent',
-                color: isActive ? 'var(--dome-accent)' : 'var(--dome-text-secondary)',
+                color: isActive ? 'var(--dome-text)' : 'var(--dome-text-secondary)',
                 fontSize: '14px',
                 fontWeight: 500,
                 cursor: 'pointer',
@@ -137,7 +137,9 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
               }}
               aria-current={isActive ? 'page' : undefined}
             >
-              <span className="shrink-0">{item.icon}</span>
+              <span className="shrink-0" style={{ color: isActive ? 'var(--dome-accent)' : 'currentColor' }}>
+                {item.icon}
+              </span>
               <span>{item.label}</span>
             </button>
           );

@@ -1,4 +1,6 @@
 /* eslint-disable no-console */
+const { BrowserWindow } = require('electron');
+
 function register({ ipcMain, nativeTheme, windowManager, database }) {
   ipcMain.handle('window:create', (event, { id, route = '/', options = {} }) => {
     // Validar que el sender está autorizado
@@ -72,6 +74,40 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
     } catch (error) {
       return { success: false, error: error.message };
     }
+  });
+
+  // Minimizar ventana actual (Windows/Linux title bar)
+  ipcMain.handle('window:minimize-current', (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) return { success: false };
+    win.minimize();
+    return { success: true };
+  });
+
+  // Maximizar / restaurar ventana actual (Windows/Linux title bar)
+  ipcMain.handle('window:maximize-toggle', (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) return { success: false };
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+    return { success: true };
+  });
+
+  // Cerrar ventana actual (Windows/Linux title bar)
+  ipcMain.handle('window:close-current', (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) return { success: false };
+    win.close();
+    return { success: true };
   });
 
   // Obtener ventanas activas

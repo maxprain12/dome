@@ -194,9 +194,9 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
 
           {/* Explanation */}
           {showExplanation && currentQuestion.explanation && (
-            <div className="mt-6 p-4 rounded-lg" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-              <div className="text-xs font-semibold uppercase mb-2" style={{ color: 'var(--dome-accent, #596037)' }}>Explanation</div>
-              <p className="text-sm" style={{ color: 'var(--secondary-text)', lineHeight: 1.6 }}>
+            <div className="mt-3 p-3 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--dome-border)]">
+              <div className="text-xs font-semibold uppercase mb-2" style={{ color: 'var(--dome-text)' }}>Explanation</div>
+              <p className="text-sm" style={{ color: 'var(--dome-text)' }}>
                 {currentQuestion.explanation}
               </p>
             </div>
