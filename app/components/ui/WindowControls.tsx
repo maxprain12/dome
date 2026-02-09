@@ -43,7 +43,8 @@ export default function WindowControls() {
       <button
         type="button"
         onClick={handleMinimize}
-        className="h-11 w-12 flex items-center justify-center text-primary-text hover:bg-bg-hover transition-colors"
+        className="h-11 w-12 flex items-center justify-center transition-colors window-control-btn"
+        style={{ color: 'var(--dome-text)' }}
         aria-label="Minimizar"
       >
         <Minus className="w-4 h-4" strokeWidth={2.5} />
@@ -51,7 +52,8 @@ export default function WindowControls() {
       <button
         type="button"
         onClick={handleMaximizeToggle}
-        className="h-11 w-12 flex items-center justify-center text-primary-text hover:bg-bg-hover transition-colors"
+        className="h-11 w-12 flex items-center justify-center transition-colors window-control-btn"
+        style={{ color: 'var(--dome-text)' }}
         aria-label="Maximizar"
       >
         <Square className="w-3.5 h-3.5" strokeWidth={2} fill="none" />
@@ -59,7 +61,8 @@ export default function WindowControls() {
       <button
         type="button"
         onClick={handleClose}
-        className="h-11 w-12 flex items-center justify-center text-primary-text hover:bg-error hover:text-white transition-colors"
+        className="h-11 w-12 flex items-center justify-center transition-colors window-control-close"
+        style={{ color: 'var(--dome-text)' }}
         aria-label="Cerrar"
       >
         <X className="w-4 h-4" strokeWidth={2.5} />

@@ -1,11 +1,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Trash2, Eye, Loader2 } from 'lucide-react';
+import { Trash2, Eye, Loader2, X } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { StudioOutputType, StudioOutput } from '@/types';
 
 interface StudioTile {
-  type: StudioOutputType | 'flashcards';
+  type: StudioOutputType;
   icon: string;
   title: string;
   description: string;
@@ -164,16 +164,17 @@ export default function StudioPanel() {
 
   return (
     <div
-      className="flex flex-col border-l shrink-0"
+      className="flex flex-col border-l shrink-0 transition-all duration-300 ease-out"
       style={{
-        width: '300px',
+        width: 'min(25vw, 320px)',
+        minWidth: '260px',
         background: 'var(--bg-secondary)',
         borderColor: 'var(--border)',
       }}
     >
       {/* Header */}
       <div
-        className="px-4 py-3 border-b"
+        className="flex items-center justify-between px-4 py-3 border-b"
         style={{ borderColor: 'var(--border)' }}
       >
         <h3
@@ -182,6 +183,14 @@ export default function StudioPanel() {
         >
           Studio
         </h3>
+        <button
+          onClick={() => useAppStore.getState().toggleStudioPanel()}
+          className="p-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--bg-hover)] opacity-70 hover:opacity-100"
+          style={{ color: 'var(--secondary-text)' }}
+          aria-label="Close studio panel"
+        >
+          <X size={14} />
+        </button>
       </div>
 
       {/* Tiles grid */}

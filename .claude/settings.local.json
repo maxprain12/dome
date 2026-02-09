@@ -6,7 +6,8 @@
       "Bash(bun run:*)",
       "Bash(bash scripts/remove-use-client.sh:*)",
       "Bash(bun remove:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(xargs:*)"
     ]
   }
 }

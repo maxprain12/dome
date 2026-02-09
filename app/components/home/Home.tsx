@@ -1,9 +1,8 @@
 
 import { useState, useCallback } from 'react';
-import { FolderOpen, FolderInput, Plus, Loader2, CheckCircle2, AlertCircle, Upload, ChevronRight, Home as HomeIcon, X, Clock, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, Search, Bell, Settings, SlidersHorizontal, Filter, Grid3X3, List, Link2, FileText, File, Video, Music, Image as ImageIcon } from 'lucide-react';
+import { FolderOpen, FolderInput, Plus, Loader2, CheckCircle2, AlertCircle, Upload, ChevronRight, Home as HomeIcon, X, Clock, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, SlidersHorizontal, Filter, Grid3X3, List, Link2, FileText, File, Video, Music, Image as ImageIcon } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
-import UserMenu from '@/components/user/UserMenu';
 import { CommandCenter } from '@/components/CommandCenter';
 import FilterBar from './FilterBar';
 import ResourceCard from './ResourceCard';
@@ -459,98 +458,6 @@ export default function Home() {
   return (
     <HomeLayout>
       <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
-        {/* Top Bar */}
-        <div
-          className="flex items-center justify-between shrink-0"
-          style={{
-            background: 'var(--dome-surface)',
-            borderBottom: '1px solid var(--dome-border)',
-            padding: '16px 32px',
-          }}
-        >
-          {/* Search bar */}
-          <div className="relative" style={{ width: '400px' }}>
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2"
-              style={{ width: '16px', height: '16px', color: 'var(--dome-text-muted)' }}
-            />
-            <input
-              type="text"
-              placeholder="Search resources..."
-              className="w-full"
-              style={{
-                padding: '8px 16px 8px 36px',
-                background: 'var(--dome-bg)',
-                border: '1px solid var(--dome-border)',
-                borderRadius: '8px',
-                fontSize: '13px',
-                color: 'var(--dome-text)',
-                fontFamily: 'inherit',
-                outline: 'none',
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.borderColor = 'var(--dome-accent)';
-                e.currentTarget.style.background = 'var(--dome-surface)';
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.borderColor = 'var(--dome-border)';
-                e.currentTarget.style.background = 'var(--dome-bg)';
-              }}
-            />
-          </div>
-
-          {/* Top bar actions */}
-          <div className="flex gap-2">
-            <button
-              className="flex items-center justify-center transition-all duration-200"
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '8px',
-                background: 'transparent',
-                border: '1px solid var(--dome-border)',
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--dome-bg)';
-                e.currentTarget.style.borderColor = 'var(--dome-accent)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = 'var(--dome-border)';
-              }}
-            >
-              <Bell style={{ width: '18px', height: '18px', color: 'var(--dome-text-secondary)' }} />
-            </button>
-            <button
-              className="flex items-center justify-center transition-all duration-200"
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '8px',
-                background: 'transparent',
-                border: '1px solid var(--dome-border)',
-                cursor: 'pointer',
-              }}
-              onClick={() => {
-                if (typeof window !== 'undefined' && window.electron?.openSettings) {
-                  window.electron.openSettings();
-                }
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--dome-bg)';
-                e.currentTarget.style.borderColor = 'var(--dome-accent)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = 'var(--dome-border)';
-              }}
-            >
-              <Settings style={{ width: '18px', height: '18px', color: 'var(--dome-text-secondary)' }} />
-            </button>
-          </div>
-        </div>
-
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto" style={{ padding: '32px' }}>
           <div className="max-w-6xl mx-auto">

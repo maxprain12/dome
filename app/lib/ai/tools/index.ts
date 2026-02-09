@@ -171,6 +171,11 @@ export {
   createDeepResearchTools,
 } from './deep-research';
 
+// Tools - Graph
+export {
+  createGraphTools,
+} from './graph-tools';
+
 // =============================================================================
 // Default Tools
 // =============================================================================
@@ -186,6 +191,7 @@ import { createContextTools } from './context';
 import { createStudioTools } from './studio-outputs';
 import { createAudioOverviewTools } from './audio-overview';
 import { createDeepResearchTools } from './deep-research';
+import { createGraphTools } from './graph-tools';
 
 /**
  * Configuration for creating default tools
@@ -253,6 +259,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
 
   // Deep research tools
   tools.push(...createDeepResearchTools());
+
+  // Graph tools (knowledge graph, related resources, links)
+  tools.push(...createGraphTools());
 
   return tools;
 }

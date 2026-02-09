@@ -8,28 +8,15 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure PDF.js worker
+// IMPORTANT: The worker file must match the installed pdfjs-dist version.
+// Copy from: node_modules/pdfjs-dist/build/pdf.worker.min.mjs → public/pdf.worker.min.mjs
 if (typeof window !== 'undefined') {
-  // Determine the correct worker path based on environment
-  let workerPath: string;
-  
-  // Check if we're in Electron
-  const isElectron = typeof window !== 'undefined' && 'electron' in window;
-  
-  if (isElectron) {
-    // In Electron, use absolute path from public folder
-    // In dev: http://localhost:3000/pdf.worker.min.js
-    // In prod: file:// path will be resolved by Electron
-    workerPath = '/pdf.worker.min.js';
-  } else {
-    // In browser/Next.js, use public folder path
-    workerPath = '/pdf.worker.min.js';
-  }
-  
+  const workerPath = '/pdf.worker.min.mjs';
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
-  
+
   // Log in development for debugging
   if (process.env.NODE_ENV === 'development') {
-    console.log('[PDF.js] Worker configured:', workerPath, 'Electron:', isElectron);
+    console.log('[PDF.js] Worker configured:', workerPath);
   }
 }
 
@@ -118,7 +105,7 @@ export async function renderPDFPage(
   canvas.height = displayHeight * dpr;
   canvas.style.width = `${displayWidth}px`;
   canvas.style.height = `${displayHeight}px`;
-  
+
   // Clear and reset context
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.scale(dpr, dpr);
@@ -162,14 +149,14 @@ export function extractTextFromRegion(
   const rectTopY = pdfRect.y + pdfRect.height;
   const rectLeftX = pdfRect.x;
   const rectRightX = pdfRect.x + pdfRect.width;
-  
+
   for (const item of items) {
     if (!('transform' in item) || !item.transform || !item.str || !item.str.trim()) continue;
 
     // Transform matrix: [a, b, c, d, e, f]
     // e = x translation, f = y translation (in PDF coordinates, bottom-left origin)
     const [a, b, c, d, e, f] = item.transform;
-    
+
     // Get text item position and dimensions in PDF coordinates
     const itemX = e;
     const itemY = f; // Bottom edge of text item in PDF coordinates
@@ -208,12 +195,12 @@ export function extractTextFromRegion(
   let result = '';
   let lastY = -Infinity;
   let lastXEnd = -Infinity;
-  
+
   for (const item of textItems) {
     const isNewLine = Math.abs(item.y - lastY) > 5;
     const itemXEnd = item.x + item.width;
     const gap = item.x - lastXEnd;
-    
+
     if (isNewLine) {
       // New line - add space before if not first item
       if (result) result += ' ';

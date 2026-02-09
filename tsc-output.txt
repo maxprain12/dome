@@ -1,0 +1,48 @@
+app/components/CommandCenter/CommandCenter.tsx(642,20): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+app/components/CommandCenter/SearchFilterChips.tsx(63,14): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+app/components/CommandCenter/SearchResults.tsx(112,24): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+app/components/CommandCenter/SearchResults.tsx(192,20): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+app/components/CommandCenter/SearchResults.tsx(382,20): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+app/components/graph/GraphViewer.tsx(39,58): error TS2345: Argument of type '{ id: string; data: GraphNodeData; position: { x: number; y: number; }; type?: string | undefined; }[] | LayoutNode[]' is not assignable to parameter of type 'Node<GraphNodeData, string | undefined>[]'.
+  Type 'LayoutNode[]' is not assignable to type 'Node<GraphNodeData, string | undefined>[]'.
+    Property 'data' is missing in type 'LayoutNode' but required in type 'Node<GraphNodeData, string | undefined>'.
+app/components/graph/GraphViewer.tsx(44,14): error TS2345: Argument of type '{ id: string; data: GraphNodeData; position: { x: number; y: number; }; type?: string | undefined; }[] | LayoutNode[]' is not assignable to parameter of type 'SetStateAction<Node<GraphNodeData, string | undefined>[]>'.
+  Type 'LayoutNode[]' is not assignable to type 'SetStateAction<Node<GraphNodeData, string | undefined>[]>'.
+    Type 'LayoutNode[]' is not assignable to type 'Node<GraphNodeData, string | undefined>[]'.
+      Property 'data' is missing in type 'LayoutNode' but required in type 'Node<GraphNodeData, string | undefined>'.
+app/components/home/FilterBar.tsx(157,20): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+app/components/home/ResourceCard.tsx(359,16): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+app/components/home/ResourceCard.tsx(606,14): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+app/components/martin/MartinFloatingButton.tsx(775,14): error TS2322: Type '{ children: string; jsx: true; global: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+app/components/viewers/DocxViewer.tsx(85,14): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+app/components/viewers/SpreadsheetViewer.tsx(156,14): error TS2322: Type '{ children: string; jsx: true; }' is not assignable to type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+  Property 'jsx' does not exist on type 'DetailedHTMLProps<StyleHTMLAttributes<HTMLStyleElement>, HTMLStyleElement>'.
+app/lib/ai/tools/graph-tools.ts(2,35): error TS2307: Cannot find module 'agentlang' or its corresponding type declarations.
+app/lib/ai/tools/graph-tools.ts(53,21): error TS7006: Parameter '_toolCallId' implicitly has an 'any' type.
+app/lib/ai/tools/graph-tools.ts(53,34): error TS7006: Parameter 'args' implicitly has an 'any' type.
+app/lib/ai/tools/graph-tools.ts(129,21): error TS7006: Parameter '_toolCallId' implicitly has an 'any' type.
+app/lib/ai/tools/graph-tools.ts(129,34): error TS7006: Parameter 'args' implicitly has an 'any' type.
+app/lib/ai/tools/graph-tools.ts(237,21): error TS7006: Parameter '_toolCallId' implicitly has an 'any' type.
+app/lib/ai/tools/graph-tools.ts(237,34): error TS7006: Parameter 'args' implicitly has an 'any' type.
+app/lib/ai/tools/graph-tools.ts(259,15): error TS18048: 'forwardResult.data' is possibly 'undefined'.
+app/lib/ai/tools/graph-tools.ts(277,19): error TS18048: 'backwardResult.data' is possibly 'undefined'.
+app/lib/ai/tools/graph-tools.ts(318,21): error TS7006: Parameter '_toolCallId' implicitly has an 'any' type.
+app/lib/ai/tools/graph-tools.ts(318,34): error TS7006: Parameter 'args' implicitly has an 'any' type.
+app/lib/graph/generator.ts(334,49): error TS2339: Property 'tags' does not exist on type '{ projects: { create: (project: any) => Promise<DBResponse<Project>>; getAll: () => Promise<DBResponse<Project[]>>; getById: (id: string) => Promise<...>; }; ... 7 more ...; settings: { ...; }; }'.
+app/lib/graph/generator.ts(342,67): error TS2339: Property 'list' does not exist on type '{ create: (resource: any) => Promise<DBResponse<Resource>>; getByProject: (projectId: string) => Promise<DBResponse<Resource[]>>; ... 10 more ...; searchForMention: (query: string) => Promise<...>; }'.
+app/lib/graph/generator.ts(355,56): error TS2339: Property 'tags' does not exist on type '{ projects: { create: (project: any) => Promise<DBResponse<Project>>; getAll: () => Promise<DBResponse<Project[]>>; getById: (id: string) => Promise<...>; }; ... 7 more ...; settings: { ...; }; }'.
+app/lib/graph/generator.ts(361,43): error TS7006: Parameter 'tag' implicitly has an 'any' type.
+app/lib/graph/generator.ts(362,24): error TS7006: Parameter 't' implicitly has an 'any' type.
+app/lib/graph/generator.ts(447,19): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+app/workspace/url/page.tsx(2,39): error TS2307: Cannot find module './wrapper' or its corresponding type declarations.

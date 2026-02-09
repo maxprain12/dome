@@ -1,7 +1,6 @@
 
-import { Home, Search, Tag, Folder, Settings } from 'lucide-react';
+import { Home, Search, Tag, Folder, Settings, HelpCircle } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { useUserStore } from '@/lib/store/useUserStore';
 
 type SidebarSection = 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags';
 
@@ -18,7 +17,6 @@ interface HomeSidebarProps {
 export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
   const activeSection = useAppStore((s) => s.homeSidebarSection);
   const setSection = useAppStore((s) => s.setHomeSidebarSection);
-  const { name } = useUserStore();
 
   const navItems: NavItem[] = [
     {
@@ -44,15 +42,6 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
     { label: 'Web Links' },
   ];
 
-  // Generate initials from user name
-  const initials = name
-    ? name
-      .split(' ')
-      .map((part) => part.charAt(0).toUpperCase())
-      .slice(0, 2)
-      .join('')
-    : 'U';
-
   return (
     <aside
       className="flex flex-col h-full shrink-0"
@@ -65,15 +54,15 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
       {/* macOS traffic lights padding */}
       <div className="h-10 shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
 
-      {/* Logo section */}
+      {/* Logo */}
       <div
         style={{
-          padding: '0 20px 24px',
+          padding: '12px 20px 16px',
           borderBottom: '1px solid var(--dome-border)',
         }}
       >
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 shrink-0">
             <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
                 d="M328.634 306.098V235.894C328.634 182.087 286.288 138.468 234.051 138.468C181.814 138.468 139.467 182.087 139.467 235.894V306.098C139.467 318.605 152.245 326.74 163.106 321.146C171.884 316.625 182.34 317.296 190.506 322.903C199.692 329.212 211.659 329.212 220.846 322.903L224.181 320.613C230.158 316.509 237.944 316.509 243.92 320.613L247.256 322.903C256.442 329.212 268.409 329.212 277.596 322.903C285.761 317.296 296.218 316.625 304.996 321.146C315.856 326.74 328.634 318.605 328.634 306.098Z"
@@ -91,10 +80,7 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
               />
             </svg>
           </div>
-          <span
-            className="text-lg font-semibold"
-            style={{ color: 'var(--dome-text)' }}
-          >
+          <span className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
             Dome
           </span>
         </div>
@@ -187,91 +173,73 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
         ))}
       </nav>
 
-      {/* Footer */}
+      {/* Pie del sidebar estilo Obsidian: vault name + iconos */}
       <div
+        className="flex items-center justify-between shrink-0"
         style={{
           borderTop: '1px solid var(--dome-border)',
-          padding: '20px',
+          padding: '10px 12px',
+          fontSize: '11px',
+          color: 'var(--dome-text-muted)',
         }}
       >
-        {/* Settings link */}
-        <button
-          onClick={() => {
-            if (typeof window !== 'undefined' && window.electron?.openSettings) {
-              window.electron.openSettings();
-            }
-          }}
-          className="w-full flex items-center gap-3 rounded-lg transition-all duration-200 mb-3"
-          style={{
-            padding: '8px 8px',
-            color: 'var(--dome-text-muted)',
-            cursor: 'pointer',
-            border: 'none',
-            background: 'transparent',
-            fontSize: '13px',
-            fontWeight: 500,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--dome-bg)';
-            e.currentTarget.style.color = 'var(--dome-text)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'var(--dome-text-muted)';
-          }}
-        >
-          <Settings className="w-[18px] h-[18px] shrink-0" />
-          <span>Settings</span>
-        </button>
-
-        {/* User profile */}
-        <div
-          className="flex items-center gap-3 rounded-lg transition-all duration-200"
-          style={{
-            padding: '8px',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--dome-bg)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-          }}
-        >
-          <div
-            className="flex items-center justify-center shrink-0"
-            style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '50%',
-              background: 'var(--dome-accent)',
-              color: '#FFFFFF',
-              fontSize: '13px',
-              fontWeight: 600,
+        <span className="truncate" style={{ fontWeight: 500 }}>
+          Dome Vault
+        </span>
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.electron?.openSettings) {
+                window.electron.openSettings();
+              }
             }}
+            className="flex items-center justify-center rounded transition-colors"
+            style={{
+              width: '28px',
+              height: '28px',
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--dome-text-muted)',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--dome-bg)';
+              e.currentTarget.style.color = 'var(--dome-text)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--dome-text-muted)';
+            }}
+            aria-label="Settings"
+            title="Settings"
           >
-            {initials}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div
-              className="truncate"
-              style={{
-                fontSize: '13px',
-                fontWeight: 500,
-                color: 'var(--dome-text)',
-              }}
-            >
-              {name || 'User'}
-            </div>
-            <div
-              style={{
-                fontSize: '11px',
-                color: 'var(--dome-text-muted)',
-              }}
-            >
-              Online
-            </div>
-          </div>
+            <Settings className="w-4 h-4" strokeWidth={2} />
+          </button>
+          <button
+            type="button"
+            className="flex items-center justify-center rounded transition-colors"
+            style={{
+              width: '28px',
+              height: '28px',
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--dome-text-muted)',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--dome-bg)';
+              e.currentTarget.style.color = 'var(--dome-text)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--dome-text-muted)';
+            }}
+            aria-label="Help"
+            title="Help"
+          >
+            <HelpCircle className="w-4 h-4" strokeWidth={2} />
+          </button>
         </div>
       </div>
     </aside>

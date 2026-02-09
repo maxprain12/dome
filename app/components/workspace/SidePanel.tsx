@@ -44,11 +44,10 @@ export default function SidePanel({
 
   return (
     <div
-      className="flex flex-col h-full border-l transition-all duration-300 ease-out"
+      className="flex flex-col h-full border-l transition-all duration-300 ease-out shrink-0"
       style={{
-        width: '360px',
-        minWidth: '300px',
-        maxWidth: '440px',
+        width: 'min(30vw, 380px)',
+        minWidth: '280px',
         background: 'var(--bg)',
         borderColor: 'var(--border)',
       }}
@@ -150,7 +149,7 @@ function ReferencesTab({ resourceId }: { resourceId: string }) {
               className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-[var(--bg-hover)]"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
               onClick={() => {
-                window.electron.workspace.open(link.target_id, 'note');
+                window.electron.workspace.open(link.target_id, link.target_type || link.type || 'note');
               }}
             >
               <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>

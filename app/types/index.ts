@@ -133,10 +133,10 @@ export interface SemanticSearchResult {
 export type CitationStyle = 'apa' | 'mla' | 'chicago' | 'harvard' | 'vancouver' | 'ieee';
 
 // Tipos de providers de IA
-export type AIProviderType = 
-  | 'openai' 
-  | 'anthropic' 
-  | 'google' 
+export type AIProviderType =
+  | 'openai'
+  | 'anthropic'
+  | 'google'
   | 'ollama'
   | 'synthetic'
   | 'venice'
@@ -385,7 +385,7 @@ export interface MartinState {
 // STUDIO OUTPUT TYPES
 // ============================================
 
-export type StudioOutputType = 'mindmap' | 'quiz' | 'guide' | 'faq' | 'timeline' | 'table' | 'audio' | 'video' | 'research';
+export type StudioOutputType = 'mindmap' | 'quiz' | 'guide' | 'faq' | 'timeline' | 'table' | 'flashcards' | 'audio' | 'video' | 'research';
 
 export interface StudioOutput {
   id: string;
@@ -454,6 +454,124 @@ export interface TimelineData {
 export interface DataTableData {
   columns: Array<{ key: string; label: string }>;
   rows: Array<Record<string, string | number>>;
+}
+
+// ============================================
+// GRAPH VIEW TYPES
+// ============================================
+
+export type GraphNodeType =
+  | 'resource'    // Linked to a resource
+  | 'concept'     // Extracted concept
+  | 'person'      // Person mention
+  | 'location'    // Place
+  | 'event'       // Event
+  | 'topic';      // Topic cluster
+
+export interface GraphNode {
+  id: string;
+  resource_id?: string;
+  label: string;
+  type: GraphNodeType;
+  properties?: Record<string, any>;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface GraphEdge {
+  id: string;
+  source_id: string;
+  target_id: string;
+  relation: string;           // 'mentions', 'cites', 'similar', etc.
+  weight: number;             // 0.0-1.0 (strength)
+  metadata?: Record<string, any>;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface ResourceLink {
+  id: string;
+  source_id: string;
+  target_id: string;
+  link_type: string;
+  weight: number;
+  metadata?: string;
+  created_at: number;
+}
+
+export type GraphLayoutType = 'force' | 'hierarchical' | 'circular' | 'radial';
+
+export interface GraphFilterOptions {
+  nodeTypes?: GraphNodeType[];
+  relationTypes?: string[];
+  minWeight?: number;
+  searchQuery?: string;
+}
+
+// React Flow node data structure
+export interface GraphNodeData {
+  id: string;
+  label: string;
+  type: GraphNodeType;
+  resourceId?: string;
+  resourceType?: ResourceType;
+  metadata?: Record<string, any>;
+}
+
+// React Flow edge data structure
+export interface GraphEdgeData {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  relation: string;
+  weight: number;
+}
+
+// Complete graph view state
+export interface GraphViewState {
+  nodes: Array<{
+    id: string;
+    data: GraphNodeData;
+    position: { x: number; y: number };
+    type?: string;
+  }>;
+  edges: Array<{
+    id: string;
+    source: string;
+    target: string;
+    label?: string;
+    data?: GraphEdgeData;
+    type?: string;
+  }>;
+  focusNodeId?: string;
+  depth: number;
+  strategies: string[];
+  layout: GraphLayoutType;
+  filters: GraphFilterOptions;
+}
+
+// Graph generation options
+export interface GraphGenerationOptions {
+  projectId?: string;
+  focusResourceId?: string;
+  maxDepth?: number;
+  strategies?: Array<'mentions' | 'links' | 'semantic' | 'tags' | 'ai'>;
+  maxNodes?: number;
+  minWeight?: number;
+}
+
+// Graph analysis results
+export interface GraphAnalysisResult {
+  hubs: Array<{ nodeId: string; degree: number }>;
+  clusters: Array<{ nodes: string[]; size: number }>;
+  isolated: string[];
+  stats: {
+    nodeCount: number;
+    edgeCount: number;
+    avgDegree: number;
+    density: number;
+  };
 }
 
 // ============================================

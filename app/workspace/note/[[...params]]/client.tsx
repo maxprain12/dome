@@ -4,7 +4,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import NotionEditor from '@/components/editor/NotionEditor';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import SidePanel from '@/components/workspace/SidePanel';
+import SourcesPanel from '@/components/workspace/SourcesPanel';
+import StudioPanel from '@/components/workspace/StudioPanel';
+import GraphPanel from '@/components/workspace/GraphPanel';
+import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import MetadataModal from '@/components/workspace/MetadataModal';
+import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
 
 interface NoteWorkspaceClientProps {
@@ -17,6 +22,11 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
   const [error, setError] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [showMetadata, setShowMetadata] = useState(false);
+  const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
+  const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
+  const graphPanelOpen = useAppStore((s) => s.graphPanelOpen);
+  const activeStudioOutput = useAppStore((s) => s.activeStudioOutput);
+  const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -65,8 +75,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
         id: resourceId,
         title: resource.title,
         content: newContent,
-        metadata: null,
-        updated_at: new Date().toISOString(),
+        updated_at: Date.now(),
       });
       lastSavedContentRef.current = newContent;
     } catch (err) {
@@ -99,8 +108,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
         id: resourceId,
         title,
         content: resource.content || null,
-        metadata: null,
-        updated_at: new Date().toISOString(),
+        updated_at: Date.now(),
       });
       setResource({ ...resource, title });
     } catch (err) {
@@ -186,25 +194,53 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
       />
 
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Sources Panel */}
+        {sourcesPanelOpen && resource && (
+          <SourcesPanel
+            resourceId={resourceId}
+            projectId={resource.project_id}
+          />
+        )}
+
         {/* Editor area */}
-        <div className="flex-1 overflow-auto p-6">
-          <div className="w-full">
-            <NotionEditor
-              content={content}
-              onChange={handleContentChange}
-              placeholder="Escribe '/' para comandos..."
-            />
+        <div className="flex-1 overflow-hidden relative">
+          <div className="h-full overflow-auto p-6">
+            <div className="w-full">
+              <NotionEditor
+                content={content}
+                onChange={handleContentChange}
+                placeholder="Escribe '/' para comandos..."
+              />
+            </div>
           </div>
+
+          {/* Studio Output Viewer Overlay */}
+          {activeStudioOutput && (
+            <StudioOutputViewer
+              output={activeStudioOutput}
+              onClose={() => setActiveStudioOutput(null)}
+            />
+          )}
         </div>
 
-        {/* Shared Side Panel */}
+        {/* Side Panel */}
         <SidePanel
           resourceId={resourceId}
           resource={resource}
           isOpen={isPanelOpen}
           onClose={() => setIsPanelOpen(false)}
         />
+
+        {/* Studio Panel */}
+        {studioPanelOpen && (
+          <StudioPanel />
+        )}
+
+        {/* Graph Panel */}
+        {graphPanelOpen && resource && (
+          <GraphPanel resource={resource} />
+        )}
       </div>
 
       {/* Metadata Modal */}

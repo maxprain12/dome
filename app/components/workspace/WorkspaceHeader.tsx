@@ -16,6 +16,7 @@ import {
   FolderOpen,
   BookOpen,
   Sparkles,
+  Network,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
@@ -50,8 +51,10 @@ export default function WorkspaceHeader({
 
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
+  const graphPanelOpen = useAppStore((s) => s.graphPanelOpen);
   const toggleSourcesPanel = useAppStore((s) => s.toggleSourcesPanel);
   const toggleStudioPanel = useAppStore((s) => s.toggleStudioPanel);
+  const toggleGraphPanel = useAppStore((s) => s.toggleGraphPanel);
 
   const hasFile = !!(resource.internal_path || resource.file_path);
 
@@ -147,9 +150,6 @@ export default function WorkspaceHeader({
     >
       {/* Left section */}
       <div className="flex items-center gap-3 min-w-0 app-region-no-drag">
-        {/* macOS traffic lights spacing */}
-        <div className="w-16 shrink-0" />
-
         <div className="flex items-center gap-2 min-w-0">
           <div style={{ color: 'var(--secondary-text)' }} className="shrink-0">
             {getTypeIcon()}
@@ -212,6 +212,25 @@ export default function WorkspaceHeader({
           <Sparkles size={16} />
           <span>Studio</span>
         </button>
+
+        {/* Graph panel toggle */}
+        <button
+          onClick={toggleGraphPanel}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          style={{
+            background: graphPanelOpen ? 'var(--bg-secondary)' : 'transparent',
+            color: graphPanelOpen ? 'var(--primary-text)' : 'var(--secondary-text)',
+          }}
+          title={graphPanelOpen ? 'Hide graph' : 'Show knowledge graph'}
+          aria-label={graphPanelOpen ? 'Hide graph panel' : 'Show knowledge graph panel'}
+          aria-expanded={graphPanelOpen}
+        >
+          <Network size={16} />
+          <span>Graph</span>
+        </button>
+
+        {/* Separator */}
+        <div className="w-px h-5 mx-1" style={{ background: 'var(--border)' }} />
 
         {/* More options menu */}
         <div className="relative">

@@ -158,7 +158,7 @@ export function createResourceUpdateTool(): AnyAgentTool {
           return jsonResult({ status: 'error', error: 'Resource ID is required.' });
         }
 
-        if (!title && content === undefined) {
+        if (title === undefined && content === undefined) {
           return jsonResult({
             status: 'error',
             error: 'At least one of title or content must be provided.',

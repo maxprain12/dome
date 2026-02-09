@@ -4,6 +4,7 @@ import WorkspaceHeader from './WorkspaceHeader';
 import SidePanel from './SidePanel';
 import SourcesPanel from './SourcesPanel';
 import StudioPanel from './StudioPanel';
+import GraphPanel from './GraphPanel';
 import StudioOutputViewer from './StudioOutputViewer';
 import MetadataModal from './MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -28,6 +29,7 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
   const [showMetadata, setShowMetadata] = useState(false);
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
+  const graphPanelOpen = useAppStore((s) => s.graphPanelOpen);
   const activeStudioOutput = useAppStore((s) => s.activeStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
 
@@ -138,67 +140,88 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
       switch (resource.type) {
         case 'pdf':
           return <PDFViewer resource={resource} />;
-      case 'video':
-        return <VideoPlayer resource={resource} />;
-      case 'audio':
-        return <AudioPlayer resource={resource} />;
-      case 'image':
-        return <ImageViewer resource={resource} />;
-      case 'document': {
-        if (isDocumentPdf(resource)) {
-          return <PDFViewer resource={resource} />;
+        case 'video':
+          return <VideoPlayer resource={resource} />;
+        case 'audio':
+          return <AudioPlayer resource={resource} />;
+        case 'image':
+          return <ImageViewer resource={resource} />;
+        case 'document': {
+          if (isDocumentPdf(resource)) {
+            return <PDFViewer resource={resource} />;
+          }
+
+          const filename = (resource.original_filename || resource.title || '').toLowerCase();
+          const mime = resource.file_mime_type || '';
+
+          // DOCX / DOC
+          if (filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword')) {
+            return <DocxViewer resource={resource} />;
+          }
+
+          // XLSX / XLS
+          if (filename.endsWith('.xlsx') || filename.endsWith('.xls') || mime.includes('spreadsheetml') || mime.includes('ms-excel')) {
+            return <SpreadsheetViewer resource={resource} />;
+          }
+
+          // CSV
+          if (filename.endsWith('.csv') || mime === 'text/csv') {
+            return <SpreadsheetViewer resource={resource} />;
+          }
+
+          // Fallback for unsupported document types
+          return (
+            <div className="flex flex-col items-center justify-center h-full p-8">
+              <File className="w-16 h-16 mb-4" style={{ color: 'var(--tertiary-text)' }} />
+              <p className="text-lg font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
+                {resource.original_filename || resource.title}
+              </p>
+              <p className="text-sm mb-6" style={{ color: 'var(--secondary-text)' }}>
+                This document type cannot be previewed. Open it with your default application.
+              </p>
+              <button
+                onClick={handleOpenExternally}
+                className="btn btn-primary flex items-center gap-2"
+              >
+                <ExternalLink size={16} />
+                Open with default app
+              </button>
+            </div>
+          );
         }
+        case 'note':
+        case 'url': {
+          // Note and URL resources have their own dedicated workspace routes.
+          // If we end up here, redirect to the correct route.
+          const route = resource.type === 'note'
+            ? `/workspace/note?id=${resource.id}`
+            : `/workspace/url?id=${resource.id}`;
 
-        const filename = (resource.original_filename || resource.title || '').toLowerCase();
-        const mime = resource.file_mime_type || '';
+          if (typeof window !== 'undefined') {
+            window.location.hash = `#${route}`;
+          }
 
-        // DOCX / DOC
-        if (filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword')) {
-          return <DocxViewer resource={resource} />;
+          return (
+            <div className="flex flex-col items-center justify-center h-full p-8">
+              <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
+              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+                Redirecting to {resource.type} viewer...
+              </p>
+            </div>
+          );
         }
-
-        // XLSX / XLS
-        if (filename.endsWith('.xlsx') || filename.endsWith('.xls') || mime.includes('spreadsheetml') || mime.includes('ms-excel')) {
-          return <SpreadsheetViewer resource={resource} />;
-        }
-
-        // CSV
-        if (filename.endsWith('.csv') || mime === 'text/csv') {
-          return <SpreadsheetViewer resource={resource} />;
-        }
-
-        // Fallback for unsupported document types
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-8">
-            <File className="w-16 h-16 mb-4" style={{ color: 'var(--tertiary-text)' }} />
-            <p className="text-lg font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
-              {resource.original_filename || resource.title}
-            </p>
-            <p className="text-sm mb-6" style={{ color: 'var(--secondary-text)' }}>
-              This document type cannot be previewed. Open it with your default application.
-            </p>
-            <button
-              onClick={handleOpenExternally}
-              className="btn btn-primary flex items-center gap-2"
-            >
-              <ExternalLink size={16} />
-              Open with default app
-            </button>
-          </div>
-        );
-      }
-      default:
-        return (
-          <div className="flex flex-col items-center justify-center h-full p-8">
-            <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--tertiary-text)' }} />
-            <p className="text-lg font-medium" style={{ color: 'var(--primary-text)' }}>
-              Unsupported file type
-            </p>
-            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-              This resource type ({resource.type}) cannot be previewed in the workspace.
-            </p>
-          </div>
-        );
+        default:
+          return (
+            <div className="flex flex-col items-center justify-center h-full p-8">
+              <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--tertiary-text)' }} />
+              <p className="text-lg font-medium" style={{ color: 'var(--primary-text)' }}>
+                Unsupported file type
+              </p>
+              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+                This resource type ({resource.type}) cannot be previewed in the workspace.
+              </p>
+            </div>
+          );
       }
     };
 
@@ -303,6 +326,11 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
         {/* Studio Panel */}
         {studioPanelOpen && (
           <StudioPanel />
+        )}
+
+        {/* Graph Panel */}
+        {graphPanelOpen && resource && (
+          <GraphPanel resource={resource} />
         )}
       </div>
 

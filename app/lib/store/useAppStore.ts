@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Project, Resource, Source, Tag, AppPreferences, CitationStyle, StudioOutput } from '@/types';
+import type { Project, Resource, Source, Tag, AppPreferences, CitationStyle, StudioOutput, GraphViewState } from '@/types';
 import { getAppPreferences, saveAppPreferences, setTheme as saveTheme, setCitationStyle } from '../settings';
 
 interface AppState {
@@ -51,13 +51,19 @@ interface AppState {
   // Workspace Panel State
   sourcesPanelOpen: boolean;
   studioPanelOpen: boolean;
+  graphPanelOpen: boolean;
   selectedSourceIds: string[];
   toggleSourcesPanel: () => void;
   toggleStudioPanel: () => void;
+  toggleGraphPanel: () => void;
   setSelectedSourceIds: (ids: string[]) => void;
   toggleSourceId: (id: string) => void;
   selectAllSources: (ids: string[]) => void;
   deselectAllSources: () => void;
+
+  // Graph View State
+  graphState?: GraphViewState;
+  setGraphState: (state: GraphViewState | undefined) => void;
 
   // Studio Output State
   activeStudioOutput: StudioOutput | null;
@@ -151,9 +157,19 @@ export const useAppStore = create<AppState>((set) => ({
   // Workspace Panel State
   sourcesPanelOpen: true,
   studioPanelOpen: false,
+  graphPanelOpen: false,
   selectedSourceIds: [],
   toggleSourcesPanel: () => set((state) => ({ sourcesPanelOpen: !state.sourcesPanelOpen })),
-  toggleStudioPanel: () => set((state) => ({ studioPanelOpen: !state.studioPanelOpen })),
+  toggleStudioPanel: () => set((state) => ({
+    studioPanelOpen: !state.studioPanelOpen,
+    // Mutual exclusion: close graph panel when opening studio
+    graphPanelOpen: !state.studioPanelOpen ? false : state.graphPanelOpen,
+  })),
+  toggleGraphPanel: () => set((state) => ({
+    graphPanelOpen: !state.graphPanelOpen,
+    // Mutual exclusion: close studio panel when opening graph
+    studioPanelOpen: !state.graphPanelOpen ? false : state.studioPanelOpen,
+  })),
   setSelectedSourceIds: (ids) => set({ selectedSourceIds: ids }),
   toggleSourceId: (id) => set((state) => ({
     selectedSourceIds: state.selectedSourceIds.includes(id)
@@ -162,6 +178,10 @@ export const useAppStore = create<AppState>((set) => ({
   })),
   selectAllSources: (ids) => set({ selectedSourceIds: ids }),
   deselectAllSources: () => set({ selectedSourceIds: [] }),
+
+  // Graph View State
+  graphState: undefined,
+  setGraphState: (state) => set({ graphState: state }),
 
   // Studio Output State
   activeStudioOutput: null,

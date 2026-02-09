@@ -1,7 +1,7 @@
 
 import { useMemo } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { MindMap, Quiz, StudyGuide, FAQ, Timeline, DataTable } from '@/components/studio';
+import { MindMap, Quiz, StudyGuide, FAQ, Timeline, DataTable, AudioOverview } from '@/components/studio';
 import type { StudioOutput } from '@/types';
 
 interface StudioOutputViewerProps {
@@ -61,6 +61,16 @@ export default function StudioOutputViewer({ output, onClose }: StudioOutputView
         return <Timeline data={parsedContent} title={output.title} onClose={onClose} />;
       case 'table':
         return <DataTable data={parsedContent} title={output.title} onClose={onClose} />;
+      case 'flashcards':
+        return <Quiz data={parsedContent} title={output.title || 'Flashcards'} onClose={onClose} />;
+      case 'audio':
+        return (
+          <AudioOverview
+            transcript={parsedContent}
+            title={output.title || 'Audio Overview'}
+            onClose={onClose}
+          />
+        );
       default:
         return (
           <div className="flex flex-col items-center justify-center h-full p-8">

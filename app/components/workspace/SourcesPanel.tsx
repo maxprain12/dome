@@ -110,9 +110,10 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
 
   return (
     <div
-      className="flex flex-col border-r shrink-0"
+      className="flex flex-col border-r shrink-0 transition-all duration-300 ease-out"
       style={{
-        width: '240px',
+        width: 'min(18vw, 260px)',
+        minWidth: '200px',
         background: 'var(--bg-secondary)',
         borderColor: 'var(--border)',
       }}
