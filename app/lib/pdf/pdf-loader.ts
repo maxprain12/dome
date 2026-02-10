@@ -1,22 +1,20 @@
 /**
  * PDF.js Loader and Configuration
- * Handles PDF.js initialization and worker setup
- * Uses legacy build for Node.js/Electron compatibility
+ * Handles PDF.js initialization and worker setup.
+ * Uses legacy build for Electron compatibility (includes Uint8Array.prototype.toHex polyfill).
  */
 
-// Import PDF.js - use standard import, worker will handle legacy mode
-import * as pdfjsLib from 'pdfjs-dist';
+// Legacy build: includes polyfill for toHex, required in Electron worker context
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
-// Configure PDF.js worker
-// IMPORTANT: The worker file must match the installed pdfjs-dist version.
-// Copy from: node_modules/pdfjs-dist/build/pdf.worker.min.mjs → public/pdf.worker.min.mjs
+// Configure PDF.js worker (must be legacy build to match main bundle)
+// Worker is copied to public/ by postinstall; see package.json "copy:pdf-worker"
 if (typeof window !== 'undefined') {
   const workerPath = '/pdf.worker.min.mjs';
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
 
-  // Log in development for debugging
   if (process.env.NODE_ENV === 'development') {
-    console.log('[PDF.js] Worker configured:', workerPath);
+    console.log('[PDF.js] Worker configured (legacy):', workerPath);
   }
 }
 

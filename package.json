@@ -16,7 +16,8 @@
     "electron:build:verbose": "bun run build && bun run rebuild:natives && bun run verify:natives && DEBUG=electron-builder electron-builder",
     "rebuild:natives": "electron-rebuild -f -w=better-sqlite3,sharp,@ffmpeg-installer/ffmpeg",
     "verify:natives": "node scripts/verify-natives.cjs",
-    "postinstall": "electron-builder install-app-deps && bun run rebuild:natives",
+    "copy:pdf-worker": "node scripts/copy-pdf-worker.cjs",
+    "postinstall": "electron-builder install-app-deps && bun run rebuild:natives && bun run copy:pdf-worker",
     "test:db": "bun run scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "bun run scripts/generate-icons.ts"
