@@ -297,6 +297,8 @@ app
         fileCache.set(cacheKey, { exists: true, path: normalizedPath, timestamp: Date.now() });
         return net.fetch(pathToFileURL(normalizedPath).href);
       } catch (err) {
+        // Log the failure for debugging
+        console.error('[Protocol] File not found:', normalizedPath, err.message);
         // For SPA routing: if file doesn't exist and it's not a static asset,
         // fallback to index.html to let React Router handle it
         const isStaticAsset = /\.(js|css|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map)$/i.test(normalizedPath);

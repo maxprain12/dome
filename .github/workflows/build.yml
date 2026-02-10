@@ -79,8 +79,8 @@ jobs:
         with:
           name: dome-macos
           path: |
-            dist/*.dmg
-            dist/*.zip
+            release/*.dmg
+            release/*.zip
           if-no-files-found: error
 
   # Windows build
@@ -134,7 +134,7 @@ jobs:
         with:
           name: dome-windows
           path: |
-            dist/*.exe
+            release/*.exe
           if-no-files-found: error
 
   # Create GitHub Release when a tag is pushed

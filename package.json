@@ -125,7 +125,7 @@
     "afterPack": "./scripts/after-pack.cjs",
     "directories": {
       "buildResources": "assets",
-      "output": "dist"
+      "output": "release"
     },
     "mac": {
       "category": "public.app-category.productivity",
@@ -133,11 +133,17 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "hardenedRuntime": true,
@@ -147,7 +153,10 @@
       "notarize": true
     },
     "win": {
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "assets/icon-256.png"
     },
     "nsis": {
