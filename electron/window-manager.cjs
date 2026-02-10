@@ -113,7 +113,7 @@ class WindowManager {
       window.loadURL(devUrl);
     } else {
       // Use custom app:// protocol for production (Vite build output)
-      const appUrl = `app://dome${route === '/' ? '/index.html' : route}`;
+      const appUrl = `app://dome${route}`;
       if (isDebug) {
         console.log('[WindowManager] Loading URL:', appUrl);
       }
