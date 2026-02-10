@@ -60,61 +60,7 @@ export function SearchFilterChips({
         );
       })}
 
-      <style jsx>{`
-        .filter-chips-container {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 8px 12px 4px;
-          flex-wrap: wrap;
-        }
 
-        .filter-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 3px 10px;
-          font-size: 11px;
-          font-weight: 500;
-          border: 1px solid var(--border);
-          border-radius: var(--radius-full);
-          background: transparent;
-          color: var(--secondary-text);
-          cursor: pointer;
-          transition: all var(--transition-fast);
-          white-space: nowrap;
-        }
-
-        .filter-chip:hover {
-          background: var(--bg-hover);
-          border-color: var(--border-hover);
-          color: var(--primary-text);
-        }
-
-        .filter-chip-active {
-          background: var(--accent);
-          border-color: var(--accent);
-          color: white;
-        }
-
-        .filter-chip-active:hover {
-          background: var(--accent);
-          border-color: var(--accent);
-          color: white;
-          opacity: 0.9;
-        }
-
-        .filter-chip-clear {
-          font-weight: 600;
-          color: var(--accent);
-          border-color: var(--accent);
-        }
-
-        .filter-chip-clear:hover {
-          background: var(--accent);
-          color: white;
-        }
-      `}</style>
     </div>
   );
 }

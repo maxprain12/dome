@@ -239,17 +239,14 @@ export default function Home() {
 
       case 'chat':
         return (
-          <div className="text-center py-20">
-            <div
-              className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center"
-              style={{ background: 'rgba(123, 118, 208, 0.08)' }}
-            >
-              <MessageCircle className="w-10 h-10" style={{ color: 'var(--dome-accent)' }} />
+          <div className="dashboard-empty-state">
+            <div className="dashboard-icon-wrapper">
+              <MessageCircle className="dashboard-icon" />
             </div>
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
+            <h3 className="dashboard-title">
               Martin Chat
             </h3>
-            <p className="text-sm mb-4" style={{ color: 'var(--dome-text-secondary)' }}>
+            <p className="dashboard-description">
               Abre un recurso para chatear con Martin sobre su contenido.
             </p>
           </div>
@@ -257,17 +254,14 @@ export default function Home() {
 
       case 'projects':
         return (
-          <div className="text-center py-20">
-            <div
-              className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center"
-              style={{ background: 'rgba(123, 118, 208, 0.08)' }}
-            >
-              <ProjectIcon className="w-10 h-10" style={{ color: 'var(--dome-accent)' }} />
+          <div className="dashboard-empty-state">
+            <div className="dashboard-icon-wrapper">
+              <ProjectIcon className="dashboard-icon" />
             </div>
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
+            <h3 className="dashboard-title">
               Proyectos
             </h3>
-            <p className="text-sm" style={{ color: 'var(--dome-text-secondary)' }}>
+            <p className="dashboard-description">
               Organiza tus recursos por proyecto. Proximamente.
             </p>
           </div>
@@ -278,17 +272,14 @@ export default function Home() {
 
       case 'tags':
         return (
-          <div className="text-center py-20">
-            <div
-              className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center"
-              style={{ background: 'rgba(123, 118, 208, 0.08)' }}
-            >
-              <TagsIcon className="w-10 h-10" style={{ color: 'var(--dome-accent)' }} />
+          <div className="dashboard-empty-state">
+            <div className="dashboard-icon-wrapper">
+              <TagsIcon className="dashboard-icon" />
             </div>
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
+            <h3 className="dashboard-title">
               Etiquetas
             </h3>
-            <p className="text-sm" style={{ color: 'var(--dome-text-secondary)' }}>
+            <p className="dashboard-description">
               Navega tus recursos por etiquetas. Proximamente.
             </p>
           </div>
@@ -326,17 +317,16 @@ export default function Home() {
 
       {/* Breadcrumb Navigation */}
       {currentFolderId ? (
-        <nav className="mb-6 flex items-center gap-2" style={{ color: 'var(--dome-text-secondary)' }} aria-label="Breadcrumb">
+        <nav className="breadcrumb-nav" aria-label="Breadcrumb">
           <button
             onClick={handleNavigateToRoot}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--dome-accent-bg)] hover:text-[var(--dome-text)]"
-            style={{ color: 'var(--dome-text-secondary)' }}
+            className="breadcrumb-home"
           >
-            <HomeIcon className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />
+            <HomeIcon className="w-4 h-4" />
             <span className="text-sm font-medium">Home</span>
           </button>
-          <ChevronRight className="w-4 h-4 opacity-70" />
-          <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+          <ChevronRight className="breadcrumb-separator" />
+          <span className="breadcrumb-current">
             {currentFolder?.title ?? 'Unknown Folder'}
           </span>
         </nav>
@@ -345,23 +335,23 @@ export default function Home() {
       {/* Folders Section */}
       {folders.length > 0 ? (
         <section className="mb-10" aria-label="Folders">
-          <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--dome-text-secondary)' }}>
+          <h2 className="section-header">
             {currentFolderId ? 'Subfolders' : 'Folders'}
           </h2>
-          <div className="grid grid-cols-8 gap-4">
+          <div className="folder-grid">
             {folders.map((folder) => (
               <button
                 key={folder.id}
                 onClick={() => handleFolderClick(folder)}
-                className="flex flex-col items-center gap-2 p-3 rounded-xl transition-all duration-200 hover:bg-[var(--dome-accent-bg)] focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+                className="folder-item"
               >
                 <div
-                  className="w-14 h-14 rounded-xl flex items-center justify-center shadow-md transition-transform duration-200 group-hover:scale-105"
-                  style={{ backgroundColor: folder.metadata?.color ?? 'var(--dome-accent)' }}
+                  className="folder-icon-wrapper"
+                  style={{ backgroundColor: folder.metadata?.color ?? 'var(--accent)' }}
                 >
                   <FolderOpen className="w-7 h-7 text-white opacity-90" />
                 </div>
-                <span className="text-xs text-center truncate w-full leading-tight font-medium" style={{ color: 'var(--dome-text)' }}>
+                <span className="folder-title">
                   {folder.title}
                 </span>
               </button>
@@ -372,7 +362,7 @@ export default function Home() {
 
       {/* Resources Grid/List */}
       <section className="mb-6" aria-label="Resources">
-        <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--dome-text-secondary)' }}>
+        <h2 className="section-header">
           {isSearchMode
             ? `Coincidencias para "${searchQuery}"`
             : currentFolderId
@@ -382,18 +372,17 @@ export default function Home() {
       </section>
 
       {!isSearchMode && isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+        <div className="loading-container">
+          <Loader2 className="spinner-icon" />
         </div>
       ) : null}
 
       {!isSearchMode && error ? (
-        <div className="text-center py-20">
-          <p className="mb-2" style={{ color: 'var(--error)' }}>Failed to load resources</p>
+        <div className="error-container">
+          <p className="error-message">Failed to load resources</p>
           <button
             onClick={refetch}
-            className="btn btn-secondary text-sm"
-            style={{ color: 'var(--dome-text)' }}
+            className="btn btn-secondary text-sm try-again-btn"
           >
             Try again
           </button>
@@ -401,20 +390,20 @@ export default function Home() {
       ) : null}
 
       {isSearchMode && resourcesToShow.length === 0 && (
-        <div className="text-center py-20">
-          <p className="text-sm" style={{ color: 'var(--dome-text-secondary)' }}>
+        <div className="no-matches-container">
+          <p className="no-matches-text">
             No hay coincidencias para &quot;{searchQuery}&quot;
           </p>
         </div>
       )}
 
       {!isSearchMode && !isLoading && !error && nonFolderResources.length === 0 && folders.length === 0 && (
-        <div className="text-center py-20">
-          <FolderOpen className="w-16 h-16 mx-auto mb-4" style={{ color: 'var(--dome-text-muted)' }} />
-          <p className="text-lg font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
+        <div className="empty-folder-state">
+          <FolderOpen className="empty-folder-icon" />
+          <p className="empty-folder-title">
             {currentFolderId ? 'This folder is empty' : 'No resources yet'}
           </p>
-          <p className="text-sm" style={{ color: 'var(--dome-text-secondary)' }}>
+          <p className="empty-folder-description">
             {currentFolderId
               ? 'Drag files here or move resources into this folder'
               : 'Drop files or use the command center to add your first resource'}
@@ -423,19 +412,7 @@ export default function Home() {
       )}
 
       {((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) ? (
-        <div
-          className={viewMode === 'grid'
-            ? 'gap-5'
-            : 'flex flex-col gap-2'
-          }
-          style={viewMode === 'grid' ? {
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            contentVisibility: 'auto',
-          } : {
-            contentVisibility: 'auto',
-          }}
-        >
+        <div className={viewMode === 'grid' ? 'resources-grid' : 'resources-list'}>
           {resourcesToShow.map((resource) => (
             <ResourceCard
               key={resource.id}
@@ -462,16 +439,8 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto" style={{ padding: '32px' }}>
           <div className="max-w-6xl mx-auto">
             {/* Page header */}
-            <div style={{ marginBottom: '32px' }}>
-              <h1
-                style={{
-                  fontSize: '28px',
-                  fontWeight: 700,
-                  color: 'var(--dome-text)',
-                  marginBottom: '8px',
-                  letterSpacing: '-0.02em',
-                }}
-              >
+            <div className="page-header">
+              <h1 className="page-title">
                 {homeSidebarSection === 'library'
                   ? 'Recent Resources'
                   : homeSidebarSection === 'flashcards'
@@ -486,7 +455,7 @@ export default function Home() {
                             ? 'Projects'
                             : 'Recent Resources'}
               </h1>
-              <p style={{ fontSize: '14px', color: 'var(--dome-text-secondary)' }}>
+              <p className="page-subtitle">
                 {homeSidebarSection === 'library' || homeSidebarSection === 'recent'
                   ? 'Your recently updated files and links'
                   : homeSidebarSection === 'flashcards'
@@ -508,13 +477,7 @@ export default function Home() {
 
         {/* Import Progress Indicator */}
         {importProgress.status !== 'idle' && (
-          <div
-            className="fixed bottom-6 right-6 p-4 rounded-xl shadow-lg z-50 min-w-[300px]"
-            style={{
-              background: 'var(--dome-surface)',
-              border: '1px solid var(--dome-border)',
-            }}
-          >
+          <div className="import-progress-card">
             <div className="flex items-center gap-3">
               {importProgress.status === 'importing' && (
                 <>
