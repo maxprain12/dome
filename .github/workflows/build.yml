@@ -55,9 +55,6 @@ jobs:
       - name: Verify native modules
         run: bun run verify:natives
 
-      - name: Build Next.js
-        run: bun run build
-
       - name: Build Electron (macOS)
         run: |
           if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
@@ -126,9 +123,6 @@ jobs:
 
       - name: Verify native modules
         run: bun run verify:natives
-
-      - name: Build Next.js
-        run: bun run build
 
       - name: Build Electron (Windows)
         run: bun run electron:build -- --win

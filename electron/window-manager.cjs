@@ -87,7 +87,7 @@ class WindowManager {
     this.authorizedWindows.add(webContentsId);
 
     // Determinar modo (dev o prod)
-    const indexPath = path.join(__dirname, '../out/index.html');
+    const indexPath = path.join(__dirname, '../dist/index.html');
     const isDev =
       process.env.NODE_ENV === 'development' ||
       !require('electron').app.isPackaged ||
@@ -112,8 +112,7 @@ class WindowManager {
       }
       window.loadURL(devUrl);
     } else {
-      // Use custom app:// protocol for production
-      // This allows absolute paths like /_next/static/... to work correctly
+      // Use custom app:// protocol for production (Vite build output)
       const appUrl = `app://dome${route === '/' ? '/index.html' : route}`;
       if (isDebug) {
         console.log('[WindowManager] Loading URL:', appUrl);
