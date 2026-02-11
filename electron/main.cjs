@@ -7,12 +7,10 @@ const {
   nativeTheme,
   Menu,
   protocol,
-  net,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { pathToFileURL } = require('url');
 
 // Register custom protocol scheme as privileged before app is ready
 // This allows the app:// protocol to work like https:// with full privileges
@@ -231,13 +229,45 @@ app.on('activate', () => {
   }
 });
 
+// MIME types for protocol handler (fs.readFileSync works with asar; net.fetch may not)
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const mime = {
+    '.html': 'text/html',
+    '.js': 'application/javascript',
+    '.css': 'text/css',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf',
+    '.eot': 'application/vnd.ms-fontobject',
+  };
+  return mime[ext] || 'application/octet-stream';
+}
+
+function serveFile(filePath) {
+  const data = fs.readFileSync(filePath);
+  return new Response(data, {
+    status: 200,
+    headers: { 'Content-Type': getMimeType(filePath) },
+  });
+}
+
 // Initialize app
 app
   .whenReady()
   .then(async () => {
     // Register custom protocol handler for serving static files
     // This allows Vite build to work with absolute paths
-    const outDir = path.join(__dirname, '../dist');
+    const outDir = app.isPackaged
+      ? path.join(process.resourcesPath, 'app.asar', 'dist')
+      : path.join(__dirname, '../dist');
     console.log('[Protocol] Registering app:// protocol, serving from:', outDir);
 
     // Cache for file paths to avoid repeated fs.existsSync calls
@@ -275,7 +305,7 @@ app
       const cached = fileCache.get(cacheKey);
       if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
         if (cached.exists) {
-          return net.fetch(pathToFileURL(cached.path).href);
+          return serveFile(cached.path);
         } else {
           return new Response('Not Found', { status: 404 });
         }
@@ -288,14 +318,14 @@ app
           const indexPath = path.join(normalizedPath, 'index.html');
           if (fs.existsSync(indexPath)) {
             fileCache.set(cacheKey, { exists: true, path: indexPath, timestamp: Date.now() });
-            return net.fetch(pathToFileURL(indexPath).href);
+            return serveFile(indexPath);
           }
           fileCache.set(cacheKey, { exists: false, timestamp: Date.now() });
           return new Response('Not Found', { status: 404 });
         }
         // Regular file
         fileCache.set(cacheKey, { exists: true, path: normalizedPath, timestamp: Date.now() });
-        return net.fetch(pathToFileURL(normalizedPath).href);
+        return serveFile(normalizedPath);
       } catch (err) {
         // Log the failure for debugging
         console.error('[Protocol] File not found:', normalizedPath, err.message);
@@ -307,7 +337,7 @@ app
           const indexPath = path.join(outDir, 'index.html');
           if (fs.existsSync(indexPath)) {
             fileCache.set(cacheKey, { exists: true, path: indexPath, timestamp: Date.now() });
-            return net.fetch(pathToFileURL(indexPath).href);
+            return serveFile(indexPath);
           }
         }
 
