@@ -139,9 +139,11 @@ export default function WorkspaceHeader({
     };
   };
 
+  const isWindows = typeof window !== 'undefined' && window.electron?.isWindows;
+
   return (
     <header
-      className="flex items-center justify-between px-4 py-3 border-b app-region-drag"
+      className={`flex items-center justify-between px-4 py-3 border-b app-region-drag${isWindows ? ' win-titlebar-padding' : ''}`}
       style={{
         background: 'var(--bg)',
         borderColor: 'var(--border)',

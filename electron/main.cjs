@@ -235,6 +235,8 @@ function getMimeType(filePath) {
   const mime = {
     '.html': 'text/html',
     '.js': 'application/javascript',
+    '.mjs': 'application/javascript',
+    '.cjs': 'application/javascript',
     '.css': 'text/css',
     '.json': 'application/json',
     '.png': 'image/png',
@@ -331,7 +333,7 @@ app
         console.error('[Protocol] File not found:', normalizedPath, err.message);
         // For SPA routing: if file doesn't exist and it's not a static asset,
         // fallback to index.html to let React Router handle it
-        const isStaticAsset = /\.(js|css|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map)$/i.test(normalizedPath);
+        const isStaticAsset = /\.(js|mjs|cjs|css|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map)$/i.test(normalizedPath);
 
         if (!isStaticAsset) {
           const indexPath = path.join(outDir, 'index.html');

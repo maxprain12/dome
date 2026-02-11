@@ -35,12 +35,23 @@ class WindowManager {
         sandbox: false,
         webSecurity: true,
       },
-      // macOS specific
+      // macOS: frameless with hidden title bar + traffic lights
+      // Windows: hidden title bar with native overlay controls
       frame: false,
       titleBarStyle: 'hidden',
-      trafficLightPosition: { x: 18, y: 16 },
-      transparent: process.platform === 'darwin',
-      vibrancy: process.platform === 'darwin' ? 'sidebar' : undefined,
+      ...(process.platform === 'darwin'
+        ? {
+          trafficLightPosition: { x: 18, y: 16 },
+          transparent: true,
+          vibrancy: 'sidebar',
+        }
+        : {
+          titleBarOverlay: {
+            color: '#00000000',
+            symbolColor: '#999999',
+            height: 40,
+          },
+        }),
     };
   }
 

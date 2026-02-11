@@ -1417,6 +1417,11 @@ a:hover {
   padding-right: 130px;
 }
 
+/* Windows: reserve space for native title bar overlay controls */
+.win-titlebar-padding {
+  padding-right: 140px;
+}
+
 /* Mac nav adjustment for traffic lights */
 .nav-mac {
   padding-left: 70px;
