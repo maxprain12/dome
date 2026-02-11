@@ -5,8 +5,8 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
 
-  // Base path for assets (relative for Electron)
-  base: './',
+  // Base path for assets (absolute so deep routes resolve correctly)
+  base: '/',
 
   // Resolve aliases (match Next.js @/ pattern)
   resolve: {

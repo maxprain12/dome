@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { Minus, Square, X } from 'lucide-react';
 
 /**
- * Controles de ventana (minimizar, maximizar, cerrar) para Windows y Linux.
- * En macOS no se muestran: se usan los traffic lights nativos.
- * Solo se renderiza tras el montaje en cliente para evitar hydration mismatch (server no tiene window).
+ * Controles de ventana (minimizar, maximizar, cerrar) para Linux.
+ * En macOS se usan los traffic lights nativos.
+ * En Windows se usa titleBarOverlay para controles nativos.
+ * Solo se renderiza tras el montaje en cliente para evitar hydration mismatch.
  */
 export default function WindowControls() {
   const [mounted, setMounted] = useState(false);
@@ -14,11 +15,13 @@ export default function WindowControls() {
     setMounted(true);
   }, []);
 
+  // Hide on macOS (traffic lights), Windows (titleBarOverlay), and non-electron
   if (
     !mounted ||
     typeof window === 'undefined' ||
     !window.electron ||
-    window.electron.isMac
+    window.electron.isMac ||
+    window.electron.isWindows
   ) {
     return null;
   }

@@ -33,9 +33,12 @@ export default function AppHeader() {
     ? SECTION_TITLES[homeSidebarSection] ?? 'Home'
     : ROUTE_TITLES[location.pathname] ?? 'Dome';
 
+  const isWindows = typeof window !== 'undefined' && window.electron?.isWindows;
+
   return (
     <div
-      className="fixed top-0 left-0 right-0 h-11 z-50 flex items-center justify-between"
+      className={`fixed top-0 left-0 right-0 h-11 z-50 flex items-center justify-between${isWindows ? ' win-titlebar-padding' : ''
+        }`}
       style={{
         WebkitAppRegion: 'drag',
         background: 'var(--dome-surface)',
