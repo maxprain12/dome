@@ -111,20 +111,20 @@ function _getOpenAIKey(database) {
   try {
     const queries = database.getQueries();
 
-    // First try direct OpenAI key
-    const openaiKey = queries.getSetting.get('ai.api_key');
-    if (openaiKey?.value) {
-      return openaiKey.value;
+    // Only use OpenAI key when provider is openai
+    const providerRow = queries.getSetting.get('ai_provider');
+    const provider = providerRow?.value;
+    if (provider !== 'openai') {
+      return null;
     }
 
-    // Try the provider-specific approach: check if provider is openai
-    const provider = queries.getSetting.get('ai.provider');
-    if (provider?.value === 'openai') {
-      const key = queries.getSetting.get('ai.api_key');
-      if (key?.value) return key.value;
+    // Get API key from ai_api_key (consistent with rest of app)
+    const apiKeyRow = queries.getSetting.get('ai_api_key');
+    if (apiKeyRow?.value) {
+      return apiKeyRow.value;
     }
 
-    // Try openai-specific setting key
+    // Fallback: legacy openai-specific setting key
     const openaiSpecific = queries.getSetting.get('openai_api_key');
     if (openaiSpecific?.value) {
       return openaiSpecific.value;

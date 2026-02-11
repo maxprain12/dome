@@ -13,6 +13,7 @@ export function generateId(): string {
 
 // Formatear fecha relativa
 export function formatDistanceToNow(timestamp: number): string {
+  if (!timestamp || !isFinite(timestamp)) return '—';
   const now = Date.now();
   const diff = now - timestamp;
 
@@ -35,6 +36,7 @@ export function formatDistanceToNow(timestamp: number): string {
 
 // Compact time distance format (e.g., "now", "3m", "2h", "5d")
 export function formatShortDistance(timestamp: number): string {
+  if (!timestamp || !isFinite(timestamp)) return '—';
   const diff = Date.now() - timestamp;
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(minutes / 60);
@@ -50,11 +52,42 @@ export function formatShortDistance(timestamp: number): string {
 
 // Formatear fecha completa
 export function formatDate(timestamp: number): string {
+  if (!timestamp || !isFinite(timestamp)) return '—';
   return new Date(timestamp).toLocaleDateString('es-ES', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
+}
+
+// Formatear fecha con hora
+export function formatDateFull(timestamp: number): string {
+  if (!timestamp || !isFinite(timestamp)) return '—';
+  return new Date(timestamp).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+// Smart relative date: today → time, yesterday, this week → weekday, older → short date
+export function formatRelativeDate(timestamp: number): string {
+  if (!timestamp || !isFinite(timestamp)) return '—';
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  if (days === 0) {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } else if (days === 1) {
+    return 'Yesterday';
+  } else if (days < 7) {
+    return date.toLocaleDateString([], { weekday: 'short' });
+  }
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
 }
 
 // Formatear tamaño de archivo

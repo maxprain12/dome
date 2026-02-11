@@ -68,8 +68,8 @@
   --bg-translucent: rgba(250, 250, 250, 0.85);
 
   /* Sidebar & Layout */
-  --sidebar-width: 260px;
-  --sidebar-collapsed-width: 72px;
+  --sidebar-width: 56px;
+  --sidebar-collapsed-width: 56px;
   --nav-height: 56px;
   --header-height: 68px;
 

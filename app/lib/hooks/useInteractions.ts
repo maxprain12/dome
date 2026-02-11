@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { generateId } from '@/lib/utils';
 
 export type InteractionType = 'note' | 'annotation' | 'chat';
@@ -257,10 +257,19 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
     }
   }, []);
 
-  // Filter by type
-  const notes = interactions.filter((i) => i.type === 'note');
-  const annotations = interactions.filter((i) => i.type === 'annotation');
-  const chatMessages = interactions.filter((i) => i.type === 'chat');
+  // Filter by type (memoized to avoid new array references on every render)
+  const notes = useMemo(
+    () => interactions.filter((i) => i.type === 'note'),
+    [interactions]
+  );
+  const annotations = useMemo(
+    () => interactions.filter((i) => i.type === 'annotation'),
+    [interactions]
+  );
+  const chatMessages = useMemo(
+    () => interactions.filter((i) => i.type === 'chat'),
+    [interactions]
+  );
 
   return {
     interactions,

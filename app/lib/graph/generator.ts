@@ -339,10 +339,9 @@ async function generateGraphFromTags(
     const focusTags = tagsResult.data;
 
     // Find other resources with shared tags
-    const allResourcesResult = await window.electron.db.resources.list({
-      projectId,
-      limit: 100,
-    });
+    const allResourcesResult = projectId
+      ? await window.electron.db.resources.getByProject(projectId)
+      : await window.electron.db.resources.getAll(100);
 
     if (!allResourcesResult.success || !allResourcesResult.data) {
       return { nodes, edges };

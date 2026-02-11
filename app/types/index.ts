@@ -166,6 +166,8 @@ export interface AISettings {
   ollama_temperature?: number;
   ollama_top_p?: number;
   ollama_num_predict?: number;
+  /** Cuando true, modelos con "thinking" muestran el razonamiento interno. Por defecto false (solo respuesta final). */
+  ollama_show_thinking?: boolean;
   // Para Venice:
   venice_privacy_mode?: 'private' | 'anonymized';
 }
@@ -396,8 +398,11 @@ export interface StudioOutput {
   source_ids?: string; // JSON array of resource IDs used
   file_path?: string; // for audio/video files
   metadata?: string; // JSON additional data
+  deck_id?: string; // for type=flashcards, FK to flashcard_decks
+  resource_id?: string; // optional focus resource when generating
   created_at: number;
   updated_at: number;
+  deck_card_count?: number; // populated by getByProject JOIN
 }
 
 export interface MindMapNode {

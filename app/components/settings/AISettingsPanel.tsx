@@ -34,6 +34,7 @@ export default function AISettingsPanel() {
   const [ollamaTemperature, setOllamaTemperature] = useState(0.7);
   const [ollamaTopP, setOllamaTopP] = useState(0.9);
   const [ollamaNumPredict, setOllamaNumPredict] = useState(500);
+  const [ollamaShowThinking, setOllamaShowThinking] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -105,6 +106,7 @@ export default function AISettingsPanel() {
         setOllamaTemperature(config.ollama_temperature ?? 0.7);
         setOllamaTopP(config.ollama_top_p ?? 0.9);
         setOllamaNumPredict(config.ollama_num_predict ?? 500);
+        setOllamaShowThinking(config.ollama_show_thinking ?? false);
       }
     };
     loadConfig();
@@ -250,6 +252,7 @@ export default function AISettingsPanel() {
         config.ollama_temperature = ollamaTemperature;
         config.ollama_top_p = ollamaTopP;
         config.ollama_num_predict = ollamaNumPredict;
+        config.ollama_show_thinking = ollamaShowThinking;
         break;
     }
 
@@ -976,6 +979,32 @@ export default function AISettingsPanel() {
                   <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
                     Maximum tokens to generate per response.
                   </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
+                      Show thinking
+                    </label>
+                    <p className="text-xs mt-0.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
+                      Mostrar el razonamiento interno de modelos con chain-of-thought (qwen3, etc.). Por defecto desactivado.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={ollamaShowThinking}
+                    onClick={() => setOllamaShowThinking((v) => !v)}
+                    className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
+                    style={{
+                      backgroundColor: ollamaShowThinking ? 'var(--accent)' : 'var(--bg-tertiary)',
+                    }}
+                  >
+                    <span
+                      className="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition"
+                      style={{ transform: ollamaShowThinking ? 'translateX(22px)' : 'translateX(2px)' }}
+                    />
+                  </button>
                 </div>
               </div>
             </div>

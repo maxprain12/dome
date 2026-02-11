@@ -8,6 +8,7 @@ import FilterBar from './FilterBar';
 import ResourceCard from './ResourceCard';
 import HomeLayout from './HomeLayout';
 import { FlashcardDeckList } from '@/components/flashcards';
+import StudioHomeView from '@/components/studio/StudioHomeView';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 
@@ -234,6 +235,9 @@ export default function Home() {
   // Render content based on active section
   const renderSectionContent = () => {
     switch (homeSidebarSection) {
+      case 'studio':
+        return <StudioHomeView />;
+
       case 'flashcards':
         return <FlashcardDeckList />;
 
@@ -443,30 +447,34 @@ export default function Home() {
               <h1 className="page-title">
                 {homeSidebarSection === 'library'
                   ? 'Recent Resources'
-                  : homeSidebarSection === 'flashcards'
-                    ? 'Flashcards'
-                    : homeSidebarSection === 'recent'
-                      ? 'Recent Resources'
-                      : homeSidebarSection === 'tags'
-                        ? 'Tags'
-                        : homeSidebarSection === 'chat'
-                          ? 'Martin Chat'
-                          : homeSidebarSection === 'projects'
-                            ? 'Projects'
-                            : 'Recent Resources'}
+                  : homeSidebarSection === 'studio'
+                    ? 'Studio'
+                    : homeSidebarSection === 'flashcards'
+                      ? 'Flashcards'
+                      : homeSidebarSection === 'recent'
+                        ? 'Recent Resources'
+                        : homeSidebarSection === 'tags'
+                          ? 'Tags'
+                          : homeSidebarSection === 'chat'
+                            ? 'Martin Chat'
+                            : homeSidebarSection === 'projects'
+                              ? 'Projects'
+                              : 'Recent Resources'}
               </h1>
               <p className="page-subtitle">
                 {homeSidebarSection === 'library' || homeSidebarSection === 'recent'
                   ? 'Your recently updated files and links'
-                  : homeSidebarSection === 'flashcards'
-                    ? 'Review your flashcard decks'
-                    : homeSidebarSection === 'tags'
-                      ? 'Browse resources by tag'
-                      : homeSidebarSection === 'chat'
-                        ? 'Chat with Martin about your resources'
-                        : homeSidebarSection === 'projects'
-                          ? 'Organize resources by project'
-                          : 'Your recently updated files and links'}
+                  : homeSidebarSection === 'studio'
+                    ? 'Genera materiales de estudio con IA desde tus recursos'
+                    : homeSidebarSection === 'flashcards'
+                      ? 'Review your flashcard decks'
+                      : homeSidebarSection === 'tags'
+                        ? 'Browse resources by tag'
+                        : homeSidebarSection === 'chat'
+                          ? 'Chat with Martin about your resources'
+                          : homeSidebarSection === 'projects'
+                            ? 'Organize resources by project'
+                            : 'Your recently updated files and links'}
               </p>
             </div>
 

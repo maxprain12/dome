@@ -151,10 +151,65 @@ async function extractDocumentText(filePath, mimeType) {
   }
 }
 
+// Lazy-load pdfjs-dist for PDF text extraction
+let pdfjsLib = null;
+let pdfjsLoadAttempted = false;
+
+/**
+ * Extract full text from a PDF file using pdfjs-dist
+ * @param {string} filePath - Path to the PDF file
+ * @param {number} maxChars - Maximum characters to extract (default 50000)
+ * @returns {Promise<string|null>} Extracted text or null
+ */
+async function extractTextFromPDF(filePath, maxChars = 50000) {
+  if (!filePath || !fs.existsSync(filePath)) {
+    console.error('[DocumentExtractor] PDF file not found:', filePath);
+    return null;
+  }
+
+  if (!pdfjsLib && !pdfjsLoadAttempted) {
+    pdfjsLoadAttempted = true;
+    try {
+      pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    } catch (error) {
+      console.warn('[DocumentExtractor] pdfjs-dist not available, PDF extraction disabled:', error.message);
+      return null;
+    }
+  }
+
+  if (!pdfjsLib?.getDocument) return null;
+
+  try {
+    const data = new Uint8Array(fs.readFileSync(filePath));
+    const loadingTask = pdfjsLib.getDocument({
+      data,
+      disableFontFace: true,
+      useSystemFonts: true,
+    });
+    const pdfDoc = await loadingTask.promise;
+    const numPages = pdfDoc.numPages;
+    const textParts = [];
+
+    for (let i = 1; i <= numPages && textParts.join('').length < maxChars; i++) {
+      const page = await pdfDoc.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str || '').join(' ');
+      textParts.push(pageText);
+    }
+
+    const fullText = textParts.join('\n\n').trim();
+    return fullText ? fullText.substring(0, maxChars) : null;
+  } catch (error) {
+    console.error('[DocumentExtractor] Error extracting PDF text:', error.message);
+    return null;
+  }
+}
+
 module.exports = {
   extractDocumentText,
   extractDocxText,
   extractXlsxText,
   extractCsvText,
   extractPlainText,
+  extractTextFromPDF,
 };

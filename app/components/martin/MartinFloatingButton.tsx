@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { Trash2, Copy, RefreshCw, X, Send, Loader2 } from 'lucide-react';
 import MartinIcon from './MartinIcon';
 import { useMartinStore } from '@/lib/store/useMartinStore';
-import { getAIConfig, chatStream } from '@/lib/ai/client';
+import { getAIConfig, chatStream, chatWithTools } from '@/lib/ai/client';
+import { createResourceTools } from '@/lib/ai/tools';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { showToast } from '@/lib/store/useToastStore';
 
@@ -35,6 +36,7 @@ const QUICK_PROMPTS = [
 
 export default function MartinFloatingButton() {
   const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
   const {
     isOpen,
     toggleOpen,
@@ -46,6 +48,7 @@ export default function MartinFloatingButton() {
     unreadCount,
     whatsappConnected,
     whatsappPendingMessages,
+    currentResourceId,
     currentResourceTitle,
   } = useMartinStore();
 
@@ -55,6 +58,11 @@ export default function MartinFloatingButton() {
   const [providerInfo, setProviderInfo] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Fallback: get resourceId from URL when in workspace (store may not be synced yet)
+  const effectiveResourceId =
+    currentResourceId ||
+    (pathname?.startsWith('/workspace') ? searchParams.get('id') : null);
 
   // Don't show on certain routes
   const shouldHide = HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
@@ -138,6 +146,17 @@ You can help the user with:
   // Streaming message state
   const [streamingContent, setStreamingContent] = useState('');
 
+  // Check if user is asking to summarize/analyze the current resource
+  const isSummarizeRequest = (msg: string) => {
+    const lower = msg.toLowerCase();
+    return (
+      lower.includes('summarize') ||
+      lower.includes('summarise') ||
+      lower.includes('resum') ||
+      (lower.includes('resource') && (lower.includes('summar') || lower.includes('content') || lower.includes('about')))
+    );
+  };
+
   // Handle sending a message with streaming
   const handleSend = useCallback(async (messageOverride?: string) => {
     const userMessage = messageOverride || input.trim();
@@ -162,22 +181,65 @@ You can help the user with:
         return;
       }
 
-      const systemPrompt = buildSystemPrompt();
+      let resolvedUserMessage = userMessage;
+      let systemPrompt = buildSystemPrompt();
+      let contentInjected = false;
+
+      // When user asks to summarize current resource and we have resourceId, fetch content
+      if (effectiveResourceId && isSummarizeRequest(userMessage) && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
+        try {
+          const result = await window.electron.ai.tools.resourceGet(effectiveResourceId, {
+            includeContent: true,
+            maxContentLength: 12000,
+          });
+          if (result?.success && result?.resource) {
+            const r = result.resource;
+            const content = r.content || r.summary || r.transcription || r.metadata?.summary || '';
+            if (content && content.trim().length > 0) {
+              systemPrompt += `\n\n## Current Resource Content (for summarization)\nThe user is viewing "${r.title || currentResourceTitle}". Here is the content to summarize:\n\n${content.slice(0, 12000)}`;
+              if (content.length > 12000) {
+                systemPrompt += '\n\n[Content truncated for length]';
+              }
+              contentInjected = true;
+            }
+          }
+        } catch (e) {
+          console.warn('[Many] Could not fetch resource content:', e);
+        }
+      }
+
       const chatMessages = [
         { role: 'system', content: systemPrompt },
         ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
-        { role: 'user', content: userMessage },
+        { role: 'user', content: resolvedUserMessage },
       ];
 
       let response = '';
       setStatus('speaking');
 
-      for await (const chunk of chatStream(chatMessages)) {
-        if (chunk.type === 'text' && chunk.text) {
-          response += chunk.text;
-          setStreamingContent(response);
-        } else if (chunk.type === 'error') {
-          throw new Error(chunk.error);
+      // Use chatWithTools when summarizing without injected content - model can call resource_get
+      const useTools = effectiveResourceId && isSummarizeRequest(userMessage) && !contentInjected;
+      if (useTools) {
+        const promptWithToolHint = systemPrompt + `\n\nThe user is viewing resource ID: ${effectiveResourceId}. Use the resource_get tool to retrieve its content.`;
+        const tools = createResourceTools();
+        const result = await chatWithTools(
+          [
+            { role: 'system', content: promptWithToolHint },
+            ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
+            { role: 'user', content: resolvedUserMessage },
+          ],
+          tools,
+          { maxIterations: 3 },
+        );
+        response = result.response;
+      } else {
+        for await (const chunk of chatStream(chatMessages)) {
+          if (chunk.type === 'text' && chunk.text) {
+            response += chunk.text;
+            setStreamingContent(response);
+          } else if (chunk.type === 'error') {
+            throw new Error(chunk.error);
+          }
         }
       }
 
@@ -196,7 +258,7 @@ You can help the user with:
       setIsLoading(false);
       setStatus('idle');
     }
-  }, [input, isLoading, messages, addMessage, setStatus, buildSystemPrompt]);
+  }, [input, isLoading, messages, addMessage, setStatus, buildSystemPrompt, effectiveResourceId]);
 
   // Copy message content
   const handleCopy = useCallback((content: string) => {
@@ -772,7 +834,9 @@ You can help the user with:
       )}
 
       {/* CSS Animations */}
-      <style jsx global>{`
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         @keyframes martinPulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.6; transform: scale(0.95); }
@@ -810,7 +874,9 @@ You can help the user with:
         .martin-chat-popover::-webkit-scrollbar-thumb:hover {
           background: var(--border-hover);
         }
-      `}</style>
+      `,
+        }}
+      />
     </>
   );
 }

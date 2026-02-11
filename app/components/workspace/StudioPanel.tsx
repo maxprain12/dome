@@ -1,133 +1,43 @@
+'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Trash2, Eye, Loader2, X } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Trash2, Eye, Loader2, X, FileText } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useStudioGenerate } from '@/lib/hooks/useStudioGenerate';
+import { useStudioOutputs } from '@/lib/hooks/useStudioOutputs';
+import { STUDIO_TILES, STUDIO_TYPE_ICONS } from '@/lib/studio/constants';
 import type { StudioOutputType, StudioOutput } from '@/types';
+import { formatShortDistance } from '@/lib/utils';
 
-interface StudioTile {
-  type: StudioOutputType;
-  icon: string;
-  title: string;
-  description: string;
-  comingSoon?: boolean;
+interface StudioPanelProps {
+  projectId?: string | null;
 }
 
-const STUDIO_TILES: StudioTile[] = [
-  {
-    type: 'mindmap',
-    icon: '\uD83E\uDDE0',
-    title: 'Mind Map',
-    description: 'Visual knowledge map',
-  },
-  {
-    type: 'flashcards',
-    icon: '\uD83C\uDCCF',
-    title: 'Flashcards',
-    description: 'Spaced repetition',
-  },
-  {
-    type: 'quiz',
-    icon: '\u2753',
-    title: 'Quiz',
-    description: 'Test your knowledge',
-  },
-  {
-    type: 'guide',
-    icon: '\uD83D\uDCD6',
-    title: 'Study Guide',
-    description: 'Structured summary',
-  },
-  {
-    type: 'faq',
-    icon: '\uD83D\uDCAC',
-    title: 'FAQ',
-    description: 'Q&A from sources',
-  },
-  {
-    type: 'timeline',
-    icon: '\uD83D\uDCC5',
-    title: 'Timeline',
-    description: 'Chronological events',
-  },
-  {
-    type: 'table',
-    icon: '\uD83D\uDCCA',
-    title: 'Data Table',
-    description: 'Structured data',
-  },
-  {
-    type: 'audio',
-    icon: '\uD83C\uDF99\uFE0F',
-    title: 'Audio Overview',
-    description: 'Listen to a summary',
-    comingSoon: true,
-  },
-];
-
-const TYPE_ICONS: Record<string, string> = {
-  mindmap: '\uD83E\uDDE0',
-  quiz: '\u2753',
-  guide: '\uD83D\uDCD6',
-  faq: '\uD83D\uDCAC',
-  timeline: '\uD83D\uDCC5',
-  table: '\uD83D\uDCCA',
-  flashcards: '\uD83C\uDCCF',
-  audio: '\uD83C\uDF99\uFE0F',
-};
-
-export default function StudioPanel() {
+export default function StudioPanel({ projectId: projectIdProp }: StudioPanelProps = {}) {
   const currentProject = useAppStore((s) => s.currentProject);
+  const selectedSourceIds = useAppStore((s) => s.selectedSourceIds);
   const studioOutputs = useAppStore((s) => s.studioOutputs);
   const setStudioOutputs = useAppStore((s) => s.setStudioOutputs);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
   const removeStudioOutput = useAppStore((s) => s.removeStudioOutput);
 
-  const [loadingOutputs, setLoadingOutputs] = useState(false);
+  const effectiveProjectId = projectIdProp ?? currentProject?.id;
+
+  const { generate, isGenerating } = useStudioGenerate({
+    projectId: effectiveProjectId,
+    selectedSourceIds,
+  });
+
+  const { isLoading: loadingOutputs } = useStudioOutputs(effectiveProjectId);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Load saved studio outputs for the current project
-  useEffect(() => {
-    async function loadOutputs() {
-      if (!currentProject?.id || typeof window === 'undefined' || !window.electron) return;
-
-      try {
-        setLoadingOutputs(true);
-        const result = await window.electron.db.studio.getByProject(currentProject.id);
-        if (result.success && result.data) {
-          setStudioOutputs(result.data);
-        }
-      } catch (err) {
-        console.error('Failed to load studio outputs:', err);
-      } finally {
-        setLoadingOutputs(false);
-      }
-    }
-
-    loadOutputs();
-  }, [currentProject?.id, setStudioOutputs]);
-
-  const handleTileClick = useCallback((type: string) => {
-    if (type === 'flashcards') {
-      // Flashcards are handled separately via the sidebar
-      const setSection = useAppStore.getState().setHomeSidebarSection;
-      setSection('flashcards');
-      return;
-    }
-
-    // For studio output types, send a message to the AI chat to generate the output.
-    // The AI chat system will handle creation and call addStudioOutput when done.
-    // For now, we trigger a custom event that the chat panel can listen for.
-    if (typeof window !== 'undefined') {
-      const event = new CustomEvent('studio:generate', {
-        detail: {
-          type,
-          projectId: currentProject?.id,
-        },
-      });
-      window.dispatchEvent(event);
-    }
-  }, [currentProject?.id]);
+  const handleTileClick = useCallback(
+    async (type: string) => {
+      await generate(type as StudioOutputType);
+    },
+    [generate],
+  );
 
   const handleViewOutput = useCallback((output: StudioOutput) => {
     setActiveStudioOutput(output);
@@ -149,18 +59,7 @@ export default function StudioPanel() {
     }
   }, [removeStudioOutput]);
 
-  const formatDate = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const days = Math.floor(hours / 24);
-
-    if (hours < 1) return 'Just now';
-    if (hours < 24) return `${hours}h ago`;
-    if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString();
-  };
+  const formatDate = (timestamp: number): string => formatShortDistance(timestamp);
 
   return (
     <div
@@ -200,7 +99,7 @@ export default function StudioPanel() {
             <button
               key={tile.type}
               onClick={() => {
-                if (!tile.comingSoon) {
+                if (!tile.comingSoon && !isGenerating) {
                   handleTileClick(tile.type);
                 }
               }}
@@ -208,8 +107,8 @@ export default function StudioPanel() {
               style={{
                 background: 'var(--bg)',
                 border: '1px solid var(--border)',
-                cursor: tile.comingSoon ? 'default' : 'pointer',
-                opacity: tile.comingSoon ? 0.6 : 1,
+                cursor: tile.comingSoon || isGenerating ? 'default' : 'pointer',
+                opacity: tile.comingSoon ? 0.6 : isGenerating ? 0.8 : 1,
               }}
               onMouseEnter={(e) => {
                 if (!tile.comingSoon) {
@@ -221,8 +120,14 @@ export default function StudioPanel() {
                 e.currentTarget.style.borderColor = 'var(--border)';
                 e.currentTarget.style.background = 'var(--bg)';
               }}
-              disabled={tile.comingSoon}
-              title={tile.comingSoon ? 'Coming soon' : `Generate ${tile.title}`}
+              disabled={tile.comingSoon || isGenerating}
+              title={
+                tile.comingSoon
+                  ? 'Coming soon'
+                  : isGenerating
+                    ? 'Generating...'
+                    : tile.criteria ?? `Generate ${tile.title}`
+              }
             >
               {/* Coming soon badge */}
               {tile.comingSoon && (
@@ -238,7 +143,9 @@ export default function StudioPanel() {
               )}
 
               {/* Icon */}
-              <span className="text-xl leading-none">{tile.icon}</span>
+              <span className="leading-none shrink-0" style={{ color: 'var(--secondary-text)' }}>
+                {tile.icon}
+              </span>
 
               {/* Title */}
               <span
@@ -285,8 +192,11 @@ export default function StudioPanel() {
                   }}
                 >
                   {/* Type icon */}
-                  <span className="text-base leading-none shrink-0">
-                    {TYPE_ICONS[output.type] || '\uD83D\uDCC4'}
+                  <span
+                    className="leading-none shrink-0 flex items-center"
+                    style={{ color: 'var(--secondary-text)' }}
+                  >
+                    {STUDIO_TYPE_ICONS[output.type] || <FileText size={16} />}
                   </span>
 
                   {/* Title and date */}

@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { X, Save, FileText, Calendar, HardDrive, Hash, FolderOpen, ExternalLink, Loader2 } from 'lucide-react';
 import { type Resource } from '@/types';
+import { formatDateFull } from '@/lib/utils';
 
 interface MetadataModalProps {
   resource: Resource;
@@ -49,14 +50,8 @@ export default function MetadataModal({
   };
 
   const formatDate = (timestamp?: number) => {
-    if (!timestamp) return 'Unknown';
-    return new Date(timestamp).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    if (!timestamp || !isFinite(timestamp)) return '—';
+    return formatDateFull(timestamp);
   };
 
   const handleOpenFile = async () => {
@@ -175,7 +170,7 @@ export default function MetadataModal({
               <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
                 Created
               </p>
-                <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
+              <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
                 {formatDate(resource.created_at)}
               </p>
             </div>
@@ -187,7 +182,7 @@ export default function MetadataModal({
               <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
                 Modified
               </p>
-                <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
+              <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
                 {formatDate(resource.updated_at)}
               </p>
             </div>

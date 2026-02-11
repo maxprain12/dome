@@ -254,12 +254,177 @@ async function chat(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL)
   }
 }
 
+/**
+ * Convert OpenAI-format tools to Ollama format.
+ * Ollama expects: { type: 'function', function: { name, description, parameters } }
+ * @param {Array} tools - OpenAI-format tool definitions
+ * @returns {Array|undefined} Ollama-format tools
+ */
+function convertToolsToOllama(tools) {
+  if (!tools || !Array.isArray(tools) || tools.length === 0) return undefined;
+
+  return tools.map((tool) => {
+    if (tool.type === 'function' && tool.function) {
+      return {
+        type: 'function',
+        function: {
+          name: tool.function.name,
+          description: tool.function.description || '',
+          parameters: tool.function.parameters || { type: 'object', properties: {} },
+        },
+      };
+    }
+    return tool;
+  });
+}
+
+/**
+ * Chat with Ollama (streaming)
+ * @param {Array<{role: string, content: string}>} messages - Chat messages
+ * @param {string} model - Model name
+ * @param {string} baseUrl - Ollama base URL
+ * @param {function} onChunk - Callback for each chunk: onChunk({ type: 'text', text }) or onChunk({ type: 'tool_call', toolCall: { id, name, arguments } })
+ * @param {object} opts - Optional: { temperature, top_p, num_predict, think, tools }
+ * @returns {Promise<string>} Full response content
+ */
+function chatStream(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL, onChunk, opts = {}) {
+  return new Promise((resolve, reject) => {
+    if (!messages || messages.length === 0) {
+      reject(new Error('Messages cannot be empty'));
+      return;
+    }
+
+    const ollamaTools = opts.tools ? convertToolsToOllama(opts.tools) : undefined;
+    console.log(`[OllamaService] Chat streaming with model: ${model}, tools: ${ollamaTools ? ollamaTools.length : 0}`);
+
+    const urlObj = new URL(`${baseUrl}/api/chat`);
+    const protocol = urlObj.protocol === 'https:' ? https : http;
+
+    const body = {
+      model,
+      messages,
+      stream: true,
+      think: opts.think ?? false,
+      options: {
+        temperature: opts.temperature ?? 0.7,
+        top_p: opts.top_p ?? 0.9,
+        num_predict: opts.num_predict ?? 500,
+      },
+    };
+    if (ollamaTools && ollamaTools.length > 0) {
+      body.tools = ollamaTools;
+    }
+
+    const postData = JSON.stringify(body);
+
+    const requestOptions = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+      path: urlObj.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(postData),
+      },
+    };
+
+    const req = protocol.request(requestOptions, (res) => {
+      if (res.statusCode >= 400) {
+        let errorBody = '';
+        res.on('data', (c) => { errorBody += c.toString(); });
+        res.on('end', () => {
+          try {
+            const err = JSON.parse(errorBody);
+            reject(new Error(err.error || `HTTP ${res.statusCode}`));
+          } catch {
+            reject(new Error(`HTTP ${res.statusCode}: ${errorBody}`));
+          }
+        });
+        return;
+      }
+
+      let buffer = '';
+      let fullContent = '';
+      const toolCallsAccumulator = [];
+
+      res.on('data', (chunk) => {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const json = JSON.parse(line);
+            if (json.message) {
+              if (opts.think && json.message.thinking && typeof onChunk === 'function') {
+                onChunk({ type: 'text', text: json.message.thinking });
+                fullContent += json.message.thinking;
+              }
+              if (json.message.content && typeof onChunk === 'function') {
+                onChunk({ type: 'text', text: json.message.content });
+                fullContent += json.message.content;
+              }
+              // Ollama supports tool_calls in streaming - forward to renderer
+              if (json.message.tool_calls && Array.isArray(json.message.tool_calls) && typeof onChunk === 'function') {
+                for (const tc of json.message.tool_calls) {
+                  const fn = tc.function || tc;
+                  const toolId = tc.id || `tool-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+                  const args = typeof fn.arguments === 'string' ? fn.arguments : JSON.stringify(fn.arguments || {});
+                  onChunk({
+                    type: 'tool_call',
+                    toolCall: {
+                      id: toolId,
+                      name: fn.name || 'unknown',
+                      arguments: args,
+                    },
+                  });
+                }
+              }
+            }
+            if (json.done) {
+              resolve(fullContent);
+              return;
+            }
+          } catch (e) {
+            // Skip malformed JSON lines
+          }
+        }
+      });
+
+      res.on('end', () => {
+        if (buffer.trim()) {
+          try {
+            const json = JSON.parse(buffer);
+            if (json.message?.content) {
+              fullContent += json.message.content;
+              if (typeof onChunk === 'function') {
+                onChunk({ type: 'text', text: json.message.content });
+              }
+            }
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+        resolve(fullContent);
+      });
+
+      res.on('error', reject);
+    });
+
+    req.on('error', reject);
+    req.write(postData);
+    req.end();
+  });
+}
+
 module.exports = {
   checkAvailability,
   generateEmbedding,
   generateEmbeddings,
   generateSummary,
   chat,
+  chatStream,
   listModels,
   DEFAULT_BASE_URL,
   DEFAULT_EMBEDDING_MODEL,

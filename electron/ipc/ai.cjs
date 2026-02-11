@@ -31,7 +31,7 @@ function convertToolsToAnthropic(tools) {
   });
 }
 
-function register({ ipcMain, windowManager, database, aiCloudService }) {
+function register({ ipcMain, windowManager, database, aiCloudService, ollamaService }) {
   /**
    * Chat with cloud AI provider (OpenAI, Anthropic, Google)
    * This runs in main process to avoid CORS issues
@@ -137,14 +137,62 @@ function register({ ipcMain, windowManager, database, aiCloudService }) {
 
     try {
       // Validate inputs
-      if (!provider || !['openai', 'anthropic', 'google'].includes(provider)) {
-        throw new Error('Invalid provider. Must be openai, anthropic, or google');
+      if (!provider || !['openai', 'anthropic', 'google', 'ollama'].includes(provider)) {
+        throw new Error('Invalid provider. Must be openai, anthropic, google, or ollama');
       }
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');
       }
       if (!streamId) {
         throw new Error('streamId is required for streaming');
+      }
+
+      // ollama: stream locally without API key
+      if (provider === 'ollama') {
+        try {
+          const queries = database.getQueries();
+          const baseUrlResult = queries.getSetting.get('ollama_base_url');
+          const modelResult = queries.getSetting.get('ollama_model');
+          const tempResult = queries.getSetting.get('ollama_temperature');
+          const topPResult = queries.getSetting.get('ollama_top_p');
+          const numPredictResult = queries.getSetting.get('ollama_num_predict');
+          const showThinkingResult = queries.getSetting.get('ollama_show_thinking');
+          const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
+          const chatModel = model || modelResult?.value || ollamaService.DEFAULT_MODEL;
+
+          // Ollama supports system, user, assistant roles - include system for context (e.g. resource content)
+          const ollamaMessages = messages.map((m) => ({
+            role: m.role === 'assistant' ? 'assistant' : m.role === 'system' ? 'system' : 'user',
+            content: m.content,
+          }));
+
+          const onChunk = (data) => {
+            if (event.sender && !event.sender.isDestroyed()) {
+              event.sender.send('ai:stream:chunk', { streamId, ...data });
+            }
+          };
+
+          const opts = {
+            temperature: tempResult?.value ? parseFloat(tempResult.value) : 0.7,
+            top_p: topPResult?.value ? parseFloat(topPResult.value) : 0.9,
+            num_predict: numPredictResult?.value ? parseInt(numPredictResult.value, 10) : 500,
+            think: showThinkingResult?.value === 'true',
+            tools: tools && tools.length > 0 ? tools : undefined,
+          };
+
+          await ollamaService.chatStream(ollamaMessages, chatModel, baseUrl, onChunk, opts);
+
+          if (event.sender && !event.sender.isDestroyed()) {
+            event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
+          }
+          return { success: true };
+        } catch (err) {
+          console.error('[AI] Ollama stream error:', err);
+          if (event.sender && !event.sender.isDestroyed()) {
+            event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: err.message });
+          }
+          return { success: false, error: err.message };
+        }
       }
 
       // Get API key and auth mode from settings
@@ -323,16 +371,19 @@ function register({ ipcMain, windowManager, database, aiCloudService }) {
       // Ollama check
       if (provider === 'ollama') {
         try {
+          const baseUrlResult = queries.getSetting.get('ollama_base_url');
+          const baseUrl = baseUrlResult?.value || 'http://localhost:11434';
+          const urlObj = new URL(`${baseUrl}/api/tags`);
           const http = require('http');
           const available = await new Promise((resolve) => {
-            const req = http.get('http://127.0.0.1:11434/api/tags', { timeout: 5000 }, (res) => {
+            const req = http.get(urlObj.href, { timeout: 5000 }, (res) => {
               resolve(res.statusCode === 200);
             });
             req.on('error', () => resolve(false));
             req.on('timeout', () => { req.destroy(); resolve(false); });
           });
           if (available) {
-            const modelResult = queries.getSetting.get('ai_model');
+            const modelResult = queries.getSetting.get('ollama_model');
             return { success: true, provider: 'ollama', model: modelResult?.value || 'default' };
           } else {
             return { success: false, error: 'Ollama is not running. Start Ollama first.' };

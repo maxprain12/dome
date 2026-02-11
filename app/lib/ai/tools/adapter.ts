@@ -178,6 +178,17 @@ export function toGenericToolDefinitions(tools: AnyAgentTool[]): GenericToolDefi
 // Tool Execution
 // =============================================================================
 
+const TOOL_TRACE =
+  (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') ||
+  (typeof process !== 'undefined' && process.env?.DEBUG_AI_TOOLS === '1');
+
+function toolTraceLog(msg: string, data?: Record<string, unknown>) {
+  if (TOOL_TRACE) {
+    const payload = data ? ` ${JSON.stringify(data)}` : '';
+    console.log(`[AI:Tools] ${msg}${payload}`);
+  }
+}
+
 /**
  * Execute a tool call against a list of tools.
  */
@@ -190,7 +201,14 @@ export async function executeToolCall(
   const normalizedName = normalizeToolName(toolCall.name);
   const tool = tools.find(t => normalizeToolName(t.name) === normalizedName);
   
+  toolTraceLog('executeToolCall', {
+    name: toolCall.name,
+    found: !!tool,
+    availableTools: tools.map((t) => t.name),
+  });
+
   if (!tool) {
+    toolTraceLog('tool not found', { requested: toolCall.name });
     return {
       toolCallId: toolCall.id,
       result: jsonResult({
@@ -201,12 +219,29 @@ export async function executeToolCall(
   }
   
   const definition = toGenericToolDefinition(tool);
-  const result = await definition.execute(
-    toolCall.id,
-    toolCall.arguments,
-    onUpdate,
-    signal,
-  );
+  const start = Date.now();
+  let result;
+  try {
+    result = await definition.execute(
+      toolCall.id,
+      toolCall.arguments,
+      onUpdate,
+      signal,
+    );
+    toolTraceLog('tool executed', {
+      name: toolCall.name,
+      durationMs: Date.now() - start,
+      resultType: result?.type,
+      status: (result?.details as Record<string, unknown>)?.status,
+    });
+  } catch (err) {
+    toolTraceLog('tool execution error', {
+      name: toolCall.name,
+      durationMs: Date.now() - start,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
   
   return {
     toolCallId: toolCall.id,

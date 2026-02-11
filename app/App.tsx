@@ -3,7 +3,7 @@ import ThemeProvider from '@/components/ui/ThemeProvider';
 import MartinFloatingButton from '@/components/martin/MartinFloatingButton';
 import PromptModal from '@/components/ui/PromptModal';
 import ToastContainer from '@/components/ui/Toast';
-import WindowControls from '@/components/ui/WindowControls';
+import AppHeader from '@/components/layout/AppHeader';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -15,20 +15,7 @@ import URLWorkspacePage from './pages/URLWorkspacePage';
 export default function App() {
   return (
     <ThemeProvider>
-      {/* Barra de título estilo Obsidian: mismo fondo que el sidebar */}
-      <div
-        className="drag-region fixed top-0 left-0 right-0 h-11 z-50"
-        style={{
-          WebkitAppRegion: 'drag',
-          background: 'var(--dome-surface)',
-          borderBottom: '1px solid var(--dome-border)',
-        } as React.CSSProperties}
-      >
-        {/* Espacio para los traffic lights de macOS */}
-        <div className="absolute top-0 left-0 w-20 h-11" />
-        {/* Controles de ventana para Windows/Linux */}
-        <WindowControls />
-      </div>
+      <AppHeader />
 
       {/* Contenido principal con padding-top para evitar la drag region */}
       <div className="pt-11">

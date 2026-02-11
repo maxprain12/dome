@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { X, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { X, Loader2, AlertCircle, RefreshCw, GitBranch } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { GraphViewer, GraphToolbar } from '@/components/graph';
 import { generateGraph } from '@/lib/graph';
@@ -328,17 +328,15 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
         className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] shrink-0"
         style={{ background: 'var(--bg-secondary)' }}
       >
-        <div className="flex items-center gap-3 flex-1">
-          <span className="text-2xl" role="img" aria-label="Graph">
-            🕸️
-          </span>
+        <div className="flex items-center gap-2.5 flex-1">
+          <GitBranch size={18} style={{ color: 'var(--secondary-text)' }} />
           <div>
-            <h2 className="text-base font-semibold" style={{ color: 'var(--primary-text)' }}>
-              Knowledge Graph
+            <h2 className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+              Graph
+              <span className="text-xs font-normal ml-2" style={{ color: 'var(--tertiary-text)' }}>
+                {graphState?.nodes.length || 0} · {graphState?.edges.length || 0}
+              </span>
             </h2>
-            <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
-              {graphState?.nodes.length || 0} nodes, {graphState?.edges.length || 0} connections
-            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -425,7 +423,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
         {!loading && !error && !graphState && (
           <div className="flex-1 flex items-center justify-center">
             <div className="flex flex-col items-center gap-4 max-w-sm text-center px-6">
-              <span className="text-6xl">🕸️</span>
+              <GitBranch size={40} style={{ color: 'var(--secondary-text)', opacity: 0.3 }} />
               <div>
                 <p className="text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
                   No Graph Data

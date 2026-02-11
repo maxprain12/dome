@@ -170,8 +170,8 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
         />
 
         {/* Studio Panel */}
-        {studioPanelOpen && (
-          <StudioPanel />
+        {studioPanelOpen && resource && (
+          <StudioPanel projectId={resource.project_id} />
         )}
 
         {/* Graph Panel */}

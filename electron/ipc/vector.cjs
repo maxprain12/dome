@@ -242,6 +242,77 @@ function register({ ipcMain, windowManager, database, ollamaService, initModule 
   });
 
   /**
+   * Semantic search by resource ID - finds similar resources via vector search
+   */
+  ipcMain.handle('vector:semanticSearch', async (event, { resourceId, limit = 5, minScore = 0.3 }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return [];
+    }
+
+    try {
+      if (!resourceId || typeof resourceId !== 'string') return [];
+
+      const queries = database.getQueries();
+      const resource = queries.getResourceById.get(resourceId);
+      if (!resource) return [];
+
+      // Build query text from resource content
+      let queryText = resource.title || '';
+      if (resource.content && typeof resource.content === 'string') {
+        queryText += ' ' + (resource.content.slice(0, 2000) || '');
+      }
+      try {
+        const metadata = resource.metadata ? JSON.parse(resource.metadata || '{}') : {};
+        if (metadata.summary) queryText += ' ' + metadata.summary;
+        if (metadata.transcription) queryText += ' ' + (metadata.transcription.slice(0, 1000) || '');
+      } catch (e) { /* ignore */ }
+
+      queryText = queryText.trim();
+      if (!queryText) return [];
+
+      const vectorDB = initModule.getVectorDB();
+      if (!vectorDB) return [];
+
+      let queryVector;
+      try {
+        const isOllamaAvailable = await ollamaService.checkAvailability();
+        if (!isOllamaAvailable) return [];
+
+        const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
+        const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
+        const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
+        const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
+        queryVector = await ollamaService.generateEmbedding(queryText, embeddingModel, baseUrl);
+      } catch (err) {
+        console.warn('[Vector] semanticSearch embedding failed:', err);
+        return [];
+      }
+
+      const tableNames = await vectorDB.tableNames();
+      if (!tableNames.includes('resource_embeddings')) return [];
+
+      const table = await vectorDB.openTable('resource_embeddings');
+      const searchResults = await table.search(queryVector).limit(limit + 5).execute();
+
+      const results = searchResults
+        .filter((r) => r.resource_id !== resourceId && (!minScore || (1 - r._distance) >= minScore))
+        .slice(0, limit)
+        .map((r) => ({
+          id: r.id,
+          resource_id: r.resource_id,
+          text: r.text,
+          score: 1 - (r._distance || 0),
+          similarity: 1 - (r._distance || 0),
+        }));
+
+      return results;
+    } catch (error) {
+      console.error('[Vector] semanticSearch error:', error);
+      return [];
+    }
+  });
+
+  /**
    * Generic vector search across all embedding tables
    */
   ipcMain.handle('vector:search:generic', async (event, query, options = {}) => {

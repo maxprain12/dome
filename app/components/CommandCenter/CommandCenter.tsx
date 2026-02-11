@@ -101,7 +101,7 @@ export function CommandCenter({
 
     const inputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const { setSearchQuery, searchResults, setSearchResults } = useAppStore();
+    const { setSearchQuery, searchResults, setSearchResults, commandCenterOpen, setCommandCenterOpen } = useAppStore();
 
     // Detected URL type
     const detectedUrlType = urlMode && urlInput.length > 10
@@ -118,6 +118,15 @@ export function CommandCenter({
         return () => clearInterval(interval);
     }, []);
 
+    // Open from header/store
+    useEffect(() => {
+        if (commandCenterOpen) {
+            setIsExpanded(true);
+            inputRef.current?.focus();
+            setCommandCenterOpen(false);
+        }
+    }, [commandCenterOpen, setCommandCenterOpen]);
+
     // Keyboard shortcut (Cmd+K)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -128,6 +137,7 @@ export function CommandCenter({
             }
             if (e.key === 'Escape' && (isFocused || urlMode)) {
                 setIsExpanded(false);
+                setCommandCenterOpen(false);
                 setUrlMode(false);
                 setUrlInput('https://');
                 inputRef.current?.blur();
@@ -143,13 +153,14 @@ export function CommandCenter({
 
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isFocused, urlMode, isUrlValid, urlInput]);
+    }, [isFocused, urlMode, isUrlValid, urlInput, setCommandCenterOpen]);
 
     // Handle click outside to close
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
                 setIsExpanded(false);
+                setCommandCenterOpen(false);
                 setUrlMode(false);
                 setUrlInput('https://');
             }
@@ -157,7 +168,7 @@ export function CommandCenter({
 
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    }, [setCommandCenterOpen]);
 
     // Debounced search - ONLY when NOT in URL mode
     // Uses hybrid search (vector + graph + FTS) for resources,

@@ -347,10 +347,15 @@ async function runWebSearch(params: {
 /**
  * Create a web search tool.
  */
+function getEnv(key: string): string | undefined {
+  if (typeof process === 'undefined') return undefined;
+  return (process as NodeJS.Process).env?.[key];
+}
+
 export function createWebSearchTool(config?: WebSearchConfig): AnyAgentTool {
   const provider = config?.provider ?? 'brave';
-  const braveApiKey = config?.braveApiKey ?? process.env.BRAVE_API_KEY;
-  const perplexityApiKey = config?.perplexityApiKey ?? process.env.PERPLEXITY_API_KEY ?? process.env.OPENROUTER_API_KEY;
+  const braveApiKey = config?.braveApiKey ?? getEnv('BRAVE_API_KEY');
+  const perplexityApiKey = config?.perplexityApiKey ?? getEnv('PERPLEXITY_API_KEY') ?? getEnv('OPENROUTER_API_KEY');
   
   const description = provider === 'perplexity'
     ? 'Search the web using Perplexity Sonar. Returns AI-synthesized answers with citations from real-time web search.'

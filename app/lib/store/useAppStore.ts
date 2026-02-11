@@ -37,14 +37,16 @@ interface AppState {
   // UI Estado
   sidebarOpen: boolean;
   toggleSidebar: () => void;
-  homeSidebarSection: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags';
-  setHomeSidebarSection: (section: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags') => void;
+  homeSidebarSection: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio';
+  setHomeSidebarSection: (section: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio') => void;
   homeSidebarCollapsed: boolean;
   toggleHomeSidebar: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   searchResults: { resources: any[]; interactions: any[] } | null;
   setSearchResults: (data: { resources: any[]; interactions: any[] } | null) => void;
+  commandCenterOpen: boolean;
+  setCommandCenterOpen: (open: boolean) => void;
   viewMode: 'grid' | 'list';
   setViewMode: (mode: 'grid' | 'list') => void;
 
@@ -151,6 +153,8 @@ export const useAppStore = create<AppState>((set) => ({
   setSearchQuery: (query) => set({ searchQuery: query }),
   searchResults: null,
   setSearchResults: (data) => set({ searchResults: data }),
+  commandCenterOpen: false,
+  setCommandCenterOpen: (open) => set({ commandCenterOpen: open }),
   viewMode: 'grid',
   setViewMode: (mode) => set({ viewMode: mode }),
 

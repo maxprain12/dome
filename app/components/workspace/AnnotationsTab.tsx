@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { Trash2, Loader2, MessageSquare, FileText, Clock } from 'lucide-react';
 import { useInteractions, type ParsedInteraction } from '@/lib/hooks/useInteractions';
+import { formatRelativeDate } from '@/lib/utils';
 
 interface AnnotationsTabProps {
   resourceId: string;
@@ -24,21 +25,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
     [deleteInteraction]
   );
 
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (days === 1) {
-      return 'Yesterday';
-    } else if (days < 7) {
-      return date.toLocaleDateString([], { weekday: 'short' });
-    }
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  };
+  const formatDate = (timestamp: number) => formatRelativeDate(timestamp);
 
   const getPositionLabel = (annotation: ParsedInteraction) => {
     const pos = annotation.position_data;

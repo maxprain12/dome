@@ -62,13 +62,25 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         }
       }
 
-      // Extract text content for document types (for card preview)
+      // Extract text content for document types (for card preview and AI tools)
       let contentText = null;
       if (type === 'document') {
         try {
           contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
         } catch (extractError) {
           console.warn('[Resource] Text extraction failed, continuing without content:', extractError.message);
+        }
+      }
+      // Extract text from PDFs on import (so resource_get has content without on-demand extraction)
+      const isPdf = type === 'pdf' || (importResult.mimeType || '').includes('pdf') || (importResult.originalName || '').toLowerCase().endsWith('.pdf');
+      if (isPdf && !contentText) {
+        try {
+          contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
+          if (contentText) {
+            console.log(`[Resource] PDF text extracted: ${contentText.length} chars`);
+          }
+        } catch (extractError) {
+          console.warn('[Resource] PDF text extraction failed:', extractError.message);
         }
       }
 
@@ -171,6 +183,24 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
           importResult.mimeType
         );
 
+        // Extract text for documents and PDFs
+        let contentText = null;
+        if (fileType === 'document') {
+          try {
+            contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
+          } catch (e) {
+            console.warn('[Resource] Document extraction failed:', e.message);
+          }
+        }
+        const isPdf = fileType === 'pdf' || (importResult.mimeType || '').includes('pdf') || (importResult.originalName || '').toLowerCase().endsWith('.pdf');
+        if (isPdf && !contentText) {
+          try {
+            contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
+          } catch (e) {
+            console.warn('[Resource] PDF extraction failed:', e.message);
+          }
+        }
+
         // Create resource
         const resourceId = generateId();
         const now = Date.now();
@@ -180,7 +210,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
           projectId,
           fileType,
           importResult.originalName,
-          null,
+          contentText,
           null,
           importResult.internalPath,
           importResult.mimeType,

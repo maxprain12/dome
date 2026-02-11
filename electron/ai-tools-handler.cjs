@@ -10,7 +10,39 @@
  * when the AI model requests tool execution.
  */
 
+const TOOL_TRACE = process.env.NODE_ENV === 'development' || process.env.DEBUG_AI_TOOLS === '1';
+
+function traceLog(fn, params, result, err) {
+  if (!TOOL_TRACE) return;
+  const sanitize = (obj, maxLen = 80) => {
+    if (obj == null) return obj;
+    if (typeof obj === 'string') return obj.length > maxLen ? obj.slice(0, maxLen) + '...' : obj;
+    if (Array.isArray(obj)) return obj.length;
+    if (typeof obj === 'object') {
+      const out = {};
+      for (const [k, v] of Object.entries(obj)) {
+        if (['content', 'snippet', 'embedding', 'thumbnail_data'].includes(k)) continue;
+        out[k] = sanitize(v, 60);
+      }
+      return out;
+    }
+    return obj;
+  };
+  if (err) {
+    console.log(`[AI:Tools:Handler] ${fn} ERROR`, { params: sanitize(params), error: err.message });
+  } else {
+    const summary = result?.success === false
+      ? { success: false, error: result.error }
+      : (typeof result === 'object' && result !== null && !Array.isArray(result))
+        ? sanitize(result)
+        : { success: true, count: result?.count ?? result?.resources?.length ?? result?.results?.length ?? (result?.resource ? 1 : null) ?? result?.interactions?.length ?? '?' };
+    console.log(`[AI:Tools:Handler] ${fn}`, { params: sanitize(params), result: summary });
+  }
+}
+
 const database = require('./database.cjs');
+const fileStorage = require('./file-storage.cjs');
+const documentExtractor = require('./document-extractor.cjs');
 
 // Reference to vector database (set by init.cjs)
 let vectorDB = null;
@@ -52,6 +84,7 @@ async function resourceSearch(query, options = {}) {
     // Escape FTS special characters
     const safeQuery = query.replace(/['"*()]/g, ' ').trim();
     if (!safeQuery) {
+      traceLog('resourceSearch', { query, options }, { success: true, results: [] });
       return { success: true, results: [] };
     }
 
@@ -127,13 +160,11 @@ async function resourceSearch(query, options = {}) {
       metadata: r.metadata ? JSON.parse(r.metadata) : null,
     }));
 
-    return {
-      success: true,
-      query: query,
-      count: processedResults.length,
-      results: processedResults,
-    };
+    const out = { success: true, query: query, count: processedResults.length, results: processedResults };
+    traceLog('resourceSearch', { query, options }, out);
+    return out;
   } catch (error) {
+    traceLog('resourceSearch', { query, options }, null, error);
     console.error('[AI Tools] resourceSearch error:', error);
     
     // Try to repair FTS if corrupted
@@ -204,6 +235,32 @@ async function resourceGet(resourceId, options = {}) {
       }
     }
 
+    // For PDFs without content: extract text on-demand
+    if (includeContent && !result.content) {
+      const isPdf = resource.type === 'pdf' || (resource.type === 'document' && (resource.file_mime_type || '').includes('pdf'));
+      const ext = (resource.original_filename || resource.title || '').toLowerCase();
+      if (isPdf || ext.endsWith('.pdf')) {
+        const fs = require('fs');
+        let fullPath = null;
+        if (resource.internal_path) {
+          fullPath = fileStorage.getFullPath(resource.internal_path);
+        } else if (resource.file_path && fs.existsSync(resource.file_path)) {
+          fullPath = resource.file_path; // Legacy external path
+        }
+        if (fullPath && fs.existsSync(fullPath)) {
+          try {
+            const extracted = await documentExtractor.extractTextFromPDF(fullPath, maxLen);
+            if (extracted && extracted.trim()) {
+              result.content = extracted;
+              result.content_truncated = extracted.length >= maxLen;
+            }
+          } catch (e) {
+            console.warn('[AI Tools] PDF extraction failed for', resourceId, e.message);
+          }
+        }
+      }
+    }
+
     // Include transcription if available
     if (metadata?.transcription) {
       if (metadata.transcription.length > maxLen) {
@@ -219,11 +276,16 @@ async function resourceGet(resourceId, options = {}) {
       result.summary = metadata.summary;
     }
 
-    return {
+    const out = { success: true, resource: result };
+    traceLog('resourceGet', { resourceId, options }, {
       success: true,
-      resource: result,
-    };
+      hasContent: !!result.content,
+      contentLength: result.content?.length ?? 0,
+      contentTruncated: result.content_truncated,
+    });
+    return out;
   } catch (error) {
+    traceLog('resourceGet', { resourceId, options }, null, error);
     console.error('[AI Tools] resourceGet error:', error);
     return {
       success: false,
@@ -294,12 +356,11 @@ async function resourceList(options = {}) {
       metadata: r.metadata ? JSON.parse(r.metadata) : null,
     }));
 
-    return {
-      success: true,
-      count: processedResults.length,
-      resources: processedResults,
-    };
+    const out = { success: true, count: processedResults.length, resources: processedResults };
+    traceLog('resourceList', options, out);
+    return out;
   } catch (error) {
+    traceLog('resourceList', options, null, error);
     console.error('[AI Tools] resourceList error:', error);
     return {
       success: false,
@@ -811,7 +872,9 @@ async function resourceDelete(resourceId) {
 async function flashcardCreate(data) {
   try {
     if (!data || !data.title || !data.cards || !Array.isArray(data.cards) || data.cards.length === 0) {
-      return { success: false, error: 'Title and at least one card are required' };
+      const out = { success: false, error: 'Title and at least one card are required' };
+      traceLog('flashcardCreate', { title: data?.title, cardsCount: data?.cards?.length }, out);
+      return out;
     }
 
     const db = database.getDB();
@@ -871,7 +934,33 @@ async function flashcardCreate(data) {
     // Get final card count
     const allCards = queries.getFlashcardsByDeck.all(deckId);
 
-    return {
+    // Create studio_output for unified Studio list (type=flashcards)
+    const studioOutputId = crypto.randomUUID();
+    const now2 = Date.now();
+    db.prepare(`
+      INSERT INTO studio_outputs (id, project_id, type, title, content, source_ids, file_path, metadata, deck_id, resource_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      studioOutputId,
+      projectId,
+      'flashcards',
+      data.title.trim(),
+      null, // content - flashcards use deck
+      data.source_ids ? (typeof data.source_ids === 'string' ? data.source_ids : JSON.stringify(data.source_ids)) : null,
+      null,
+      null,
+      deckId,
+      data.resource_id || null,
+      now2,
+      now2
+    );
+
+    // Update deck with studio_output_id backlink
+    db.prepare('UPDATE flashcard_decks SET studio_output_id = ? WHERE id = ?').run(studioOutputId, deckId);
+
+    const studioOutput = db.prepare('SELECT * FROM studio_outputs WHERE id = ?').get(studioOutputId);
+
+    const out = {
       success: true,
       deck: {
         id: deckId,
@@ -880,8 +969,12 @@ async function flashcardCreate(data) {
         resource_id: data.resource_id || null,
         project_id: projectId,
       },
+      studioOutput,
     };
+    traceLog('flashcardCreate', { title: data.title, cardsCount: data.cards.length }, { success: true, deckId, cardCount: allCards.length });
+    return out;
   } catch (error) {
+    traceLog('flashcardCreate', { title: data?.title }, null, error);
     console.error('[AI Tools] flashcardCreate error:', error);
     return { success: false, error: error.message };
   }

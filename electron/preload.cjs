@@ -73,6 +73,7 @@ const ALLOWED_CHANNELS = {
     // Database - Interactions
     'db:interactions:create',
     'db:interactions:getByResource',
+    'db:tags:getByResource',
     'db:interactions:getByType',
     'db:interactions:update',
     'db:interactions:delete',
@@ -140,6 +141,7 @@ const ALLOWED_CHANNELS = {
     'vector:annotations:search',
     'vector:annotations:delete',
     'vector:search:generic',
+    'vector:semanticSearch',
     // General Vector Database
     'vector:add',
     'vector:search',
@@ -225,6 +227,7 @@ const ALLOWED_CHANNELS = {
     'vector:annotations:search',
     'vector:annotations:delete',
     'vector:search:generic',
+    'vector:semanticSearch',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -253,6 +256,12 @@ const ALLOWED_CHANNELS = {
     'ollama:download-progress',
     'ollama:server-log',
     'ollama:status-changed',
+    // Studio events
+    'studio:outputCreated',
+    // Flashcard events
+    'flashcard:deckCreated',
+    'flashcard:deckUpdated',
+    'flashcard:deckDeleted',
   ],
 };
 
@@ -452,6 +461,11 @@ const electronHandler = {
       delete: (id) => ipcRenderer.invoke('db:interactions:delete', id),
     },
 
+    // Tags
+    tags: {
+      getByResource: (resourceId) => ipcRenderer.invoke('db:tags:getByResource', resourceId),
+    },
+
     // Resource Links (graph relationships)
     links: {
       create: (link) => ipcRenderer.invoke('db:links:create', link),
@@ -493,6 +507,15 @@ const electronHandler = {
       getStats: (deckId) => ipcRenderer.invoke('db:flashcards:getStats', deckId),
       createSession: (session) => ipcRenderer.invoke('db:flashcards:createSession', session),
       getSessions: (deckId, limit) => ipcRenderer.invoke('db:flashcards:getSessions', { deckId, limit }),
+    },
+
+    // Studio outputs
+    studio: {
+      create: (data) => ipcRenderer.invoke('db:studio:create', data),
+      getByProject: (projectId) => ipcRenderer.invoke('db:studio:getByProject', projectId),
+      getById: (id) => ipcRenderer.invoke('db:studio:getById', id),
+      update: (id, updates) => ipcRenderer.invoke('db:studio:update', id, updates),
+      delete: (id) => ipcRenderer.invoke('db:studio:delete', id),
     },
 
     // Settings

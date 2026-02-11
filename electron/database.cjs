@@ -840,6 +840,44 @@ function runMigrations(db) {
       ON CONFLICT(key) DO UPDATE SET value = '7', updated_at = excluded.updated_at
     `).run(Date.now());
   }
+
+  // Migration 8: Studio-Flashcards unification (deck_id, resource_id, studio_output_id)
+  if (version < 8) {
+    console.log('[DB] Running migration 8: Studio-Flashcards unification');
+
+    try {
+      const studioInfo = db.prepare('PRAGMA table_info(studio_outputs)').all();
+      const studioColumns = new Set(studioInfo.map((col) => col.name));
+
+      if (!studioColumns.has('deck_id')) {
+        db.exec('ALTER TABLE studio_outputs ADD COLUMN deck_id TEXT');
+      }
+      if (!studioColumns.has('resource_id')) {
+        db.exec('ALTER TABLE studio_outputs ADD COLUMN resource_id TEXT');
+      }
+
+      const deckInfo = db.prepare('PRAGMA table_info(flashcard_decks)').all();
+      const deckColumns = new Set(deckInfo.map((col) => col.name));
+
+      if (!deckColumns.has('studio_output_id')) {
+        db.exec('ALTER TABLE flashcard_decks ADD COLUMN studio_output_id TEXT');
+      }
+
+      db.exec('CREATE INDEX IF NOT EXISTS idx_studio_outputs_deck ON studio_outputs(deck_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_studio_outputs_resource ON studio_outputs(resource_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_flashcard_decks_studio ON flashcard_decks(studio_output_id)');
+
+      console.log('[DB] Migration 8 complete - studio-flashcards unification');
+    } catch (error) {
+      console.error('[DB] Migration 8 error:', error.message);
+    }
+
+    db.prepare(`
+      INSERT INTO settings (key, value, updated_at)
+      VALUES ('schema_version', '8', ?)
+      ON CONFLICT(key) DO UPDATE SET value = '8', updated_at = excluded.updated_at
+    `).run(Date.now());
+  }
 }
 
 /**
@@ -956,6 +994,14 @@ function getQueries() {
     getLinksBySource: db.prepare('SELECT * FROM resource_links WHERE source_id = ?'),
     getLinksByTarget: db.prepare('SELECT * FROM resource_links WHERE target_id = ?'),
     deleteLink: db.prepare('DELETE FROM resource_links WHERE id = ?'),
+
+    // Tags
+    getTagsByResource: db.prepare(`
+      SELECT t.* FROM tags t
+      JOIN resource_tags rt ON t.id = rt.tag_id
+      WHERE rt.resource_id = ?
+      ORDER BY t.name
+    `),
 
     // Search (standalone FTS tables)
     searchInteractions: db.prepare(`

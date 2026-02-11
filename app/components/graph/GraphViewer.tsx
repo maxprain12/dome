@@ -1,11 +1,9 @@
 import { useCallback, useMemo, useEffect } from 'react';
 import ReactFlow, {
   Controls,
-  MiniMap,
   Background,
   useNodesState,
   useEdgesState,
-  MarkerType,
   BackgroundVariant,
   ConnectionMode,
 } from 'reactflow';
@@ -33,7 +31,7 @@ export default function GraphViewer({ graphState, onNodeClick, onNodeHover }: Gr
       graphState.edges,
       graphState.layout,
       graphState.focusNodeId
-    );
+    ) as unknown as Node[];
   }, [graphState.nodes, graphState.edges, graphState.layout, graphState.focusNodeId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
@@ -79,35 +77,25 @@ export default function GraphViewer({ graphState, onNodeClick, onNodeHover }: Gr
     }
   }, [onNodeHover]);
 
-  // Transform edges to include styling
+  // Clean, minimal edge styling — thin lines, no arrows
   const styledEdges: Edge[] = useMemo(
     () =>
       edges.map((edge) => ({
         ...edge,
-        type: 'smoothstep',
+        type: 'straight',
         animated: false,
         style: {
-          stroke: 'var(--border)',
-          strokeWidth: Math.max(1, (edge.data?.weight || 0.5) * 3),
+          stroke: 'var(--border, #e0e0e0)',
+          strokeWidth: 1,
+          opacity: 0.4,
         },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          width: 20,
-          height: 20,
-          color: 'var(--border)',
-        },
-        label: edge.label || edge.data?.relation || '',
-        labelStyle: {
-          fontSize: 10,
-          fill: 'var(--tertiary-text)',
-          fontWeight: 500,
-        },
-        labelBgStyle: {
-          fill: 'var(--bg)',
-          fillOpacity: 0.9,
-        },
-        labelBgPadding: [4, 6] as [number, number],
-        labelBgBorderRadius: 4,
+        // No arrow markers
+        markerEnd: undefined,
+        markerStart: undefined,
+        // No labels by default (clean look)
+        label: undefined,
+        labelStyle: undefined,
+        labelBgStyle: undefined,
       })),
     [edges]
   );
@@ -123,7 +111,7 @@ export default function GraphViewer({ graphState, onNodeClick, onNodeHover }: Gr
   );
 
   return (
-    <div className="w-full h-full" style={{ background: 'var(--bg-secondary)' }}>
+    <div className="w-full h-full" style={{ background: 'var(--bg, #fafafa)' }}>
       <ReactFlow
         nodes={styledNodes}
         edges={styledEdges}
@@ -136,62 +124,36 @@ export default function GraphViewer({ graphState, onNodeClick, onNodeHover }: Gr
         connectionMode={ConnectionMode.Loose}
         fitView
         fitViewOptions={{
-          padding: 0.2,
+          padding: 0.4,
           includeHiddenNodes: false,
         }}
         minZoom={0.1}
         maxZoom={2}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         attributionPosition="bottom-right"
+        proOptions={{ hideAttribution: true }}
       >
-        {/* Background grid */}
+        {/* Subtle dot grid */}
         <Background
           variant={BackgroundVariant.Dots}
-          gap={16}
-          size={1}
-          color="var(--border)"
+          gap={20}
+          size={0.5}
+          color="var(--border, #e5e5e5)"
         />
 
-        {/* Zoom/pan controls */}
+        {/* Minimal zoom controls */}
         <Controls
           showInteractive={false}
+          showFitView={true}
           style={{
-            background: 'var(--bg)',
-            border: '1px solid var(--border)',
+            background: 'var(--bg, #fff)',
+            border: '1px solid var(--border, #e5e5e5)',
             borderRadius: '8px',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+            boxShadow: '0 1px 4px rgba(0, 0, 0, 0.06)',
           }}
         />
 
-        {/* Minimap */}
-        <MiniMap
-          nodeColor={(node) => {
-            const type = node.data?.type;
-            switch (type) {
-              case 'resource':
-                return 'var(--accent)';
-              case 'concept':
-              case 'topic':
-                return '#10b981';
-              case 'person':
-                return '#f59e0b';
-              case 'location':
-                return '#3b82f6';
-              case 'event':
-                return '#a855f7';
-              default:
-                return 'var(--secondary-text)';
-            }
-          }}
-          maskColor="rgba(0, 0, 0, 0.1)"
-          style={{
-            background: 'var(--bg)',
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-          }}
-          position="bottom-right"
-        />
+        {/* No MiniMap — clean Obsidian style */}
       </ReactFlow>
     </div>
   );

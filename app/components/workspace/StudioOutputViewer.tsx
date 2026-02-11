@@ -1,7 +1,9 @@
+'use client';
 
 import { useMemo } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { MindMap, Quiz, StudyGuide, FAQ, Timeline, DataTable, AudioOverview } from '@/components/studio';
+import FlashcardStudyView from '@/components/flashcards/FlashcardStudyView';
 import type { StudioOutput } from '@/types';
 
 interface StudioOutputViewerProps {
@@ -22,7 +24,12 @@ export default function StudioOutputViewer({ output, onClose }: StudioOutputView
   }, [output.content]);
 
   const renderOutput = () => {
-    if (!parsedContent) {
+    // Flashcards: use deck_id, render FlashcardStudyView (content is in deck)
+    if (output.type === 'flashcards' && output.deck_id) {
+      return <FlashcardStudyView deckId={output.deck_id} onClose={onClose} />;
+    }
+
+    if (!parsedContent && output.type !== 'flashcards') {
       return (
         <div className="flex flex-col items-center justify-center h-full p-8">
           <AlertCircle
@@ -62,7 +69,16 @@ export default function StudioOutputViewer({ output, onClose }: StudioOutputView
       case 'table':
         return <DataTable data={parsedContent} title={output.title} onClose={onClose} />;
       case 'flashcards':
-        return <Quiz data={parsedContent} title={output.title || 'Flashcards'} onClose={onClose} />;
+        return (
+          <div className="flex flex-col items-center justify-center h-full p-8">
+            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+              Deck not found. It may have been deleted.
+            </p>
+            <button onClick={onClose} className="btn btn-secondary mt-4">
+              Close
+            </button>
+          </div>
+        );
       case 'audio':
         return (
           <AudioOverview

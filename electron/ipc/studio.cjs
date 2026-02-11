@@ -15,8 +15,8 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const now = Date.now();
 
       const stmt = db.prepare(`
-        INSERT INTO studio_outputs (id, project_id, type, title, content, source_ids, file_path, metadata, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO studio_outputs (id, project_id, type, title, content, source_ids, file_path, metadata, deck_id, resource_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       stmt.run(
@@ -25,9 +25,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         data.type,
         data.title,
         data.content || null,
-        data.source_ids ? JSON.stringify(data.source_ids) : null,
+        data.source_ids ? (typeof data.source_ids === 'string' ? data.source_ids : JSON.stringify(data.source_ids)) : null,
         data.file_path || null,
-        data.metadata ? JSON.stringify(data.metadata) : null,
+        data.metadata ? (typeof data.metadata === 'string' ? data.metadata : JSON.stringify(data.metadata)) : null,
+        data.deck_id || null,
+        data.resource_id || null,
         now,
         now
       );
@@ -40,12 +42,18 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  // Get studio outputs by project
+  // Get studio outputs by project (with flashcard deck stats for type=flashcards)
   ipcMain.handle('db:studio:getByProject', (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
-      const stmt = db.prepare('SELECT * FROM studio_outputs WHERE project_id = ? ORDER BY updated_at DESC');
+      const stmt = db.prepare(`
+        SELECT s.*, d.card_count as deck_card_count
+        FROM studio_outputs s
+        LEFT JOIN flashcard_decks d ON s.deck_id = d.id
+        WHERE s.project_id = ?
+        ORDER BY s.updated_at DESC
+      `);
       const results = stmt.all(projectId);
       return { success: true, data: results };
     } catch (error) {
@@ -96,6 +104,14 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         fields.push('metadata = ?');
         values.push(typeof updates.metadata === 'string' ? updates.metadata : JSON.stringify(updates.metadata));
       }
+      if (updates.deck_id !== undefined) {
+        fields.push('deck_id = ?');
+        values.push(updates.deck_id);
+      }
+      if (updates.resource_id !== undefined) {
+        fields.push('resource_id = ?');
+        values.push(updates.resource_id);
+      }
 
       fields.push('updated_at = ?');
       values.push(Date.now());
@@ -111,11 +127,16 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  // Delete studio output
+  // Delete studio output (and linked flashcard deck if type=flashcards)
   ipcMain.handle('db:studio:delete', (event, id) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
+      const row = db.prepare('SELECT deck_id FROM studio_outputs WHERE id = ?').get(id);
+      if (row?.deck_id) {
+        db.prepare('DELETE FROM flashcard_decks WHERE id = ?').run(row.deck_id);
+        windowManager.broadcast('flashcard:deckDeleted', { id: row.deck_id });
+      }
       db.prepare('DELETE FROM studio_outputs WHERE id = ?').run(id);
       return { success: true };
     } catch (error) {

@@ -366,6 +366,67 @@ export async function* streamGemini(
   }
 }
 
+// Ollama (local streaming)
+export async function* streamOllama(
+  messages: Array<{ role: string; content: string }>,
+  model: string,
+  _signal?: AbortSignal,
+  tools?: ToolDefinition[],
+): AsyncIterable<ChatStreamChunk> {
+  if (!isElectron()) {
+    throw new Error('AI streaming requires Electron environment');
+  }
+
+  const streamId = generateStreamId();
+
+  const chunks: ChatStreamChunk[] = [];
+  let done = false;
+  let error: Error | null = null;
+  let resolveWait: (() => void) | null = null;
+
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
+    if (data.streamId !== streamId) return;
+
+    if (data.type === 'text' && data.text) {
+      chunks.push({ type: 'text', text: data.text });
+    } else if (data.type === 'tool_call' && data.toolCall) {
+      chunks.push({
+        type: 'tool_call',
+        toolCall: {
+          id: data.toolCall.id,
+          name: data.toolCall.name,
+          arguments: data.toolCall.arguments,
+        },
+      });
+    } else if (data.type === 'done') {
+      chunks.push({ type: 'done' });
+      done = true;
+    } else if (data.type === 'error') {
+      error = new Error(data.error || 'Stream error');
+      done = true;
+    }
+
+    if (resolveWait) resolveWait();
+  });
+
+  void window.electron.ai.stream('ollama', messages, model, streamId, tools);
+
+  try {
+    while (!done || chunks.length > 0) {
+      if (chunks.length > 0) {
+        yield chunks.shift()!;
+      } else if (!done) {
+        await new Promise<void>(resolve => { resolveWait = resolve; });
+        resolveWait = null;
+      }
+    }
+
+    if (error) throw error;
+  } finally {
+    unsubscribe();
+  }
+}
+
 // =============================================================================
 // Embeddings (via IPC to main process)
 // =============================================================================
@@ -606,6 +667,15 @@ export async function* chatStream(
       break;
     }
 
+    case 'ollama':
+      yield* streamOllama(
+        messages,
+        config.ollamaModel || config.model || 'llama3.2',
+        signal,
+        tools,
+      );
+      break;
+
     default:
       throw new Error(`Provider ${config.provider} does not support streaming`);
   }
@@ -614,6 +684,31 @@ export async function* chatStream(
 // =============================================================================
 // Tool Execution
 // =============================================================================
+
+const TOOL_TRACE =
+  (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') ||
+  (typeof process !== 'undefined' && process.env?.DEBUG_AI_TOOLS === '1');
+
+function toolTraceLog(msg: string, data?: Record<string, unknown>) {
+  if (TOOL_TRACE) {
+    const payload = data ? ` ${JSON.stringify(sanitizeForLog(data))}` : '';
+    console.log(`[AI:Tools] ${msg}${payload}`);
+  }
+}
+
+function sanitizeForLog(obj: unknown, maxLen = 200): unknown {
+  if (obj == null) return obj;
+  if (typeof obj === 'string') return obj.length > maxLen ? obj.slice(0, maxLen) + '...' : obj;
+  if (Array.isArray(obj)) return obj.map((x) => sanitizeForLog(x, 80));
+  if (typeof obj === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      out[k] = sanitizeForLog(v, k === 'content' || k === 'snippet' ? 100 : 80);
+    }
+    return out;
+  }
+  return obj;
+}
 
 /**
  * Execute a chat with tool support, automatically handling tool calls.
@@ -631,11 +726,13 @@ export async function chatWithTools(
   const conversationMessages = [...messages];
   
   const toolDefinitions = toOpenAIToolDefinitions(tools);
+  toolTraceLog('chatWithTools start', { toolsCount: tools.length, maxIterations });
 
   for (let i = 0; i < maxIterations; i++) {
     let fullResponse = '';
     const pendingToolCalls: ToolCall[] = [];
 
+    toolTraceLog(`iteration ${i + 1}/${maxIterations} - streaming from AI`);
     for await (const chunk of chatStream(conversationMessages, toolDefinitions, options?.signal)) {
       if (chunk.type === 'text' && chunk.text) {
         fullResponse += chunk.text;
@@ -645,17 +742,35 @@ export async function chatWithTools(
           name: chunk.toolCall.name,
           arguments: JSON.parse(chunk.toolCall.arguments || '{}'),
         });
+        toolTraceLog('AI emitted tool_call', {
+          name: chunk.toolCall.name,
+          argsPreview: (chunk.toolCall.arguments || '{}').slice(0, 100),
+        });
       }
     }
 
+    toolTraceLog(`iteration ${i + 1} complete`, {
+      textLength: fullResponse.length,
+      toolCallsCount: pendingToolCalls.length,
+      toolNames: pendingToolCalls.map((t) => t.name),
+    });
+
     // If no tool calls, return the response
     if (pendingToolCalls.length === 0) {
+      toolTraceLog('chatWithTools end - no more tool calls', { responseLength: fullResponse.length });
       return { response: fullResponse, toolResults };
     }
 
     // Execute tool calls
     for (const toolCall of pendingToolCalls) {
+      toolTraceLog('executing tool', { name: toolCall.name, args: toolCall.arguments });
       const result = await executeToolCall(tools, toolCall, options?.signal);
+      const details = result.result.details as Record<string, unknown>;
+      toolTraceLog('tool result', {
+        name: toolCall.name,
+        success: details?.status !== 'error',
+        error: details?.error,
+      });
       toolResults.push({
         tool: toolCall.name,
         result: result.result.details,
@@ -679,7 +794,7 @@ export async function chatWithTools(
     }
   }
 
-  // Max iterations reached
+  toolTraceLog('chatWithTools end - max iterations reached');
   return {
     response: 'Maximum tool iterations reached.',
     toolResults,

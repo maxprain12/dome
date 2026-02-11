@@ -258,6 +258,9 @@ declare global {
           update: (interaction: any) => Promise<DBResponse<ResourceInteraction>>;
           delete: (id: string) => Promise<DBResponse<void>>;
         };
+        tags: {
+          getByResource: (resourceId: string) => Promise<DBResponse<Array<{ id: string; name: string; color?: string }>>>;
+        };
         links: {
           create: (link: any) => Promise<DBResponse<ResourceLink>>;
           getBySource: (sourceId: string) => Promise<DBResponse<ResourceLink[]>>;
@@ -414,7 +417,7 @@ declare global {
           error?: string;
         }>;
         stream: (
-          provider: 'openai' | 'anthropic' | 'google',
+          provider: 'openai' | 'anthropic' | 'google' | 'ollama',
           messages: Array<{ role: string; content: string }>,
           model: string | undefined,
           streamId: string,

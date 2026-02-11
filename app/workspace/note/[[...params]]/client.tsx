@@ -233,8 +233,8 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
         />
 
         {/* Studio Panel */}
-        {studioPanelOpen && (
-          <StudioPanel />
+        {studioPanelOpen && resource && (
+          <StudioPanel projectId={resource.project_id} />
         )}
 
         {/* Graph Panel */}

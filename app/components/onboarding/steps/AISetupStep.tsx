@@ -122,6 +122,9 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
 
     try {
       await saveAIConfig(config);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
+      }
       onComplete();
     } catch (error) {
       console.error('[AISetupStep] Error al guardar:', error);

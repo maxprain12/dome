@@ -175,6 +175,7 @@ export async function getAIConfig(): Promise<AISettings> {
   const ollamaTemperatureResult = await db.getSetting('ollama_temperature');
   const ollamaTopPResult = await db.getSetting('ollama_top_p');
   const ollamaNumPredictResult = await db.getSetting('ollama_num_predict');
+  const ollamaShowThinkingResult = await db.getSetting('ollama_show_thinking');
   // Anthropic OAuth/Token support
   const authModeResult = await db.getSetting('ai_auth_mode');
   const oauthTokenResult = await db.getSetting('ai_oauth_token');
@@ -199,6 +200,7 @@ export async function getAIConfig(): Promise<AISettings> {
     ollama_temperature: ollamaTemperatureResult.data ? parseFloat(ollamaTemperatureResult.data) : undefined,
     ollama_top_p: ollamaTopPResult.data ? parseFloat(ollamaTopPResult.data) : undefined,
     ollama_num_predict: ollamaNumPredictResult.data ? parseInt(ollamaNumPredictResult.data, 10) : undefined,
+    ollama_show_thinking: ollamaShowThinkingResult.data === 'true',
     // Anthropic OAuth/Token support
     auth_mode: (authModeResult.data as AISettings['auth_mode']) || undefined,
     oauth_token: oauthTokenResult.data || undefined,
@@ -250,6 +252,10 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
 
   if (config.ollama_num_predict !== undefined) {
     await db.setSetting('ollama_num_predict', config.ollama_num_predict.toString());
+  }
+
+  if (config.ollama_show_thinking !== undefined) {
+    await db.setSetting('ollama_show_thinking', config.ollama_show_thinking ? 'true' : 'false');
   }
 
   // Anthropic OAuth/Token support

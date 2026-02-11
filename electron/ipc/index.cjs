@@ -8,6 +8,7 @@ const initHandlers = require('./init.cjs');
 const databaseHandlers = require('./database.cjs');
 const interactionsHandlers = require('./interactions.cjs');
 const linksHandlers = require('./links.cjs');
+const tagsHandlers = require('./tags.cjs');
 const graphHandlers = require('./graph.cjs');
 const resourcesHandlers = require('./resources.cjs');
 const storageHandlers = require('./storage.cjs');
@@ -64,6 +65,7 @@ function registerAll(deps) {
   databaseHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender });
   interactionsHandlers.register({ ipcMain, windowManager, database, validateSender });
   linksHandlers.register({ ipcMain, windowManager, database, validateSender });
+  tagsHandlers.register({ ipcMain, windowManager, database, validateSender });
   graphHandlers.register({ ipcMain, windowManager, database, validateSender });
   resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor });
   storageHandlers.register({ ipcMain, windowManager, database, fileStorage });
@@ -75,7 +77,7 @@ function registerAll(deps) {
   whatsappHandlers.register({ ipcMain, windowManager, database, fileStorage, ollamaService });
   authHandlers.register({ ipcMain, windowManager, authManager });
   personalityHandlers.register({ ipcMain, windowManager, personalityLoader });
-  aiHandlers.register({ ipcMain, windowManager, database, aiCloudService });
+  aiHandlers.register({ ipcMain, windowManager, database, aiCloudService, ollamaService });
   aiToolsHandlers.register({ ipcMain, windowManager, aiToolsHandler });
   flashcardsHandlers.register({ ipcMain, windowManager, database, validateSender });
   studioHandlers.register({ ipcMain, windowManager, database, validateSender });

@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { Plus, Trash2, Loader2, Edit3, Check, X } from 'lucide-react';
 import { useInteractions, type ParsedInteraction } from '@/lib/hooks/useInteractions';
+import { formatRelativeDate } from '@/lib/utils';
 
 interface NotesTabProps {
   resourceId: string;
@@ -58,21 +59,7 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
     [deleteInteraction]
   );
 
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } else if (days === 1) {
-      return 'Yesterday';
-    } else if (days < 7) {
-      return date.toLocaleDateString([], { weekday: 'short' });
-    }
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  };
+  const formatDate = (timestamp: number) => formatRelativeDate(timestamp);
 
   if (isLoading) {
     return (
