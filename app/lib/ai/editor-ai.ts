@@ -6,6 +6,7 @@
  */
 
 import { chatStream, getAIConfig } from '@/lib/ai/client';
+import { buildEditorSystemPrompt, getEditorActionPrompt } from '@/lib/prompts/loader';
 
 // =============================================================================
 // Types
@@ -20,24 +21,7 @@ export type EditorAIAction =
   | 'continue'
   | 'custom';
 
-// =============================================================================
-// Action Prompts
-// =============================================================================
-
-const ACTION_PROMPTS: Record<Exclude<EditorAIAction, 'custom'>, string> = {
-  review:
-    'Review the following text for grammar, spelling, and style issues. Return the corrected version only, with no explanation. Preserve all formatting (HTML tags, markdown, etc.).',
-  expand:
-    'Expand on the following text, adding more detail, depth, and supporting points while maintaining the same tone, style, and formatting. Return only the expanded text.',
-  summarize:
-    'Summarize the following text concisely, capturing the key points. Return only the summary.',
-  improve:
-    'Improve the writing quality of the following text — make it clearer, more engaging, and better structured. Preserve the formatting. Return only the improved version.',
-  translate:
-    'Translate the following text. If it is in Spanish, translate to English. If it is in English, translate to Spanish. If it is in another language, translate to English. Return only the translation, preserving formatting.',
-  continue:
-    'Continue writing from where the following text ends. Match the tone, style, and topic. Write 2-3 additional paragraphs. Return only the new content (do not repeat the original text).',
-};
+// Action prompts are loaded from prompts/editor/actions/*.txt via getEditorActionPrompt
 
 // =============================================================================
 // Main Function
@@ -74,30 +58,14 @@ export async function executeEditorAIAction(
   const actionPrompt =
     action === 'custom'
       ? customPrompt || 'Help me with this text.'
-      : ACTION_PROMPTS[action];
+      : getEditorActionPrompt(action);
 
   const contextSnippet = documentContext.substring(0, 3000);
+  const systemContent = buildEditorSystemPrompt(contextSnippet);
 
   const messages = [
-    {
-      role: 'system',
-      content: `You are an inline writing assistant embedded in a note-taking application called Dome. You help users improve, expand, review, and transform their text.
-
-CRITICAL RULES:
-- Respond ONLY with the modified/generated text
-- Do NOT include explanations, commentary, or meta-text
-- Do NOT wrap your response in quotes or code blocks
-- Preserve the original formatting (HTML tags, markdown, lists, etc.)
-- Match the language of the original text unless translating
-- Be concise and direct
-
-Document context (for reference only — do NOT repeat this):
-${contextSnippet}`,
-    },
-    {
-      role: 'user',
-      content: `${actionPrompt}\n\nText:\n${selectedText}`,
-    },
+    { role: 'system', content: systemContent },
+    { role: 'user', content: `${actionPrompt}\n\nText:\n${selectedText}` },
   ];
 
   let result = '';
@@ -138,30 +106,14 @@ export async function executeEditorAIActionStreaming(
   const actionPrompt =
     action === 'custom'
       ? customPrompt || 'Help me with this text.'
-      : ACTION_PROMPTS[action];
+      : getEditorActionPrompt(action);
 
   const contextSnippet = documentContext.substring(0, 3000);
+  const systemContent = buildEditorSystemPrompt(contextSnippet);
 
   const messages = [
-    {
-      role: 'system',
-      content: `You are an inline writing assistant embedded in a note-taking application called Dome. You help users improve, expand, review, and transform their text.
-
-CRITICAL RULES:
-- Respond ONLY with the modified/generated text
-- Do NOT include explanations, commentary, or meta-text
-- Do NOT wrap your response in quotes or code blocks
-- Preserve the original formatting (HTML tags, markdown, lists, etc.)
-- Match the language of the original text unless translating
-- Be concise and direct
-
-Document context (for reference only — do NOT repeat this):
-${contextSnippet}`,
-    },
-    {
-      role: 'user',
-      content: `${actionPrompt}\n\nText:\n${selectedText}`,
-    },
+    { role: 'system', content: systemContent },
+    { role: 'user', content: `${actionPrompt}\n\nText:\n${selectedText}` },
   ];
 
   let result = '';

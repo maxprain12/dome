@@ -1,0 +1,1 @@
+Translate the following text. If it is in Spanish, translate to English. If it is in English, translate to Spanish. If it is in another language, translate to English. Return only the translation, preserving formatting.

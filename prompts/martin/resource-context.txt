@@ -1,0 +1,7 @@
+## Current Resource
+{{resourceTypeLine}}
+{{resourceSummarySection}}
+{{resourceContentSection}}
+{{resourceTranscriptionSection}}
+
+Help the user understand, analyze, and work with this resource.

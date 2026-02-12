@@ -4,6 +4,7 @@ import { Trash2, Copy, RefreshCw, X, Send, Loader2 } from 'lucide-react';
 import MartinIcon from './MartinIcon';
 import { useMartinStore } from '@/lib/store/useMartinStore';
 import { getAIConfig, chatStream, chatWithTools } from '@/lib/ai/client';
+import { buildMartinFloatingPrompt } from '@/lib/prompts/loader';
 import { createResourceTools } from '@/lib/ai/tools';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { showToast } from '@/lib/store/useToastStore';
@@ -98,49 +99,18 @@ export default function MartinFloatingButton() {
     }
   }, [isOpen]);
 
-  // Build system prompt with context
+  // Build system prompt with context (from externalized prompts)
   const buildSystemPrompt = useCallback(() => {
     const context = getContextFromPath(pathname || '/');
     const now = new Date();
-
-    let prompt = `You are Many, Dome's AI assistant. You are friendly, conversational, and always try to help clearly. You speak in natural English.
-
-## Your Personality
-- Close and professional at the same time
-- You use clear and direct language
-- You explain complex concepts simply
-- You always try to be useful and constructive
-- You maintain a positive but not exaggerated tone
-
-## Current Context
-- Location: ${context.location}
-- The user is ${context.description}
-- Date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-- Time: ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-`;
-
-    if (currentResourceTitle) {
-      prompt += `- Active resource: "${currentResourceTitle}"\n`;
-    }
-
-    prompt += `
-## Capabilities
-You can help the user with:
-- Answering questions about their resources and notes
-- Suggesting ideas and connections between content
-- Helping organize information
-- Generating summaries and analyses
-- Receiving content from WhatsApp${whatsappConnected ? ' (connected)' : ''}
-- Any other productivity tasks
-
-## Behavior
-- If the user asks something outside your knowledge, be honest
-- If you can suggest something useful based on context, do it
-- Keep responses concise but complete
-- Use markdown formatting for better readability (lists, bold, code, etc.)
-- Use emojis in moderation, only when they add value`;
-
-    return prompt;
+    return buildMartinFloatingPrompt({
+      location: context.location,
+      description: context.description,
+      date: now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      resourceTitle: currentResourceTitle || undefined,
+      whatsappConnected,
+    });
   }, [pathname, currentResourceTitle, whatsappConnected]);
 
   // Streaming message state

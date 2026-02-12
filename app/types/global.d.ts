@@ -1,5 +1,11 @@
 export { };
 
+// Raw text imports for prompts
+declare module '*.txt?raw' {
+  const content: string;
+  export default content;
+}
+
 // Tiptap custom commands declaration
 import type { CalloutBlockAttributes, DividerAttributes, ToggleBlockAttributes, PDFEmbedAttributes, FileBlockAttributes } from '@/types';
 
