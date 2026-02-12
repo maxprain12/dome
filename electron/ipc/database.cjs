@@ -60,6 +60,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         resource.title,
         resource.content || null,
         resource.file_path || null,
+        resource.folder_id ?? null,
         resource.metadata ? JSON.stringify(resource.metadata) : null,
         resource.created_at,
         resource.updated_at

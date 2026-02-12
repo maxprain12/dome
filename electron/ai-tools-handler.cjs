@@ -729,6 +729,7 @@ async function resourceCreate(data) {
       data.title.trim(),
       data.content || '',
       null, // file_path
+      data.folder_id ?? null, // folder_id
       data.metadata ? JSON.stringify(data.metadata) : null,
       now,
       now
@@ -743,13 +744,6 @@ async function resourceCreate(data) {
       created_at: now,
       updated_at: now,
     };
-
-    // Move to folder if specified
-    if (data.folder_id) {
-      const moveStmt = db.prepare('UPDATE resources SET folder_id = ? WHERE id = ?');
-      moveStmt.run(data.folder_id, id);
-      resource.folder_id = data.folder_id;
-    }
 
     return { success: true, resource };
   } catch (error) {

@@ -899,8 +899,8 @@ function getQueries() {
 
     // Resources
     createResource: db.prepare(`
-      INSERT INTO resources (id, project_id, type, title, content, file_path, metadata, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, metadata, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getResourcesByProject: db.prepare('SELECT * FROM resources WHERE project_id = ? ORDER BY updated_at DESC'),
     getResourceById: db.prepare('SELECT * FROM resources WHERE id = ?'),

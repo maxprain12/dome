@@ -67,6 +67,13 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     loadResource();
   }, [resourceId]);
 
+  // Set selected sources to current resource when opening (for Studio generation)
+  useEffect(() => {
+    if (resourceId) {
+      useAppStore.getState().setSelectedSourceIds([resourceId]);
+    }
+  }, [resourceId]);
+
   const handleSaveMetadata = useCallback(async (updates: Partial<Resource>): Promise<boolean> => {
     if (!resource || typeof window === 'undefined' || !window.electron) return false;
 
@@ -171,7 +178,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
 
         {/* Studio Panel */}
         {studioPanelOpen && resource && (
-          <StudioPanel projectId={resource.project_id} />
+          <StudioPanel projectId={resource.project_id} resourceId={resource.id} />
         )}
 
         {/* Graph Panel */}

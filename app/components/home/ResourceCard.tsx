@@ -385,9 +385,19 @@ export default memo(function ResourceCard({
         {formatShortDistance(resource.updated_at)}
       </div>
 
-      {/* 3-dot menu — top right, offset from time badge */}
+      {/* Actions overlay — top left: delete (direct) + 3-dot menu */}
       {(onEdit || onDelete || onMoveToFolder || onRename) && (
         <div className="overlay-menu">
+          {onDelete && (
+            <button
+              className="overlay-menu-btn overlay-delete-btn focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              aria-label="Eliminar"
+              title="Eliminar"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
           <button
             ref={buttonRef}
             className="overlay-menu-btn focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"

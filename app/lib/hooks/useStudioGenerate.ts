@@ -197,10 +197,14 @@ function buildGeneratePrompt(
   type: StudioOutputType,
   projectId: string,
   sourceIds?: string[],
+  resourceId?: string | null,
 ): string {
   const base = projectId ? `Project ID: ${projectId}` : '';
   const sources = sourceIds && sourceIds.length > 0
     ? ` Use these source IDs: ${sourceIds.join(', ')}`
+    : '';
+  const resourceHint = resourceId
+    ? ` When calling flashcard_create, pass resource_id: "${resourceId}" and source_ids: ${JSON.stringify(sourceIds ?? [resourceId])} to associate the output with this resource.`
     : '';
 
   switch (type) {
@@ -238,7 +242,7 @@ Use resource_list and resource_get to fetch content, then return a JSON object w
 Return ONLY the JSON, no other text.`;
     case 'flashcards':
       return `Create a flashcard deck from the project sources.${sources} ${base}
-Use resource_list and resource_get to fetch content from the project, then use the flashcard_create tool to create a deck with at least 5-10 question-answer pairs. Use a descriptive title based on the content.`;
+Use resource_list and resource_get to fetch content from the project, then use the flashcard_create tool to create a deck with at least 5-10 question-answer pairs. Use a descriptive title based on the content.${resourceHint}`;
     default:
       return `Generate ${STUDIO_TYPE_TITLES[type] || type} from the project sources.${sources} ${base}
 Return a JSON object with type "${type}". Return ONLY the JSON, no other text.`;
@@ -324,7 +328,7 @@ export function useStudioGenerate(options?: {
         let messages: Array<{ role: string; content: string }>;
 
         if (useTools) {
-          userPrompt = buildGeneratePrompt(type, projectId, sourceIds);
+          userPrompt = buildGeneratePrompt(type, projectId, sourceIds, options?.resourceId);
           systemPrompt = `You are a study assistant. Generate structured study materials from the user's knowledge base.
 When asked to generate, use the appropriate tools to fetch source content first, then return a valid JSON object.
 The JSON must have a "type" field matching the requested type. Return ONLY the JSON object, no markdown formatting or explanation.`;
