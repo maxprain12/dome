@@ -72,6 +72,11 @@
   --sidebar-collapsed-width: 56px;
   --nav-height: 56px;
   --header-height: 68px;
+  /* App title bar (Home): h-11 = 44px. Workspace header: 56px. Use max for fullscreen overlays. */
+  --app-header-height: 44px;
+  --app-header-total: calc(var(--app-header-height) + var(--safe-area-inset-top));
+  --workspace-header-height: 56px;
+  --overlay-top-offset: calc(var(--safe-area-inset-top) + var(--workspace-header-height));
 
   /* Shadows - Minimal */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);

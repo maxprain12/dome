@@ -18,7 +18,7 @@ export default function App() {
       <AppHeader />
 
       {/* Contenido principal con padding-top para evitar solapamiento con el header */}
-      <div className="pt-11">
+      <div style={{ paddingTop: 'var(--app-header-total)' }}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/settings" element={<SettingsPage />} />

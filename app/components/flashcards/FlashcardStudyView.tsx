@@ -115,8 +115,14 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
   if (isStudying && dueCards.length === 0) {
     return (
       <div
-        className="fixed inset-0 z-50 flex flex-col"
-        style={{ background: 'var(--bg)' }}
+        className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
+        style={{
+          top: 'var(--overlay-top-offset)',
+          paddingLeft: 'var(--safe-area-inset-left)',
+          paddingRight: 'var(--safe-area-inset-right)',
+          paddingBottom: 'var(--safe-area-inset-bottom)',
+          background: 'var(--bg)',
+        }}
       >
         {/* Header */}
         <div
@@ -166,8 +172,14 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
   if (isSessionComplete) {
     return (
       <div
-        className="fixed inset-0 z-50 flex flex-col"
-        style={{ background: 'var(--bg)' }}
+        className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
+        style={{
+          top: 'var(--overlay-top-offset)',
+          paddingLeft: 'var(--safe-area-inset-left)',
+          paddingRight: 'var(--safe-area-inset-right)',
+          paddingBottom: 'var(--safe-area-inset-bottom)',
+          background: 'var(--bg)',
+        }}
       >
         {/* Header */}
         <div
@@ -204,8 +216,14 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
   // Main study view
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col"
-      style={{ background: 'var(--bg)' }}
+      className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
+      style={{
+        top: 'var(--overlay-top-offset)',
+        paddingLeft: 'var(--safe-area-inset-left)',
+        paddingRight: 'var(--safe-area-inset-right)',
+        paddingBottom: 'var(--safe-area-inset-bottom)',
+        background: 'var(--bg)',
+      }}
     >
       {/* Header */}
       <div

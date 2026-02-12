@@ -148,6 +148,7 @@ export default function WorkspaceHeader({
         background: 'var(--bg)',
         borderColor: 'var(--border)',
         minHeight: '56px',
+        paddingTop: 'calc(12px + var(--safe-area-inset-top))',
       }}
     >
       {/* Left section */}

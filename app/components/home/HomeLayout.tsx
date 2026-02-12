@@ -9,8 +9,8 @@ interface HomeLayoutProps {
 export default function HomeLayout({ children, flashcardDueCount }: HomeLayoutProps) {
   return (
     <div
-      className="flex h-[calc(100vh-44px)] min-h-0 overflow-hidden"
-      style={{ background: 'var(--dome-bg)' }}
+      className="flex min-h-0 overflow-hidden"
+      style={{ height: 'calc(100vh - var(--app-header-total))', background: 'var(--dome-bg)' }}
     >
       <HomeSidebar flashcardDueCount={flashcardDueCount} />
       <main className="flex-1 min-w-0 overflow-y-auto overscroll-contain">
