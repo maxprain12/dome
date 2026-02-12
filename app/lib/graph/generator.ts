@@ -17,7 +17,7 @@ export async function generateGraph(options: GraphGenerationOptions): Promise<Gr
     projectId,
     focusResourceId,
     maxDepth = 3,
-    strategies = ['mentions', 'links', 'semantic', 'tags'],
+    strategies = ['mentions', 'links', 'semantic', 'tags', 'studio'],
     maxNodes = 500,
     minWeight = 0.3,
   } = options;
@@ -51,6 +51,13 @@ export async function generateGraph(options: GraphGenerationOptions): Promise<Gr
     const tagsData = await generateGraphFromTags(focusResourceId, projectId, minWeight);
     mergeMaps(nodesMap, tagsData.nodes);
     mergeMaps(edgesMap, tagsData.edges);
+  }
+
+  // Strategy 5: Studio outputs (study materials generated from resources)
+  if (strategies.includes('studio')) {
+    const studioData = await generateGraphFromStudioOutputs(focusResourceId, projectId);
+    mergeMaps(nodesMap, studioData.nodes);
+    mergeMaps(edgesMap, studioData.edges);
   }
 
   // Convert maps to arrays
@@ -388,6 +395,85 @@ async function generateGraphFromTags(
     }
   } catch (err) {
     console.error('Error generating tag-based graph:', err);
+  }
+
+  return { nodes, edges };
+}
+
+/**
+ * Strategy 5: Studio outputs linked to their source resources
+ */
+async function generateGraphFromStudioOutputs(
+  focusResourceId?: string,
+  projectId?: string
+): Promise<{ nodes: Map<string, any>; edges: Map<string, any> }> {
+  const nodes = new Map();
+  const edges = new Map();
+
+  if (!focusResourceId || typeof window === 'undefined' || !window.electron) {
+    return { nodes, edges };
+  }
+
+  try {
+    const studioResult = await window.electron.db.studio.getByProject(projectId || 'default');
+    if (!studioResult.success || !studioResult.data) return { nodes, edges };
+
+    const studioOutputs = studioResult.data as Array<{
+      id: string;
+      title: string;
+      type: string;
+      resource_id?: string | null;
+      source_ids?: string | null;
+    }>;
+
+    for (const output of studioOutputs) {
+      const sourceIds: string[] = [];
+      if (output.resource_id) sourceIds.push(output.resource_id);
+      if (output.source_ids) {
+        try {
+          const parsed = typeof output.source_ids === 'string'
+            ? JSON.parse(output.source_ids) : output.source_ids;
+          if (Array.isArray(parsed)) sourceIds.push(...parsed);
+        } catch {
+          /* ignore */
+        }
+      }
+      const uniqueSourceIds = [...new Set(sourceIds)];
+      if (!uniqueSourceIds.includes(focusResourceId)) continue;
+
+      const nodeId = `studio-${output.id}`;
+      nodes.set(nodeId, {
+        id: nodeId,
+        data: {
+          id: nodeId,
+          label: output.title,
+          type: 'study_material' as const,
+          resourceId: output.id,
+          metadata: {
+            studioType: output.type,
+            isStudioOutput: true,
+            isFocus: false,
+          },
+        },
+        position: { x: 0, y: 0 },
+        type: 'custom',
+      });
+
+      for (const srcId of uniqueSourceIds) {
+        const edgeId = `studio-${srcId}-${output.id}`;
+        if (!edges.has(edgeId)) {
+          edges.set(edgeId, createEdge(edgeId, srcId, nodeId, 'generated_from', 0.8));
+        }
+        if (!nodes.has(srcId)) {
+          const resResult = await window.electron.db.resources.getById(srcId);
+          if (resResult.success && resResult.data) {
+            nodes.set(srcId, createResourceNode(resResult.data, srcId === focusResourceId));
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error generating studio graph:', err);
   }
 
   return { nodes, edges };

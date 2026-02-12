@@ -15,7 +15,7 @@ import type { GraphViewState } from '@/types';
 
 interface GraphViewerProps {
   graphState: GraphViewState;
-  onNodeClick?: (nodeId: string) => void;
+  onNodeClick?: (nodeId: string, node?: Node) => void;
   onNodeHover?: (nodeId: string | null) => void;
 }
 
@@ -53,8 +53,8 @@ export default function GraphViewer({ graphState, onNodeClick, onNodeHover }: Gr
   // Handle node click
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
-      if (onNodeClick && node.data.resourceId) {
-        onNodeClick(node.data.resourceId);
+      if (onNodeClick) {
+        onNodeClick(node.id, node);
       }
     },
     [onNodeClick]

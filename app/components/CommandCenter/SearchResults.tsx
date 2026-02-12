@@ -12,19 +12,32 @@ import {
   Brain,
   GitBranch,
   Search,
+  BookOpen,
 } from 'lucide-react';
 
 interface SearchResultsProps {
   results: {
     resources: any[];
     interactions: any[];
+    studioOutputs?: any[];
   };
   query: string;
   isLoading: boolean;
   onSelect: (resource: any) => void;
+  onStudioOutputSelect?: (output: any) => void;
 }
 
-export function SearchResults({ results, query, isLoading, onSelect }: SearchResultsProps) {
+const STUDIO_TYPE_ICONS: Record<string, React.ReactNode> = {
+  mindmap: <Brain size={16} />,
+  quiz: <MessageSquare size={16} />,
+  guide: <BookOpen size={16} />,
+  faq: <MessageSquare size={16} />,
+  timeline: <FileText size={16} />,
+  table: <File size={16} />,
+  flashcards: <FileText size={16} />,
+};
+
+export function SearchResults({ results, query, isLoading, onSelect, onStudioOutputSelect }: SearchResultsProps) {
   const getResourceIcon = (type: string) => {
     switch (type) {
       case 'note':
@@ -100,6 +113,7 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
 
   const hasResources = results.resources.length > 0;
   const hasInteractions = results.interactions.length > 0;
+  const hasStudioOutputs = (results.studioOutputs?.length ?? 0) > 0;
 
   if (isLoading) {
     return (
@@ -143,6 +157,32 @@ export function SearchResults({ results, query, isLoading, onSelect }: SearchRes
                 <div className="result-meta">
                   {getSourceBadge(resource)}
                   <div className="result-type">{resource.type}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Studio outputs section (study materials) */}
+      {hasStudioOutputs && onStudioOutputSelect && (
+        <div className="results-section">
+          <div className="section-label">Material de estudio</div>
+          <div className="results-list">
+            {results.studioOutputs!.slice(0, 5).map((output) => (
+              <button
+                key={output.id}
+                className="result-item"
+                onClick={() => onStudioOutputSelect(output)}
+              >
+                <div className="result-icon" data-type={output.type}>
+                  {STUDIO_TYPE_ICONS[output.type] || <FileText size={16} />}
+                </div>
+                <div className="result-content">
+                  <div className="result-title">
+                    {highlightMatch(output.title || 'Sin título', query)}
+                  </div>
+                  <div className="result-type">{output.type}</div>
                 </div>
               </button>
             ))}
