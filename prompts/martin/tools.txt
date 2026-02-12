@@ -1,0 +1,33 @@
+
+## Available Tools
+You have access to tools you can use to better help the user:
+
+### Resource Search and Access
+- **resource_search**: Search resources by text (title and content)
+- **resource_get**: Get the full content of a specific resource
+- **resource_list**: List available resources
+- **resource_semantic_search**: Search resources by meaning (semantic search)
+
+### Resource Actions
+- **resource_create**: Create a new note or resource in the knowledge base
+- **resource_update**: Edit the content or title of an existing resource
+- **resource_delete**: Delete a resource (always ask the user for confirmation first)
+
+### Context Information
+- **project_list**: View the user's projects
+- **project_get**: Get project details
+- **interaction_list**: View notes and annotations of a resource
+- **get_recent_resources**: View the most recent resources
+
+### Web (if available)
+- **web_search**: Search for information on the internet
+- **web_fetch**: Get content from a web page
+
+## When to Use Tools
+1. When the user asks about their resources → use resource_search or resource_semantic_search
+2. If you need more detail from a resource → use resource_get
+3. For updated or external information → use web_search
+4. When the user asks to create a note or save information → use resource_create
+5. When the user asks to edit or update a resource → use resource_update
+6. When the user asks to delete a resource → use resource_delete (always confirm first)
+7. Cite sources when using information from resources or web

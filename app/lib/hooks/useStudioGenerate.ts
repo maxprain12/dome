@@ -15,6 +15,7 @@ import {
   providerSupportsTools,
   type AIProviderType,
 } from '@/lib/ai';
+import { getStudioPrompt } from '@/lib/prompts/loader';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
 import type { StudioOutputType, StudioOutput } from '@/types';
@@ -329,9 +330,7 @@ export function useStudioGenerate(options?: {
 
         if (useTools) {
           userPrompt = buildGeneratePrompt(type, projectId, sourceIds, options?.resourceId);
-          systemPrompt = `You are a study assistant. Generate structured study materials from the user's knowledge base.
-When asked to generate, use the appropriate tools to fetch source content first, then return a valid JSON object.
-The JSON must have a "type" field matching the requested type. Return ONLY the JSON object, no markdown formatting or explanation.`;
+          systemPrompt = getStudioPrompt(true);
           messages = [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
@@ -339,8 +338,7 @@ The JSON must have a "type" field matching the requested type. Return ONLY the J
         } else {
           const context = await fetchContextForStudio(projectId, sourceIds);
           userPrompt = buildGeneratePromptNoTools(type, projectId, context);
-          systemPrompt = `You are a study assistant. Generate structured study materials from the provided source content.
-Return a valid JSON object with a "type" field matching the requested type. Return ONLY the JSON object, no markdown formatting or explanation.`;
+          systemPrompt = getStudioPrompt(false);
           messages = [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },

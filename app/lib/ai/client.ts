@@ -33,6 +33,11 @@ import {
   type AnyAgentTool,
   type ToolCall,
 } from './tools';
+import {
+  buildMartinBasePrompt,
+  buildMartinResourceContext,
+  prompts as promptTemplates,
+} from '@/lib/prompts/loader';
 
 // =============================================================================
 // Configuration Types
@@ -860,113 +865,31 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
 
   const { resourceContext, toolsEnabled = false, location = 'workspace', includeDateTime = true } = opts;
 
-  let prompt = `You are Many, Dome's AI assistant. You are friendly, conversational, and always try to help clearly. You speak in natural English.
+  const now = new Date();
+  const date = includeDateTime
+    ? now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    : '';
+  const time = includeDateTime ? now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
 
-## Your Personality
-- Close and professional at the same time
-- You use clear and direct language
-- You explain complex concepts simply
-- You always try to be useful and constructive
-- You maintain a positive but not exaggerated tone
+  let prompt = buildMartinBasePrompt({
+    location,
+    date,
+    time,
+    resourceTitle: resourceContext?.title,
+    includeDateTime,
+  });
 
-## Current Context
-- Location: ${location === 'workspace' ? 'Workspace' : location === 'home' ? 'Home' : 'WhatsApp'}
-- The user is working on a resource`;
-
-  // Add date/time if enabled
-  if (includeDateTime) {
-    const now = new Date();
-    prompt += `\n- Date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
-    prompt += `\n- Time: ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
-  }
-
-  // Add resource context
-  if (resourceContext?.title) {
-    prompt += `\n- Active resource: "${resourceContext.title}"`;
-  }
-
-  prompt += `
-
-## Capabilities
-You can help the user with:
-- Answering questions about their resources and notes
-- Suggesting ideas and connections between content
-- Helping organize information
-- Generating summaries and analyses
-- Receiving content from WhatsApp
-- Any other productivity tasks`;
-
-  // Add tools section if enabled
   if (toolsEnabled) {
-    prompt += `
-
-## Available Tools
-You have access to tools you can use to better help the user:
-
-### Resource Search and Access
-- **resource_search**: Search resources by text (title and content)
-- **resource_get**: Get the full content of a specific resource
-- **resource_list**: List available resources
-- **resource_semantic_search**: Search resources by meaning (semantic search)
-
-### Resource Actions
-- **resource_create**: Create a new note or resource in the knowledge base
-- **resource_update**: Edit the content or title of an existing resource
-- **resource_delete**: Delete a resource (always ask the user for confirmation first)
-
-### Context Information
-- **project_list**: View the user's projects
-- **project_get**: Get project details
-- **interaction_list**: View notes and annotations of a resource
-- **get_recent_resources**: View the most recent resources
-
-### Web (if available)
-- **web_search**: Search for information on the internet
-- **web_fetch**: Get content from a web page
-
-## When to Use Tools
-1. When the user asks about their resources → use resource_search or resource_semantic_search
-2. If you need more detail from a resource → use resource_get
-3. For updated or external information → use web_search
-4. When the user asks to create a note or save information → use resource_create
-5. When the user asks to edit or update a resource → use resource_update
-6. When the user asks to delete a resource → use resource_delete (always confirm first)
-7. Cite sources when using information from resources or web`;
+    prompt += promptTemplates.martin.tools;
   }
 
-  prompt += `
-
-## Behavior
-- If the user asks something outside your knowledge, be honest
-- If you can suggest something useful based on context, do it
-- Keep responses concise but complete
-- Use emojis in moderation, only when they add value`;
-
-  // Add resource details if provided
   if (resourceContext) {
-    prompt += `\n\n## Current Resource`;
-    
-    if (resourceContext.type) {
-      prompt += `\nType: ${resourceContext.type}`;
-    }
-    
-    if (resourceContext.summary) {
-      prompt += `\n\nSummary: ${resourceContext.summary}`;
-    }
-    
-    if (resourceContext.content) {
-      const maxLen = 2000;
-      const truncated = resourceContext.content.length > maxLen;
-      prompt += `\n\nContent${truncated ? ' (excerpt)' : ''}:\n${resourceContext.content.substring(0, maxLen)}${truncated ? '...' : ''}`;
-    }
-    
-    if (resourceContext.transcription) {
-      const maxLen = 2000;
-      const truncated = resourceContext.transcription.length > maxLen;
-      prompt += `\n\nTranscription${truncated ? ' (excerpt)' : ''}:\n${resourceContext.transcription.substring(0, maxLen)}${truncated ? '...' : ''}`;
-    }
-    
-    prompt += `\n\nHelp the user understand, analyze, and work with this resource.`;
+    prompt += '\n\n' + buildMartinResourceContext({
+      type: resourceContext.type,
+      summary: resourceContext.summary,
+      content: resourceContext.content,
+      transcription: resourceContext.transcription,
+    });
   }
 
   return prompt;

@@ -1,0 +1,1 @@
+Continue writing from where the following text ends. Match the tone, style, and topic. Write 2-3 additional paragraphs. Return only the new content (do not repeat the original text).

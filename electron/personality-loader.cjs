@@ -326,8 +326,10 @@ function buildSystemPrompt(params = {}) {
     sections.push(resourceSection);
   }
 
-  // Sección: Capacidades disponibles
-  sections.push(`## Capabilities in Dome
+  // Sección: Capacidades disponibles (desde prompts/martin/capabilities.txt)
+  const promptsLoader = require('./prompts-loader.cjs');
+  const capabilities = promptsLoader.getMartinCapabilities();
+  sections.push(capabilities || `## Capabilities in Dome
 
 Within Dome you can:
 - Analyze and answer questions about saved resources

@@ -334,59 +334,43 @@ async function createUrlResource(from, url) {
   }
 }
 
+const promptsLoader = require('../prompts-loader.cjs');
+
 /**
- * Builds an enhanced system prompt with context about the user's resources
+ * Builds an enhanced system prompt with context about the user's resources.
+ * Uses externalized prompt from prompts/whatsapp/base.txt
  * @param {Object} context - Context information
  * @returns {string}
  */
 async function buildEnhancedSystemPrompt(context = {}) {
-  let prompt = `You are Many, Dome's AI assistant. You are friendly, conversational, and always try to help clearly. You speak in natural English.
-
-## Your Role
-You help the user work with their knowledge resources: notes, PDFs, videos, audios, etc.
-
-## Current Context`;
+  const lines = [];
 
   // Get current project
   const currentProject = await aiToolsHandler.getCurrentProject();
   if (currentProject) {
-    prompt += `\n- Active project: ${currentProject.name}`;
+    let line = `- Active project: ${currentProject.name}`;
     if (currentProject.description) {
-      prompt += ` (${currentProject.description})`;
+      line += ` (${currentProject.description})`;
     }
+    lines.push(line);
   }
 
   // Get recent resources
   const recentResources = await aiToolsHandler.getRecentResources(5);
   if (recentResources.length > 0) {
-    prompt += `\n- Recent resources:`;
+    lines.push('- Recent resources:');
     recentResources.forEach(r => {
-      prompt += `\n  • ${r.title} (${r.type})`;
+      lines.push(`  • ${r.title} (${r.type})`);
     });
   }
 
   // Add timestamp
   const now = new Date();
-  prompt += `\n- Date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
-  prompt += `\n- Time: ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+  lines.push(`- Date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`);
+  lines.push(`- Time: ${now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`);
 
-  prompt += `
-
-## Capabilities
-You can help the user with:
-- Searching for information in their existing resources
-- Answering questions based on their knowledge base
-- Creating notes and saving content
-- Suggesting connections between content
-- Searching for information on the web when necessary
-
-## Behavior for WhatsApp
-- Keep responses concise and relevant
-- Use simple format (no complex markdown)
-- If you need information from resources, search them first
-- Be proactive suggesting related resources when useful`;
-
-  return prompt;
+  const contextSection = lines.join('\n');
+  return promptsLoader.buildWhatsAppPrompt(contextSection);
 }
 
 /**
