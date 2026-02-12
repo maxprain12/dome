@@ -129,11 +129,12 @@ export default function Home() {
         title: 'Untitled Note',
         project_id: 'default',
         content: '',
+        folder_id: currentFolderId,
       });
     } catch (err) {
       console.error('Failed to create note:', err);
     }
-  }, [createResource]);
+  }, [createResource, currentFolderId]);
 
   const handleUpload = useCallback((files: File[]) => {
     console.log('Upload files:', files);

@@ -34,6 +34,7 @@ class WindowManager {
         nodeIntegration: false,
         sandbox: false,
         webSecurity: true,
+        webviewTag: true, // Required for <webview> in URL viewer
       },
       // macOS: frameless with hidden title bar + traffic lights
       // Windows: hidden title bar with native overlay controls

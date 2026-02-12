@@ -24,6 +24,7 @@ interface CommandCenterProps {
     onUpload?: (files: File[]) => void;
     onImportFiles?: (filePaths: string[]) => void;
     onAddUrl?: (url: string, type: 'youtube' | 'article') => void;
+    onStudioOutputSelect?: (output: any) => void;
 }
 
 // Helper to detect YouTube URLs
@@ -85,6 +86,7 @@ export function CommandCenter({
     onUpload,
     onImportFiles,
     onAddUrl,
+    onStudioOutputSelect,
 }: CommandCenterProps) {
     const [query, setQuery] = useState('');
     const [isExpanded, setIsExpanded] = useState(false);
@@ -101,7 +103,16 @@ export function CommandCenter({
 
     const inputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const { setSearchQuery, searchResults, setSearchResults, commandCenterOpen, setCommandCenterOpen } = useAppStore();
+    const {
+        setSearchQuery,
+        searchResults,
+        setSearchResults,
+        commandCenterOpen,
+        setCommandCenterOpen,
+        setHomeSidebarSection,
+        setActiveStudioOutput,
+        addStudioOutput,
+    } = useAppStore();
 
     // Detected URL type
     const detectedUrlType = urlMode && urlInput.length > 10
@@ -226,7 +237,12 @@ export function CommandCenter({
                             ? (ftsResult as any).data.interactions
                             : [];
 
-                    setSearchResults({ resources, interactions });
+                    const studioOutputs =
+                        (ftsResult as any).success && (ftsResult as any).data?.studioOutputs
+                            ? (ftsResult as any).data.studioOutputs
+                            : [];
+
+                    setSearchResults({ resources, interactions, studioOutputs });
                 }
             } catch (error) {
                 console.error('Search error:', error);
@@ -346,6 +362,19 @@ export function CommandCenter({
         setSearchResults(null);
     }, [onResourceSelect, setSearchResults]);
 
+    const handleStudioOutputClick = useCallback((output: any) => {
+        if (onStudioOutputSelect) {
+            onStudioOutputSelect(output);
+        } else {
+            setHomeSidebarSection('studio');
+            addStudioOutput(output);
+            setActiveStudioOutput(output);
+        }
+        setIsExpanded(false);
+        setQuery('');
+        setSearchResults(null);
+    }, [onStudioOutputSelect, setHomeSidebarSection, addStudioOutput, setActiveStudioOutput, setSearchResults]);
+
     const handleQuickAction = useCallback((action: string) => {
         switch (action) {
             case 'note':
@@ -414,7 +443,11 @@ export function CommandCenter({
         };
     }, [searchResults, filterTypes]);
 
-    const hasResults = Boolean(searchResults && (searchResults.resources.length > 0 || searchResults.interactions.length > 0));
+    const hasResults = Boolean(searchResults && (
+        (searchResults.resources?.length ?? 0) > 0 ||
+        (searchResults.interactions?.length ?? 0) > 0 ||
+        (searchResults.studioOutputs?.length ?? 0) > 0
+    ));
 
     return (
         <DropZone onDrop={handleDrop} onDragStateChange={setShowDropzone}>
@@ -618,10 +651,11 @@ export function CommandCenter({
                                         onClear={() => setFilterTypes([])}
                                     />
                                     <SearchResults
-                                        results={filteredResults || searchResults}
+                                        results={filteredResults || searchResults || { resources: [], interactions: [] }}
                                         query={query}
                                         isLoading={isSearching}
                                         onSelect={handleResourceClick}
+                                        onStudioOutputSelect={handleStudioOutputClick}
                                     />
                                 </>
                             )}

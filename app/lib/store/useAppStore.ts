@@ -43,8 +43,8 @@ interface AppState {
   toggleHomeSidebar: () => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  searchResults: { resources: any[]; interactions: any[] } | null;
-  setSearchResults: (data: { resources: any[]; interactions: any[] } | null) => void;
+  searchResults: { resources: any[]; interactions: any[]; studioOutputs?: any[] } | null;
+  setSearchResults: (data: { resources: any[]; interactions: any[]; studioOutputs?: any[] } | null) => void;
   commandCenterOpen: boolean;
   setCommandCenterOpen: (open: boolean) => void;
   viewMode: 'grid' | 'list';

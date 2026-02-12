@@ -270,12 +270,32 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
   }, [graphState, filters, layout]);
 
   // Handle node click
-  const handleNodeClick = async (resourceId: string) => {
-    console.log('Node clicked:', resourceId);
-    // TODO: Navigate to resource or open in new window
-    if (typeof window !== 'undefined' && window.electron) {
+  const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
+
+  const handleNodeClick = async (nodeId: string, node?: { data?: { resourceId?: string; metadata?: { isStudioOutput?: boolean } } }) => {
+    const data = node?.data;
+
+    // Studio output node (study material) - nodeId is "studio-{outputId}"
+    if (data?.metadata?.isStudioOutput) {
+      const outputId = nodeId.startsWith('studio-') ? nodeId.slice(7) : (data.resourceId ?? nodeId);
       try {
-        await window.electron.invoke('resource:open', resourceId);
+        const result = await window.electron.db.studio.getById(outputId);
+        if (result.success && result.data) {
+          setActiveStudioOutput(result.data as Parameters<typeof setActiveStudioOutput>[0]);
+          useAppStore.getState().toggleStudioPanel();
+        }
+      } catch (err) {
+        console.error('Failed to open studio output:', err);
+      }
+      return;
+    }
+
+    // Resource node
+    const resourceId = data?.resourceId ?? nodeId;
+    const resourceType = (data as any)?.resourceType ?? 'note';
+    if (typeof window !== 'undefined' && window.electron?.workspace) {
+      try {
+        await window.electron.workspace.open(resourceId, resourceType);
       } catch (err) {
         console.error('Failed to open resource:', err);
       }

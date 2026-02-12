@@ -56,6 +56,31 @@ function URLViewerComponent({ resource }: URLViewerProps) {
     loadURL();
   }, [resource.id]);
 
+  // Listen for resource:updated to refresh metadata in real-time (when web:process completes)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron?.on) return;
+    const unsubscribe = window.electron.on('resource:updated', ({ id, updates }: { id: string; updates: any }) => {
+      if (id === resource.id && updates?.metadata) {
+        setMetadata(updates.metadata);
+      }
+    });
+    return unsubscribe;
+  }, [resource.id]);
+
+  // Attach webview events (Electron uses did-finish-load, did-fail-load)
+  useEffect(() => {
+    const el = webviewRef.current as HTMLWebViewElement & { addEventListener: Function } | null;
+    if (!el || !url) return;
+    const onFinish = () => handleWebViewLoad();
+    const onFail = (e: any) => handleWebViewError(e);
+    el.addEventListener?.('did-finish-load', onFinish);
+    el.addEventListener?.('did-fail-load', onFail);
+    return () => {
+      el.removeEventListener?.('did-finish-load', onFinish);
+      el.removeEventListener?.('did-fail-load', onFail);
+    };
+  }, [url, handleWebViewLoad, handleWebViewError]);
+
   const handleProcess = useCallback(async () => {
     if (!window.electron?.web?.process) return;
 
@@ -201,20 +226,16 @@ function URLViewerComponent({ resource }: URLViewerProps) {
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {viewMode === 'webview' ? (
-          <div className="h-full w-full">
+          <div className="h-full w-full min-h-[200px]">
             {url && (
               /* eslint-disable @typescript-eslint/no-explicit-any */
               (
                 <webview
                   ref={webviewRef as any}
                   src={url}
-                  className="w-full h-full"
-                  style={{ display: 'flex' } as any}
-                  {...{
-                    onDidFinishLoad: handleWebViewLoad,
-                    onDidFailLoad: handleWebViewError,
-                    partition: "persist:webview"
-                  } as any}
+                  className="w-full h-full min-h-[200px]"
+                  style={{ display: 'block' } as any}
+                  partition="persist:webview"
                 />
               )
               /* eslint-enable @typescript-eslint/no-explicit-any */

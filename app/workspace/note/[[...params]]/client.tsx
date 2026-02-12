@@ -64,6 +64,13 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     loadResource();
   }, [resourceId]);
 
+  // Set selected sources to current resource when opening (for Studio generation)
+  useEffect(() => {
+    if (resourceId) {
+      useAppStore.getState().setSelectedSourceIds([resourceId]);
+    }
+  }, [resourceId]);
+
   // Auto-save content
   const saveContent = useCallback(async (newContent: string) => {
     if (!window.electron?.db?.resources || !resource) return;
@@ -234,7 +241,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
 
         {/* Studio Panel */}
         {studioPanelOpen && resource && (
-          <StudioPanel projectId={resource.project_id} />
+          <StudioPanel projectId={resource.project_id} resourceId={resource.id} />
         )}
 
         {/* Graph Panel */}

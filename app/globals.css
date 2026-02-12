@@ -598,12 +598,14 @@ a:hover {
     z-index: var(--z-modal-backdrop);
     animation: overlayShow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     padding: 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .modal-content {
     width: 100%;
     max-width: 520px;
-    max-height: calc(100vh - 48px);
+    max-height: min(calc(100dvh - 48px), calc(100vh - 48px));
     background: var(--bg);
     border: 1.5px solid var(--border);
     border-radius: var(--radius-2xl);
@@ -613,6 +615,7 @@ a:hover {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    margin: auto;
   }
 
   .modal-header {
@@ -628,6 +631,8 @@ a:hover {
     padding: 24px;
     overflow-y: auto;
     flex: 1 1 auto;
+    min-height: 0;
+    overscroll-behavior: contain;
   }
 
   .modal-footer {
@@ -1831,8 +1836,16 @@ a:hover {
   top: 8px;
   left: 8px;
   z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   opacity: 0;
   transition: opacity var(--transition-fast);
+}
+
+.overlay-delete-btn:hover {
+  background: rgba(220, 38, 38, 0.9) !important;
+  color: white !important;
 }
 
 .resource-card-grid:hover .overlay-menu {

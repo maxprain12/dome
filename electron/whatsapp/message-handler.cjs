@@ -251,6 +251,7 @@ async function createNoteFromText(from, text) {
       `WhatsApp Note - ${new Date().toLocaleDateString('en-US')}`,
       text,
       null,
+      null, // folder_id
       JSON.stringify({
         source: 'whatsapp',
         from: from,
@@ -305,6 +306,7 @@ async function createUrlResource(from, url) {
       title,
       url,
       null,
+      null, // folder_id
       JSON.stringify({
         url: url,
         source: 'whatsapp',
@@ -796,6 +798,7 @@ async function processLocationMessage(message) {
       `Location: ${name}`,
       content,
       null,
+      null, // folder_id
       JSON.stringify({
         source: 'whatsapp',
         from: from,

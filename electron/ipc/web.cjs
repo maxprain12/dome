@@ -1,5 +1,12 @@
 /* eslint-disable no-console */
 function register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService }) {
+  function broadcastResourceUpdated(resourceId, updates) {
+    try {
+      windowManager.broadcast('resource:updated', { id: resourceId, updates });
+    } catch (e) {
+      console.error('[Web] Error broadcasting resource:updated', e);
+    }
+  }
   /**
    * Scrape a URL and extract content + screenshot
    */
@@ -126,6 +133,7 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
         Date.now(),
         resourceId
       );
+      broadcastResourceUpdated(resourceId, { metadata, updated_at: Date.now() });
 
       // Check if it's YouTube
       const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
@@ -184,6 +192,7 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
               Date.now(),
               resourceId
             );
+            broadcastResourceUpdated(resourceId, { title: scrapeResult.title, metadata, updated_at: Date.now() });
           }
 
           metadata.scraped_content = scrapeResult.content;
@@ -234,13 +243,15 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
       metadata.processing_status = 'completed';
       metadata.processed_at = Date.now();
 
+      const currentResource = queries.getResourceById.get(resourceId);
       queries.updateResource.run(
-        resource.title,
+        currentResource?.title ?? resource.title,
         resource.content,
         JSON.stringify(metadata),
         Date.now(),
         resourceId
       );
+      broadcastResourceUpdated(resourceId, { metadata, updated_at: Date.now() });
 
       return { success: true, metadata };
     } catch (error) {
@@ -260,6 +271,7 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
             Date.now(),
             resourceId
           );
+          broadcastResourceUpdated(resourceId, { metadata, updated_at: Date.now() });
         }
       } catch (updateError) {
         console.error('[Web] Error updating failed status:', updateError);

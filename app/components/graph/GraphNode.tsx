@@ -12,6 +12,8 @@ function getNodeColor(nodeType: GraphNodeData['type']): string {
   switch (nodeType) {
     case 'resource':
       return 'var(--accent, #7c6fc4)';
+    case 'study_material':
+      return '#059669'; // Emerald for study materials (guides, flashcards, etc.)
     case 'concept':
     case 'topic':
       return '#10b981';

@@ -60,6 +60,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         resource.title,
         resource.content || null,
         resource.file_path || null,
+        resource.folder_id ?? null,
         resource.metadata ? JSON.stringify(resource.metadata) : null,
         resource.created_at,
         resource.updated_at
@@ -380,7 +381,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     if (!sanitizedQuery) {
       return {
         success: true,
-        data: { resources: [], interactions: [] },
+        data: { resources: [], interactions: [], studioOutputs: [] },
       };
     }
 
@@ -407,11 +408,29 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         }
       }
 
+      // Search studio outputs (study materials) by title/content
+      const rawTerms = query.replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ').split(/\s+/).filter((t) => t.length > 0);
+      let studioResults = [];
+      if (rawTerms.length > 0) {
+        try {
+          const db = database.getDB();
+          const placeholders = rawTerms.map(() => '(title LIKE ? OR content LIKE ?)').join(' OR ');
+          const params = rawTerms.flatMap((t) => [`%${t}%`, `%${t}%`]);
+          const stmt = db.prepare(
+            `SELECT * FROM studio_outputs WHERE ${placeholders} ORDER BY updated_at DESC LIMIT 15`
+          );
+          studioResults = stmt.all(...params) || [];
+        } catch (studioErr) {
+          console.warn('[DB] Studio search failed:', studioErr);
+        }
+      }
+
       return {
         success: true,
         data: {
           resources: resourceResults,
           interactions: interactionResults,
+          studioOutputs: studioResults,
         },
       };
     } catch (error) {
@@ -439,11 +458,28 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             }
           }
 
+          const rawTerms = query.replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ').split(/\s+/).filter((t) => t.length > 0);
+          let studioResults = [];
+          if (rawTerms.length > 0) {
+            try {
+              const db = database.getDB();
+              const placeholders = rawTerms.map(() => '(title LIKE ? OR content LIKE ?)').join(' OR ');
+              const params = rawTerms.flatMap((t) => [`%${t}%`, `%${t}%`]);
+              const stmt = db.prepare(
+                `SELECT * FROM studio_outputs WHERE ${placeholders} ORDER BY updated_at DESC LIMIT 15`
+              );
+              studioResults = stmt.all(...params) || [];
+            } catch {
+              /* ignore */
+            }
+          }
+
           return {
             success: true,
             data: {
               resources: resourceResults,
               interactions: interactionResults,
+              studioOutputs: studioResults,
             },
           };
         } catch (retryError) {

@@ -17,7 +17,7 @@ export default function App() {
     <ThemeProvider>
       <AppHeader />
 
-      {/* Contenido principal con padding-top para evitar la drag region */}
+      {/* Contenido principal con padding-top para evitar solapamiento con el header */}
       <div className="pt-11">
         <Routes>
           <Route path="/" element={<HomePage />} />

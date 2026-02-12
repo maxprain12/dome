@@ -471,7 +471,8 @@ export type GraphNodeType =
   | 'person'      // Person mention
   | 'location'    // Place
   | 'event'       // Event
-  | 'topic';      // Topic cluster
+  | 'topic'       // Topic cluster
+  | 'study_material';  // Studio outputs (flashcards, guides, etc.)
 
 export interface GraphNode {
   id: string;

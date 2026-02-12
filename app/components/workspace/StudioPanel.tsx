@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Trash2, Eye, Loader2, X, FileText } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useStudioGenerate } from '@/lib/hooks/useStudioGenerate';
@@ -11,9 +11,10 @@ import { formatShortDistance } from '@/lib/utils';
 
 interface StudioPanelProps {
   projectId?: string | null;
+  resourceId?: string | null;
 }
 
-export default function StudioPanel({ projectId: projectIdProp }: StudioPanelProps = {}) {
+export default function StudioPanel({ projectId: projectIdProp, resourceId }: StudioPanelProps = {}) {
   const currentProject = useAppStore((s) => s.currentProject);
   const selectedSourceIds = useAppStore((s) => s.selectedSourceIds);
   const studioOutputs = useAppStore((s) => s.studioOutputs);
@@ -26,8 +27,30 @@ export default function StudioPanel({ projectId: projectIdProp }: StudioPanelPro
 
   const { generate, isGenerating } = useStudioGenerate({
     projectId: effectiveProjectId,
-    selectedSourceIds,
+    resourceId,
+    selectedSourceIds: selectedSourceIds.length > 0 ? selectedSourceIds : (resourceId ? [resourceId] : undefined),
   });
+
+  // Filter outputs to show only those associated with this resource (resource_id or source_ids)
+  const filteredOutputs = useMemo(() => {
+    if (!resourceId) return studioOutputs;
+    return studioOutputs.filter((output) => {
+      if (output.resource_id === resourceId) return true;
+      const sourceIds = output.source_ids
+        ? (typeof output.source_ids === 'string'
+          ? (() => {
+              try {
+                const parsed = JSON.parse(output.source_ids);
+                return Array.isArray(parsed) ? parsed : [];
+              } catch {
+                return [];
+              }
+            })()
+          : [])
+        : [];
+      return sourceIds.includes(resourceId);
+    });
+  }, [studioOutputs, resourceId]);
 
   const { isLoading: loadingOutputs } = useStudioOutputs(effectiveProjectId);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -166,17 +189,17 @@ export default function StudioPanel({ projectId: projectIdProp }: StudioPanelPro
           ))}
         </div>
 
-        {/* Saved Outputs */}
-        {studioOutputs.length > 0 && (
+        {/* Saved Outputs - filtered by resource when in workspace */}
+        {filteredOutputs.length > 0 && (
           <div className="mt-4">
             <h4
               className="text-[10px] font-semibold uppercase tracking-wider mb-2 px-1"
               style={{ color: 'var(--tertiary-text)' }}
             >
-              Generated outputs
+              {resourceId ? 'Outputs de este recurso' : 'Generated outputs'}
             </h4>
             <div className="flex flex-col gap-1.5">
-              {studioOutputs.map((output) => (
+              {filteredOutputs.map((output) => (
                 <div
                   key={output.id}
                   className="flex items-center gap-2 p-2 rounded-lg group transition-all duration-150"
@@ -268,7 +291,7 @@ export default function StudioPanel({ projectId: projectIdProp }: StudioPanelPro
         )}
 
         {/* Empty state */}
-        {!loadingOutputs && studioOutputs.length === 0 && (
+        {!loadingOutputs && filteredOutputs.length === 0 && (
           <div className="mt-4 px-2">
             <p
               className="text-[10px] text-center"

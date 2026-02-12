@@ -16,7 +16,12 @@ import { jsonResult, readStringParam, readNumberParam } from './common';
 const FlashcardCreateSchema = Type.Object({
   resource_id: Type.Optional(
     Type.String({
-      description: 'The ID of the source resource to generate flashcards from.',
+      description: 'The ID of the primary source resource. Pass this to associate the deck with the resource.',
+    }),
+  ),
+  source_ids: Type.Optional(
+    Type.Array(Type.String(), {
+      description: 'Array of resource IDs used as sources for the flashcards.',
     }),
   ),
   project_id: Type.Optional(
@@ -84,6 +89,7 @@ export function createFlashcardCreateTool(): AnyAgentTool {
         const params = args as Record<string, unknown>;
         const title = readStringParam(params, 'title', { required: true });
         const resourceId = readStringParam(params, 'resource_id');
+        const sourceIds = params.source_ids as string[] | undefined;
         const projectId = readStringParam(params, 'project_id');
         const description = readStringParam(params, 'description');
         const cards = params.cards as Array<{ question: string; answer: string; difficulty?: string }>;
@@ -98,6 +104,7 @@ export function createFlashcardCreateTool(): AnyAgentTool {
 
         const result = await window.electron.ai.tools.flashcardCreate({
           resource_id: resourceId,
+          source_ids: sourceIds,
           project_id: projectId || 'default',
           title,
           description,

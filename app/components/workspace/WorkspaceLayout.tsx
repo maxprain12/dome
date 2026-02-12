@@ -73,6 +73,13 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
     return () => setContext(null, null);
   }, [resourceId, resource, setContext]);
 
+  // Set selected sources to current resource when opening workspace (for Studio generation)
+  useEffect(() => {
+    if (resourceId && typeof window !== 'undefined' && window.electron) {
+      useAppStore.getState().setSelectedSourceIds([resourceId]);
+    }
+  }, [resourceId]);
+
   // Setup event listener for resource updates
   useEffect(() => {
     if (!resourceId || typeof window === 'undefined' || !window.electron) return;
@@ -335,7 +342,7 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
 
         {/* Studio Panel */}
         {studioPanelOpen && resource && (
-          <StudioPanel projectId={resource.project_id} />
+          <StudioPanel projectId={resource.project_id} resourceId={resource.id} />
         )}
 
         {/* Graph Panel */}
