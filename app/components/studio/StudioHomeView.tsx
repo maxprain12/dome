@@ -87,7 +87,16 @@ export default function StudioHomeView() {
     <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
       {/* Studio Output Viewer Overlay */}
       {activeOutput && (
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--bg)' }}>
+        <div
+          className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
+          style={{
+            top: 'var(--overlay-top-offset)',
+            paddingLeft: 'var(--safe-area-inset-left)',
+            paddingRight: 'var(--safe-area-inset-right)',
+            paddingBottom: 'var(--safe-area-inset-bottom)',
+            background: 'var(--bg)',
+          }}
+        >
           <StudioOutputViewer output={activeOutput} onClose={handleCloseViewer} />
         </div>
       )}

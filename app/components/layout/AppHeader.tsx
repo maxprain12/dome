@@ -37,9 +37,13 @@ export default function AppHeader() {
 
   return (
     <div
-      className={`fixed top-0 left-0 right-0 h-11 z-50 flex items-center justify-between${isWindows ? ' win-titlebar-padding' : ''
+      className={`fixed left-0 right-0 z-50 flex items-center justify-between${isWindows ? ' win-titlebar-padding' : ''
         }`}
       style={{
+        top: 0,
+        paddingTop: 'var(--safe-area-inset-top)',
+        height: 'var(--app-header-total)',
+        minHeight: '44px',
         WebkitAppRegion: 'drag',
         background: 'var(--dome-surface)',
         borderBottom: '1px solid var(--dome-border)',
