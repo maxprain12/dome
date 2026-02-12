@@ -1,8 +1,8 @@
 
 import { useState, useRef, useEffect, memo } from 'react';
 import type { Resource } from '@/types';
-import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, Edit, MoreVertical, FolderOpen, FolderInput, Loader2, CheckCircle2, AlertCircle, Pencil } from 'lucide-react';
-import { formatDistanceToNow, formatShortDistance } from '@/lib/utils';
+import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, Edit, MoreVertical, FolderOpen, FolderInput, Loader2, CheckCircle2, AlertCircle, Pencil, Notebook, Play } from 'lucide-react';
+import { formatDistanceToNow, formatShortDistance, extractPlainTextFromTiptap } from '@/lib/utils';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -109,11 +109,11 @@ export default memo(function ResourceCard({
 
     if (showMenu) {
       document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('scroll', handleScroll, true);
+      window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('scroll', handleScroll, { capture: true, passive: true });
     };
   }, [showMenu]);
   // Detect document sub-type for type-specific icons and colors
@@ -150,6 +150,8 @@ export default memo(function ResourceCard({
     switch (resource.type) {
       case 'note':
         return <FileText className="resource-icon" />;
+      case 'notebook':
+        return <Notebook className="resource-icon" />;
       case 'pdf':
         return <File className="resource-icon" />;
       case 'video':
@@ -182,6 +184,8 @@ export default memo(function ResourceCard({
     switch (resource.type) {
       case 'note':
         return 'var(--accent)';
+      case 'notebook':
+        return 'var(--success)';
       case 'image':
         return 'var(--brand-accent)';
       case 'video':
@@ -212,17 +216,18 @@ export default memo(function ResourceCard({
 
   const getPreviewContent = () => {
     // Use thumbnail_data (Base64) for fast preview - new internal storage system
-    if (resource.thumbnail_data) {
+    // PDF: no mostramos thumbnail, solo icono
+    if (resource.thumbnail_data && resource.type !== 'pdf') {
       const isVideo = resource.type === 'video';
       return (
         <div
           className="preview-image"
           style={{ backgroundImage: `url(${resource.thumbnail_data})` }}
         >
-          {isVideo && <div className="video-play-icon">▶</div>}
-          {resource.type === 'video' && (
+          {isVideo && <div className="video-play-icon"><Play size={20} fill="currentColor" /></div>}
+          {resource.type === 'video' ? (
             <div className="time-badge">{formatShortDistance(resource.updated_at)}</div>
-          )}
+          ) : null}
         </div>
       );
     }
@@ -240,7 +245,7 @@ export default memo(function ResourceCard({
       );
     }
 
-    // URL with preview
+    // URL with preview image
     if (resource.type === 'url' && resource.metadata?.preview_image) {
       return (
         <div
@@ -250,14 +255,31 @@ export default memo(function ResourceCard({
       );
     }
 
-    // PDF thumbnail (legacy metadata)
-    if (resource.type === 'pdf' && resource.metadata?.thumbnail) {
-      return (
-        <div
-          className="preview-image"
-          style={{ backgroundImage: `url(${resource.metadata.thumbnail})` }}
-        />
-      );
+    // URL without image: rich preview with metadata (title, author, summary)
+    if (resource.type === 'url' && !resource.thumbnail_data) {
+      const meta = resource.metadata && typeof resource.metadata === 'object' ? resource.metadata : {} as Record<string, unknown>;
+      const nested = (meta.metadata as Record<string, unknown> | undefined) ?? {};
+      const title = (meta.title ?? nested.title ?? resource.title) as string | undefined;
+      const author = (meta.author ?? nested.author) as string | undefined;
+      const publishedDate = (meta.published_date ?? nested.published_date) as string | undefined;
+      const summary = (meta.summary ?? meta.description ?? nested.description) as string | undefined;
+      const scrapedContent = (meta.scraped_content ?? meta.content) as string | undefined;
+      const excerptSource = summary || (scrapedContent ? extractPlainTextFromTiptap(String(scrapedContent)) : '');
+      const excerpt = excerptSource ? excerptSource.substring(0, 150).trim() + (excerptSource.length >= 150 ? '…' : '') : '';
+      if (title || excerpt || author) {
+        return (
+          <div className="content-preview content-preview-url">
+            {title ? <div className="url-preview-title">{title}</div> : null}
+            {author || publishedDate ? (
+              <div className="url-preview-meta">
+                {author}{author && publishedDate ? ' · ' : ''}
+                {publishedDate ? new Date(publishedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+              </div>
+            ) : null}
+            {excerpt ? <p className="url-preview-excerpt">{excerpt}</p> : null}
+          </div>
+        );
+      }
     }
 
     // Video thumbnail (legacy metadata)
@@ -267,54 +289,74 @@ export default memo(function ResourceCard({
           className="preview-image"
           style={{ backgroundImage: `url(${resource.metadata.thumbnail})` }}
         >
-          <div className="video-play-icon">▶</div>
+          <div className="video-play-icon"><Play size={20} fill="currentColor" /></div>
         </div>
       );
     }
 
-    // Note content preview
+    // Note content preview (Tiptap/ProseMirror JSON)
     if (resource.type === 'note' && resource.content) {
-      const plainText = resource.content.replace(/<[^>]+>/g, '').substring(0, 200);
-      return (
-        <div className="content-preview">
-          <p>{plainText}</p>
-        </div>
-      );
+      const plainText = extractPlainTextFromTiptap(resource.content);
+      if (plainText) {
+        const preview = plainText.substring(0, 200).trim();
+        return (
+          <div className="content-preview">
+            <p>{preview}{preview.length >= 200 ? '…' : ''}</p>
+          </div>
+        );
+      }
     }
 
     // Document content preview (text extracted at import time)
     if (resource.type === 'document' && resource.content) {
       const badge = getDocTypeBadge();
-      const plainText = resource.content.substring(0, 200);
+      const plainText = extractPlainTextFromTiptap(resource.content).substring(0, 200);
       return (
         <div className="content-preview document-preview">
-          {badge && (
+          {badge ? (
             <span
               className="doc-type-badge"
               style={{ background: badge.bg, color: badge.fg }}
             >
               {badge.label}
             </span>
-          )}
+          ) : null}
           <p>{plainText}</p>
         </div>
       );
     }
 
-    // Default icon preview
+    // Notebooks: preview genérico (icono), sin extracto de contenido
+    // Icon preview con placeholder amigable para notas/notebooks vacíos
+    const isEmptyNoteOrNotebook = (resource.type === 'note' || resource.type === 'notebook')
+      && (!resource.content || resource.content.trim().length < 10);
     return (
-      <div className="icon-preview" style={{ color: getTypeColor() }}>
+      <div className={`icon-preview ${isEmptyNoteOrNotebook ? 'icon-preview-empty' : ''}`} style={{ color: getTypeColor() }}>
         {getIcon()}
+        {isEmptyNoteOrNotebook && (
+          <span className="icon-preview-hint">
+            {resource.type === 'notebook' ? 'Cuaderno vacío' : 'Nota vacía'}
+          </span>
+        )}
       </div>
     );
+  };
+
+  const handleCardKeyDown = (e: React.KeyboardEvent) => {
+    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      onClick();
+    }
   };
 
   if (viewMode === 'list') {
     return (
       <div
-        className="resource-card-list"
+        className={`resource-card-list content-visibility-auto ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
         onClick={onClick}
-        style={{ cursor: onClick ? 'pointer' : 'default' }}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        onKeyDown={onClick ? handleCardKeyDown : undefined}
       >
         <div
           className="list-icon"
@@ -329,31 +371,33 @@ export default memo(function ResourceCard({
             <span>·</span>
             <span>{formatDistanceToNow(resource.updated_at)}</span>
           </div>
-          {searchSnippet && (
+          {searchSnippet ? (
             <div className="list-snippet" title={searchSnippet}>
               {searchSnippet}
             </div>
-          )}
+          ) : null}
         </div>
         <div className="list-actions">
-          {onEdit && (
+          {onEdit ? (
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(); }}
               className="action-btn"
-              title="Edit"
+              title="Editar"
+              aria-label="Editar"
             >
               <Edit size={16} />
             </button>
-          )}
-          {onDelete && (
+          ) : null}
+          {onDelete ? (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
               className="action-btn delete"
-              title="Delete"
+              title="Eliminar"
+              aria-label="Eliminar"
             >
               <Trash2 size={16} />
             </button>
-          )}
+          ) : null}
         </div>
 
       </div>
@@ -362,18 +406,21 @@ export default memo(function ResourceCard({
 
   // Grid view — overlay design
   const hasImagePreview = !!(
-    resource.thumbnail_data ||
+    (resource.thumbnail_data && resource.type !== 'pdf') ||
     (resource.type === 'image' && (resource.metadata?.preview_image || resource.file_path)) ||
     (resource.type === 'url' && resource.metadata?.preview_image) ||
-    (resource.type === 'pdf' && resource.metadata?.thumbnail) ||
     (resource.type === 'video' && resource.metadata?.thumbnail)
   );
 
+  const typeClass = `resource-type-${resource.type}`;
+
   return (
     <div
-      className="resource-card-grid"
+      className={`resource-card-grid content-visibility-auto ${typeClass} ${hasImagePreview ? 'has-image-preview' : ''} ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
       onClick={onClick}
-      style={{ cursor: onClick ? 'pointer' : 'default' }}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? handleCardKeyDown : undefined}
     >
       {/* Full card preview area */}
       <div className="card-preview">
@@ -386,9 +433,9 @@ export default memo(function ResourceCard({
       </div>
 
       {/* Actions overlay — top left: delete (direct) + 3-dot menu */}
-      {(onEdit || onDelete || onMoveToFolder || onRename) && (
-        <div className="overlay-menu">
-          {onDelete && (
+      {(onEdit || onDelete || onMoveToFolder || onRename) ? (
+          <div className="overlay-menu">
+          {onDelete ? (
             <button
               className="overlay-menu-btn overlay-delete-btn focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -397,7 +444,7 @@ export default memo(function ResourceCard({
             >
               <Trash2 size={14} />
             </button>
-          )}
+          ) : null}
           <button
             ref={buttonRef}
             className="overlay-menu-btn focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
@@ -407,15 +454,15 @@ export default memo(function ResourceCard({
           >
             <MoreVertical size={14} />
           </button>
-          {showMenu && (
+          {showMenu ? (
             <div
               ref={menuRef}
               className="dropdown-menu"
               style={{ top: menuPosition.top, left: menuPosition.left }}
             >
-              {onRename && (
+              {onRename ? (
                 <button
-                  className="dropdown-item"
+                  className="dropdown-item cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowMenu(false);
@@ -423,45 +470,49 @@ export default memo(function ResourceCard({
                     setIsRenaming(true);
                     setTimeout(() => renameInputRef.current?.focus(), 50);
                   }}
+                  aria-label="Rename"
                 >
                   <Pencil size={14} />
                   <span>Rename</span>
                 </button>
-              )}
-              {onMoveToFolder && (
+              ) : null}
+              {onMoveToFolder ? (
                 <button
-                  className="dropdown-item"
+                  className="dropdown-item cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
                   onClick={(e) => { e.stopPropagation(); setShowMenu(false); onMoveToFolder(); }}
+                  aria-label="Move to folder"
                 >
                   <FolderInput size={14} />
                   <span>Move to folder</span>
                 </button>
-              )}
-              {onEdit && (
+              ) : null}
+              {onEdit ? (
                 <button
-                  className="dropdown-item"
+                  className="dropdown-item cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
                   onClick={(e) => { e.stopPropagation(); setShowMenu(false); onEdit(); }}
+                  aria-label="Edit"
                 >
                   <Edit size={14} />
                   <span>Edit</span>
                 </button>
-              )}
-              {onDelete && (
+              ) : null}
+              {onDelete ? (
                 <>
                   <div className="dropdown-divider" />
                   <button
-                    className="dropdown-item delete"
+                    className="dropdown-item delete cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
                     onClick={(e) => { e.stopPropagation(); setShowMenu(false); onDelete(); }}
+                    aria-label="Delete"
                   >
                     <Trash2 size={14} />
                     <span>Delete</span>
                   </button>
                 </>
-              )}
+              ) : null}
             </div>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
 
       {/* Overlay footer — bottom */}
       <div className={`card-footer-overlay ${hasImagePreview ? 'on-image' : 'on-content'}`}>
@@ -474,6 +525,7 @@ export default memo(function ResourceCard({
               ref={renameInputRef}
               className="footer-title-input"
               value={renameValue}
+              aria-label="Rename resource"
               onChange={(e) => setRenameValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -499,19 +551,19 @@ export default memo(function ResourceCard({
           ) : (
             <div className="footer-title">{resource.title || 'Untitled'}</div>
           )}
-          {searchSnippet && (
+          {searchSnippet ? (
             <div className="footer-snippet" title={searchSnippet}>
               {searchSnippet}
             </div>
-          )}
+          ) : null}
         </div>
-        {resource.type === 'url' && resource.metadata && (
+        {resource.type === 'url' && resource.metadata ? (
           <ProcessingStatusBadge
             status={typeof resource.metadata === 'string'
               ? JSON.parse(resource.metadata).processing_status
               : resource.metadata.processing_status}
           />
-        )}
+        ) : null}
       </div>
 
     </div>

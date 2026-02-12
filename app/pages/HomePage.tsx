@@ -137,8 +137,8 @@ export default function HomePage() {
       {/* Show warning banner if there was an init error */}
       {initError && (
         <div
-          className="fixed top-0 left-0 right-0 z-50 px-4 py-2 text-center text-sm"
-          style={{ background: 'var(--warning)', color: 'var(--bg)' }}
+          className="fixed top-0 left-0 right-0 px-4 py-2 text-center text-sm"
+          style={{ background: 'var(--warning)', color: 'var(--bg)', zIndex: 'var(--z-fixed)' }}
         >
           Dome started with limited functionality. Some features may not work. ({initError})
         </div>

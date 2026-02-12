@@ -50,18 +50,12 @@ function AnnotationInputComponent({
     return (
       <button
         onClick={onClose}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+        className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors hover:bg-[var(--bg-tertiary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
         style={{
           color: 'var(--secondary-text)',
           border: '1px solid var(--border)',
         }}
         aria-label="Add annotation"
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'var(--bg-tertiary)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
-        }}
         title="Add annotation at current time"
       >
         <Bookmark size={14} />
@@ -72,7 +66,9 @@ function AnnotationInputComponent({
 
   return (
     <div className="flex items-center gap-2">
+      <label htmlFor="annotation-input-content" className="sr-only">Annotation note</label>
       <input
+        id="annotation-input-content"
         type="text"
         value={content}
         onChange={(e) => setContent(e.target.value)}

@@ -126,6 +126,61 @@ export async function getPageTextContent(
   return await page.getTextContent();
 }
 
+const THUMBNAIL_MAX_SIZE = 400;
+
+/**
+ * Generate thumbnail (first page) from PDF data URL.
+ * Uses browser canvas - no Node.js dependencies. Returns JPEG data URL.
+ */
+export async function generatePdfThumbnailFromData(pdfDataUrl: string): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const base64 = pdfDataUrl.includes(',') ? pdfDataUrl.split(',')[1] : pdfDataUrl;
+    if (!base64) return null;
+
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    const pdfDoc = await loadPDFDocument(bytes);
+    const page = await getPDFPage(pdfDoc, 1);
+    const viewport = page.getViewport({ scale: 1 });
+
+    const scale = Math.min(
+      THUMBNAIL_MAX_SIZE / viewport.width,
+      THUMBNAIL_MAX_SIZE / viewport.height
+    );
+    const scaledViewport = page.getViewport({ scale });
+    const w = Math.floor(scaledViewport.width);
+    const h = Math.floor(scaledViewport.height);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      pdfDoc.destroy();
+      return null;
+    }
+
+    await page.render({
+      canvasContext: ctx,
+      viewport: scaledViewport,
+      canvas,
+    }).promise;
+
+    pdfDoc.destroy();
+
+    return canvas.toDataURL('image/jpeg', 0.85);
+  } catch (err) {
+    console.warn('[PDF] Thumbnail generation failed:', err);
+    return null;
+  }
+}
+
 /**
  * Extract text from a rectangular region in PDF coordinates
  * Uses the transform matrix from PDF.js text items to determine position

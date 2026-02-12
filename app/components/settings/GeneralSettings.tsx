@@ -100,12 +100,17 @@ export default function GeneralSettings() {
         </h3>
 
         <div className="flex items-center gap-8">
-          <div className="relative group cursor-pointer" onClick={handleChangeAvatar}>
+          <button
+            type="button"
+            className="relative group cursor-pointer rounded-full focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            onClick={handleChangeAvatar}
+            aria-label="Change profile picture"
+          >
             <UserAvatar name={localName || 'User'} avatarData={avatarData} avatarPath={avatarPath} size="xl" />
-            <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
               <Camera className="w-5 h-5 text-white" />
             </div>
-          </div>
+          </button>
 
           <div className="flex flex-col gap-3">
             <div className="flex gap-3">

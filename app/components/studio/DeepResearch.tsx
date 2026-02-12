@@ -1,5 +1,6 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import {
   X,
   Download,
@@ -153,12 +154,15 @@ function SubtopicItem({
 function ActionLog({ log }: { log: ResearchLogEntry[] }) {
   const [isExpanded, setIsExpanded] = useState(true);
   const logEndRef = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (isExpanded && logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      logEndRef.current.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      });
     }
-  }, [log.length, isExpanded]);
+  }, [log.length, isExpanded, prefersReducedMotion]);
 
   return (
     <div
@@ -442,12 +446,16 @@ function ReportView({
   );
   const [showToc, setShowToc] = useState(true);
   const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const prefersReducedMotion = useReducedMotion();
 
   const handleSectionClick = (id: string) => {
     setActiveSection(id);
     const element = sectionRefs.current.get(id);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      element.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'start',
+      });
     }
   };
 
@@ -753,7 +761,8 @@ export default function DeepResearch({
                 onClick={() => {
                   /* Toggle TOC handled internally */
                 }}
-                className="btn btn-ghost p-1.5"
+                className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                aria-label="Toggle table of contents"
                 title="Toggle table of contents"
               >
                 <List size={16} style={{ color: 'var(--secondary-text)' }} />
@@ -761,7 +770,8 @@ export default function DeepResearch({
               {onExport && (
                 <button
                   onClick={onExport}
-                  className="btn btn-ghost p-1.5"
+                  className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                  aria-label="Export report"
                   title="Export report"
                 >
                   <Download
@@ -773,7 +783,7 @@ export default function DeepResearch({
             </>
           )}
           {onClose && (
-            <button onClick={onClose} className="btn btn-ghost p-1.5">
+            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close">
               <X size={16} />
             </button>
           )}

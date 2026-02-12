@@ -79,7 +79,7 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
               key={item.id}
               onClick={() => setSection(item.id)}
               title={item.label}
-              className="w-full flex items-center justify-center rounded-lg transition-all duration-200"
+              className="w-full flex items-center justify-center min-h-[44px] rounded-lg transition-all duration-200"
               style={{
                 padding: '10px',
                 background: isActive ? 'var(--dome-accent-bg)' : 'transparent',

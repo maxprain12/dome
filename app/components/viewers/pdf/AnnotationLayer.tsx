@@ -345,7 +345,7 @@ export default function AnnotationLayer({
       {/* Note Input Modal */}
       {showNoteInput && inputPosition && (
         <div
-          className="absolute z-50 pointer-events-auto"
+          className="absolute z-dropdown pointer-events-auto"
           style={{
             left: `${inputPosition.x}px`,
             top: `${inputPosition.y}px`,

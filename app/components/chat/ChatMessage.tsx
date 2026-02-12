@@ -162,11 +162,10 @@ export default function ChatMessage({
         >
           <button
             onClick={handleCopy}
-            className="p-1.5 rounded-md transition-colors"
+            className="p-2.5 min-h-[44px] min-w-[44px] rounded-md transition-colors hover:bg-[var(--bg-hover)]"
             style={{ color: 'var(--secondary-text)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             title="Copiar mensaje"
+            aria-label="Copiar mensaje"
           >
             {copied ? (
               <Check className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
@@ -174,18 +173,17 @@ export default function ChatMessage({
               <Copy className="w-3.5 h-3.5" />
             )}
           </button>
-          {onRegenerate && (
+          {onRegenerate ? (
             <button
               onClick={onRegenerate}
-              className="p-1.5 rounded-md transition-colors"
+              className="p-2.5 min-h-[44px] min-w-[44px] rounded-md transition-colors hover:bg-[var(--bg-hover)]"
               style={{ color: 'var(--secondary-text)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
               title="Regenerar respuesta"
+              aria-label="Regenerar respuesta"
             >
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
-          )}
+          ) : null}
           <span className="text-[10px] opacity-40 ml-1" style={{ color: 'var(--tertiary-text)' }}>
             {formattedTime}
           </span>

@@ -40,29 +40,10 @@ export function FloatingMenu({ editor }: FloatingMenuProps) {
       >
         <button
           onClick={() => setShowMenu(!showMenu)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '28px',
-            height: '28px',
-            borderRadius: 'var(--radius-sm)',
-            backgroundColor: showMenu ? 'var(--bg-hover)' : 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            color: 'var(--primary-text)',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-          onMouseEnter={(e) => {
-            if (!showMenu) {
-              e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!showMenu) {
-              e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
-            }
-          }}
+          aria-label="Insert block"
+          aria-expanded={showMenu}
+          className={`flex items-center justify-center min-w-[44px] min-h-[44px] rounded-[var(--radius-sm)] border border-[var(--border)] cursor-pointer transition-[background-color] duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${showMenu ? 'bg-[var(--bg-hover)]' : 'bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)]'}`}
+          style={{ color: 'var(--primary-text)' }}
         >
           <Plus size={16} />
         </button>
@@ -79,31 +60,25 @@ export function FloatingMenu({ editor }: FloatingMenuProps) {
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
               padding: '4px',
               minWidth: '200px',
-              zIndex: 1000,
+              zIndex: 'var(--z-popover)',
             }}
           >
             {items.map((item) => (
-              <div
+              <button
                 key={item.title}
+                type="button"
                 onClick={() => {
                   const { from } = editor.state.selection;
                   item.command({ editor, range: { from: from - 1, to: from } });
                   setShowMenu(false);
                 }}
+                className="w-full cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 text-left flex items-center gap-3 px-3 py-2 rounded-[var(--radius-sm)] hover:bg-[var(--bg-hover)] transition-colors duration-200"
                 style={{
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                  borderRadius: 'var(--radius-sm)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--primary-text)',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
+                aria-label={`Insert ${item.title}`}
               >
                 {item.icon && (
                   <div style={{ color: 'var(--primary-text)' }}>{item.icon}</div>
@@ -111,7 +86,7 @@ export function FloatingMenu({ editor }: FloatingMenuProps) {
                 <div style={{ color: 'var(--primary-text)', fontSize: '14px' }}>
                   {item.title}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}

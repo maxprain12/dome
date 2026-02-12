@@ -83,12 +83,12 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
           {title || 'Data Table'}
         </h3>
         <div className="flex items-center gap-2">
-          <button onClick={handleExportCSV} className="btn btn-ghost p-1.5 flex items-center gap-1 text-xs" title="Export CSV">
+          <button onClick={handleExportCSV} className="btn btn-ghost p-2 min-h-[44px] flex items-center gap-1 text-xs rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Export CSV" title="Export CSV">
             <Download size={14} />
             <span>CSV</span>
           </button>
           {onClose && (
-            <button onClick={onClose} className="btn btn-ghost p-1.5"><X size={16} /></button>
+            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close"><X size={16} /></button>
           )}
         </div>
       </div>
@@ -96,8 +96,10 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
       {/* Filter */}
       <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
         <div className="relative">
+          <label htmlFor="datatable-filter-rows" className="sr-only">Filter rows</label>
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--tertiary-text)' }} />
           <input
+            id="datatable-filter-rows"
             type="text"
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}

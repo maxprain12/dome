@@ -45,6 +45,44 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
   });
 
   /**
+   * Read file as UTF-8 text (for JSON, .ipynb, etc.)
+   * allowExternal: true - paths from user-selected files (Import dialog) may be outside userData
+   */
+  ipcMain.handle('file:readFileAsText', (event, filePath) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const safePath = sanitizePath(filePath, true);
+      const content = fs.readFileSync(safePath, 'utf8');
+      return { success: true, data: content };
+    } catch (error) {
+      console.error('[File] Error reading file as text:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Write file as text (UTF-8)
+   * allowExternal: true - paths from user-selected save location (Export dialog) may be outside userData
+   */
+  ipcMain.handle('file:writeFile', (event, filePath, content) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const safePath = sanitizePath(filePath, true);
+      fs.writeFileSync(safePath, content, 'utf8');
+      return { success: true };
+    } catch (error) {
+      console.error('[File] Error writing file:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
    * Delete a file
    */
   ipcMain.handle('file:deleteFile', (event, filePath) => {
@@ -61,6 +99,59 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
       return { success: false, error: 'File not found' };
     } catch (error) {
       console.error('[File] Error deleting file:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * List directory contents (for notebook workspace, etc.)
+   * allowExternal: true - workspace folder is user-selected, can be anywhere
+   */
+  ipcMain.handle('file:listDirectory', (event, dirPath) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const safePath = sanitizePath(dirPath, true);
+      if (!fs.existsSync(safePath)) {
+        return { success: false, error: 'Directory not found' };
+      }
+      const stat = fs.statSync(safePath);
+      if (!stat.isDirectory()) {
+        return { success: false, error: 'Path is not a directory' };
+      }
+      const entries = fs.readdirSync(safePath, { withFileTypes: true });
+      const items = entries.map((e) => ({
+        name: e.name,
+        isDirectory: e.isDirectory(),
+        path: path.join(safePath, e.name),
+      }));
+      return { success: true, data: items };
+    } catch (error) {
+      console.error('[File] Error listing directory:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Copy file to destination (for adding files to notebook workspace)
+   */
+  ipcMain.handle('file:copyFile', (event, sourcePath, destPath) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const safeSrc = sanitizePath(sourcePath, true);
+      const safeDest = sanitizePath(destPath, true);
+      if (!fs.existsSync(safeSrc)) {
+        return { success: false, error: 'Source file not found' };
+      }
+      fs.copyFileSync(safeSrc, safeDest);
+      return { success: true };
+    } catch (error) {
+      console.error('[File] Error copying file:', error);
       return { success: false, error: error.message };
     }
   });

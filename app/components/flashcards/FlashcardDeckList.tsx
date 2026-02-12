@@ -130,7 +130,7 @@ export default function FlashcardDeckList() {
             className="text-lg font-semibold mb-2"
             style={{ color: 'var(--primary-text)' }}
           >
-            No hay mazos todavia
+            No hay mazos todavía
           </h3>
           <p
             className="text-sm mb-6 max-w-sm mx-auto"

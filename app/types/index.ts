@@ -1,5 +1,5 @@
 // Tipos de recursos
-export type ResourceType = 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder';
+export type ResourceType = 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook';
 
 export interface Resource {
   id: string;
@@ -52,6 +52,8 @@ export interface ResourceMetadata {
   screenshot_path?: string; // Path interno de la captura guardada
   video_id?: string; // Para YouTube
   channel?: string; // Para YouTube
+  /** Notebook workspace folder path - used as cwd for Python execution */
+  notebook_workspace_path?: string;
   [key: string]: any;
 }
 
@@ -232,6 +234,78 @@ export interface FileBlockAttributes {
 
 export interface DividerAttributes {
   variant?: 'line' | 'dots' | 'space';
+}
+
+// ============================================
+// NOTEBOOK TYPES (nbformat 4.x)
+// ============================================
+
+export type NotebookCellType = 'code' | 'markdown' | 'raw';
+
+export interface NotebookStreamOutput {
+  output_type: 'stream';
+  name: 'stdout' | 'stderr';
+  text: string | string[];
+}
+
+export interface NotebookExecuteResultOutput {
+  output_type: 'execute_result';
+  execution_count: number;
+  data: Record<string, string | string[]>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface NotebookDisplayDataOutput {
+  output_type: 'display_data';
+  data: Record<string, string | string[]>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface NotebookErrorOutput {
+  output_type: 'error';
+  ename: string;
+  evalue: string;
+  traceback?: string[];
+}
+
+export type NotebookOutput =
+  | NotebookStreamOutput
+  | NotebookExecuteResultOutput
+  | NotebookDisplayDataOutput
+  | NotebookErrorOutput;
+
+export interface NotebookCellBase {
+  cell_type: NotebookCellType;
+  source: string | string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface NotebookCodeCell extends NotebookCellBase {
+  cell_type: 'code';
+  outputs: NotebookOutput[];
+  execution_count: number | null;
+}
+
+export interface NotebookMarkdownCell extends NotebookCellBase {
+  cell_type: 'markdown';
+}
+
+export type NotebookCell = NotebookCodeCell | NotebookMarkdownCell;
+
+export interface NotebookMetadata {
+  kernelspec?: {
+    display_name?: string;
+    name?: string;
+    language?: string;
+  };
+  [key: string]: unknown;
+}
+
+export interface NotebookContent {
+  nbformat: number;
+  nbformat_minor: number;
+  cells: NotebookCell[];
+  metadata: NotebookMetadata;
 }
 
 // ============================================

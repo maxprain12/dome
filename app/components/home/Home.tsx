@@ -3,14 +3,15 @@ import { useState, useCallback } from 'react';
 import { FolderOpen, FolderInput, Plus, Loader2, CheckCircle2, AlertCircle, Upload, ChevronRight, Home as HomeIcon, X, Clock, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, SlidersHorizontal, Filter, Grid3X3, List, Link2, FileText, File, Video, Music, Image as ImageIcon } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { CommandCenter } from '@/components/CommandCenter';
+import { CommandCenter } from '@/components/CommandCenter/CommandCenter';
 import FilterBar from './FilterBar';
 import ResourceCard from './ResourceCard';
 import HomeLayout from './HomeLayout';
-import { FlashcardDeckList } from '@/components/flashcards';
+import FlashcardDeckList from '@/components/flashcards/FlashcardDeckList';
 import StudioHomeView from '@/components/studio/StudioHomeView';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
+import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
 
 function parseJsonField<T = Record<string, unknown>>(val: unknown): T {
   if (val == null) return {} as T;
@@ -133,6 +134,31 @@ export default function Home() {
       });
     } catch (err) {
       console.error('Failed to create note:', err);
+    }
+  }, [createResource, currentFolderId]);
+
+  const handleCreateNotebook = useCallback(async () => {
+    try {
+      const nb = await createResource({
+        type: 'notebook',
+        title: 'Untitled Notebook',
+        project_id: 'default',
+        content: serializeNotebookContent({
+          nbformat: 4,
+          nbformat_minor: 1,
+          cells: [
+            { cell_type: 'markdown', source: '# Python Notebook\n\nEscribe y ejecuta código Python.', metadata: {} },
+            { cell_type: 'code', source: 'print("Hello from Python!")', outputs: [], execution_count: null, metadata: {} },
+          ],
+          metadata: { kernelspec: { display_name: 'Python 3 (Pyodide)', name: 'python3', language: 'python' } },
+        }),
+        folder_id: currentFolderId,
+      });
+      if (nb?.id && window.electron?.workspace?.open) {
+        await window.electron.workspace.open(nb.id, 'notebook');
+      }
+    } catch (err) {
+      console.error('Failed to create notebook:', err);
     }
   }, [createResource, currentFolderId]);
 
@@ -303,6 +329,7 @@ export default function Home() {
         <CommandCenter
           onResourceSelect={handleResourceSelect}
           onCreateNote={handleCreateNote}
+          onCreateNotebook={handleCreateNotebook}
           onUpload={handleUpload}
           onImportFiles={handleImportFiles}
           onAddUrl={handleAddUrl}
@@ -394,15 +421,15 @@ export default function Home() {
         </div>
       ) : null}
 
-      {isSearchMode && resourcesToShow.length === 0 && (
+      {isSearchMode && resourcesToShow.length === 0 ? (
         <div className="no-matches-container">
           <p className="no-matches-text">
             No hay coincidencias para &quot;{searchQuery}&quot;
           </p>
         </div>
-      )}
+      ) : null}
 
-      {!isSearchMode && !isLoading && !error && nonFolderResources.length === 0 && folders.length === 0 && (
+      {!isSearchMode && !isLoading && !error && nonFolderResources.length === 0 && folders.length === 0 ? (
         <div className="empty-folder-state">
           <FolderOpen className="empty-folder-icon" />
           <p className="empty-folder-title">
@@ -414,7 +441,7 @@ export default function Home() {
               : 'Drop files or use the command center to add your first resource'}
           </p>
         </div>
-      )}
+      ) : null}
 
       {((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) ? (
         <div className={viewMode === 'grid' ? 'resources-grid' : 'resources-list'}>
@@ -485,10 +512,10 @@ export default function Home() {
         </div>
 
         {/* Import Progress Indicator */}
-        {importProgress.status !== 'idle' && (
+        {importProgress.status !== 'idle' ? (
           <div className="import-progress-card">
             <div className="flex items-center gap-3">
-              {importProgress.status === 'importing' && (
+              {importProgress.status === 'importing' ? (
                 <>
                   <div className="relative">
                     <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--dome-accent)' }} />
@@ -502,8 +529,8 @@ export default function Home() {
                     </div>
                   </div>
                 </>
-              )}
-              {importProgress.status === 'complete' && (
+              ) : null}
+              {importProgress.status === 'complete' ? (
                 <>
                   <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--success)' }} />
                   <div className="flex-1">
@@ -515,8 +542,8 @@ export default function Home() {
                     </div>
                   </div>
                 </>
-              )}
-              {importProgress.status === 'error' && (
+              ) : null}
+              {importProgress.status === 'error' ? (
                 <>
                   <AlertCircle className="w-5 h-5" style={{ color: 'var(--warning)' }} />
                   <div className="flex-1">
@@ -528,7 +555,7 @@ export default function Home() {
                     </div>
                   </div>
                 </>
-              )}
+              ) : null}
             </div>
             {importProgress.status === 'importing' ? (
               <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
@@ -542,7 +569,7 @@ export default function Home() {
               </div>
             ) : null}
           </div>
-        )}
+        ) : null}
 
         {/* New Folder Modal */}
         {showNewFolderModal ? (
@@ -563,7 +590,9 @@ export default function Home() {
                 </h3>
               </div>
               <div className="modal-body">
+                <label htmlFor="new-folder-name" className="sr-only">Folder name</label>
                 <input
+                  id="new-folder-name"
                   type="text"
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}

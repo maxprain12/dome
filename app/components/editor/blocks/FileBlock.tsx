@@ -10,7 +10,7 @@ interface FileBlockProps {
 }
 
 function formatFileSize(bytes?: number): string {
-  if (!bytes) return '';
+  if (bytes == null) return '';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -87,11 +87,11 @@ export function FileBlock({ node }: FileBlockProps) {
           <div style={{ color: 'var(--primary-text)', fontSize: '14px', fontWeight: 500 }}>
             {filename}
           </div>
-          {size && (
+          {size != null ? (
             <div style={{ color: 'var(--secondary-text)', fontSize: '12px', marginTop: '2px' }}>
               {formatFileSize(size)}
             </div>
-          )}
+          ) : null}
         </div>
         <Download size={18} style={{ color: 'var(--secondary)' }} />
       </div>

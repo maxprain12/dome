@@ -697,6 +697,16 @@ async function getCurrentProject() {
  * @param {string} [data.folder_id] - Folder ID
  * @returns {Promise<Object>}
  */
+const DEFAULT_NOTEBOOK_JSON = JSON.stringify({
+  nbformat: 4,
+  nbformat_minor: 1,
+  cells: [
+    { cell_type: 'markdown', source: '# Python Notebook\n\nEscribe y ejecuta código Python.', metadata: {} },
+    { cell_type: 'code', source: 'print("Hello from Python!")', outputs: [], execution_count: null, metadata: {} },
+  ],
+  metadata: { kernelspec: { display_name: 'Python 3 (Pyodide)', name: 'python3', language: 'python' } },
+});
+
 async function resourceCreate(data) {
   try {
     if (!data || !data.title || !data.title.trim()) {
@@ -707,9 +717,27 @@ async function resourceCreate(data) {
     const queries = database.getQueries();
 
     const type = data.type || 'note';
-    const validTypes = ['note', 'document', 'url', 'folder'];
+    const validTypes = ['note', 'notebook', 'document', 'url', 'folder'];
     if (!validTypes.includes(type)) {
       return { success: false, error: `AI can only create resources of type: ${validTypes.join(', ')}` };
+    }
+
+    let content = data.content || '';
+    if (type === 'folder') {
+      content = '';
+    } else if (type === 'notebook') {
+      if (!content.trim()) {
+        content = DEFAULT_NOTEBOOK_JSON;
+      } else {
+        try {
+          const parsed = JSON.parse(content);
+          if (!parsed.nbformat || !Array.isArray(parsed.cells)) {
+            content = DEFAULT_NOTEBOOK_JSON;
+          }
+        } catch {
+          content = DEFAULT_NOTEBOOK_JSON;
+        }
+      }
     }
 
     // Determine project ID
@@ -727,7 +755,7 @@ async function resourceCreate(data) {
       projectId,
       type,
       data.title.trim(),
-      data.content || '',
+      content,
       null, // file_path
       data.folder_id ?? null, // folder_id
       data.metadata ? JSON.stringify(data.metadata) : null,

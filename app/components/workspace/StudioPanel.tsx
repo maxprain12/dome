@@ -107,7 +107,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
         </h3>
         <button
           onClick={() => useAppStore.getState().toggleStudioPanel()}
-          className="p-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--bg-hover)] opacity-70 hover:opacity-100"
+          className="p-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--bg-hover)] opacity-70 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           style={{ color: 'var(--secondary-text)' }}
           aria-label="Close studio panel"
         >
@@ -225,8 +225,9 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
                   {/* Title and date */}
                   <button
                     onClick={() => handleViewOutput(output)}
-                    className="flex-1 min-w-0 text-left"
+                    className="flex-1 min-w-0 text-left cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 rounded"
                     title={`View ${output.title}`}
+                    aria-label={`View ${output.title}`}
                   >
                     <div
                       className="text-xs font-medium truncate"
@@ -246,15 +247,17 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                     <button
                       onClick={() => handleViewOutput(output)}
-                      className="btn btn-ghost p-1"
+                      className="btn btn-ghost p-2.5 min-h-[44px] min-w-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                       title="View"
+                      aria-label={`View ${output.title}`}
                     >
                       <Eye size={13} style={{ color: 'var(--secondary-text)' }} />
                     </button>
                     <button
                       onClick={() => handleDeleteOutput(output.id)}
-                      className="btn btn-ghost p-1"
+                      className="btn btn-ghost p-2.5 min-h-[44px] min-w-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                       title="Delete"
+                      aria-label={`Delete ${output.title}`}
                       disabled={deletingId === output.id}
                     >
                       {deletingId === output.id ? (
@@ -291,7 +294,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
         )}
 
         {/* Empty state */}
-        {!loadingOutputs && filteredOutputs.length === 0 && (
+        {!loadingOutputs && filteredOutputs.length === 0 ? (
           <div className="mt-4 px-2">
             <p
               className="text-[10px] text-center"
@@ -300,7 +303,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
               Click a tile above to generate study materials from your sources.
             </p>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

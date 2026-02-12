@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-const { shell, nativeTheme, dialog } = require('electron');
+const { shell, nativeTheme, dialog, BrowserWindow } = require('electron');
 
 function register({ ipcMain, app, windowManager, validateSender, sanitizePath, validateUrl }) {
   // System paths
@@ -37,10 +37,10 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   ipcMain.handle('select-file', async (event, options) => {
     try {
       validateSender(event, windowManager);
-      const mainWindow = windowManager.get('main');
-      if (!mainWindow) return [];
+      const win = BrowserWindow.fromWebContents(event.sender) || windowManager.get('main');
+      if (!win || win.isDestroyed()) return [];
 
-      const result = await dialog.showOpenDialog(mainWindow, {
+      const result = await dialog.showOpenDialog(win, {
         properties: ['openFile'],
         ...options,
       });
@@ -55,10 +55,10 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   ipcMain.handle('select-files', async (event, options) => {
     try {
       validateSender(event, windowManager);
-      const mainWindow = windowManager.get('main');
-      if (!mainWindow) return [];
+      const win = BrowserWindow.fromWebContents(event.sender) || windowManager.get('main');
+      if (!win || win.isDestroyed()) return [];
 
-      const result = await dialog.showOpenDialog(mainWindow, {
+      const result = await dialog.showOpenDialog(win, {
         properties: ['openFile', 'multiSelections'],
         ...options,
       });
@@ -73,10 +73,10 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   ipcMain.handle('select-folder', async (event) => {
     try {
       validateSender(event, windowManager);
-      const mainWindow = windowManager.get('main');
-      if (!mainWindow) return undefined;
+      const win = BrowserWindow.fromWebContents(event.sender) || windowManager.get('main');
+      if (!win || win.isDestroyed()) return undefined;
 
-      const result = await dialog.showOpenDialog(mainWindow, {
+      const result = await dialog.showOpenDialog(win, {
         properties: ['openDirectory'],
       });
 
@@ -90,10 +90,10 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   ipcMain.handle('show-save-dialog', async (event, options) => {
     try {
       validateSender(event, windowManager);
-      const mainWindow = windowManager.get('main');
-      if (!mainWindow) return undefined;
+      const win = BrowserWindow.fromWebContents(event.sender) || windowManager.get('main');
+      if (!win || win.isDestroyed()) return undefined;
 
-      const result = await dialog.showSaveDialog(mainWindow, options);
+      const result = await dialog.showSaveDialog(win, options);
       return result.filePath;
     } catch (error) {
       console.error('[IPC] Error in show-save-dialog:', error.message);

@@ -146,17 +146,16 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
                 </div>
                 <button
                   onClick={() => handleDelete(annotation.id)}
-                  className="p-1 rounded transition-colors opacity-0 group-hover:opacity-100"
+                  className="p-2.5 min-h-[44px] min-w-[44px] rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-[var(--bg-tertiary)]"
                   style={{ color: 'var(--secondary)' }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--bg-tertiary)';
                     e.currentTarget.style.color = '#ef4444';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
                     e.currentTarget.style.color = 'var(--secondary)';
                   }}
                   title="Delete annotation"
+                  aria-label="Delete annotation"
                 >
                   <Trash2 size={14} />
                 </button>

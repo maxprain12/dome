@@ -5,7 +5,7 @@
  * Listens to studio:outputCreated for live updates when flashcards are created from AI.
  */
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useTransition } from 'react';
 import { useAppStore } from '@/lib/store/useAppStore';
 
 export function useStudioOutputs(projectId?: string | null) {
@@ -13,6 +13,7 @@ export function useStudioOutputs(projectId?: string | null) {
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const [isLoading, setIsLoading] = useState(false);
+  const [, startTransition] = useTransition();
 
   const load = useCallback(async () => {
     if (!projectId || typeof window === 'undefined' || !window.electron?.db?.studio) return;
@@ -21,7 +22,9 @@ export function useStudioOutputs(projectId?: string | null) {
       setIsLoading(true);
       const result = await window.electron.db.studio.getByProject(projectId);
       if (result.success && result.data) {
-        setStudioOutputs(result.data);
+        startTransition(() => {
+          setStudioOutputs(result.data);
+        });
       }
     } catch (err) {
       console.error('[useStudioOutputs] Failed to load:', err);

@@ -26,6 +26,9 @@ declare module '@tiptap/core' {
     fileBlock: {
       setFileBlock: (attributes: FileBlockAttributes) => ReturnType;
     };
+    mermaid: {
+      setMermaid: (attributes?: { code?: string }) => ReturnType;
+    };
   }
 }
 
@@ -51,7 +54,7 @@ interface Project {
 interface Resource {
   id: string;
   project_id: string;
-  type: 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder';
+  type: 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook';
   title: string;
   content?: string;
   // Legacy external file path (deprecated)
@@ -356,6 +359,7 @@ declare global {
         ) => Promise<DBResponse<string>>;
         delete: (resourceId: string) => Promise<DBResponse<void>>;
         regenerateThumbnail: (resourceId: string) => Promise<DBResponse<string>>;
+        setThumbnail: (resourceId: string, thumbnailDataUrl: string) => Promise<DBResponse<void>>;
       };
 
       // Storage Management API
@@ -881,6 +885,28 @@ declare global {
           }>;
           delete: (annotationId: string) => Promise<{ success: boolean; error?: string }>;
         };
+      };
+
+      // Notebook API (Python via IPC - Electron only)
+      notebook: {
+        runPython: (code: string, options?: { cells?: string[]; targetCellIndex?: number; currentCellCode?: string }) => Promise<{
+          success: boolean;
+          outputs: Array<{
+            output_type: 'stream' | 'execute_result' | 'display_data' | 'error';
+            name?: 'stdout' | 'stderr';
+            text?: string | string[];
+            data?: Record<string, string | string[]>;
+            ename?: string;
+            evalue?: string;
+            traceback?: string[];
+          }>;
+          error?: string;
+        }>;
+        checkPython: () => Promise<{
+          available: boolean;
+          version?: string;
+          path?: string;
+        }>;
       };
     };
   }

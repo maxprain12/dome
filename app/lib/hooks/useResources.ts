@@ -1,7 +1,7 @@
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useTransition } from 'react';
 
-export type ResourceType = 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder';
+export type ResourceType = 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook';
 
 export interface Resource {
     id: string;
@@ -65,6 +65,7 @@ function getResourceTypeFromPath(filePath: string): ResourceType {
 export function useResources(filter?: ResourceFilter) {
     const [resources, setResources] = useState<Resource[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
     const [importProgress, setImportProgress] = useState<ImportProgress>({
         current: 0,
@@ -82,7 +83,7 @@ export function useResources(filter?: ResourceFilter) {
             if (typeof window !== 'undefined' && window.electron?.db) {
                 const result = await window.electron.db.resources.getAll(100);
                 if (result.success && result.data) {
-                    setResources(result.data as Resource[]);
+                    startTransition(() => setResources(result.data as Resource[]));
                 } else if (result.error) {
                     setError(result.error);
                 }
@@ -248,7 +249,9 @@ export function useResources(filter?: ResourceFilter) {
         }
     }, [fetchResources]);
 
-    // Import multiple files with progress tracking
+    // Import multiple files with progress tracking (async-parallel: batch with Promise.all)
+    const BATCH_SIZE = 4;
+
     const importFiles = useCallback(async (
         filePaths: string[],
         projectId: string = 'default',
@@ -269,20 +272,32 @@ export function useResources(filter?: ResourceFilter) {
         let failed = 0;
         const errors: string[] = [];
         const importedResources: Resource[] = [];
+        const validPaths = filePaths.filter(Boolean);
 
-        for (let i = 0; i < filePaths.length; i++) {
-            const filePath = filePaths[i];
-            if (!filePath) continue;
-            const fileName = filePath.split('/').pop() || filePath;
+        for (let i = 0; i < validPaths.length; i += BATCH_SIZE) {
+            const batch = validPaths.slice(i, i + BATCH_SIZE);
+            const batchResults = await Promise.all(
+                batch.map(async (filePath) => {
+                    const fileName = filePath.split('/').pop() || filePath;
+                    try {
+                        const result = await importFile(filePath, projectId, undefined);
+                        return { filePath, fileName, result };
+                    } catch (err) {
+                        return {
+                            filePath,
+                            fileName,
+                            result: { success: false, error: err instanceof Error ? err.message : 'Unknown error' },
+                        };
+                    }
+                })
+            );
 
-            setImportProgress((prev) => ({
-                ...prev,
-                current: i + 1,
-                currentFile: fileName,
-            }));
-
-            try {
-                const result = await importFile(filePath, projectId, undefined);
+            for (const { fileName, result } of batchResults) {
+                setImportProgress((prev) => ({
+                    ...prev,
+                    current: Math.min(i + batchResults.length, validPaths.length),
+                    currentFile: fileName,
+                }));
 
                 if (result.success && result.resource) {
                     imported++;
@@ -291,23 +306,20 @@ export function useResources(filter?: ResourceFilter) {
                     failed++;
                     errors.push(`${fileName}: ${result.error}`);
                 }
-            } catch (err) {
-                failed++;
-                errors.push(`${fileName}: ${err instanceof Error ? err.message : 'Unknown error'}`);
             }
         }
 
         const resourceIds = importedResources.map((r) => r.id);
 
-        // If folderId is specified, move all imported resources to that folder
+        // If folderId is specified, move all imported resources in parallel
         if (folderId && importedResources.length > 0 && typeof window !== 'undefined' && window.electron?.db) {
-            for (const resource of importedResources) {
-                try {
-                    await window.electron.db.resources.moveToFolder(resource.id, folderId);
-                } catch (err) {
-                    console.error(`Failed to move ${resource.title} to folder:`, err);
-                }
-            }
+            await Promise.all(
+                importedResources.map((resource) =>
+                    window.electron.db.resources.moveToFolder(resource.id, folderId).catch((err) => {
+                        console.error(`Failed to move ${resource.title} to folder:`, err);
+                    })
+                )
+            );
         }
 
         setImportProgress({

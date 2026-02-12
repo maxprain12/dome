@@ -29,17 +29,9 @@ function ZoomControlsComponent({
       <button
         onClick={onZoomOut}
         disabled={isMinZoom}
-        className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-tertiary)]"
         style={{
           color: 'var(--secondary-text)',
-        }}
-        onMouseEnter={(e) => {
-          if (!isMinZoom) {
-            e.currentTarget.style.background = 'var(--bg-tertiary)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
         }}
         title="Zoom Out"
         aria-label="Zoom out"
@@ -59,17 +51,9 @@ function ZoomControlsComponent({
       <button
         onClick={onZoomIn}
         disabled={isMaxZoom}
-        className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-tertiary)]"
         style={{
           color: 'var(--secondary-text)',
-        }}
-        onMouseEnter={(e) => {
-          if (!isMaxZoom) {
-            e.currentTarget.style.background = 'var(--bg-tertiary)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
         }}
         title="Zoom In"
         aria-label="Zoom in"
@@ -79,15 +63,9 @@ function ZoomControlsComponent({
 
       <button
         onClick={onReset}
-        className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 hover:bg-[var(--bg-tertiary)]"
         style={{
           color: 'var(--secondary-text)',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'var(--bg-tertiary)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'transparent';
         }}
         title="Reset Zoom"
         aria-label="Reset zoom"

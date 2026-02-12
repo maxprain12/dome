@@ -1,5 +1,5 @@
 
-import { useMemo } from 'react';
+import { useMemo, memo } from 'react';
 import { User } from 'lucide-react';
 import ChatMessage, { type ChatMessageData } from './ChatMessage';
 import MartinAvatar from '@/components/martin/MartinAvatar';
@@ -15,7 +15,7 @@ interface ChatMessageGroupProps {
   className?: string;
 }
 
-export default function ChatMessageGroup({
+export default memo(function ChatMessageGroup({
   messages,
   onRegenerate,
   className = '',
@@ -68,7 +68,7 @@ export default function ChatMessageGroup({
       </div>
     </div>
   );
-}
+});
 
 /**
  * Helper function to group consecutive messages by role

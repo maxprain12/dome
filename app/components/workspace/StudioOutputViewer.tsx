@@ -1,10 +1,25 @@
 'use client';
 
-import { useMemo } from 'react';
-import { AlertCircle } from 'lucide-react';
-import { MindMap, Quiz, StudyGuide, FAQ, Timeline, DataTable, AudioOverview } from '@/components/studio';
-import FlashcardStudyView from '@/components/flashcards/FlashcardStudyView';
+import { useMemo, lazy, Suspense } from 'react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import type { StudioOutput } from '@/types';
+
+// Lazy load heavy studio components (bundle-dynamic-imports)
+const MindMap = lazy(() => import('@/components/studio/MindMap'));
+const Quiz = lazy(() => import('@/components/studio/Quiz'));
+const StudyGuide = lazy(() => import('@/components/studio/StudyGuide'));
+const FAQ = lazy(() => import('@/components/studio/FAQ'));
+const Timeline = lazy(() => import('@/components/studio/Timeline'));
+const DataTable = lazy(() => import('@/components/studio/DataTable'));
+const AudioOverview = lazy(() => import('@/components/studio/AudioOverview'));
+const FlashcardStudyView = lazy(() => import('@/components/flashcards/FlashcardStudyView'));
+
+const StudioOutputFallback = () => (
+  <div className="flex flex-col items-center justify-center h-full p-8" style={{ color: 'var(--tertiary-text)' }}>
+    <Loader2 className="w-8 h-8 animate-spin mb-4" />
+    <span>Loading...</span>
+  </div>
+);
 
 interface StudioOutputViewerProps {
   output: StudioOutput;
@@ -116,10 +131,12 @@ export default function StudioOutputViewer({ output, onClose }: StudioOutputView
 
   return (
     <div
-      className="absolute inset-0 z-50 flex flex-col"
+      className="absolute inset-0 z-modal flex flex-col"
       style={{ background: 'var(--bg)' }}
     >
-      {renderOutput()}
+      <Suspense fallback={<StudioOutputFallback />}>
+        {renderOutput()}
+      </Suspense>
     </div>
   );
 }

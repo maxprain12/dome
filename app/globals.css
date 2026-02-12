@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Z-Index utilities using design tokens */
+@layer utilities {
+  .z-dropdown { z-index: var(--z-dropdown); }
+  .z-sticky { z-index: var(--z-sticky); }
+  .z-fixed { z-index: var(--z-fixed); }
+  .z-modal { z-index: var(--z-modal); }
+  .z-popover { z-index: var(--z-popover); }
+  .z-max { z-index: var(--z-max); }
+  /* Performance: skip rendering of off-screen list items */
+  .content-visibility-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 100px;
+  }
+}
+
 /* ============================================
    CSS VARIABLES - Sistema de Diseño Dome
    Basado en las mejores prácticas de Pile
@@ -116,6 +131,7 @@
   --space-12: 48px;
 
   /* Z-Index */
+  --z-local: 10;
   --z-dropdown: 100;
   --z-sticky: 200;
   --z-fixed: 300;
@@ -387,13 +403,18 @@ a:hover {
   }
 
   .btn-primary:hover {
-    background-color: var(--active-hover);
+    background-color: var(--base-hover);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
     transform: translateY(-1px);
   }
 
   .btn-primary:active {
     transform: scale(0.98) translateY(0);
+  }
+
+  .btn-primary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--translucent);
   }
 
   .btn-secondary {
@@ -1705,7 +1726,10 @@ a:hover {
 
 /* GRID VIEW */
 .resource-card-grid {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
   position: relative;
+  isolation: isolate;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1713,12 +1737,20 @@ a:hover {
   transition: all var(--transition-fast);
   aspect-ratio: 4/3;
   content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
 }
 
+/* Mismo tamaño para todos los recursos */
 .resource-card-grid:hover {
   border-color: var(--accent);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .resource-card-grid:hover {
+    transform: translateY(-1px);
+  }
 }
 
 .card-preview {
@@ -1757,7 +1789,7 @@ a:hover {
 }
 
 .content-preview {
-  padding: 16px;
+  padding: 20px 16px 16px;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -1790,6 +1822,32 @@ a:hover {
   position: relative;
 }
 
+/* URL rich preview (no image) */
+.content-preview-url .url-preview-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary-text);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.content-preview-url .url-preview-meta {
+  font-size: 11px;
+  color: var(--tertiary-text);
+  margin-bottom: 6px;
+}
+
+.content-preview-url .url-preview-excerpt {
+  font-size: 12px;
+  color: var(--secondary-text);
+  -webkit-line-clamp: 3;
+  margin: 0;
+}
+
 .doc-type-badge {
   display: inline-flex;
   align-items: center;
@@ -1808,16 +1866,30 @@ a:hover {
 
 .icon-preview {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   width: 100%;
   height: 100%;
+  padding: 16px;
 }
 
 .icon-preview .resource-icon {
   width: 40px;
   height: 40px;
   opacity: 0.4;
+}
+
+.icon-preview-empty .resource-icon {
+  opacity: 0.5;
+}
+
+.icon-preview-hint {
+  font-size: 11px;
+  color: var(--tertiary-text);
+  text-align: center;
+  max-width: 100%;
 }
 
 /* Overlay Elements */
@@ -1843,9 +1915,37 @@ a:hover {
   z-index: 4;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   opacity: 0;
   transition: opacity var(--transition-fast);
+}
+
+.resource-card-grid:hover .overlay-menu {
+  opacity: 1;
+}
+
+/* En tarjetas con contenido (no imagen): botones siempre visibles y con mejor contraste */
+.resource-card-grid:not(.has-image-preview) .overlay-menu {
+  opacity: 1;
+}
+
+.resource-card-grid:not(.has-image-preview) .overlay-menu-btn {
+  background: var(--bg-secondary);
+  color: var(--secondary-text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.resource-card-grid:not(.has-image-preview) .overlay-menu-btn:hover {
+  background: var(--bg-hover);
+  color: var(--primary-text);
+  border-color: var(--border-hover);
+}
+
+.resource-card-grid:not(.has-image-preview) .overlay-delete-btn:hover {
+  background: var(--error-bg) !important;
+  color: var(--error) !important;
+  border-color: var(--error) !important;
 }
 
 .overlay-delete-btn:hover {
@@ -1853,26 +1953,29 @@ a:hover {
   color: white !important;
 }
 
-.resource-card-grid:hover .overlay-menu {
-  opacity: 1;
-}
-
 .overlay-menu-btn {
-  padding: 5px;
-  background: rgba(0, 0, 0, 0.45);
+  padding: 6px;
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   color: white;
   cursor: pointer;
   transition: all var(--transition-fast);
   backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+}
+
+.resource-card-grid.has-image-preview .overlay-menu-btn {
+  min-width: 36px;
+  min-height: 36px;
 }
 
 .overlay-menu-btn:hover {
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.75);
 }
 
 .card-footer-overlay {
@@ -1951,6 +2054,8 @@ a:hover {
 
 /* LIST VIEW */
 .resource-card-list {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2031,12 +2136,22 @@ a:hover {
 
 .action-btn {
   padding: 6px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
   color: var(--secondary-text);
   cursor: pointer;
   transition: all var(--transition-fast);
+}
+
+.action-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
 }
 
 .action-btn:hover {
@@ -2281,14 +2396,25 @@ a:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 14px 12px;
   background: var(--bg-tertiary);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   color: var(--secondary-text);
   cursor: pointer;
   transition: all var(--transition-fast);
+}
+
+.quick-action-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--secondary-text);
+  transition: color var(--transition-fast);
+}
+
+.quick-action-btn:hover .quick-action-label {
+  color: var(--primary-text);
 }
 
 .quick-action-btn:hover {
@@ -2526,6 +2652,7 @@ a:hover {
   font-weight: 500;
   border: 1px solid var(--border);
   border-radius: var(--radius-full);
+  cursor: pointer;
   background: transparent;
   color: var(--secondary-text);
   cursor: pointer;
@@ -2594,6 +2721,8 @@ a:hover {
 }
 
 .result-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
   display: flex;
   align-items: flex-start;
   gap: 12px;

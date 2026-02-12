@@ -62,8 +62,7 @@ export default function AppearanceSettings() {
             <button
               key={option.value}
               onClick={() => handleThemeChange(option.value)}
-              className={`p-4 rounded-xl transition-all duration-200 border text-left group hover:scale-[1.02] active:scale-[0.98] ${theme === option.value ? 'ring-1 ring-blue-500/50 shadow-md' : 'hover:shadow-sm'
-                }`}
+              className={`p-4 rounded-xl transition-all duration-200 border text-left group hover:shadow-md ${theme === option.value ? 'ring-1 ring-blue-500/50 shadow-md' : ''}`}
               style={{
                 backgroundColor: theme === option.value ? 'var(--primary-subtle)' : 'transparent',
                 borderColor: theme === option.value ? 'var(--accent)' : 'var(--border)',

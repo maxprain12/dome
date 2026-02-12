@@ -25,6 +25,7 @@ const aiToolsHandlers = require('./ai-tools.cjs');
 const flashcardsHandlers = require('./flashcards.cjs');
 const studioHandlers = require('./studio.cjs');
 const audioHandlers = require('./audio.cjs');
+const notebookHandlers = require('./notebook.cjs');
 
 /**
  * Register all IPC handlers
@@ -49,6 +50,7 @@ function registerAll(deps) {
     documentExtractor,
     authManager,
     personalityLoader,
+    notebookPython,
     validateSender,
     sanitizePath,
     validateUrl,
@@ -82,6 +84,7 @@ function registerAll(deps) {
   flashcardsHandlers.register({ ipcMain, windowManager, database, validateSender });
   studioHandlers.register({ ipcMain, windowManager, database, validateSender });
   audioHandlers.register({ ipcMain, windowManager, database, ttsService });
+  notebookHandlers.register({ ipcMain, windowManager, notebookPython });
 
   console.log('[IPC] All handlers registered successfully');
 }

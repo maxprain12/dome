@@ -166,13 +166,15 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
             const isCurrent = res.id === resourceId;
 
             return (
-              <div
+              <button
+                type="button"
                 key={res.id}
-                className="flex items-center gap-2 px-3 py-2 mx-1 rounded-md cursor-pointer transition-colors duration-150"
+                className="flex items-center gap-2 px-3 py-2 mx-1 rounded-md cursor-pointer transition-colors duration-150 w-full text-left focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{
                   background: isCurrent
                     ? 'var(--bg-hover)'
                     : 'transparent',
+                  border: 'none',
                 }}
                 onClick={() => toggleSourceId(res.id)}
                 onMouseEnter={(e) => {
@@ -185,6 +187,7 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
                     e.currentTarget.style.background = 'transparent';
                   }
                 }}
+                aria-label={isSelected ? `Deselect ${res.title}` : `Select ${res.title}`}
               >
                 {/* Checkbox */}
                 <div className="shrink-0" style={{ color: isSelected ? 'var(--accent)' : 'var(--tertiary-text)' }}>
@@ -207,7 +210,7 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
                 >
                   {res.title}
                 </span>
-              </div>
+              </button>
             );
           })
         )}

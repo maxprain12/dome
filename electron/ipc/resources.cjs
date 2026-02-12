@@ -479,6 +479,37 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       return { success: false, error: error.message };
     }
   });
+
+  /**
+   * Set thumbnail from renderer (e.g. PDF first page rendered with pdf.js)
+   */
+  ipcMain.handle('resource:setThumbnail', async (event, resourceId, thumbnailDataUrl) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    if (!resourceId || typeof thumbnailDataUrl !== 'string') {
+      return { success: false, error: 'Invalid parameters' };
+    }
+
+    try {
+      const queries = database.getQueries();
+      const resource = queries.getResourceById.get(resourceId);
+      if (!resource) {
+        return { success: false, error: 'Resource not found' };
+      }
+
+      queries.updateResourceThumbnail.run(thumbnailDataUrl, Date.now(), resourceId);
+      windowManager.broadcast('resource:updated', {
+        id: resourceId,
+        updates: { thumbnail_data: thumbnailDataUrl, updated_at: Date.now() },
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('[Resource] Error setting thumbnail:', error);
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 module.exports = { register };

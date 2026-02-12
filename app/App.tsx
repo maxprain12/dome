@@ -10,6 +10,7 @@ import HomePage from './pages/HomePage';
 import SettingsPage from './pages/SettingsPage';
 import WorkspacePage from './pages/WorkspacePage';
 import NoteWorkspacePage from './pages/NoteWorkspacePage';
+import NotebookWorkspacePage from './pages/NotebookWorkspacePage';
 import URLWorkspacePage from './pages/URLWorkspacePage';
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/workspace" element={<WorkspacePage />} />
           <Route path="/workspace/note" element={<NoteWorkspacePage />} />
+          <Route path="/workspace/notebook" element={<NotebookWorkspacePage />} />
           <Route path="/workspace/url" element={<URLWorkspacePage />} />
         </Routes>
       </div>

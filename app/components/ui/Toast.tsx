@@ -1,13 +1,14 @@
 
 import { useEffect, useState } from 'react';
+import { Check, X, AlertTriangle, Info } from 'lucide-react';
 import { useToastStore, type Toast } from '@/lib/store/useToastStore';
 
-const ICON_MAP: Record<string, string> = {
-  success: '✓',
-  error: '✕',
-  warning: '⚠',
-  info: 'ℹ',
-};
+const TOAST_ICONS = {
+  success: Check,
+  error: X,
+  warning: AlertTriangle,
+  info: Info,
+} as const;
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
   const [isExiting, setIsExiting] = useState(false);
@@ -26,6 +27,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
 
   return (
     <div
+      className="toast-item"
       style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -44,8 +46,6 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     >
       <span
         style={{
-          fontSize: 14,
-          fontWeight: 600,
           color: colorVar[toast.type] || 'var(--accent)',
           flexShrink: 0,
           width: 18,
@@ -56,7 +56,10 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
           marginTop: 1,
         }}
       >
-        {ICON_MAP[toast.type]}
+        {(() => {
+          const Icon = TOAST_ICONS[toast.type] ?? Info;
+          return <Icon size={14} strokeWidth={2.5} />;
+        })()}
       </span>
 
       <span
@@ -73,20 +76,21 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
 
       <button
         onClick={handleDismiss}
+        className="min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
         style={{
           background: 'none',
           border: 'none',
           cursor: 'pointer',
           color: 'var(--tertiary-text)',
           fontSize: 14,
-          padding: 2,
+          padding: 10,
           flexShrink: 0,
           lineHeight: 1,
           marginTop: -1,
         }}
         aria-label="Cerrar"
       >
-        ×
+        <X size={14} strokeWidth={2.5} />
       </button>
     </div>
   );
@@ -106,24 +110,19 @@ export default function ToastContainer() {
   return (
     <>
       <style>{`
-        @keyframes toast-enter {
-          from {
-            opacity: 0;
-            transform: translateX(40px);
+        @media (prefers-reduced-motion: no-preference) {
+          @keyframes toast-enter {
+            from { opacity: 0; transform: translateX(40px); }
+            to { opacity: 1; transform: translateX(0); }
           }
-          to {
-            opacity: 1;
-            transform: translateX(0);
+          @keyframes toast-exit {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(40px); }
           }
         }
-        @keyframes toast-exit {
-          from {
-            opacity: 1;
-            transform: translateX(0);
-          }
-          to {
-            opacity: 0;
-            transform: translateX(40px);
+        @media (prefers-reduced-motion: reduce) {
+          .toast-item {
+            animation: none !important;
           }
         }
       `}</style>

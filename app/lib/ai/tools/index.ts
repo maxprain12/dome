@@ -176,6 +176,15 @@ export {
   createGraphTools,
 } from './graph-tools';
 
+// Tools - Notebook
+export {
+  createNotebookGetTool,
+  createNotebookAddCellTool,
+  createNotebookUpdateCellTool,
+  createNotebookDeleteCellTool,
+  createNotebookTools,
+} from './notebook-tools';
+
 // =============================================================================
 // Default Tools
 // =============================================================================
@@ -192,6 +201,7 @@ import { createStudioTools } from './studio-outputs';
 import { createAudioOverviewTools } from './audio-overview';
 import { createDeepResearchTools } from './deep-research';
 import { createGraphTools } from './graph-tools';
+import { createNotebookTools } from './notebook-tools';
 
 /**
  * Configuration for creating default tools
@@ -262,6 +272,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
 
   // Graph tools (knowledge graph, related resources, links)
   tools.push(...createGraphTools());
+
+  // Notebook tools (read/modify notebook cells)
+  tools.push(...createNotebookTools());
 
   return tools;
 }

@@ -44,7 +44,7 @@ export default function PromptModal() {
     >
       {/* Overlay */}
       <div
-        className="absolute inset-0 backdrop-blur-sm"
+        className="absolute inset-0 backdrop-blur-sm cursor-pointer"
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
         onClick={handleCancel}
         aria-hidden="true"
@@ -74,7 +74,7 @@ export default function PromptModal() {
           </h2>
           <button
             onClick={handleCancel}
-            className="p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
+            className="p-2.5 min-h-[44px] min-w-[44px] rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
             style={{ color: 'var(--secondary-text)' }}
             aria-label="Cerrar"
           >
@@ -95,7 +95,7 @@ export default function PromptModal() {
             type="text"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors"
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{ 
               backgroundColor: 'var(--bg-secondary)',
               border: '1px solid var(--border)',

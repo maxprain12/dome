@@ -105,10 +105,15 @@ const ALLOWED_CHANNELS = {
     'resource:export',
     'resource:delete',
     'resource:regenerateThumbnail',
+    'resource:setThumbnail',
     // File operations
     'file:generateHash',
     'file:readFile',
+    'file:readFileAsText',
+    'file:writeFile',
     'file:deleteFile',
+    'file:listDirectory',
+    'file:copyFile',
     'file:getInfo',
     'file:imageToBase64',
     'file:cleanTemp',
@@ -229,6 +234,9 @@ const ALLOWED_CHANNELS = {
     'vector:annotations:delete',
     'vector:search:generic',
     'vector:semanticSearch',
+    // Notebook (Python via IPC)
+    'notebook:runPython',
+    'notebook:checkPython',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -579,6 +587,10 @@ const electronHandler = {
     // Regenerate thumbnail for a resource
     regenerateThumbnail: (resourceId) =>
       ipcRenderer.invoke('resource:regenerateThumbnail', resourceId),
+
+    // Set thumbnail from renderer (PDF first page, etc.)
+    setThumbnail: (resourceId, thumbnailDataUrl) =>
+      ipcRenderer.invoke('resource:setThumbnail', resourceId, thumbnailDataUrl),
   },
 
   // ============================================
@@ -604,9 +616,17 @@ const electronHandler = {
 
     // Read file contents
     readFile: (filePath) => ipcRenderer.invoke('file:readFile', filePath),
+    readFileAsText: (filePath) => ipcRenderer.invoke('file:readFileAsText', filePath),
+    writeFile: (filePath, content) => ipcRenderer.invoke('file:writeFile', filePath, content),
 
     // Delete a file
     deleteFile: (filePath) => ipcRenderer.invoke('file:deleteFile', filePath),
+
+    // List directory contents
+    listDirectory: (dirPath) => ipcRenderer.invoke('file:listDirectory', dirPath),
+
+    // Copy file (for notebook workspace)
+    copyFile: (sourcePath, destPath) => ipcRenderer.invoke('file:copyFile', sourcePath, destPath),
 
     // Get file information
     getInfo: (filePath) => ipcRenderer.invoke('file:getInfo', filePath),
@@ -838,6 +858,20 @@ const electronHandler = {
       // Delete annotation from LanceDB
       delete: (annotationId) => ipcRenderer.invoke('vector:annotations:delete', annotationId),
     },
+  },
+
+  // ============================================
+  // NOTEBOOK API (Python via IPC)
+  // ============================================
+  notebook: {
+    runPython: (code, options) =>
+      ipcRenderer.invoke('notebook:runPython', {
+        code,
+        cells: options?.cells,
+        targetCellIndex: options?.targetCellIndex,
+        cwd: options?.cwd,
+      }),
+    checkPython: () => ipcRenderer.invoke('notebook:checkPython'),
   },
 
   // ============================================

@@ -33,22 +33,13 @@ export default function MessageActions({ content, onSaveAsNote }: MessageActions
     <div className="flex items-center gap-1 mt-2">
       <button
         onClick={handleCopy}
-        className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-all"
-        style={{
-          color: copied ? 'var(--success)' : 'var(--tertiary-text)',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-        }}
-        onMouseEnter={(e) => {
-          if (!copied) e.currentTarget.style.color = 'var(--secondary-text)';
-          e.currentTarget.style.background = 'var(--bg-secondary)';
-        }}
-        onMouseLeave={(e) => {
-          if (!copied) e.currentTarget.style.color = 'var(--tertiary-text)';
-          e.currentTarget.style.background = 'transparent';
-        }}
+        className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors duration-200 cursor-pointer border-none ${
+          copied
+            ? 'text-[var(--success)] bg-transparent'
+            : 'text-[var(--tertiary-text)] bg-transparent hover:text-[var(--secondary-text)] hover:bg-[var(--bg-secondary)]'
+        }`}
         title="Copy response"
+        aria-label="Copy response"
       >
         {copied ? <Check size={13} /> : <Copy size={13} />}
         <span>{copied ? 'Copied' : 'Copy'}</span>
@@ -57,22 +48,13 @@ export default function MessageActions({ content, onSaveAsNote }: MessageActions
       {onSaveAsNote && (
         <button
           onClick={handleSaveAsNote}
-          className="flex items-center gap-1 px-2 py-1 rounded text-xs transition-all"
-          style={{
-            color: saved ? 'var(--success)' : 'var(--tertiary-text)',
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => {
-            if (!saved) e.currentTarget.style.color = 'var(--secondary-text)';
-            e.currentTarget.style.background = 'var(--bg-secondary)';
-          }}
-          onMouseLeave={(e) => {
-            if (!saved) e.currentTarget.style.color = 'var(--tertiary-text)';
-            e.currentTarget.style.background = 'transparent';
-          }}
+          className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors duration-200 cursor-pointer border-none ${
+            saved
+              ? 'text-[var(--success)] bg-transparent'
+              : 'text-[var(--tertiary-text)] bg-transparent hover:text-[var(--secondary-text)] hover:bg-[var(--bg-secondary)]'
+          }`}
           title="Save as note"
+          aria-label="Save as note"
         >
           {saved ? <Check size={13} /> : <BookmarkPlus size={13} />}
           <span>{saved ? 'Saved!' : 'Save as note'}</span>

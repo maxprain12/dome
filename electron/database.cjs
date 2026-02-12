@@ -67,7 +67,7 @@ function initDatabase() {
     CREATE TABLE IF NOT EXISTS resources (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
-      type TEXT NOT NULL CHECK(type IN ('note', 'pdf', 'video', 'audio', 'image', 'url', 'document', 'folder')),
+      type TEXT NOT NULL CHECK(type IN ('note', 'pdf', 'video', 'audio', 'image', 'url', 'document', 'folder', 'notebook')),
       title TEXT NOT NULL,
       content TEXT,
       file_path TEXT,
@@ -438,7 +438,7 @@ function runMigrations(db) {
         CREATE TABLE resources_new (
           id TEXT PRIMARY KEY,
           project_id TEXT NOT NULL,
-          type TEXT NOT NULL CHECK(type IN ('note', 'pdf', 'video', 'audio', 'image', 'url', 'document', 'folder')),
+          type TEXT NOT NULL CHECK(type IN ('note', 'pdf', 'video', 'audio', 'image', 'url', 'document', 'folder', 'notebook')),
           title TEXT NOT NULL,
           content TEXT,
           file_path TEXT,
@@ -876,6 +876,99 @@ function runMigrations(db) {
       INSERT INTO settings (key, value, updated_at)
       VALUES ('schema_version', '8', ?)
       ON CONFLICT(key) DO UPDATE SET value = '8', updated_at = excluded.updated_at
+    `).run(Date.now());
+  }
+
+  // Migration 9: Add 'notebook' to resources type constraint
+  let needsNotebookConstraint = false;
+  try {
+    const testStmt = db.prepare(`
+      INSERT INTO resources (id, project_id, type, title, created_at, updated_at)
+      VALUES ('__test_notebook__', 'default', 'notebook', 'Test', 0, 0)
+    `);
+    testStmt.run();
+    db.exec("DELETE FROM resources WHERE id = '__test_notebook__'");
+    console.log('[DB] Notebook type constraint already exists');
+  } catch {
+    needsNotebookConstraint = true;
+    console.log('[DB] Notebook type constraint missing, migration needed');
+  }
+
+  if (needsNotebookConstraint && version < 9) {
+    console.log('[DB] Running migration 9: Add notebook type to resources');
+
+    try {
+      const tableInfo = db.prepare('PRAGMA table_info(resources)').all();
+      const existingColumns = new Set(tableInfo.map((col) => col.name));
+
+      db.exec('DROP TABLE IF EXISTS resources_new');
+      db.exec(`
+        CREATE TABLE resources_new (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          type TEXT NOT NULL CHECK(type IN ('note', 'pdf', 'video', 'audio', 'image', 'url', 'document', 'folder', 'notebook')),
+          title TEXT NOT NULL,
+          content TEXT,
+          file_path TEXT,
+          internal_path TEXT,
+          file_mime_type TEXT,
+          file_size INTEGER,
+          file_hash TEXT,
+          thumbnail_data TEXT,
+          original_filename TEXT,
+          folder_id TEXT,
+          metadata TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+          FOREIGN KEY (folder_id) REFERENCES resources_new(id) ON DELETE SET NULL
+        )
+      `);
+
+      const baseColumns = ['id', 'project_id', 'type', 'title', 'content', 'file_path', 'metadata', 'created_at', 'updated_at'];
+      const optionalColumns = ['internal_path', 'file_mime_type', 'file_size', 'file_hash', 'thumbnail_data', 'original_filename', 'folder_id'];
+      const columnsToCopy = [...baseColumns];
+      for (const col of optionalColumns) {
+        if (existingColumns.has(col)) columnsToCopy.push(col);
+      }
+      const columnsStr = columnsToCopy.join(', ');
+      db.exec(`INSERT INTO resources_new (${columnsStr}) SELECT ${columnsStr} FROM resources`);
+      db.exec('DROP TABLE resources');
+      db.exec('ALTER TABLE resources_new RENAME TO resources');
+
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resources_project ON resources(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(type)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resources_file_hash ON resources(file_hash)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resources_internal_path ON resources(internal_path)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resources_folder ON resources(folder_id)');
+
+      try {
+        db.exec(`CREATE TRIGGER IF NOT EXISTS resources_ai AFTER INSERT ON resources BEGIN
+          INSERT INTO resources_fts(resource_id, title, content)
+          VALUES (new.id, new.title, COALESCE(new.content, ''));
+        END`);
+        db.exec(`CREATE TRIGGER IF NOT EXISTS resources_ad AFTER DELETE ON resources BEGIN
+          DELETE FROM resources_fts WHERE resource_id = old.id;
+        END`);
+        db.exec(`CREATE TRIGGER IF NOT EXISTS resources_au AFTER UPDATE ON resources BEGIN
+          DELETE FROM resources_fts WHERE resource_id = old.id;
+          INSERT INTO resources_fts(resource_id, title, content)
+          VALUES (new.id, new.title, COALESCE(new.content, ''));
+        END`);
+      } catch (triggerError) {
+        console.log('[DB] FTS triggers skipped:', triggerError.message);
+      }
+
+      console.log('[DB] Migration 9 complete - notebook type added');
+    } catch (error) {
+      console.error('[DB] Migration 9 FAILED:', error.message);
+      throw error;
+    }
+
+    db.prepare(`
+      INSERT INTO settings (key, value, updated_at)
+      VALUES ('schema_version', '9', ?)
+      ON CONFLICT(key) DO UPDATE SET value = '9', updated_at = excluded.updated_at
     `).run(Date.now());
   }
 }

@@ -12,16 +12,14 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   const handleComplete = async (data: { name: string; email: string; avatarPath?: string }) => {
-    // Save user profile
-    await updateUserProfile({
-      name: data.name,
-      email: data.email,
-    });
-
-    // Save avatar path if provided
-    if (data.avatarPath) {
-      await setAvatarPath(data.avatarPath);
-    }
+    // Save user profile and avatar in parallel (independent operations)
+    await Promise.all([
+      updateUserProfile({
+        name: data.name,
+        email: data.email,
+      }),
+      data.avatarPath ? setAvatarPath(data.avatarPath) : Promise.resolve(),
+    ]);
 
     // Mark onboarding as completed
     await completeOnboarding();
@@ -41,8 +39,9 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[500] flex items-center justify-center"
+      className="fixed inset-0 flex items-center justify-center"
       style={{
+        zIndex: 'var(--z-modal)',
         backgroundColor: 'var(--translucent)',
         backdropFilter: 'blur(8px)',
       }}

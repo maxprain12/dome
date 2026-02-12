@@ -115,7 +115,7 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
   if (isStudying && dueCards.length === 0) {
     return (
       <div
-        className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
+        className="fixed inset-x-0 bottom-0 z-modal flex flex-col"
         style={{
           top: 'var(--overlay-top-offset)',
           paddingLeft: 'var(--safe-area-inset-left)',
@@ -172,7 +172,7 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
   if (isSessionComplete) {
     return (
       <div
-        className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
+        className="fixed inset-x-0 bottom-0 z-modal flex flex-col"
         style={{
           top: 'var(--overlay-top-offset)',
           paddingLeft: 'var(--safe-area-inset-left)',
@@ -216,7 +216,7 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
   // Main study view
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
+      className="fixed inset-x-0 bottom-0 z-modal flex flex-col"
       style={{
         top: 'var(--overlay-top-offset)',
         paddingLeft: 'var(--safe-area-inset-left)',
@@ -303,7 +303,7 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
           <div className="flex items-center justify-center gap-3">
             <button
               onClick={() => reviewCard(1)}
-              className="flex flex-col items-center gap-1 px-5 py-3 rounded-xl transition-all duration-200 hover:scale-105"
+              className="flex flex-col items-center gap-1 px-5 py-3 rounded-xl transition-all duration-200 hover:brightness-105"
               style={{
                 background: 'rgba(239, 68, 68, 0.1)',
                 border: '1px solid rgba(239, 68, 68, 0.2)',
@@ -315,7 +315,7 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
             </button>
             <button
               onClick={() => reviewCard(2)}
-              className="flex flex-col items-center gap-1 px-5 py-3 rounded-xl transition-all duration-200 hover:scale-105"
+              className="flex flex-col items-center gap-1 px-5 py-3 rounded-xl transition-all duration-200 hover:brightness-105"
               style={{
                 background: 'rgba(245, 158, 11, 0.1)',
                 border: '1px solid rgba(245, 158, 11, 0.2)',
@@ -327,7 +327,7 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
             </button>
             <button
               onClick={() => reviewCard(4)}
-              className="flex flex-col items-center gap-1 px-5 py-3 rounded-xl transition-all duration-200 hover:scale-105"
+              className="flex flex-col items-center gap-1 px-5 py-3 rounded-xl transition-all duration-200 hover:brightness-105"
               style={{
                 background: 'rgba(16, 185, 129, 0.1)',
                 border: '1px solid rgba(16, 185, 129, 0.2)',
@@ -339,7 +339,7 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
             </button>
             <button
               onClick={() => reviewCard(5)}
-              className="flex flex-col items-center gap-1 px-5 py-3 rounded-xl transition-all duration-200 hover:scale-105"
+              className="flex flex-col items-center gap-1 px-5 py-3 rounded-xl transition-all duration-200 hover:brightness-105"
               style={{
                 background: 'rgba(16, 185, 129, 0.15)',
                 border: '1px solid rgba(16, 185, 129, 0.3)',

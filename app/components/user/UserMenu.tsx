@@ -49,17 +49,12 @@ export default function UserMenu() {
     setIsSigningOut(true);
     
     try {
-      // Reset user profile
-      await updateUserProfile({
-        name: '',
-        email: '',
-      });
-      
-      // Clear avatar
-      await setAvatar(null);
-      
-      // Reset onboarding to show wizard again
-      await resetOnboarding();
+      // Reset profile, avatar, and onboarding in parallel (independent operations)
+      await Promise.all([
+        updateUserProfile({ name: '', email: '' }),
+        setAvatar(null),
+        resetOnboarding(),
+      ]);
       
       setIsOpen(false);
       
@@ -90,10 +85,11 @@ export default function UserMenu() {
       {/* Dropdown Menu */}
       {isOpen && (
         <div
-          className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg py-2 z-[110]"
+          className="absolute right-0 mt-2 w-64 rounded-lg shadow-lg py-2"
           style={{
             backgroundColor: 'var(--bg)',
             border: '1px solid var(--border)',
+            zIndex: 'var(--z-dropdown)',
           }}
         >
           {/* User Info */}

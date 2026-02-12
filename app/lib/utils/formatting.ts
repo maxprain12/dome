@@ -107,6 +107,76 @@ export function truncate(text: string, length: number = 100): string {
   return text.substring(0, length) + '...';
 }
 
+// ProseMirror/Tiptap node structure
+interface PMNode {
+  type?: string;
+  text?: string;
+  content?: PMNode[];
+  attrs?: Record<string, unknown>;
+}
+
+/** Decodifica entidades HTML en texto plano */
+function decodeHtmlEntities(text: string): string {
+  if (typeof document === 'undefined') {
+    return text
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;|&apos;/g, "'");
+  }
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = text;
+  return textarea.value;
+}
+
+/** Extrae texto plano desde HTML (elimina tags y decodifica entidades) */
+function stripHtml(html: string): string {
+  let text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+  text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+  text = text.replace(/<[^>]+>/g, ' ');
+  text = text.replace(/\s+/g, ' ').trim();
+  return decodeHtmlEntities(text);
+}
+
+/** Extrae texto plano desde el JSON de Tiptap/ProseMirror para previsualizaciones */
+export function extractPlainTextFromTiptap(content: string | undefined): string {
+  if (!content?.trim()) return '';
+  const first = content.trim();
+  if (first[0] !== '{' && first[0] !== '[') {
+    // Texto plano o HTML: si parece HTML (<...>), extraer solo texto
+    let result = /<[^>]+>/.test(content) ? stripHtml(content) : content;
+    // Decodificar entidades HTML (&amp;, &gt;, &nbsp;, &#39;, etc.)
+    if (/&[a-z#\d]+;/i.test(result)) {
+      result = decodeHtmlEntities(result);
+    }
+    return result;
+  }
+  try {
+    const doc = JSON.parse(content) as PMNode;
+    const parts: string[] = [];
+    function walk(node: PMNode) {
+      if (node.text) {
+        parts.push(node.text);
+      }
+      if (node.content) {
+        for (const child of node.content) {
+          walk(child);
+        }
+      }
+    }
+    walk(doc);
+    let text = parts.join(' ').replace(/\s+/g, ' ').trim();
+    if (text && /&[a-z#\d]+;/i.test(text)) {
+      text = decodeHtmlEntities(text);
+    }
+    return text || '';
+  } catch {
+    return '';
+  }
+}
+
 // Validar URL
 export function isValidUrl(url: string): boolean {
   try {

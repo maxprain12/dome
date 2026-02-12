@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, useTransition } from 'react';
 import { X, Loader2, AlertCircle, RefreshCw, GitBranch } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { GraphViewer, GraphToolbar } from '@/components/graph';
+import GraphViewer from '@/components/graph/GraphViewer';
+import GraphToolbar from '@/components/graph/GraphToolbar';
 import { generateGraph } from '@/lib/graph';
 import type { Resource, GraphViewState, GraphLayoutType, GraphFilterOptions } from '@/types';
 
@@ -17,6 +18,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [graphState, setGraphState] = useState<GraphViewState | null>(null);
+  const [, startTransition] = useTransition();
   const [isGenerating, setIsGenerating] = useState(false);
   const [layout, setLayout] = useState<GraphLayoutType>('force');
   const [filters, setFilters] = useState<GraphFilterOptions>({});
@@ -49,7 +51,9 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
         minWeight: filters.minWeight || 0.3,
       });
 
-      setGraphState(graphData);
+      startTransition(() => {
+        setGraphState(graphData);
+      });
     } catch (err) {
       console.error('Error generating graph:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate knowledge graph');
@@ -371,9 +375,10 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
           </button>
           <button
             onClick={toggleGraphPanel}
-            className="p-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
+            className="p-2 min-h-[44px] min-w-[44px] rounded-lg transition-colors hover:bg-[var(--bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 flex items-center justify-center"
             style={{ color: 'var(--secondary-text)' }}
             title="Close graph panel"
+            aria-label="Close graph panel"
           >
             <X size={18} />
           </button>

@@ -21,7 +21,7 @@ export interface Project {
 export interface Resource {
   id: string;
   project_id: string;
-  type: 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder';
+  type: 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook';
   title: string;
   content?: string;
   // Legacy external file path (deprecated)

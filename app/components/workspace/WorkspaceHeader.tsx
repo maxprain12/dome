@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Info,
@@ -11,12 +10,15 @@ import {
   FileEdit,
   File,
   Folder,
+  Notebook,
   MoreHorizontal,
   ExternalLink,
   FolderOpen,
   BookOpen,
   Sparkles,
   Network,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
@@ -46,8 +48,10 @@ export default function WorkspaceHeader({
   savingIndicator,
 }: WorkspaceHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [panelsOpen, setPanelsOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const panelsRef = useRef<HTMLDivElement>(null);
 
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
@@ -60,30 +64,32 @@ export default function WorkspaceHeader({
 
   // Close menu on click outside
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen && !panelsOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        menuRef.current && !menuRef.current.contains(e.target as Node) &&
-        menuButtonRef.current && !menuButtonRef.current.contains(e.target as Node)
-      ) {
-        setMenuOpen(false);
-      }
+      const target = e.target as Node;
+      const inMenu = menuRef.current?.contains(target) || menuButtonRef.current?.contains(target);
+      const inPanels = panelsRef.current?.contains(target);
+      if (!inMenu) setMenuOpen(false);
+      if (!inPanels) setPanelsOpen(false);
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuOpen]);
+  }, [menuOpen, panelsOpen]);
 
   // Close menu on Escape
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen && !panelsOpen) return;
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false);
+      if (e.key === 'Escape') {
+        setMenuOpen(false);
+        setPanelsOpen(false);
+      }
     };
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [menuOpen]);
+  }, [menuOpen, panelsOpen]);
 
   const handleOpenExternal = useCallback(async () => {
     setMenuOpen(false);
@@ -124,7 +130,9 @@ export default function WorkspaceHeader({
       case 'audio': return <Music {...iconProps} />;
       case 'image': return <Image {...iconProps} />;
       case 'note': return <FileEdit {...iconProps} />;
+      case 'notebook': return <Notebook {...iconProps} />;
       case 'document': return <File {...iconProps} />;
+      case 'url': return <ExternalLink {...iconProps} />;
       default: return <Folder {...iconProps} />;
     }
   };
@@ -164,9 +172,10 @@ export default function WorkspaceHeader({
               value={editableTitle.value}
               onChange={(e) => editableTitle.onChange(e.target.value)}
               onBlur={editableTitle.onBlur}
-              className="text-sm font-medium bg-transparent border-none outline-none min-w-0 font-display"
+              className="text-sm font-medium bg-transparent border-none outline-none min-w-0 font-display focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{ color: 'var(--primary-text)' }}
               placeholder={editableTitle.placeholder || 'Untitled'}
+              aria-label="Resource title"
             />
           ) : (
             <h1
@@ -184,63 +193,96 @@ export default function WorkspaceHeader({
 
       {/* Right section */}
       <div className="flex items-center gap-2 app-region-no-drag">
-        {/* Sources panel toggle */}
-        <button
-          onClick={toggleSourcesPanel}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-          style={{
-            background: sourcesPanelOpen ? 'var(--bg-secondary)' : 'transparent',
-            color: sourcesPanelOpen ? 'var(--primary-text)' : 'var(--secondary-text)',
-          }}
-          title={sourcesPanelOpen ? 'Hide sources' : 'Show sources'}
-          aria-label={sourcesPanelOpen ? 'Hide sources panel' : 'Show sources panel'}
-          aria-expanded={sourcesPanelOpen}
-        >
-          <BookOpen size={16} />
-          <span>Sources</span>
-        </button>
+        {/* Panels selector dropdown */}
+        <div ref={panelsRef} className="relative">
+          <button
+            onClick={() => setPanelsOpen((o) => !o)}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            style={{
+              background: sourcesPanelOpen || studioPanelOpen || graphPanelOpen || sidePanelOpen
+                ? 'var(--bg-secondary)'
+                : 'transparent',
+              border: '1px solid var(--border)',
+              color: sourcesPanelOpen || studioPanelOpen || graphPanelOpen || sidePanelOpen
+                ? 'var(--primary-text)'
+                : 'var(--secondary-text)',
+            }}
+            title="Paneles"
+            aria-expanded={panelsOpen}
+            aria-haspopup="listbox"
+          >
+            <PanelRightOpen size={16} />
+            <span>Paneles</span>
+            <ChevronDown
+              size={14}
+              style={{
+                opacity: 0.7,
+                transform: panelsOpen ? 'rotate(180deg)' : 'rotate(0)',
+                transition: 'transform 0.2s',
+              }}
+            />
+          </button>
 
-        {/* Studio panel toggle */}
-        <button
-          onClick={toggleStudioPanel}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-          style={{
-            background: studioPanelOpen ? 'var(--bg-secondary)' : 'transparent',
-            color: studioPanelOpen ? 'var(--primary-text)' : 'var(--secondary-text)',
-          }}
-          title={studioPanelOpen ? 'Hide studio' : 'Show studio'}
-          aria-label={studioPanelOpen ? 'Hide studio panel' : 'Show studio panel'}
-          aria-expanded={studioPanelOpen}
-        >
-          <Sparkles size={16} />
-          <span>Studio</span>
-        </button>
-
-        {/* Graph panel toggle */}
-        <button
-          onClick={toggleGraphPanel}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-          style={{
-            background: graphPanelOpen ? 'var(--bg-secondary)' : 'transparent',
-            color: graphPanelOpen ? 'var(--primary-text)' : 'var(--secondary-text)',
-          }}
-          title={graphPanelOpen ? 'Hide graph' : 'Show knowledge graph'}
-          aria-label={graphPanelOpen ? 'Hide graph panel' : 'Show knowledge graph panel'}
-          aria-expanded={graphPanelOpen}
-        >
-          <Network size={16} />
-          <span>Graph</span>
-        </button>
+          {panelsOpen && (
+            <div
+              className="absolute right-0 top-full mt-1 py-1 min-w-[180px] rounded-lg z-dropdown shadow-lg"
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <button
+                onClick={() => { toggleSourcesPanel(); }}
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--bg-hover)]"
+                style={{
+                  color: 'var(--primary-text)',
+                }}
+              >
+                <BookOpen size={16} style={{ color: 'var(--secondary-text)' }} />
+                <span className="flex-1">Sources</span>
+                {sourcesPanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
+              </button>
+              <button
+                onClick={() => { toggleStudioPanel(); }}
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--bg-hover)]"
+                style={{ color: 'var(--primary-text)' }}
+              >
+                <Sparkles size={16} style={{ color: 'var(--secondary-text)' }} />
+                <span className="flex-1">Studio</span>
+                {studioPanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
+              </button>
+              <button
+                onClick={() => { toggleGraphPanel(); }}
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--bg-hover)]"
+                style={{ color: 'var(--primary-text)' }}
+              >
+                <Network size={16} style={{ color: 'var(--secondary-text)' }} />
+                <span className="flex-1">Graph</span>
+                {graphPanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
+              </button>
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+              <button
+                onClick={() => { onToggleSidePanel(); }}
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--bg-hover)]"
+                style={{ color: 'var(--primary-text)' }}
+              >
+                <PanelRightOpen size={16} style={{ color: 'var(--secondary-text)' }} />
+                <span className="flex-1">Panel lateral</span>
+                {sidePanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* Separator */}
-        <div className="w-px h-5 mx-1" style={{ background: 'var(--border)' }} />
+        <div className="w-px h-5" style={{ background: 'var(--border)' }} />
 
         {/* More options menu */}
         <div className="relative">
           <button
             ref={menuButtonRef}
             onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{
               background: menuOpen ? 'var(--bg-secondary)' : 'transparent',
               color: 'var(--secondary-text)',
@@ -260,7 +302,7 @@ export default function WorkspaceHeader({
               style={{
                 position: 'fixed',
                 ...getMenuPosition(),
-                zIndex: 9999,
+                zIndex: 'var(--z-max)',
                 minWidth: '200px',
                 background: 'var(--bg)',
                 border: '1px solid var(--border)',
@@ -283,15 +325,10 @@ export default function WorkspaceHeader({
                   fontSize: '13px',
                   fontWeight: 500,
                   color: 'var(--primary-text)',
-                  cursor: 'pointer',
                   width: '100%',
-                  background: 'transparent',
                   border: 'none',
                   textAlign: 'left',
-                  transition: 'background 150ms ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                 role="menuitem"
               >
                 <Info size={16} style={{ color: 'var(--secondary-text)' }} />
@@ -319,15 +356,10 @@ export default function WorkspaceHeader({
                       fontSize: '13px',
                       fontWeight: 500,
                       color: 'var(--primary-text)',
-                      cursor: 'pointer',
                       width: '100%',
-                      background: 'transparent',
                       border: 'none',
                       textAlign: 'left',
-                      transition: 'background 150ms ease',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     role="menuitem"
                   >
                     <ExternalLink size={16} style={{ color: 'var(--secondary-text)' }} />
@@ -345,15 +377,10 @@ export default function WorkspaceHeader({
                       fontSize: '13px',
                       fontWeight: 500,
                       color: 'var(--primary-text)',
-                      cursor: 'pointer',
                       width: '100%',
-                      background: 'transparent',
                       border: 'none',
                       textAlign: 'left',
-                      transition: 'background 150ms ease',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     role="menuitem"
                   >
                     <FolderOpen size={16} style={{ color: 'var(--secondary-text)' }} />
@@ -365,21 +392,6 @@ export default function WorkspaceHeader({
           )}
         </div>
 
-        {/* Panel toggle */}
-        <button
-          onClick={onToggleSidePanel}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-          style={{
-            background: sidePanelOpen ? 'var(--bg-secondary)' : 'transparent',
-            color: sidePanelOpen ? 'var(--primary-text)' : 'var(--secondary-text)',
-          }}
-          title={sidePanelOpen ? 'Hide panel' : 'Show panel'}
-          aria-label={sidePanelOpen ? 'Ocultar panel' : 'Mostrar panel'}
-          aria-expanded={sidePanelOpen}
-        >
-          {sidePanelOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-          <span>Panel</span>
-        </button>
       </div>
     </header>
   );

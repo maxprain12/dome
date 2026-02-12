@@ -119,7 +119,7 @@ export default function ProfileStep({
             <UserAvatar name={name || 'Usuario'} avatarPath={avatarPath} size="xl" />
             <button
               onClick={handleChangeAvatar}
-              className="absolute bottom-0 right-0 p-2 rounded-full text-white transition-transform hover:scale-110"
+              className="absolute bottom-0 right-0 p-2 rounded-full text-white transition-opacity duration-200 hover:opacity-90"
               style={{
                 backgroundColor: 'var(--accent)',
               }}
@@ -158,10 +158,11 @@ export default function ProfileStep({
 
       {/* Name */}
       <div>
-        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
+        <label htmlFor="profile-name" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
           Nombre completo *
         </label>
         <input
+          id="profile-name"
           type="text"
           value={name}
           onChange={(e) => handleNameChange(e.target.value)}
@@ -179,10 +180,11 @@ export default function ProfileStep({
 
       {/* Email */}
       <div>
-        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
+        <label htmlFor="profile-email" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
           Email *
         </label>
         <input
+          id="profile-email"
           type="text"
           inputMode="email"
           autoComplete="email"

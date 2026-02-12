@@ -159,6 +159,7 @@ export function BlockHandle({ editor, element }: BlockHandleProps) {
         transition: 'opacity 0.2s, color 0.2s',
         borderRadius: 'var(--radius-sm)',
         backgroundColor: isDragging ? 'var(--bg-hover)' : 'transparent',
+        cursor: 'pointer',
       }}
       onMouseDown={handleMouseDown}
       onMouseEnter={() => setIsHovered(true)}

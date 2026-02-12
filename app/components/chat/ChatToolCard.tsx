@@ -128,13 +128,15 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
               {resultText}
             </pre>
           ) : (
-            <p 
-              className="text-xs truncate cursor-pointer"
+            <button
+              type="button"
+              className="text-xs truncate cursor-pointer w-full text-left bg-transparent border-none p-0 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 rounded"
               style={{ color: 'var(--secondary-text)' }}
               onClick={() => setExpanded(true)}
+              aria-label="Expand tool result"
             >
               {previewText}
-            </p>
+            </button>
           )}
         </div>
       )}

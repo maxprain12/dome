@@ -108,17 +108,19 @@ export default function GraphToolbar({
       <div className="flex items-center gap-2 px-4 py-3">
         {/* Search */}
         <div className="flex-1 relative">
+          <label htmlFor="graph-search-nodes" className="sr-only">Search nodes</label>
           <Search
             size={14}
             className="absolute left-3 top-1/2 -translate-y-1/2"
             style={{ color: 'var(--tertiary-text)' }}
           />
           <input
+            id="graph-search-nodes"
             type="text"
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search nodes..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-md border border-[var(--border)] outline-none focus:border-[var(--accent)]"
+            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-md border border-[var(--border)] outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{
               background: 'var(--bg)',
               color: 'var(--primary-text)',
@@ -130,7 +132,7 @@ export default function GraphToolbar({
         <select
           value={layout}
           onChange={(e) => onLayoutChange(e.target.value as GraphLayoutType)}
-          className="px-3 py-1.5 text-xs rounded-md border border-[var(--border)] outline-none cursor-pointer"
+          className="px-3 py-1.5 text-xs rounded-md border border-[var(--border)] outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           style={{
             background: 'var(--bg)',
             color: 'var(--primary-text)',
@@ -155,6 +157,7 @@ export default function GraphToolbar({
             value={depth}
             onChange={(e) => onDepthChange(parseInt(e.target.value))}
             className="w-16"
+            aria-label="Graph depth"
           />
           <span className="text-xs font-medium w-3" style={{ color: 'var(--primary-text)' }}>
             {depth}
@@ -164,11 +167,13 @@ export default function GraphToolbar({
         {/* Filters button */}
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-[var(--border)] transition-colors hover:bg-[var(--bg-hover)]"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-[var(--border)] transition-colors hover:bg-[var(--bg-hover)] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           style={{
             background: showFilters ? 'var(--bg-hover)' : 'var(--bg)',
             color: hasActiveFilters ? 'var(--accent)' : 'var(--secondary-text)',
           }}
+          aria-label="Filter graph"
+          aria-expanded={showFilters}
         >
           <SlidersHorizontal size={14} />
           Filters
@@ -181,11 +186,13 @@ export default function GraphToolbar({
         <div className="relative">
           <button
             onClick={() => setShowExport(!showExport)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-[var(--border)] transition-colors hover:bg-[var(--bg-hover)]"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-[var(--border)] transition-colors hover:bg-[var(--bg-hover)] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{
               background: showExport ? 'var(--bg-hover)' : 'var(--bg)',
               color: 'var(--secondary-text)',
             }}
+            aria-label="Export graph"
+            aria-expanded={showExport}
           >
             <Download size={14} />
             Export
@@ -193,7 +200,7 @@ export default function GraphToolbar({
 
           {showExport && (
             <div
-              className="absolute right-0 top-full mt-1 w-32 rounded-lg border border-[var(--border)] shadow-lg z-50"
+              className="absolute right-0 top-full mt-1 w-32 rounded-lg border border-[var(--border)] shadow-lg z-dropdown"
               style={{ background: 'var(--bg)' }}
             >
               <button
@@ -201,8 +208,9 @@ export default function GraphToolbar({
                   onExportPNG?.();
                   setShowExport(false);
                 }}
-                className="w-full px-3 py-2 text-xs text-left transition-colors hover:bg-[var(--bg-hover)] rounded-t-lg"
-                style={{ color: 'var(--primary-text)' }}
+                className="w-full px-3 py-2 text-xs text-left transition-colors hover:bg-[var(--bg-hover)] rounded-t-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                style={{ color: 'var(--primary-text)', background: 'transparent', border: 'none' }}
+                aria-label="Export graph as PNG"
               >
                 Export as PNG
               </button>
@@ -211,8 +219,9 @@ export default function GraphToolbar({
                   onExportJSON?.();
                   setShowExport(false);
                 }}
-                className="w-full px-3 py-2 text-xs text-left transition-colors hover:bg-[var(--bg-hover)] rounded-b-lg"
-                style={{ color: 'var(--primary-text)' }}
+                className="w-full px-3 py-2 text-xs text-left transition-colors hover:bg-[var(--bg-hover)] rounded-b-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                style={{ color: 'var(--primary-text)', background: 'transparent', border: 'none' }}
+                aria-label="Export graph as JSON"
               >
                 Export as JSON
               </button>
@@ -236,8 +245,9 @@ export default function GraphToolbar({
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="text-xs flex items-center gap-1 transition-colors"
-                style={{ color: 'var(--accent)' }}
+                className="text-xs flex items-center gap-1 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 rounded"
+                style={{ color: 'var(--accent)', background: 'transparent', border: 'none' }}
+                aria-label="Clear all filters"
               >
                 <X size={12} />
                 Clear all
@@ -295,13 +305,14 @@ export default function GraphToolbar({
 
           {/* Weight slider */}
           <div className="mt-4">
-            <label className="text-xs font-medium mb-2 flex items-center justify-between" style={{ color: 'var(--secondary-text)' }}>
+            <label htmlFor="graph-min-weight" className="text-xs font-medium mb-2 flex items-center justify-between" style={{ color: 'var(--secondary-text)' }}>
               <span>Minimum Weight</span>
               <span style={{ color: 'var(--primary-text)' }}>
                 {(filters.minWeight || 0.3).toFixed(1)}
               </span>
             </label>
             <input
+              id="graph-min-weight"
               type="range"
               min="0"
               max="1"

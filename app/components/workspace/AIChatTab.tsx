@@ -2,6 +2,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Send, Loader2, AlertCircle, StopCircle, Globe, Search, Database } from 'lucide-react';
 import { useInteractions } from '@/lib/hooks/useInteractions';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { 
   getAIConfig, 
   getMartinSystemPrompt, 
@@ -17,14 +18,11 @@ import {
 } from '@/lib/ai';
 import { type Resource } from '@/types';
 import MartinAvatar from '@/components/martin/MartinAvatar';
-import { 
-  ChatMessageGroup,
-  groupMessagesByRole,
-  ReadingIndicator,
-  MarkdownRenderer,
-  type ChatMessageData,
-  type ToolCallData,
-} from '@/components/chat';
+import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
+import ReadingIndicator from '@/components/chat/ReadingIndicator';
+import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
+import type { ChatMessageData } from '@/components/chat/ChatMessage';
+import type { ToolCallData } from '@/components/chat/ChatToolCard';
 
 interface AIChatTabProps {
   resourceId: string;
@@ -46,9 +44,11 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
     isLoading: isLoadingHistory,
     addInteraction,
   } = useInteractions(resourceId);
+  const prefersReducedMotion = useReducedMotion();
 
   const [inputValue, setInputValue] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
@@ -89,6 +89,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isSubmittingRef = useRef(false);
 
   // Convert interactions to ChatMessageData format
   const messages: ChatMessageData[] = useMemo(() => {
@@ -117,9 +118,11 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
 
     const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
     if (force || isNearBottom) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current?.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      });
     }
-  }, []);
+  }, [prefersReducedMotion]);
 
   // Scroll when messages change
   useEffect(() => {
@@ -260,8 +263,10 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
 
   const handleSend = useCallback(async () => {
     const message = inputValue.trim();
-    if (!message || isStreaming) return;
+    if (!message || isStreaming || isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     setInputValue('');
     setError(null);
     setIsStreaming(true);
@@ -284,6 +289,8 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
       console.error('Chat error:', err);
       setError(err instanceof Error ? err.message : 'Error getting response');
     } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
       setIsStreaming(false);
       setStreamingMessage(null);
       inputRef.current?.focus();
@@ -355,7 +362,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
         className="flex-1 overflow-y-auto p-4 space-y-6"
       >
         {/* Empty state */}
-        {messages.length === 0 && !streamingMessage && (
+        {messages.length === 0 && !streamingMessage ? (
           <div className="text-center py-12">
             <div className="flex justify-center mb-4">
               <MartinAvatar size="lg" />
@@ -393,7 +400,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
               ))}
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Message groups */}
         {messageGroups.map((group, index) => (
@@ -405,7 +412,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
         ))}
 
         {/* Reading indicator when starting */}
-        {isStreaming && !streamingMessage?.content && (
+        {isStreaming && !streamingMessage?.content ? (
           <div className="flex gap-3">
             <MartinAvatar size="sm" />
             <div
@@ -415,10 +422,10 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
               <ReadingIndicator className="opacity-60" />
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Error */}
-        {error && (
+        {error ? (
           <div
             className="flex items-center gap-3 p-4 rounded-xl mx-auto max-w-md"
             style={{
@@ -431,7 +438,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
               <p className="text-sm" style={{ color: 'var(--error)' }}>{error}</p>
             </div>
           </div>
-        )}
+        ) : null}
 
         <div ref={messagesEndRef} />
       </div>
@@ -439,7 +446,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
       {/* Input area */}
       <div className="p-4 border-t" style={{ borderColor: 'var(--border)' }}>
         {/* Tools toggle */}
-        {supportsTools && (
+        {supportsTools ? (
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             <button
               onClick={() => setResourceToolsEnabled(!resourceToolsEnabled)}
@@ -466,7 +473,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
             </button>
             <button
               onClick={() => setToolsEnabled(!toolsEnabled)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{
                 border: toolsEnabled
                   ? '1px solid color-mix(in srgb, var(--accent) 30%, transparent)'
@@ -483,12 +490,13 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
                 if (!toolsEnabled) e.currentTarget.style.backgroundColor = 'transparent';
               }}
               title={toolsEnabled ? 'Tools enabled' : 'Enable tools'}
+              aria-label={toolsEnabled ? 'Tools enabled' : 'Enable tools'}
             >
               <Search size={12} />
               Web search
             </button>
           </div>
-        )}
+        ) : null}
 
         <div className="flex gap-3 items-end">
           <div className="flex-1 relative">
@@ -502,8 +510,8 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
                 : toolsEnabled 
                   ? "Type your question (with web search)..." 
                   : "Type your question..."}
-              disabled={isStreaming}
-              className="w-full px-4 py-3 text-sm rounded-xl resize-none disabled:opacity-50 focus:outline-none"
+              disabled={isStreaming || isSubmitting}
+              className="w-full px-4 py-3 text-sm rounded-xl resize-none disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
                 border: '1px solid var(--border)',
@@ -518,25 +526,27 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
           {isStreaming ? (
             <button
               onClick={handleAbort}
-              className="p-3 rounded-xl transition-all active:scale-95"
+              className="p-3 rounded-xl transition-all active:opacity-90"
               style={{
                 backgroundColor: 'var(--error)',
                 color: 'white',
               }}
               title="Stop generation"
+              aria-label="Stop generation"
             >
               <StopCircle size={20} />
             </button>
           ) : (
             <button
               onClick={handleSend}
-              disabled={!inputValue.trim()}
-              className="p-3 rounded-xl transition-all disabled:opacity-40 active:scale-95"
+              disabled={!inputValue.trim() || isSubmitting}
+              className="p-3 rounded-xl transition-all disabled:opacity-40 active:opacity-90"
               style={{
                 backgroundColor: inputValue.trim() ? 'var(--accent)' : 'var(--bg-secondary)',
                 color: inputValue.trim() ? 'white' : 'var(--secondary-text)',
               }}
               title="Send message"
+              aria-label="Send message"
             >
               <Send size={20} />
             </button>

@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useTransition } from 'react';
 import {
     Search,
     Sparkles,
     Upload,
     FileText,
     Link2,
+    Notebook,
     X,
     Command,
     Youtube,
@@ -21,6 +22,7 @@ import { hybridSearch } from '@/lib/search/hybrid-search';
 interface CommandCenterProps {
     onResourceSelect?: (resource: any) => void;
     onCreateNote?: () => void;
+    onCreateNotebook?: () => void;
     onUpload?: (files: File[]) => void;
     onImportFiles?: (filePaths: string[]) => void;
     onAddUrl?: (url: string, type: 'youtube' | 'article') => void;
@@ -83,6 +85,7 @@ const PLACEHOLDER_SUGGESTIONS = [
 export function CommandCenter({
     onResourceSelect,
     onCreateNote,
+    onCreateNotebook,
     onUpload,
     onImportFiles,
     onAddUrl,
@@ -103,6 +106,7 @@ export function CommandCenter({
 
     const inputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const [, startTransition] = useTransition();
     const {
         setSearchQuery,
         searchResults,
@@ -242,7 +246,7 @@ export function CommandCenter({
                             ? (ftsResult as any).data.studioOutputs
                             : [];
 
-                    setSearchResults({ resources, interactions, studioOutputs });
+                    startTransition(() => setSearchResults({ resources, interactions, studioOutputs }));
                 }
             } catch (error) {
                 console.error('Search error:', error);
@@ -381,6 +385,10 @@ export function CommandCenter({
                 if (onCreateNote) onCreateNote();
                 setIsExpanded(false);
                 break;
+            case 'notebook':
+                if (onCreateNotebook) onCreateNotebook();
+                setIsExpanded(false);
+                break;
             case 'upload':
                 if (window.electron) {
                     window.electron.selectFiles({
@@ -475,7 +483,9 @@ export function CommandCenter({
                             )}
                         </div>
 
+                        <label htmlFor="command-center-search" className="sr-only">Search or add URL</label>
                         <input
+                            id="command-center-search"
                             ref={inputRef}
                             type="text"
                             value={urlMode ? urlInput : query}
@@ -486,11 +496,12 @@ export function CommandCenter({
                             className={`command-center-input ${urlMode ? 'url-mode' : ''}`}
                             autoComplete="off"
                             spellCheck={false}
+                            aria-label={urlMode ? 'URL or YouTube link' : 'Search resources'}
                         />
 
                         <div className="command-center-actions">
                             {/* URL Type Indicator */}
-                            {urlMode && detectedUrlType && (
+                            {urlMode && detectedUrlType ? (
                                 <div className={`url-type-indicator ${detectedUrlType}`}>
                                     {detectedUrlType === 'youtube' ? (
                                         <>
@@ -504,10 +515,10 @@ export function CommandCenter({
                                         </>
                                     )}
                                 </div>
-                            )}
+                            ) : null}
 
                             {/* Submit URL button */}
-                            {urlMode && isUrlValid && (
+                            {urlMode && isUrlValid ? (
                                 <button
                                     className="url-submit-btn"
                                     onClick={handleSubmitUrl}
@@ -516,20 +527,20 @@ export function CommandCenter({
                                     <Check size={16} />
                                     <span>Add</span>
                                 </button>
-                            )}
+                            ) : null}
 
                             {/* AI Mode Indicator - only when not in URL mode */}
-                            {!urlMode && query.length > 0 && (
+                            {!urlMode && query.length > 0 ? (
                                 <div className={`ai-mode-indicator ${isSearching ? 'active' : ''}`}>
                                     <Sparkles size={14} />
                                     <span>AI</span>
                                 </div>
-                            )}
+                            ) : null}
 
                             {/* Clear/Cancel button */}
-                            {(query || urlMode) && (
+                            {(query || urlMode) ? (
                                 <button
-                                    className="command-center-clear"
+                                    className="command-center-clear focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                                     onClick={() => {
                                         if (urlMode) {
                                             handleExitUrlMode();
@@ -542,7 +553,7 @@ export function CommandCenter({
                                 >
                                     <X size={16} />
                                 </button>
-                            )}
+                            ) : null}
                             <div className="command-center-shortcut">
                                 <kbd>⌘</kbd>
                                 <kbd>K</kbd>
@@ -551,7 +562,7 @@ export function CommandCenter({
                     </div>
 
                     {/* Expandable content */}
-                    {isExpanded && (
+                    {isExpanded ? (
                         <div className="command-center-dropdown">
                             {/* URL Mode - Show URL input feedback */}
                             {urlMode && (
@@ -561,12 +572,12 @@ export function CommandCenter({
                                         <span>Add Web Resource</span>
                                     </div>
                                     <div className="url-feedback-content">
-                                        {!isUrlValid && urlInput.length > 8 && (
+                                        {!isUrlValid && urlInput.length > 8 ? (
                                             <div className="url-feedback-hint error">
                                                 Please enter a valid URL starting with http:// or https://
                                             </div>
-                                        )}
-                                        {isUrlValid && (
+                                        ) : null}
+                                        {isUrlValid ? (
                                             <div className={`url-feedback-hint success ${detectedUrlType}`}>
                                                 {detectedUrlType === 'youtube' ? (
                                                     <>
@@ -580,7 +591,7 @@ export function CommandCenter({
                                                     </>
                                                 )}
                                             </div>
-                                        )}
+                                        ) : null}
                                         <div className="url-feedback-actions">
                                             <button
                                                 className="url-action-btn secondary"
@@ -602,30 +613,45 @@ export function CommandCenter({
                             )}
 
                             {/* Quick actions when no query and not in URL mode */}
-                            {!query && !urlMode && (
+                            {!query && !urlMode ? (
                                 <div className="quick-actions">
                                     <div className="quick-actions-label">Quick Actions</div>
-                                    <div className="quick-actions-grid three-columns">
+                                    <div className="quick-actions-grid">
                                         <button
                                             className="quick-action-btn"
                                             onClick={() => handleQuickAction('note')}
+                                            title="Nueva nota"
+                                            aria-label="Crear nueva nota"
                                         >
-                                            <FileText size={18} />
-                                            <span>New Note</span>
+                                            <FileText size={24} strokeWidth={2} />
+                                            <span className="quick-action-label">Nota</span>
+                                        </button>
+                                        <button
+                                            className="quick-action-btn"
+                                            onClick={() => handleQuickAction('notebook')}
+                                            title="Nuevo cuaderno"
+                                            aria-label="Crear nuevo cuaderno"
+                                        >
+                                            <Notebook size={24} strokeWidth={2} />
+                                            <span className="quick-action-label">Cuaderno</span>
                                         </button>
                                         <button
                                             className="quick-action-btn"
                                             onClick={() => handleQuickAction('upload')}
+                                            title="Subir archivos"
+                                            aria-label="Subir archivos"
                                         >
-                                            <Upload size={18} />
-                                            <span>Upload Files</span>
+                                            <Upload size={24} strokeWidth={2} />
+                                            <span className="quick-action-label">Archivos</span>
                                         </button>
                                         <button
                                             className="quick-action-btn"
                                             onClick={() => handleQuickAction('url')}
+                                            title="Añadir URL"
+                                            aria-label="Añadir URL o enlace"
                                         >
-                                            <Link2 size={18} />
-                                            <span>Add URL</span>
+                                            <Link2 size={24} strokeWidth={2} />
+                                            <span className="quick-action-label">URL</span>
                                         </button>
                                     </div>
                                     <div className="ai-hint">
@@ -633,10 +659,10 @@ export function CommandCenter({
                                         <span>Type naturally to search with AI or use / for commands</span>
                                     </div>
                                 </div>
-                            )}
+                            ) : null}
 
                             {/* Filter chips + Search results - only when not in URL mode */}
-                            {!urlMode && query && hasResults && searchResults && (
+                            {!urlMode && query && hasResults && searchResults ? (
                                 <>
                                     <SearchFilterChips
                                         availableTypes={availableTypes}
@@ -658,22 +684,22 @@ export function CommandCenter({
                                         onStudioOutputSelect={handleStudioOutputClick}
                                     />
                                 </>
-                            )}
+                            ) : null}
 
                             {/* No results - only when not in URL mode */}
-                            {!urlMode && query && !isSearching && !hasResults && (
+                            {!urlMode && query && !isSearching && !hasResults ? (
                                 <div className="no-results">
                                     <Search size={32} className="no-results-icon" />
                                     <p>No results found for "{query}"</p>
                                     <span>Try a different search term or ask AI</span>
                                 </div>
-                            )}
+                            ) : null}
                         </div>
-                    )}
+                    ) : null}
                 </div>
 
                 {/* Drop overlay */}
-                {showDropzone && (
+                {showDropzone ? (
                     <div className="drop-overlay">
                         <div className="drop-overlay-content">
                             <Upload size={48} />
@@ -681,7 +707,7 @@ export function CommandCenter({
                             <span>Images, PDFs, Audio, Documents</span>
                         </div>
                     </div>
-                )}
+                ) : null}
             </div>
         </DropZone>
     );

@@ -35,7 +35,7 @@ export default defineConfig({
 
   // Optimize dependencies
   optimizeDeps: {
-    exclude: ['vectordb', '@lancedb/vectordb'],
+    exclude: ['vectordb', '@lancedb/vectordb', 'pyodide'],
     include: ['lucide-react'],
   },
 });

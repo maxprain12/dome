@@ -200,6 +200,8 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
         route = `/workspace/note?id=${resourceId}`;
       } else if (resourceType === 'url') {
         route = `/workspace/url?id=${resourceId}`;
+      } else if (resourceType === 'notebook') {
+        route = `/workspace/notebook?id=${resourceId}`;
       } else {
         route = `/workspace?id=${resourceId}`;
       }

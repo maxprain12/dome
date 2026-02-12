@@ -25,7 +25,7 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
           </h3>
         </div>
         {onClose && (
-          <button onClick={onClose} className="btn btn-ghost p-1.5">
+          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close">
             <X size={16} />
           </button>
         )}
@@ -43,7 +43,7 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
           {events.map((event, index) => (
             <div key={index} className="relative flex gap-4 pb-8 last:pb-0">
               {/* Dot */}
-              <div className="relative z-10 shrink-0">
+              <div className="relative shrink-0" style={{ zIndex: 'var(--z-local)' }}>
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{

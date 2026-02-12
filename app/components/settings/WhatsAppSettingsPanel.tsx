@@ -15,6 +15,9 @@ import {
   Power,
   Shield,
   HelpCircle,
+  Mic,
+  Paperclip,
+  MapPin,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -493,6 +496,7 @@ export default function WhatsAppSettingsPanel() {
               onChange={(e) => setNewNumber(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddNumber()}
               placeholder="+34 612 345 678"
+              aria-label="Phone number to add"
               className="flex-1 px-4 py-2.5 rounded-lg text-sm"
               style={{
                 backgroundColor: 'var(--bg)',
@@ -537,8 +541,9 @@ export default function WhatsAppSettingsPanel() {
                   </div>
                   <button
                     onClick={() => handleRemoveNumber(number)}
-                    className="p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="p-2 min-h-[44px] min-w-[44px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                     style={{ color: 'var(--error)', backgroundColor: 'var(--error-bg)' }}
+                    aria-label={`Remove ${formatPhoneNumber(number)}`}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -635,15 +640,21 @@ export default function WhatsAppSettingsPanel() {
                   <span>Consultar a Many</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-lg leading-none">🎤</span>
+                  <span className="flex shrink-0" style={{ color: 'var(--secondary-text)' }}>
+                    <Mic size={18} />
+                  </span>
                   <span>Envia un audio para transcribirlo y guardarlo</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-lg leading-none">📎</span>
+                  <span className="flex shrink-0" style={{ color: 'var(--secondary-text)' }}>
+                    <Paperclip size={18} />
+                  </span>
                   <span>Imagenes y documentos se guardan automaticamente</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-lg leading-none">📍</span>
+                  <span className="flex shrink-0" style={{ color: 'var(--secondary-text)' }}>
+                    <MapPin size={18} />
+                  </span>
                   <span>Ubicaciones se guardan como nota con enlace</span>
                 </li>
               </ul>

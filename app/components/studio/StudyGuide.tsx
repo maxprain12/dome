@@ -45,7 +45,7 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
           {title || 'Study Guide'}
         </h3>
         {onClose && (
-          <button onClick={onClose} className="btn btn-ghost p-1.5">
+          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close">
             <X size={16} />
           </button>
         )}
@@ -90,8 +90,9 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
                       e.stopPropagation();
                       copySection(section.content, index);
                     }}
-                    className="btn btn-ghost p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="btn btn-ghost p-2.5 min-h-[44px] min-w-[44px] opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Copy section"
+                    aria-label="Copy section"
                   >
                     {copiedIndex === index ? (
                       <Check size={14} style={{ color: 'var(--success)' }} />

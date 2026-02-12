@@ -115,22 +115,22 @@ export default function MindMap({ data, title, onClose, onExport }: MindMapProps
           {title || 'Mind Map'}
         </h3>
         <div className="flex items-center gap-2">
-          <button onClick={() => setZoom(z => Math.min(z + 0.2, 3))} className="btn btn-ghost p-1.5" title="Zoom in">
+          <button onClick={() => setZoom(z => Math.min(z + 0.2, 3))} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Zoom in" title="Zoom in">
             <ZoomIn size={16} />
           </button>
-          <button onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))} className="btn btn-ghost p-1.5" title="Zoom out">
+          <button onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Zoom out" title="Zoom out">
             <ZoomOut size={16} />
           </button>
-          <button onClick={() => { setZoom(1); setPan({ x: 50, y: 50 }); }} className="btn btn-ghost p-1.5" title="Reset view">
+          <button onClick={() => { setZoom(1); setPan({ x: 50, y: 50 }); }} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Reset view" title="Reset view">
             <Maximize2 size={16} />
           </button>
           {onExport && (
-            <button onClick={onExport} className="btn btn-ghost p-1.5" title="Export">
+            <button onClick={onExport} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Export" title="Export">
               <Download size={16} />
             </button>
           )}
           {onClose && (
-            <button onClick={onClose} className="btn btn-ghost p-1.5" title="Close">
+            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close">
               <X size={16} />
             </button>
           )}

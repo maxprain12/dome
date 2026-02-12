@@ -42,6 +42,10 @@ try {
 let pdfjsLib = null;
 let pdfjsLoadAttempted = false;
 
+// @napi-rs/canvas for real PDF page rendering (optional)
+let napiCanvas = null;
+let napiCanvasLoadAttempted = false;
+
 /**
  * Check if thumbnail generation is available
  * @returns {boolean}
@@ -397,7 +401,7 @@ async function extractVideoMetadata(filePath) {
 
 /**
  * Generate a real PDF thumbnail by rendering the first page
- * Uses pdfjs-dist to render to raw pixel data, then sharp to convert to JPEG
+ * Uses pdfjs-dist + @napi-rs/canvas for actual page render, fallback to SVG placeholder
  * @param {string} filePath - Path to the PDF file
  * @returns {Promise<string|null>} Base64 data URL or null
  */
@@ -405,6 +409,17 @@ async function generatePdfThumbnail(filePath) {
   if (!sharp) {
     console.warn('[Thumbnail] sharp not available, falling back to SVG placeholder');
     return generatePdfPlaceholder(filePath);
+  }
+
+  // Lazy-load @napi-rs/canvas for real rendering
+  if (!napiCanvas && !napiCanvasLoadAttempted) {
+    napiCanvasLoadAttempted = true;
+    try {
+      napiCanvas = require('@napi-rs/canvas');
+      console.log('[Thumbnail] @napi-rs/canvas loaded for PDF page rendering');
+    } catch (error) {
+      console.warn('[Thumbnail] @napi-rs/canvas not available, PDF thumbnails will use placeholders:', error.message);
+    }
   }
 
   // Lazy-load pdfjs-dist (ESM module) on first use
@@ -428,11 +443,9 @@ async function generatePdfThumbnail(filePath) {
   }
 
   try {
-    // Load the PDF document
     const data = new Uint8Array(fs.readFileSync(filePath));
     const loadingTask = pdfjsLib.getDocument({
       data,
-      // Disable font/image loading for faster rendering
       disableFontFace: true,
       useSystemFonts: true,
     });
@@ -440,121 +453,64 @@ async function generatePdfThumbnail(filePath) {
     const pdfDoc = await loadingTask.promise;
     const page = await pdfDoc.getPage(1);
 
-    // Calculate scale to fit within thumbnail dimensions
     const viewport = page.getViewport({ scale: 1.0 });
     const scale = Math.min(
       THUMBNAIL_CONFIG.maxWidth / viewport.width,
       THUMBNAIL_CONFIG.maxHeight / viewport.height
     );
     const scaledViewport = page.getViewport({ scale });
-
     const width = Math.floor(scaledViewport.width);
     const height = Math.floor(scaledViewport.height);
 
-    // Create a simple pixel buffer for rendering (RGBA)
-    // pdfjs-dist can render to a custom "canvas" context using OPS
-    // We use the built-in Node.js rendering approach
-    const canvasFactory = {
-      create(w, h) {
-        const canvas = {
-          width: w,
-          height: h,
-          getContext() {
-            return null; // Will be set by the approach below
+    // Try real render with @napi-rs/canvas
+    if (napiCanvas && napiCanvas.createCanvas) {
+      try {
+        const canvas = napiCanvas.createCanvas(width, height);
+        const ctx = canvas.getContext('2d');
+
+        const renderContext = {
+          canvasContext: ctx,
+          viewport: scaledViewport,
+          canvasFactory: {
+            create(w, h) {
+              const c = napiCanvas.createCanvas(w, h);
+              return { canvas: c, context: c.getContext('2d') };
+            },
+            reset(canvasAndContext, w, h) {
+              if (canvasAndContext.canvas) {
+                canvasAndContext.canvas.width = w;
+                canvasAndContext.canvas.height = h;
+              }
+            },
+            destroy(canvasAndContext) {
+              canvasAndContext.canvas = null;
+              canvasAndContext.context = null;
+            },
           },
         };
-        return canvas;
-      },
-      reset(canvas, w, h) {
-        canvas.width = w;
-        canvas.height = h;
-      },
-      destroy(canvas) {
-        // no-op
-      },
-    };
 
-    // For Node.js without canvas, we render via the operator list approach
-    // Extract text and create a clean document-style thumbnail instead
-    // This is more reliable than trying to render pixels without node-canvas
+        await page.render(renderContext).promise;
+        pdfDoc.destroy();
 
-    // Get text content from first page for a rich preview
-    const textContent = await page.getTextContent();
-    const textItems = textContent.items.map(item => item.str).filter(Boolean);
-    const pageText = textItems.join(' ').substring(0, 300);
+        const pngBuffer = await canvas.encode('png');
+        const jpegBuffer = await sharp(pngBuffer)
+          .resize(THUMBNAIL_CONFIG.maxWidth, THUMBNAIL_CONFIG.maxHeight, {
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .jpeg({ quality: THUMBNAIL_CONFIG.quality })
+          .toBuffer();
 
-    // Generate a nicer document-style thumbnail with actual text content
-    const aspectRatio = viewport.width / viewport.height;
-    const svgWidth = 400;
-    const svgHeight = Math.round(svgWidth / aspectRatio);
-
-    // Split text into lines for SVG rendering
-    const lines = [];
-    const maxLineLength = 50;
-    const words = pageText.split(/\s+/);
-    let currentLine = '';
-
-    for (const word of words) {
-      if ((currentLine + ' ' + word).trim().length > maxLineLength) {
-        lines.push(currentLine.trim());
-        currentLine = word;
-        if (lines.length >= 14) break;
-      } else {
-        currentLine = currentLine ? currentLine + ' ' + word : word;
+        return `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
+      } catch (renderError) {
+        console.warn('[Thumbnail] PDF real render failed, using placeholder:', renderError.message);
       }
     }
-    if (currentLine && lines.length < 14) {
-      lines.push(currentLine.trim());
-    }
-
-    const textLines = lines
-      .map((line, i) => `<text x="28" y="${52 + i * 18}" font-family="Georgia, 'Times New Roman', serif" font-size="11" fill="#374151">${escapeXml(line)}</text>`)
-      .join('\n    ');
-
-    const pageCount = pdfDoc.numPages;
-    const filename = path.basename(filePath, '.pdf');
-    const truncatedName = filename.length > 40 ? filename.substring(0, 40) + '...' : filename;
-
-    // Create a realistic document-style preview
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}" viewBox="0 0 ${svgWidth} ${svgHeight}">
-    <rect width="${svgWidth}" height="${svgHeight}" fill="white" rx="4"/>
-    <!-- Paper shadow effect -->
-    <rect x="2" y="2" width="${svgWidth - 4}" height="${svgHeight - 4}" fill="white" stroke="#e5e7eb" stroke-width="1" rx="2"/>
-    <!-- Red PDF header bar -->
-    <rect x="2" y="2" width="${svgWidth - 4}" height="28" fill="#dc2626" rx="2"/>
-    <rect x="2" y="16" width="${svgWidth - 4}" height="14" fill="#dc2626"/>
-    <text x="16" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="700" fill="white">PDF</text>
-    <text x="${svgWidth - 16}" y="22" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="rgba(255,255,255,0.8)">${pageCount} page${pageCount !== 1 ? 's' : ''}</text>
-    <!-- Title -->
-    <text x="28" y="52" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#111827">${escapeXml(truncatedName)}</text>
-    <!-- Separator -->
-    <line x1="28" y1="58" x2="${svgWidth - 28}" y2="58" stroke="#e5e7eb" stroke-width="1"/>
-    <!-- Text content preview -->
-    ${lines.length > 0 ? lines
-      .map((line, i) => `<text x="28" y="${76 + i * 16}" font-family="Georgia, 'Times New Roman', serif" font-size="10.5" fill="#4b5563">${escapeXml(line)}</text>`)
-      .join('\n    ') : '<text x="28" y="76" font-family="system-ui" font-size="11" fill="#9ca3af">(No text content)</text>'}
-    <!-- Fade out gradient at bottom -->
-    <defs>
-      <linearGradient id="fadeOut" x1="0" y1="${svgHeight - 50}" x2="0" y2="${svgHeight}" gradientUnits="userSpaceOnUse">
-        <stop offset="0%" stop-color="white" stop-opacity="0"/>
-        <stop offset="100%" stop-color="white" stop-opacity="1"/>
-      </linearGradient>
-    </defs>
-    <rect x="2" y="${svgHeight - 50}" width="${svgWidth - 4}" height="48" fill="url(#fadeOut)"/>
-  </svg>`;
-
-    // Convert SVG to JPEG via sharp for consistent format
-    const jpegBuffer = await sharp(Buffer.from(svg))
-      .resize(THUMBNAIL_CONFIG.maxWidth, THUMBNAIL_CONFIG.maxHeight, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality: THUMBNAIL_CONFIG.quality })
-      .toBuffer();
 
     pdfDoc.destroy();
 
-    return `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
+    // Fallback: placeholder limpio (icono PDF) en lugar del SVG con texto denso
+    return generatePdfPlaceholder(filePath);
   } catch (error) {
     console.error('[Thumbnail] Error generating PDF thumbnail:', error.message);
     // Fallback to SVG placeholder

@@ -56,6 +56,7 @@ interface AppState {
   graphPanelOpen: boolean;
   selectedSourceIds: string[];
   toggleSourcesPanel: () => void;
+  setSourcesPanelOpen: (open: boolean) => void;
   toggleStudioPanel: () => void;
   toggleGraphPanel: () => void;
   setSelectedSourceIds: (ids: string[]) => void;
@@ -159,11 +160,12 @@ export const useAppStore = create<AppState>((set) => ({
   setViewMode: (mode) => set({ viewMode: mode }),
 
   // Workspace Panel State
-  sourcesPanelOpen: true,
+  sourcesPanelOpen: false,
   studioPanelOpen: false,
   graphPanelOpen: false,
   selectedSourceIds: [],
   toggleSourcesPanel: () => set((state) => ({ sourcesPanelOpen: !state.sourcesPanelOpen })),
+  setSourcesPanelOpen: (open) => set({ sourcesPanelOpen: open }),
   toggleStudioPanel: () => set((state) => ({
     studioPanelOpen: !state.studioPanelOpen,
     // Mutual exclusion: close graph panel when opening studio

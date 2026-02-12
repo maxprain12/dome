@@ -67,6 +67,16 @@ function URLViewerComponent({ resource }: URLViewerProps) {
     return unsubscribe;
   }, [resource.id]);
 
+  const handleWebViewLoad = useCallback(() => {
+    setIsLoading(false);
+  }, []);
+
+  const handleWebViewError = useCallback((event: any) => {
+    console.error('WebView error:', event);
+    setError('Failed to load URL in WebView');
+    setIsLoading(false);
+  }, []);
+
   // Attach webview events (Electron uses did-finish-load, did-fail-load)
   useEffect(() => {
     const el = webviewRef.current as HTMLWebViewElement & { addEventListener: Function } | null;
@@ -108,16 +118,6 @@ function URLViewerComponent({ resource }: URLViewerProps) {
       await window.electron.invoke('open-external-url', url);
     }
   }, [url]);
-
-  const handleWebViewLoad = useCallback(() => {
-    setIsLoading(false);
-  }, []);
-
-  const handleWebViewError = useCallback((event: any) => {
-    console.error('WebView error:', event);
-    setError('Failed to load URL in WebView');
-    setIsLoading(false);
-  }, []);
 
   const handleCopySummary = useCallback(async () => {
     if (!metadata?.summary) return;

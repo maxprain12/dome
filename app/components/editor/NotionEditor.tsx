@@ -26,6 +26,7 @@ import python from 'highlight.js/lib/languages/javascript';
 import { CalloutExtension } from './extensions/Callout';
 import { ToggleExtension } from './extensions/Toggle';
 import { DividerExtension } from './extensions/Divider';
+import { MermaidExtension } from './extensions/Mermaid';
 import { PDFEmbedExtension } from './extensions/PDFEmbed';
 import { ResourceMentionExtension } from './extensions/ResourceMention';
 import { FileBlockExtension } from './extensions/FileBlock';
@@ -111,6 +112,7 @@ export default function NotionEditor({
       CalloutExtension,
       ToggleExtension,
       DividerExtension,
+      MermaidExtension,
       PDFEmbedExtension,
       ResourceMentionExtension,
       FileBlockExtension,

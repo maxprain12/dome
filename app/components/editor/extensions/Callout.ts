@@ -21,7 +21,7 @@ export const CalloutExtension = Node.create({
   addAttributes() {
     return {
       icon: {
-        default: '💡',
+        default: 'lightbulb',
         parseHTML: (element) => element.getAttribute('data-icon'),
         renderHTML: (attributes) => {
           if (!attributes.icon) {
@@ -61,7 +61,7 @@ export const CalloutExtension = Node.create({
       'div',
       mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
         'data-type': 'callout',
-        'data-icon': attrs.icon || '💡',
+        'data-icon': attrs.icon || 'lightbulb',
         'data-color': attrs.color || 'yellow',
         class: 'callout-block',
       }),
@@ -78,7 +78,7 @@ export const CalloutExtension = Node.create({
       setCallout:
         (attributes?: CalloutBlockAttributes) =>
         ({ commands }) => {
-          return commands.wrapIn(this.name, attributes || { icon: '💡', color: 'yellow' });
+          return commands.wrapIn(this.name, attributes || { icon: 'lightbulb', color: 'yellow' });
         },
     };
   },

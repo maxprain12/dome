@@ -250,7 +250,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 cursor-pointer"
+              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
               style={{
                 backgroundColor: 'var(--bg)',
                 color: 'var(--primary-text)',
@@ -285,15 +285,16 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
+            <label htmlFor="onboarding-venice-api-key" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               API Key <span className="opacity-50">(optional)</span>
             </label>
             <input
+              id="onboarding-venice-api-key"
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="For premium models..."
-              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
+              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{
                 backgroundColor: 'var(--bg)',
                 color: 'var(--primary-text)',
@@ -303,13 +304,14 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
+            <label htmlFor="onboarding-venice-model" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               Modelo
             </label>
             <select
+              id="onboarding-venice-model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 cursor-pointer"
+              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
               style={{
                 backgroundColor: 'var(--bg)',
                 color: 'var(--primary-text)',
@@ -332,15 +334,16 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     return (
       <div className="space-y-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
+          <label htmlFor="onboarding-api-key" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
             API Key
           </label>
           <input
+            id="onboarding-api-key"
             type="password"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder={providerConfig.apiKeyPlaceholder || 'Enter API key...'}
-            className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
+            className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{
               backgroundColor: 'var(--bg)',
               color: 'var(--primary-text)',
@@ -369,7 +372,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           <select
             value={model}
             onChange={(e) => setModel(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 cursor-pointer"
+            className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
             style={{
               backgroundColor: 'var(--bg)',
               color: 'var(--primary-text)',
@@ -524,15 +527,16 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
 
           {/* Base URL */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
+            <label htmlFor="onboarding-ollama-url" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               Ollama URL
             </label>
             <input
+              id="onboarding-ollama-url"
               type="url"
               value={ollamaBaseURL}
               onChange={(e) => setOllamaBaseURL(e.target.value)}
               placeholder="http://localhost:11434"
-              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
+              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{
                 backgroundColor: 'var(--bg)',
                 color: 'var(--primary-text)',
@@ -544,7 +548,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           {/* Model Selector */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+              <label htmlFor="onboarding-ollama-model" className="block text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                 Chat model
               </label>
               <button
@@ -564,9 +568,10 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               </div>
             ) : ollamaModels.length > 0 ? (
               <select
+                id="onboarding-ollama-model"
                 value={ollamaModel}
                 onChange={(e) => setOllamaModel(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 cursor-pointer"
+                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
                 style={{
                   backgroundColor: 'var(--bg)',
                   color: 'var(--primary-text)',
@@ -581,11 +586,12 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               </select>
             ) : (
               <input
+                id="onboarding-ollama-model"
                 type="text"
                 value={ollamaModel}
                 onChange={(e) => setOllamaModel(e.target.value)}
                 placeholder="llama3.2"
-                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
+                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{
                   backgroundColor: 'var(--bg)',
                   color: 'var(--primary-text)',
@@ -597,14 +603,15 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
 
           {/* Embedding Model */}
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
+            <label htmlFor="onboarding-ollama-embedding" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
               Embedding model
             </label>
             {ollamaModels.length > 0 ? (
               <select
+                id="onboarding-ollama-embedding"
                 value={ollamaEmbeddingModel}
                 onChange={(e) => setOllamaEmbeddingModel(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 cursor-pointer"
+                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
                 style={{
                   backgroundColor: 'var(--bg)',
                   color: 'var(--primary-text)',
@@ -623,7 +630,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 value={ollamaEmbeddingModel}
                 onChange={(e) => setOllamaEmbeddingModel(e.target.value)}
                 placeholder="mxbai-embed-large"
-                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2"
+                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{
                   backgroundColor: 'var(--bg)',
                   color: 'var(--primary-text)',

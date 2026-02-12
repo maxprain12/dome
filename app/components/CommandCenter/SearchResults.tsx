@@ -13,6 +13,7 @@ import {
   GitBranch,
   Search,
   BookOpen,
+  Notebook,
 } from 'lucide-react';
 
 interface SearchResultsProps {
@@ -42,6 +43,8 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
     switch (type) {
       case 'note':
         return <FileText size={16} />;
+      case 'notebook':
+        return <Notebook size={16} />;
       case 'pdf':
       case 'document':
         return <File size={16} />;
@@ -138,8 +141,9 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
             {results.resources.slice(0, 10).map((resource) => (
               <button
                 key={resource.id}
-                className="result-item"
+                className="result-item content-visibility-auto cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 onClick={() => onSelect(resource)}
+                aria-label={`Open ${resource.title || 'Untitled'}`}
               >
                 <div className="result-icon" data-type={resource.type}>
                   {getResourceIcon(resource.type)}
@@ -172,8 +176,9 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
             {results.studioOutputs!.slice(0, 5).map((output) => (
               <button
                 key={output.id}
-                className="result-item"
+                className="result-item content-visibility-auto cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 onClick={() => onStudioOutputSelect(output)}
+                aria-label={`Open ${output.title || 'Sin título'}`}
               >
                 <div className="result-icon" data-type={output.type}>
                   {STUDIO_TYPE_ICONS[output.type] || <FileText size={16} />}
@@ -205,8 +210,9 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
               return (
                 <button
                   key={interaction.id}
-                  className="result-item interaction"
+                  className="result-item interaction content-visibility-auto cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                   onClick={() => onSelect({ id: interaction.resource_id, title: interaction.resource_title })}
+                  aria-label={`Open ${interaction.resource_title} - ${badgeLabel}`}
                 >
                   <div className="result-icon" data-type={interaction.type}>
                     {getInteractionIcon(interaction.type)}
@@ -216,11 +222,11 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
                       <span className="interaction-badge">{badgeLabel}</span>
                       in {interaction.resource_title}{pageLabel}
                     </div>
-                    {snippet && (
+                    {snippet ? (
                       <div className="result-preview">
                         {highlightMatch(truncateText(snippet), query)}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </button>
               );

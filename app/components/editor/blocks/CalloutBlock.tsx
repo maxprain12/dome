@@ -2,6 +2,15 @@
 import { NodeViewWrapper, NodeViewContent } from '@tiptap/react';
 import type { CalloutBlockAttributes } from '@/types';
 import { useState } from 'react';
+import { Lightbulb, FileText, AlertTriangle, Info } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  lightbulb: Lightbulb,
+  'file-text': FileText,
+  'alert-triangle': AlertTriangle,
+  info: Info,
+};
 
 interface CalloutBlockProps {
   node: {
@@ -20,7 +29,7 @@ const calloutColors = {
 };
 
 export function CalloutBlock({ node, updateAttributes }: CalloutBlockProps) {
-  const { icon = '💡', color = 'yellow' } = node.attrs;
+  const { icon = 'lightbulb', color = 'yellow' } = node.attrs;
   const [isEditingIcon, setIsEditingIcon] = useState(false);
   const [iconInput, setIconInput] = useState(icon);
 
@@ -41,10 +50,19 @@ export function CalloutBlock({ node, updateAttributes }: CalloutBlockProps) {
         }}
       >
         <div
+          role="button"
+          tabIndex={0}
           onClick={() => setIsEditingIcon(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsEditingIcon(true);
+            }
+          }}
+          aria-label="Edit callout icon"
+          className="cursor-pointer"
           style={{
             fontSize: '20px',
-            cursor: 'pointer',
             userSelect: 'none',
             flexShrink: 0,
           }}
@@ -54,6 +72,7 @@ export function CalloutBlock({ node, updateAttributes }: CalloutBlockProps) {
               type="text"
               value={iconInput}
               onChange={(e) => setIconInput(e.target.value)}
+              aria-label="Callout icon"
               onBlur={() => {
                 updateAttributes({ icon: iconInput });
                 setIsEditingIcon(false);
@@ -74,7 +93,12 @@ export function CalloutBlock({ node, updateAttributes }: CalloutBlockProps) {
               }}
             />
           ) : (
-            icon
+            <span style={{ display: 'flex', alignItems: 'center' }}>
+              {(() => {
+                const IconComponent = ICON_MAP[icon] ?? Info;
+                return <IconComponent size={20} />;
+              })()}
+            </span>
           )}
         </div>
         <div className="callout-content" style={{ flex: 1 }}>

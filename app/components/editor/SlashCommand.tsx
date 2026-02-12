@@ -1,5 +1,5 @@
 
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useEditor } from '@tiptap/react';
 import { Editor } from '@tiptap/core';
 import { SlashCommandPluginKey } from './extensions/SlashCommandPlugin';
@@ -30,13 +30,14 @@ import {
   BookOpen,
   PenLine,
   Languages,
+  Workflow,
 } from 'lucide-react';
 
 interface SlashCommandMenuProps {
   editor: Editor;
 }
 
-export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
+export const SlashCommandMenu = React.memo(function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
   const [state, setState] = useState<SlashCommandState>({
     show: false,
     items: [],
@@ -170,7 +171,7 @@ export function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
       ))}
     </div>
   );
-}
+});
 
 export function getSlashCommandItems(): SlashCommandItem[] {
   return [
@@ -471,7 +472,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       category: 'Advanced',
       command: ({ editor, range }) => {
         if (editor && range) {
-          editor.chain().focus().deleteRange(range).setCallout({ icon: '💡', color: 'yellow' }).run();
+          editor.chain().focus().deleteRange(range).setCallout({ icon: 'lightbulb', color: 'yellow' }).run();
         }
       },
       keywords: ['callout', 'nota', 'advertencia'],
@@ -511,6 +512,18 @@ export function getSlashCommandItems(): SlashCommandItem[] {
         }
       },
       keywords: ['codigo', 'code', 'programacion'],
+    },
+    {
+      title: 'Mermaid',
+      description: 'Insertar diagrama Mermaid',
+      icon: <Workflow size={18} />,
+      category: 'Advanced',
+      command: ({ editor, range }) => {
+        if (editor && range) {
+          editor.chain().focus().deleteRange(range).setMermaid().run();
+        }
+      },
+      keywords: ['mermaid', 'diagrama', 'diagram', 'flowchart', 'sequence'],
     },
     // Referencias
     {
@@ -677,7 +690,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
               editor
                 .chain()
                 .focus()
-                .setCallout({ icon: '📝', color: 'blue' })
+                .setCallout({ icon: 'file-text', color: 'blue' })
                 .insertContent(result)
                 .run();
             }

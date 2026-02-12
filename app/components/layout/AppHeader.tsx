@@ -20,6 +20,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/settings': 'Settings',
   '/workspace': 'Workspace',
   '/workspace/note': 'Note',
+  '/workspace/notebook': 'Notebook',
   '/workspace/url': 'URL',
 };
 
@@ -37,7 +38,7 @@ export default function AppHeader() {
 
   return (
     <div
-      className={`fixed left-0 right-0 z-50 flex items-center justify-between${isWindows ? ' win-titlebar-padding' : ''
+      className={`fixed left-0 right-0 z-sticky flex items-center justify-between${isWindows ? ' win-titlebar-padding' : ''
         }`}
       style={{
         top: 0,
@@ -69,23 +70,7 @@ export default function AppHeader() {
           <button
             type="button"
             onClick={() => setCommandCenterOpen(true)}
-            className="flex items-center justify-center rounded transition-colors"
-            style={{
-              width: '32px',
-              height: '32px',
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--dome-text-secondary)',
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--dome-bg)';
-              e.currentTarget.style.color = 'var(--dome-text)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.color = 'var(--dome-text-secondary)';
-            }}
+            className="flex items-center justify-center rounded transition-colors min-w-[44px] min-h-[44px] w-11 h-11 border-none cursor-pointer hover:bg-[var(--dome-bg)] hover:text-[var(--dome-text)] text-[var(--dome-text-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             aria-label="Search"
             title="Search (Cmd+K)"
           >
@@ -99,23 +84,7 @@ export default function AppHeader() {
               window.electron.openSettings();
             }
           }}
-          className="flex items-center justify-center rounded transition-colors"
-          style={{
-            width: '32px',
-            height: '32px',
-            border: 'none',
-            background: 'transparent',
-            color: 'var(--dome-text-secondary)',
-            cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--dome-bg)';
-            e.currentTarget.style.color = 'var(--dome-text)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'var(--dome-text-secondary)';
-          }}
+          className="flex items-center justify-center rounded transition-colors min-w-[44px] min-h-[44px] w-11 h-11 border-none cursor-pointer hover:bg-[var(--dome-bg)] hover:text-[var(--dome-text)] text-[var(--dome-text-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           aria-label="Settings"
           title="Settings"
         >

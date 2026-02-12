@@ -86,9 +86,9 @@ export default function StudioHomeView() {
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
       {/* Studio Output Viewer Overlay */}
-      {activeOutput && (
+      {activeOutput ? (
         <div
-          className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
+          className="fixed inset-x-0 bottom-0 z-modal flex flex-col"
           style={{
             top: 'var(--overlay-top-offset)',
             paddingLeft: 'var(--safe-area-inset-left)',
@@ -99,7 +99,7 @@ export default function StudioHomeView() {
         >
           <StudioOutputViewer output={activeOutput} onClose={handleCloseViewer} />
         </div>
-      )}
+      ) : null}
 
       <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-4xl mx-auto">
@@ -113,27 +113,19 @@ export default function StudioHomeView() {
                     handleTileClick(tile.type);
                   }
                 }}
-                className="flex flex-col items-start gap-2 p-4 rounded-xl text-left transition-all duration-150 relative"
+                className={`flex flex-col items-start gap-2 p-4 rounded-xl text-left transition-colors duration-150 relative border ${
+                  tile.comingSoon || isGenerating
+                    ? 'bg-[var(--dome-surface)] border-[var(--dome-border)] cursor-default'
+                    : 'bg-[var(--dome-surface)] border-[var(--dome-border)] cursor-pointer hover:border-[var(--dome-accent)] hover:bg-[var(--dome-accent-bg)]'
+                }`}
                 style={{
-                  background: 'var(--dome-surface)',
-                  border: '1px solid var(--dome-border)',
-                  cursor: tile.comingSoon || isGenerating ? 'default' : 'pointer',
                   opacity: tile.comingSoon ? 0.6 : isGenerating ? 0.8 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!tile.comingSoon) {
-                    e.currentTarget.style.borderColor = 'var(--dome-accent)';
-                    e.currentTarget.style.background = 'var(--dome-accent-bg)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--dome-border)';
-                  e.currentTarget.style.background = 'var(--dome-surface)';
                 }}
                 disabled={tile.comingSoon || isGenerating}
                 title={tile.criteria ?? `Generate ${tile.title}`}
+                aria-label={tile.comingSoon ? `${tile.title} (coming soon)` : (tile.criteria ?? `Generate ${tile.title}`)}
               >
-                {tile.comingSoon && (
+                {tile.comingSoon ? (
                   <span
                     className="absolute top-2 right-2 text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full"
                     style={{
@@ -143,7 +135,7 @@ export default function StudioHomeView() {
                   >
                     Soon
                   </span>
-                )}
+                ) : null}
                 <span className="leading-none shrink-0" style={{ color: 'var(--dome-accent)' }}>
                   {tile.icon}
                 </span>
@@ -186,47 +178,40 @@ export default function StudioHomeView() {
                 {studioOutputs.map((output) => (
                   <div
                     key={output.id}
-                    className="flex items-center gap-3 p-3 rounded-lg group transition-all"
-                    style={{
-                      background: 'var(--dome-surface)',
-                      border: '1px solid var(--dome-border)',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--dome-accent)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'var(--dome-border)';
-                    }}
+                    className="flex items-center gap-3 p-3 rounded-lg group transition-colors duration-150 border border-[var(--dome-border)] bg-[var(--dome-surface)] hover:border-[var(--dome-accent)]"
                   >
                     <span className="shrink-0" style={{ color: 'var(--dome-text-secondary)' }}>
                       {STUDIO_TYPE_ICONS[output.type] || <FileText size={16} />}
                     </span>
                     <button
                       onClick={() => handleViewOutput(output)}
-                      className="flex-1 min-w-0 text-left"
+                      className="flex-1 min-w-0 text-left cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 rounded"
+                      aria-label={`View ${output.title}`}
                     >
                       <div className="text-sm font-medium truncate" style={{ color: 'var(--dome-text)' }}>
                         {output.title}
                       </div>
                       <div className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
                         {formatDate(output.created_at)}
-                        {output.type === 'flashcards' && output.deck_card_count != null && (
+                        {output.type === 'flashcards' && output.deck_card_count != null ? (
                           <> · {output.deck_card_count} tarjetas</>
-                        )}
+                        ) : null}
                       </div>
                     </button>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       <button
                         onClick={() => handleViewOutput(output)}
-                        className="btn btn-ghost p-1.5"
+                        className="btn btn-ghost p-2.5 min-h-[44px] min-w-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                         title="Ver"
+                        aria-label={`View ${output.title}`}
                       >
                         <Eye size={14} style={{ color: 'var(--dome-text-secondary)' }} />
                       </button>
                       <button
                         onClick={() => handleDeleteOutput(output.id)}
-                        className="btn btn-ghost p-1.5"
+                        className="btn btn-ghost p-2.5 min-h-[44px] min-w-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                         title="Eliminar"
+                        aria-label={`Delete ${output.title}`}
                         disabled={deletingId === output.id}
                       >
                         {deletingId === output.id ? (

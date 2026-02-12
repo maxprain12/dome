@@ -14,7 +14,7 @@
     "electron:dev": "concurrently \"bun run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "bun run build && bun run rebuild:natives && bun run verify:natives && DEBUG= electron-builder",
     "electron:build:verbose": "bun run build && bun run rebuild:natives && bun run verify:natives && DEBUG=electron-builder electron-builder",
-    "rebuild:natives": "electron-rebuild -f -w=better-sqlite3,sharp,@ffmpeg-installer/ffmpeg",
+    "rebuild:natives": "electron-rebuild -f -w=better-sqlite3,sharp,@ffmpeg-installer/ffmpeg,@napi-rs/canvas",
     "verify:natives": "node scripts/verify-natives.cjs",
     "copy:pdf-worker": "node scripts/copy-pdf-worker.cjs",
     "postinstall": "electron-builder install-app-deps && bun run rebuild:natives && bun run copy:pdf-worker",
@@ -23,6 +23,7 @@
     "generate-icons": "bun run scripts/generate-icons.ts"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.88",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@sinclair/typebox": "^0.34.48",
     "@tiptap/extension-bubble-menu": "^3.17.1",
@@ -60,7 +61,9 @@
     "lowlight": "^3.1.0",
     "lucide-react": "^0.460.0",
     "mammoth": "^1.11.0",
+    "mermaid": "^11.12.2",
     "papaparse": "^5.5.3",
+    "pyodide": "^0.29.0",
     "pdfjs-dist": "^5.4.624",
     "qrcode-terminal": "^0.12.0",
     "qrcode.react": "^4.2.0",
@@ -116,6 +119,8 @@
       "!**/node_modules/*/{example,examples,doc,docs}"
     ],
     "asarUnpack": [
+      "node_modules/@napi-rs/canvas/**/*",
+      "node_modules/@napi-rs/canvas-*/**/*",
       "node_modules/better-sqlite3/**/*",
       "node_modules/sharp/**/*",
       "node_modules/@img/**/*",

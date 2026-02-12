@@ -22,22 +22,12 @@ export default function SuggestedQuestions({ questions, onSelect }: SuggestedQue
           <button
             key={i}
             onClick={() => onSelect(q)}
-            className="text-xs px-3 py-1.5 rounded-full transition-all duration-150 text-left"
+            className="text-xs px-3 py-1.5 rounded-full transition-colors duration-150 text-left min-h-[44px] cursor-pointer hover:border-[var(--dome-accent)] hover:text-[var(--dome-accent)] hover:bg-[var(--dome-accent-bg)]"
             style={{
               background: 'var(--bg-secondary)',
               border: '1px solid var(--border)',
               color: 'var(--secondary-text)',
               maxWidth: '300px',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--dome-accent, #596037)';
-              e.currentTarget.style.color = 'var(--dome-accent, #596037)';
-              e.currentTarget.style.background = 'var(--dome-accent-bg, #F5F3EE)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border)';
-              e.currentTarget.style.color = 'var(--secondary-text)';
-              e.currentTarget.style.background = 'var(--bg-secondary)';
             }}
           >
             {q.length > 80 ? q.slice(0, 77) + '...' : q}

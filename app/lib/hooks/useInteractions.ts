@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useTransition } from 'react';
 import { generateId } from '@/lib/utils';
 
 export type InteractionType = 'note' | 'annotation' | 'chat';
@@ -63,6 +63,7 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
   const [interactions, setInteractions] = useState<ParsedInteraction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
   const fetchInteractions = useCallback(async () => {
     if (!resourceId || typeof window === 'undefined' || !window.electron) {
@@ -80,7 +81,7 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
         const parsed = result.data.map(parseInteraction);
         // Sort by created_at descending (newest first)
         parsed.sort((a, b) => b.created_at - a.created_at);
-        setInteractions(parsed);
+        startTransition(() => setInteractions(parsed));
       } else {
         setError(result.error || 'Failed to fetch interactions');
       }

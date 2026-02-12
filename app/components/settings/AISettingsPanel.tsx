@@ -466,16 +466,17 @@ export default function AISettingsPanel() {
 
             {/* Optional API Key */}
             <div className="group">
-              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
+              <label htmlFor="ai-api-key-venice" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
                 API Key <span className="opacity-50">(optional)</span>
               </label>
               <div className="relative">
                 <input
+                  id="ai-api-key-venice"
                   type={showApiKey ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="For premium models..."
-                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
                   style={{
                     color: 'var(--primary-text)',
                     borderColor: 'var(--border)',
@@ -497,16 +498,17 @@ export default function AISettingsPanel() {
         {/* API Key for OpenAI and Google */}
         {(provider === 'openai' || provider === 'google') && (
           <div className="group">
-            <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
+            <label htmlFor="ai-api-key-cloud" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
               API Key
             </label>
             <div className="relative">
               <input
+                id="ai-api-key-cloud"
                 type={showApiKey ? 'text' : 'password'}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || 'Enter API key...'}
-                className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
                 style={{
                   color: 'var(--primary-text)',
                   borderColor: 'var(--border)',
@@ -584,16 +586,17 @@ export default function AISettingsPanel() {
             {/* API Key Input */}
             {authMode === 'api_key' && (
               <div className="group">
-                <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
+                <label htmlFor="ai-api-key-anthropic" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
                   API Key
                 </label>
                 <div className="relative">
                   <input
+                    id="ai-api-key-anthropic"
                     type={showApiKey ? 'text' : 'password'}
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="sk-ant-..."
-                    className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                    className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
                     style={{
                       color: 'var(--primary-text)',
                       borderColor: 'var(--border)',
@@ -697,7 +700,7 @@ export default function AISettingsPanel() {
                   onChange={(e) => setModel(e.target.value)}
                   placeholder={getDefaultModelId(provider)}
                   autoComplete="off"
-                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
                   style={{
                     color: 'var(--primary-text)',
                     borderColor: 'var(--border)',
@@ -803,15 +806,16 @@ export default function AISettingsPanel() {
 
             {/* Ollama Base URL */}
             <div className="group">
-              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
+              <label htmlFor="ai-ollama-base-url" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
                 Base URL
               </label>
               <input
+                id="ai-ollama-base-url"
                 type="url"
                 value={ollamaBaseURL}
                 onChange={(e) => setOllamaBaseURL(e.target.value)}
                 placeholder="http://localhost:11434"
-                className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
                 style={{
                   color: 'var(--primary-text)',
                   borderColor: 'var(--border)',
@@ -864,7 +868,8 @@ export default function AISettingsPanel() {
                   value={ollamaModel}
                   onChange={(e) => setOllamaModel(e.target.value)}
                   placeholder="llama3.2"
-                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                  aria-label="Ollama model name"
+                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
                   style={{
                     color: 'var(--primary-text)',
                     borderColor: 'var(--border)',
@@ -908,7 +913,8 @@ export default function AISettingsPanel() {
                   value={ollamaEmbeddingModel}
                   onChange={(e) => setOllamaEmbeddingModel(e.target.value)}
                   placeholder="mxbai-embed-large"
-                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                  aria-label="Ollama embedding model name"
+                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
                   style={{
                     color: 'var(--primary-text)',
                     borderColor: 'var(--border)',
@@ -926,12 +932,13 @@ export default function AISettingsPanel() {
               <div className="space-y-6">
                 <div>
                   <div className="flex justify-between mb-2">
-                    <label className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
+                    <label htmlFor="ai-ollama-temperature" className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
                       Temperature
                     </label>
                     <span className="text-xs font-mono opacity-60" style={{ color: 'var(--primary-text)' }}>{ollamaTemperature}</span>
                   </div>
                   <input
+                    id="ai-ollama-temperature"
                     type="range"
                     min="0"
                     max="2"
@@ -944,12 +951,13 @@ export default function AISettingsPanel() {
 
                 <div>
                   <div className="flex justify-between mb-2">
-                    <label className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
+                    <label htmlFor="ai-ollama-top-p" className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
                       Top P
                     </label>
                     <span className="text-xs font-mono opacity-60" style={{ color: 'var(--primary-text)' }}>{ollamaTopP}</span>
                   </div>
                   <input
+                    id="ai-ollama-top-p"
                     type="range"
                     min="0"
                     max="1"
@@ -962,12 +970,13 @@ export default function AISettingsPanel() {
 
                 <div>
                   <div className="flex justify-between mb-2">
-                    <label className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
+                    <label htmlFor="ai-ollama-num-predict" className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
                       Num Predict
                     </label>
                     <span className="text-xs font-mono opacity-60" style={{ color: 'var(--primary-text)' }}>{ollamaNumPredict}</span>
                   </div>
                   <input
+                    id="ai-ollama-num-predict"
                     type="range"
                     min="100"
                     max="4096"
@@ -1016,7 +1025,7 @@ export default function AISettingsPanel() {
           <div className="flex gap-3">
             <button
               onClick={handleSave}
-              className="flex-1 px-6 py-3 text-sm font-medium text-white rounded-full active:scale-[0.99] transition-all"
+              className="flex-1 px-6 py-3 text-sm font-medium text-white rounded-full active:opacity-90 transition-all"
               style={{
                 backgroundColor: 'var(--accent)',
               }}
@@ -1026,7 +1035,7 @@ export default function AISettingsPanel() {
             <button
               onClick={handleTestConnection}
               disabled={testing}
-              className="px-5 py-3 text-sm font-medium rounded-full active:scale-[0.99] transition-all disabled:opacity-50"
+              className="px-5 py-3 text-sm font-medium rounded-full active:opacity-90 transition-all disabled:opacity-50"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
                 border: '1px solid var(--border)',

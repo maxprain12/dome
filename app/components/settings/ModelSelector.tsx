@@ -1,5 +1,6 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { ChevronDown, Search, CheckCircle2, Gift, Shield, Brain, ImageIcon } from 'lucide-react';
 import type { ModelDefinition } from '@/lib/ai/models';
 
@@ -49,6 +50,7 @@ export default function ModelSelector({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const prefersReducedMotion = useReducedMotion();
 
   // Get selected model details
   const selectedModel = useMemo(
@@ -115,12 +117,12 @@ export default function ModelSelector({
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
     window.addEventListener('resize', handleScroll);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('scroll', handleScroll, { capture: true, passive: true });
       window.removeEventListener('resize', handleScroll);
     };
   }, [isOpen]);
@@ -129,9 +131,12 @@ export default function ModelSelector({
   useEffect(() => {
     if (isOpen && highlightedIndex >= 0) {
       const itemElement = document.getElementById(`model-item-${highlightedIndex}`);
-      itemElement?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      itemElement?.scrollIntoView({
+        block: 'nearest',
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      });
     }
-  }, [highlightedIndex, isOpen]);
+  }, [highlightedIndex, isOpen, prefersReducedMotion]);
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -343,12 +348,14 @@ export default function ModelSelector({
           {searchable && (
             <div className="px-2 pb-2 border-b" style={{ borderColor: 'var(--border)' }}>
               <div className="relative">
+                <label htmlFor="model-selector-search" className="sr-only">Search models</label>
                 <Search
                   size={14}
                   className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
                   style={{ color: 'var(--tertiary-text)' }}
                 />
                 <input
+                  id="model-selector-search"
                   ref={searchInputRef}
                   type="text"
                   value={searchQuery}
@@ -357,7 +364,7 @@ export default function ModelSelector({
                     setHighlightedIndex(0);
                   }}
                   placeholder="Buscar modelos..."
-                  className="w-full pl-9 pr-3 py-2 text-sm rounded-md bg-transparent focus:outline-none"
+                  className="w-full pl-9 pr-3 py-2 text-sm rounded-md bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                   style={{
                     color: 'var(--primary-text)',
                     border: '1px solid var(--border)',

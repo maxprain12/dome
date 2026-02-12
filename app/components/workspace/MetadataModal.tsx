@@ -82,24 +82,45 @@ export default function MetadataModal({
 
   if (!isOpen) return null;
 
+  const handleOverlayKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onClose();
+    }
+  };
+
   return (
-    <div className="modal-overlay animate-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="metadata-modal-title">
-      <div className="modal-content max-w-lg animate-modal" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="modal-overlay animate-overlay cursor-pointer"
+      onClick={onClose}
+      role="button"
+      tabIndex={0}
+      onKeyDown={handleOverlayKeyDown}
+      aria-label="Close modal"
+    >
+      <div
+        className="modal-content max-w-lg animate-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="metadata-modal-title"
+      >
         <div className="modal-header">
           <h2 id="metadata-modal-title" className="text-lg font-semibold font-display" style={{ color: 'var(--primary-text)' }}>
             Resource Info
           </h2>
-          <button onClick={onClose} className="btn btn-ghost p-1.5 rounded-lg" aria-label="Close">
+          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close">
             <X size={18} style={{ color: 'var(--secondary-text)' }} />
           </button>
         </div>
 
         <div className="modal-body space-y-4">
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--secondary-text)' }}>
+            <label htmlFor="metadata-title" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--secondary-text)' }}>
               Title
             </label>
             <input
+              id="metadata-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}

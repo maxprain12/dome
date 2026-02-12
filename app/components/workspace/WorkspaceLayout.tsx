@@ -26,7 +26,7 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
   const [resource, setResource] = useState<Resource | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sidePanelOpen, setSidePanelOpen] = useState(true);
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
@@ -207,12 +207,14 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
           );
         }
         case 'note':
-        case 'url': {
-          // Note and URL resources have their own dedicated workspace routes.
-          // If we end up here, redirect to the correct route.
-          const route = resource.type === 'note'
-            ? `/workspace/note?id=${resource.id}`
-            : `/workspace/url?id=${resource.id}`;
+        case 'url':
+        case 'notebook': {
+          const routeMap: Record<string, string> = {
+            note: `/workspace/note?id=${resource.id}`,
+            url: `/workspace/url?id=${resource.id}`,
+            notebook: `/workspace/notebook?id=${resource.id}`,
+          };
+          const route = routeMap[resource.type] || `/workspace?id=${resource.id}`;
 
           if (typeof window !== 'undefined') {
             window.location.hash = `#${route}`;

@@ -884,12 +884,18 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
   }
 
   if (resourceContext) {
+    const isNotebook = resourceContext.type === 'notebook';
     prompt += '\n\n' + buildMartinResourceContext({
       type: resourceContext.type,
       summary: resourceContext.summary,
-      content: resourceContext.content,
+      content: isNotebook
+        ? 'This is a notebook. Use notebook_get to read its structure, cells, and code.'
+        : resourceContext.content,
       transcription: resourceContext.transcription,
     });
+    if (isNotebook && toolsEnabled) {
+      prompt += '\n\n' + promptTemplates.martin.notebookContext;
+    }
   }
 
   return prompt;

@@ -82,7 +82,9 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
       {/* Add Note Input */}
       <div className="p-3 border-b" style={{ borderColor: 'var(--border)' }}>
         <div className="flex gap-2">
+          <label htmlFor="notes-add-input" className="sr-only">Add a note</label>
           <textarea
+            id="notes-add-input"
             value={newNote}
             onChange={(e) => setNewNote(e.target.value)}
             placeholder="Add a note..."
@@ -102,12 +104,13 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
           <button
             onClick={handleAddNote}
             disabled={!newNote.trim() || isAdding}
-            className="p-2 rounded-md transition-colors self-end disabled:opacity-50"
+            className="p-2 rounded-md transition-colors self-end disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{
               background: 'var(--accent)',
               color: 'white',
             }}
             title="Add note (⌘+Enter)"
+            aria-label="Add note"
           >
             {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus size={18} />}
           </button>
@@ -132,7 +135,7 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
           notes.map((note) => (
             <div
               key={note.id}
-              className="p-3 rounded-lg"
+              className="p-3 rounded-lg content-visibility-auto"
               style={{
                 background: 'var(--bg-secondary)',
                 border: '1px solid var(--border)',
@@ -156,15 +159,17 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
                   <div className="flex justify-end gap-2">
                     <button
                       onClick={handleCancelEdit}
-                      className="p-1.5 rounded-md transition-colors"
+                      className="p-2.5 min-h-[44px] min-w-[44px] rounded-md transition-colors"
                       style={{ color: 'var(--secondary)' }}
+                      aria-label="Cancel edit"
                     >
                       <X size={16} />
                     </button>
                     <button
                       onClick={handleSaveEdit}
-                      className="p-1.5 rounded-md transition-colors"
+                      className="p-2.5 min-h-[44px] min-w-[44px] rounded-md transition-colors"
                       style={{ color: 'var(--accent)' }}
+                      aria-label="Save edit"
                     >
                       <Check size={16} />
                     </button>
@@ -186,31 +191,19 @@ export default function NotesTab({ resourceId }: NotesTabProps) {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleStartEdit(note)}
-                        className="p-1 rounded transition-colors"
+                        className="p-2 min-h-[44px] min-w-[44px] rounded transition-colors cursor-pointer hover:bg-[var(--bg-tertiary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                         style={{ color: 'var(--secondary)' }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--bg-tertiary)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                        }}
                         title="Edit note"
+                        aria-label="Edit note"
                       >
                         <Edit3 size={14} />
                       </button>
                       <button
                         onClick={() => handleDelete(note.id)}
-                        className="p-1 rounded transition-colors"
+                        className="p-2 min-h-[44px] min-w-[44px] rounded transition-colors cursor-pointer hover:bg-[var(--bg-tertiary)] hover:text-[#ef4444] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                         style={{ color: 'var(--secondary)' }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'var(--bg-tertiary)';
-                          e.currentTarget.style.color = '#ef4444';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'transparent';
-                          e.currentTarget.style.color = 'var(--secondary)';
-                        }}
                         title="Delete note"
+                        aria-label="Delete note"
                       >
                         <Trash2 size={14} />
                       </button>

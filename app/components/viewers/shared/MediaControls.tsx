@@ -28,16 +28,10 @@ function MediaControlsComponent({
       {/* Play/Pause Button */}
       <button
         onClick={onPlayPause}
-        className={`${isCompact ? 'p-2' : 'p-4'} rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2`}
+        className={`${isCompact ? 'p-2 min-w-[44px] min-h-[44px]' : 'p-4'} flex items-center justify-center rounded-full transition-all duration-150 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 hover:brightness-110`}
         style={{
           background: 'var(--accent)',
           color: 'white',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.filter = 'brightness(1.1)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.filter = 'brightness(1)';
         }}
         aria-label={isPlaying ? 'Pause' : 'Play'}
       >
@@ -52,7 +46,7 @@ function MediaControlsComponent({
       <div className="flex items-center gap-2">
         <button
           onClick={onToggleMute}
-          className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 hover:bg-[var(--bg-tertiary)]"
           style={{ color: 'var(--secondary-text)' }}
           aria-label={isMuted ? 'Unmute' : 'Mute'}
         >

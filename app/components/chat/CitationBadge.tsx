@@ -24,9 +24,9 @@ export default function CitationBadge({ number, sourceTitle, sourcePassage, onCl
       </button>
 
       {/* Tooltip */}
-      {showTooltip && (sourceTitle || sourcePassage) && (
+      {showTooltip && (sourceTitle || sourcePassage) ? (
         <div
-          className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 animate-in"
+          className="absolute z-dropdown bottom-full left-1/2 -translate-x-1/2 mb-2 animate-in"
           style={{
             width: '280px',
             padding: '12px',
@@ -48,7 +48,7 @@ export default function CitationBadge({ number, sourceTitle, sourcePassage, onCl
             </div>
           )}
         </div>
-      )}
+      ) : null}
     </span>
   );
 }

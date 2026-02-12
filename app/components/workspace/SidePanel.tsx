@@ -1,28 +1,45 @@
-
-import { useState, useEffect } from 'react';
-import { Link2, MessageSquare, Search, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown } from 'lucide-react';
 import NotesTab from './NotesTab';
 import AnnotationsTab from './AnnotationsTab';
+import WorkspaceFilesPanel from './WorkspaceFilesPanel';
 import { type Resource } from '@/types';
 import { useMartinStore } from '@/lib/store/useMartinStore';
 
-type TabType = 'references' | 'backlinks' | 'search';
+type TabType = 'references' | 'backlinks' | 'search' | 'workspace';
 
 interface SidePanelProps {
   resourceId: string;
   resource: Resource;
   isOpen: boolean;
   onClose: () => void;
+  /** For notebooks: workspace folder path and change handler */
+  notebookWorkspacePath?: string;
+  onNotebookWorkspacePathChange?: (path: string) => Promise<void>;
 }
+
+const TAB_CONFIG: { id: TabType; label: string; icon: React.ReactNode }[] = [
+  { id: 'references', label: 'References', icon: <Link2 size={14} /> },
+  { id: 'backlinks', label: 'Backlinks', icon: <MessageSquare size={14} /> },
+  { id: 'search', label: 'Search', icon: <Search size={14} /> },
+  { id: 'workspace', label: 'Workspace', icon: <FolderOpen size={14} /> },
+];
 
 export default function SidePanel({
   resourceId,
   resource,
   isOpen,
   onClose,
+  notebookWorkspacePath,
+  onNotebookWorkspacePathChange,
 }: SidePanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('references');
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const { setContext } = useMartinStore();
+
+  const isNotebook = resource?.type === 'notebook';
+  const tabs = isNotebook ? TAB_CONFIG : TAB_CONFIG.filter((t) => t.id !== 'workspace');
 
   // Actualizar el contexto de Many cuando se abre un recurso
   useEffect(() => {
@@ -34,13 +51,20 @@ export default function SidePanel({
     };
   }, [resourceId, resource, setContext]);
 
+  // Cerrar dropdown al hacer clic fuera
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   if (!isOpen) return null;
 
-  const tabs: { id: TabType; label: string; icon: React.ReactNode }[] = [
-    { id: 'references', label: 'References', icon: <Link2 size={14} /> },
-    { id: 'backlinks', label: 'Backlinks', icon: <MessageSquare size={14} /> },
-    { id: 'search', label: 'Search', icon: <Search size={14} /> },
-  ];
+  const activeTabConfig = tabs.find((t) => t.id === activeTab) ?? tabs[0];
 
   return (
     <div
@@ -53,30 +77,69 @@ export default function SidePanel({
       }}
     >
       <div
-        className="flex items-center justify-between px-4 py-3 border-b shrink-0"
+        className="flex items-center justify-between gap-2 px-4 py-3 border-b shrink-0"
         style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
       >
-        <div className="flex items-center gap-1 p-1 rounded-xl" style={{ background: 'var(--bg-secondary)' }}>
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+        <div ref={dropdownRef} className="flex-1 min-w-0 relative">
+          <button
+            type="button"
+            onClick={() => setDropdownOpen((o) => !o)}
+            className="flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+              color: 'var(--primary-text)',
+            }}
+            aria-expanded={dropdownOpen}
+            aria-haspopup="listbox"
+          >
+            <span className="flex items-center gap-2 truncate">
+              {activeTabConfig.icon}
+              {activeTabConfig.label}
+            </span>
+            <ChevronDown
+              size={16}
+              className="shrink-0 transition-transform duration-200"
               style={{
-                color: activeTab === tab.id ? 'var(--primary-text)' : 'var(--secondary-text)',
-                background: activeTab === tab.id ? 'var(--bg)' : 'transparent',
-                boxShadow: activeTab === tab.id ? 'var(--shadow-sm)' : 'none',
+                color: 'var(--secondary-text)',
+                transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0)',
+              }}
+            />
+          </button>
+
+          {dropdownOpen && (
+            <div
+              className="absolute top-full left-0 right-0 mt-1 py-1 rounded-lg z-dropdown shadow-lg"
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border)',
               }}
             >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          ))}
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setDropdownOpen(false);
+                  }}
+                  className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors"
+                  style={{
+                    color: activeTab === tab.id ? 'var(--primary-text)' : 'var(--secondary-text)',
+                    background: activeTab === tab.id ? 'var(--translucent)' : 'transparent',
+                  }}
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <button
           onClick={onClose}
-          className="p-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--bg-secondary)] opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          className="p-2 rounded-lg shrink-0 transition-all duration-200 hover:bg-[var(--bg-secondary)] opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           style={{ color: 'var(--secondary-text)' }}
           aria-label="Close panel"
         >
@@ -85,7 +148,7 @@ export default function SidePanel({
       </div>
 
       {/* Tab Content */}
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 overflow-hidden relative flex flex-col">
         {activeTab === 'references' && (
           <ReferencesTab resourceId={resourceId} />
         )}
@@ -94,6 +157,12 @@ export default function SidePanel({
         )}
         {activeTab === 'search' && (
           <SearchTab resourceId={resourceId} resource={resource} />
+        )}
+        {activeTab === 'workspace' && isNotebook && onNotebookWorkspacePathChange && (
+          <WorkspaceFilesPanel
+            workspacePath={notebookWorkspacePath}
+            onWorkspacePathChange={onNotebookWorkspacePathChange}
+          />
         )}
       </div>
     </div>
@@ -144,13 +213,15 @@ function ReferencesTab({ resourceId }: { resourceId: string }) {
       ) : (
         <div className="space-y-2">
           {links.map((link) => (
-            <div
+            <button
+              type="button"
               key={link.id}
-              className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-[var(--bg-hover)]"
+              className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-[var(--bg-hover)] w-full text-left focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
               onClick={() => {
                 window.electron.workspace.open(link.target_id, link.target_type || link.type || 'note');
               }}
+              aria-label={`Open ${link.target_title || 'Untitled'}`}
             >
               <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                 {link.target_title || 'Untitled'}
@@ -165,13 +236,13 @@ function ReferencesTab({ resourceId }: { resourceId: string }) {
                 >
                   {link.link_type || 'related'}
                 </span>
-                {link.weight && link.weight !== 1.0 && (
+                {(link.weight != null && link.weight !== 1.0) ? (
                   <span className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
                     Weight: {link.weight}
                   </span>
-                )}
+                ) : null}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -223,13 +294,15 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
       ) : (
         <div className="space-y-2">
           {backlinks.map((link) => (
-            <div
+            <button
+              type="button"
               key={link.id}
-              className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-[var(--bg-hover)]"
+              className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-[var(--bg-hover)] w-full text-left focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
               onClick={() => {
                 window.electron.workspace.open(link.source_id, link.source_type);
               }}
+              aria-label={`Open ${link.source_title || 'Untitled'}`}
             >
               <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                 {link.source_title || 'Untitled'}
@@ -244,7 +317,7 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
                 >
                   {link.source_type}
                 </span>
-                {link.link_type && link.link_type !== 'related' && (
+                {link.link_type && link.link_type !== 'related' ? (
                   <span
                     className="text-xs px-2 py-0.5 rounded-full font-medium"
                     style={{
@@ -255,9 +328,9 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
                   >
                     {link.link_type}
                   </span>
-                )}
+                ) : null}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -327,10 +400,11 @@ function SearchTab({ resourceId, resource }: { resourceId: string; resource: Res
 
       {/* Link Type Selector */}
       <div className="mb-3">
-        <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--secondary-text)' }}>
+        <label htmlFor="sidepanel-link-type" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--secondary-text)' }}>
           Link Type
         </label>
         <select
+          id="sidepanel-link-type"
           value={selectedLinkType}
           onChange={(e) => setSelectedLinkType(e.target.value)}
           className="w-full px-3 py-2 text-sm rounded-lg"
@@ -350,7 +424,9 @@ function SearchTab({ resourceId, resource }: { resourceId: string; resource: Res
 
       {/* Search Input */}
       <div className="flex gap-2 mb-4">
+        <label htmlFor="sidepanel-search" className="sr-only">Search resources</label>
         <input
+          id="sidepanel-search"
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -366,7 +442,8 @@ function SearchTab({ resourceId, resource }: { resourceId: string; resource: Res
         <button
           onClick={handleSearch}
           disabled={isSearching || !query.trim()}
-          className="px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          aria-label="Search resources"
           style={{
             background: query.trim() ? 'var(--accent)' : 'var(--bg-tertiary)',
             color: query.trim() ? 'white' : 'var(--secondary-text)',
@@ -395,11 +472,12 @@ function SearchTab({ resourceId, resource }: { resourceId: string; resource: Res
               </div>
               <button
                 onClick={() => handleLink(result.id)}
-                className="ml-2 px-2 py-1 rounded text-xs font-medium transition-colors"
+                className="ml-2 px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{
                   background: 'var(--accent)',
                   color: 'white',
                 }}
+                aria-label={`Link to ${result.title || 'Untitled'}`}
               >
                 Link
               </button>

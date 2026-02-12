@@ -20,7 +20,7 @@ const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
 const DEFAULT_MAX_CONTENT_LENGTH = 10000;
 
-const RESOURCE_TYPES = ['note', 'pdf', 'video', 'audio', 'image', 'url', 'document', 'folder'] as const;
+const RESOURCE_TYPES = ['note', 'notebook', 'pdf', 'video', 'audio', 'image', 'url', 'document', 'folder'] as const;
 type ResourceType = typeof RESOURCE_TYPES[number];
 
 // =============================================================================

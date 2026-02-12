@@ -42,6 +42,7 @@ const authManager = require('./auth-manager.cjs');
 const personalityLoader = require('./personality-loader.cjs');
 const aiCloudService = require('./ai-cloud-service.cjs');
 const ttsService = require('./tts-service.cjs');
+const notebookPython = require('./notebook-python.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
 
 // IPC handlers (modularized)
@@ -141,9 +142,11 @@ function setupUserDataFolder() {
   console.log('📁 User data path:', userDataPath);
 }
 
-// Install development tools
+// Install development tools (React DevTools)
+// Set SKIP_DEVTOOLS=1 to skip if you get sandbox/renderer errors
 async function installExtensions() {
   if (!isDev) return;
+  if (process.env.SKIP_DEVTOOLS === '1') return;
 
   try {
     const {
@@ -157,7 +160,7 @@ async function installExtensions() {
     });
     console.log('✅ React DevTools installed');
   } catch (error) {
-    console.error('❌ Error installing extensions:', error);
+    console.error('❌ Error installing extensions:', error.message || error);
   }
 }
 
@@ -374,11 +377,12 @@ app
       aiToolsHandler,
       aiCloudService,
       ttsService,
-      vectorHandler,
-      documentExtractor,
-      authManager,
-      personalityLoader,
-      validateSender,
+    vectorHandler,
+    documentExtractor,
+    authManager,
+    personalityLoader,
+    notebookPython,
+    validateSender,
       sanitizePath,
       validateUrl,
     });

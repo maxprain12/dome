@@ -51,7 +51,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
     >
       {/* Overlay */}
       <div
-        className="absolute inset-0 backdrop-blur-sm"
+        className="absolute inset-0 backdrop-blur-sm cursor-pointer"
         style={{ backgroundColor: 'var(--translucent)' }}
         onClick={onClose}
         aria-hidden="true"
@@ -84,16 +84,8 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
           </h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-            style={{ 
-              color: 'var(--secondary)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--bg-hover)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
+            className="p-2 min-h-[44px] min-w-[44px] rounded-lg transition-colors hover:bg-[var(--bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
+            style={{ color: 'var(--secondary)' }}
             aria-label="Cerrar modal"
           >
             <X className="w-5 h-5" />

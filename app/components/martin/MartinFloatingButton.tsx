@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { Trash2, Copy, RefreshCw, X, Send, Loader2 } from 'lucide-react';
 import MartinIcon from './MartinIcon';
@@ -55,10 +56,12 @@ export default function MartinFloatingButton() {
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [providerInfo, setProviderInfo] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const isSubmittingRef = useRef(false);
 
   // Fallback: get resourceId from URL when in workspace (store may not be synced yet)
   const effectiveResourceId =
@@ -89,8 +92,10 @@ export default function MartinFloatingButton() {
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+    });
+  }, [messages, prefersReducedMotion]);
 
   // Focus input when chat opens
   useEffect(() => {
@@ -130,8 +135,9 @@ export default function MartinFloatingButton() {
   // Handle sending a message with streaming
   const handleSend = useCallback(async (messageOverride?: string) => {
     const userMessage = messageOverride || input.trim();
-    if (!userMessage || isLoading) return;
+    if (!userMessage || isLoading || isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
     setInput('');
     setIsLoading(true);
     setStatus('thinking');
@@ -148,6 +154,9 @@ export default function MartinFloatingButton() {
           role: 'assistant',
           content: 'I don\'t have AI configuration. Go to **Settings > AI** to configure a provider.',
         });
+        isSubmittingRef.current = false;
+        setIsLoading(false);
+        setStatus('idle');
         return;
       }
 
@@ -225,6 +234,7 @@ export default function MartinFloatingButton() {
       });
       showToast('error', `Many: ${msg}`);
     } finally {
+      isSubmittingRef.current = false;
       setIsLoading(false);
       setStatus('idle');
     }
@@ -321,21 +331,19 @@ export default function MartinFloatingButton() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transition: 'transform 0.2s, box-shadow 0.2s',
+          transition: 'box-shadow 0.2s',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'scale(1.08)';
           e.currentTarget.style.boxShadow = '0 6px 24px rgba(0, 0, 0, 0.2)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
           e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.15)';
         }}
       >
         <MartinIcon size={32} />
 
         {/* Notification Badge */}
-        {totalNotifications > 0 && (
+        {totalNotifications > 0 ? (
           <span
             style={{
               position: 'absolute',
@@ -356,7 +364,7 @@ export default function MartinFloatingButton() {
           >
             {totalNotifications > 9 ? '9+' : totalNotifications}
           </span>
-        )}
+        ) : null}
 
         {/* Status Indicator */}
         {status !== 'idle' && (
@@ -456,18 +464,9 @@ export default function MartinFloatingButton() {
                   clearMessages();
                   showToast('info', 'Chat cleared');
                 }}
+                className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full border-none bg-transparent cursor-pointer transition-all duration-150 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: '50%',
-                  border: 'none',
-                  background: 'transparent',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
                   color: 'var(--tertiary-text)',
-                  transition: 'all 0.15s',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'var(--bg-hover)';
@@ -478,6 +477,7 @@ export default function MartinFloatingButton() {
                   e.currentTarget.style.color = 'var(--tertiary-text)';
                 }}
                 title="Clear chat"
+                aria-label="Clear chat"
               >
                 <Trash2 size={14} />
               </button>
@@ -486,18 +486,9 @@ export default function MartinFloatingButton() {
             {/* Close button */}
             <button
               onClick={toggleOpen}
+              className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full border-none bg-transparent cursor-pointer transition-all duration-150 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{
-                width: 30,
-                height: 30,
-                borderRadius: '50%',
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
                 color: 'var(--tertiary-text)',
-                transition: 'all 0.15s',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = 'var(--bg-hover)';
@@ -507,6 +498,7 @@ export default function MartinFloatingButton() {
                 e.currentTarget.style.background = 'transparent';
                 e.currentTarget.style.color = 'var(--tertiary-text)';
               }}
+              aria-label="Close chat"
             >
               <X size={14} />
             </button>
@@ -777,6 +769,8 @@ export default function MartinFloatingButton() {
               <button
                 onClick={() => handleSend()}
                 disabled={!input.trim() || isLoading}
+                aria-label="Send message"
+                title="Send message"
                 style={{
                   width: 40,
                   height: 40,
@@ -843,6 +837,11 @@ export default function MartinFloatingButton() {
         }
         .martin-chat-popover::-webkit-scrollbar-thumb:hover {
           background: var(--border-hover);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .martin-dot, [class*="martin"] {
+            animation: none !important;
+          }
         }
       `,
         }}

@@ -1,5 +1,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import {
   X,
   Play,
@@ -89,6 +90,7 @@ export default function AudioOverview({
   // Transcript state
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion = useReducedMotion();
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   // Progress bar ref for click-to-seek
@@ -179,10 +181,13 @@ export default function AudioOverview({
       // Auto-scroll to active line
       const lineEl = lineRefs.current.get(activeIdx);
       if (lineEl && transcriptRef.current) {
-        lineEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        lineEl.scrollIntoView({
+          behavior: prefersReducedMotion ? 'auto' : 'smooth',
+          block: 'nearest',
+        });
       }
     }
-  }, [currentTime, audioUrl, isAudioLoaded, transcript.lines, activeLineIndex]);
+  }, [currentTime, audioUrl, isAudioLoaded, transcript.lines, activeLineIndex, prefersReducedMotion]);
 
   // -------------------------------------------------------
   // Controls
@@ -278,7 +283,7 @@ export default function AudioOverview({
           </span>
         </div>
         {onClose && (
-          <button onClick={onClose} className="btn btn-ghost p-1.5">
+          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close">
             <X size={16} />
           </button>
         )}
@@ -342,25 +347,28 @@ export default function AudioOverview({
             <div className="flex items-center gap-2">
               <button
                 onClick={skipBackward}
-                className="btn btn-ghost p-1.5"
+                className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                aria-label="Rewind 15 seconds"
                 title="Rewind 15s"
               >
                 <SkipBack size={16} style={{ color: 'var(--secondary-text)' }} />
               </button>
               <button
                 onClick={togglePlay}
-                className="flex items-center justify-center w-9 h-9 rounded-full transition-colors"
+                className="flex items-center justify-center w-9 h-9 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{
                   background: 'var(--accent)',
                   color: 'var(--base-text)',
                 }}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
                 title={isPlaying ? 'Pause' : 'Play'}
               >
                 {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
               </button>
               <button
                 onClick={skipForward}
-                className="btn btn-ghost p-1.5"
+                className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                aria-label="Forward 15 seconds"
                 title="Forward 15s"
               >
                 <SkipForward size={16} style={{ color: 'var(--secondary-text)' }} />
@@ -371,7 +379,8 @@ export default function AudioOverview({
             <div className="flex items-center gap-2 w-20 justify-end">
               <button
                 onClick={() => setIsMuted(!isMuted)}
-                className="btn btn-ghost p-1"
+                className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                aria-label={isMuted ? 'Unmute' : 'Mute'}
                 title={isMuted ? 'Unmute' : 'Mute'}
               >
                 {isMuted ? (
