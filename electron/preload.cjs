@@ -21,6 +21,7 @@ const ALLOWED_CHANNELS = {
     'get-user-data-path',
     'get-home-path',
     'get-app-version',
+    'open-external-url',
     // File dialogs
     'select-file',
     'select-files',
