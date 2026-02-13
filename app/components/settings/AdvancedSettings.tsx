@@ -1,6 +1,18 @@
+'use client';
 
+import { useState, useEffect } from 'react';
+import { Download, RefreshCw, RotateCw } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { CitationStyle } from '@/types';
+
+type UpdaterStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
+
+interface UpdaterState {
+  status: UpdaterStatus;
+  version?: string;
+  percent?: number;
+  error?: string;
+}
 
 const citationStyles: { value: CitationStyle; label: string; description: string }[] = [
   { value: 'apa', label: 'APA', description: 'American Psychological Association' },
@@ -11,8 +23,59 @@ const citationStyles: { value: CitationStyle; label: string; description: string
   { value: 'ieee', label: 'IEEE', description: 'Institute of Electrical and Electronics Engineers' },
 ];
 
+declare global {
+  interface Window {
+    electron?: {
+      getAppVersion?: () => Promise<string>;
+      updater?: {
+        check: () => Promise<unknown>;
+        download: () => Promise<unknown>;
+        install: () => Promise<void>;
+        onStatus: (cb: (s: UpdaterState) => void) => () => void;
+      };
+    };
+  }
+}
+
 export default function AdvancedSettings() {
   const { citationStyle, autoSave, autoBackup, updateCitationStyle, updatePreferences } = useAppStore();
+  const [updaterState, setUpdaterState] = useState<UpdaterState>({ status: 'idle' });
+  const [appVersion, setAppVersion] = useState<string>('');
+
+  useEffect(() => {
+    window.electron?.getAppVersion?.().then((v) => setAppVersion(v || '0.1.0'));
+  }, []);
+
+  useEffect(() => {
+    if (!window.electron?.updater?.onStatus) return;
+    const unsub = window.electron.updater.onStatus(setUpdaterState);
+    return unsub;
+  }, []);
+
+  const handleCheckUpdate = async () => {
+    setUpdaterState((s) => ({ ...s, status: 'checking' }));
+    try {
+      const result = await window.electron?.updater?.check();
+      const r = result as { status?: string } | null;
+      if (r?.status === 'skipped') {
+        setUpdaterState({ status: 'idle' });
+      }
+    } catch (e) {
+      setUpdaterState({ status: 'error', error: String(e) });
+    }
+  };
+
+  const handleDownloadUpdate = async () => {
+    try {
+      await window.electron?.updater?.download();
+    } catch (e) {
+      setUpdaterState({ status: 'error', error: String(e) });
+    }
+  };
+
+  const handleInstallUpdate = () => {
+    window.electron?.updater?.install();
+  };
 
   const handleToggleAutoSave = () => {
     updatePreferences({ autoSave: !autoSave });
@@ -37,6 +100,64 @@ export default function AdvancedSettings() {
           Configure advanced settings and preferences
         </p>
       </div>
+
+      {/* Application Updates */}
+      <section>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
+          Application Updates
+        </h3>
+        <div className="space-y-4">
+          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+            Current version: {appVersion}
+          </p>
+          {updaterState.status === 'idle' && (
+            <button onClick={handleCheckUpdate} className="btn btn-secondary flex items-center gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Check for updates
+            </button>
+          )}
+          {updaterState.status === 'checking' && (
+            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Checking for updates...</p>
+          )}
+          {updaterState.status === 'available' && (
+            <div className="space-y-3">
+              <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
+                New version {updaterState.version} available
+              </p>
+              <button onClick={handleDownloadUpdate} className="btn btn-primary flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                Download update
+              </button>
+            </div>
+          )}
+          {updaterState.status === 'downloading' && (
+            <div className="space-y-2">
+              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Downloading... {updaterState.percent?.toFixed(0) ?? 0}%</p>
+              <div className="h-2 rounded-full overflow-hidden bg-[var(--border)]">
+                <div
+                  className="h-full transition-all duration-300 bg-[var(--accent)]"
+                  style={{ width: `${updaterState.percent ?? 0}%` }}
+                />
+              </div>
+            </div>
+          )}
+          {updaterState.status === 'downloaded' && (
+            <div className="space-y-3">
+              <p className="text-sm" style={{ color: 'var(--success)' }}>Update ready to install</p>
+              <button onClick={handleInstallUpdate} className="btn btn-primary flex items-center gap-2">
+                <RotateCw className="w-4 h-4" />
+                Restart to install
+              </button>
+            </div>
+          )}
+          {updaterState.status === 'not-available' && (
+            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>You have the latest version</p>
+          )}
+          {updaterState.status === 'error' && (
+            <p className="text-sm" style={{ color: 'var(--error)' }}>{updaterState.error || 'Update check failed'}</p>
+          )}
+        </div>
+      </section>
 
       {/* System Preferences */}
       <section>
@@ -93,6 +214,40 @@ export default function AdvancedSettings() {
               />
             </button>
           </div>
+        </div>
+      </section>
+
+      {/* Sync (Export/Import) */}
+      <section>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
+          Sincronización
+        </h3>
+        <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
+          Exporta o importa tus datos para llevar todo a otro equipo.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={async () => {
+              const r = await window.electron?.sync?.export?.();
+              if (r?.success) alert('Exportación completada en: ' + r.path);
+              else if (!r?.cancelled) alert('Error: ' + (r?.error || 'Unknown'));
+            }}
+            className="btn btn-secondary"
+          >
+            Exportar datos
+          </button>
+          <button
+            onClick={async () => {
+              const r = await window.electron?.sync?.import?.();
+              if (r?.success) {
+                alert(r.restartRequired ? 'Importación completada. Reinicia Dome para ver los datos.' : 'Importación completada.');
+                if (r.restartRequired) window.location.reload();
+              } else if (!r?.cancelled) alert('Error: ' + (r?.error || 'Unknown'));
+            }}
+            className="btn btn-secondary"
+          >
+            Importar datos
+          </button>
         </div>
       </section>
 

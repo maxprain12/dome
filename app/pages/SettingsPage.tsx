@@ -5,10 +5,11 @@ import AppearanceSettings from '@/components/settings/AppearanceSettings';
 import AISettingsPanel from '@/components/settings/AISettingsPanel';
 import WhatsAppSettingsPanel from '@/components/settings/WhatsAppSettingsPanel';
 import AdvancedSettings from '@/components/settings/AdvancedSettings';
+import PluginsSettings from '@/components/settings/PluginsSettings';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 
-type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'advanced';
+type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'plugins' | 'advanced';
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingsSection>('general');
@@ -31,6 +32,8 @@ export default function SettingsPage() {
         return <AISettingsPanel />;
       case 'whatsapp':
         return <WhatsAppSettingsPanel />;
+      case 'plugins':
+        return <PluginsSettings />;
       case 'advanced':
         return <AdvancedSettings />;
       default:

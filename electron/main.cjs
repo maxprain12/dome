@@ -51,6 +51,7 @@ const documentExtractor = require('./document-extractor.cjs');
 const authManager = require('./auth-manager.cjs');
 const personalityLoader = require('./personality-loader.cjs');
 const aiCloudService = require('./ai-cloud-service.cjs');
+const updateService = require('./update-service.cjs');
 const ttsService = require('./tts-service.cjs');
 const notebookPython = require('./notebook-python.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
@@ -399,7 +400,13 @@ app
 
     // IMPORTANTE: Crear ventana PRIMERO para que la UI se muestre inmediatamente
     // La inicializacion de LanceDB puede fallar o bloquearse con modulos nativos
-    createWindow();
+    const mainWindow = await createWindow();
+
+    // Initialize auto-updater (only in packaged app)
+    updateService.init(
+      mainWindow,
+      (status) => windowManager.broadcast('updater:status', status)
+    );
 
     // Initialize the app in background (SQLite settings, LanceDB, filesystem)
     // No bloquea la UI - si falla, la app sigue funcionando sin busqueda vectorial

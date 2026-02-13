@@ -84,6 +84,7 @@ jobs:
           path: |
             release/*.dmg
             release/*.zip
+            release/latest-mac.yml
           if-no-files-found: error
 
   # Windows build
@@ -138,6 +139,7 @@ jobs:
           name: dome-windows
           path: |
             release/*.exe
+            release/latest.yml
           if-no-files-found: error
 
   # Create GitHub Release when a tag is pushed

@@ -237,6 +237,19 @@ const ALLOWED_CHANNELS = {
     // Notebook (Python via IPC)
     'notebook:runPython',
     'notebook:checkPython',
+    // Auto-updater
+    'updater:check',
+    'updater:download',
+    'updater:install',
+    // Sync export/import
+    'sync:export',
+    'sync:import',
+    // Plugins
+    'plugin:list',
+    'plugin:install-from-folder',
+    'plugin:install-from-repo',
+    'plugin:uninstall',
+    'plugin:setEnabled',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -261,6 +274,8 @@ const ALLOWED_CHANNELS = {
     'ai:stream:chunk',
     // Audio events
     'audio:generation-progress',
+    // Auto-updater events
+    'updater:status',
     // Ollama Manager events
     'ollama:download-progress',
     'ollama:server-log',
@@ -424,6 +439,39 @@ const electronHandler = {
     initialize: () => ipcRenderer.invoke('init:initialize'),
     checkOnboarding: () => ipcRenderer.invoke('init:check-onboarding'),
     getStatus: () => ipcRenderer.invoke('init:get-status'),
+  },
+
+  // ============================================
+  // AUTO-UPDATER API
+  // ============================================
+  updater: {
+    check: () => ipcRenderer.invoke('updater:check'),
+    download: () => ipcRenderer.invoke('updater:download'),
+    install: () => ipcRenderer.invoke('updater:install'),
+    onStatus: (callback) => {
+      const subscription = (event, data) => callback(data);
+      ipcRenderer.on('updater:status', subscription);
+      return () => ipcRenderer.removeListener('updater:status', subscription);
+    },
+  },
+
+  // ============================================
+  // SYNC (Export/Import) API
+  // ============================================
+  sync: {
+    export: () => ipcRenderer.invoke('sync:export'),
+    import: () => ipcRenderer.invoke('sync:import'),
+  },
+
+  // ============================================
+  // PLUGINS API
+  // ============================================
+  plugins: {
+    list: () => ipcRenderer.invoke('plugin:list'),
+    installFromFolder: () => ipcRenderer.invoke('plugin:install-from-folder'),
+    installFromRepo: (repo) => ipcRenderer.invoke('plugin:install-from-repo', repo),
+    uninstall: (pluginId) => ipcRenderer.invoke('plugin:uninstall', pluginId),
+    setEnabled: (pluginId, enabled) => ipcRenderer.invoke('plugin:setEnabled', pluginId, enabled),
   },
 
   // ============================================
