@@ -63,13 +63,12 @@ jobs:
           if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
             echo "⚠️  No code signing credentials, building without signing..."
             export CSC_IDENTITY_AUTO_DISCOVERY=false
-            bun run electron:build -- --mac --config.mac.identity=null --config.mac.notarize=false
+            bun run electron:build -- --mac --config.mac.identity=null --config.mac.notarize=false --publish never
           else
             echo "✓ Code signing credentials found, building with signing..."
-            bun run electron:build -- --mac
+            bun run electron:build -- --mac --publish never
           fi
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -130,9 +129,7 @@ jobs:
         run: bun run verify:natives
 
       - name: Build Electron (Windows)
-        run: bun run electron:build -- --win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun run electron:build -- --win --publish never
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
