@@ -84,6 +84,10 @@
         "vite": "^7.3.1",
         "wait-on": "^8.0.0",
       },
+      "optionalDependencies": {
+        "@lancedb/vectordb-darwin-arm64": "0.4.20",
+        "@lancedb/vectordb-darwin-x64": "0.4.20",
+      },
     },
   },
   "packages": {

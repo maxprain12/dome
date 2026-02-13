@@ -12,8 +12,9 @@
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "concurrently \"bun run dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "bun run build && bun run rebuild:natives && bun run verify:natives && DEBUG= electron-builder",
-    "electron:build:verbose": "bun run build && bun run rebuild:natives && bun run verify:natives && DEBUG=electron-builder electron-builder",
+    "electron:build": "bun run build && node -e \"if(process.platform==='darwin')require('child_process').execSync('bun run install:natives-mac',{stdio:'inherit'})\" && bun run rebuild:natives && bun run verify:natives && DEBUG= electron-builder",
+    "electron:build:verbose": "bun run build && node -e \"if(process.platform==='darwin')require('child_process').execSync('bun run install:natives-mac',{stdio:'inherit'})\" && bun run rebuild:natives && bun run verify:natives && DEBUG=electron-builder electron-builder",
+    "install:natives-mac": "node scripts/install-lancedb-mac.cjs",
     "rebuild:natives": "electron-rebuild -f -w=better-sqlite3,sharp,@ffmpeg-installer/ffmpeg,@napi-rs/canvas",
     "verify:natives": "node scripts/verify-natives.cjs",
     "copy:pdf-worker": "node scripts/copy-pdf-worker.cjs",
@@ -81,6 +82,10 @@
     "xlsx": "^0.18.5",
     "yauzl": "^3.2.0",
     "zustand": "^4.5.0"
+  },
+  "optionalDependencies": {
+    "@lancedb/vectordb-darwin-arm64": "0.4.20",
+    "@lancedb/vectordb-darwin-x64": "0.4.20"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.6.3",

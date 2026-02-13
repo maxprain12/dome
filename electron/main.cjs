@@ -12,6 +12,16 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+// Must run before any require that loads vectordb (e.g. vector-handler)
+// In packaged app, native modules live in app.asar.unpacked
+if (app.isPackaged) {
+  const mod = require('module');
+  const unpacked = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules');
+  if (!mod.globalPaths.includes(unpacked)) {
+    mod.globalPaths.unshift(unpacked);
+  }
+}
+
 // Register custom protocol scheme as privileged before app is ready
 // This allows the app:// protocol to work like https:// with full privileges
 protocol.registerSchemesAsPrivileged([

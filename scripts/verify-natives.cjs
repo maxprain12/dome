@@ -133,6 +133,32 @@ for (const module of NATIVE_MODULES) {
   console.log('');
 }
 
+// Check LanceDB/vectordb native packages for macOS (required for universal Mac builds)
+if (platform === 'darwin') {
+  console.log('📦 vectordb (LanceDB) - macOS:');
+  const lanceArm = path.join(__dirname, '..', 'node_modules/@lancedb/vectordb-darwin-arm64');
+  const lanceX64 = path.join(__dirname, '..', 'node_modules/@lancedb/vectordb-darwin-x64');
+  const hasArm = fs.existsSync(lanceArm);
+  const hasX64 = fs.existsSync(lanceX64);
+
+  if (hasArm) {
+    console.log('  ✅ @lancedb/vectordb-darwin-arm64 (Apple Silicon)');
+  } else {
+    console.log('  ⚠️  @lancedb/vectordb-darwin-arm64 missing - required for Mac Apple Silicon build');
+    warnings.push('vectordb-darwin-arm64');
+  }
+  if (hasX64) {
+    console.log('  ✅ @lancedb/vectordb-darwin-x64 (Intel Mac)');
+  } else {
+    console.log('  ⚠️  @lancedb/vectordb-darwin-x64 missing - required for Mac Intel build');
+    warnings.push('vectordb-darwin-x64');
+  }
+  if (!hasArm || !hasX64) {
+    console.log('     Run: bun run install:natives-mac\n');
+  }
+  console.log('');
+}
+
 // Check Electron version
 console.log('🔧 Electron version:');
 try {
