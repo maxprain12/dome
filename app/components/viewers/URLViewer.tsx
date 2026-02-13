@@ -1,8 +1,7 @@
-
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2, AlertCircle, ExternalLink, RefreshCw, FileText, Globe, Copy, Check } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Loader2, AlertCircle, ExternalLink, RefreshCw, Copy, Check } from 'lucide-react';
 import { type Resource } from '@/types';
-import { processUrlResource, isYouTubeUrl } from '@/lib/web/processor';
+import { processUrlResource } from '@/lib/web/processor';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
 
@@ -15,10 +14,29 @@ function URLViewerComponent({ resource }: URLViewerProps) {
   const [url, setUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'webview' | 'processed'>('webview');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [metadata, setMetadata] = useState<any>(null);
-  const webviewRef = useRef<HTMLWebViewElement>(null);
+  const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
+
+  const handleProcess = useCallback(async () => {
+    if (!window.electron?.web?.process) return;
+
+    try {
+      setIsProcessing(true);
+      const result = await processUrlResource(resource.id);
+
+      if (result.success) {
+        const resourceResult = await window.electron.db.resources.getById(resource.id);
+        if (resourceResult?.success && resourceResult.data) {
+          const updatedResource = resourceResult.data;
+          setMetadata(updatedResource.metadata ?? null);
+        }
+      }
+    } catch (err) {
+      console.error('Error processing URL:', err);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [resource.id]);
 
   useEffect(() => {
     async function loadURL() {
@@ -28,7 +46,6 @@ function URLViewerComponent({ resource }: URLViewerProps) {
         setIsLoading(true);
         setError(null);
 
-        // Get URL from resource
         const resourceMetadata = resource.metadata || {};
         const resourceUrl = resourceMetadata.url || resource.content;
 
@@ -40,9 +57,7 @@ function URLViewerComponent({ resource }: URLViewerProps) {
         setUrl(resourceUrl);
         setMetadata(resourceMetadata);
 
-        // Check processing status
         if (resourceMetadata.processing_status === 'pending' || !resourceMetadata.processed_at) {
-          // Auto-process if not processed yet
           await handleProcess();
         }
       } catch (err) {
@@ -54,63 +69,16 @@ function URLViewerComponent({ resource }: URLViewerProps) {
     }
 
     loadURL();
-  }, [resource.id]);
+  }, [resource.id, handleProcess]);
 
-  // Listen for resource:updated to refresh metadata in real-time (when web:process completes)
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
-    const unsubscribe = window.electron.on('resource:updated', ({ id, updates }: { id: string; updates: any }) => {
+    const unsubscribe = window.electron.on('resource:updated', ({ id, updates }: { id: string; updates: { metadata?: unknown } }) => {
       if (id === resource.id && updates?.metadata) {
-        setMetadata(updates.metadata);
+        setMetadata(updates.metadata as Record<string, unknown>);
       }
     });
     return unsubscribe;
-  }, [resource.id]);
-
-  const handleWebViewLoad = useCallback(() => {
-    setIsLoading(false);
-  }, []);
-
-  const handleWebViewError = useCallback((event: any) => {
-    console.error('WebView error:', event);
-    setError('Failed to load URL in WebView');
-    setIsLoading(false);
-  }, []);
-
-  // Attach webview events (Electron uses did-finish-load, did-fail-load)
-  useEffect(() => {
-    const el = webviewRef.current as HTMLWebViewElement & { addEventListener: Function } | null;
-    if (!el || !url) return;
-    const onFinish = () => handleWebViewLoad();
-    const onFail = (e: any) => handleWebViewError(e);
-    el.addEventListener?.('did-finish-load', onFinish);
-    el.addEventListener?.('did-fail-load', onFail);
-    return () => {
-      el.removeEventListener?.('did-finish-load', onFinish);
-      el.removeEventListener?.('did-fail-load', onFail);
-    };
-  }, [url, handleWebViewLoad, handleWebViewError]);
-
-  const handleProcess = useCallback(async () => {
-    if (!window.electron?.web?.process) return;
-
-    try {
-      setIsProcessing(true);
-      const result = await processUrlResource(resource.id);
-      
-      if (result.success) {
-        // Reload metadata
-        const resourceResult = await window.electron.db.resources.getById(resource.id);
-        if (resourceResult?.success && resourceResult.data) {
-          const updatedResource = resourceResult.data;
-          setMetadata(updatedResource.metadata ?? {});
-        }
-      }
-    } catch (err) {
-      console.error('Error processing URL:', err);
-    } finally {
-      setIsProcessing(false);
-    }
   }, [resource.id]);
 
   const handleOpenExternal = useCallback(async () => {
@@ -143,108 +111,82 @@ function URLViewerComponent({ resource }: URLViewerProps) {
   const summary = metadata?.summary;
   const scrapedContent = metadata?.scraped_content;
 
+  const previewImage = resource.thumbnail_data;
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0 w-full">
       {/* Toolbar */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b"
+        className="flex items-center justify-between px-4 py-3 border-b shrink-0"
         style={{
           backgroundColor: 'var(--bg-secondary)',
           borderColor: 'var(--border)',
         }}
       >
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setViewMode('webview')}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-              viewMode === 'webview'
-                ? 'text-white'
-                : 'text-gray-600'
-            }`}
-            style={{
-              backgroundColor: viewMode === 'webview' ? 'var(--accent)' : 'transparent',
-            }}
-          >
-            <Globe className="w-4 h-4 inline mr-2" />
-            Web View
-          </button>
-          <button
-            onClick={() => setViewMode('processed')}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-              viewMode === 'processed'
-                ? 'text-white'
-                : 'text-gray-600'
-            }`}
-            style={{
-              backgroundColor: viewMode === 'processed' ? 'var(--accent)' : 'transparent',
-            }}
-          >
-            <FileText className="w-4 h-4 inline mr-2" />
-            Processed Content
-          </button>
-        </div>
-
         <div className="flex items-center gap-2">
           {processingStatus === 'processing' && (
             <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--secondary-text)' }}>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
               <span>Processing...</span>
             </div>
           )}
-          
+
           {processingStatus === 'failed' && (
             <button
+              type="button"
               onClick={handleProcess}
               disabled={isProcessing}
-              className="px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2"
+              className="min-w-[44px] min-h-[44px] px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-60"
               style={{
                 backgroundColor: 'var(--bg)',
                 color: 'var(--primary-text)',
                 border: '1px solid var(--border)',
               }}
+              aria-label="Reprocess content"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4 shrink-0" />
               Reprocess
             </button>
           )}
-
-          <button
-            onClick={handleOpenExternal}
-            className="px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2"
-            style={{
-              backgroundColor: 'var(--bg)',
-              color: 'var(--primary-text)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <ExternalLink className="w-4 h-4" />
-            Open in Browser
-          </button>
         </div>
+
+        <button
+          type="button"
+          onClick={handleOpenExternal}
+          className="min-w-[44px] min-h-[44px] px-3 py-1.5 rounded text-sm font-medium flex items-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          style={{
+            backgroundColor: 'var(--bg)',
+            color: 'var(--primary-text)',
+            border: '1px solid var(--border)',
+          }}
+          aria-label="Open in Browser"
+          title="Open in Browser"
+        >
+          <ExternalLink className="w-4 h-4 shrink-0" aria-hidden />
+          Open in Browser
+        </button>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-hidden">
-        {viewMode === 'webview' ? (
-          <div className="h-full w-full min-h-[200px]">
-            {url && (
-              /* eslint-disable @typescript-eslint/no-explicit-any */
-              (
-                <webview
-                  ref={webviewRef as any}
-                  src={url}
-                  className="w-full h-full min-h-[200px]"
-                  style={{ display: 'block' } as any}
-                  partition="persist:webview"
-                />
-              )
-              /* eslint-enable @typescript-eslint/no-explicit-any */
-            )}
-          </div>
-        ) : (
-          <div className="h-full overflow-y-auto p-6" style={{ backgroundColor: 'var(--bg)' }}>
-            {processingStatus === 'completed' ? (
-              <div className="max-w-4xl mx-auto space-y-6">
+      {/* Content - screenshot preview + extracted content */}
+      <div className="flex-1 min-h-0 overflow-y-auto" style={{ backgroundColor: 'var(--bg)' }}>
+        <div className="max-w-4xl mx-auto p-6 space-y-6">
+          {/* Web preview image (screenshot) */}
+          {previewImage && (
+            <div
+              className="rounded-lg overflow-hidden border"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <img
+                src={previewImage}
+                alt="Preview of the web page"
+                className="w-full h-auto max-h-[400px] object-contain object-top"
+              />
+            </div>
+          )}
+
+          {/* Extracted content */}
+          {processingStatus === 'completed' ? (
+              <div className="space-y-6">
                 {/* Summary */}
                 {summary && (
                   <div
@@ -259,14 +201,16 @@ function URLViewerComponent({ resource }: URLViewerProps) {
                         Summary
                       </h2>
                       <button
+                        type="button"
                         onClick={handleCopySummary}
-                        className="px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors"
+                        className="min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                         style={{
                           backgroundColor: copied ? 'var(--success)' : 'var(--bg)',
                           color: copied ? 'white' : 'var(--primary-text)',
                           border: copied ? 'none' : '1px solid var(--border)',
                         }}
                         title="Copy summary to clipboard"
+                        aria-label="Copy summary to clipboard"
                       >
                         {copied ? (
                           <>
@@ -372,34 +316,34 @@ function URLViewerComponent({ resource }: URLViewerProps) {
                   </div>
                 )}
               </div>
-            ) : processingStatus === 'processing' ? (
-              <LoadingState message="Processing content..." />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center max-w-md">
-                  <AlertCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--warning)' }} />
-                  <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--primary-text)' }}>
-                    Content Not Processed
-                  </h3>
-                  <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
-                    This URL resource hasn't been processed yet. Click the button below to generate summary and extract content.
-                  </p>
-                  <button
-                    onClick={handleProcess}
-                    disabled={isProcessing}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity"
-                    style={{
-                      backgroundColor: 'var(--accent)',
-                      opacity: isProcessing ? 0.6 : 1
-                    }}
-                  >
-                    {isProcessing ? 'Processing...' : 'Process Now'}
-                  </button>
-                </div>
+          ) : processingStatus === 'processing' ? (
+            <LoadingState message="Processing content..." />
+          ) : (
+            <div className="flex items-center justify-center py-16">
+              <div className="text-center max-w-md">
+                <AlertCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--warning)' }} />
+                <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--primary-text)' }}>
+                  Content Not Processed
+                </h3>
+                <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
+                  This URL resource hasn't been processed yet. Click the button below to generate summary and extract content.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleProcess}
+                  disabled={isProcessing}
+                  className="min-w-[44px] min-h-[44px] px-4 py-2 rounded-lg text-sm font-medium text-white transition-opacity cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-60"
+                  style={{
+                    backgroundColor: 'var(--accent)',
+                  }}
+                  aria-label="Process content now"
+                >
+                  {isProcessing ? 'Processing...' : 'Process Now'}
+                </button>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

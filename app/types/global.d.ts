@@ -7,7 +7,7 @@ declare module '*.txt?raw' {
 }
 
 // Tiptap custom commands declaration
-import type { CalloutBlockAttributes, DividerAttributes, ToggleBlockAttributes, PDFEmbedAttributes, FileBlockAttributes } from '@/types';
+import type { CalloutBlockAttributes, DividerAttributes, ToggleBlockAttributes, PDFEmbedAttributes, FileBlockAttributes, VideoEmbedAttributes, AudioEmbedAttributes } from '@/types';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -28,6 +28,12 @@ declare module '@tiptap/core' {
     };
     mermaid: {
       setMermaid: (attributes?: { code?: string }) => ReturnType;
+    };
+    videoEmbed: {
+      setVideoEmbed: (attributes: VideoEmbedAttributes) => ReturnType;
+    };
+    audioEmbed: {
+      setAudioEmbed: (attributes: AudioEmbedAttributes) => ReturnType;
     };
   }
 }

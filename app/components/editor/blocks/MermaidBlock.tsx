@@ -178,12 +178,13 @@ export function MermaidBlock({ node, updateAttributes, deleteNode }: MermaidBloc
               <button
                 onClick={() => setEditing(true)}
                 title="Editar diagrama"
+                aria-label="Editar diagrama"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{
                   padding: '6px',
                   backgroundColor: 'var(--bg-hover)',
                   border: 'none',
                   borderRadius: 'var(--radius-sm)',
-                  cursor: 'pointer',
                   color: 'var(--primary-text)',
                 }}
               >

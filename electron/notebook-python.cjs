@@ -99,6 +99,8 @@ function execSync(command, args, timeoutMs = 5000) {
 
 const DOME_FIG_MARKER = '__DOME_FIG__';
 const DOME_FIG_END = '__DOME_FIG_END__';
+const DOME_HTML_MARKER = '__DOME_HTML__';
+const DOME_HTML_END = '__DOME_HTML_END__';
 
 /**
  * Wrap user code for execution.
@@ -113,6 +115,7 @@ function prepareScript(code, options = {}) {
   const usePerCell = Array.isArray(cells) && cells.length > 0 && typeof targetCellIndex === 'number' && targetCellIndex >= 0;
 
   const hasMatplotlib = /import\s+matplotlib|from\s+matplotlib/.test(code);
+  const hasFolium = /import\s+folium|from\s+folium/.test(code);
   const matplotlibPreamble = hasMatplotlib ? `
 import matplotlib
 matplotlib.use('Agg')
@@ -136,6 +139,20 @@ _dome_plt.show = _dome_show
 
 ` : '';
 
+  const foliumPostamble = hasFolium ? `
+for _dome_k, _dome_v in list(globals().items()):
+    if not _dome_k.startswith('_') and hasattr(_dome_v, '_repr_html_'):
+        try:
+            _dome_h = _dome_v._repr_html_()
+            if _dome_h and isinstance(_dome_h, str):
+                print('${DOME_HTML_MARKER}')
+                print(_dome_h)
+                print('${DOME_HTML_END}')
+                break
+        except Exception:
+            pass
+` : '';
+
   let wrapped;
   let env = { ...process.env, PYTHONUNBUFFERED: '1' };
 
@@ -150,7 +167,22 @@ _dome_plt.show = _dome_show
     env.DOME_CELLS_DIR = tmpDir;
     env.DOME_TARGET_CELL = String(targetCellIndex);
     env.DOME_NUM_CELLS = String(cells.length);
+    env.DOME_HAS_FOLIUM = hasFolium ? '1' : '0';
     // Use contextlib.redirect_stdout per SO - reliable, no encoding issues
+    const foliumCellHook = hasFolium ? `
+                if os.environ.get("DOME_HAS_FOLIUM") == "1" and _i == _target:
+                    for _dome_k, _dome_v in list(_globals.items()):
+                        if not _dome_k.startswith('_') and hasattr(_dome_v, '_repr_html_'):
+                            try:
+                                _dome_h = _dome_v._repr_html_()
+                                if _dome_h and isinstance(_dome_h, str):
+                                    print('${DOME_HTML_MARKER}')
+                                    print(_dome_h)
+                                    print('${DOME_HTML_END}')
+                                    break
+                            except Exception:
+                                pass
+` : '';
     wrapped = (matplotlibPreamble + [
       'import os',
       'import sys',
@@ -172,6 +204,7 @@ _dome_plt.show = _dome_show
       '        with redirect_stdout(_buf):',
       '            try:',
       '                exec(compile(_code, "<cell_%d>" % _i, "exec"), _globals)',
+      foliumCellHook,
       '            except SystemExit:',
       '                pass',
       '        _cell_outputs.append(_buf.getvalue())',
@@ -183,7 +216,7 @@ _dome_plt.show = _dome_show
       '    print(_cell_outputs[_idx], end="")',
     ].join('\n')).trim();
   } else {
-    wrapped = (matplotlibPreamble + code).trim();
+    wrapped = (matplotlibPreamble + code + foliumPostamble).trim();
   }
 
   const baseTmp = os.tmpdir();
@@ -194,20 +227,30 @@ _dome_plt.show = _dome_show
 }
 
 /**
- * Parse stdout to extract figure base64 blocks and split text output
+ * Parse stdout to extract figure base64 blocks, HTML blocks, and split text output
  * @param {string} stdout
- * @returns {{ text: string; figures: string[] }}
+ * @returns {{ text: string; figures: string[]; htmlChunks: string[] }}
  */
 function parseStdoutForFigures(stdout) {
   const figures = [];
-  const re = new RegExp(`${DOME_FIG_MARKER}\\s*\\n([\\s\\S]*?)\\n\\s*${DOME_FIG_END}`, 'g');
-  let text = stdout;
+  const htmlChunks = [];
+  const figRe = new RegExp(`${DOME_FIG_MARKER}\\s*\\n([\\s\\S]*?)\\n\\s*${DOME_FIG_END}`, 'g');
+  const htmlRe = new RegExp(`${DOME_HTML_MARKER}\\s*\\n([\\s\\S]*?)\\n\\s*${DOME_HTML_END}`, 'g');
   let m;
-  while ((m = re.exec(stdout)) !== null) {
+  while ((m = figRe.exec(stdout)) !== null) {
     figures.push(m[1].trim());
   }
-  text = stdout.replace(re, '').replace(/\n\n\n+/g, '\n\n').trim();
-  return { text, figures };
+  while ((m = htmlRe.exec(stdout)) !== null) {
+    htmlChunks.push(m[1].trim());
+  }
+  figRe.lastIndex = 0;
+  htmlRe.lastIndex = 0;
+  let text = stdout
+    .replace(figRe, '')
+    .replace(htmlRe, '')
+    .replace(/\n\n\n+/g, '\n\n')
+    .trim();
+  return { text, figures, htmlChunks };
 }
 
 /**
@@ -328,7 +371,7 @@ async function runPythonCode(code, options = {}) {
       }
 
       if (stdout) {
-        const { text, figures } = parseStdoutForFigures(stdout);
+        const { text, figures, htmlChunks } = parseStdoutForFigures(stdout);
         if (text) {
           outputs.push({ output_type: 'stream', name: 'stdout', text });
         }
@@ -336,6 +379,13 @@ async function runPythonCode(code, options = {}) {
           outputs.push({
             output_type: 'display_data',
             data: { 'image/png': b64 },
+            metadata: {},
+          });
+        }
+        for (const html of htmlChunks) {
+          outputs.push({
+            output_type: 'display_data',
+            data: { 'text/html': html },
             metadata: {},
           });
         }

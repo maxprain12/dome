@@ -78,6 +78,9 @@
   /* Kept for utility */
   --info-bg: #E8EFF8;
 
+  /* Highlight / Mark */
+  --primary-light: #FEF9C3;
+
   /* Translucent */
   --translucent: rgba(89, 96, 55, 0.12);
   --bg-translucent: rgba(250, 250, 250, 0.85);
@@ -205,6 +208,9 @@
   --error-bg: #3A1A1A;
   --info: #7B9DD0;
   --info-bg: #1A2638;
+
+  /* Highlight / Mark */
+  --primary-light: #3D3A1A;
 
   /* Translucent */
   --translucent: rgba(224, 234, 180, 0.15);
@@ -1173,15 +1179,17 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  min-width: 44px;
+  min-height: 44px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border: none;
   background: transparent;
   color: var(--primary-text);
   cursor: pointer;
-  border-radius: 3px;
-  transition: background-color 0.15s;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.2s;
 }
 
 .bubble-menu-button:hover {
@@ -1195,7 +1203,19 @@ a:hover {
 
 /* Slash Command Menu */
 .slash-command-menu {
-  z-index: 1001;
+  z-index: 10001;
+  animation: slash-menu-in 0.15s ease-out;
+}
+
+@keyframes slash-menu-in {
+  from {
+    opacity: 0.9;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Custom Blocks */

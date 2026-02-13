@@ -121,13 +121,18 @@ export default function CodeCell({
           <div key={idx} className="p-2" dangerouslySetInnerHTML={{ __html: svg }} />
         );
       }
-      if (textHtml && typeof textHtml === 'string') {
+      if (textHtml) {
+        const html = Array.isArray(textHtml) ? textHtml.join('') : textHtml;
         return (
           <div
             key={idx}
             className="p-2 prose prose-sm max-w-none break-words overflow-x-auto"
-            style={{ color: 'var(--primary-text)' }}
-            dangerouslySetInnerHTML={{ __html: textHtml }}
+            style={{
+              color: 'var(--primary-text)',
+              minHeight: '400px',
+              overflow: 'auto',
+            }}
+            dangerouslySetInnerHTML={{ __html: html }}
           />
         );
       }

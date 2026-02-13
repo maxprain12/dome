@@ -77,8 +77,22 @@ export const CalloutExtension = Node.create({
     return {
       setCallout:
         (attributes?: CalloutBlockAttributes) =>
-        ({ commands }) => {
-          return commands.wrapIn(this.name, attributes || { icon: 'lightbulb', color: 'yellow' });
+        ({ commands, state }) => {
+          const attrs = attributes || { icon: 'lightbulb', color: 'yellow' };
+          const { selection } = state;
+          const { $from } = selection;
+          const isEmpty =
+            selection.empty &&
+            ($from.parentOffset === 0 ? $from.parent.textContent.length === 0 : false);
+
+          if (isEmpty || $from.parent.textContent.length === 0) {
+            return commands.insertContent({
+              type: this.name,
+              attrs,
+              content: [{ type: 'paragraph', content: [] }],
+            });
+          }
+          return commands.wrapIn(this.name, attrs);
         },
     };
   },

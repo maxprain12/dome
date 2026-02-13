@@ -36,15 +36,13 @@ export function BubbleMenu({ editor }: BubbleMenuProps) {
       className="bubble-menu"
     >
       <div
+        className="flex items-center gap-1"
         style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          backgroundColor: 'var(--bg-secondary)',
+          backgroundColor: 'var(--bg)',
           border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-md)',
-          padding: '4px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          borderRadius: '10px',
+          padding: '6px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06)',
         }}
       >
         <button

@@ -13,6 +13,7 @@ export interface SlashCommandItem {
 
 export const SlashCommandExtension = Extension.create({
   name: 'slashCommand',
+  priority: 1000,
 
   addOptions() {
     return {
@@ -21,6 +22,6 @@ export const SlashCommandExtension = Extension.create({
   },
 
   addProseMirrorPlugins() {
-    return [createSlashCommandPlugin(this.options.commands)];
+    return [createSlashCommandPlugin(this.options.commands, this.editor)];
   },
 });

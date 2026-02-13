@@ -236,6 +236,17 @@ export interface DividerAttributes {
   variant?: 'line' | 'dots' | 'space';
 }
 
+export interface VideoEmbedAttributes {
+  src: string;
+  provider?: 'youtube' | 'direct';
+  videoId?: string;
+}
+
+export interface AudioEmbedAttributes {
+  src: string;
+  isLocal?: boolean;
+}
+
 // ============================================
 // NOTEBOOK TYPES (nbformat 4.x)
 // ============================================

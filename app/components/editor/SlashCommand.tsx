@@ -1,11 +1,12 @@
-
 import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useEditor } from '@tiptap/react';
 import { Editor } from '@tiptap/core';
 import { SlashCommandPluginKey } from './extensions/SlashCommandPlugin';
 import type { SlashCommandState } from './extensions/SlashCommandPlugin';
 import type { SlashCommandItem } from './extensions/SlashCommand';
 import { showPrompt } from '@/lib/store/usePromptStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 import {
   FileText,
   Heading1,
@@ -15,6 +16,10 @@ import {
   ListOrdered,
   CheckSquare,
   Quote,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
   Image,
   Video,
   Music,
@@ -37,6 +42,18 @@ interface SlashCommandMenuProps {
   editor: Editor;
 }
 
+const PORTAL_ID = 'dome-slash-command-portal';
+
+function getPortalContainer(): HTMLDivElement {
+  let el = document.getElementById(PORTAL_ID) as HTMLDivElement | null;
+  if (!el) {
+    el = document.createElement('div');
+    el.id = PORTAL_ID;
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
 export const SlashCommandMenu = React.memo(function SlashCommandMenu({ editor }: SlashCommandMenuProps) {
   const [state, setState] = useState<SlashCommandState>({
     show: false,
@@ -57,10 +74,12 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({ editor }:
 
     editor.on('update', update);
     editor.on('selectionUpdate', update);
+    editor.on('transaction', update);
 
     return () => {
       editor.off('update', update);
       editor.off('selectionUpdate', update);
+      editor.off('transaction', update);
     };
   }, [editor]);
 
@@ -73,59 +92,106 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({ editor }:
     }
   }, [state.selectedIndex, state.show]);
 
-  if (!state.show || state.items.length === 0) {
+  if (!state.show) {
+    if (typeof document !== 'undefined') {
+      return createPortal(null, getPortalContainer());
+    }
     return null;
   }
 
-  const groupedItems = state.items.reduce((acc, item) => {
+  if (typeof document === 'undefined') return null;
+
+  const hasResults = state.items.length > 0;
+
+  const groupedItems = hasResults
+    ? state.items.reduce((acc, item) => {
     const category = item.category;
     if (!acc[category]) {
       acc[category] = [];
     }
     acc[category]!.push(item);
     return acc;
-  }, {} as Record<string, SlashCommandItem[]>);
+  }, {} as Record<string, SlashCommandItem[]>)
+    : {};
 
-  // Calculate position
+  // Calculate position - ensure menu stays in viewport
   const { from } = editor.state.selection;
   const coords = editor.view.coordsAtPos(from);
+  const menuWidth = 320;
+  const menuMaxHeight = 360;
+  const padding = 12;
+
   const menuStyle: React.CSSProperties = {
     position: 'fixed',
-    left: `${coords.left}px`,
+    left: `${Math.max(padding, Math.min(coords.left, typeof window !== 'undefined' ? window.innerWidth - menuWidth - padding : coords.left))}px`,
     top: `${coords.bottom + 8}px`,
-    backgroundColor: 'var(--bg-secondary)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-md)',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-    maxHeight: '300px',
+    width: `${menuWidth}px`,
+    maxHeight: `${Math.min(menuMaxHeight, typeof window !== 'undefined' ? window.innerHeight - coords.bottom - 24 : menuMaxHeight)}px`,
     overflowY: 'auto',
-    zIndex: 1000,
-    minWidth: '280px',
-    padding: '4px',
+    overflowX: 'hidden',
+    zIndex: 10001,
+    padding: '8px',
+    backgroundColor: 'var(--bg)',
+    border: '1px solid var(--border)',
+    borderRadius: '12px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
   };
 
-  return (
-    <div ref={menuRef} className="slash-command-menu" style={menuStyle}>
-      {Object.entries(groupedItems).map(([category, categoryItems]) => (
+  const menuContent = (
+    <div
+      ref={menuRef}
+      className="slash-command-menu"
+      style={menuStyle}
+      role="listbox"
+      aria-label="Comandos"
+    >
+      {state.query && (
+        <div
+          style={{
+            padding: '6px 12px 8px',
+            fontSize: '11px',
+            color: 'var(--secondary-text)',
+          }}
+        >
+          Buscando: &quot;{state.query}&quot;
+        </div>
+      )}
+      {!hasResults ? (
+        <div
+          style={{
+            padding: '24px 16px',
+            textAlign: 'center',
+            fontSize: '13px',
+            color: 'var(--secondary-text)',
+          }}
+        >
+          Ningún comando coincide con &quot;{state.query || ''}&quot;
+        </div>
+      ) : (
+      Object.entries(groupedItems).map(([category, categoryItems]) => (
         <div key={category}>
           <div
             style={{
-              padding: '8px 12px',
-              fontSize: '11px',
+              padding: '6px 12px 4px',
+              fontSize: '10px',
               fontWeight: 600,
               textTransform: 'uppercase',
-              color: 'var(--secondary)',
-              letterSpacing: '0.5px',
+              color: 'var(--secondary-text)',
+              letterSpacing: '0.08em',
             }}
           >
             {category}
           </div>
-          {categoryItems.map((item, index) => {
+          {categoryItems.map((item) => {
             const globalIndex = state.items.indexOf(item);
+            const isSelected = globalIndex === state.selectedIndex;
             return (
               <div
-                key={item.title}
+                key={`${item.title}-${item.category}`}
                 data-index={globalIndex}
+                role="option"
+                aria-selected={isSelected}
+                tabIndex={-1}
                 onClick={() => {
                   if (state.range) {
                     item.command({
@@ -134,19 +200,18 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({ editor }:
                     });
                   }
                 }}
+                className="flex items-center gap-3 min-h-[44px] cursor-pointer rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
                 style={{
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                  borderRadius: 'var(--radius-sm)',
-                  backgroundColor: globalIndex === state.selectedIndex ? 'var(--bg-hover)' : 'transparent',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
+                  padding: '10px 12px',
+                  backgroundColor: isSelected ? 'var(--bg-hover)' : 'transparent',
+                  marginBottom: '2px',
                 }}
                 onMouseEnter={() => {
-                  // Update selected index via plugin
-                  const newState = { ...state, selectedIndex: globalIndex };
-                  SlashCommandPluginKey.getState(editor.state);
+                  const tr = editor.state.tr.setMeta('slashCommand', {
+                    type: 'updateSelectedIndex',
+                    index: globalIndex,
+                  });
+                  editor.view.dispatch(tr);
                 }}
               >
                 {item.icon && (
@@ -168,9 +233,12 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({ editor }:
             );
           })}
         </div>
-      ))}
+      ))
+      )}
     </div>
   );
+
+  return createPortal(menuContent, getPortalContainer());
 });
 
 export function getSlashCommandItems(): SlashCommandItem[] {
@@ -272,6 +340,66 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       },
       keywords: ['quote', 'cita', 'blockquote'],
     },
+    {
+      title: 'Bold',
+      description: 'Apply bold formatting',
+      icon: <Bold size={18} />,
+      category: 'Basic',
+      command: ({ editor, range }) => {
+        if (editor && range) {
+          editor.chain().focus().deleteRange(range).toggleBold().run();
+        }
+      },
+      keywords: ['negrita', 'bold', 'b'],
+    },
+    {
+      title: 'Italic',
+      description: 'Apply italic formatting',
+      icon: <Italic size={18} />,
+      category: 'Basic',
+      command: ({ editor, range }) => {
+        if (editor && range) {
+          editor.chain().focus().deleteRange(range).toggleItalic().run();
+        }
+      },
+      keywords: ['cursiva', 'italic', 'i'],
+    },
+    {
+      title: 'Underline',
+      description: 'Apply underline formatting',
+      icon: <Underline size={18} />,
+      category: 'Basic',
+      command: ({ editor, range }) => {
+        if (editor && range) {
+          editor.chain().focus().deleteRange(range).toggleUnderline().run();
+        }
+      },
+      keywords: ['subrayado', 'underline', 'u'],
+    },
+    {
+      title: 'Strikethrough',
+      description: 'Apply strikethrough formatting',
+      icon: <Strikethrough size={18} />,
+      category: 'Basic',
+      command: ({ editor, range }) => {
+        if (editor && range) {
+          editor.chain().focus().deleteRange(range).toggleStrike().run();
+        }
+      },
+      keywords: ['tachado', 'strikethrough', 'strike', 's'],
+    },
+    {
+      title: 'Inline code',
+      description: 'Apply code formatting',
+      icon: <Code size={18} />,
+      category: 'Basic',
+      command: ({ editor, range }) => {
+        if (editor && range) {
+          editor.chain().focus().deleteRange(range).toggleCode().run();
+        }
+      },
+      keywords: ['codigo', 'code', 'inline'],
+    },
     // Media
     {
       title: 'Image',
@@ -296,29 +424,34 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       command: async ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).run();
-          
-          if (typeof window !== 'undefined' && window.electron?.selectFile) {
+
+          if (typeof window !== 'undefined' && window.electron?.selectFile && window.electron?.resource?.import) {
             try {
               const filePaths = await window.electron.selectFile({
                 filters: [{ name: 'PDF Files', extensions: ['pdf'] }],
               });
-              
+
               if (filePaths && filePaths.length > 0) {
                 const filePath = filePaths[0]!;
-                const filename = filePath.split('/').pop() || 'document.pdf';
-                
-                // Insert PDF embed node
-                editor.chain().focus().insertContent({
-                  type: 'pdfEmbed',
-                  attrs: {
-                    resourceId: '',
-                    filePath: filePath,
-                    filename: filename,
-                  },
-                }).run();
+                const filename = filePath.split(/[/\\]/).pop() || 'document.pdf';
+                const projectId = useAppStore.getState().currentProject?.id || 'default';
+
+                const result = await window.electron.resource.import(filePath, projectId, 'pdf', filename);
+
+                const resourceId = result?.success && result.data
+                  ? result.data.id
+                  : result?.duplicate?.id;
+
+                if (resourceId) {
+                  editor.chain().focus().setPDFEmbed({
+                    resourceId,
+                    pageStart: 1,
+                    zoom: 1.0,
+                  }).run();
+                }
               }
             } catch (error) {
-              console.error('Error selecting PDF:', error);
+              console.error('Error importing PDF:', error);
             }
           }
         }
@@ -333,38 +466,21 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       command: async ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).run();
-          
+
           const url = await showPrompt('Video URL (YouTube, Vimeo, or file):');
           if (url) {
-            // Check if it's a YouTube URL
             const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]+)/);
             if (youtubeMatch) {
               const videoId = youtubeMatch[1];
-              editor.chain().focus().insertContent({
-                type: 'paragraph',
-                content: [{
-                  type: 'text',
-                  text: `[Video: ${url}]`,
-                }],
-              }).run();
-              
-              // Insert YouTube embed as iframe
-              editor.chain().focus().insertContent({
-                type: 'videoEmbed',
-                attrs: {
-                  src: `https://www.youtube.com/embed/${videoId}`,
-                  provider: 'youtube',
-                  videoId: videoId,
-                },
+              editor.chain().focus().setVideoEmbed({
+                src: `https://www.youtube.com/embed/${videoId}`,
+                provider: 'youtube',
+                videoId,
               }).run();
             } else {
-              // Regular video URL
-              editor.chain().focus().insertContent({
-                type: 'videoEmbed',
-                attrs: {
-                  src: url,
-                  provider: 'direct',
-                },
+              editor.chain().focus().setVideoEmbed({
+                src: url,
+                provider: 'direct',
               }).run();
             }
           }
@@ -380,30 +496,19 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       command: async ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).run();
-          
+
           const url = await showPrompt('Audio URL or select file:');
           if (url) {
-            editor.chain().focus().insertContent({
-              type: 'audioEmbed',
-              attrs: {
-                src: url,
-              },
-            }).run();
+            editor.chain().focus().setAudioEmbed({ src: url }).run();
           } else if (typeof window !== 'undefined' && window.electron?.selectFile) {
             try {
               const filePaths = await window.electron.selectFile({
                 filters: [{ name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'flac'] }],
               });
-              
+
               if (filePaths && filePaths.length > 0) {
                 const filePath = filePaths[0]!;
-                editor.chain().focus().insertContent({
-                  type: 'audioEmbed',
-                  attrs: {
-                    src: filePath,
-                    isLocal: true,
-                  },
-                }).run();
+                editor.chain().focus().setAudioEmbed({ src: filePath, isLocal: true }).run();
               }
             } catch (error) {
               console.error('Error selecting audio:', error);
@@ -523,7 +628,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
           editor.chain().focus().deleteRange(range).setMermaid().run();
         }
       },
-      keywords: ['mermaid', 'diagrama', 'diagram', 'flowchart', 'sequence'],
+      keywords: ['mermaid', 'merm', 'diagrama', 'diagram', 'flowchart', 'sequence', 'graph'],
     },
     // Referencias
     {

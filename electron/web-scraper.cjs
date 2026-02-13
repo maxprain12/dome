@@ -11,8 +11,21 @@ const { BrowserWindow } = require('electron');
 const SCRAPE_TIMEOUT = 30000; // 30 seconds
 const LOAD_TIMEOUT = 25000; // 25 seconds for page load
 
+// Common cookie/consent banner selectors for removal
+const BANNER_SELECTORS = [
+  '[class*="cookie"]', '[id*="cookie"]', '[class*="consent"]', '[id*="consent"]',
+  '[class*="gdpr"]', '[class*="banner"]', '[class*="privacy"]',
+  '[role="dialog"]', '.modal', '[data-testid*="cookie"]', '[data-testid*="consent"]'
+];
+
+// Button text patterns for Accept/Agree (case-insensitive)
+const CONSENT_BUTTON_TEXTS = [
+  'accept', 'agree', 'i agree', 'allow', 'ok', 'acceptar', 'aceptar',
+  'consent', 'allow all', 'accept all', 'got it', 'understand'
+];
+
 /**
- * Extract text content from HTML
+ * Extract text content from HTML, excluding boilerplate (nav, footer, cookie banners)
  * @param {string} html - HTML content
  * @returns {string} Plain text
  */
@@ -20,13 +33,23 @@ function extractText(html) {
   // Remove script and style elements
   let text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
   text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-  
+
+  // Remove nav, footer, and common banner-like elements by tag/class
+  const excludePatterns = [
+    /<nav[^>]*>[\s\S]*?<\/nav>/gi,
+    /<footer[^>]*>[\s\S]*?<\/footer>/gi,
+    /<[^>]*(?:class|id)=[^>]*(?:cookie|consent|gdpr|banner|privacy)[^>]*>[\s\S]*?<\/[^>]+>/gi
+  ];
+  for (const pat of excludePatterns) {
+    text = text.replace(pat, ' ');
+  }
+
   // Remove HTML tags
   text = text.replace(/<[^>]+>/g, ' ');
-  
+
   // Clean up whitespace
   text = text.replace(/\s+/g, ' ').trim();
-  
+
   return text;
 }
 
@@ -37,6 +60,77 @@ function extractText(html) {
  */
 function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Dismiss cookie/consent banners: try clicking Accept buttons first, then remove by selector
+ * @param {object} webContents - Electron webContents
+ */
+async function dismissCookieBanners(webContents) {
+  const dismissScript = `
+    (function() {
+      const buttonTexts = ${JSON.stringify(CONSENT_BUTTON_TEXTS)};
+      const bannerSelectors = ${JSON.stringify(BANNER_SELECTORS)};
+      let clicked = false;
+
+      // Try to click Accept/Agree buttons
+      const buttons = document.querySelectorAll('button, [role="button"], a, input[type="submit"]');
+      for (const btn of buttons) {
+        const text = (btn.innerText || btn.textContent || btn.value || '').trim().toLowerCase();
+        if (buttonTexts.some(t => text.includes(t))) {
+          try {
+            btn.click();
+            clicked = true;
+            break;
+          } catch (e) { /* ignore */ }
+        }
+      }
+
+      // Remove banner elements from DOM if no button was clicked
+      for (const sel of bannerSelectors) {
+        try {
+          const els = document.querySelectorAll(sel);
+          els.forEach(el => {
+            if (el && el.parentNode) {
+              el.parentNode.removeChild(el);
+            }
+          });
+        } catch (e) { /* ignore */ }
+      }
+
+      return clicked;
+    })();
+  `;
+  try {
+    await webContents.executeJavaScript(dismissScript);
+  } catch (error) {
+    console.error('[WebScraper] Error dismissing cookie banners:', error);
+  }
+}
+
+/**
+ * Filter boilerplate paragraphs (cookie notices, etc.) from scraped content before LLM
+ * @param {string} content - Raw content text
+ * @returns {string} Filtered content
+ */
+function filterBoilerplate(content) {
+  if (!content || typeof content !== 'string') return content;
+  const boilerplateKeywords = [
+    'cookies', 'cookie policy', 'privacy policy', 'we use cookies',
+    'improve our services', 'personalize your experience', 'consent',
+    'gdpr', 'accept cookies', 'cookie settings', 'cookie preferences'
+  ];
+  const paragraphs = content.split(/\n\s*\n/);
+  const filtered = paragraphs.filter((p) => {
+    const pTrim = p.trim();
+    if (!pTrim) return false;
+    const pLower = pTrim.toLowerCase();
+    const matches = boilerplateKeywords.filter((k) => pLower.includes(k));
+    if (matches.length >= 2) return false;
+    if (pTrim.length < 100 && matches.length >= 1) return false;
+    return true;
+  });
+  return filtered.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 /**
@@ -91,7 +185,7 @@ async function extractMetadata(webContents) {
 }
 
 /**
- * Extract main content from page
+ * Extract main content from page (article body, excluding nav/footer/banners)
  * @param {object} webContents - Electron webContents
  * @returns {Promise<string>} Main content text
  */
@@ -106,25 +200,50 @@ async function extractMainContent(webContents) {
         '.post-content',
         '.article-content',
         '#content',
-        '.entry-content'
+        '.entry-content',
+        '.prose',
+        '.article-body',
+        '.post-body',
+        '[itemprop="articleBody"]',
+        '.markdown'
       ];
-      
-      for (const selector of contentSelectors) {
-        const element = document.querySelector(selector);
-        if (element) {
-          const text = element.innerText || element.textContent;
-          if (text && text.trim().length > 200) {
-            return text.trim();
+      const excludeTags = ['nav', 'footer', 'aside'];
+      const minLength = 300;
+
+      function removeExcluded(container) {
+        excludeTags.forEach(function(tag) {
+          var els = container.querySelectorAll(tag);
+          for (var i = els.length - 1; i >= 0; i--) {
+            var el = els[i];
+            if (el.parentNode) el.parentNode.removeChild(el);
           }
+        });
+        var banners = container.querySelectorAll('[role="banner"]');
+        for (var j = banners.length - 1; j >= 0; j--) {
+          var b = banners[j];
+          if (b.parentNode) b.parentNode.removeChild(b);
         }
       }
-      
-      // Fallback: extract from body
-      const body = document.body;
-      return body ? body.innerText.trim() : '';
+
+      for (var s = 0; s < contentSelectors.length; s++) {
+        var element = document.querySelector(contentSelectors[s]);
+        if (!element) continue;
+        var clone = element.cloneNode(true);
+        removeExcluded(clone);
+        var text = (clone.innerText || clone.textContent || '').trim();
+        if (text && text.length > minLength) return text;
+      }
+
+      var body = document.body;
+      if (body) {
+        var c = body.cloneNode(true);
+        removeExcluded(c);
+        return (c.innerText || c.textContent || '').trim();
+      }
+      return '';
     })();
   `;
-  
+
   try {
     return await webContents.executeJavaScript(extractScript);
   } catch (error) {
@@ -223,10 +342,14 @@ async function scrapeUrl(url) {
     
     // Wait for load to complete
     await loadPromise;
-    
-    // Wait a bit for dynamic content to load
+
+    // Dismiss cookie/consent banners before extraction
+    await dismissCookieBanners(webContents);
+    await wait(500);
+
+    // Wait for dynamic content to load
     await wait(2000);
-    
+
     // Extract data
     const title = await getPageTitle(webContents);
     const html = await getPageHtml(webContents);
@@ -244,8 +367,9 @@ async function scrapeUrl(url) {
     }
     
     // Clean HTML to plain text if main content is too short
-    const content = mainContent.length > 200 ? mainContent : extractText(html);
-    
+    let content = mainContent.length > 300 ? mainContent : extractText(html);
+    content = filterBoilerplate(content);
+
     const result = {
       success: true,
       url,

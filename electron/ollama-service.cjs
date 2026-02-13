@@ -134,6 +134,7 @@ async function generateSummary(text, model = DEFAULT_MODEL, baseUrl = DEFAULT_BA
     console.log(`[OllamaService] Generating summary with model: ${model}`);
 
     const prompt = `Resume el siguiente contenido de manera concisa y clara, destacando los puntos principales. El resumen debe ser útil para entender el contenido sin necesidad de leer el texto completo.
+IMPORTANTE: Ignora cualquier mención de cookies, consentimiento, banners de privacidad o elementos de navegación. Enfócate solo en el contenido principal del artículo.
 
 Contenido:
 ${truncatedText}

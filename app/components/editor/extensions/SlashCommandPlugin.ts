@@ -12,7 +12,7 @@ export interface SlashCommandState {
 
 export const SlashCommandPluginKey = new PluginKey<SlashCommandState>('slashCommand');
 
-export function createSlashCommandPlugin(items: SlashCommandItem[]) {
+export function createSlashCommandPlugin(items: SlashCommandItem[], editor?: import('@tiptap/core').Editor) {
   return new Plugin<SlashCommandState>({
     key: SlashCommandPluginKey,
 
@@ -28,15 +28,35 @@ export function createSlashCommandPlugin(items: SlashCommandItem[]) {
       },
 
       apply(tr, value, oldState, newState): SlashCommandState {
-        const { selection } = newState;
+        // Process meta first (ArrowUp/Down, Escape)
+        const meta = tr.getMeta('slashCommand');
+        if (meta) {
+          if (meta.type === 'updateSelectedIndex' && typeof meta.index === 'number') {
+            return { ...value, selectedIndex: meta.index };
+          }
+          if (meta.type === 'hide') {
+            return {
+              show: false,
+              items: [],
+              selectedIndex: 0,
+              query: '',
+              range: null,
+            };
+          }
+        }
+
+        const { selection, doc } = newState;
         const { $anchor } = selection;
-        const textAfter = $anchor.parent.textContent.slice(0, $anchor.parentOffset);
+        const blockStart = $anchor.start();
+        const textBeforeCursor = doc.textBetween(blockStart, $anchor.pos, '\n', '\0');
 
-        // Check if we're at the start of a line or after a space
-        const isStartOfLine = $anchor.parentOffset === 0;
-        const lastChar = textAfter.slice(-1);
+        const lastChar = textBeforeCursor.slice(-1);
+        const charBeforeSlash = textBeforeCursor.slice(-2, -1);
+        const isValidSlashTrigger =
+          lastChar === '/' &&
+          (textBeforeCursor === '/' || charBeforeSlash === ' ' || charBeforeSlash === '\n' || $anchor.parentOffset === 0);
 
-        if (lastChar === '/' && (isStartOfLine || textAfter.slice(-2, -1) === ' ')) {
+        if (isValidSlashTrigger) {
           const query = '';
           const filteredItems = items.filter((item) => {
             const titleMatch = item.title.toLowerCase().includes(query.toLowerCase());
@@ -58,16 +78,28 @@ export function createSlashCommandPlugin(items: SlashCommandItem[]) {
 
         // If we're typing after a slash command
         if (value.show && lastChar !== '/') {
-          const match = textAfter.match(/\/([^\s]*)$/);
+          const match = textBeforeCursor.match(/\/([^\s]*)$/);
           if (match && match[1] !== undefined) {
-            const query = match[1];
-            const filteredItems = items.filter((item) => {
-              const q = query.toLowerCase();
-              const titleMatch = item.title.toLowerCase().includes(q);
-              const keywordMatch = item.keywords?.some((kw) => kw.toLowerCase().includes(q));
-              const categoryMatch = item.category?.toLowerCase().includes(q);
-              return titleMatch || keywordMatch || categoryMatch;
-            });
+            const query = match[1].toLowerCase();
+            const filteredItems = items
+              .filter((item) => {
+                const title = item.title.toLowerCase();
+                const titleMatch = title.includes(query) || (query.length >= 2 && title.startsWith(query));
+                const keywordMatch = item.keywords?.some(
+                  (kw) => kw.toLowerCase().includes(query) || (query.length >= 2 && kw.toLowerCase().startsWith(query))
+                );
+                const categoryMatch = item.category?.toLowerCase().includes(query);
+                return titleMatch || keywordMatch || categoryMatch;
+              })
+              .sort((a, b) => {
+                const aTitle = a.title.toLowerCase();
+                const bTitle = b.title.toLowerCase();
+                const aStarts = aTitle.startsWith(query) || a.keywords?.some((k) => k.toLowerCase().startsWith(query));
+                const bStarts = bTitle.startsWith(query) || b.keywords?.some((k) => k.toLowerCase().startsWith(query));
+                if (aStarts && !bStarts) return -1;
+                if (!aStarts && bStarts) return 1;
+                return aTitle.localeCompare(bTitle);
+              });
 
             return {
               show: true,
@@ -83,7 +115,7 @@ export function createSlashCommandPlugin(items: SlashCommandItem[]) {
         }
 
         // Hide if we've moved away or deleted the slash
-        if (value.show && (lastChar !== '/' && !textAfter.match(/\/([^\s]*)$/))) {
+        if (value.show && (lastChar !== '/' && !textBeforeCursor.match(/\/([^\s]*)$/))) {
           return {
             show: false,
             items: [],
@@ -127,15 +159,11 @@ export function createSlashCommandPlugin(items: SlashCommandItem[]) {
         if (event.key === 'Enter') {
           event.preventDefault();
           const item = state.items[state.selectedIndex];
-          if (item && state.range) {
-            // Get editor instance from view
-            const editor = (view as any).editor;
-            if (editor) {
-              item.command({
-                editor,
-                range: state.range,
-              });
-            }
+          if (item && state.range && editor) {
+            item.command({
+              editor,
+              range: state.range,
+            });
           }
           return true;
         }

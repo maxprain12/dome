@@ -28,13 +28,13 @@ import { ToggleExtension } from './extensions/Toggle';
 import { DividerExtension } from './extensions/Divider';
 import { MermaidExtension } from './extensions/Mermaid';
 import { PDFEmbedExtension } from './extensions/PDFEmbed';
+import { VideoEmbedExtension } from './extensions/VideoEmbed';
+import { AudioEmbedExtension } from './extensions/AudioEmbed';
 import { ResourceMentionExtension } from './extensions/ResourceMention';
 import { FileBlockExtension } from './extensions/FileBlock';
 import { DragHandleExtension } from './extensions/DragHandle';
 import { SlashCommandExtension } from './extensions/SlashCommand';
-import { BubbleMenu } from './BubbleMenu';
 import { AIBubbleMenu } from './AIBubbleMenu';
-import { FloatingMenu } from './FloatingMenu';
 import { SlashCommandMenu } from './SlashCommand';
 import { getSlashCommandItems } from './SlashCommand';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -60,6 +60,8 @@ export default function NotionEditor({
     extensions: [
       StarterKit.configure({
         dropcursor: false,
+        gapcursor: false,
+        codeBlock: false,
         heading: {
           levels: [1, 2, 3],
         },
@@ -114,6 +116,8 @@ export default function NotionEditor({
       DividerExtension,
       MermaidExtension,
       PDFEmbedExtension,
+      VideoEmbedExtension,
+      AudioEmbedExtension,
       ResourceMentionExtension,
       FileBlockExtension,
       DragHandleExtension,
@@ -128,6 +132,7 @@ export default function NotionEditor({
     editorProps: {
       attributes: {
         class: 'notion-editor prose prose-sm sm:prose lg:prose-lg xl:prose-xl focus:outline-none max-w-none',
+        spellcheck: 'false',
       },
     },
   });
@@ -198,24 +203,24 @@ export default function NotionEditor({
   }
 
   return (
-    <div 
-      className="notion-editor-wrapper" 
-      style={{ position: 'relative' }}
-      onDrop={handleFileDrop}
-      onDragOver={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-    >
+    <>
       {editable && (
         <>
-          <BubbleMenu editor={editor} />
-          <AIBubbleMenu editor={editor} />
-          <FloatingMenu editor={editor} />
           <SlashCommandMenu editor={editor} />
+          <AIBubbleMenu editor={editor} />
         </>
       )}
-      <EditorContent editor={editor} className="notion-editor-content" />
-    </div>
+      <div
+        className="notion-editor-wrapper"
+        style={{ position: 'relative' }}
+        onDrop={handleFileDrop}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        <EditorContent editor={editor} className="notion-editor-content" />
+      </div>
+    </>
   );
 }

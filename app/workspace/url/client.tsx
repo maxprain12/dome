@@ -155,8 +155,8 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
           />
         )}
 
-        {/* Viewer */}
-        <div className="flex-1 overflow-hidden relative">
+        {/* Viewer - min-h-0 allows flex child to shrink and fill available space */}
+        <div className="flex-1 min-h-0 overflow-hidden relative flex flex-col">
           <URLViewer resource={resource} />
 
           {/* Studio Output Viewer Overlay */}
