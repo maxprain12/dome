@@ -250,6 +250,7 @@ const ALLOWED_CHANNELS = {
     'plugin:install-from-repo',
     'plugin:uninstall',
     'plugin:setEnabled',
+    'plugin:read-asset',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -472,6 +473,7 @@ const electronHandler = {
     installFromRepo: (repo) => ipcRenderer.invoke('plugin:install-from-repo', repo),
     uninstall: (pluginId) => ipcRenderer.invoke('plugin:uninstall', pluginId),
     setEnabled: (pluginId, enabled) => ipcRenderer.invoke('plugin:setEnabled', pluginId, enabled),
+    readAsset: (pluginId, relativePath) => ipcRenderer.invoke('plugin:read-asset', pluginId, relativePath),
   },
 
   // ============================================

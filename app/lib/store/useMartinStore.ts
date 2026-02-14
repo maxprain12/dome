@@ -59,6 +59,10 @@ interface MartinState {
   suggestedQuestions: string[];
   setSuggestedQuestions: (questions: string[]) => void;
   clearSuggestedQuestions: () => void;
+
+  // Pet plugin prompt override (when chat opened from pet mascota)
+  petPromptOverride: string | null;
+  setPetPromptOverride: (prompt: string | null) => void;
 }
 
 export const useMartinStore = create<MartinState>((set, get) => ({
@@ -80,6 +84,8 @@ export const useMartinStore = create<MartinState>((set, get) => ({
     set({ isOpen: open });
     if (open) {
       set({ unreadCount: 0 });
+    } else {
+      set({ petPromptOverride: null });
     }
   },
   
@@ -88,6 +94,9 @@ export const useMartinStore = create<MartinState>((set, get) => ({
     set({ isOpen: !isOpen });
     if (!isOpen) {
       set({ unreadCount: 0 });
+    }
+    if (isOpen) {
+      set({ petPromptOverride: null });
     }
   },
   
@@ -145,4 +154,8 @@ export const useMartinStore = create<MartinState>((set, get) => ({
   suggestedQuestions: [],
   setSuggestedQuestions: (questions) => set({ suggestedQuestions: questions }),
   clearSuggestedQuestions: () => set({ suggestedQuestions: [] }),
+
+  // Pet plugin prompt override
+  petPromptOverride: null,
+  setPetPromptOverride: (prompt) => set({ petPromptOverride: prompt }),
 }));

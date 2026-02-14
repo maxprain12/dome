@@ -52,6 +52,7 @@ export default function MartinFloatingButton() {
     whatsappPendingMessages,
     currentResourceId,
     currentResourceTitle,
+    petPromptOverride,
   } = useMartinStore();
 
   const [input, setInput] = useState('');
@@ -104,8 +105,11 @@ export default function MartinFloatingButton() {
     }
   }, [isOpen]);
 
-  // Build system prompt with context (from externalized prompts)
+  // Build system prompt with context (from externalized prompts or pet override)
   const buildSystemPrompt = useCallback(() => {
+    if (petPromptOverride) {
+      return petPromptOverride;
+    }
     const context = getContextFromPath(pathname || '/');
     const now = new Date();
     return buildMartinFloatingPrompt({
@@ -116,7 +120,7 @@ export default function MartinFloatingButton() {
       resourceTitle: currentResourceTitle || undefined,
       whatsappConnected,
     });
-  }, [pathname, currentResourceTitle, whatsappConnected]);
+  }, [pathname, currentResourceTitle, whatsappConnected, petPromptOverride]);
 
   // Streaming message state
   const [streamingContent, setStreamingContent] = useState('');

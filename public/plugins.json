@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "id": "dome-pet-plant",
+    "name": "Plant Pet",
+    "author": "maxprain12",
+    "description": "Mascota planta que navega por el Home y chatea con Many",
+    "repo": "maxprain12/plant"
+  }
+]

@@ -21,6 +21,7 @@ declare global {
         installFromRepo: (repo: string) => Promise<{ success?: boolean; error?: string }>;
         uninstall: (id: string) => Promise<{ success: boolean; error?: string }>;
         setEnabled: (id: string, enabled: boolean) => Promise<{ success: boolean }>;
+        readAsset: (pluginId: string, relativePath: string) => Promise<{ success: boolean; dataUrl?: string; text?: string; error?: string }>;
       };
     };
   }

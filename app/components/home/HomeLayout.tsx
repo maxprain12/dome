@@ -1,5 +1,5 @@
-
 import HomeSidebar from './HomeSidebar';
+import PetPluginSlot from '@/components/plugins/PetPluginSlot';
 
 interface HomeLayoutProps {
   children: React.ReactNode;
@@ -13,8 +13,9 @@ export default function HomeLayout({ children, flashcardDueCount }: HomeLayoutPr
       style={{ height: 'calc(100vh - var(--app-header-total))', background: 'var(--dome-bg)' }}
     >
       <HomeSidebar flashcardDueCount={flashcardDueCount} />
-      <main className="flex-1 min-w-0 overflow-y-auto overscroll-contain">
+      <main className="flex-1 min-w-0 overflow-y-auto overscroll-contain relative">
         {children}
+        <PetPluginSlot />
       </main>
     </div>
   );

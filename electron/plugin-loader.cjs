@@ -40,6 +40,13 @@ function validateManifest(manifest) {
   if (!/^[a-z0-9-]+$/i.test(manifest.id)) {
     return { valid: false, error: 'Plugin id must be alphanumeric with hyphens' };
   }
+  // Optional: type (e.g. 'pet') and sprites config
+  if (manifest.type && typeof manifest.type !== 'string') {
+    return { valid: false, error: 'manifest.type must be a string' };
+  }
+  if (manifest.sprites != null && typeof manifest.sprites !== 'object') {
+    return { valid: false, error: 'manifest.sprites must be an object' };
+  }
   return { valid: true };
 }
 

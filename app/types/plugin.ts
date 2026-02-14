@@ -10,6 +10,8 @@ export interface DomePluginManifest {
   version: string;
   minDomeVersion?: string;
   repo?: string;
+  type?: 'pet';
+  sprites?: Record<string, string | string[]>;
 }
 
 export interface DomePluginInfo extends DomePluginManifest {

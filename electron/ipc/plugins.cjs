@@ -65,6 +65,55 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
     return pluginLoader.setEnabled(pluginId, enabled);
   });
 
+  ipcMain.handle('plugin:read-asset', async (event, pluginId, relativePath) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    if (!pluginId || typeof pluginId !== 'string' || !relativePath || typeof relativePath !== 'string') {
+      return { success: false, error: 'Invalid pluginId or relativePath' };
+    }
+    if (!/^[a-z0-9-]+$/i.test(pluginId)) {
+      return { success: false, error: 'Invalid plugin id format' };
+    }
+    if (relativePath.includes('..') || path.isAbsolute(relativePath)) {
+      return { success: false, error: 'Path traversal not allowed' };
+    }
+
+    try {
+      const plugins = pluginLoader.listPlugins();
+      const plugin = plugins.find((p) => p.id === pluginId);
+      if (!plugin) return { success: false, error: 'Plugin not found' };
+      if (!plugin.enabled) return { success: false, error: 'Plugin is disabled' };
+
+      const fullPath = path.join(plugin.dir, relativePath);
+      const normalizedPath = path.normalize(fullPath);
+      if (!normalizedPath.startsWith(path.normalize(plugin.dir))) {
+        return { success: false, error: 'Path outside plugin directory' };
+      }
+
+      if (!fs.existsSync(normalizedPath) || !fs.statSync(normalizedPath).isFile()) {
+        return { success: false, error: 'Asset not found' };
+      }
+
+      const ext = path.extname(relativePath).toLowerCase();
+      const buf = fs.readFileSync(normalizedPath);
+
+      if (['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'].includes(ext)) {
+        const mimeMap = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
+        const mime = mimeMap[ext] || 'application/octet-stream';
+        const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
+        return { success: true, dataUrl };
+      }
+      if (ext === '.txt') {
+        return { success: true, text: buf.toString('utf8') };
+      }
+      return { success: false, error: 'Unsupported asset type' };
+    } catch (err) {
+      console.error('[Plugins] read-asset error:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('plugin:install-from-repo', async (event, repo) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
