@@ -1,6 +1,6 @@
 {
   "name": "dome",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Aplicación de escritorio inteligente para gestión de conocimiento e investigación",
   "author": "Dome Team",
   "repository": {
@@ -188,9 +188,13 @@
       ],
       "icon": "assets/icon-256.png"
     },
+    "portable": {
+      "artifactName": "${productName}-${version}.${ext}"
+    },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   }
 }
