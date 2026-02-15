@@ -1,3 +1,4 @@
+export { useClickOutside } from './useClickOutside';
 export { useInteractions } from './useInteractions';
 export { useReducedMotion } from './useReducedMotion';
 export { useTextareaAutoResize } from './useTextareaAutoResize';

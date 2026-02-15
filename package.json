@@ -1,6 +1,6 @@
 {
   "name": "dome",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Aplicación de escritorio inteligente para gestión de conocimiento e investigación",
   "author": "Dome Team",
   "repository": {
@@ -79,6 +79,7 @@
     "qrcode-terminal": "^0.12.0",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.0",
+    "react-colorful": "^5.6.1",
     "react-dom": "^18.3.0",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.13.0",

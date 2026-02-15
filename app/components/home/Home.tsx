@@ -1,5 +1,6 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useClickOutside } from '@/lib/hooks/useClickOutside';
 import { FolderOpen, Plus, Loader2, CheckCircle2, AlertCircle, ChevronRight, Home as HomeIcon, X, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, MoreVertical, Pencil, Trash2, ExternalLink, FolderInput } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -16,18 +17,11 @@ import StudioHomeView from '@/components/studio/StudioHomeView';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
+import { showPrompt } from '@/lib/store/usePromptStore';
+import FolderColorPicker from './FolderColorPicker';
 
-/** Paleta derivada del acento #596037 — tonos verde/oliva + grises neutros */
-const FOLDER_COLORS = [
-  '#596037',
-  '#6d7a42',
-  '#7d8b52',
-  '#8a9668',
-  '#4a5429',
-  '#3d4622',
-  '#6b7280',
-  '#9ca3af',
-];
+/** Paleta para nuevo folder modal (swatch rápido) */
+const DEFAULT_FOLDER_COLORS = ['#596037', '#7b76d0', '#22c55e', '#3b82f6', '#6b7280'];
 
 function parseJsonField<T = Record<string, unknown>>(val: unknown): T {
   if (val == null) return {} as T;
@@ -67,7 +61,7 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [newFolderColor, setNewFolderColor] = useState('#596037');
+  const [newFolderColor, setNewFolderColor] = useState(DEFAULT_FOLDER_COLORS[0]);
 
   // Folder navigation state
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -446,7 +440,6 @@ export default function Home() {
   const handleFolderColorChange = useCallback(
     async (folder: Resource, color: string) => {
       await updateResource(folder.id, { metadata: { ...folder.metadata, color } });
-      setFolderMenuOpenId(null);
     },
     [updateResource]
   );
@@ -456,6 +449,17 @@ export default function Home() {
     setRenamingFolderId(folder.id);
     setRenamingFolderValue(folder.title);
   }, []);
+
+  const handleResourceRename = useCallback(
+    async (resource: Resource) => {
+      setContextMenu(null);
+      const newName = await showPrompt('Nuevo nombre', resource.title);
+      if (newName?.trim()) {
+        await updateResource(resource.id, { title: newName.trim() });
+      }
+    },
+    [updateResource]
+  );
 
   const handleFolderRenameSave = useCallback(
     async (folderId: string) => {
@@ -481,18 +485,8 @@ export default function Home() {
     setFolderMenuOpenId((prev) => (prev === folderId ? null : folderId));
   }, [folderMenuOpenId]);
 
-  // Close folder menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (!folderMenuOpenId) return;
-      if (folderMenuRef.current?.contains(target)) return;
-      if ((target as Element).closest?.('.folder-menu-trigger')) return;
-      setFolderMenuOpenId(null);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [folderMenuOpenId]);
+  const folderMenuExcludeSelectors = useMemo(() => ['.folder-menu-trigger'], []);
+  useClickOutside(folderMenuRef, () => setFolderMenuOpenId(null), folderMenuExcludeSelectors);
 
   const confirmDelete = useCallback(async () => {
     const idsToDelete = bulkDeleteIds.length > 0 ? bulkDeleteIds : deleteTarget ? [deleteTarget.id] : [];
@@ -592,51 +586,6 @@ export default function Home() {
               borderRight: '1px solid var(--dome-border-subtle, rgba(0,0,0,0.03))',
             }}
           >
-            {/* Breadcrumb — only visible when inside a folder */}
-            {currentFolderId && breadcrumbPath.length > 0 ? (
-              <nav
-                className="flex items-center gap-1.5 px-4 py-3 shrink-0 text-xs"
-                aria-label="Current path"
-              >
-                <button
-                  type="button"
-                  onClick={handleNavigateToRoot}
-                  className="flex items-center gap-1 text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] transition-colors"
-                  aria-label="All documents"
-                >
-                  <HomeIcon size={12} strokeWidth={1.5} />
-                  <span>All</span>
-                </button>
-                {breadcrumbPath.map((folder, index) => {
-                  const isLast = index === breadcrumbPath.length - 1;
-                  return (
-                    <span
-                      key={folder.id}
-                      className="flex items-center gap-1.5 min-w-0"
-                    >
-                      <ChevronRight size={10} strokeWidth={1.5} className="text-[var(--dome-text-muted)] shrink-0" />
-                      {isLast ? (
-                        <span
-                          className="font-medium truncate max-w-[100px]"
-                          style={{ color: 'var(--dome-text)' }}
-                        >
-                          {folder.title}
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleNavigateToFolder(folder.id)}
-                          className="text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] truncate max-w-[80px] transition-colors"
-                        >
-                          {folder.title}
-                        </button>
-                      )}
-                    </span>
-                  );
-                })}
-              </nav>
-            ) : <div className="h-4" />} {/* Spacer when no breadcrumb */}
-
             <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
               <InlineFolderNav
                 allFolders={allFolders}
@@ -686,6 +635,51 @@ export default function Home() {
             />
           </div>
 
+          {/* Breadcrumb — encima de los filtros */}
+          {!isSearchMode && currentFolderId && breadcrumbPath.length > 0 ? (
+            <nav
+              className="flex items-center gap-1.5 px-4 py-2 mb-2 shrink-0 text-xs"
+              aria-label="Current path"
+            >
+              <button
+                type="button"
+                onClick={handleNavigateToRoot}
+                className="flex items-center gap-1 text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] transition-colors"
+                aria-label="All documents"
+              >
+                <HomeIcon size={12} strokeWidth={1.5} />
+                <span>All</span>
+              </button>
+              {breadcrumbPath.map((folder, index) => {
+                const isLast = index === breadcrumbPath.length - 1;
+                return (
+                  <span
+                    key={folder.id}
+                    className="flex items-center gap-1.5 min-w-0"
+                  >
+                    <ChevronRight size={10} strokeWidth={1.5} className="text-[var(--dome-text-muted)] shrink-0" />
+                    {isLast ? (
+                      <span
+                        className="font-medium truncate max-w-[100px]"
+                        style={{ color: 'var(--dome-text)' }}
+                      >
+                        {folder.title}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleNavigateToFolder(folder.id)}
+                        className="text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] truncate max-w-[80px] transition-colors"
+                      >
+                        {folder.title}
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+            </nav>
+          ) : null}
+
           {/* Filter Bar */}
           <FilterBar
             selectedTypes={selectedTypes}
@@ -694,6 +688,7 @@ export default function Home() {
             onSortByChange={setSortBy}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            onCreateFolder={!isSearchMode ? () => setShowNewFolderModal(true) : undefined}
           />
 
           {/* Selection Action Bar — when items selected */}
@@ -778,24 +773,16 @@ export default function Home() {
                         }}
                       >
                         <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
-                          <span className="text-xs font-medium" style={{ color: 'var(--secondary-text)' }}>
+                          <span className="text-xs font-medium block mb-2" style={{ color: 'var(--secondary-text)' }}>
                             Folder color
                           </span>
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {FOLDER_COLORS.map((color) => (
-                              <button
-                                key={color}
-                                type="button"
-                                onClick={() => handleFolderColorChange(folder, color)}
-                                className="w-6 h-6 rounded border-2 transition-all focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)]"
-                                style={{
-                                  backgroundColor: color,
-                                  borderColor: (folder.metadata?.color ?? 'var(--accent)') === color ? 'var(--dome-accent)' : 'var(--border)',
-                                }}
-                                aria-label={`Color ${color}`}
-                              />
-                            ))}
-                          </div>
+                          <FolderColorPicker
+                            value={(folder.metadata?.color as string) ?? '#596037'}
+                            onSave={(color) => {
+                              handleFolderColorChange(folder, color);
+                              setFolderMenuOpenId(null);
+                            }}
+                          />
                         </div>
                         <button
                           type="button"
@@ -1110,7 +1097,7 @@ export default function Home() {
                     role="group"
                     aria-label="Select folder color"
                   >
-                    {FOLDER_COLORS.map((color) => (
+                    {DEFAULT_FOLDER_COLORS.map((color) => (
                       <button
                         key={color}
                         type="button"
@@ -1246,16 +1233,12 @@ export default function Home() {
                 icon: <ExternalLink size={14} />,
                 onClick: () => handleResourceSelect(contextMenu.resource),
               },
-              ...(contextMenu.resource.type === 'folder'
-                ? [
-                  {
-                    id: 'rename',
-                    label: 'Rename',
-                    icon: <Pencil size={14} />,
-                    onClick: () => handleFolderRenameStart(contextMenu.resource),
-                  },
-                ]
-                : []),
+              {
+                id: 'rename',
+                label: 'Rename',
+                icon: <Pencil size={14} />,
+                onClick: () => handleResourceRename(contextMenu.resource),
+              },
               {
                 id: 'move',
                 label: 'Move to folder',

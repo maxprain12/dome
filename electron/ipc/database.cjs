@@ -111,53 +111,78 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      queries.updateResource.run(
-        resource.title,
-        resource.content || null,
-        resource.metadata ? JSON.stringify(resource.metadata) : null,
-        resource.updated_at,
-        resource.id
-      );
+      const current = queries.getResourceById.get(resource.id);
+      if (!current) {
+        return { success: false, error: 'Resource not found' };
+      }
 
-      // Broadcast evento a todas las ventanas
+      // Merge partial updates: only overwrite fields explicitly provided
+      // Fallbacks ensure we never pass null to NOT NULL columns (e.g. title)
+      const mergedTitle = (resource.title !== undefined ? resource.title : current.title) ?? 'Untitled';
+      const mergedContent = resource.content !== undefined ? (resource.content || null) : (current.content || null);
+      let mergedMetadata = null;
+      if (resource.metadata !== undefined) {
+        mergedMetadata = typeof resource.metadata === 'object' && resource.metadata !== null
+          ? JSON.stringify(resource.metadata)
+          : resource.metadata;
+      } else {
+        mergedMetadata = current.metadata;
+      }
+      const mergedUpdatedAt = resource.updated_at !== undefined ? resource.updated_at : current.updated_at;
+
+      queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
+
+      // Broadcast evento a todas las ventanas (merged values)
+      const mergedResource = {
+        ...current,
+        title: mergedTitle,
+        content: mergedContent,
+        metadata: mergedMetadata,
+        updated_at: mergedUpdatedAt,
+      };
       windowManager.broadcast('resource:updated', {
         id: resource.id,
-        updates: resource
+        updates: mergedResource,
       });
 
-      if (indexerDeps && resourceIndexer.shouldIndex(resource)) {
+      if (indexerDeps && resourceIndexer.shouldIndex(mergedResource)) {
         resourceIndexer.scheduleIndexing(resource.id, indexerDeps);
       }
 
-      return { success: true, data: resource };
+      return { success: true, data: mergedResource };
     } catch (error) {
       console.error('[DB] Error updating resource:', error);
 
       // Try to handle corruption errors
       const handled = database.handleCorruptionError(error);
       if (handled) {
-        // Retry the operation after repair
-        // Queries are automatically invalidated by handleCorruptionError
+        // Retry the operation after repair (merged values from above scope)
         try {
-          // Get fresh queries after repair
           const queries = database.getQueries();
-          queries.updateResource.run(
-            resource.title,
-            resource.content || null,
-            resource.metadata ? JSON.stringify(resource.metadata) : null,
-            resource.updated_at,
-            resource.id
-          );
-
-          windowManager.broadcast('resource:updated', {
-            id: resource.id,
-            updates: resource
-          });
-
-          return { success: true, data: resource };
+          const current = queries.getResourceById.get(resource.id);
+          if (!current) return { success: false, error: 'Resource not found' };
+          const mergedTitle = (resource.title !== undefined ? resource.title : current.title) ?? 'Untitled';
+          const mergedContent = resource.content !== undefined ? (resource.content || null) : (current.content || null);
+          let mergedMetadata = null;
+          if (resource.metadata !== undefined) {
+            mergedMetadata = typeof resource.metadata === 'object' && resource.metadata !== null
+              ? JSON.stringify(resource.metadata) : resource.metadata;
+          } else {
+            mergedMetadata = current.metadata;
+          }
+          const mergedUpdatedAt = resource.updated_at !== undefined ? resource.updated_at : current.updated_at;
+          queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
+          const mergedResource = {
+            ...current,
+            title: mergedTitle,
+            content: mergedContent,
+            metadata: mergedMetadata,
+            updated_at: mergedUpdatedAt,
+          };
+          windowManager.broadcast('resource:updated', { id: resource.id, updates: mergedResource });
+          return { success: true, data: mergedResource };
         } catch (retryError) {
           console.error('[DB] Error retrying after repair:', retryError);
-          // If it's still corrupt, try one more repair cycle
           if (retryError.code === 'SQLITE_CORRUPT' || retryError.code === 'SQLITE_CORRUPT_VTAB') {
             console.warn('[DB] Corruption persists, attempting more aggressive repair...');
             database.invalidateQueries();
@@ -165,18 +190,28 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             if (repairedAgain) {
               try {
                 const queries = database.getQueries();
-                queries.updateResource.run(
-                  resource.title,
-                  resource.content || null,
-                  resource.metadata ? JSON.stringify(resource.metadata) : null,
-                  resource.updated_at,
-                  resource.id
-                );
-                windowManager.broadcast('resource:updated', {
-                  id: resource.id,
-                  updates: resource
-                });
-                return { success: true, data: resource };
+                const current = queries.getResourceById.get(resource.id);
+                if (!current) return { success: false, error: 'Resource not found' };
+                const mergedTitle = resource.title !== undefined ? resource.title : current.title;
+                const mergedContent = resource.content !== undefined ? (resource.content || null) : (current.content || null);
+                let mergedMetadata = null;
+                if (resource.metadata !== undefined) {
+                  mergedMetadata = typeof resource.metadata === 'object' && resource.metadata !== null
+                    ? JSON.stringify(resource.metadata) : resource.metadata;
+                } else {
+                  mergedMetadata = current.metadata;
+                }
+                const mergedUpdatedAt = resource.updated_at !== undefined ? resource.updated_at : current.updated_at;
+                queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
+                const mergedResource = {
+                  ...current,
+                  title: mergedTitle,
+                  content: mergedContent,
+                  metadata: mergedMetadata,
+                  updated_at: mergedUpdatedAt,
+                };
+                windowManager.broadcast('resource:updated', { id: resource.id, updates: mergedResource });
+                return { success: true, data: mergedResource };
               } catch (finalError) {
                 console.error('[DB] Error after second repair attempt:', finalError);
                 return { success: false, error: finalError.message };
