@@ -1,8 +1,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
-import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Key, Lock } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
-import type { AISettings, AnthropicAuthMode } from '@/types';
+import type { AISettings } from '@/types';
 import {
   PROVIDERS,
   getDefaultModelId,
@@ -23,7 +23,7 @@ interface OllamaModel {
 export default function AISettingsPanel() {
   const [provider, setProvider] = useState<AIProviderType>('openai');
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('gpt-4o');
+  const [model, setModel] = useState('gpt-5.2');
   const [embeddingModel, setEmbeddingModel] = useState('text-embedding-3-small');
   const [customModel, setCustomModel] = useState(false);
   const [ollamaBaseURL, setOllamaBaseURL] = useState('http://localhost:11434');
@@ -38,19 +38,11 @@ export default function AISettingsPanel() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Anthropic auth mode (api_key vs oauth/token)
-  const [authMode, setAuthMode] = useState<AnthropicAuthMode>('api_key');
-  const [oauthToken, setOauthToken] = useState('');
-
   // Ollama-specific state
   const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null);
   const [checkingOllama, setCheckingOllama] = useState(false);
   const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
-
-  // Claude Max Proxy state (for Claude Pro/Max subscriptions)
-  const [claudeMaxProxyAvailable, setClaudeMaxProxyAvailable] = useState<boolean | null>(null);
-  const [checkingProxy, setCheckingProxy] = useState(false);
 
   // Get current provider's models
   const currentProviderModels: ModelDefinition[] = useMemo(() => {
@@ -82,10 +74,6 @@ export default function AISettingsPanel() {
           setCustomModel(true);
         }
         
-        // Anthropic auth mode
-        setAuthMode(config.auth_mode || 'api_key');
-        setOauthToken(config.oauth_token || '');
-        
         setOllamaBaseURL(config.ollama_base_url || 'http://localhost:11434');
         setOllamaModel(config.ollama_model || 'llama3.2');
         setOllamaEmbeddingModel(config.ollama_embedding_model || 'mxbai-embed-large');
@@ -105,31 +93,6 @@ export default function AISettingsPanel() {
       loadOllamaModels();
     }
   }, [provider, ollamaBaseURL]);
-
-  // Check Claude Max Proxy availability when Anthropic subscription mode is selected
-  useEffect(() => {
-    if (provider === 'anthropic' && (authMode === 'oauth' || authMode === 'token')) {
-      checkClaudeMaxProxy();
-    }
-  }, [provider, authMode]);
-
-  const checkClaudeMaxProxy = async () => {
-    if (!window.electron?.ai?.checkClaudeMaxProxy) {
-      setClaudeMaxProxyAvailable(false);
-      return;
-    }
-
-    setCheckingProxy(true);
-    try {
-      const result = await window.electron.ai.checkClaudeMaxProxy();
-      const isAvailable = result.success && result.available === true;
-      setClaudeMaxProxyAvailable(isAvailable);
-    } catch (error) {
-      setClaudeMaxProxyAvailable(false);
-    } finally {
-      setCheckingProxy(false);
-    }
-  };
 
   const checkOllamaConnection = async () => {
     if (!window.electron) return;
@@ -196,10 +159,6 @@ export default function AISettingsPanel() {
       case 'anthropic':
         config.api_key = apiKey;
         config.model = model;
-        config.auth_mode = authMode;
-        if (authMode === 'oauth' || authMode === 'token') {
-          config.oauth_token = oauthToken;
-        }
         // Note: Anthropic doesn't support embeddings
         break;
 
@@ -355,8 +314,8 @@ export default function AISettingsPanel() {
           Configuration
         </h3>
 
-        {/* API Key for OpenAI and Google */}
-        {(provider === 'openai' || provider === 'google') && (
+        {/* API Key for OpenAI, Anthropic, and Google */}
+        {(provider === 'openai' || provider === 'anthropic' || provider === 'google') && (
           <div className="group">
             <label htmlFor="ai-api-key-cloud" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
               API Key
@@ -392,139 +351,6 @@ export default function AISettingsPanel() {
                   {PROVIDERS[provider].docsUrl}
                 </a>
               </p>
-            )}
-          </div>
-        )}
-
-        {/* Anthropic - API Key or OAuth Token */}
-        {provider === 'anthropic' && (
-          <div className="space-y-4">
-            {/* Auth Mode Toggle */}
-            <div className="group">
-              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
-                Authentication Method
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setAuthMode('api_key')}
-                  className={`p-3 rounded-lg text-left transition-all cursor-pointer ${
-                    authMode === 'api_key' ? 'bg-blue-500/10' : 'hover:bg-black/5'
-                  }`}
-                  style={{
-                    border: authMode === 'api_key' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Key className="w-4 h-4" />
-                    <span className="font-medium text-sm">API Key</span>
-                  </div>
-                  <p className="text-xs opacity-60 mt-1">Pay per use</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthMode('oauth')}
-                  className={`p-3 rounded-lg text-left transition-all cursor-pointer ${
-                    authMode === 'oauth' || authMode === 'token' ? 'bg-blue-500/10' : 'hover:bg-black/5'
-                  }`}
-                  style={{
-                    border: authMode === 'oauth' || authMode === 'token' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lock className="w-4 h-4" />
-                    <span className="font-medium text-sm">Subscription</span>
-                  </div>
-                  <p className="text-xs opacity-60 mt-1">Claude Pro/Max</p>
-                </button>
-              </div>
-            </div>
-
-            {/* API Key Input */}
-            {authMode === 'api_key' && (
-              <div className="group">
-                <label htmlFor="ai-api-key-anthropic" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
-                  API Key
-                </label>
-                <div className="relative">
-                  <input
-                    id="ai-api-key-anthropic"
-                    type={showApiKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="sk-ant-..."
-                    className="input pr-12"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100 cursor-pointer"
-                    style={{ color: 'var(--secondary-text)' }}
-                    aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
-                  >
-                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
-                  Obtén tu API key en{' '}
-                  <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">
-                    console.anthropic.com
-                  </a>
-                </p>
-              </div>
-            )}
-
-            {/* Claude Code CLI Status and Instructions */}
-            {(authMode === 'oauth' || authMode === 'token') && (
-              <div className="space-y-4">
-                {/* CLI Status */}
-                <div className="p-4 rounded-lg border" style={{ 
-                  borderColor: claudeMaxProxyAvailable ? 'var(--success, #22c55e)' : 'var(--warning, #f59e0b)',
-                  backgroundColor: claudeMaxProxyAvailable ? 'rgba(34, 197, 94, 0.05)' : 'rgba(245, 158, 11, 0.05)'
-                }}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      {checkingProxy ? (
-                        <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--secondary-text)' }} />
-                      ) : claudeMaxProxyAvailable ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-amber-500" />
-                      )}
-                      <span className="font-medium text-sm" style={{ color: 'var(--primary-text)' }}>
-                        Claude Code CLI
-                      </span>
-                    </div>
-                    <button
-                      onClick={checkClaudeMaxProxy}
-                      disabled={checkingProxy}
-                      className="text-xs font-medium text-blue-500 hover:text-blue-600 disabled:opacity-50"
-                    >
-                      Verify
-                    </button>
-                  </div>
-                  
-                  {claudeMaxProxyAvailable ? (
-                    <p className="text-xs text-green-600 dark:text-green-400">
-                      Claude Code CLI available. Your Claude Pro/Max subscription is ready to use.
-                    </p>
-                  ) : (
-                    <div className="text-xs" style={{ color: 'var(--secondary-text)' }}>
-                      <p className="mb-2 text-amber-600 dark:text-amber-400 font-medium">
-                        Claude Code CLI not found. To use your Claude Pro/Max subscription:
-                      </p>
-                      <ol className="list-decimal list-inside space-y-1 ml-1">
-                        <li>Install Claude Code: <code className="bg-black/10 dark:bg-white/10 px-1 rounded">npm install -g @anthropic-ai/claude-code</code></li>
-                        <li>Authenticate: <code className="bg-black/10 dark:bg-white/10 px-1 rounded">claude login</code></li>
-                        <li>Verify: <code className="bg-black/10 dark:bg-white/10 px-1 rounded">claude --version</code></li>
-                      </ol>
-                      <p className="mt-2 opacity-70">
-                        Claude Code CLI uses your Claude Pro/Max session directly.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
             )}
           </div>
         )}

@@ -55,7 +55,7 @@ const SECTIONS: Array<{
 export default function AISetupStep({ onComplete }: AISetupStepProps) {
   const [provider, setProvider] = useState<OnboardingProviderType>('skip');
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('gpt-4o');
+  const [model, setModel] = useState('gpt-5.2');
   const [ollamaBaseURL, setOllamaBaseURL] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3.2');
   const [ollamaEmbeddingModel, setOllamaEmbeddingModel] = useState('mxbai-embed-large');

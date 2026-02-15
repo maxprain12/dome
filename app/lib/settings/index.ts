@@ -164,9 +164,6 @@ export async function getAIConfig(): Promise<AISettings> {
   const ollamaTopPResult = await db.getSetting('ollama_top_p');
   const ollamaNumPredictResult = await db.getSetting('ollama_num_predict');
   const ollamaShowThinkingResult = await db.getSetting('ollama_show_thinking');
-  // Anthropic OAuth/Token support
-  const authModeResult = await db.getSetting('ai_auth_mode');
-  const oauthTokenResult = await db.getSetting('ai_oauth_token');
 
   // Handle legacy 'local' provider by converting to 'ollama'
   let provider = providerResult.data as AISettings['provider'] | 'local';
@@ -187,9 +184,6 @@ export async function getAIConfig(): Promise<AISettings> {
     ollama_top_p: ollamaTopPResult.data ? parseFloat(ollamaTopPResult.data) : undefined,
     ollama_num_predict: ollamaNumPredictResult.data ? parseInt(ollamaNumPredictResult.data, 10) : undefined,
     ollama_show_thinking: ollamaShowThinkingResult.data === 'true',
-    // Anthropic OAuth/Token support
-    auth_mode: (authModeResult.data as AISettings['auth_mode']) || undefined,
-    oauth_token: oauthTokenResult.data || undefined,
   };
 }
 
@@ -240,15 +234,6 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
 
   if (config.ollama_show_thinking !== undefined) {
     await db.setSetting('ollama_show_thinking', config.ollama_show_thinking ? 'true' : 'false');
-  }
-
-  // Anthropic OAuth/Token support
-  if (config.auth_mode !== undefined) {
-    await db.setSetting('ai_auth_mode', config.auth_mode);
-  }
-
-  if (config.oauth_token !== undefined) {
-    await db.setSetting('ai_oauth_token', config.oauth_token);
   }
 }
 

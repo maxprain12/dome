@@ -47,7 +47,7 @@ interface AppPreferences {
 
 ### AI config (`app/lib/settings/index.ts`, `app/lib/ai/client.ts`)
 
-- Stored in settings table: ai_provider, ai_api_key, ai_model, ai_embedding_model, ai_base_url, ollama_*, ai_auth_mode, ai_oauth_token, venice_privacy_mode. See docs/ai-chat.md and getAIConfig/saveAIConfig in lib/settings.
+- Stored in settings table: ai_provider, ai_api_key, ai_model, ai_embedding_model, ai_base_url, ollama_*, venice_privacy_mode. See docs/ai-chat.md and getAIConfig/saveAIConfig in lib/settings.
 
 ---
 
@@ -89,7 +89,7 @@ interface AppPreferences {
 
 - **General**: User name, email, avatar (select file → copy to dome-files/avatars via IPC, set user_avatar_path).
 - **Appearance**: Theme (light/dark/auto); applied app-wide via IPC theme.
-- **AI**: Provider, API key, model, embedding model, base URL, Ollama options, Anthropic auth mode, Venice privacy; see docs/ai-chat.md.
+- **AI**: Provider, API key, model, embedding model, base URL, Ollama options, Venice privacy; see docs/ai-chat.md.
 - **WhatsApp**: Status, start/stop, allowlist; see docs/whatsapp.md.
 - **Advanced**: Storage usage, cleanup, migration, citation style, shortcuts, etc.
 

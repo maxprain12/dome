@@ -14,8 +14,8 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { app } = require('electron');
-const aiCloudService = require('../ai-cloud-service.cjs');
 const aiToolsHandler = require('../ai-tools-handler.cjs');
+const { chatWithToolsInMain, getWhatsAppToolDefinitions } = require('../ai-chat-with-tools.cjs');
 
 // Dependencias que se inyectan
 let database = null;
@@ -459,57 +459,42 @@ async function askMartin(from, question) {
       { role: 'user', content: question },
     ];
 
-    // 1. Intentar usar la IA configurada del sistema (OpenAI, Anthropic, Google)
+    const toolDefinitions = getWhatsAppToolDefinitions();
+
+    // 1. Intentar usar la IA configurada con tools (OpenAI, Anthropic, Google, Ollama)
     if (provider && ['openai', 'anthropic', 'google'].includes(provider)) {
       try {
         const apiKeyResult = queries.getSetting.get('ai_api_key');
-        const modelResult = queries.getSetting.get('ai_model');
-        const authModeResult = queries.getSetting.get('ai_auth_mode');
-        
         const apiKey = apiKeyResult?.value;
-        const model = modelResult?.value;
-        const authMode = authModeResult?.value || 'api_key';
 
-        console.log(`[WhatsApp Handler] Using ${provider} AI (model: ${model})`);
+        if (apiKey) {
+          console.log(`[WhatsApp Handler] Using ${provider} AI with tools`);
 
-        let response;
-        
-        // Para Anthropic, verificar si usa OAuth/token (suscripción)
-        if (provider === 'anthropic' && (authMode === 'oauth' || authMode === 'token')) {
-          const proxyAvailable = await aiCloudService.checkClaudeMaxProxy();
-          if (proxyAvailable) {
-            response = await aiCloudService.chatAnthropicViaProxy(messages, model);
-          } else if (apiKey) {
-            response = await aiCloudService.chat(provider, messages, apiKey, model);
-          } else {
-            throw new Error('Anthropic no configurado correctamente');
-          }
-        } else if (apiKey) {
-          response = await aiCloudService.chat(provider, messages, apiKey, model);
-        } else {
-          throw new Error(`API key no configurada para ${provider}`);
+          const response = await chatWithToolsInMain(provider, messages, toolDefinitions, {
+            database,
+            maxIterations: 5,
+          });
+          await session.sendText(from, response);
+          return { success: true, response };
         }
 
-        await session.sendText(from, response);
-        return { success: true, response };
+        throw new Error(`API key no configurada para ${provider}`);
       } catch (error) {
         console.warn(`[WhatsApp Handler] Cloud AI error, trying Ollama fallback:`, error.message);
         // Continuar a fallback de Ollama
       }
     }
 
-    // 2. Fallback a Ollama si está disponible
+    // 2. Fallback a Ollama con tools si está disponible
     if (ollamaService) {
       const isAvailable = await ollamaService.checkAvailability();
       if (isAvailable) {
-        const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
-        const ollamaModelResult = queries.getSetting.get('ollama_model');
-        const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
-        const model = ollamaModelResult?.value || ollamaService.DEFAULT_MODEL;
+        console.log(`[WhatsApp Handler] Using Ollama with tools`);
 
-        console.log(`[WhatsApp Handler] Using Ollama (model: ${model})`);
-
-        const response = await ollamaService.chat(messages, model, baseUrl);
+        const response = await chatWithToolsInMain('ollama', messages, toolDefinitions, {
+          database,
+          maxIterations: 5,
+        });
         await session.sendText(from, response);
         return { success: true, response };
       }

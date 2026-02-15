@@ -79,34 +79,23 @@ export type AIProviderType =
 // =============================================================================
 
 const OPENAI_COSTS: Record<string, ModelCost> = {
-  'gpt-4o': { input: 2.5, output: 10, cacheRead: 1.25, cacheWrite: 2.5 },
-  'gpt-4o-mini': { input: 0.15, output: 0.6, cacheRead: 0.075, cacheWrite: 0.15 },
-  'gpt-4.1': { input: 2, output: 8, cacheRead: 0.5, cacheWrite: 2 },
-  'gpt-4.1-mini': { input: 0.4, output: 1.6, cacheRead: 0.1, cacheWrite: 0.4 },
-  'o1': { input: 15, output: 60, cacheRead: 7.5, cacheWrite: 15 },
-  'o1-mini': { input: 1.1, output: 4.4, cacheRead: 0.55, cacheWrite: 1.1 },
-  'o1-pro': { input: 150, output: 600, cacheRead: 75, cacheWrite: 150 },
-  'o3': { input: 10, output: 40, cacheRead: 2.5, cacheWrite: 10 },
-  'o3-mini': { input: 1.1, output: 4.4, cacheRead: 0.55, cacheWrite: 1.1 },
-  'o4-mini': { input: 1.1, output: 4.4, cacheRead: 0.55, cacheWrite: 1.1 },
+  'gpt-5.2': { input: 1.75, output: 14, cacheRead: 0.175, cacheWrite: 1.75 },
+  'gpt-5': { input: 1.25, output: 10, cacheRead: 0.625, cacheWrite: 1.25 },
+  'gpt-5-mini': { input: 0.4, output: 1.6, cacheRead: 0.1, cacheWrite: 0.4 },
+  'gpt-5-nano': { input: 0.05, output: 0.4, cacheRead: 0.025, cacheWrite: 0.05 },
+  'gpt-oss-120b': { input: 2, output: 8, cacheRead: 0.5, cacheWrite: 2 },
 };
 
 const ANTHROPIC_COSTS: Record<string, ModelCost> = {
-  'claude-sonnet-4-20250514': { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
-  'claude-opus-4-20250514': { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 },
-  'claude-3-7-sonnet-20250219': { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
-  'claude-3-5-sonnet-20241022': { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
-  'claude-3-5-haiku-20241022': { input: 0.8, output: 4, cacheRead: 0.08, cacheWrite: 1 },
-  'claude-3-opus-20240229': { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75 },
+  'claude-opus-4-6': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
+  'claude-sonnet-4-5': { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+  'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 },
 };
 
 const GOOGLE_COSTS: Record<string, ModelCost> = {
-  'gemini-2.5-pro-preview-06-05': { input: 1.25, output: 10, cacheRead: 0.31, cacheWrite: 1.25 },
-  'gemini-2.5-flash-preview-05-20': { input: 0.15, output: 0.6, cacheRead: 0.0375, cacheWrite: 0.15 },
-  'gemini-2.0-flash': { input: 0.1, output: 0.4, cacheRead: 0.025, cacheWrite: 0.1 },
-  'gemini-2.0-flash-lite': { input: 0.075, output: 0.3, cacheRead: 0.01875, cacheWrite: 0.075 },
-  'gemini-3-pro-preview': { input: 1.25, output: 10, cacheRead: 0.31, cacheWrite: 1.25 },
-  'gemini-3-flash-preview': { input: 0.15, output: 0.6, cacheRead: 0.0375, cacheWrite: 0.15 },
+  'gemini-3-flash': { input: 0.5, output: 3, cacheRead: 0.05, cacheWrite: 0.5 },
+  'gemini-3-pro': { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2 },
+  'gemini-2.5-flash-lite': { input: 0.1, output: 0.4, cacheRead: 0.025, cacheWrite: 0.1 },
 };
 
 /** Zero cost for free/local models */
@@ -122,131 +111,66 @@ export const FREE_COST: ModelCost = {
 // =============================================================================
 
 export const OPENAI_MODELS: ModelDefinition[] = [
-  // GPT-4o Series
   {
-    id: 'gpt-4o',
-    name: 'GPT-4o',
+    id: 'gpt-5.2',
+    name: 'GPT-5.2',
     reasoning: false,
     input: ['text', 'image'],
-    contextWindow: 128000,
-    maxTokens: 16384,
+    contextWindow: 400000,
+    maxTokens: 32768,
     recommended: true,
-    description: 'Más rápido y económico',
+    description: 'Mejor modelo para codificación y tareas de agente',
     api: 'openai-completions',
-    cost: OPENAI_COSTS['gpt-4o'],
+    cost: OPENAI_COSTS['gpt-5.2'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
   {
-    id: 'gpt-4o-mini',
-    name: 'GPT-4o Mini',
+    id: 'gpt-5',
+    name: 'GPT-5',
+    reasoning: false,
+    input: ['text', 'image'],
+    contextWindow: 128000,
+    maxTokens: 32768,
+    description: 'Modelo de razonamiento inteligente con esfuerzo configurable',
+    api: 'openai-completions',
+    cost: OPENAI_COSTS['gpt-5'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+  {
+    id: 'gpt-5-mini',
+    name: 'GPT-5 Mini',
     reasoning: false,
     input: ['text', 'image'],
     contextWindow: 128000,
     maxTokens: 16384,
-    description: 'Económico para tareas simples',
+    description: 'Versión más rápida y económica para tareas bien definidas',
     api: 'openai-completions',
-    cost: OPENAI_COSTS['gpt-4o-mini'],
+    cost: OPENAI_COSTS['gpt-5-mini'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
-  // GPT-4.1 Series
   {
-    id: 'gpt-4.1',
-    name: 'GPT-4.1',
+    id: 'gpt-5-nano',
+    name: 'GPT-5 Nano',
     reasoning: false,
     input: ['text', 'image'],
-    contextWindow: 1047576,
-    maxTokens: 32768,
-    description: 'Contexto de 1M tokens',
-    api: 'openai-completions',
-    cost: OPENAI_COSTS['gpt-4.1'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
-  },
-  {
-    id: 'gpt-4.1-mini',
-    name: 'GPT-4.1 Mini',
-    reasoning: false,
-    input: ['text', 'image'],
-    contextWindow: 1047576,
-    maxTokens: 32768,
-    description: 'Contexto de 1M, económico',
-    api: 'openai-completions',
-    cost: OPENAI_COSTS['gpt-4.1-mini'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
-  },
-  // o1 Series (Reasoning)
-  {
-    id: 'o1',
-    name: 'o1',
-    reasoning: true,
-    input: ['text', 'image'],
-    contextWindow: 200000,
-    maxTokens: 100000,
-    description: 'Razonamiento avanzado',
-    api: 'openai-completions',
-    cost: OPENAI_COSTS['o1'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true, supportsReasoningEffort: true },
-  },
-  {
-    id: 'o1-mini',
-    name: 'o1-mini',
-    reasoning: true,
-    input: ['text'],
     contextWindow: 128000,
-    maxTokens: 65536,
-    description: 'Razonamiento económico',
+    maxTokens: 8192,
+    description: 'El más rápido y económico de la serie GPT-5',
     api: 'openai-completions',
-    cost: OPENAI_COSTS['o1-mini'],
-    compat: { supportsTools: true, supportsStreaming: true, supportsReasoningEffort: true },
+    cost: OPENAI_COSTS['gpt-5-nano'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
   {
-    id: 'o1-pro',
-    name: 'o1-pro',
-    reasoning: true,
+    id: 'gpt-oss-120b',
+    name: 'GPT-OSS 120B',
+    reasoning: false,
     input: ['text', 'image'],
-    contextWindow: 200000,
-    maxTokens: 100000,
-    description: 'Razonamiento profesional',
+    contextWindow: 128000,
+    maxTokens: 16384,
+    description: 'Modelo open-weight más potente, cabe en GPU H100',
     api: 'openai-completions',
-    cost: OPENAI_COSTS['o1-pro'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true, supportsReasoningEffort: true },
-  },
-  // o3 Series (Reasoning)
-  {
-    id: 'o3',
-    name: 'o3',
-    reasoning: true,
-    input: ['text', 'image'],
-    contextWindow: 200000,
-    maxTokens: 100000,
-    description: 'Siguiente gen razonamiento',
-    api: 'openai-completions',
-    cost: OPENAI_COSTS['o3'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true, supportsReasoningEffort: true },
-  },
-  {
-    id: 'o3-mini',
-    name: 'o3-mini',
-    reasoning: true,
-    input: ['text'],
-    contextWindow: 200000,
-    maxTokens: 100000,
-    description: 'o3 económico',
-    api: 'openai-completions',
-    cost: OPENAI_COSTS['o3-mini'],
-    compat: { supportsTools: true, supportsStreaming: true, supportsReasoningEffort: true },
-  },
-  // o4 Series (Reasoning)
-  {
-    id: 'o4-mini',
-    name: 'o4-mini',
-    reasoning: true,
-    input: ['text', 'image'],
-    contextWindow: 200000,
-    maxTokens: 100000,
-    description: 'Último modelo de razonamiento',
-    api: 'openai-completions',
-    cost: OPENAI_COSTS['o4-mini'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true, supportsReasoningEffort: true },
+    cost: OPENAI_COSTS['gpt-oss-120b'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
 ];
 
@@ -258,18 +182,6 @@ export const OPENAI_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
     recommended: true,
     cost: { input: 0.02 },
   },
-  {
-    id: 'text-embedding-3-large',
-    name: 'Embedding 3 Large',
-    dimensions: 3072,
-    cost: { input: 0.13 },
-  },
-  {
-    id: 'text-embedding-ada-002',
-    name: 'Ada 002 (Legacy)',
-    dimensions: 1536,
-    cost: { input: 0.1 },
-  },
 ];
 
 // =============================================================================
@@ -277,82 +189,51 @@ export const OPENAI_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
 // =============================================================================
 
 export const ANTHROPIC_MODELS: ModelDefinition[] = [
-  // Claude 4 Series
   {
-    id: 'claude-sonnet-4-20250514',
-    name: 'Claude Sonnet 4',
+    id: 'claude-opus-4-6',
+    name: 'Claude Opus 4.6',
+    reasoning: false,
+    input: ['text', 'image'],
+    contextWindow: 200000,
+    maxTokens: 64000,
+    description: 'Nuestro modelo más inteligente para agentes y codificación',
+    api: 'anthropic-messages',
+    cost: ANTHROPIC_COSTS['claude-opus-4-6'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+  {
+    id: 'claude-sonnet-4-5',
+    name: 'Claude Sonnet 4.5',
     reasoning: false,
     input: ['text', 'image'],
     contextWindow: 200000,
     maxTokens: 64000,
     recommended: true,
-    description: 'Mejor balance calidad/costo',
+    description: 'Mejor combinación de velocidad e inteligencia',
     api: 'anthropic-messages',
-    cost: ANTHROPIC_COSTS['claude-sonnet-4-20250514'],
+    cost: ANTHROPIC_COSTS['claude-sonnet-4-5'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
   {
-    id: 'claude-opus-4-20250514',
-    name: 'Claude Opus 4',
+    id: 'claude-haiku-4-5',
+    name: 'Claude Haiku 4.5',
     reasoning: false,
     input: ['text', 'image'],
     contextWindow: 200000,
     maxTokens: 32000,
-    description: 'Máxima capacidad',
+    description: 'Nuestro modelo más rápido con inteligencia de vanguardia',
     api: 'anthropic-messages',
-    cost: ANTHROPIC_COSTS['claude-opus-4-20250514'],
+    cost: ANTHROPIC_COSTS['claude-haiku-4-5'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
-  // Claude 3.7 Series
+];
+
+export const ANTHROPIC_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
   {
-    id: 'claude-3-7-sonnet-20250219',
-    name: 'Claude 3.7 Sonnet',
-    reasoning: true,
-    input: ['text', 'image'],
-    contextWindow: 200000,
-    maxTokens: 128000,
-    description: 'Con razonamiento extendido',
-    api: 'anthropic-messages',
-    cost: ANTHROPIC_COSTS['claude-3-7-sonnet-20250219'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
-  },
-  // Claude 3.5 Series
-  {
-    id: 'claude-3-5-sonnet-20241022',
-    name: 'Claude 3.5 Sonnet',
-    reasoning: false,
-    input: ['text', 'image'],
-    contextWindow: 200000,
-    maxTokens: 8192,
-    description: 'Alta calidad',
-    api: 'anthropic-messages',
-    cost: ANTHROPIC_COSTS['claude-3-5-sonnet-20241022'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
-  },
-  {
-    id: 'claude-3-5-haiku-20241022',
-    name: 'Claude 3.5 Haiku',
-    reasoning: false,
-    input: ['text', 'image'],
-    contextWindow: 200000,
-    maxTokens: 8192,
-    description: 'Rápido y económico',
-    api: 'anthropic-messages',
-    cost: ANTHROPIC_COSTS['claude-3-5-haiku-20241022'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
-  },
-  // Claude 3 Series (Legacy)
-  {
-    id: 'claude-3-opus-20240229',
-    name: 'Claude 3 Opus',
-    reasoning: false,
-    input: ['text', 'image'],
-    contextWindow: 200000,
-    maxTokens: 4096,
-    description: 'Legacy, alta capacidad',
-    api: 'anthropic-messages',
-    cost: ANTHROPIC_COSTS['claude-3-opus-20240229'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+    id: 'voyage-multimodal-3',
+    name: 'Voyage Multimodal 3',
+    recommended: true,
+    cost: { input: 0.12 },
   },
 ];
 
@@ -361,91 +242,51 @@ export const ANTHROPIC_MODELS: ModelDefinition[] = [
 // =============================================================================
 
 export const GOOGLE_MODELS: ModelDefinition[] = [
-  // Gemini 2.5 Series
   {
-    id: 'gemini-2.5-pro-preview-06-05',
-    name: 'Gemini 2.5 Pro',
-    reasoning: true,
-    input: ['text', 'image'],
-    contextWindow: 1048576,
-    maxTokens: 65536,
-    description: 'Pro con razonamiento',
-    api: 'google-generative-ai',
-    cost: GOOGLE_COSTS['gemini-2.5-pro-preview-06-05'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
-  },
-  {
-    id: 'gemini-2.5-flash-preview-05-20',
-    name: 'Gemini 2.5 Flash',
-    reasoning: true,
+    id: 'gemini-3-flash',
+    name: 'Gemini 3 Flash',
+    reasoning: false,
     input: ['text', 'image'],
     contextWindow: 1048576,
     maxTokens: 65536,
     recommended: true,
-    description: 'Rápido con razonamiento',
+    description: 'Equilibrado: velocidad, escala e inteligencia de vanguardia',
     api: 'google-generative-ai',
-    cost: GOOGLE_COSTS['gemini-2.5-flash-preview-05-20'],
+    cost: GOOGLE_COSTS['gemini-3-flash'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
-  // Gemini 2.0 Series
   {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
+    id: 'gemini-3-pro',
+    name: 'Gemini 3 Pro',
+    reasoning: false,
+    input: ['text', 'image'],
+    contextWindow: 1048576,
+    maxTokens: 65536,
+    description: 'Mejor modelo para comprensión multimodal y codificación',
+    api: 'google-generative-ai',
+    cost: GOOGLE_COSTS['gemini-3-pro'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+  {
+    id: 'gemini-2.5-flash-lite',
+    name: 'Gemini 2.5 Flash Lite',
     reasoning: false,
     input: ['text', 'image'],
     contextWindow: 1048576,
     maxTokens: 8192,
-    description: 'Rápido y estable',
+    description: 'Flash más rápido, optimizado para rentabilidad',
     api: 'google-generative-ai',
-    cost: GOOGLE_COSTS['gemini-2.0-flash'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
-  },
-  {
-    id: 'gemini-2.0-flash-lite',
-    name: 'Gemini 2.0 Flash Lite',
-    reasoning: false,
-    input: ['text', 'image'],
-    contextWindow: 1048576,
-    maxTokens: 8192,
-    description: 'Ultra económico',
-    api: 'google-generative-ai',
-    cost: GOOGLE_COSTS['gemini-2.0-flash-lite'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
-  },
-  // Gemini 3 Series (Preview)
-  {
-    id: 'gemini-3-pro-preview',
-    name: 'Gemini 3 Pro (Preview)',
-    reasoning: true,
-    input: ['text', 'image'],
-    contextWindow: 1048576,
-    maxTokens: 65536,
-    description: 'Próxima generación Pro',
-    api: 'google-generative-ai',
-    cost: GOOGLE_COSTS['gemini-3-pro-preview'],
-    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
-  },
-  {
-    id: 'gemini-3-flash-preview',
-    name: 'Gemini 3 Flash (Preview)',
-    reasoning: true,
-    input: ['text', 'image'],
-    contextWindow: 1048576,
-    maxTokens: 65536,
-    description: 'Próxima generación Flash',
-    api: 'google-generative-ai',
-    cost: GOOGLE_COSTS['gemini-3-flash-preview'],
+    cost: GOOGLE_COSTS['gemini-2.5-flash-lite'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
 ];
 
 export const GOOGLE_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
   {
-    id: 'text-embedding-004',
-    name: 'Text Embedding 004',
-    dimensions: 768,
+    id: 'gemini-embedding-001',
+    name: 'Gemini Embedding 001',
     recommended: true,
-    cost: { input: 0.00001 }, // Basically free
+    cost: { input: 0.00001 },
   },
 ];
 
@@ -457,7 +298,7 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
   openai: {
     id: 'openai',
     name: 'OpenAI',
-    description: 'GPT-4o, o1, o3 y embeddings',
+    description: 'GPT-5.2, GPT-5 y embeddings',
     icon: 'openai',
     models: OPENAI_MODELS,
     embeddingModels: OPENAI_EMBEDDING_MODELS,
@@ -471,10 +312,11 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
   anthropic: {
     id: 'anthropic',
     name: 'Anthropic',
-    description: 'Claude 4, 3.7 y 3.5',
+    description: 'Claude 4.6, 4.5 y Voyage embeddings',
     icon: 'anthropic',
     models: ANTHROPIC_MODELS,
-    supportsEmbeddings: false,
+    embeddingModels: ANTHROPIC_EMBEDDING_MODELS,
+    supportsEmbeddings: true,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'sk-ant-...',
@@ -484,7 +326,7 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
   google: {
     id: 'google',
     name: 'Google Gemini',
-    description: 'Gemini 2.5, 2.0 y 3',
+    description: 'Gemini 3 Flash, 3 Pro y 2.5 Flash Lite',
     icon: 'google',
     models: GOOGLE_MODELS,
     embeddingModels: GOOGLE_EMBEDDING_MODELS,
@@ -633,9 +475,9 @@ export function getDefaultModelId(providerId: AIProviderType): string {
   
   // Fallback defaults
   switch (providerId) {
-    case 'openai': return 'gpt-4o';
-    case 'anthropic': return 'claude-sonnet-4-20250514';
-    case 'google': return 'gemini-2.5-flash-preview-05-20';
+    case 'openai': return 'gpt-5.2';
+    case 'anthropic': return 'claude-sonnet-4-5';
+    case 'google': return 'gemini-3-flash';
     case 'ollama': return 'llama3.2';
     case 'copilot': return 'gpt-4o';
     case 'deepseek': return 'deepseek-chat';
@@ -656,7 +498,8 @@ export function getDefaultEmbeddingModelId(providerId: AIProviderType): string {
   // Fallback defaults
   switch (providerId) {
     case 'openai': return 'text-embedding-3-small';
-    case 'google': return 'text-embedding-004';
+    case 'anthropic': return 'voyage-multimodal-3';
+    case 'google': return 'gemini-embedding-001';
     case 'ollama': return 'mxbai-embed-large';
     default: return '';
   }

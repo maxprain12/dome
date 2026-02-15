@@ -148,9 +148,6 @@ export type AIProviderType =
   | 'moonshot'
   | 'qwen';
 
-// Modo de autenticación para Anthropic (API key vs OAuth/Token de suscripción)
-export type AnthropicAuthMode = 'api_key' | 'oauth' | 'token';
-
 // Configuración de IA
 export interface AISettings {
   provider: AIProviderType;
@@ -158,9 +155,6 @@ export interface AISettings {
   model?: string;
   embedding_model?: string;
   base_url?: string;
-  // Anthropic OAuth/Token support (para suscripción Claude Pro/Max)
-  auth_mode?: AnthropicAuthMode;
-  oauth_token?: string;
   // Para Ollama:
   ollama_base_url?: string;
   ollama_model?: string;

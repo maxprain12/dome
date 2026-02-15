@@ -134,7 +134,7 @@ function generateStreamId(): string {
 export async function chatWithOpenAI(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string, // API key is now fetched from main process
-  model: string = 'gpt-4o',
+  model: string = 'gpt-5.2',
   _tools?: ToolDefinition[],
 ): Promise<string> {
   if (!isElectron()) {
@@ -151,7 +151,7 @@ export async function chatWithOpenAI(
 export async function* streamOpenAI(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
-  model: string = 'gpt-4o',
+  model: string = 'gpt-5.2',
   tools?: ToolDefinition[],
   _signal?: AbortSignal,
 ): AsyncIterable<ChatStreamChunk> {
@@ -217,7 +217,7 @@ export async function* streamOpenAI(
 export async function chatWithClaude(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
-  model: string = 'claude-3-5-sonnet-20241022',
+  model: string = 'claude-sonnet-4-5',
   _tools?: ToolDefinition[],
 ): Promise<string> {
   if (!isElectron()) {
@@ -234,7 +234,7 @@ export async function chatWithClaude(
 export async function* streamClaude(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
-  model: string = 'claude-3-5-sonnet-20241022',
+  model: string = 'claude-sonnet-4-5',
   tools?: ToolDefinition[],
   _signal?: AbortSignal,
 ): AsyncIterable<ChatStreamChunk> {
@@ -297,7 +297,7 @@ export async function* streamClaude(
 export async function chatWithGemini(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
-  model: string = 'gemini-2.0-flash',
+  model: string = 'gemini-3-flash',
 ): Promise<string> {
   if (!isElectron()) {
     throw new Error('AI chat requires Electron environment');
@@ -313,7 +313,8 @@ export async function chatWithGemini(
 export async function* streamGemini(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
-  model: string = 'gemini-2.0-flash',
+  model: string = 'gemini-3-flash',
+  tools?: ToolDefinition[],
   _signal?: AbortSignal,
 ): AsyncIterable<ChatStreamChunk> {
   if (!isElectron()) {
@@ -352,7 +353,8 @@ export async function* streamGemini(
     if (resolveWait) resolveWait();
   });
 
-  window.electron.ai.stream('google', messages, model, streamId);
+  // Pass tools for Gemini Function Calling (converted in main process)
+  window.electron.ai.stream('google', messages, model, streamId, tools);
 
   try {
     while (!done || chunks.length > 0) {
@@ -636,6 +638,7 @@ export async function* chatStream(
         messages,
         config.apiKey,
         config.model || getDefaultModelId('google'),
+        tools,
         signal,
       );
       break;

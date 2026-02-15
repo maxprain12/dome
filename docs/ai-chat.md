@@ -190,7 +190,7 @@ sequenceDiagram
 ### Cloud AI in main process
 
 - Chat, stream, and embeddings for OpenAI/Anthropic/Google run in the main process via IPC to avoid CORS and keep API keys out of the renderer.
-- API keys and auth mode (e.g. `ai_auth_mode` for Anthropic OAuth/token) are read from SQLite in main; proxy (claude-max-api-proxy) for subscription is used only in main.
+- API keys are read from SQLite in main; Anthropic uses direct API key, same as OpenAI and Google.
 - **Handlers**: `ai:chat`, `ai:stream`, `ai:embeddings` in `electron/main.cjs`; implementation in `electron/ai-cloud-service.cjs`.
 
 ### Streaming
@@ -291,7 +291,7 @@ sequenceDiagram
 | `app/components/chat/ChatToolCard.tsx` | Renders ToolCallData; ToolCallData type |
 | `app/lib/hooks/useInteractions.ts` | Load/save interactions for a resource (chat history as interactions) |
 | `electron/main.cjs` | IPC handlers ai:chat, ai:stream, ai:embeddings, ai:tools:*; validation and auth |
-| `electron/ai-cloud-service.cjs` | chat(provider, messages, apiKey, model), stream(..., onChunk), embeddings; OpenAI/Anthropic/Google + proxy |
+| `electron/ai-cloud-service.cjs` | chat(provider, messages, apiKey, model), stream(..., onChunk), embeddings; OpenAI/Anthropic/Google |
 | `electron/ai-tools-handler.cjs` | resourceSearch, resourceGet, resourceList, resourceSemanticSearch, projectList, projectGet, interactionList, getRecentResources, getCurrentProject (DB + vectorDB) |
 | `electron/personality-loader.cjs` | SOUL.md, USER.md, MEMORY.md, memory/*; getMartinDir, load personality files |
 | `electron/preload.cjs` | window.electron.ai.chat, .stream, .onStreamChunk, .embeddings, .tools.* whitelist and implementation |

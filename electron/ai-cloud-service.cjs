@@ -16,7 +16,7 @@
  * @param {number} timeout - Timeout in ms (default: 30000)
  * @returns {Promise<string>}
  */
-async function chatOpenAI(messages, apiKey, model = 'gpt-4o', baseURL = 'https://api.openai.com', timeout = 30000) {
+async function chatOpenAI(messages, apiKey, model = 'gpt-5.2', baseURL = 'https://api.openai.com', timeout = 30000) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -57,14 +57,25 @@ async function chatOpenAI(messages, apiKey, model = 'gpt-4o', baseURL = 'https:/
  * @param {Array<{role: string, content: string}>} messages
  * @param {string} apiKey
  * @param {string} model
- * @param {Function} onChunk - callback(text)
+ * @param {Function} onChunk - callback(string) or callback({ type, text?, toolCall? })
  * @param {string} baseURL - Base URL for API (default: https://api.openai.com)
  * @param {number} timeout - Timeout in ms (default: 120000 for streaming)
+ * @param {Array} tools - Optional OpenAI-format tool definitions
  * @returns {Promise<string>}
  */
-async function streamOpenAI(messages, apiKey, model, onChunk, baseURL = 'https://api.openai.com', timeout = 120000) {
+async function streamOpenAI(messages, apiKey, model, onChunk, baseURL = 'https://api.openai.com', timeout = 120000, tools = undefined) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  const body = {
+    model,
+    messages,
+    temperature: 0.7,
+    stream: true,
+  };
+  if (tools && Array.isArray(tools) && tools.length > 0) {
+    body.tools = tools;
+  }
 
   try {
     const response = await fetch(`${baseURL}/v1/chat/completions`, {
@@ -73,12 +84,7 @@ async function streamOpenAI(messages, apiKey, model, onChunk, baseURL = 'https:/
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0.7,
-        stream: true,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 
@@ -91,6 +97,20 @@ async function streamOpenAI(messages, apiKey, model, onChunk, baseURL = 'https:/
     const decoder = new TextDecoder();
     let buffer = '';
     let fullResponse = '';
+
+    // Accumulate tool_calls by index (OpenAI streams tool_calls incrementally)
+    const toolCallsAccumulator = [];
+    let toolCallsEmitted = false;
+
+    const emitChunk = (chunk) => {
+      if (typeof onChunk === 'function') {
+        if (typeof chunk === 'string') {
+          onChunk({ type: 'text', text: chunk });
+        } else {
+          onChunk(chunk);
+        }
+      }
+    };
 
     try {
       while (true) {
@@ -108,10 +128,47 @@ async function streamOpenAI(messages, apiKey, model, onChunk, baseURL = 'https:/
 
           try {
             const event = JSON.parse(data);
-            const text = event.choices?.[0]?.delta?.content;
+            const delta = event.choices?.[0]?.delta;
+            if (!delta) continue;
+
+            // Text content
+            const text = delta.content;
             if (text) {
               fullResponse += text;
-              onChunk(text);
+              emitChunk({ type: 'text', text });
+            }
+
+            // Tool calls - accumulate by index
+            const toolCalls = delta.tool_calls;
+            if (toolCalls && Array.isArray(toolCalls)) {
+              for (const tc of toolCalls) {
+                const idx = tc.index;
+                if (idx === undefined) continue;
+                if (!toolCallsAccumulator[idx]) {
+                  toolCallsAccumulator[idx] = { id: '', name: '', arguments: '' };
+                }
+                if (tc.id) toolCallsAccumulator[idx].id = tc.id;
+                if (tc.function?.name) toolCallsAccumulator[idx].name = tc.function.name;
+                if (tc.function?.arguments) toolCallsAccumulator[idx].arguments += tc.function.arguments;
+              }
+            }
+
+            // On finish, emit accumulated tool calls (once)
+            const finishReason = event.choices?.[0]?.finish_reason;
+            if (finishReason === 'tool_calls' && !toolCallsEmitted && toolCallsAccumulator.length > 0) {
+              toolCallsEmitted = true;
+              for (const tc of toolCallsAccumulator) {
+                if (tc && tc.name) {
+                  emitChunk({
+                    type: 'tool_call',
+                    toolCall: {
+                      id: tc.id || `call_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+                      name: tc.name,
+                      arguments: tc.arguments || '{}',
+                    },
+                  });
+                }
+              }
             }
           } catch {
             // Skip invalid JSON
@@ -170,7 +227,7 @@ async function embeddingsOpenAI(texts, apiKey, model = 'text-embedding-3-small')
  * @param {string} model
  * @returns {Promise<string>}
  */
-async function chatAnthropic(messages, apiKey, model = 'claude-3-5-sonnet-20241022') {
+async function chatAnthropic(messages, apiKey, model = 'claude-sonnet-4-5') {
   const systemMessage = messages.find((m) => m.role === 'system');
   const otherMessages = messages.filter((m) => m.role !== 'system');
 
@@ -330,7 +387,7 @@ async function streamAnthropic(messages, apiKey, model, onChunk, tools) {
  * @param {string} model
  * @returns {Promise<string>}
  */
-async function chatGoogle(messages, apiKey, model = 'gemini-2.0-flash') {
+async function chatGoogle(messages, apiKey, model = 'gemini-3-flash') {
   const contents = messages
     .filter((m) => m.role !== 'system')
     .map((msg) => ({
@@ -371,14 +428,43 @@ async function chatGoogle(messages, apiKey, model = 'gemini-2.0-flash') {
 }
 
 /**
+ * Convert OpenAI-format tools to Gemini functionDeclarations format
+ * @param {Array} tools - OpenAI format: { type: 'function', function: { name, description, parameters } }
+ * @returns {Array|undefined} Gemini format: { functionDeclarations: [...] } or undefined
+ */
+function convertToolsToGemini(tools) {
+  if (!tools || !Array.isArray(tools) || tools.length === 0) return undefined;
+
+  const functionDeclarations = tools.map((tool) => {
+    if (tool.type === 'function' && tool.function) {
+      const params = tool.function.parameters || { type: 'object', properties: {} };
+      return {
+        name: tool.function.name || 'unknown',
+        description: tool.function.description || '',
+        parameters: {
+          type: params.type || 'object',
+          properties: params.properties || {},
+          required: params.required || [],
+        },
+      };
+    }
+    return null;
+  }).filter(Boolean);
+
+  if (functionDeclarations.length === 0) return undefined;
+  return [{ functionDeclarations }];
+}
+
+/**
  * Stream chat with Google Gemini
  * @param {Array<{role: string, content: string}>} messages
  * @param {string} apiKey
  * @param {string} model
- * @param {Function} onChunk - callback(text)
+ * @param {Function} onChunk - callback(string) or callback({ type, text?, toolCall? })
+ * @param {Array} tools - Optional OpenAI-format tool definitions (converted to Gemini internally)
  * @returns {Promise<string>}
  */
-async function streamGoogle(messages, apiKey, model, onChunk) {
+async function streamGoogle(messages, apiKey, model, onChunk, tools = undefined) {
   const contents = messages
     .filter((m) => m.role !== 'system')
     .map((msg) => ({
@@ -400,6 +486,11 @@ async function streamGoogle(messages, apiKey, model, onChunk) {
     body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
   }
 
+  const geminiTools = tools ? convertToolsToGemini(tools) : undefined;
+  if (geminiTools) {
+    body.tools = geminiTools;
+  }
+
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`,
     {
@@ -419,6 +510,16 @@ async function streamGoogle(messages, apiKey, model, onChunk) {
   let buffer = '';
   let fullResponse = '';
 
+  const emitChunk = (chunk) => {
+    if (typeof onChunk === 'function') {
+      if (typeof chunk === 'string') {
+        onChunk({ type: 'text', text: chunk });
+      } else {
+        onChunk(chunk);
+      }
+    }
+  };
+
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -434,10 +535,26 @@ async function streamGoogle(messages, apiKey, model, onChunk) {
 
         try {
           const event = JSON.parse(data);
-          const text = event.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text) {
-            fullResponse += text;
-            onChunk(text);
+          const parts = event.candidates?.[0]?.content?.parts;
+          if (!parts || !Array.isArray(parts)) continue;
+
+          for (const part of parts) {
+            if (part.text) {
+              fullResponse += part.text;
+              emitChunk({ type: 'text', text: part.text });
+            }
+            if (part.functionCall) {
+              const fc = part.functionCall;
+              const args = typeof fc.args === 'object' ? JSON.stringify(fc.args || {}) : (fc.args || '{}');
+              emitChunk({
+                type: 'tool_call',
+                toolCall: {
+                  id: `call_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+                  name: fc.name || 'unknown',
+                  arguments: args,
+                },
+              });
+            }
           }
         } catch {
           // Skip invalid JSON
@@ -520,14 +637,14 @@ async function chat(provider, messages, apiKey, model) {
  * @param {Function} onChunk
  * @returns {Promise<string>}
  */
-async function stream(provider, messages, apiKey, model, onChunk) {
+async function stream(provider, messages, apiKey, model, onChunk, tools = undefined) {
   switch (provider) {
     case 'openai':
-      return streamOpenAI(messages, apiKey, model, onChunk);
+      return streamOpenAI(messages, apiKey, model, onChunk, undefined, undefined, tools);
     case 'anthropic':
-      return streamAnthropic(messages, apiKey, model, onChunk);
+      return streamAnthropic(messages, apiKey, model, onChunk, tools);
     case 'google':
-      return streamGoogle(messages, apiKey, model, onChunk);
+      return streamGoogle(messages, apiKey, model, onChunk, tools);
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -552,301 +669,6 @@ async function embeddings(provider, texts, apiKey, model) {
   }
 }
 
-// ============================================
-// CLAUDE CLI DIRECT INTEGRATION
-// For Claude Pro/Max subscriptions via Claude Code CLI
-// Based on Clawdbot's implementation
-// ============================================
-
-const { spawn, spawnSync } = require('child_process');
-
-/**
- * Map Anthropic model IDs to Claude CLI model IDs
- * @param {string} model - Anthropic model ID
- * @returns {string} - Claude CLI model ID
- */
-function mapToCliModel(model) {
-  // El Claude CLI acepta nombres largos directamente:
-  // - claude-haiku-4-5, claude-sonnet-4-5, claude-opus-4-5
-  // - haiku, sonnet, opus (aliases cortos)
-  // Siguiendo el patron de clawdbot (normalizeCliModel), pasamos el modelo tal cual
-  // El CLI resuelve internamente al modelo correcto
-  return model;
-}
-
-/**
- * Find Claude CLI binary in common installation paths
- * @returns {string|null} Path to claude binary or null if not found
- */
-function findClaudeBinary() {
-  const { existsSync } = require('fs');
-  const { homedir } = require('os');
-  const { join } = require('path');
-
-  // Common paths where npm/bun install global binaries
-  const possiblePaths = [
-    join(homedir(), '.local', 'bin', 'claude'),          // ~/.local/bin/claude
-    join(homedir(), '.bun', 'bin', 'claude'),            // ~/.bun/bin/claude
-    '/usr/local/bin/claude',                              // Homebrew Intel
-    '/opt/homebrew/bin/claude',                           // Homebrew ARM
-    join(homedir(), '.npm-global', 'bin', 'claude'),     // npm global
-    '/usr/bin/claude',                                    // System
-  ];
-
-  for (const path of possiblePaths) {
-    if (existsSync(path)) {
-      console.log('[Claude CLI] Found binary at:', path);
-      return path;
-    }
-  }
-
-  console.log('[Claude CLI] Binary not found in any common path:', possiblePaths);
-  return null;
-}
-
-/**
- * Check if Claude CLI is available and authenticated
- * @returns {Promise<boolean>}
- */
-async function checkClaudeMaxProxy() {
-  return new Promise((resolve) => {
-    try {
-      console.log('[Claude CLI] Checking availability...');
-
-      // First try to find the binary explicitly
-      const claudePath = findClaudeBinary();
-      if (!claudePath) {
-        console.log('[Claude CLI] Binary not found in common paths');
-        resolve(false);
-        return;
-      }
-
-      // Execute the found binary
-      const result = spawnSync(claudePath, ['--version'], {
-        encoding: 'utf8',
-        timeout: 5000,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-
-      console.log('[Claude CLI] Check result:', {
-        path: claudePath,
-        status: result.status,
-        stdout: result.stdout?.substring(0, 100),
-        stderr: result.stderr?.substring(0, 100),
-        error: result.error?.message
-      });
-
-      const available = result.status === 0 && !result.error;
-      resolve(available);
-    } catch (error) {
-      console.error('[Claude CLI] Check failed:', error.message);
-      resolve(false);
-    }
-  });
-}
-
-/**
- * Run Claude CLI command with timeout
- * Based on clawdbot's runCommandWithTimeout
- * @param {string[]} args - Command arguments
- * @param {number} timeoutMs - Timeout in milliseconds
- * @returns {Promise<{stdout: string, stderr: string, code: number}>}
- */
-function runClaudeCliCommand(args, timeoutMs = 120000) {
-  return new Promise((resolve, reject) => {
-    // Find Claude CLI binary
-    const claudePath = findClaudeBinary();
-    if (!claudePath) {
-      return reject(new Error('Claude CLI not found. Please install: npm install -g @anthropic-ai/claude-code'));
-    }
-
-    // Limpiar variables de entorno que puedan interferir con Claude CLI
-    // (como hace clawdbot en clearEnv)
-    const env = { ...process.env };
-    delete env.ANTHROPIC_API_KEY;
-    delete env.ANTHROPIC_API_KEY_OLD;
-
-    console.log('[Claude CLI] Running command:', claudePath, args);
-
-    const child = spawn(claudePath, args, {
-      // stdin: 'ignore' porque no necesitamos enviar input
-      // stdout/stderr: 'pipe' para capturar la salida
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env,
-      cwd: process.cwd(),
-    });
-
-    let stdout = '';
-    let stderr = '';
-    let killed = false;
-    let settled = false;
-
-    const timeout = setTimeout(() => {
-      if (settled) return;
-      killed = true;
-      child.kill('SIGKILL'); // SIGKILL como hace clawdbot
-      reject(new Error('Claude CLI timeout - request took too long'));
-    }, timeoutMs);
-
-    child.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
-    child.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    child.on('error', (err) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      reject(err);
-    });
-
-    child.on('close', (code, signal) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      if (killed) return;
-      resolve({ stdout, stderr, code: code ?? 1 });
-    });
-  });
-}
-
-/**
- * Parse Claude CLI JSON response
- * Based on Clawdbot's parseCliJson
- * @param {string} raw - Raw stdout from Claude CLI
- * @returns {string} - Extracted text response
- */
-function parseCliResponse(raw) {
-  const trimmed = raw.trim();
-  if (!trimmed) return '';
-  
-  try {
-    const parsed = JSON.parse(trimmed);
-    
-    // Try different fields where response might be
-    if (typeof parsed.message === 'string') return parsed.message;
-    if (typeof parsed.content === 'string') return parsed.content;
-    if (typeof parsed.result === 'string') return parsed.result;
-    if (typeof parsed.text === 'string') return parsed.text;
-    
-    // Handle content array (like Anthropic API format)
-    if (Array.isArray(parsed.content)) {
-      const textBlocks = parsed.content
-        .filter(block => block.type === 'text')
-        .map(block => block.text);
-      if (textBlocks.length > 0) return textBlocks.join('\n');
-    }
-    
-    // Handle message object with content
-    if (parsed.message && typeof parsed.message === 'object') {
-      if (typeof parsed.message.content === 'string') return parsed.message.content;
-      if (Array.isArray(parsed.message.content)) {
-        const textBlocks = parsed.message.content
-          .filter(block => block.type === 'text')
-          .map(block => block.text);
-        if (textBlocks.length > 0) return textBlocks.join('\n');
-      }
-    }
-    
-    return trimmed;
-  } catch {
-    // If not JSON, return raw text
-    return trimmed;
-  }
-}
-
-/**
- * Build prompt string from messages array
- * @param {Array<{role: string, content: string}>} messages
- * @returns {{prompt: string, systemPrompt?: string}}
- */
-function buildCliPrompt(messages) {
-  const systemMessage = messages.find(m => m.role === 'system');
-  const otherMessages = messages.filter(m => m.role !== 'system');
-  
-  // Build conversation prompt
-  const prompt = otherMessages
-    .map(m => {
-      if (m.role === 'user') return m.content;
-      if (m.role === 'assistant') return `[Previous response]: ${m.content}`;
-      return m.content;
-    })
-    .join('\n\n');
-  
-  return {
-    prompt,
-    systemPrompt: systemMessage?.content,
-  };
-}
-
-/**
- * Chat with Anthropic Claude via Claude CLI
- * Based on Clawdbot's runCliAgent
- * @param {Array<{role: string, content: string}>} messages
- * @param {string} model - Anthropic model ID
- * @returns {Promise<string>}
- */
-async function chatAnthropicViaProxy(messages, model) {
-  const cliModel = mapToCliModel(model);
-  const { prompt, systemPrompt } = buildCliPrompt(messages);
-  
-  // Build CLI arguments: claude -p --output-format json --model <model> <prompt>
-  const args = ['-p', '--output-format', 'json'];
-  
-  if (cliModel) {
-    args.push('--model', cliModel);
-  }
-  
-  if (systemPrompt) {
-    args.push('--append-system-prompt', systemPrompt);
-  }
-  
-  args.push(prompt);
-  
-  console.log(`[Claude CLI] Running: claude ${args.slice(0, -1).join(' ')} <prompt:${prompt.length} chars>`);
-  
-  const result = await runClaudeCliCommand(args, 180000);
-  
-  if (result.code !== 0) {
-    const error = result.stderr || result.stdout || 'Claude CLI failed';
-    throw new Error(`Claude CLI error (code ${result.code}): ${error}`);
-  }
-  
-  const response = parseCliResponse(result.stdout);
-  if (!response) {
-    throw new Error('Claude CLI returned empty response');
-  }
-  
-  return response;
-}
-
-/**
- * Stream chat with Anthropic Claude via Claude CLI
- * Note: Claude CLI doesn't support streaming, so we simulate it
- * @param {Array<{role: string, content: string}>} messages
- * @param {string} model - Anthropic model ID
- * @param {Function} onChunk - callback(text)
- * @returns {Promise<string>}
- */
-async function streamAnthropicViaProxy(messages, model, onChunk) {
-  // Claude CLI doesn't support streaming, so we get full response and simulate streaming
-  const response = await chatAnthropicViaProxy(messages, model);
-  
-  // Simulate streaming by sending chunks
-  const chunkSize = 20; // characters per chunk
-  for (let i = 0; i < response.length; i += chunkSize) {
-    const chunk = response.slice(i, i + chunkSize);
-    onChunk(chunk);
-    // Small delay to simulate streaming
-    await new Promise(resolve => setTimeout(resolve, 10));
-  }
-  
-  return response;
-}
-
 module.exports = {
   // OpenAI
   chatOpenAI,
@@ -855,11 +677,6 @@ module.exports = {
   // Anthropic (direct API)
   chatAnthropic,
   streamAnthropic,
-  // Anthropic (via Claude CLI for subscriptions)
-  checkClaudeMaxProxy, // Now checks Claude CLI availability
-  chatAnthropicViaProxy, // Now uses Claude CLI directly
-  streamAnthropicViaProxy, // Now uses Claude CLI directly
-  mapToCliModel,
   // Google
   chatGoogle,
   streamGoogle,

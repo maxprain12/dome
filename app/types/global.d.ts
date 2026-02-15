@@ -497,11 +497,6 @@ declare global {
           embeddings?: number[][];
           error?: string;
         }>;
-        checkClaudeMaxProxy: () => Promise<{
-          success: boolean;
-          available?: boolean;
-          error?: string;
-        }>;
         testConnection: () => Promise<{
           success: boolean;
           provider?: string;

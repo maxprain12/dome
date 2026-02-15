@@ -58,7 +58,7 @@ Documentation for Dome's inter-process communication: channel whitelist, preload
 - **whatsapp**: status, start, stop, logout, send, allowlist get/add/remove.
 - **auth**: profiles list, create, delete; resolve, validate.
 - **personality**: get-prompt, read-file, write-file, add-memory, list-files.
-- **ai**: chat, stream, embeddings, checkClaudeMaxProxy.
+- **ai**: chat, stream, embeddings, testConnection.
 - **ai.tools**: resourceSearch, resourceGet, resourceList, resourceSemanticSearch, projectList, projectGet, interactionList, getRecentResources, getCurrentProject.
 - **window**: create, create-modal, close, list, broadcast, open-workspace, open-settings.
 
