@@ -53,10 +53,11 @@ export default function PetMascot({ plugin }: PetMascotProps) {
         ].filter(([, p]) => p);
 
         for (const [key, path] of toLoad) {
-          const r = await readAsset(plugin.id, path as string);
+          if (key == null || path == null) continue;
+          const r = await readAsset(plugin.id, path);
           if (r?.success && r.dataUrl) {
             if (key.startsWith('walk-')) {
-              const idx = parseInt(key.split('-')[1], 10);
+              const idx = parseInt(key.split('-')[1] ?? '0', 10);
               results.walk = results.walk || [];
               results.walk[idx] = r.dataUrl;
             } else {

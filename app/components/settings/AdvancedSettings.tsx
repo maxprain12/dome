@@ -23,20 +23,6 @@ const citationStyles: { value: CitationStyle; label: string; description: string
   { value: 'ieee', label: 'IEEE', description: 'Institute of Electrical and Electronics Engineers' },
 ];
 
-declare global {
-  interface Window {
-    electron?: {
-      getAppVersion?: () => Promise<string>;
-      updater?: {
-        check: () => Promise<unknown>;
-        download: () => Promise<unknown>;
-        install: () => Promise<void>;
-        onStatus: (cb: (s: UpdaterState) => void) => () => void;
-      };
-    };
-  }
-}
-
 export default function AdvancedSettings() {
   const { citationStyle, autoSave, autoBackup, updateCitationStyle, updatePreferences } = useAppStore();
   const [updaterState, setUpdaterState] = useState<UpdaterState>({ status: 'idle' });
@@ -48,7 +34,7 @@ export default function AdvancedSettings() {
 
   useEffect(() => {
     if (!window.electron?.updater?.onStatus) return;
-    const unsub = window.electron.updater.onStatus(setUpdaterState);
+    const unsub = window.electron.updater.onStatus((s) => setUpdaterState(s as UpdaterState));
     return unsub;
   }, []);
 

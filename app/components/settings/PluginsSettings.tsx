@@ -12,21 +12,6 @@ interface MarketplacePlugin {
   repo?: string;
 }
 
-declare global {
-  interface Window {
-    electron?: {
-      plugins?: {
-        list: () => Promise<{ success: boolean; data?: DomePluginInfo[] }>;
-        installFromFolder: () => Promise<{ success?: boolean; cancelled?: boolean; error?: string }>;
-        installFromRepo: (repo: string) => Promise<{ success?: boolean; error?: string }>;
-        uninstall: (id: string) => Promise<{ success: boolean; error?: string }>;
-        setEnabled: (id: string, enabled: boolean) => Promise<{ success: boolean }>;
-        readAsset: (pluginId: string, relativePath: string) => Promise<{ success: boolean; dataUrl?: string; text?: string; error?: string }>;
-      };
-    };
-  }
-}
-
 export default function PluginsSettings() {
   const [plugins, setPlugins] = useState<DomePluginInfo[]>([]);
   const [marketplace, setMarketplace] = useState<MarketplacePlugin[]>([]);

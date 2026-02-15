@@ -200,6 +200,15 @@ declare global {
       openPath: (filePath: string) => Promise<string>;
       showItemInFolder: (filePath: string) => Promise<void>;
 
+      // File API (workspace, notebook import/export)
+      file: {
+        listDirectory: (dirPath: string) => Promise<{ success: boolean; data?: Array<{ name: string; isDirectory: boolean; path: string }>; error?: string }>;
+        readFileAsText: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+        writeFile: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>;
+        copyFile: (sourcePath: string, destPath: string) => Promise<{ success: boolean; error?: string }>;
+        readFile: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+      };
+
       // Theme
       getTheme: () => Promise<'light' | 'dark'>;
       setTheme: (theme: 'light' | 'dark' | 'auto') => Promise<'light' | 'dark'>;
@@ -239,6 +248,30 @@ declare global {
         initialize: () => Promise<{ success: boolean; needsOnboarding: boolean }>;
         checkOnboarding: () => Promise<{ success: boolean; needsOnboarding: boolean }>;
         getStatus: () => Promise<{ success: boolean; isInitialized: boolean }>;
+      };
+
+      // Auto-updater API
+      updater: {
+        check: () => Promise<unknown>;
+        download: () => Promise<unknown>;
+        install: () => Promise<void>;
+        onStatus: (cb: (s: { status: string; version?: string; percent?: number; error?: string; [key: string]: unknown }) => void) => () => void;
+      };
+
+      // Sync API
+      sync: {
+        export: () => Promise<{ success?: boolean; path?: string; cancelled?: boolean; error?: string }>;
+        import: () => Promise<{ success?: boolean; restartRequired?: boolean; cancelled?: boolean; error?: string }>;
+      };
+
+      // Plugins API
+      plugins: {
+        list: () => Promise<{ success: boolean; data?: any[] }>;
+        installFromFolder: () => Promise<{ success?: boolean; cancelled?: boolean; error?: string }>;
+        installFromRepo: (repo: string) => Promise<{ success?: boolean; error?: string }>;
+        uninstall: (id: string) => Promise<{ success: boolean; error?: string }>;
+        setEnabled: (id: string, enabled: boolean) => Promise<{ success: boolean }>;
+        readAsset: (pluginId: string, relativePath: string) => Promise<{ success: boolean; dataUrl?: string; text?: string; error?: string }>;
       };
 
       // Database API

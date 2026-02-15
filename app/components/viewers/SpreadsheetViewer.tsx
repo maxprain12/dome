@@ -153,116 +153,26 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
         </table>
       </div>
 
-      <style jsx>{`
-        .spreadsheet-viewer {
-          display: flex;
-          flex-direction: column;
-          width: 100%;
-          height: 100%;
-          background: var(--bg);
-          overflow: hidden;
-        }
-
-        .sheet-tabs {
-          display: flex;
-          gap: 0;
-          padding: 0 16px;
-          border-bottom: 1px solid var(--border);
-          background: var(--bg-secondary);
-          flex-shrink: 0;
-          overflow-x: auto;
-        }
-
-        .sheet-tab {
-          padding: 10px 20px;
-          border: none;
-          background: transparent;
-          font-size: 13px;
-          font-weight: 500;
-          color: var(--secondary-text);
-          cursor: pointer;
-          border-bottom: 2px solid transparent;
-          transition: all var(--transition-fast);
-          white-space: nowrap;
-        }
-
-        .sheet-tab:hover {
-          color: var(--primary-text);
-          background: var(--bg-hover);
-        }
-
-        .sheet-tab.active {
-          color: var(--accent);
-          border-bottom-color: var(--accent);
-        }
-
-        .table-container {
-          flex: 1;
-          overflow: auto;
-          padding: 0;
-        }
-
-        table {
-          width: max-content;
-          min-width: 100%;
-          border-collapse: collapse;
-          font-size: 13px;
-        }
-
-        thead {
-          position: sticky;
-          top: 0;
-          z-index: 10;
-        }
-
-        th {
-          background: var(--bg-tertiary);
-          color: var(--primary-text);
-          font-weight: 600;
-          padding: 8px 16px;
-          text-align: left;
-          border: 1px solid var(--border);
-          white-space: nowrap;
-          max-width: 300px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        td {
-          padding: 6px 16px;
-          color: var(--secondary-text);
-          border: 1px solid var(--border);
-          white-space: nowrap;
-          max-width: 300px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        tbody tr:nth-child(even) td {
-          background: var(--bg-secondary);
-        }
-
-        tbody tr:hover td {
-          background: var(--bg-hover);
-        }
-
-        .row-number {
-          color: var(--tertiary-text);
-          background: var(--bg-tertiary) !important;
-          font-size: 11px;
-          text-align: center;
-          padding: 6px 10px;
-          font-weight: 500;
-          min-width: 40px;
-          position: sticky;
-          left: 0;
-          z-index: 5;
-        }
-
-        thead .row-number {
-          z-index: 15;
-        }
-      `}</style>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        .spreadsheet-viewer{display:flex;flex-direction:column;width:100%;height:100%;background:var(--bg);overflow:hidden}
+        .sheet-tabs{display:flex;gap:0;padding:0 16px;border-bottom:1px solid var(--border);background:var(--bg-secondary);flex-shrink:0;overflow-x:auto}
+        .sheet-tab{padding:10px 20px;border:none;background:transparent;font-size:13px;font-weight:500;color:var(--secondary-text);cursor:pointer;border-bottom:2px solid transparent;transition:all var(--transition-fast);white-space:nowrap}
+        .sheet-tab:hover{color:var(--primary-text);background:var(--bg-hover)}
+        .sheet-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+        .table-container{flex:1;overflow:auto;padding:0}
+        .spreadsheet-viewer table{width:max-content;min-width:100%;border-collapse:collapse;font-size:13px}
+        .spreadsheet-viewer thead{position:sticky;top:0;z-index:10}
+        .spreadsheet-viewer th{background:var(--bg-tertiary);color:var(--primary-text);font-weight:600;padding:8px 16px;text-align:left;border:1px solid var(--border);white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+        .spreadsheet-viewer td{padding:6px 16px;color:var(--secondary-text);border:1px solid var(--border);white-space:nowrap;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+        .spreadsheet-viewer tbody tr:nth-child(even) td{background:var(--bg-secondary)}
+        .spreadsheet-viewer tbody tr:hover td{background:var(--bg-hover)}
+        .spreadsheet-viewer .row-number{color:var(--tertiary-text);background:var(--bg-tertiary)!important;font-size:11px;text-align:center;padding:6px 10px;font-weight:500;min-width:40px;position:sticky;left:0;z-index:5}
+        .spreadsheet-viewer thead .row-number{z-index:15}
+      `,
+        }}
+      />
     </div>
   );
 }

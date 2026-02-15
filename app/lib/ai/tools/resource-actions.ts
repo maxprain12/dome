@@ -54,8 +54,14 @@ const ResourceCreateSchema = Type.Object({
   metadata: Type.Optional(
     Type.Object({
       url: Type.Optional(Type.String({ description: 'For type=url: the URL to save.' })),
+      color: Type.Optional(
+        Type.String({
+          description:
+            'For type=folder: hex color for the folder icon (e.g. #7B76D0, #22c55e, #3b82f6).',
+        })
+      ),
     }, {
-      description: 'For type=url: include {url: "https://..."}.',
+      description: 'For type=url: {url}. For type=folder: {color} for folder color.',
     }),
   ),
   project_id: Type.Optional(
@@ -84,6 +90,18 @@ const ResourceUpdateSchema = Type.Object({
       description: 'New content for the resource (replaces existing content).',
     }),
   ),
+  metadata: Type.Optional(
+    Type.Object({
+      color: Type.Optional(
+        Type.String({
+          description:
+            'For folders: hex color for the folder icon (e.g. #7B76D0, #22c55e, #3b82f6).',
+        })
+      ),
+    }, {
+      description: 'For folders: use {color: "#hex"} to change folder color.',
+    }),
+  ),
 });
 
 const ResourceDeleteSchema = Type.Object({
@@ -95,6 +113,18 @@ const ResourceDeleteSchema = Type.Object({
       description: 'Set to true to confirm deletion. Required to actually delete.',
     }),
   ),
+});
+
+const ResourceMoveToFolderSchema = Type.Object({
+  resource_id: Type.String({
+    description: 'The ID of the resource (note, document, pdf, etc.) to move.',
+  }),
+  folder_id: Type.Union([
+    Type.String({ description: 'Target folder ID to move the resource into.' }),
+    Type.Null({ description: 'Use null to move the resource to root (no folder).' }),
+  ], {
+    description: 'Folder ID to move the resource to, or null for root.',
+  }),
 });
 
 // =============================================================================
@@ -156,8 +186,8 @@ export function createResourceCreateTool(): AnyAgentTool {
     label: 'Crear Recurso',
     name: 'resource_create',
     description:
-      'Crea un nuevo recurso en la base de conocimiento. Tipos: note (texto/HTML), notebook (código Python), document, url (metadata.url), folder (solo título). ' +
-      'Para notebook: usa cells=[{cell_type, source}] o content (JSON). Para url: metadata.url.',
+      'Crea un nuevo recurso. Tipos: note, notebook, document, url (metadata.url), folder. ' +
+      'Para folder: usa metadata: { color: "#hex" } para el color. Para organizar: usa folder_id para colocar en una carpeta.',
     parameters: ResourceCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -220,7 +250,7 @@ export function createResourceCreateTool(): AnyAgentTool {
           createPayload.metadata = metadata;
         }
 
-        const result = await window.electron.ai.tools.resourceCreate(createPayload);
+        const result = await window.electron.ai.tools.resourceCreate(createPayload as { title: string; type?: string; content?: string; project_id?: string });
 
         if (!result.success) {
           return jsonResult({
@@ -250,7 +280,7 @@ export function createResourceUpdateTool(): AnyAgentTool {
     label: 'Actualizar Recurso',
     name: 'resource_update',
     description:
-      'Actualiza el título o contenido de un recurso existente. Úsalo para editar notas, añadir contenido, o corregir información en un recurso.',
+      'Actualiza el título, contenido o metadata de un recurso. Para carpetas: usa metadata: { color: "#hex" } para cambiar el color. Colores válidos: #7B76D0, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #8b5cf6, #ec4899, #6b7280, #14b8a6.',
     parameters: ResourceUpdateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -265,21 +295,23 @@ export function createResourceUpdateTool(): AnyAgentTool {
         const resourceId = readStringParam(params, 'resource_id', { required: true });
         const title = readStringParam(params, 'title');
         const content = readStringParam(params, 'content');
+        const metadataParam = params.metadata as Record<string, unknown> | undefined;
 
         if (!resourceId) {
           return jsonResult({ status: 'error', error: 'Resource ID is required.' });
         }
 
-        if (title === undefined && content === undefined) {
+        if (title === undefined && content === undefined && !(metadataParam && Object.keys(metadataParam).length > 0)) {
           return jsonResult({
             status: 'error',
-            error: 'At least one of title or content must be provided.',
+            error: 'At least one of title, content, or metadata must be provided.',
           });
         }
 
         const updates: Record<string, unknown> = {};
         if (title !== undefined) updates.title = title;
         if (content !== undefined) updates.content = content;
+        if (metadataParam && typeof metadataParam === 'object') updates.metadata = metadataParam;
 
         const result = await window.electron.ai.tools.resourceUpdate(resourceId, updates);
 
@@ -366,12 +398,68 @@ export function createResourceDeleteTool(): AnyAgentTool {
 // =============================================================================
 
 /**
- * Create all resource action tools (create, update, delete).
+ * Create a tool for moving resources to folders (organize documents, nest in folders).
+ */
+export function createResourceMoveToFolderTool(): AnyAgentTool {
+  return {
+    label: 'Mover a Carpeta',
+    name: 'resource_move_to_folder',
+    description:
+      'Mueve un recurso (nota, documento, PDF, etc.) o carpeta a otra carpeta o a la raíz. ' +
+      'Úsalo para organizar documentos, anidar carpetas, o mover recursos entre carpetas. ' +
+      'Usa get_library_overview primero para obtener IDs de carpetas y recursos.',
+    parameters: ResourceMoveToFolderSchema,
+    execute: async (_toolCallId, args) => {
+      try {
+        if (!isElectron()) {
+          return jsonResult({
+            status: 'error',
+            error: 'Resource move requires Electron environment.',
+          });
+        }
+
+        const params = args as Record<string, unknown>;
+        const resourceId = readStringParam(params, 'resource_id', { required: true });
+        const folderId = params.folder_id as string | null | undefined;
+
+        if (!resourceId) {
+          return jsonResult({ status: 'error', error: 'resource_id is required.' });
+        }
+
+        const result = await window.electron.ai.tools.resourceMoveToFolder(
+          resourceId,
+          folderId === undefined ? null : folderId
+        );
+
+        if (!result.success) {
+          return jsonResult({
+            status: 'error',
+            error: result.error || 'Failed to move resource',
+          });
+        }
+
+        return jsonResult({
+          status: 'success',
+          message: `Resource moved ${folderId ? 'to folder' : 'to root'}.`,
+          resource_id: resourceId,
+          folder_id: folderId ?? null,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return jsonResult({ status: 'error', error: message });
+      }
+    },
+  };
+}
+
+/**
+ * Create all resource action tools (create, update, delete, move).
  */
 export function createResourceActionTools(): AnyAgentTool[] {
   return [
     createResourceCreateTool(),
     createResourceUpdateTool(),
     createResourceDeleteTool(),
+    createResourceMoveToFolderTool(),
   ];
 }

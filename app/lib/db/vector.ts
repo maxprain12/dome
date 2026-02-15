@@ -104,7 +104,7 @@ export async function deleteResourceEmbeddings(resourceId: string) {
     throw new Error('Vector DB operations require Electron');
   }
   
-  return window.electron.vector.delete(`resource_id = '${resourceId}'`);
+  return window.electron.vector.deleteResource(resourceId);
 }
 
 /**

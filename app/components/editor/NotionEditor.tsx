@@ -124,7 +124,6 @@ export default function NotionEditor({
       DragHandleExtension,
     ],
     content,
-    contentType,
     editable,
     onUpdate: ({ editor }) => {
       if (onChange) {

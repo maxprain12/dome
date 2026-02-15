@@ -117,12 +117,12 @@ export default function ModelSelector({
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true } as AddEventListenerOptions);
     window.addEventListener('resize', handleScroll);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll, { capture: true, passive: true });
+      window.removeEventListener('scroll', handleScroll, { capture: true } as EventListenerOptions);
       window.removeEventListener('resize', handleScroll);
     };
   }, [isOpen]);

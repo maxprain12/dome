@@ -394,6 +394,41 @@ function register({ ipcMain, windowManager, database, ollamaService, initModule 
   });
 
   /**
+   * Delete resource embeddings by resource_id (for when resource is deleted)
+   */
+  ipcMain.handle('vector:resource:delete', async (event, resourceId) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      if (!resourceId || typeof resourceId !== 'string' || resourceId.length > 200) {
+        throw new Error('resourceId must be a non-empty string with max 200 characters');
+      }
+
+      const vectorDB = initModule.getVectorDB();
+      if (!vectorDB) {
+        return { success: true };
+      }
+
+      const tableNames = await vectorDB.tableNames();
+      if (!tableNames.includes('resource_embeddings')) {
+        return { success: true };
+      }
+
+      const table = await vectorDB.openTable('resource_embeddings');
+      const safeId = String(resourceId).replace(/"/g, '""');
+      await table.delete(`resource_id = "${safeId}"`);
+
+      console.log(`[Vector] Deleted resource embeddings: ${resourceId}`);
+      return { success: true };
+    } catch (error) {
+      console.error('[Vector] Error deleting resource embeddings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
    * Delete annotation from LanceDB
    */
   ipcMain.handle('vector:annotations:delete', async (event, annotationId) => {

@@ -62,6 +62,25 @@ function getResourceTypeFromPath(filePath: string): ResourceType {
     return 'document';
 }
 
+/** Parse metadata from DB (often stored as JSON string) */
+function parseResourceMetadata(metadata: unknown): Record<string, unknown> | undefined {
+    if (metadata == null) return undefined;
+    if (typeof metadata === 'object') return metadata as Record<string, unknown>;
+    try {
+        return typeof metadata === 'string' ? JSON.parse(metadata || '{}') : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/** Normalize resource from DB: parse metadata so folder colors etc. work */
+function normalizeResource(r: Resource): Resource {
+    return {
+        ...r,
+        metadata: r.metadata != null ? parseResourceMetadata(r.metadata) : undefined,
+    };
+}
+
 export function useResources(filter?: ResourceFilter) {
     const [resources, setResources] = useState<Resource[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -83,7 +102,7 @@ export function useResources(filter?: ResourceFilter) {
             if (typeof window !== 'undefined' && window.electron?.db) {
                 const result = await window.electron.db.resources.getAll(100);
                 if (result.success && result.data) {
-                    startTransition(() => setResources(result.data as Resource[]));
+                    startTransition(() => setResources((result.data as Resource[]).map(normalizeResource)));
                 } else if (result.error) {
                     setError(result.error);
                 }
@@ -108,10 +127,8 @@ export function useResources(filter?: ResourceFilter) {
         // Listener: Recurso creado
         const unsubscribeCreate = window.electron.on('resource:created', (resource: Resource) => {
             setResources(prev => {
-                // Evitar duplicados
                 if (prev.some(r => r.id === resource.id)) return prev;
-                // Agregar al inicio (más reciente primero)
-                return [resource, ...prev];
+                return [normalizeResource(resource), ...prev];
             });
         });
 
@@ -119,7 +136,14 @@ export function useResources(filter?: ResourceFilter) {
         const unsubscribeUpdate = window.electron.on('resource:updated',
             ({ id, updates }: { id: string, updates: Partial<Resource> }) => {
                 setResources(prev =>
-                    prev.map(r => r.id === id ? { ...r, ...updates, updated_at: Date.now() } : r)
+                    prev.map(r => {
+                        if (r.id !== id) return r;
+                        const merged = { ...r, ...updates, updated_at: Date.now() };
+                        if (updates.metadata != null) {
+                            merged.metadata = parseResourceMetadata(updates.metadata);
+                        }
+                        return merged;
+                    })
                 );
             }
         );
@@ -423,6 +447,24 @@ export function useResources(filter?: ResourceFilter) {
         return resources.find((r) => r.id === folderId && r.type === 'folder');
     }, [resources]);
 
+    // Get breadcrumb path from root to folder (for folder navigation UI)
+    const getBreadcrumbPath = useCallback((folderId: string): Resource[] => {
+        const path: Resource[] = [];
+        const foldersMap = new Map<string, Resource>(
+            resources.filter((r) => r.type === 'folder').map((r) => [r.id, r])
+        );
+        let currentId: string | null = folderId;
+        const visited = new Set<string>();
+        while (currentId && !visited.has(currentId)) {
+            visited.add(currentId);
+            const folder = foldersMap.get(currentId);
+            if (!folder) break;
+            path.unshift(folder);
+            currentId = folder.folder_id ?? null;
+        }
+        return path;
+    }, [resources]);
+
     // Get all folders (for move dialog)
     const allFolders = useMemo(() => {
         return resources.filter((r) => r.type === 'folder');
@@ -444,6 +486,7 @@ export function useResources(filter?: ResourceFilter) {
         deleteResource,
         moveToFolder,
         getFolderById,
+        getBreadcrumbPath,
     };
 }
 

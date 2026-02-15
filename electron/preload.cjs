@@ -158,6 +158,7 @@ const ALLOWED_CHANNELS = {
     'vector:add',
     'vector:search',
     'vector:delete',
+    'vector:resource:delete',
     'vector:count',
     // WhatsApp
     'whatsapp:status',
@@ -916,6 +917,7 @@ const electronHandler = {
     add: (items) => ipcRenderer.invoke('vector:add', items),
     search: (query, options) => ipcRenderer.invoke('vector:search:generic', query, options),
     delete: (filter) => ipcRenderer.invoke('vector:delete', filter),
+    deleteResource: (resourceId) => ipcRenderer.invoke('vector:resource:delete', resourceId),
     count: () => ipcRenderer.invoke('vector:count'),
     status: () => ipcRenderer.invoke('vector:status'),
 

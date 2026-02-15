@@ -67,13 +67,13 @@ function registerAll(deps) {
   avatarHandlers.register({ ipcMain, app, windowManager, validateSender });
   windowHandlers.register({ ipcMain, nativeTheme, windowManager, database });
   initHandlers.register({ ipcMain, windowManager, initModule, validateSender });
-  databaseHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender });
+  databaseHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService });
   interactionsHandlers.register({ ipcMain, windowManager, database, validateSender });
   linksHandlers.register({ ipcMain, windowManager, database, validateSender });
   tagsHandlers.register({ ipcMain, windowManager, database, validateSender });
   graphHandlers.register({ ipcMain, windowManager, database, validateSender });
   vectorHandlers.register({ ipcMain, windowManager, database, ollamaService, initModule, fileStorage, documentExtractor });
-  resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor });
+  resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, initModule, ollamaService });
   storageHandlers.register({ ipcMain, windowManager, database, fileStorage });
   filesHandlers.register({ ipcMain, app, windowManager, sanitizePath });
   migrationHandlers.register({ ipcMain, fs, windowManager, database, fileStorage, thumbnail });

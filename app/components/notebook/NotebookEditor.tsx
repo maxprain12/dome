@@ -86,7 +86,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
       for (let i = 0; i <= endIndex; i++) {
         const c = nb.cells[i];
         if (c?.cell_type === 'code') {
-          const src = typeof c.source === 'string' ? c.source : c.source.join('');
+          const src = Array.isArray(c.source) ? c.source.join('') : c.source;
           if (src.trim()) parts.push(src);
         }
       }
@@ -102,7 +102,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
       for (let i = 0; i <= endIndex; i++) {
         const c = nb.cells[i];
         if (c?.cell_type === 'code') {
-          const src = typeof c.source === 'string' ? c.source : c.source.join('');
+          const src = Array.isArray(c.source) ? c.source.join('') : c.source;
           cells.push(src);
         }
       }
@@ -147,7 +147,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
       const codeToRun = getCodeUpTo(idx);
       const codeCells = getCodeCellsUpTo(idx);
       const cell = nb.cells[idx];
-      const source = cell?.cell_type === 'code' ? (typeof cell.source === 'string' ? cell.source : (cell as NotebookCodeCell).source.join('')) : '';
+      const source = cell?.cell_type === 'code' ? (Array.isArray(cell.source) ? cell.source.join('') : cell.source) : '';
       const result = await runPython(codeToRun, {
         cells: codeCells,
         targetCellIndex: codeCells.length - 1,
@@ -165,7 +165,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
     const codeIndices = getCodeCellIndices(nb.cells);
     for (const idx of codeIndices) {
       const cell = nb.cells[idx];
-      const source = cell?.cell_type === 'code' ? (typeof cell.source === 'string' ? cell.source : (cell as NotebookCodeCell).source.join('')) : '';
+      const source = cell?.cell_type === 'code' ? (Array.isArray(cell.source) ? cell.source.join('') : cell.source) : '';
       const codeToRun = getCodeUpTo(idx);
       const codeCells = getCodeCellsUpTo(idx);
       const result = await runPython(codeToRun, {
@@ -236,6 +236,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
       if (fromIndex === toIndex || toIndex < 0 || toIndex >= nb.cells.length) return;
       const cells = [...nb.cells];
       const [removed] = cells.splice(fromIndex, 1);
+      if (removed === undefined) return;
       cells.splice(toIndex, 0, removed);
       const newNb: NotebookContent = { ...nb, cells };
       onChange(JSON.stringify(newNb));

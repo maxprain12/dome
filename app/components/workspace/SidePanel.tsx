@@ -94,8 +94,8 @@ export default function SidePanel({
             aria-haspopup="listbox"
           >
             <span className="flex items-center gap-2 truncate">
-              {activeTabConfig.icon}
-              {activeTabConfig.label}
+              {activeTabConfig?.icon}
+              {activeTabConfig?.label}
             </span>
             <ChevronDown
               size={16}

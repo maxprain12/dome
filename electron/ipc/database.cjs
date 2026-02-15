@@ -1,5 +1,8 @@
 /* eslint-disable no-console */
-function register({ ipcMain, windowManager, database, fileStorage, validateSender }) {
+const resourceIndexer = require('../resource-indexer.cjs');
+
+function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
+  const indexerDeps = initModule && ollamaService ? { database, initModule, ollamaService } : null;
   // Projects
   ipcMain.handle('db:projects:create', (event, project) => {
     try {
@@ -69,6 +72,10 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:created', resource);
 
+      if (indexerDeps && resourceIndexer.shouldIndex(resource)) {
+        resourceIndexer.scheduleIndexing(resource.id, indexerDeps);
+      }
+
       return { success: true, data: resource };
     } catch (error) {
       console.error('[DB] Error creating resource:', error);
@@ -117,6 +124,10 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         id: resource.id,
         updates: resource
       });
+
+      if (indexerDeps && resourceIndexer.shouldIndex(resource)) {
+        resourceIndexer.scheduleIndexing(resource.id, indexerDeps);
+      }
 
       return { success: true, data: resource };
     } catch (error) {
@@ -542,7 +553,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Delete resource
-  ipcMain.handle('db:resources:delete', (event, id) => {
+  ipcMain.handle('db:resources:delete', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -554,6 +565,12 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       }
       // Delete from database
       queries.deleteResource.run(id);
+
+      if (indexerDeps) {
+        resourceIndexer.deleteEmbeddings(id, indexerDeps).catch((err) => {
+          console.warn('[DB] Error deleting embeddings:', err.message);
+        });
+      }
 
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:deleted', { id });

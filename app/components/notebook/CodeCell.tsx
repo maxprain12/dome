@@ -116,7 +116,7 @@ export default function CodeCell({
         );
       }
       if (imageSvg) {
-        const svg = typeof imageSvg === 'string' ? imageSvg : imageSvg[0];
+        const svg = typeof imageSvg === 'string' ? imageSvg : (Array.isArray(imageSvg) ? imageSvg[0] : '') ?? '';
         return (
           <div key={idx} className="p-2" dangerouslySetInnerHTML={{ __html: svg }} />
         );

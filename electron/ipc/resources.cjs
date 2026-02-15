@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 const crypto = require('crypto');
+const resourceIndexer = require('../resource-indexer.cjs');
 
 /**
  * Generate a unique ID for resources
@@ -8,7 +9,8 @@ function generateId() {
   return crypto.randomUUID();
 }
 
-function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor }) {
+function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, initModule, ollamaService }) {
+  const indexerDeps = initModule && ollamaService ? { database, initModule, ollamaService } : null;
   /**
    * Import a file: copy to internal storage and create resource
    */
@@ -112,6 +114,10 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
       // Broadcast so Home and other windows update immediately
       windowManager.broadcast('resource:created', resource);
+
+      if (indexerDeps && resource && resourceIndexer.shouldIndex(resource)) {
+        resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
+      }
 
       console.log(`[Resource] Imported: ${resourceTitle} (${importResult.internalPath})`);
 
@@ -227,6 +233,10 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
         // Broadcast so Home and other windows update immediately
         windowManager.broadcast('resource:created', resource);
+
+        if (indexerDeps && resource && resourceIndexer.shouldIndex(resource)) {
+          resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
+        }
 
         results.push({ success: true, data: resource });
       } catch (error) {

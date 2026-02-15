@@ -109,11 +109,11 @@ export default memo(function ResourceCard({
 
     if (showMenu) {
       document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+      window.addEventListener('scroll', handleScroll, { capture: true, passive: true } as AddEventListenerOptions);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll, { capture: true, passive: true });
+      window.removeEventListener('scroll', handleScroll, { capture: true } as EventListenerOptions);
     };
   }, [showMenu]);
   // Detect document sub-type for type-specific icons and colors

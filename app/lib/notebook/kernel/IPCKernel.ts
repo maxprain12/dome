@@ -16,20 +16,6 @@ export interface RunPythonOptions {
   cwd?: string;
 }
 
-declare global {
-  interface Window {
-    electron?: {
-      notebook?: {
-        runPython: (
-          code: string,
-          options?: RunPythonOptions
-        ) => Promise<{ success: boolean; outputs: NotebookOutput[]; error?: string }>;
-        checkPython: () => Promise<{ available: boolean; version?: string; path?: string }>;
-      };
-    };
-  }
-}
-
 /**
  * IPC kernel - runs Python via Electron main process (system Python)
  * Use when running inside Electron; replaces Pyodide for native Python with full pip ecosystem
