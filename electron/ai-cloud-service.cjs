@@ -603,6 +603,36 @@ async function embeddingsGoogle(texts, apiKey, model = 'text-embedding-004') {
   return embeddings;
 }
 
+/**
+ * Generate embeddings with Voyage AI (Anthropic's recommended embedding provider)
+ * @param {string[]} texts
+ * @param {string} apiKey - Anthropic/Voyage API key
+ * @param {string} model - e.g. voyage-multimodal-3, voyage-3-large
+ * @param {string} [inputType] - 'query' | 'document' for retrieval tasks (optional)
+ * @returns {Promise<number[][]>}
+ */
+async function embeddingsVoyage(texts, apiKey, model = 'voyage-multimodal-3', inputType = 'document') {
+  const body = { input: texts, model };
+  if (inputType) body.input_type = inputType;
+
+  const response = await fetch('https://api.voyageai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(`Voyage Embeddings error: ${response.status} - ${error.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.data.map((item) => item.embedding);
+}
+
 // ============================================
 // UNIFIED INTERFACE
 // ============================================
@@ -662,6 +692,8 @@ async function embeddings(provider, texts, apiKey, model) {
   switch (provider) {
     case 'openai':
       return embeddingsOpenAI(texts, apiKey, model);
+    case 'anthropic':
+      return embeddingsVoyage(texts, apiKey, model);
     case 'google':
       return embeddingsGoogle(texts, apiKey, model);
     default:
@@ -677,6 +709,7 @@ module.exports = {
   // Anthropic (direct API)
   chatAnthropic,
   streamAnthropic,
+  embeddingsVoyage,
   // Google
   chatGoogle,
   streamGoogle,

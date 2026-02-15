@@ -215,8 +215,8 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
 
     try {
       // Validate inputs
-      if (!provider || !['openai', 'google'].includes(provider)) {
-        throw new Error('Invalid provider for embeddings. Must be openai or google');
+      if (!provider || !['openai', 'google', 'anthropic'].includes(provider)) {
+        throw new Error('Invalid provider for embeddings. Must be openai, google, or anthropic');
       }
       if (!Array.isArray(texts) || texts.length === 0) {
         throw new Error('Texts must be a non-empty array');

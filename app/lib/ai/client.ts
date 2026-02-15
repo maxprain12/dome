@@ -469,6 +469,22 @@ export async function generateEmbeddingsGoogle(
   return result.embeddings;
 }
 
+export async function generateEmbeddingsAnthropic(
+  texts: string[],
+  _apiKey: string,
+  model: string = 'voyage-multimodal-3',
+): Promise<number[][]> {
+  if (!isElectron()) {
+    throw new Error('Embeddings require Electron environment');
+  }
+
+  const result = await window.electron.ai.embeddings('anthropic', texts, model);
+  if (!result.success || !result.embeddings) {
+    throw new Error(result.error || 'Anthropic (Voyage) embeddings failed');
+  }
+  return result.embeddings;
+}
+
 // =============================================================================
 // Unified Functions
 // =============================================================================
@@ -535,20 +551,13 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
     case 'ollama':
       return generateEmbeddingsOllama(texts);
 
-    // Providers that don't support embeddings - fallback to Ollama
-    case 'anthropic': {
-      // Try to use Ollama as fallback
-      const ollamaAvailable = await checkOllamaAvailable();
-      if (ollamaAvailable) {
-        console.log(`[AI] ${config.provider} doesn't support embeddings, using Ollama as fallback`);
-        return generateEmbeddingsOllama(texts);
-      }
-      throw new Error(
-        `${config.provider} doesn't support embeddings. ` +
-        'Options: 1) Install Ollama with an embedding model (mxbai-embed-large), ' +
-        '2) Use OpenAI or Google as the main provider.'
+    case 'anthropic':
+      if (!config.apiKey) throw new Error('Anthropic API key not configured');
+      return generateEmbeddingsAnthropic(
+        texts,
+        config.apiKey,
+        config.embeddingModel || getDefaultEmbeddingModelId('anthropic'),
       );
-    }
 
     default:
       throw new Error(`Provider ${config.provider} not supported for embeddings`);

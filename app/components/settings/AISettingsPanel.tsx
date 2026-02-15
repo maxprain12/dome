@@ -159,7 +159,7 @@ export default function AISettingsPanel() {
       case 'anthropic':
         config.api_key = apiKey;
         config.model = model;
-        // Note: Anthropic doesn't support embeddings
+        config.embedding_model = embeddingModel;
         break;
 
       case 'google':
@@ -427,22 +427,6 @@ export default function AISettingsPanel() {
                   providerType="embedding"
                   placeholder="Selecciona modelo de embeddings..."
                 />
-              </div>
-            )}
-
-            {/* Note for providers that don't support embeddings */}
-            {provider === 'anthropic' && (
-              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <p className="text-xs" style={{ color: 'var(--secondary-text)' }}>
-                  <strong className="text-amber-600 dark:text-amber-400">Note:</strong>{' '}
-                  Anthropic doesn't support embeddings for semantic search.
-                </p>
-                <p className="text-xs mt-1 opacity-80" style={{ color: 'var(--secondary-text)' }}>
-                  To enable semantic search, install <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline text-blue-500">Ollama</a> with an embedding model:
-                </p>
-                <code className="block mt-2 text-xs bg-black/10 dark:bg-white/10 px-2 py-1 rounded font-mono">
-                  ollama pull mxbai-embed-large
-                </code>
               </div>
             )}
           </>

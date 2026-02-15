@@ -1,4 +1,44 @@
 /* eslint-disable no-console */
+
+/**
+ * Generate embedding using Ollama or cloud provider (OpenAI, Anthropic, Google)
+ * @returns {{ embedding: number[]|null, dimension: number }}
+ */
+async function getEmbedding(database, ollamaService, text) {
+  const queries = database.getQueries();
+  const isOllamaAvailable = await ollamaService.checkAvailability();
+
+  if (isOllamaAvailable) {
+    const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
+    const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
+    const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
+    const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
+    const embedding = await ollamaService.generateEmbedding(text, embeddingModel, baseUrl);
+    return { embedding, dimension: embedding?.length || 1024 };
+  }
+
+  const aiApiKey = queries.getSetting.get('ai_api_key');
+  const aiProvider = queries.getSetting.get('ai_provider');
+  const aiEmbeddingModel = queries.getSetting.get('ai_embedding_model')?.value;
+
+  if (!aiApiKey?.value || !['openai', 'anthropic', 'google'].includes(aiProvider?.value)) {
+    return { embedding: null, dimension: 1024 };
+  }
+
+  const aiCloudService = require('../ai-cloud-service.cjs');
+  const defaultModels = { openai: 'text-embedding-3-small', anthropic: 'voyage-multimodal-3', google: 'text-embedding-004' };
+  const model = aiEmbeddingModel || defaultModels[aiProvider.value];
+
+  try {
+    const embeddings = await aiCloudService.embeddings(aiProvider.value, [text], aiApiKey.value, model);
+    const embedding = embeddings?.[0] || null;
+    return { embedding, dimension: embedding?.length || 1024 };
+  } catch (err) {
+    console.error('[Vector] Cloud embedding failed:', err);
+    return { embedding: null, dimension: 1024 };
+  }
+}
+
 function register({ ipcMain, windowManager, database, ollamaService, initModule }) {
   /**
    * Index annotation in LanceDB
@@ -42,45 +82,15 @@ function register({ ipcMain, windowManager, database, ollamaService, initModule 
         throw new Error('metadata must be an object');
       }
 
-      // Generate embedding using Ollama or OpenAI
+      // Generate embedding using Ollama or cloud (OpenAI, Anthropic, Google)
       let embedding = null;
-      let embeddingDimension = 1024; // Default for Ollama bge-m3
+      let embeddingDimension = 1024;
       try {
-        const queries = database.getQueries();
-        const isOllamaAvailable = await ollamaService.checkAvailability();
-
-        if (isOllamaAvailable) {
-          const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
-          const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
-          const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
-          const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
-
-          embedding = await ollamaService.generateEmbedding(text, embeddingModel, baseUrl);
-          if (embedding && Array.isArray(embedding)) {
-            embeddingDimension = embedding.length;
-          }
-        } else {
-          // Fallback to OpenAI if configured
-          const aiApiKey = queries.getSetting.get('ai_api_key');
-          const aiProvider = queries.getSetting.get('ai_provider');
-
-          if (aiApiKey?.value && aiProvider?.value === 'openai') {
-            try {
-              const embeddingModel = queries.getSetting.get('ai_embedding_model')?.value || 'text-embedding-3-small';
-              const embeddings = await require('../ai-cloud-service.cjs').embeddingsOpenAI(
-                [text],
-                aiApiKey.value,
-                embeddingModel
-              );
-              embedding = embeddings[0];
-              embeddingDimension = embedding.length;
-              console.log('[Vector] Using OpenAI embeddings (Ollama unavailable)');
-            } catch (error) {
-              console.error('[Vector] OpenAI embedding failed:', error);
-            }
-          } else {
-            console.warn('[Vector] No embedding provider available (Ollama offline, OpenAI not configured)');
-          }
+        const result = await getEmbedding(database, ollamaService, text);
+        embedding = result.embedding;
+        embeddingDimension = result.dimension;
+        if (embedding && !(await ollamaService.checkAvailability())) {
+          console.log('[Vector] Using cloud embeddings (Ollama unavailable)');
         }
       } catch (error) {
         console.error('[Vector] Error generating embedding:', error);
@@ -188,18 +198,10 @@ function register({ ipcMain, windowManager, database, ollamaService, initModule 
       let searchVector = queryVector;
       if (!searchVector && queryText) {
         try {
-          const queries = database.getQueries();
-          const isOllamaAvailable = await ollamaService.checkAvailability();
-
-          if (isOllamaAvailable) {
-            const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
-            const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
-            const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
-            const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
-
-            searchVector = await ollamaService.generateEmbedding(queryText, embeddingModel, baseUrl);
-          } else {
-            throw new Error('Ollama not available for embedding generation');
+          const result = await getEmbedding(database, ollamaService, queryText);
+          searchVector = result.embedding;
+          if (!searchVector) {
+            return { success: false, error: 'No embedding provider available (Ollama offline, no cloud provider configured)' };
           }
         } catch (error) {
           console.error('[Vector] Error generating query embedding:', error);
@@ -275,14 +277,9 @@ function register({ ipcMain, windowManager, database, ollamaService, initModule 
 
       let queryVector;
       try {
-        const isOllamaAvailable = await ollamaService.checkAvailability();
-        if (!isOllamaAvailable) return [];
-
-        const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
-        const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
-        const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
-        const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
-        queryVector = await ollamaService.generateEmbedding(queryText, embeddingModel, baseUrl);
+        const result = await getEmbedding(database, ollamaService, queryText);
+        queryVector = result.embedding;
+        if (!queryVector) return [];
       } catch (err) {
         console.warn('[Vector] semanticSearch embedding failed:', err);
         return [];
@@ -348,18 +345,10 @@ function register({ ipcMain, windowManager, database, ollamaService, initModule 
       // Generate query embedding
       let queryVector;
       try {
-        const queries = database.getQueries();
-        const isOllamaAvailable = await ollamaService.checkAvailability();
-
-        if (isOllamaAvailable) {
-          const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
-          const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
-          const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
-          const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
-
-          queryVector = await ollamaService.generateEmbedding(query, embeddingModel, baseUrl);
-        } else {
-          console.warn('[Vector] Ollama not available for embedding generation');
+        const result = await getEmbedding(database, ollamaService, query);
+        queryVector = result.embedding;
+        if (!queryVector) {
+          console.warn('[Vector] No embedding provider available');
           return { success: true, data: [] };
         }
       } catch (error) {

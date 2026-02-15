@@ -196,43 +196,74 @@ async function indexResource(resourceId, deps) {
     };
 
     let embeddingDimension = 1024;
-    const isAvailable = await ollamaService.checkAvailability();
-    if (!isAvailable) {
-      console.warn('[Indexer] Ollama not available, skipping embedding');
+    const isOllamaAvailable = await ollamaService.checkAvailability();
+    const aiCloudService = require('./ai-cloud-service.cjs');
+    const aiApiKey = queries.getSetting.get('ai_api_key')?.value;
+    const aiProvider = queries.getSetting.get('ai_provider')?.value;
+    const aiEmbeddingModel = queries.getSetting.get('ai_embedding_model')?.value;
+    const useCloud = !isOllamaAvailable && aiApiKey && ['openai', 'anthropic', 'google'].includes(aiProvider);
+    const defaultModels = { openai: 'text-embedding-3-small', anthropic: 'voyage-multimodal-3', google: 'text-embedding-004' };
+    const cloudModel = aiEmbeddingModel || defaultModels[aiProvider] || 'text-embedding-3-small';
+
+    if (!isOllamaAvailable && !useCloud) {
+      console.warn('[Indexer] No embedding provider available (Ollama offline, no cloud provider configured)');
       return;
     }
-
-    const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
-    const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
-    const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
-    const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
 
     const embeddings = [];
     for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
       const batch = chunks.slice(i, i + BATCH_SIZE);
-      const batchEmbeddings = await Promise.all(
-        batch.map(async (chunk, batchIdx) => {
-          const globalIdx = i + batchIdx;
-          try {
-            const vec = await ollamaService.generateEmbedding(chunk.text, embeddingModel, baseUrl);
+      if (isOllamaAvailable) {
+        const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
+        const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
+        const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
+        const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
+        const batchEmbeddings = await Promise.all(
+          batch.map(async (chunk, batchIdx) => {
+            const globalIdx = i + batchIdx;
+            try {
+              const vec = await ollamaService.generateEmbedding(chunk.text, embeddingModel, baseUrl);
+              if (vec && Array.isArray(vec)) {
+                embeddingDimension = vec.length;
+                return {
+                  id: `${resourceId}-${globalIdx}`,
+                  resource_id: resourceId,
+                  chunk_index: globalIdx,
+                  text: chunk.text,
+                  vector: vec,
+                  metadata,
+                };
+              }
+            } catch (err) {
+              console.error(`[Indexer] Embedding failed for chunk ${globalIdx}:`, err.message);
+            }
+            return null;
+          })
+        );
+        embeddings.push(...batchEmbeddings.filter(Boolean));
+      } else {
+        try {
+          const batchTexts = batch.map((c) => c.text);
+          const vectors = await aiCloudService.embeddings(aiProvider, batchTexts, aiApiKey, cloudModel);
+          for (let batchIdx = 0; batchIdx < batch.length; batchIdx++) {
+            const vec = vectors?.[batchIdx];
             if (vec && Array.isArray(vec)) {
               embeddingDimension = vec.length;
-              return {
-                id: `${resourceId}-${globalIdx}`,
+              embeddings.push({
+                id: `${resourceId}-${i + batchIdx}`,
                 resource_id: resourceId,
-                chunk_index: globalIdx,
-                text: chunk.text,
+                chunk_index: i + batchIdx,
+                text: batch[batchIdx].text,
                 vector: vec,
                 metadata,
-              };
+              });
             }
-          } catch (err) {
-            console.error(`[Indexer] Embedding failed for chunk ${globalIdx}:`, err.message);
           }
-          return null;
-        })
-      );
-      embeddings.push(...batchEmbeddings.filter(Boolean));
+          if (i === 0) console.log('[Indexer] Using cloud embeddings (Ollama unavailable)');
+        } catch (err) {
+          console.error(`[Indexer] Cloud embedding failed for batch ${i}:`, err.message);
+        }
+      }
     }
 
     if (embeddings.length === 0) return;
