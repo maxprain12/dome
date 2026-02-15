@@ -20,34 +20,31 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
   const setSection = useAppStore((s) => s.setHomeSidebarSection);
 
   const navItems: NavItem[] = [
-    { id: 'library', label: 'Home', icon: <Home className="w-5 h-5" strokeWidth={2} /> },
-    { id: 'recent', label: 'Search', icon: <Search className="w-5 h-5" strokeWidth={2} /> },
-    { id: 'studio', label: 'Studio', icon: <Sparkles className="w-5 h-5" strokeWidth={2} /> },
-    { id: 'flashcards', label: 'Flashcards', icon: <WalletCards className="w-5 h-5" strokeWidth={2} /> },
-    { id: 'tags', label: 'Tags', icon: <Tag className="w-5 h-5" strokeWidth={2} /> },
+    { id: 'library', label: 'Library', icon: <Home className="w-5 h-5" strokeWidth={1.5} /> },
+    { id: 'recent', label: 'Recent', icon: <Search className="w-5 h-5" strokeWidth={1.5} /> },
+    { id: 'studio', label: 'Studio', icon: <Sparkles className="w-5 h-5" strokeWidth={1.5} /> },
+    { id: 'flashcards', label: 'Flashcards', icon: <WalletCards className="w-5 h-5" strokeWidth={1.5} /> },
+    { id: 'tags', label: 'Tags', icon: <Tag className="w-5 h-5" strokeWidth={1.5} /> },
   ];
 
   return (
     <aside
-      className="flex flex-col h-full shrink-0"
+      className="flex flex-col h-full shrink-0 transition-all duration-300 ease-in-out"
       style={{
         width: 'var(--sidebar-width)',
         background: 'var(--dome-surface)',
-        borderRight: '1px solid var(--dome-border)',
+        // Removed right border for a cleaner look, using subtle separation via color/shadow if needed in layout
       }}
     >
-      {/* Minimal top padding to align with header */}
-      <div className="h-2 shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
+      {/* Spacer for drag region transparency */}
+      <div className="h-4 shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
 
-      {/* Logo - icon only, compact */}
+      {/* Logo Area */}
       <div
-        className="flex items-center justify-center shrink-0"
-        style={{
-          padding: '8px',
-          borderBottom: '1px solid var(--dome-border)',
-        }}
+        className="flex items-center justify-center shrink-0 mb-4"
+        style={{ padding: '0 8px' }}
       >
-        <div className="w-8 h-8 shrink-0" title="Dome">
+        <div className="w-9 h-9 shrink-0 opacity-90 start-item" title="Dome" style={{ filter: 'grayscale(0.2)' }}>
           <svg viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M328.634 306.098V235.894C328.634 182.087 286.288 138.468 234.051 138.468C181.814 138.468 139.467 182.087 139.467 235.894V306.098C139.467 318.605 152.245 326.74 163.106 321.146C171.884 316.625 182.34 317.296 190.506 322.903C199.692 329.212 211.659 329.212 220.846 322.903L224.181 320.613C230.158 316.509 237.944 316.509 243.92 320.613L247.256 322.903C256.442 329.212 268.409 329.212 277.596 322.903C285.761 317.296 296.218 316.625 304.996 321.146C315.856 326.74 328.634 318.605 328.634 306.098Z"
@@ -67,10 +64,10 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
         </div>
       </div>
 
-      {/* Navigation - icons only, tight spacing after logo */}
+      {/* Navigation */}
       <nav
-        className="flex-1 flex flex-col gap-0.5 overflow-y-auto"
-        style={{ padding: '6px 8px' }}
+        className="flex-1 flex flex-col gap-2 items-center w-full"
+        style={{ padding: '0 10px' }}
       >
         {navItems.map((item) => {
           const isActive = activeSection === item.id;
@@ -78,100 +75,53 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
             <button
               key={item.id}
               onClick={() => setSection(item.id)}
-              title={item.label}
-              className="w-full flex items-center justify-center min-h-[44px] rounded-lg transition-all duration-200"
+              className="group relative flex items-center justify-center rounded-xl transition-all duration-200"
               style={{
-                padding: '10px',
+                width: '42px',
+                height: '42px',
                 background: isActive ? 'var(--dome-accent-bg)' : 'transparent',
-                color: isActive ? 'var(--dome-text)' : 'var(--dome-text-secondary)',
-                cursor: 'pointer',
-                border: 'none',
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = 'var(--dome-bg)';
-                  e.currentTarget.style.color = 'var(--dome-text)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = 'var(--dome-text-secondary)';
-                }
+                color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)',
               }}
               aria-current={isActive ? 'page' : undefined}
               aria-label={item.label}
+              title={item.label}
             >
-              <span className="shrink-0" style={{ color: isActive ? 'var(--dome-accent)' : 'currentColor' }}>
+              <div className="relative z-10 transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
                 {item.icon}
-              </span>
+              </div>
+              
+              {/* Subtle active indicator dot */}
+              {isActive && (
+                <div 
+                  className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-[var(--dome-accent)]"
+                  style={{ opacity: 0.8 }}
+                />
+              )}
             </button>
           );
         })}
       </nav>
 
-      {/* Footer - icons only */}
+      {/* Footer Actions */}
       <div
-        className="flex flex-col items-center shrink-0 gap-0.5"
-        style={{
-          borderTop: '1px solid var(--dome-border)',
-          padding: '8px',
-        }}
+        className="flex flex-col items-center shrink-0 gap-3 pb-4"
       >
         <button
-          type="button"
           onClick={() => {
             if (typeof window !== 'undefined' && window.electron?.openSettings) {
               window.electron.openSettings();
             }
           }}
-          className="flex items-center justify-center rounded transition-colors"
-          style={{
-            width: '36px',
-            height: '36px',
-            border: 'none',
-            background: 'transparent',
-            color: 'var(--dome-text-muted)',
-            cursor: 'pointer',
-            WebkitAppRegion: 'no-drag',
-          } as React.CSSProperties}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--dome-bg)';
-            e.currentTarget.style.color = 'var(--dome-text)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'var(--dome-text-muted)';
-          }}
-          aria-label="Settings"
+          className="flex items-center justify-center w-9 h-9 rounded-xl text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)] hover:text-[var(--dome-text)] transition-all"
           title="Settings"
         >
-          <Settings className="w-5 h-5" strokeWidth={2} />
+          <Settings className="w-5 h-5" strokeWidth={1.5} />
         </button>
         <button
-          type="button"
-          className="flex items-center justify-center rounded transition-colors"
-          style={{
-            width: '36px',
-            height: '36px',
-            border: 'none',
-            background: 'transparent',
-            color: 'var(--dome-text-muted)',
-            cursor: 'pointer',
-            WebkitAppRegion: 'no-drag',
-          } as React.CSSProperties}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'var(--dome-bg)';
-            e.currentTarget.style.color = 'var(--dome-text)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'var(--dome-text-muted)';
-          }}
-          aria-label="Help"
-          title="Help"
+          className="flex items-center justify-center w-9 h-9 rounded-xl text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)] hover:text-[var(--dome-text)] transition-all"
+          title="Help & Resources"
         >
-          <HelpCircle className="w-5 h-5" strokeWidth={2} />
+          <HelpCircle className="w-5 h-5" strokeWidth={1.5} />
         </button>
       </div>
     </aside>

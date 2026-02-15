@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Sparkles } from 'lucide-react';
 import { useMartinStore } from '@/lib/store/useMartinStore';
 import type { DomePluginInfo } from '@/types/plugin';
 
@@ -198,15 +199,21 @@ export default function PetMascot({ plugin }: PetMascotProps) {
           style={{ pointerEvents: 'none', imageRendering: 'pixelated' }}
         />
       ) : (
-        <span
+        <div
           style={{
-            fontSize: 28,
-            lineHeight: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: SPRITE_SIZE,
+            height: SPRITE_SIZE,
+            background: 'var(--dome-accent-bg)',
+            color: 'var(--dome-accent)',
+            borderRadius: '50%',
           }}
           aria-hidden
         >
-          🪴
-        </span>
+          <Sparkles size={28} strokeWidth={1.5} />
+        </div>
       )}
     </div>
   );

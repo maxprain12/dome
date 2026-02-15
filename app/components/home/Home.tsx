@@ -1,29 +1,32 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { FolderOpen, Plus, Loader2, CheckCircle2, AlertCircle, ChevronRight, Home as HomeIcon, X, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { FolderOpen, Plus, Loader2, CheckCircle2, AlertCircle, ChevronRight, Home as HomeIcon, X, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, MoreVertical, Pencil, Trash2, ExternalLink, FolderInput } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { CommandCenter } from '@/components/CommandCenter/CommandCenter';
 import FilterBar from './FilterBar';
 import ResourceCard from './ResourceCard';
 import HomeLayout from './HomeLayout';
+import InlineFolderNav from './InlineFolderNav';
+import DocumentToolbar from './DocumentToolbar';
+import SelectionActionBar from './SelectionActionBar';
+import ContextMenu from './ContextMenu';
 import FlashcardDeckList from '@/components/flashcards/FlashcardDeckList';
 import StudioHomeView from '@/components/studio/StudioHomeView';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
 
+/** Paleta derivada del acento #596037 — tonos verde/oliva + grises neutros */
 const FOLDER_COLORS = [
-  '#7B76D0',
-  '#ef4444',
-  '#f97316',
-  '#eab308',
-  '#22c55e',
-  '#3b82f6',
-  '#8b5cf6',
-  '#ec4899',
+  '#596037',
+  '#6d7a42',
+  '#7d8b52',
+  '#8a9668',
+  '#4a5429',
+  '#3d4622',
   '#6b7280',
-  '#14b8a6',
+  '#9ca3af',
 ];
 
 function parseJsonField<T = Record<string, unknown>>(val: unknown): T {
@@ -64,17 +67,19 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
-  const [newFolderColor, setNewFolderColor] = useState('#7B76D0');
+  const [newFolderColor, setNewFolderColor] = useState('#596037');
 
   // Folder navigation state
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
 
-  // Move to folder modal state
+  // Move to folder modal state (ids to move - from single resource or multi-select)
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [resourceToMove, setResourceToMove] = useState<Resource | null>(null);
+  const [moveTargetIds, setMoveTargetIds] = useState<string[]>([]);
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<Resource | null>(null);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
 
   // Folder menu and rename state
   const [folderMenuOpenId, setFolderMenuOpenId] = useState<string | null>(null);
@@ -83,6 +88,21 @@ export default function Home() {
   const [renamingFolderValue, setRenamingFolderValue] = useState('');
   const folderMenuRef = useRef<HTMLDivElement>(null);
   const folderMenuTriggerRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  // Drag-and-drop state for moving resources to folders
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+
+  // Multi-select state for resources
+  const [selectedResourceIds, setSelectedResourceIds] = useState<Set<string>>(new Set());
+  const lastSelectedIndexRef = useRef<number>(-1);
+
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    resource: Resource;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const {
     folders,
@@ -111,6 +131,22 @@ export default function Home() {
     setCurrentFolderIdInStore(currentFolderId);
     return () => setCurrentFolderIdInStore(null);
   }, [currentFolderId, setCurrentFolderIdInStore]);
+
+  // Reset drag-over state when drag ends (e.g. user drops outside drop zones)
+  useEffect(() => {
+    const handleDragEnd = () => setDragOverFolderId(null);
+    document.addEventListener('dragend', handleDragEnd);
+    return () => document.removeEventListener('dragend', handleDragEnd);
+  }, []);
+
+  // Escape to clear selection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedResourceIds(new Set());
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Get current folder and breadcrumb path for navigation
   const currentFolder = currentFolderId ? getFolderById(currentFolderId) : null;
@@ -159,6 +195,40 @@ export default function Home() {
       }
     }
   }, [isSearchMode]);
+
+  const handleResourceClick = useCallback(
+    (resource: Resource, event: React.MouseEvent) => {
+      const idx = resourcesToShow.findIndex((r) => r.id === resource.id);
+      const meta = event.metaKey || event.ctrlKey;
+      const shift = event.shiftKey;
+
+      if (meta) {
+        setSelectedResourceIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(resource.id)) next.delete(resource.id);
+          else next.add(resource.id);
+          return next;
+        });
+        lastSelectedIndexRef.current = idx;
+        return;
+      }
+
+      if (shift) {
+        const from = lastSelectedIndexRef.current >= 0 ? lastSelectedIndexRef.current : idx;
+        const lo = Math.min(from, idx);
+        const hi = Math.max(from, idx);
+        setSelectedResourceIds(
+          new Set(resourcesToShow.slice(lo, hi + 1).filter((r) => r.type !== 'folder').map((r) => r.id))
+        );
+        lastSelectedIndexRef.current = idx;
+        return;
+      }
+
+      setSelectedResourceIds(new Set());
+      handleResourceSelect(resource);
+    },
+    [resourcesToShow, handleResourceSelect]
+  );
 
   const handleCreateNote = useCallback(async () => {
     try {
@@ -253,7 +323,7 @@ export default function Home() {
         metadata: { color: newFolderColor },
       });
       setNewFolderName('');
-      setNewFolderColor('#7B76D0');
+      setNewFolderColor('#596037');
       setShowNewFolderModal(false);
     } catch (err) {
       console.error('Failed to create folder:', err);
@@ -274,26 +344,104 @@ export default function Home() {
 
   const handleMoveToFolderRequest = useCallback((resource: Resource) => {
     setResourceToMove(resource);
+    setMoveTargetIds([resource.id]);
     setShowMoveModal(true);
   }, []);
 
-  const handleMoveToFolder = useCallback(async (targetFolderId: string | null) => {
-    if (!resourceToMove) return;
+  const handleMoveMultipleRequest = useCallback(() => {
+    const ids = Array.from(selectedResourceIds);
+    if (ids.length === 0) return;
+    const first = resourcesToShow.find((r) => r.id === ids[0]);
+    setResourceToMove(first ?? null);
+    setMoveTargetIds(ids);
+    setShowMoveModal(true);
+  }, [selectedResourceIds, resourcesToShow]);
 
-    const success = await moveToFolder(resourceToMove.id, targetFolderId);
-    if (success) {
-      console.log(`Moved ${resourceToMove.title} to folder`);
-    } else {
-      console.error('Failed to move resource');
+  const handleMoveToFolder = useCallback(
+    async (targetFolderId: string | null) => {
+      const ids = moveTargetIds.length > 0 ? moveTargetIds : resourceToMove ? [resourceToMove.id] : [];
+      if (ids.length === 0) return;
+
+      let moved = 0;
+      for (const id of ids) {
+        const success = await moveToFolder(id, targetFolderId);
+        if (success) moved++;
+      }
+
+      setShowMoveModal(false);
+      setResourceToMove(null);
+      setMoveTargetIds([]);
+      setSelectedResourceIds(new Set());
+      if (moved > 0) refetch();
+    },
+    [resourceToMove, moveTargetIds, moveToFolder, refetch]
+  );
+
+  const getDroppedResourceIds = useCallback((e: React.DragEvent): string[] => {
+    const multi = e.dataTransfer.getData('application/x-dome-resource-ids');
+    if (multi) {
+      try {
+        const ids = JSON.parse(multi) as string[];
+        return Array.isArray(ids) ? ids : [];
+      } catch {
+        return [];
+      }
     }
+    const single = e.dataTransfer.getData('application/x-dome-resource-id');
+    return single ? [single] : [];
+  }, []);
 
-    setShowMoveModal(false);
-    setResourceToMove(null);
-  }, [resourceToMove, moveToFolder]);
+  const handleFolderDragOver = useCallback((e: React.DragEvent, folderId: string) => {
+    const hasDome =
+      e.dataTransfer.types.includes('application/x-dome-resource-id') ||
+      e.dataTransfer.types.includes('application/x-dome-resource-ids');
+    if (!hasDome) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverFolderId(folderId);
+  }, []);
+
+  const handleFolderDragLeave = useCallback((e: React.DragEvent) => {
+    const related = e.relatedTarget as Node | null;
+    const current = e.currentTarget;
+    if (related && current.contains(related)) return;
+    setDragOverFolderId(null);
+  }, []);
+
+  const handleFolderDrop = useCallback(
+    async (e: React.DragEvent, folderId: string) => {
+      e.preventDefault();
+      setDragOverFolderId(null);
+      const ids = getDroppedResourceIds(e);
+      if (ids.length === 0) return;
+      let moved = 0;
+      for (const resourceId of ids) {
+        const success = await moveToFolder(resourceId, folderId);
+        if (success) moved++;
+      }
+      if (moved > 0) {
+        setSelectedResourceIds(new Set());
+        refetch();
+      }
+    },
+    [moveToFolder, refetch, getDroppedResourceIds]
+  );
 
   const handleDeleteResource = useCallback((resource: Resource) => {
     setDeleteTarget(resource);
   }, []);
+
+  const handleResourceContextMenu = useCallback((e: React.MouseEvent, resource: Resource) => {
+    setContextMenu({ resource, x: e.clientX, y: e.clientY });
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    const ids = Array.from(selectedResourceIds);
+    if (ids.length === 0) return;
+    const first = resourcesToShow.find((r) => r.id === ids[0]);
+    setDeleteTarget(first ?? null);
+    setBulkDeleteIds(ids);
+  }, [selectedResourceIds, resourcesToShow]);
 
   const handleFolderColorChange = useCallback(
     async (folder: Resource, color: string) => {
@@ -347,13 +495,18 @@ export default function Home() {
   }, [folderMenuOpenId]);
 
   const confirmDelete = useCallback(async () => {
-    if (deleteTarget) {
-      const wasCurrentFolder = deleteTarget.type === 'folder' && deleteTarget.id === currentFolderId;
-      await deleteResource(deleteTarget.id);
+    const idsToDelete = bulkDeleteIds.length > 0 ? bulkDeleteIds : deleteTarget ? [deleteTarget.id] : [];
+    if (idsToDelete.length === 0) return;
+
+    for (const id of idsToDelete) {
+      const wasCurrentFolder = id === currentFolderId;
+      await deleteResource(id);
       if (wasCurrentFolder) setCurrentFolderId(null);
-      setDeleteTarget(null);
     }
-  }, [deleteTarget, deleteResource, currentFolderId]);
+    setSelectedResourceIds(new Set());
+    setDeleteTarget(null);
+    setBulkDeleteIds([]);
+  }, [deleteTarget, bulkDeleteIds, deleteResource, currentFolderId]);
 
   // Render content based on active section
   const renderSectionContent = () => {
@@ -418,242 +571,393 @@ export default function Home() {
     }
   };
 
+  const setCommandCenterOpen = useAppStore((s) => s.setCommandCenterOpen);
+  const setCommandCenterUrlModeRequest = useAppStore((s) => s.setCommandCenterUrlModeRequest);
+
+  const showInlineFolderNav = !isSearchMode && (homeSidebarSection === 'library' || homeSidebarSection === 'recent');
+
   const renderLibraryContent = () => (
     <>
-      {/* Command Center - AI-powered search (primary focus) */}
-      <div className="mb-10">
-        <CommandCenter
-          onResourceSelect={handleResourceSelect}
-          onCreateNote={handleCreateNote}
-          onCreateNotebook={handleCreateNotebook}
-          onUpload={handleUpload}
-          onImportFiles={handleImportFiles}
-          onAddUrl={handleAddUrl}
-        />
-      </div>
-
-      {/* Filter Bar */}
-      <FilterBar
-        selectedTypes={selectedTypes}
-        onTypesChange={setSelectedTypes}
-        sortBy={sortBy}
-        onSortByChange={setSortBy}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        onCreateFolder={() => setShowNewFolderModal(true)}
-      />
-
-      {/* Breadcrumb Navigation — hidden in search mode */}
-      {!isSearchMode && currentFolderId ? (
-        <nav className="breadcrumb-nav" aria-label="Breadcrumb">
-          <button
-            onClick={handleNavigateToRoot}
-            className="breadcrumb-home"
+      <div
+        className={showInlineFolderNav ? 'flex w-full min-w-0' : 'w-full'}
+        style={{ alignItems: 'stretch', overflow: 'hidden' }}
+      >
+        {showInlineFolderNav && (
+          <div
+            className="flex-shrink-0 flex flex-col min-h-0 pt-[140px]"
+            style={{
+              width: 200,
+              // Subtle border or no border depending on preference. 
+              // Using a very subtle border for separation without heaviness
+              borderRight: '1px solid var(--dome-border-subtle, rgba(0,0,0,0.03))',
+            }}
           >
-            <HomeIcon className="w-4 h-4" />
-            <span className="text-sm font-medium">Home</span>
-          </button>
-          {breadcrumbPath.map((folder, index) => {
-            const isLast = index === breadcrumbPath.length - 1;
-            return (
-              <span key={folder.id} className="breadcrumb-segment">
-                <ChevronRight className="breadcrumb-separator" />
-                {isLast ? (
-                  <span className="breadcrumb-current">
-                    {folder.title}
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => handleNavigateToFolder(folder.id)}
-                    className="breadcrumb-item"
-                  >
-                    {folder.title}
-                  </button>
-                )}
-              </span>
-            );
-          })}
-        </nav>
-      ) : null}
-
-      {/* Folders Section — hidden in search mode to avoid fake "contents inside folder" */}
-      {!isSearchMode && folders.length > 0 ? (
-        <section className="mb-10" aria-label="Folders">
-          <h2 className="section-header">
-            {currentFolderId ? 'Subfolders' : 'Folders'}
-          </h2>
-          <div className="folder-grid">
-            {folders.map((folder) => (
-              <div key={folder.id} className="folder-item-wrapper group relative">
+            {/* Breadcrumb — only visible when inside a folder */}
+            {currentFolderId && breadcrumbPath.length > 0 ? (
+              <nav
+                className="flex items-center gap-1.5 px-4 py-3 shrink-0 text-xs"
+                aria-label="Current path"
+              >
                 <button
-                  onClick={() => handleFolderClick(folder)}
-                  className="folder-item"
-                >
-                  <div
-                    className="folder-icon-wrapper"
-                    style={{ backgroundColor: folder.metadata?.color ?? 'var(--accent)' }}
-                  >
-                    <FolderOpen className="w-7 h-7 text-white opacity-90" />
-                  </div>
-                  {renamingFolderId === folder.id ? (
-                    <input
-                      type="text"
-                      value={renamingFolderValue}
-                      onChange={(e) => setRenamingFolderValue(e.target.value)}
-                      onBlur={() => handleFolderRenameSave(folder.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleFolderRenameSave(folder.id);
-                        if (e.key === 'Escape') {
-                          setRenamingFolderId(null);
-                          setRenamingFolderValue('');
-                        }
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      className="folder-rename-input"
-                      autoFocus
-                    />
-                  ) : (
-                    <span className="folder-title">{folder.title}</span>
-                  )}
-                </button>
-                <button
-                  ref={(el) => {
-                    if (el) folderMenuTriggerRefs.current.set(folder.id, el);
-                  }}
                   type="button"
-                  className="folder-menu-trigger folder-item-menu-btn"
-                  onClick={(e) => handleFolderMenuToggle(e, folder.id)}
-                  aria-label="Folder options"
-                  aria-expanded={folderMenuOpenId === folder.id}
+                  onClick={handleNavigateToRoot}
+                  className="flex items-center gap-1 text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] transition-colors"
+                  aria-label="All documents"
                 >
-                  <MoreVertical size={16} />
+                  <HomeIcon size={12} strokeWidth={1.5} />
+                  <span>All</span>
                 </button>
-                {folderMenuOpenId === folder.id ? (
+                {breadcrumbPath.map((folder, index) => {
+                  const isLast = index === breadcrumbPath.length - 1;
+                  return (
+                    <span
+                      key={folder.id}
+                      className="flex items-center gap-1.5 min-w-0"
+                    >
+                      <ChevronRight size={10} strokeWidth={1.5} className="text-[var(--dome-text-muted)] shrink-0" />
+                      {isLast ? (
+                        <span
+                          className="font-medium truncate max-w-[100px]"
+                          style={{ color: 'var(--dome-text)' }}
+                        >
+                          {folder.title}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleNavigateToFolder(folder.id)}
+                          className="text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] truncate max-w-[80px] transition-colors"
+                        >
+                          {folder.title}
+                        </button>
+                      )}
+                    </span>
+                  );
+                })}
+              </nav>
+            ) : <div className="h-4" />} {/* Spacer when no breadcrumb */}
+
+            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+              <InlineFolderNav
+                allFolders={allFolders}
+                currentFolderId={currentFolderId}
+                onFolderSelect={setCurrentFolderId}
+                moveToFolder={moveToFolder}
+                refetch={refetch}
+                onContextMenu={(e, resource) => {
+                  e.preventDefault();
+                  setContextMenu({ resource, x: e.clientX, y: e.clientY });
+                }}
+              />
+            </div>
+          </div>
+        )}
+        <div
+          className={showInlineFolderNav ? 'flex-1 min-w-0 overflow-hidden' : 'w-full'}
+          style={showInlineFolderNav ? { paddingLeft: 32 } : undefined}
+        >
+          {/* Document Toolbar - path bar + quick actions */}
+          {!isSearchMode && (
+            <DocumentToolbar
+              breadcrumbPath={breadcrumbPath}
+              onNavigateToRoot={handleNavigateToRoot}
+              onNavigateToFolder={handleNavigateToFolder}
+              onCreateNote={handleCreateNote}
+              onCreateNotebook={handleCreateNotebook}
+              onImportFiles={handleImportFiles}
+              onAddUrl={() => {
+                setCommandCenterOpen(true);
+                setCommandCenterUrlModeRequest(true);
+              }}
+              onCreateFolder={() => setShowNewFolderModal(true)}
+              hidePath={showInlineFolderNav}
+            />
+          )}
+
+          {/* Command Center - AI-powered search (primary focus) */}
+          <div className="mb-10">
+            <CommandCenter
+              onResourceSelect={handleResourceSelect}
+              onCreateNote={handleCreateNote}
+              onCreateNotebook={handleCreateNotebook}
+              onUpload={handleUpload}
+              onImportFiles={handleImportFiles}
+              onAddUrl={handleAddUrl}
+            />
+          </div>
+
+          {/* Filter Bar */}
+          <FilterBar
+            selectedTypes={selectedTypes}
+            onTypesChange={setSelectedTypes}
+            sortBy={sortBy}
+            onSortByChange={setSortBy}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
+
+          {/* Selection Action Bar — when items selected */}
+          {!isSearchMode && (
+            <SelectionActionBar
+              count={selectedResourceIds.size}
+              onMove={handleMoveMultipleRequest}
+              onDelete={handleDeleteSelected}
+              onDeselect={() => setSelectedResourceIds(new Set())}
+            />
+          )}
+
+          {/* Folders Section — hidden in search mode to avoid fake "contents inside folder" */}
+          {!isSearchMode && folders.length > 0 ? (
+            <section className="mb-10" aria-label="Folders">
+              <h2 className="section-header">
+                {currentFolderId ? 'Subfolders' : 'Folders'}
+              </h2>
+              <div className="folder-grid">
+                {folders.map((folder) => (
                   <div
-                    ref={folderMenuRef}
-                    className="dropdown-menu"
-                    style={{
-                      top: folderMenuPosition.top,
-                      left: folderMenuPosition.left,
+                    key={folder.id}
+                    className={`folder-item-wrapper group relative ${dragOverFolderId === folder.id ? 'drag-over' : ''}`}
+                    onDragOver={(e) => handleFolderDragOver(e, folder.id)}
+                    onDragLeave={handleFolderDragLeave}
+                    onDrop={(e) => handleFolderDrop(e, folder.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setContextMenu({ resource: folder, x: e.clientX, y: e.clientY });
                     }}
                   >
-                    <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
-                      <span className="text-xs font-medium" style={{ color: 'var(--secondary-text)' }}>
-                        Folder color
-                      </span>
-                      <div className="flex flex-wrap gap-1.5 mt-2">
-                        {FOLDER_COLORS.map((color) => (
-                          <button
-                            key={color}
-                            type="button"
-                            onClick={() => handleFolderColorChange(folder, color)}
-                            className="w-6 h-6 rounded border-2 transition-all focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)]"
-                            style={{
-                              backgroundColor: color,
-                              borderColor: (folder.metadata?.color ?? 'var(--accent)') === color ? 'var(--dome-accent)' : 'var(--border)',
-                            }}
-                            aria-label={`Color ${color}`}
-                          />
-                        ))}
+                    <button
+                      onClick={() => handleFolderClick(folder)}
+                      className="folder-item"
+                    >
+                      <div
+                        className="folder-icon-wrapper"
+                        style={{ backgroundColor: folder.metadata?.color ?? 'var(--accent)' }}
+                      >
+                        <FolderOpen className="w-7 h-7 text-white opacity-90" />
                       </div>
-                    </div>
-                    <button
-                      type="button"
-                      className="dropdown-item"
-                      onClick={() => handleFolderRenameStart(folder)}
-                    >
-                      <Pencil size={16} />
-                      Rename
+                      {renamingFolderId === folder.id ? (
+                        <input
+                          type="text"
+                          value={renamingFolderValue}
+                          onChange={(e) => setRenamingFolderValue(e.target.value)}
+                          onBlur={() => handleFolderRenameSave(folder.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleFolderRenameSave(folder.id);
+                            if (e.key === 'Escape') {
+                              setRenamingFolderId(null);
+                              setRenamingFolderValue('');
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="folder-rename-input"
+                          autoFocus
+                        />
+                      ) : (
+                        <span className="folder-title">{folder.title}</span>
+                      )}
                     </button>
                     <button
-                      type="button"
-                      className="dropdown-item danger"
-                      onClick={() => {
-                        setFolderMenuOpenId(null);
-                        handleDeleteResource(folder);
+                      ref={(el) => {
+                        if (el) folderMenuTriggerRefs.current.set(folder.id, el);
                       }}
+                      type="button"
+                      className="folder-menu-trigger folder-item-menu-btn"
+                      onClick={(e) => handleFolderMenuToggle(e, folder.id)}
+                      aria-label="Folder options"
+                      aria-expanded={folderMenuOpenId === folder.id}
                     >
-                      <Trash2 size={16} />
-                      Delete
+                      <MoreVertical size={16} />
                     </button>
+                    {folderMenuOpenId === folder.id ? (
+                      <div
+                        ref={folderMenuRef}
+                        className="dropdown-menu"
+                        style={{
+                          top: folderMenuPosition.top,
+                          left: folderMenuPosition.left,
+                        }}
+                      >
+                        <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+                          <span className="text-xs font-medium" style={{ color: 'var(--secondary-text)' }}>
+                            Folder color
+                          </span>
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {FOLDER_COLORS.map((color) => (
+                              <button
+                                key={color}
+                                type="button"
+                                onClick={() => handleFolderColorChange(folder, color)}
+                                className="w-6 h-6 rounded border-2 transition-all focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)]"
+                                style={{
+                                  backgroundColor: color,
+                                  borderColor: (folder.metadata?.color ?? 'var(--accent)') === color ? 'var(--dome-accent)' : 'var(--border)',
+                                }}
+                                aria-label={`Color ${color}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="dropdown-item"
+                          onClick={() => handleFolderRenameStart(folder)}
+                        >
+                          <Pencil size={16} />
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          className="dropdown-item danger"
+                          onClick={() => {
+                            setFolderMenuOpenId(null);
+                            handleDeleteResource(folder);
+                          }}
+                        >
+                          <Trash2 size={16} />
+                          Delete
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
-                ) : null}
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+            </section>
+          ) : null}
 
-      {/* Resources Grid/List */}
-      <section className="mb-6" aria-label="Resources">
-        <h2 className="section-header">
-          {isSearchMode
-            ? `Coincidencias para "${searchQuery}"`
-            : currentFolderId
-              ? 'Contents'
-              : homeSidebarSection === 'recent' ? 'Recientes' : 'Recent Resources'}
-        </h2>
-      </section>
+          {/* Resources Grid/List */}
+          <section className="mb-6" aria-label="Resources">
+            <h2 className="section-header">
+              {isSearchMode
+                ? `Coincidencias para "${searchQuery}"`
+                : currentFolderId
+                  ? 'Contents'
+                  : homeSidebarSection === 'recent' ? 'Recientes' : 'Recent Resources'}
+            </h2>
+          </section>
 
-      {!isSearchMode && isLoading ? (
-        <div className="loading-container">
-          <Loader2 className="spinner-icon" />
+          {!isSearchMode && isLoading ? (
+            <div className={viewMode === 'grid' ? 'resources-grid' : 'resources-list'}>
+              {Array.from({ length: viewMode === 'grid' ? 8 : 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={viewMode === 'grid' ? 'resource-card-skeleton' : 'resource-card-list-skeleton'}
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
+          ) : null}
+
+          {!isSearchMode && error ? (
+            <div className="error-container">
+              <p className="error-message">Error al cargar los recursos</p>
+              <button
+                onClick={refetch}
+                className="btn btn-secondary text-sm try-again-btn"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : null}
+
+          {isSearchMode && resourcesToShow.length === 0 ? (
+            <div className="no-matches-container">
+              <p className="no-matches-text">
+                No hay coincidencias para &quot;{searchQuery}&quot;
+              </p>
+            </div>
+          ) : null}
+
+          {!isSearchMode && !isLoading && !error && nonFolderResources.length === 0 && folders.length === 0 ? (
+            <div className="empty-folder-state">
+              <FolderOpen className="empty-folder-icon" aria-hidden="true" />
+              <p className="empty-folder-title">
+                {currentFolderId ? 'Esta carpeta está vacía' : 'Aún no hay recursos'}
+              </p>
+              <p className="empty-folder-description">
+                {currentFolderId
+                  ? 'Arrastra aquí o usa el toolbar para añadir'
+                  : 'Arrastra archivos o usa el toolbar para añadir tu primer recurso'}
+              </p>
+            </div>
+          ) : null}
+
+          {((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) ? (
+            <div
+              className={viewMode === 'list' ? 'resources-list-wrapper' : undefined}
+              onClick={(e) => {
+                if (!(e.target as Element).closest('.resource-card-grid, .resource-card-list')) {
+                  setSelectedResourceIds(new Set());
+                }
+              }}
+              role="presentation"
+            >
+              {viewMode === 'list' && (
+                <div
+                  className="resources-list-header"
+                  role="row"
+                  aria-label="Column headers for resource list"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 100px 130px 90px 44px',
+                    gap: 12,
+                    padding: '8px 16px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'var(--secondary-text)',
+                    borderBottom: '1px solid var(--border)',
+                  }}
+                >
+                  <span role="columnheader">
+                    <button
+                      type="button"
+                      className="list-header-btn"
+                      onClick={() => setSortBy('title')}
+                      aria-label="Sort by name"
+                    >
+                      Name {sortBy === 'title' ? '▾' : ''}
+                    </button>
+                  </span>
+                  <span role="columnheader">Type</span>
+                  <span role="columnheader">
+                    <button
+                      type="button"
+                      className="list-header-btn"
+                      onClick={() => setSortBy('updated_at')}
+                      aria-label="Sort by modified date"
+                    >
+                      Modified {sortBy === 'updated_at' ? '▾' : ''}
+                    </button>
+                  </span>
+                  <span role="columnheader">Size</span>
+                  <span role="columnheader" aria-hidden="true" />
+                </div>
+              )}
+              <div className={viewMode === 'grid' ? 'resources-grid' : 'resources-list'} role={viewMode === 'list' ? 'grid' : undefined} aria-label={viewMode === 'list' ? 'Resources' : undefined}>
+                {resourcesToShow.map((resource) => (
+                  <ResourceCard
+                    key={resource.id}
+                    resource={resource}
+                    viewMode={viewMode}
+                    onClick={(e) => handleResourceClick(resource, e)}
+                    onDelete={() => handleDeleteResource(resource)}
+                    onContextMenu={handleResourceContextMenu}
+                    isSelected={selectedResourceIds.has(resource.id)}
+                    selectedResourceIds={selectedResourceIds}
+                    searchSnippet={isSearchMode && searchResults?.interactions
+                      ? getSearchSnippetForResource(resource.id, searchResults.interactions)
+                      : undefined}
+                    searchOrigin={isSearchMode && resource.folder_id
+                      ? (getBreadcrumbPath(resource.folder_id).map((f) => f.title).join(' / ') || undefined)
+                      : undefined}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
-      ) : null}
-
-      {!isSearchMode && error ? (
-        <div className="error-container">
-          <p className="error-message">Failed to load resources</p>
-          <button
-            onClick={refetch}
-            className="btn btn-secondary text-sm try-again-btn"
-          >
-            Try again
-          </button>
-        </div>
-      ) : null}
-
-      {isSearchMode && resourcesToShow.length === 0 ? (
-        <div className="no-matches-container">
-          <p className="no-matches-text">
-            No hay coincidencias para &quot;{searchQuery}&quot;
-          </p>
-        </div>
-      ) : null}
-
-      {!isSearchMode && !isLoading && !error && nonFolderResources.length === 0 && folders.length === 0 ? (
-        <div className="empty-folder-state">
-          <FolderOpen className="empty-folder-icon" />
-          <p className="empty-folder-title">
-            {currentFolderId ? 'This folder is empty' : 'No resources yet'}
-          </p>
-          <p className="empty-folder-description">
-            {currentFolderId
-              ? 'Drag files here or move resources into this folder'
-              : 'Drop files or use the command center to add your first resource'}
-          </p>
-        </div>
-      ) : null}
-
-      {((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) ? (
-        <div className={viewMode === 'grid' ? 'resources-grid' : 'resources-list'}>
-          {resourcesToShow.map((resource) => (
-            <ResourceCard
-              key={resource.id}
-              resource={resource}
-              viewMode={viewMode}
-              onClick={() => handleResourceSelect(resource)}
-              onDelete={() => handleDeleteResource(resource)}
-              searchSnippet={isSearchMode && searchResults?.interactions
-                ? getSearchSnippetForResource(resource.id, searchResults.interactions)
-                : undefined}
-              searchOrigin={isSearchMode && resource.folder_id
-                ? (getBreadcrumbPath(resource.folder_id).map((f) => f.title).join(' / ') || undefined)
-                : undefined}
-            />
-          ))}
-        </div>
-      ) : null}
+      </div>
     </>
   );
 
@@ -842,10 +1146,10 @@ export default function Home() {
         ) : null}
 
         {/* Move to Folder Modal */}
-        {showMoveModal && resourceToMove ? (
+        {showMoveModal && (resourceToMove || moveTargetIds.length > 0) ? (
           <div
             className="modal-overlay"
-            onClick={() => { setShowMoveModal(false); setResourceToMove(null); }}
+            onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="move-resource-title"
@@ -856,10 +1160,12 @@ export default function Home() {
             >
               <div className="modal-header">
                 <h3 id="move-resource-title" className="text-lg font-semibold font-display" style={{ color: 'var(--dome-text)' }}>
-                  Move &quot;{resourceToMove.title}&quot;
+                  {moveTargetIds.length > 1
+                    ? `Move ${moveTargetIds.length} items`
+                    : `Move "${resourceToMove?.title ?? 'item'}"`}
                 </h3>
                 <button
-                  onClick={() => { setShowMoveModal(false); setResourceToMove(null); }}
+                  onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
                   className="btn btn-ghost p-1.5 rounded-md"
                   aria-label="Close"
                 >
@@ -868,7 +1174,7 @@ export default function Home() {
               </div>
 
               <div className="modal-body max-h-80 overflow-y-auto">
-                {resourceToMove.folder_id ? (
+                {moveTargetIds.length > 0 && (
                   <button
                     onClick={() => handleMoveToFolder(null)}
                     className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors mb-2 hover:bg-[var(--dome-accent-bg)]"
@@ -878,7 +1184,8 @@ export default function Home() {
                       Move to Root
                     </span>
                   </button>
-                ) : null}
+                )}
+
 
                 {allFolders.length === 0 ? (
                   <p className="text-sm text-center py-4" style={{ color: 'var(--dome-text-secondary)' }}>
@@ -887,12 +1194,12 @@ export default function Home() {
                 ) : (
                   <div className="space-y-1">
                     {allFolders
-                      .filter(folder => folder.id !== resourceToMove.id)
+                      .filter(folder => !moveTargetIds.includes(folder.id))
                       .map((folder) => (
                         <button
                           key={folder.id}
                           onClick={() => handleMoveToFolder(folder.id)}
-                          disabled={folder.id === resourceToMove.folder_id}
+                          disabled={moveTargetIds.length === 1 && folder.id === resourceToMove?.folder_id}
                           className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--dome-accent-bg)]"
                         >
                           <div
@@ -904,7 +1211,7 @@ export default function Home() {
                           <span className="text-sm" style={{ color: 'var(--dome-text)' }}>
                             {folder.title}
                           </span>
-                          {folder.id === resourceToMove.folder_id ? (
+                          {moveTargetIds.length === 1 && folder.id === resourceToMove?.folder_id ? (
                             <span className="ml-auto text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
                               (current)
                             </span>
@@ -917,7 +1224,7 @@ export default function Home() {
 
               <div className="modal-footer">
                 <button
-                  onClick={() => { setShowMoveModal(false); setResourceToMove(null); }}
+                  onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
                   className="btn btn-ghost"
                 >
                   Cancel
@@ -927,16 +1234,63 @@ export default function Home() {
           </div>
         ) : null}
 
+        {/* Context Menu */}
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            items={[
+              {
+                id: 'open',
+                label: 'Open',
+                icon: <ExternalLink size={14} />,
+                onClick: () => handleResourceSelect(contextMenu.resource),
+              },
+              ...(contextMenu.resource.type === 'folder'
+                ? [
+                  {
+                    id: 'rename',
+                    label: 'Rename',
+                    icon: <Pencil size={14} />,
+                    onClick: () => handleFolderRenameStart(contextMenu.resource),
+                  },
+                ]
+                : []),
+              {
+                id: 'move',
+                label: 'Move to folder',
+                icon: <FolderInput size={14} />,
+                onClick: () => handleMoveToFolderRequest(contextMenu.resource),
+              },
+              {
+                id: 'delete',
+                label: 'Delete',
+                icon: <Trash2 size={14} />,
+                onClick: () => handleDeleteResource(contextMenu.resource),
+                danger: true,
+              },
+            ]}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
+
         {/* Delete Confirmation Dialog */}
         <ConfirmDialog
-          isOpen={!!deleteTarget}
+          isOpen={!!deleteTarget || bulkDeleteIds.length > 0}
           title="Delete resource"
-          message={`Are you sure you want to delete "${deleteTarget?.title || ''}"? This action cannot be undone.`}
+          message={
+            bulkDeleteIds.length > 1
+              ? `Are you sure you want to delete ${bulkDeleteIds.length} items? This action cannot be undone.`
+              : `Are you sure you want to delete "${deleteTarget?.title || ''}"? This action cannot be undone.`
+          }
           variant="danger"
           confirmLabel="Delete"
           cancelLabel="Cancel"
           onConfirm={confirmDelete}
-          onCancel={() => setDeleteTarget(null)}
+          onCancel={() => {
+            setDeleteTarget(null);
+            setBulkDeleteIds([]);
+          }}
         />
       </div>
     </HomeLayout>

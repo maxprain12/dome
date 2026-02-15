@@ -47,6 +47,9 @@ interface AppState {
   setSearchResults: (data: { resources: any[]; interactions: any[]; studioOutputs?: any[] } | null) => void;
   commandCenterOpen: boolean;
   setCommandCenterOpen: (open: boolean) => void;
+  /** When true, next open will start in URL mode */
+  commandCenterUrlModeRequest: boolean;
+  setCommandCenterUrlModeRequest: (v: boolean) => void;
   viewMode: 'grid' | 'list';
   setViewMode: (mode: 'grid' | 'list') => void;
 
@@ -160,6 +163,8 @@ export const useAppStore = create<AppState>((set) => ({
   setSearchResults: (data) => set({ searchResults: data }),
   commandCenterOpen: false,
   setCommandCenterOpen: (open) => set({ commandCenterOpen: open }),
+  commandCenterUrlModeRequest: false,
+  setCommandCenterUrlModeRequest: (v) => set({ commandCenterUrlModeRequest: v }),
   viewMode: 'grid',
   setViewMode: (mode) => set({ viewMode: mode }),
 

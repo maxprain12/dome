@@ -113,6 +113,8 @@ export function CommandCenter({
         setSearchResults,
         commandCenterOpen,
         setCommandCenterOpen,
+        commandCenterUrlModeRequest,
+        setCommandCenterUrlModeRequest,
         setHomeSidebarSection,
         setActiveStudioOutput,
         addStudioOutput,
@@ -137,10 +139,15 @@ export function CommandCenter({
     useEffect(() => {
         if (commandCenterOpen) {
             setIsExpanded(true);
+            if (commandCenterUrlModeRequest) {
+                setUrlMode(true);
+                setUrlInput('https://');
+                setCommandCenterUrlModeRequest(false);
+            }
             inputRef.current?.focus();
             setCommandCenterOpen(false);
         }
-    }, [commandCenterOpen, setCommandCenterOpen]);
+    }, [commandCenterOpen, commandCenterUrlModeRequest, setCommandCenterOpen, setCommandCenterUrlModeRequest]);
 
     // Keyboard shortcut (Cmd+K)
     useEffect(() => {

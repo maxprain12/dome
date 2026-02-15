@@ -1,17 +1,23 @@
 
 import { memo } from 'react';
 import type { Resource } from '@/types';
-import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, FolderOpen, Loader2, CheckCircle2, AlertCircle, Notebook, Play } from 'lucide-react';
-import { formatDistanceToNow, formatShortDistance, extractPlainTextFromTiptap } from '@/lib/utils';
+import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, FolderOpen, Loader2, CheckCircle2, AlertCircle, Notebook, Play, MoreHorizontal } from 'lucide-react';
+import { formatDistanceToNow, formatShortDistance, formatFileSize, extractPlainTextFromTiptap } from '@/lib/utils';
 
 interface ResourceCardProps {
   resource: Resource;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   onDelete?: () => void;
   viewMode?: 'grid' | 'list';
   searchSnippet?: string;
   /** Shown when searching - e.g. folder path or deck name */
   searchOrigin?: string;
+  /** Whether this card is selected (multi-select) */
+  isSelected?: boolean;
+  /** All selected resource IDs (for drag multiple) */
+  selectedResourceIds?: Set<string>;
+  /** Context menu callback (right-click) */
+  onContextMenu?: (e: React.MouseEvent, resource: Resource) => void;
 }
 
 function ProcessingStatusBadge({ status }: { status?: string }) {
@@ -30,18 +36,11 @@ function ProcessingStatusBadge({ status }: { status?: string }) {
 
   return (
     <span
-      className="processing-badge"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '4px',
-        marginLeft: '8px',
-        fontSize: '11px',
-        color: config.color,
-      }}
+      className="inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 rounded-full bg-[var(--bg-tertiary)] text-[10px] font-medium"
+      style={{ color: config.color }}
     >
       <Icon
-        size={12}
+        size={10}
         className={config.spinning ? 'animate-spin' : ''}
         style={{ animation: config.spinning ? 'spin 1s linear infinite' : undefined }}
       />
@@ -57,6 +56,9 @@ export default memo(function ResourceCard({
   viewMode = 'grid',
   searchSnippet,
   searchOrigin,
+  isSelected = false,
+  selectedResourceIds,
+  onContextMenu,
 }: ResourceCardProps) {
   // Detect document sub-type for type-specific icons and colors
   const getDocumentSubType = (): 'docx' | 'xlsx' | 'csv' | 'txt' | 'generic' => {
@@ -76,345 +78,257 @@ export default memo(function ResourceCard({
     // Document sub-type specific icons
     if (resource.type === 'document') {
       switch (docSubType) {
-        case 'docx':
-          return <FileText className="resource-icon" />;
-        case 'xlsx':
-          return <FileSpreadsheet className="resource-icon" />;
-        case 'csv':
-          return <Table2 className="resource-icon" />;
-        case 'txt':
-          return <FileType className="resource-icon" />;
-        default:
-          return <File className="resource-icon" />;
+        case 'docx': return <FileText className="w-5 h-5" strokeWidth={1.5} />;
+        case 'xlsx': return <FileSpreadsheet className="w-5 h-5" strokeWidth={1.5} />;
+        case 'csv': return <Table2 className="w-5 h-5" strokeWidth={1.5} />;
+        case 'txt': return <FileType className="w-5 h-5" strokeWidth={1.5} />;
+        default: return <File className="w-5 h-5" strokeWidth={1.5} />;
       }
     }
 
     switch (resource.type) {
-      case 'note':
-        return <FileText className="resource-icon" />;
-      case 'notebook':
-        return <Notebook className="resource-icon" />;
-      case 'pdf':
-        return <File className="resource-icon" />;
-      case 'video':
-        return <Video className="resource-icon" />;
-      case 'audio':
-        return <Music className="resource-icon" />;
-      case 'image':
-        return <ImageIcon className="resource-icon" />;
-      case 'url':
-        return <Link2 className="resource-icon" />;
-      case 'folder':
-        return <FolderOpen className="resource-icon" />;
-      default:
-        return <File className="resource-icon" />;
+      case 'note': return <FileText className="w-5 h-5" strokeWidth={1.5} />;
+      case 'notebook': return <Notebook className="w-5 h-5" strokeWidth={1.5} />;
+      case 'pdf': return <File className="w-5 h-5" strokeWidth={1.5} />;
+      case 'video': return <Video className="w-5 h-5" strokeWidth={1.5} />;
+      case 'audio': return <Music className="w-5 h-5" strokeWidth={1.5} />;
+      case 'image': return <ImageIcon className="w-5 h-5" strokeWidth={1.5} />;
+      case 'url': return <Link2 className="w-5 h-5" strokeWidth={1.5} />;
+      case 'folder': return <FolderOpen className="w-5 h-5" strokeWidth={1.5} />;
+      default: return <File className="w-5 h-5" strokeWidth={1.5} />;
     }
   };
 
   const getTypeColor = () => {
-    // Document sub-type specific colors
     if (resource.type === 'document') {
       switch (docSubType) {
         case 'docx': return '#2b579a';
         case 'xlsx': return '#217346';
         case 'csv': return '#00838f';
         case 'txt': return '#6b7280';
-        default: return 'var(--tertiary)';
+        default: return 'var(--tertiary-text)';
       }
     }
-
     switch (resource.type) {
-      case 'note':
-        return 'var(--accent)';
-      case 'notebook':
-        return 'var(--success)';
-      case 'image':
-        return 'var(--brand-accent)';
-      case 'video':
-        return 'var(--info)';
-      case 'audio':
-        return 'var(--warning)';
-      case 'pdf':
-        return 'var(--error)';
-      case 'url':
-        return 'var(--brand-secondary)';
-      case 'folder':
-        return 'var(--accent)';
-      default:
-        return 'var(--tertiary)';
+      case 'note': return 'var(--accent)';
+      case 'notebook': return 'var(--success)';
+      case 'image': return 'var(--brand-accent)';
+      case 'video': return 'var(--info)';
+      case 'audio': return 'var(--warning)';
+      case 'pdf': return 'var(--error)';
+      case 'url': return 'var(--brand-secondary)';
+      case 'folder': return 'var(--accent)';
+      default: return 'var(--tertiary-text)';
     }
   };
 
-  // Get document sub-type label for badge
-  const getDocTypeBadge = () => {
-    const labels: Record<string, { label: string; bg: string; fg: string }> = {
-      docx: { label: 'DOCX', bg: '#e8f0fe', fg: '#2b579a' },
-      xlsx: { label: 'XLSX', bg: '#e6f4ea', fg: '#217346' },
-      csv: { label: 'CSV', bg: '#e0f7fa', fg: '#00838f' },
-      txt: { label: 'TXT', bg: '#f3f4f6', fg: '#6b7280' },
-    };
-    return labels[docSubType] || null;
-  };
-
-  const getPreviewContent = () => {
-    // Use thumbnail_data (Base64) for fast preview - new internal storage system
-    // PDF: no mostramos thumbnail, solo icono
+  const getPreviewThumbnail = () => {
+    // Has thumbnail data or specific preview image
     if (resource.thumbnail_data && resource.type !== 'pdf') {
-      const isVideo = resource.type === 'video';
-      return (
-        <div
-          className="preview-image"
-          style={{ backgroundImage: `url(${resource.thumbnail_data})` }}
-        >
-          {isVideo && <div className="video-play-icon"><Play size={20} fill="currentColor" /></div>}
-          {resource.type === 'video' ? (
-            <div className="time-badge">{formatShortDistance(resource.updated_at)}</div>
-          ) : null}
-        </div>
-      );
+      return `url(${resource.thumbnail_data})`;
     }
-
-    // Image preview (legacy: file_path or metadata)
     if (resource.type === 'image' && (resource.metadata?.preview_image || resource.file_path)) {
-      const imageSrc = resource.metadata?.preview_image || resource.file_path;
-      return (
-        <div
-          className="preview-image"
-          style={{ backgroundImage: `url(${imageSrc})` }}
-        >
-          <div className="time-badge">{formatShortDistance(resource.updated_at)}</div>
-        </div>
-      );
+      return `url(${resource.metadata?.preview_image || resource.file_path})`;
     }
-
-    // URL with preview image
     if (resource.type === 'url' && resource.metadata?.preview_image) {
-      return (
-        <div
-          className="preview-image"
-          style={{ backgroundImage: `url(${resource.metadata.preview_image})` }}
-        />
-      );
+      return `url(${resource.metadata.preview_image})`;
     }
-
-    // URL without image: rich preview with metadata (title, author, summary)
-    if (resource.type === 'url' && !resource.thumbnail_data) {
-      const meta = resource.metadata && typeof resource.metadata === 'object' ? resource.metadata : {} as Record<string, unknown>;
-      const nested = (meta.metadata as Record<string, unknown> | undefined) ?? {};
-      const title = (meta.title ?? nested.title ?? resource.title) as string | undefined;
-      const author = (meta.author ?? nested.author) as string | undefined;
-      const publishedDate = (meta.published_date ?? nested.published_date) as string | undefined;
-      const summary = (meta.summary ?? meta.description ?? nested.description) as string | undefined;
-      const scrapedContent = (meta.scraped_content ?? meta.content) as string | undefined;
-      const excerptSource = summary || (scrapedContent ? extractPlainTextFromTiptap(String(scrapedContent)) : '');
-      const excerpt = excerptSource ? excerptSource.substring(0, 150).trim() + (excerptSource.length >= 150 ? '…' : '') : '';
-      if (title || excerpt || author) {
-        return (
-          <div className="content-preview content-preview-url">
-            {title ? <div className="url-preview-title">{title}</div> : null}
-            {author || publishedDate ? (
-              <div className="url-preview-meta">
-                {author}{author && publishedDate ? ' · ' : ''}
-                {publishedDate ? new Date(publishedDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-              </div>
-            ) : null}
-            {excerpt ? <p className="url-preview-excerpt">{excerpt}</p> : null}
-          </div>
-        );
-      }
-    }
-
-    // Video thumbnail (legacy metadata)
     if (resource.type === 'video' && resource.metadata?.thumbnail) {
-      return (
-        <div
-          className="preview-image"
-          style={{ backgroundImage: `url(${resource.metadata.thumbnail})` }}
-        >
-          <div className="video-play-icon"><Play size={20} fill="currentColor" /></div>
-        </div>
-      );
+      return `url(${resource.metadata.thumbnail})`;
     }
-
-    // Note content preview (Tiptap/ProseMirror JSON)
-    if (resource.type === 'note' && resource.content) {
-      const plainText = extractPlainTextFromTiptap(resource.content);
-      if (plainText) {
-        const preview = plainText.substring(0, 200).trim();
-        return (
-          <div className="content-preview">
-            <p>{preview}{preview.length >= 200 ? '…' : ''}</p>
-          </div>
-        );
-      }
-    }
-
-    // Document content preview (text extracted at import time)
-    if (resource.type === 'document' && resource.content) {
-      const badge = getDocTypeBadge();
-      const plainText = extractPlainTextFromTiptap(resource.content).substring(0, 200);
-      return (
-        <div className="content-preview document-preview">
-          {badge ? (
-            <span
-              className="doc-type-badge"
-              style={{ background: badge.bg, color: badge.fg }}
-            >
-              {badge.label}
-            </span>
-          ) : null}
-          <p>{plainText}</p>
-        </div>
-      );
-    }
-
-    // Notebooks: preview genérico (icono), sin extracto de contenido
-    // Icon preview con placeholder amigable para notas/notebooks vacíos
-    const isEmptyNoteOrNotebook = (resource.type === 'note' || resource.type === 'notebook')
-      && (!resource.content || resource.content.trim().length < 10);
-    return (
-      <div className={`icon-preview ${isEmptyNoteOrNotebook ? 'icon-preview-empty' : ''}`} style={{ color: getTypeColor() }}>
-        {getIcon()}
-        {isEmptyNoteOrNotebook && (
-          <span className="icon-preview-hint">
-            {resource.type === 'notebook' ? 'Cuaderno vacío' : 'Nota vacía'}
-          </span>
-        )}
-      </div>
-    );
+    return null;
   };
+
+  const thumbnail = getPreviewThumbnail();
+  const hasThumbnail = !!thumbnail;
 
   const handleCardKeyDown = (e: React.KeyboardEvent) => {
     if (onClick && (e.key === 'Enter' || e.key === ' ')) {
       e.preventDefault();
-      onClick();
+      onClick(e as unknown as React.MouseEvent);
     }
   };
 
+  const handleDragStart = (e: React.DragEvent) => {
+    if (resource.type === 'folder') return;
+    const idsToDrag =
+      selectedResourceIds?.has(resource.id) && selectedResourceIds.size > 1
+        ? Array.from(selectedResourceIds)
+        : [resource.id];
+    e.dataTransfer.setData('application/x-dome-resource-id', idsToDrag[0] ?? resource.id);
+    e.dataTransfer.setData('application/x-dome-resource-ids', JSON.stringify(idsToDrag));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (onContextMenu) {
+      e.preventDefault();
+      onContextMenu(e, resource);
+    }
+  };
+
+  const isDraggable = resource.type !== 'folder';
+
   if (viewMode === 'list') {
+    const listGridStyle = {
+      display: 'grid',
+      gridTemplateColumns: '1fr 100px 130px 90px 44px',
+      gap: 12,
+      alignItems: 'center',
+    };
     return (
       <div
-        className={`resource-card-list content-visibility-auto ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
-        onClick={onClick}
-        role={onClick ? 'button' : undefined}
+        className={`group relative rounded-lg transition-colors border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--dome-bg-secondary)] ${isSelected ? 'bg-[var(--dome-accent-bg)] border-[var(--dome-accent)] z-10' : 'bg-[var(--dome-surface)]'
+          } ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
+        style={{ ...listGridStyle, padding: '8px 16px', height: '48px' }}
+        onClick={(e) => onClick?.(e)}
+        onContextMenu={handleContextMenu}
+        role={onClick ? 'row' : undefined}
+        aria-selected={isSelected}
         tabIndex={onClick ? 0 : undefined}
         onKeyDown={onClick ? handleCardKeyDown : undefined}
+        draggable={isDraggable}
+        onDragStart={handleDragStart}
       >
-        <div
-          className="list-icon"
-          style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
-        >
-          {getIcon()}
-        </div>
-        <div className="list-content">
-          <div className="list-title">{resource.title || 'Untitled'}</div>
-          <div className="list-meta">
-            <span className="list-type">{resource.type}</span>
-            <span>·</span>
-            <span>{resource.updated_at ? formatDistanceToNow(resource.updated_at) : '—'}</span>
-            {searchOrigin ? (
-              <>
-                <span>·</span>
-                <span className="list-origin" title={searchOrigin}>{searchOrigin}</span>
-              </>
-            ) : null}
+        <div role="gridcell" className="flex items-center gap-3 min-w-0">
+          <div
+            className="flex items-center justify-center w-8 h-8 rounded shrink-0"
+            style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
+          >
+            {getIcon()}
           </div>
-          {searchSnippet ? (
-            <div className="list-snippet" title={searchSnippet}>
-              {searchSnippet}
+          <div className="flex flex-col min-w-0">
+            <div className="text-sm font-medium truncate text-[var(--dome-text)]">
+              {resource.title || 'Untitled'}
             </div>
-          ) : null}
+            {searchSnippet && (
+              <div className="text-xs text-[var(--dome-text-muted)] truncate max-w-[300px]">
+                {searchSnippet}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="list-actions">
+        <div role="gridcell" className="text-xs text-[var(--dome-text-muted)] capitalize truncate">
+          {resource.type}
+        </div>
+        <div role="gridcell" className="text-xs text-[var(--dome-text-muted)] truncate tabular-nums">
+          {resource.updated_at ? formatDistanceToNow(resource.updated_at) : '—'}
+        </div>
+        <div role="gridcell" className="text-xs text-[var(--dome-text-muted)] truncate tabular-nums">
+          {resource.file_size != null ? formatFileSize(resource.file_size) : '—'}
+        </div>
+        <div role="gridcell" className="flex justify-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
           {onDelete ? (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              className="action-btn delete"
-              title="Eliminar"
-              aria-label="Eliminar"
+              className="p-1.5 rounded-md hover:bg-[var(--error-bg)] text-[var(--dome-text-muted)] hover:text-[var(--error)] transition-colors"
+              title="Delete"
+              aria-label="Delete"
             >
-              <Trash2 size={16} />
+              <Trash2 size={14} />
             </button>
           ) : null}
         </div>
-
       </div>
     );
   }
 
-  // Grid view — overlay design
-  const hasImagePreview = !!(
-    (resource.thumbnail_data && resource.type !== 'pdf') ||
-    (resource.type === 'image' && (resource.metadata?.preview_image || resource.file_path)) ||
-    (resource.type === 'url' && resource.metadata?.preview_image) ||
-    (resource.type === 'video' && resource.metadata?.thumbnail)
-  );
-
-  const typeClass = `resource-type-${resource.type}`;
-
+  // Grid view
   return (
     <div
-      className={`resource-card-grid content-visibility-auto ${typeClass} ${hasImagePreview ? 'has-image-preview' : ''} ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
-      onClick={onClick}
+      className={`group relative flex flex-col rounded-xl overflow-hidden transition-all duration-200 border ${isSelected
+          ? 'ring-2 ring-[var(--dome-accent)] border-transparent shadow-md'
+          : 'border-[var(--border)] bg-[var(--dome-surface)] hover:border-[var(--dome-accent-hover)] hover:shadow-md'
+        } ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
+      style={{ aspectRatio: 'var(--card-aspect-ratio, 4/3)' }}
+      onClick={(e) => onClick?.(e)}
+      onContextMenu={handleContextMenu}
       role={onClick ? 'button' : undefined}
+      aria-selected={isSelected}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? handleCardKeyDown : undefined}
+      draggable={isDraggable}
+      onDragStart={handleDragStart}
     >
-      {/* Full card preview area */}
-      <div className="card-preview">
-        {getPreviewContent()}
+      {/* Preview Area */}
+      <div
+        className="relative flex-1 w-full bg-[var(--dome-bg-secondary)] overflow-hidden"
+      >
+        {hasThumbnail ? (
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-500 group-hover:scale-105"
+            style={{ backgroundImage: thumbnail! }}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity" style={{ color: getTypeColor() }}>
+            {/* Large icon for placeholder */}
+            {resource.type === 'folder'
+              ? <FolderOpen size={64} strokeWidth={1} />
+              : <File size={48} strokeWidth={1} />
+            }
+          </div>
+        )}
+
+        {/* Play icon overlay for Video */}
+        {resource.type === 'video' && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10">
+            <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+              <Play size={20} className="ml-0.5 text-black" fill="currentColor" />
+            </div>
+          </div>
+        )}
+
+        {/* Time badge overlay */}
+        {resource.updated_at && (
+          <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/90 text-neutral-600 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+            {formatShortDistance(resource.updated_at)}
+          </div>
+        )}
       </div>
 
-      {/* Time badge — top right */}
-      {resource.updated_at ? (
-        <div className="overlay-time-badge">
-          {formatShortDistance(resource.updated_at)}
-        </div>
-      ) : null}
-
-      {/* Actions overlay — delete only */}
-      {onDelete ? (
-        <div className="overlay-menu">
-          <button
-            className="overlay-menu-btn overlay-delete-btn focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            aria-label="Eliminar"
-            title="Eliminar"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
-      ) : null}
-
-      {/* Overlay footer — bottom */}
-      <div className={`card-footer-overlay ${hasImagePreview ? 'on-image' : 'on-content'}`}>
-        <div className="footer-icon" style={{ color: hasImagePreview ? 'white' : getTypeColor() }}>
+      {/* Footer Info */}
+      <div className="flex items-center gap-3 px-3 py-3 border-t border-[var(--border)] bg-[var(--dome-surface)]">
+        <div
+          className="flex items-center justify-center w-8 h-8 rounded shrink-0"
+          style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
+        >
           {getIcon()}
         </div>
-        <div className="footer-info">
-          <div className="footer-title">{resource.title || 'Untitled'}</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-[var(--dome-text)] truncate" title={resource.title}>
+            {resource.title || 'Untitled'}
+          </div>
           {(searchSnippet || searchOrigin) ? (
-            <div className="footer-snippet" title={searchSnippet || searchOrigin}>
-              {searchSnippet}
-              {searchSnippet && searchOrigin ? ' · ' : ''}
-              {searchOrigin}
+            <div className="text-xs text-[var(--dome-text-muted)] truncate">
+              {searchSnippet || searchOrigin}
             </div>
-          ) : null}
-          {(searchSnippet || searchOrigin) && resource.updated_at ? (
-            <div className="footer-date" style={{ fontSize: '10px', opacity: 0.85 }}>
-              {formatDistanceToNow(resource.updated_at)}
+          ) : (
+            <div className="text-xs text-[var(--dome-text-muted)] truncate capitalize">
+              {resource.type}
             </div>
-          ) : null}
+          )}
         </div>
-        {resource.type === 'url' && resource.metadata ? (
+        {/* Context Menu Trigger (visible on hover) */}
+        <button
+          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--dome-bg)] text-[var(--dome-text-muted)] transition-all"
+          onClick={(e) => {
+            e.stopPropagation();
+            onContextMenu?.(e, resource);
+          }}
+        >
+          <MoreHorizontal size={16} />
+        </button>
+      </div>
+
+      {resource.type === 'url' && resource.metadata && (
+        <div className="absolute bottom-[52px] right-2">
           <ProcessingStatusBadge
             status={typeof resource.metadata === 'string'
               ? JSON.parse(resource.metadata).processing_status
               : resource.metadata.processing_status}
           />
-        ) : null}
-      </div>
-
+        </div>
+      )}
     </div>
   );
 }, (prevProps, nextProps) => {
@@ -425,10 +339,7 @@ export default memo(function ResourceCard({
     prevProps.resource.type === nextProps.resource.type &&
     prevProps.resource.content === nextProps.resource.content &&
     prevProps.resource.thumbnail_data === nextProps.resource.thumbnail_data &&
-    prevProps.resource.file_mime_type === nextProps.resource.file_mime_type &&
-    prevProps.resource.original_filename === nextProps.resource.original_filename &&
-    prevProps.viewMode === nextProps.viewMode &&
-    prevProps.searchSnippet === nextProps.searchSnippet &&
-    prevProps.searchOrigin === nextProps.searchOrigin
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.viewMode === nextProps.viewMode
   );
 });

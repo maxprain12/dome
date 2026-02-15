@@ -139,7 +139,7 @@ export function FilterBar({
         {onCreateFolder && (
           <button className="create-folder-btn min-h-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" onClick={onCreateFolder} aria-label="Create new folder">
             <FolderOpen size={16} />
-            <span>New Folder</span>
+            <span>New folder</span>
           </button>
         )}
 
