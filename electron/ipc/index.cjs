@@ -2,7 +2,6 @@
 const { ipcMain, nativeTheme } = require('electron');
 
 const systemHandlers = require('./system.cjs');
-const avatarHandlers = require('./avatar.cjs');
 const windowHandlers = require('./window.cjs');
 const initHandlers = require('./init.cjs');
 const databaseHandlers = require('./database.cjs');
@@ -64,7 +63,6 @@ function registerAll(deps) {
   const crypto = require('crypto');
 
   systemHandlers.register({ ipcMain, app, windowManager, validateSender, sanitizePath, validateUrl });
-  avatarHandlers.register({ ipcMain, app, windowManager, validateSender });
   windowHandlers.register({ ipcMain, nativeTheme, windowManager, database });
   initHandlers.register({ ipcMain, windowManager, initModule, validateSender });
   databaseHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService });

@@ -43,10 +43,6 @@ export async function saveUserProfile(profile: Partial<UserProfile>): Promise<vo
   }
 
   if (profile.email !== undefined) {
-    // Debug: log email details to diagnose truncation issue
-    console.log(`[Settings] Saving user_email:`);
-    console.log(`[Settings]   - Value: "${profile.email}"`);
-    console.log(`[Settings]   - Length: ${profile.email.length}`);
     await db.setSetting('user_email', profile.email);
   }
 
@@ -57,16 +53,6 @@ export async function saveUserProfile(profile: Partial<UserProfile>): Promise<vo
   if (profile.avatarPath !== undefined) {
     await db.setSetting('user_avatar_path', profile.avatarPath || '');
   }
-}
-
-/** Set avatar as base64 data URL (data:image/...) - Legacy method */
-export async function setUserAvatar(avatarData: string | null): Promise<void> {
-  await db.setSetting('user_avatar_data', avatarData || '');
-}
-
-/** Set avatar as relative path (e.g., "avatars/user-avatar-123.jpg") - New method */
-export async function setUserAvatarPath(avatarPath: string | null): Promise<void> {
-  await db.setSetting('user_avatar_path', avatarPath || '');
 }
 
 // ===========================
@@ -181,8 +167,6 @@ export async function getAIConfig(): Promise<AISettings> {
   // Anthropic OAuth/Token support
   const authModeResult = await db.getSetting('ai_auth_mode');
   const oauthTokenResult = await db.getSetting('ai_oauth_token');
-  // Venice privacy mode
-  const venicePrivacyModeResult = await db.getSetting('venice_privacy_mode');
 
   // Handle legacy 'local' provider by converting to 'ollama'
   let provider = providerResult.data as AISettings['provider'] | 'local';
@@ -206,8 +190,6 @@ export async function getAIConfig(): Promise<AISettings> {
     // Anthropic OAuth/Token support
     auth_mode: (authModeResult.data as AISettings['auth_mode']) || undefined,
     oauth_token: oauthTokenResult.data || undefined,
-    // Venice privacy mode
-    venice_privacy_mode: (venicePrivacyModeResult.data as AISettings['venice_privacy_mode']) || undefined,
   };
 }
 
@@ -267,11 +249,6 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
 
   if (config.oauth_token !== undefined) {
     await db.setSetting('ai_oauth_token', config.oauth_token);
-  }
-
-  // Venice privacy mode
-  if (config.venice_privacy_mode !== undefined) {
-    await db.setSetting('venice_privacy_mode', config.venice_privacy_mode);
   }
 }
 

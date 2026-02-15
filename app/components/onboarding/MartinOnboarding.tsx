@@ -8,11 +8,9 @@ import MartinAvatar from '@/components/martin/MartinAvatar';
 interface MartinOnboardingProps {
   initialName?: string;
   initialEmail?: string;
-  initialAvatarPath?: string;
   onComplete: (data: {
     name: string;
     email: string;
-    avatarPath?: string;
   }) => void;
 }
 
@@ -39,14 +37,12 @@ Welcome to Dome!`;
 export default function MartinOnboarding({
   initialName,
   initialEmail,
-  initialAvatarPath,
   onComplete,
 }: MartinOnboardingProps) {
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [profileData, setProfileData] = useState<{
     name: string;
     email: string;
-    avatarPath?: string;
   } | null>(null);
   const [canProceedProfile, setCanProceedProfile] = useState(false);
 
@@ -54,7 +50,7 @@ export default function MartinOnboarding({
     setCurrentStep('profile');
   };
 
-  const handleProfileComplete = (data: { name: string; email: string; avatarPath?: string }) => {
+  const handleProfileComplete = (data: { name: string; email: string }) => {
     setProfileData(data);
     setCurrentStep('ai');
   };
@@ -106,7 +102,6 @@ export default function MartinOnboarding({
         <ProfileStep
           initialName={initialName || profileData?.name}
           initialEmail={initialEmail || profileData?.email}
-          initialAvatarPath={initialAvatarPath || profileData?.avatarPath}
           onComplete={handleProfileComplete}
           onValidationChange={setCanProceedProfile}
         />

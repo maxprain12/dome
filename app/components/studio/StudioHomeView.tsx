@@ -1,31 +1,35 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Trash2,
   Eye,
   Loader2,
-  Brain,
-  BookOpen,
-  HelpCircle,
-  MessageCircleQuestion,
-  CalendarRange,
-  Table2,
-  Headphones,
-  WalletCards,
   FileText,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useStudioGenerate } from '@/lib/hooks/useStudioGenerate';
 import { useStudioOutputs } from '@/lib/hooks/useStudioOutputs';
+import { useSourceTitles } from '@/lib/hooks/useSourceTitles';
 import { STUDIO_TILES, STUDIO_TYPE_ICONS } from '@/lib/studio/constants';
+import GenerateSourceModal from '@/components/studio/GenerateSourceModal';
 import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import type { StudioOutputType, StudioOutput } from '@/types';
 import { formatShortDistance } from '@/lib/utils';
 
+function parseSourceIds(output: StudioOutput): string[] {
+  const raw = output.source_ids;
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed.filter((id: unknown) => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 export default function StudioHomeView() {
   const currentProject = useAppStore((s) => s.currentProject);
-  const selectedSourceIds = useAppStore((s) => s.selectedSourceIds);
   const studioOutputs = useAppStore((s) => s.studioOutputs);
   const setStudioOutputs = useAppStore((s) => s.setStudioOutputs);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
@@ -34,21 +38,38 @@ export default function StudioHomeView() {
 
   const effectiveProjectId = currentProject?.id ?? 'default';
 
-  const { generate, isGenerating } = useStudioGenerate({
+  const allSourceIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const o of studioOutputs) {
+      for (const id of parseSourceIds(o)) ids.add(id);
+    }
+    return Array.from(ids);
+  }, [studioOutputs]);
+
+  const { titles: sourceTitles } = useSourceTitles(allSourceIds);
+
+  const { generate, isGenerating, generatingType } = useStudioGenerate({
     projectId: effectiveProjectId,
-    selectedSourceIds,
   });
 
   const { isLoading: loadingOutputs } = useStudioOutputs(effectiveProjectId);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeOutput, setActiveOutput] = useState<StudioOutput | null>(null);
+  const [pendingGenerateType, setPendingGenerateType] = useState<StudioOutputType | null>(null);
 
-  const handleTileClick = useCallback(
-    async (type: string) => {
-      await generate(type as StudioOutputType);
+  const handleTileClick = useCallback((type: string) => {
+    if (!type) return;
+    setPendingGenerateType(type as StudioOutputType);
+  }, []);
+
+  const handleModalConfirm = useCallback(
+    async (sourceIds: string[]) => {
+      if (!pendingGenerateType) return;
+      await generate(pendingGenerateType, sourceIds);
+      setPendingGenerateType(null);
     },
-    [generate],
+    [pendingGenerateType, generate]
   );
 
   const handleViewOutput = useCallback((output: StudioOutput) => {
@@ -90,16 +111,28 @@ export default function StudioHomeView() {
         <div
           className="fixed inset-x-0 bottom-0 z-modal flex flex-col"
           style={{
-            top: 'var(--overlay-top-offset)',
+            top: 'var(--app-header-total)',
             paddingLeft: 'var(--safe-area-inset-left)',
             paddingRight: 'var(--safe-area-inset-right)',
             paddingBottom: 'var(--safe-area-inset-bottom)',
             background: 'var(--bg)',
           }}
         >
-          <StudioOutputViewer output={activeOutput} onClose={handleCloseViewer} />
+          <StudioOutputViewer output={activeOutput} onClose={handleCloseViewer} overlayContext="home" />
         </div>
       ) : null}
+
+      <GenerateSourceModal
+        isOpen={pendingGenerateType !== null}
+        onClose={() => setPendingGenerateType(null)}
+        onConfirm={handleModalConfirm}
+        projectId={effectiveProjectId}
+        tileTitle={
+          pendingGenerateType
+            ? (STUDIO_TILES.find((t) => t.type === pendingGenerateType)?.title ?? pendingGenerateType)
+            : ''
+        }
+      />
 
       <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-4xl mx-auto">
@@ -113,7 +146,7 @@ export default function StudioHomeView() {
                     handleTileClick(tile.type);
                   }
                 }}
-                className={`flex flex-col items-start gap-2 p-4 rounded-xl text-left transition-colors duration-150 relative border ${
+                className={`flex flex-col items-start gap-2 p-4 rounded-xl text-left transition-colors duration-200 relative border focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2 focus-visible:outline-none ${
                   tile.comingSoon || isGenerating
                     ? 'bg-[var(--dome-surface)] border-[var(--dome-border)] cursor-default'
                     : 'bg-[var(--dome-surface)] border-[var(--dome-border)] cursor-pointer hover:border-[var(--dome-accent)] hover:bg-[var(--dome-accent-bg)]'
@@ -137,13 +170,19 @@ export default function StudioHomeView() {
                   </span>
                 ) : null}
                 <span className="leading-none shrink-0" style={{ color: 'var(--dome-accent)' }}>
-                  {tile.icon}
+                  {isGenerating && generatingType === tile.type ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    tile.icon
+                  )}
                 </span>
                 <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                   {tile.title}
                 </span>
                 <span className="text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
-                  {tile.description}
+                  {isGenerating && generatingType === tile.type
+                    ? `Generando ${tile.title}...`
+                    : tile.description}
                 </span>
               </button>
             ))}
@@ -178,7 +217,7 @@ export default function StudioHomeView() {
                 {studioOutputs.map((output) => (
                   <div
                     key={output.id}
-                    className="flex items-center gap-3 p-3 rounded-lg group transition-colors duration-150 border border-[var(--dome-border)] bg-[var(--dome-surface)] hover:border-[var(--dome-accent)]"
+                    className="flex items-center gap-3 p-3 rounded-lg group transition-colors duration-150 border border-[var(--dome-border)] bg-[var(--dome-surface)] hover:border-[var(--dome-accent)] content-visibility-auto"
                   >
                     <span className="shrink-0" style={{ color: 'var(--dome-text-secondary)' }}>
                       {STUDIO_TYPE_ICONS[output.type] || <FileText size={16} />}
@@ -197,6 +236,17 @@ export default function StudioHomeView() {
                           <> · {output.deck_card_count} tarjetas</>
                         ) : null}
                       </div>
+                      {(() => {
+                        const ids = parseSourceIds(output);
+                        const names = ids.length > 0
+                          ? ids.map((id) => sourceTitles.get(id) || id.slice(0, 8) + '…').filter(Boolean)
+                          : [];
+                        return (
+                          <div className="text-[10px] mt-0.5 truncate" style={{ color: 'var(--dome-text-muted)' }} title={names.join(', ') || undefined}>
+                            {names.length > 0 ? `Fuentes: ${names.join(', ')}` : 'Sin fuentes específicas'}
+                          </div>
+                        );
+                      })()}
                     </button>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                       <button

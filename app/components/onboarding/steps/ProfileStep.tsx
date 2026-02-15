@@ -1,28 +1,22 @@
 
 import { useState, useEffect } from 'react';
-import { Camera } from 'lucide-react';
 import { validateEmail, validateName } from '@/lib/utils/validation';
-import UserAvatar from '@/components/user/UserAvatar';
-import { selectAndCopyAvatar } from '@/lib/settings/avatar';
 
 interface ProfileStepProps {
   initialName?: string;
   initialEmail?: string;
-  initialAvatarPath?: string;
-  onComplete: (data: { name: string; email: string; avatarPath?: string }) => void;
+  onComplete: (data: { name: string; email: string }) => void;
   onValidationChange?: (isValid: boolean) => void;
 }
 
 export default function ProfileStep({
   initialName = '',
   initialEmail = '',
-  initialAvatarPath,
   onComplete,
   onValidationChange,
 }: ProfileStepProps) {
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
-  const [avatarPath, setAvatarPath] = useState<string | undefined>(initialAvatarPath);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
 
   const handleNameChange = (value: string) => {
@@ -33,23 +27,10 @@ export default function ProfileStep({
   };
 
   const handleEmailChange = (value: string) => {
-    // Debug: log every keystroke to find truncation
-    console.log(`[ProfileStep] Email onChange: "${value}" (length: ${value.length})`);
     setEmail(value);
     if (errors.email && validateEmail(value)) {
       setErrors((prev) => ({ ...prev, email: undefined }));
     }
-  };
-
-  const handleChangeAvatar = async () => {
-    const relativePath = await selectAndCopyAvatar();
-    if (relativePath) {
-      setAvatarPath(relativePath);
-    }
-  };
-
-  const handleRemoveAvatar = () => {
-    setAvatarPath(undefined);
   };
 
   const handleNext = () => {
@@ -69,18 +50,11 @@ export default function ProfileStep({
     }
 
     setErrors({});
-    
-    // Debug: log email details to diagnose truncation issue
     const trimmedEmail = email.trim();
-    console.log(`[ProfileStep] Completing with email:`);
-    console.log(`[ProfileStep]   - Original: "${email}"`);
-    console.log(`[ProfileStep]   - Trimmed: "${trimmedEmail}"`);
-    console.log(`[ProfileStep]   - Length: ${trimmedEmail.length}`);
-    
+
     onComplete({
       name: name.trim(),
       email: trimmedEmail,
-      avatarPath,
     });
   };
 
@@ -109,98 +83,52 @@ export default function ProfileStep({
 
   return (
     <div className="space-y-6">
-      {/* Avatar Section */}
-      <div>
-        <label className="block text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-          Foto de perfil (opcional)
-        </label>
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <UserAvatar name={name || 'Usuario'} avatarPath={avatarPath} size="xl" />
-            <button
-              onClick={handleChangeAvatar}
-              className="absolute bottom-0 right-0 p-2 rounded-full text-white transition-opacity duration-200 hover:opacity-90"
-              style={{
-                backgroundColor: 'var(--accent)',
-              }}
-            >
-              <Camera className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={handleChangeAvatar}
-              className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--primary-text)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              Cambiar foto
-            </button>
-            {avatarPath && (
-              <button
-                onClick={handleRemoveAvatar}
-                className="px-4 py-2 text-sm font-medium rounded-lg transition-colors"
-                style={{
-                  backgroundColor: 'var(--bg-secondary)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--error)',
-                }}
-              >
-                Eliminar
-              </button>
-            )}
-          </div>
+      <section>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-4" style={{ color: 'var(--secondary-text)' }}>
+          Datos personales
+        </h3>
+
+        {/* Name */}
+        <div className="space-y-2 mb-4">
+          <label htmlFor="profile-name" className="block text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+            Nombre completo *
+          </label>
+          <input
+            id="profile-name"
+            type="text"
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
+            placeholder="John Doe"
+            className="input"
+            style={{
+              borderColor: errors.name ? 'var(--error)' : undefined,
+            }}
+            autoFocus
+          />
+          {errors.name ? <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{errors.name}</p> : null}
         </div>
-      </div>
 
-      {/* Name */}
-      <div>
-        <label htmlFor="profile-name" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
-          Nombre completo *
-        </label>
-        <input
-          id="profile-name"
-          type="text"
-          value={name}
-          onChange={(e) => handleNameChange(e.target.value)}
-          placeholder="John Doe"
-          className="w-full px-4 py-2.5 rounded-lg text-sm"
-          style={{
-            backgroundColor: 'var(--bg)',
-            color: 'var(--primary-text)',
-            border: errors.name ? '1px solid var(--error)' : '1px solid var(--border)',
-          }}
-          autoFocus
-        />
-        {errors.name && <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{errors.name}</p>}
-      </div>
-
-      {/* Email */}
-      <div>
-        <label htmlFor="profile-email" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
-          Email *
-        </label>
-        <input
-          id="profile-email"
-          type="text"
-          inputMode="email"
-          autoComplete="email"
-          value={email}
-          onChange={(e) => handleEmailChange(e.target.value)}
-          onBlur={(e) => console.log(`[ProfileStep] Email onBlur: "${e.target.value}" (length: ${e.target.value.length})`)}
-          placeholder="juan@ejemplo.com"
-          className="w-full px-4 py-2.5 rounded-lg text-sm"
-          style={{
-            backgroundColor: 'var(--bg)',
-            color: 'var(--primary-text)',
-            border: errors.email ? '1px solid var(--error)' : '1px solid var(--border)',
-          }}
-        />
-        {errors.email && <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{errors.email}</p>}
-      </div>
+        {/* Email */}
+        <div className="space-y-2">
+          <label htmlFor="profile-email" className="block text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+            Email *
+          </label>
+          <input
+            id="profile-email"
+            type="text"
+            inputMode="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => handleEmailChange(e.target.value)}
+            placeholder="juan@ejemplo.com"
+            className="input"
+            style={{
+              borderColor: errors.email ? 'var(--error)' : undefined,
+            }}
+          />
+          {errors.email ? <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{errors.email}</p> : null}
+        </div>
+      </section>
 
       {/* Hidden button for OnboardingStep to use */}
       <div style={{ display: 'none' }}>

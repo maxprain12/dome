@@ -52,7 +52,7 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 min-h-0 overflow-y-auto p-6">
         <div className="max-w-2xl mx-auto space-y-4">
           {data.sections.map((section, index) => {
             const isExpanded = expandedSections.has(index);

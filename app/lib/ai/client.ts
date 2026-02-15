@@ -24,7 +24,6 @@ import type {
   ChatMessage,
   ToolDefinition,
 } from './types';
-import { createSyntheticProvider } from './providers/synthetic';
 import {
   createToolRegistry,
   toOpenAIToolDefinitions,
@@ -535,9 +534,7 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
       return generateEmbeddingsOllama(texts);
 
     // Providers that don't support embeddings - fallback to Ollama
-    case 'anthropic':
-    case 'synthetic':
-    case 'venice': {
+    case 'anthropic': {
       // Try to use Ollama as fallback
       const ollamaAvailable = await checkOllamaAvailable();
       if (ollamaAvailable) {
@@ -592,21 +589,6 @@ export async function chat(
         config.model || getDefaultModelId('google'),
       );
 
-    case 'synthetic': {
-      const provider = createSyntheticProvider();
-      const response = await provider.chat({
-        model: config.model || 'hf:MiniMaxAI/MiniMax-M2.1',
-        messages: messages.map(m => ({
-          role: m.role as 'user' | 'assistant' | 'system',
-          content: m.content,
-        })),
-        tools,
-      });
-      return typeof response.message.content === 'string'
-        ? response.message.content
-        : response.message.content.filter(c => c.type === 'text').map(c => (c as { text: string }).text).join('');
-    }
-
     case 'ollama':
       throw new Error('Ollama chat must be handled from the main process via IPC');
 
@@ -657,20 +639,6 @@ export async function* chatStream(
         signal,
       );
       break;
-
-    case 'synthetic': {
-      const provider = createSyntheticProvider();
-      yield* provider.chatStream({
-        model: config.model || 'hf:MiniMaxAI/MiniMax-M2.1',
-        messages: messages.map(m => ({
-          role: m.role as 'user' | 'assistant' | 'system',
-          content: m.content,
-        })),
-        tools,
-        signal,
-      });
-      break;
-    }
 
     case 'ollama':
       yield* streamOllama(

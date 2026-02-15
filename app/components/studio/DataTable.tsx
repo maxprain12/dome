@@ -116,7 +116,7 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 min-h-0 overflow-auto">
         <table className="w-full border-collapse text-xs">
           <thead>
             <tr>

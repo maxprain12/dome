@@ -8,18 +8,14 @@ interface OnboardingProps {
 }
 
 export default function Onboarding({ onComplete }: OnboardingProps) {
-  const { updateUserProfile, setAvatarPath, completeOnboarding, name: existingName, email: existingEmail, avatarPath: existingAvatarPath } = useUserStore();
+  const { updateUserProfile, completeOnboarding, name: existingName, email: existingEmail } = useUserStore();
   const [isVisible, setIsVisible] = useState(true);
 
-  const handleComplete = async (data: { name: string; email: string; avatarPath?: string }) => {
-    // Save user profile and avatar in parallel (independent operations)
-    await Promise.all([
-      updateUserProfile({
-        name: data.name,
-        email: data.email,
-      }),
-      data.avatarPath ? setAvatarPath(data.avatarPath) : Promise.resolve(),
-    ]);
+  const handleComplete = async (data: { name: string; email: string }) => {
+    await updateUserProfile({
+      name: data.name,
+      email: data.email,
+    });
 
     // Mark onboarding as completed
     await completeOnboarding();
@@ -56,7 +52,6 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
         <MartinOnboarding
           initialName={existingName}
           initialEmail={existingEmail}
-          initialAvatarPath={existingAvatarPath}
           onComplete={handleComplete}
         />
       </div>

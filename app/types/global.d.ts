@@ -215,13 +215,7 @@ declare global {
       onThemeChanged: (callback: ThemeChangeCallback) => RemoveListenerFn;
 
       // User Settings
-      selectAvatar: () => Promise<string | null>;
       openSettings: () => Promise<{ success: boolean; windowId?: string; error?: string }>;
-
-      // Avatar management
-      avatar: {
-        copyFile: (sourcePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
-      };
 
       // IPC Communication
       invoke: (channel: string, ...args: any[]) => Promise<any>;

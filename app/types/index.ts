@@ -170,8 +170,6 @@ export interface AISettings {
   ollama_num_predict?: number;
   /** Cuando true, modelos con "thinking" muestran el razonamiento interno. Por defecto false (solo respuesta final). */
   ollama_show_thinking?: boolean;
-  // Para Venice:
-  venice_privacy_mode?: 'private' | 'anonymized';
 }
 
 // Configuración general
@@ -493,11 +491,12 @@ export interface StudioOutput {
 export interface MindMapNode {
   id: string;
   label: string;
+  description?: string;
   children?: MindMapNode[];
 }
 
 export interface MindMapData {
-  nodes: Array<{ id: string; label: string; position?: { x: number; y: number } }>;
+  nodes: Array<{ id: string; label: string; description?: string; position?: { x: number; y: number } }>;
   edges: Array<{ id: string; source: string; target: string; label?: string }>;
 }
 

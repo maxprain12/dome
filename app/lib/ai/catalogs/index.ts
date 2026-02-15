@@ -4,40 +4,6 @@
  * Re-exports all model catalogs for easy access.
  */
 
-// Synthetic Models (Free)
-export {
-  SYNTHETIC_BASE_URL,
-  SYNTHETIC_DEFAULT_MODEL_ID,
-  SYNTHETIC_DEFAULT_MODEL_REF,
-  SYNTHETIC_DEFAULT_COST,
-  SYNTHETIC_MODEL_CATALOG,
-  buildSyntheticModelDefinition,
-  getSyntheticModels,
-  findSyntheticModel,
-  getDefaultSyntheticModel,
-  getSyntheticReasoningModels,
-  getSyntheticVisionModels,
-} from './synthetic';
-
-// Venice Models (Privacy-focused)
-export {
-  VENICE_BASE_URL,
-  VENICE_DEFAULT_MODEL_ID,
-  VENICE_DEFAULT_MODEL_REF,
-  VENICE_DEFAULT_COST,
-  VENICE_MODEL_CATALOG,
-  buildVeniceModelDefinition,
-  getVeniceModels,
-  findVeniceModel,
-  getDefaultVeniceModel,
-  getVenicePrivateModels,
-  getVeniceAnonymizedModels,
-  getVeniceReasoningModels,
-  getVeniceVisionModels,
-  discoverVeniceModels,
-} from './venice';
-export type { VenicePrivacyMode } from './venice';
-
 // GitHub Copilot Models
 export {
   COPILOT_BASE_URL,
@@ -61,50 +27,32 @@ export {
 // =============================================================================
 
 import type { ModelDefinition } from '../models';
-import { getSyntheticModels } from './synthetic';
-import { getVeniceModels } from './venice';
 import { getCopilotModels } from './copilot';
 
 /**
  * Get all models from all catalogs
  */
 export function getAllCatalogModels(): ModelDefinition[] {
-  return [
-    ...getSyntheticModels(),
-    ...getVeniceModels(),
-    ...getCopilotModels(),
-  ];
+  return [...getCopilotModels()];
 }
 
 /**
- * Get all free models (Synthetic and Copilot)
+ * Get all free models (Copilot)
  */
 export function getAllFreeModels(): ModelDefinition[] {
-  return [
-    ...getSyntheticModels(),
-    ...getCopilotModels(),
-  ];
+  return [...getCopilotModels()];
 }
 
 /**
- * Get all privacy-focused models (Venice)
+ * Get all privacy-focused models (empty - Venice removed)
  */
 export function getAllPrivacyModels(): ModelDefinition[] {
-  return getVeniceModels();
+  return [];
 }
 
 /**
  * Find a model by ID across all catalogs
  */
 export function findCatalogModel(modelId: string): ModelDefinition | undefined {
-  const synthetic = getSyntheticModels().find(m => m.id === modelId);
-  if (synthetic) return synthetic;
-  
-  const venice = getVeniceModels().find(m => m.id === modelId);
-  if (venice) return venice;
-  
-  const copilot = getCopilotModels().find(m => m.id === modelId);
-  if (copilot) return copilot;
-  
-  return undefined;
+  return getCopilotModels().find(m => m.id === modelId);
 }

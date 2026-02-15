@@ -3,7 +3,7 @@
  * Single source of truth for order, labels, descriptions, badges, and icons.
  */
 
-import { Cpu, Gift, Globe, Shield, Sparkles, Zap } from 'lucide-react';
+import { Cpu, Globe, Sparkles, Zap } from 'lucide-react';
 import { PROVIDERS } from '@/lib/ai/models';
 import type { AIProviderType } from '@/lib/ai/models';
 
@@ -19,17 +19,8 @@ export interface ProviderOption {
   recommended?: boolean;
 }
 
-/** Order: Gratis first, then Cloud (OpenAI, Anthropic, Google, Venice), then Local (Ollama). */
+/** Order: Cloud (OpenAI, Anthropic, Google), then Local (Ollama). */
 export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
-  {
-    value: 'synthetic',
-    label: 'Synthetic',
-    description: '19 free models: MiniMax, DeepSeek, Qwen, Llama',
-    icon: Gift,
-    badge: 'GRATIS',
-    badgeColor: 'green',
-    recommended: true,
-  },
   {
     value: 'openai',
     label: PROVIDERS.openai.name,
@@ -47,14 +38,6 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     label: PROVIDERS.google.name,
     description: PROVIDERS.google.description + '. Requires API key.',
     icon: Globe,
-  },
-  {
-    value: 'venice',
-    label: 'Venice',
-    description: 'Models with total privacy, no logging.',
-    icon: Shield,
-    badge: 'PRIVADO',
-    badgeColor: 'purple',
   },
   {
     value: 'ollama',

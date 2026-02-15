@@ -33,10 +33,6 @@ const ALLOWED_CHANNELS = {
     // Theme
     'get-theme',
     'set-theme',
-    // Avatar
-    'select-avatar',
-    'avatar:copy',
-    'avatar:delete',
     // Window management
     'window:create',
     'window:create-modal',
@@ -370,16 +366,7 @@ const electronHandler = {
   // ============================================
   // USER SETTINGS
   // ============================================
-  selectAvatar: () => ipcRenderer.invoke('select-avatar'),
   openSettings: () => ipcRenderer.invoke('window:open-settings'),
-
-  // ============================================
-  // AVATAR MANAGEMENT
-  // ============================================
-  avatar: {
-    copyFile: (sourcePath) => ipcRenderer.invoke('avatar:copy', sourcePath),
-    deleteAvatar: (relativePath) => ipcRenderer.invoke('avatar:delete', relativePath),
-  },
 
   // ============================================
   // IPC COMMUNICATION

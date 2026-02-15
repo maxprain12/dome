@@ -441,8 +441,6 @@ export type ProviderType =
   | 'anthropic'
   | 'google'
   | 'ollama'
-  | 'synthetic'
-  | 'venice'
   | 'copilot'
   | 'bedrock'
   | 'minimax'

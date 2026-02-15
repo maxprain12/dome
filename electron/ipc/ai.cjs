@@ -363,11 +363,6 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         return { success: false, error: 'No AI provider configured. Go to Settings > AI to configure one.' };
       }
 
-      // Synthetic provider doesn't need API key
-      if (provider === 'synthetic') {
-        return { success: true, provider: 'synthetic', model: 'synthetic', message: 'Synthetic provider is always available.' };
-      }
-
       // Ollama check
       if (provider === 'ollama') {
         try {
@@ -393,7 +388,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         }
       }
 
-      // Cloud providers: openai, anthropic, google, venice
+      // Cloud providers: openai, anthropic, google
       const modelResult = queries.getSetting.get('ai_model');
       const model = modelResult?.value;
 

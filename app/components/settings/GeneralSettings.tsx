@@ -1,13 +1,10 @@
 
 import { useState, useEffect } from 'react';
-import { Camera } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
-import UserAvatar from '@/components/user/UserAvatar';
 import { validateEmail, validateName } from '@/lib/utils/validation';
-import { selectAndCopyAvatar, deleteAvatar } from '@/lib/settings/avatar';
 
 export default function GeneralSettings() {
-  const { name, email, avatarData, avatarPath, updateUserProfile, setAvatarPath, loadUserProfile } = useUserStore();
+  const { name, email, updateUserProfile, loadUserProfile } = useUserStore();
   const [localName, setLocalName] = useState(name);
   const [localEmail, setLocalEmail] = useState(email);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
@@ -41,14 +38,8 @@ export default function GeneralSettings() {
     }
 
     setErrors({});
-    
-    // Debug: log email details to diagnose truncation issue
     const trimmedEmail = localEmail.trim();
-    console.log(`[GeneralSettings] Saving email:`);
-    console.log(`[GeneralSettings]   - Original: "${localEmail}"`);
-    console.log(`[GeneralSettings]   - Trimmed: "${trimmedEmail}"`);
-    console.log(`[GeneralSettings]   - Length: ${trimmedEmail.length}`);
-    
+
     updateUserProfile({
       name: localName.trim(),
       email: trimmedEmail,
@@ -56,29 +47,6 @@ export default function GeneralSettings() {
 
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
-  };
-
-  const handleChangeAvatar = async () => {
-    // Delete old avatar before setting new one
-    if (avatarPath) {
-      await deleteAvatar(avatarPath);
-    }
-
-    const relativePath = await selectAndCopyAvatar();
-
-    if (relativePath) {
-      // Save relative path to database
-      await setAvatarPath(relativePath);
-    }
-  };
-
-  const handleRemoveAvatar = async () => {
-    // Delete the file before clearing the path
-    if (avatarPath) {
-      await deleteAvatar(avatarPath);
-    }
-
-    await setAvatarPath(null);
   };
 
   return (
@@ -92,47 +60,6 @@ export default function GeneralSettings() {
           Manage your profile and account settings
         </p>
       </div>
-
-      {/* Avatar Section */}
-      <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
-          Profile Picture
-        </h3>
-
-        <div className="flex items-center gap-8">
-          <button
-            type="button"
-            className="relative group cursor-pointer rounded-full focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-            onClick={handleChangeAvatar}
-            aria-label="Change profile picture"
-          >
-            <UserAvatar name={localName || 'User'} avatarData={avatarData} avatarPath={avatarPath} size="xl" />
-            <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              <Camera className="w-5 h-5 text-white" />
-            </div>
-          </button>
-
-          <div className="flex flex-col gap-3">
-            <div className="flex gap-3">
-              <button onClick={handleChangeAvatar} className="btn btn-secondary">
-                Change Avatar
-              </button>
-              {(avatarData || avatarPath) ? (
-                <button
-                  onClick={handleRemoveAvatar}
-                  className="btn btn-ghost text-sm font-medium transition-colors hover:bg-[var(--error-bg)]"
-                  style={{ color: 'var(--error)' }}
-                >
-                  Remove
-                </button>
-              ) : null}
-            </div>
-            <p className="text-xs opacity-80 max-w-[200px]" style={{ color: 'var(--secondary-text)' }}>
-              Recommended: Square JPG, PNG, or GIF, at least 400x400.
-            </p>
-          </div>
-        </div>
-      </section>
 
       {/* Profile Information */}
       <section className="max-w-md">
@@ -192,7 +119,7 @@ export default function GeneralSettings() {
           </div>
 
           <div className="pt-4 flex items-center gap-4">
-            <button onClick={handleSave} className="btn btn-primary">
+            <button onClick={handleSave} className="btn btn-primary cursor-pointer">
               Save Changes
             </button>
             {isSaved ? (

@@ -10,9 +10,17 @@ import FlashcardStats from './FlashcardStats';
 interface FlashcardStudyViewProps {
   deckId: string;
   onClose: () => void;
+  /** 'home' = AppHeader (44px), 'workspace' = WorkspaceHeader (56px). Default: 'workspace'. */
+  overlayContext?: 'home' | 'workspace';
 }
 
-export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyViewProps) {
+const OVERLAY_TOP = {
+  home: 'var(--app-header-total)',
+  workspace: 'var(--overlay-top-offset)',
+} as const;
+
+export default function FlashcardStudyView({ deckId, onClose, overlayContext = 'workspace' }: FlashcardStudyViewProps) {
+  const overlayTop = OVERLAY_TOP[overlayContext];
   const {
     currentDeck,
     dueCards,
@@ -117,7 +125,7 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
       <div
         className="fixed inset-x-0 bottom-0 z-modal flex flex-col"
         style={{
-          top: 'var(--overlay-top-offset)',
+          top: overlayTop,
           paddingLeft: 'var(--safe-area-inset-left)',
           paddingRight: 'var(--safe-area-inset-right)',
           paddingBottom: 'var(--safe-area-inset-bottom)',
@@ -174,7 +182,7 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
       <div
         className="fixed inset-x-0 bottom-0 z-modal flex flex-col"
         style={{
-          top: 'var(--overlay-top-offset)',
+          top: overlayTop,
           paddingLeft: 'var(--safe-area-inset-left)',
           paddingRight: 'var(--safe-area-inset-right)',
           paddingBottom: 'var(--safe-area-inset-bottom)',
@@ -218,7 +226,7 @@ export default function FlashcardStudyView({ deckId, onClose }: FlashcardStudyVi
     <div
       className="fixed inset-x-0 bottom-0 z-modal flex flex-col"
       style={{
-        top: 'var(--overlay-top-offset)',
+        top: overlayTop,
         paddingLeft: 'var(--safe-area-inset-left)',
         paddingRight: 'var(--safe-area-inset-right)',
         paddingBottom: 'var(--safe-area-inset-bottom)',

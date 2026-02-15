@@ -67,6 +67,7 @@ export default function FlashcardDeckList() {
       <FlashcardStudyView
         deckId={studyingDeckId}
         onClose={handleStudyClose}
+        overlayContext="home"
       />
     );
   }

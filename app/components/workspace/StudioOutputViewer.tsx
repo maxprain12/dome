@@ -24,9 +24,11 @@ const StudioOutputFallback = () => (
 interface StudioOutputViewerProps {
   output: StudioOutput;
   onClose: () => void;
+  /** 'home' = AppHeader (44px), 'workspace' = WorkspaceHeader (56px). Default: 'workspace'. */
+  overlayContext?: 'home' | 'workspace';
 }
 
-export default function StudioOutputViewer({ output, onClose }: StudioOutputViewerProps) {
+export default function StudioOutputViewer({ output, onClose, overlayContext = 'workspace' }: StudioOutputViewerProps) {
   const parsedContent = useMemo(() => {
     if (!output.content) return null;
     try {
@@ -41,7 +43,13 @@ export default function StudioOutputViewer({ output, onClose }: StudioOutputView
   const renderOutput = () => {
     // Flashcards: use deck_id, render FlashcardStudyView (content is in deck)
     if (output.type === 'flashcards' && output.deck_id) {
-      return <FlashcardStudyView deckId={output.deck_id} onClose={onClose} />;
+      return (
+        <FlashcardStudyView
+          deckId={output.deck_id}
+          onClose={onClose}
+          overlayContext={overlayContext}
+        />
+      );
     }
 
     if (!parsedContent && output.type !== 'flashcards') {
@@ -131,7 +139,7 @@ export default function StudioOutputViewer({ output, onClose }: StudioOutputView
 
   return (
     <div
-      className="absolute inset-0 z-modal flex flex-col"
+      className="absolute inset-0 z-modal flex flex-col min-h-0 overflow-hidden"
       style={{ background: 'var(--bg)' }}
     >
       <Suspense fallback={<StudioOutputFallback />}>

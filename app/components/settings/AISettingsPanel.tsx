@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
-import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Gift, Shield, Key, Lock } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Key, Lock } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings, AnthropicAuthMode } from '@/types';
 import {
@@ -12,8 +12,6 @@ import {
   type ModelDefinition,
 } from '@/lib/ai/models';
 import { AI_PROVIDER_OPTIONS } from '@/lib/ai/provider-options';
-import { getSyntheticModels } from '@/lib/ai/catalogs/synthetic';
-import { getVeniceModels, type VenicePrivacyMode } from '@/lib/ai/catalogs/venice';
 import ModelSelector from './ModelSelector';
 
 interface OllamaModel {
@@ -44,9 +42,6 @@ export default function AISettingsPanel() {
   const [authMode, setAuthMode] = useState<AnthropicAuthMode>('api_key');
   const [oauthToken, setOauthToken] = useState('');
 
-  // Venice privacy mode
-  const [venicePrivacyMode, setVenicePrivacyMode] = useState<VenicePrivacyMode>('private');
-
   // Ollama-specific state
   const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null);
   const [checkingOllama, setCheckingOllama] = useState(false);
@@ -57,14 +52,8 @@ export default function AISettingsPanel() {
   const [claudeMaxProxyAvailable, setClaudeMaxProxyAvailable] = useState<boolean | null>(null);
   const [checkingProxy, setCheckingProxy] = useState(false);
 
-  // Get current provider's models - dynamically load from catalogs for Synthetic/Venice
+  // Get current provider's models
   const currentProviderModels: ModelDefinition[] = useMemo(() => {
-    if (provider === 'synthetic') {
-      return getSyntheticModels();
-    }
-    if (provider === 'venice') {
-      return getVeniceModels();
-    }
     return PROVIDERS[provider]?.models || [];
   }, [provider]);
 
@@ -97,9 +86,6 @@ export default function AISettingsPanel() {
         setAuthMode(config.auth_mode || 'api_key');
         setOauthToken(config.oauth_token || '');
         
-        // Venice privacy mode
-        setVenicePrivacyMode(config.venice_privacy_mode || 'private');
-        
         setOllamaBaseURL(config.ollama_base_url || 'http://localhost:11434');
         setOllamaModel(config.ollama_model || 'llama3.2');
         setOllamaEmbeddingModel(config.ollama_embedding_model || 'mxbai-embed-large');
@@ -128,29 +114,20 @@ export default function AISettingsPanel() {
   }, [provider, authMode]);
 
   const checkClaudeMaxProxy = async () => {
-    console.log('[AISettings] Checking Claude Max Proxy...');
-
     if (!window.electron?.ai?.checkClaudeMaxProxy) {
-      console.error('[AISettings] window.electron.ai.checkClaudeMaxProxy not available');
       setClaudeMaxProxyAvailable(false);
       return;
     }
 
     setCheckingProxy(true);
     try {
-      console.log('[AISettings] Calling IPC handler...');
       const result = await window.electron.ai.checkClaudeMaxProxy();
-      console.log('[AISettings] IPC result:', result);
-
       const isAvailable = result.success && result.available === true;
       setClaudeMaxProxyAvailable(isAvailable);
-      console.log('[AISettings] Claude CLI available:', isAvailable);
     } catch (error) {
-      console.error('[AISettings] Error checking Claude Max Proxy:', error);
       setClaudeMaxProxyAvailable(false);
     } finally {
       setCheckingProxy(false);
-      console.log('[AISettings] Check complete');
     }
   };
 
@@ -232,19 +209,6 @@ export default function AISettingsPanel() {
         config.embedding_model = embeddingModel;
         break;
 
-      case 'synthetic':
-        // Synthetic doesn't need API key
-        config.model = model;
-        break;
-
-      case 'venice':
-        if (apiKey) {
-          config.api_key = apiKey; // Optional for Venice
-        }
-        config.model = model;
-        config.venice_privacy_mode = venicePrivacyMode;
-        break;
-
       case 'ollama':
         config.ollama_base_url = ollamaBaseURL;
         config.ollama_model = ollamaModel;
@@ -273,12 +237,6 @@ export default function AISettingsPanel() {
   const handleTestConnection = async () => {
     // Save first to ensure latest config is persisted
     await handleSave();
-
-    // Synthetic always works
-    if (provider === 'synthetic') {
-      setTestResult({ success: true, message: 'Synthetic provider is always available.' });
-      return;
-    }
 
     setTesting(true);
     setTestResult(null);
@@ -356,8 +314,9 @@ export default function AISettingsPanel() {
             return (
               <button
                 key={option.value}
+                type="button"
                 onClick={() => handleProviderChange(option.value)}
-                className={`px-4 py-3 rounded-lg text-left transition-all relative ${
+                className={`px-4 py-3 rounded-lg text-left transition-all relative cursor-pointer ${
                   isSelected ? 'bg-blue-500/10' : 'hover:bg-black/5 dark:hover:bg-white/5'
                 }`}
                 style={{
@@ -396,105 +355,6 @@ export default function AISettingsPanel() {
           Configuration
         </h3>
 
-        {/* Synthetic - No API key needed */}
-        {provider === 'synthetic' && (
-          <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-            <div className="flex items-center gap-2 mb-2">
-              <Gift className="w-5 h-5 text-green-600" />
-              <span className="font-medium text-green-700 dark:text-green-400">Free Models</span>
-            </div>
-            <p className="text-sm opacity-80" style={{ color: 'var(--secondary-text)' }}>
-              Synthetic ofrece acceso gratuito a modelos de MiniMax, DeepSeek, Qwen, Llama y más.
-              No requiere API key ni registro.
-            </p>
-          </div>
-        )}
-
-        {/* Venice - Optional API key */}
-        {provider === 'venice' && (
-          <div className="space-y-4">
-            <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
-              <div className="flex items-center gap-2 mb-2">
-                <Shield className="w-5 h-5 text-purple-600" />
-                <span className="font-medium text-purple-700 dark:text-purple-400">Privacy Guaranteed</span>
-              </div>
-              <p className="text-sm opacity-80" style={{ color: 'var(--secondary-text)' }}>
-                Venice runs models privately without logging. Optional API key for premium models.
-              </p>
-            </div>
-
-            {/* Privacy Mode Toggle */}
-            <div className="group">
-              <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
-                Privacy Mode
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setVenicePrivacyMode('private')}
-                  className={`p-3 rounded-lg text-left transition-all ${
-                    venicePrivacyMode === 'private' ? 'bg-purple-500/10' : 'hover:bg-black/5'
-                  }`}
-                  style={{
-                    border: venicePrivacyMode === 'private' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Lock className="w-4 h-4" />
-                    <span className="font-medium text-sm">Private</span>
-                  </div>
-                  <p className="text-xs opacity-60 mt-1">No logging, ephemeral</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setVenicePrivacyMode('anonymized')}
-                  className={`p-3 rounded-lg text-left transition-all ${
-                    venicePrivacyMode === 'anonymized' ? 'bg-purple-500/10' : 'hover:bg-black/5'
-                  }`}
-                  style={{
-                    border: venicePrivacyMode === 'anonymized' ? '2px solid var(--accent)' : '1px solid var(--border)',
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4" />
-                    <span className="font-medium text-sm">Anonymized</span>
-                  </div>
-                  <p className="text-xs opacity-60 mt-1">Proprietary models</p>
-                </button>
-              </div>
-            </div>
-
-            {/* Optional API Key */}
-            <div className="group">
-              <label htmlFor="ai-api-key-venice" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
-                API Key <span className="opacity-50">(optional)</span>
-              </label>
-              <div className="relative">
-                <input
-                  id="ai-api-key-venice"
-                  type={showApiKey ? 'text' : 'password'}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="For premium models..."
-                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
-                  style={{
-                    color: 'var(--primary-text)',
-                    borderColor: 'var(--border)',
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100"
-                  style={{ color: 'var(--secondary-text)' }}
-                >
-                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* API Key for OpenAI and Google */}
         {(provider === 'openai' || provider === 'google') && (
           <div className="group">
@@ -508,17 +368,14 @@ export default function AISettingsPanel() {
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || 'Enter API key...'}
-                className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
-                style={{
-                  color: 'var(--primary-text)',
-                  borderColor: 'var(--border)',
-                }}
+                className="input pr-12"
               />
               <button
                 type="button"
                 onClick={() => setShowApiKey(!showApiKey)}
-                className="absolute right-0 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100 cursor-pointer"
                 style={{ color: 'var(--secondary-text)' }}
+                aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
               >
                 {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -551,7 +408,7 @@ export default function AISettingsPanel() {
                 <button
                   type="button"
                   onClick={() => setAuthMode('api_key')}
-                  className={`p-3 rounded-lg text-left transition-all ${
+                  className={`p-3 rounded-lg text-left transition-all cursor-pointer ${
                     authMode === 'api_key' ? 'bg-blue-500/10' : 'hover:bg-black/5'
                   }`}
                   style={{
@@ -567,7 +424,7 @@ export default function AISettingsPanel() {
                 <button
                   type="button"
                   onClick={() => setAuthMode('oauth')}
-                  className={`p-3 rounded-lg text-left transition-all ${
+                  className={`p-3 rounded-lg text-left transition-all cursor-pointer ${
                     authMode === 'oauth' || authMode === 'token' ? 'bg-blue-500/10' : 'hover:bg-black/5'
                   }`}
                   style={{
@@ -596,17 +453,14 @@ export default function AISettingsPanel() {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     placeholder="sk-ant-..."
-                    className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
-                    style={{
-                      color: 'var(--primary-text)',
-                      borderColor: 'var(--border)',
-                    }}
+                    className="input pr-12"
                   />
                   <button
                     type="button"
                     onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100 cursor-pointer"
                     style={{ color: 'var(--secondary-text)' }}
+                    aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
                   >
                     {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -675,8 +529,8 @@ export default function AISettingsPanel() {
           </div>
         )}
 
-        {/* Model Selection for cloud providers (OpenAI, Anthropic, Google, Synthetic, Venice) */}
-        {(provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'synthetic' || provider === 'venice') && currentProviderModels.length > 0 && (
+        {/* Model Selection for cloud providers (OpenAI, Anthropic, Google) */}
+        {(provider === 'openai' || provider === 'anthropic' || provider === 'google') && currentProviderModels.length > 0 && (
           <>
             <div className="group">
               <div className="flex items-center justify-between mb-2">
@@ -715,8 +569,6 @@ export default function AISettingsPanel() {
                   showDescription={true}
                   showContextWindow={true}
                   searchable={currentProviderModels.length > 5}
-                  isFreeProvider={provider === 'synthetic'}
-                  isPrivateProvider={provider === 'venice'}
                   placeholder="Selecciona un modelo..."
                   providerType="cloud"
                 />
@@ -753,11 +605,11 @@ export default function AISettingsPanel() {
             )}
 
             {/* Note for providers that don't support embeddings */}
-            {(provider === 'anthropic' || provider === 'synthetic' || provider === 'venice') && (
+            {provider === 'anthropic' && (
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <p className="text-xs" style={{ color: 'var(--secondary-text)' }}>
                   <strong className="text-amber-600 dark:text-amber-400">Note:</strong>{' '}
-                  {provider === 'anthropic' ? 'Anthropic' : provider === 'synthetic' ? 'Synthetic' : 'Venice'} doesn't support embeddings for semantic search.
+                  Anthropic doesn't support embeddings for semantic search.
                 </p>
                 <p className="text-xs mt-1 opacity-80" style={{ color: 'var(--secondary-text)' }}>
                   To enable semantic search, install <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline text-blue-500">Ollama</a> with an embedding model:
@@ -815,11 +667,7 @@ export default function AISettingsPanel() {
                 value={ollamaBaseURL}
                 onChange={(e) => setOllamaBaseURL(e.target.value)}
                 placeholder="http://localhost:11434"
-                className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
-                style={{
-                  color: 'var(--primary-text)',
-                  borderColor: 'var(--border)',
-                }}
+                className="input"
               />
             </div>
 
@@ -869,11 +717,7 @@ export default function AISettingsPanel() {
                   onChange={(e) => setOllamaModel(e.target.value)}
                   placeholder="llama3.2"
                   aria-label="Ollama model name"
-                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
-                  style={{
-                    color: 'var(--primary-text)',
-                    borderColor: 'var(--border)',
-                  }}
+                  className="input"
                 />
               )}
             </div>
@@ -914,11 +758,7 @@ export default function AISettingsPanel() {
                   onChange={(e) => setOllamaEmbeddingModel(e.target.value)}
                   placeholder="mxbai-embed-large"
                   aria-label="Ollama embedding model name"
-                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
-                  style={{
-                    color: 'var(--primary-text)',
-                    borderColor: 'var(--border)',
-                  }}
+                  className="input"
                 />
               )}
             </div>
@@ -945,7 +785,7 @@ export default function AISettingsPanel() {
                     step="0.1"
                     value={ollamaTemperature}
                     onChange={(e) => setOllamaTemperature(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer range-input"
                   />
                 </div>
 
@@ -964,7 +804,7 @@ export default function AISettingsPanel() {
                     step="0.05"
                     value={ollamaTopP}
                     onChange={(e) => setOllamaTopP(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer range-input"
                   />
                 </div>
 
@@ -983,7 +823,7 @@ export default function AISettingsPanel() {
                     step="100"
                     value={ollamaNumPredict}
                     onChange={(e) => setOllamaNumPredict(parseInt(e.target.value, 10))}
-                    className="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                    className="w-full h-2 rounded-lg appearance-none cursor-pointer range-input"
                   />
                   <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
                     Maximum tokens to generate per response.
@@ -1024,8 +864,9 @@ export default function AISettingsPanel() {
         <div className="pt-6 space-y-3">
           <div className="flex gap-3">
             <button
+              type="button"
               onClick={handleSave}
-              className="flex-1 px-6 py-3 text-sm font-medium text-white rounded-full active:opacity-90 transition-all"
+              className="flex-1 px-6 py-3 text-sm font-medium text-white rounded-full active:opacity-90 transition-all cursor-pointer"
               style={{
                 backgroundColor: 'var(--accent)',
               }}
@@ -1033,9 +874,10 @@ export default function AISettingsPanel() {
               Save Configuration
             </button>
             <button
+              type="button"
               onClick={handleTestConnection}
               disabled={testing}
-              className="px-5 py-3 text-sm font-medium rounded-full active:opacity-90 transition-all disabled:opacity-50"
+              className="px-5 py-3 text-sm font-medium rounded-full active:opacity-90 transition-all disabled:opacity-50 cursor-pointer"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
                 border: '1px solid var(--border)',

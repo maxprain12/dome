@@ -68,8 +68,6 @@ export type AIProviderType =
   | 'anthropic' 
   | 'google' 
   | 'ollama'
-  | 'synthetic'
-  | 'venice'
   | 'copilot'
   | 'deepseek'
   | 'minimax'
@@ -508,28 +506,6 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     supportsTools: true,
     baseUrl: 'http://localhost:11434',
   },
-  synthetic: {
-    id: 'synthetic',
-    name: 'Synthetic',
-    description: 'Modelos gratuitos: MiniMax, DeepSeek, Llama',
-    icon: 'synthetic',
-    models: [], // Loaded from catalogs/synthetic.ts
-    supportsEmbeddings: false,
-    supportsStreaming: true,
-    supportsTools: true,
-    baseUrl: 'https://api.synthetic.new/anthropic',
-  },
-  venice: {
-    id: 'venice',
-    name: 'Venice',
-    description: 'Privacidad y anonimato',
-    icon: 'venice',
-    models: [], // Loaded from catalogs/venice.ts
-    supportsEmbeddings: false,
-    supportsStreaming: true,
-    supportsTools: true,
-    baseUrl: 'https://api.venice.ai/api/v1',
-  },
   copilot: {
     id: 'copilot',
     name: 'GitHub Copilot',
@@ -661,8 +637,6 @@ export function getDefaultModelId(providerId: AIProviderType): string {
     case 'anthropic': return 'claude-sonnet-4-20250514';
     case 'google': return 'gemini-2.5-flash-preview-05-20';
     case 'ollama': return 'llama3.2';
-    case 'synthetic': return 'hf:MiniMaxAI/MiniMax-M2.1';
-    case 'venice': return 'llama-3.3-70b';
     case 'copilot': return 'gpt-4o';
     case 'deepseek': return 'deepseek-chat';
     case 'minimax': return 'abab6.5s-chat';
@@ -741,7 +715,6 @@ export function getModelApiType(model: ModelDefinition, providerId: AIProviderTy
     case 'qwen':
       return 'openai-completions';
     case 'anthropic':
-    case 'synthetic':
       return 'anthropic-messages';
     case 'google':
       return 'google-generative-ai';

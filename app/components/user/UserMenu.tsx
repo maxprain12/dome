@@ -8,7 +8,7 @@ export default function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { name, email, avatarData, resetOnboarding, updateUserProfile, setAvatar } = useUserStore();
+  const { name, email, avatarData, avatarPath, resetOnboarding, updateUserProfile } = useUserStore();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -49,10 +49,8 @@ export default function UserMenu() {
     setIsSigningOut(true);
     
     try {
-      // Reset profile, avatar, and onboarding in parallel (independent operations)
       await Promise.all([
-        updateUserProfile({ name: '', email: '' }),
-        setAvatar(null),
+        updateUserProfile({ name: '', email: '', avatarPath: null, avatarData: null }),
         resetOnboarding(),
       ]);
       
@@ -68,7 +66,7 @@ export default function UserMenu() {
     } finally {
       setIsSigningOut(false);
     }
-  }, [isSigningOut, updateUserProfile, setAvatar, resetOnboarding]);
+  }, [isSigningOut, updateUserProfile, resetOnboarding]);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -79,7 +77,7 @@ export default function UserMenu() {
         aria-label={`Menú de usuario: ${name || 'User'}`}
         aria-expanded={isOpen}
       >
-        <UserAvatar name={name || 'User'} avatarData={avatarData} size="md" />
+        <UserAvatar name={name || 'User'} avatarData={avatarData} avatarPath={avatarPath} size="md" />
       </button>
 
       {/* Dropdown Menu */}
@@ -95,7 +93,7 @@ export default function UserMenu() {
           {/* User Info */}
           <div className="px-4 py-3 border-b overflow-hidden" style={{ borderColor: 'var(--border)' }}>
             <div className="flex items-center gap-3 min-w-0">
-              <UserAvatar name={name || 'User'} avatarData={avatarData} size="lg" className="shrink-0" />
+              <UserAvatar name={name || 'User'} avatarData={avatarData} avatarPath={avatarPath} size="lg" className="shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate" style={{ color: 'var(--primary-text)' }}>
                   {name || 'User'}

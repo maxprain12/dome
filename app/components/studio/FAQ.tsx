@@ -42,7 +42,7 @@ export default function FAQ({ data, title, onClose }: FAQProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 min-h-0 overflow-y-auto p-6">
         <div className="max-w-2xl mx-auto space-y-3">
           {data.pairs.map((pair, index) => {
             const isExpanded = expandedIndex === index;

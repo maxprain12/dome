@@ -1,7 +1,6 @@
-
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { ComponentType } from 'react';
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock, Gift, Shield } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Clock } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -12,8 +11,7 @@ import {
   type ModelDefinition,
 } from '@/lib/ai/models';
 import { AI_PROVIDER_OPTIONS } from '@/lib/ai/provider-options';
-import { getSyntheticModels } from '@/lib/ai/catalogs/synthetic';
-import { getVeniceModels } from '@/lib/ai/catalogs/venice';
+import ModelSelector from '@/components/settings/ModelSelector';
 
 interface AISetupStepProps {
   onComplete: () => void;
@@ -35,18 +33,14 @@ const SKIP_OPTION = {
   icon: Clock,
 };
 
-/** Sections for provider selection: Gratis, Cloud, Local, Later. */
+/** Sections for provider selection: Cloud, Local, Later. */
 const SECTIONS: Array<{
   title: string;
   options: Array<{ value: OnboardingProviderType; label: string; description: string; icon: ComponentType<{ className?: string }>; badge?: string; badgeColor?: 'green' | 'purple'; recommended?: boolean }>;
 }> = [
   {
-    title: 'Gratis',
-    options: AI_PROVIDER_OPTIONS.filter((o) => o.value === 'synthetic').map((o) => ({ ...o, value: o.value as OnboardingProviderType })),
-  },
-  {
     title: 'En la nube',
-    options: AI_PROVIDER_OPTIONS.filter((o) => ['openai', 'anthropic', 'google', 'venice'].includes(o.value)).map((o) => ({ ...o, value: o.value as OnboardingProviderType })),
+    options: AI_PROVIDER_OPTIONS.filter((o) => ['openai', 'anthropic', 'google'].includes(o.value)).map((o) => ({ ...o, value: o.value as OnboardingProviderType })),
   },
   {
     title: 'Local',
@@ -71,11 +65,9 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
   const [loadingModels, setLoadingModels] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Get current provider's models (for cloud providers, including dynamic catalogs)
+  // Get current provider's models (for cloud providers)
   const currentProviderModels: ModelDefinition[] = useMemo(() => {
     if (provider === 'skip' || provider === 'ollama') return [];
-    if (provider === 'synthetic') return getSyntheticModels();
-    if (provider === 'venice') return getVeniceModels();
     return PROVIDERS[provider]?.models || [];
   }, [provider]);
 
@@ -98,19 +90,6 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
       // Set default embedding model for providers that support it
       if (PROVIDERS[provider].supportsEmbeddings) {
         config.embedding_model = getDefaultEmbeddingModelId(provider);
-      }
-    }
-
-    // Synthetic - no API key needed
-    if (provider === 'synthetic') {
-      config.model = model || 'hf:MiniMaxAI/MiniMax-M2.1';
-    }
-
-    // Venice - optional API key
-    if (provider === 'venice') {
-      config.model = model || 'llama-3.3-70b';
-      if (apiKey.trim()) {
-        config.api_key = apiKey;
       }
     }
 
@@ -201,138 +180,27 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     setProvider(newProvider);
     // Set default model when selecting provider
     if (newProvider !== 'skip' && newProvider !== 'ollama') {
-      if (newProvider === 'synthetic') {
-        setModel('hf:MiniMaxAI/MiniMax-M2.1');
-      } else if (newProvider === 'venice') {
-        setModel('llama-3.3-70b');
-      } else {
-        setModel(getDefaultModelId(newProvider));
-      }
+      setModel(getDefaultModelId(newProvider));
     }
   };
 
   const canProceed =
     provider === 'skip' ||
-    provider === 'synthetic' || // Synthetic doesn't need API key
-    provider === 'venice' || // Venice API key is optional
     (provider === 'ollama' && ollamaAvailable === true) ||
     ((provider === 'openai' || provider === 'anthropic' || provider === 'google') && apiKey.trim().length > 0);
 
-  // Render cloud provider configuration (OpenAI, Anthropic, Google, Synthetic, Venice)
+  // Render cloud provider configuration (OpenAI, Anthropic, Google)
   const renderCloudProviderConfig = () => {
     if (provider === 'skip' || provider === 'ollama') return null;
     
     const providerConfig = PROVIDERS[provider];
+    if (!providerConfig) return null;
     
     // Show only a subset of models in onboarding (first 6)
     const displayModels = currentProviderModels.slice(0, 6);
 
-    // Synthetic - no API key needed
-    if (provider === 'synthetic') {
-      return (
-        <div className="space-y-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-          <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-            <div className="flex items-center gap-2">
-              <Gift className="w-4 h-4 text-green-600" />
-              <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                No registration required
-              </span>
-            </div>
-            <p className="text-xs mt-1 opacity-70" style={{ color: 'var(--secondary-text)' }}>
-              Synthetic offers free access to state-of-the-art models.
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
-              Modelo
-            </label>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
-              style={{
-                backgroundColor: 'var(--bg)',
-                color: 'var(--primary-text)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              {displayModels.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} {m.reasoning ? '(Reasoning)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      );
-    }
-
-    // Venice - optional API key
-    if (provider === 'venice') {
-      return (
-        <div className="space-y-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-          <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-700 dark:text-purple-400">
-                Privacy Guaranteed
-              </span>
-            </div>
-            <p className="text-xs mt-1 opacity-70" style={{ color: 'var(--secondary-text)' }}>
-              Models run privately without logging. Optional API key for premium.
-            </p>
-          </div>
-
-          <div>
-            <label htmlFor="onboarding-venice-api-key" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
-              API Key <span className="opacity-50">(optional)</span>
-            </label>
-            <input
-              id="onboarding-venice-api-key"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="For premium models..."
-              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-              style={{
-                backgroundColor: 'var(--bg)',
-                color: 'var(--primary-text)',
-                border: '1px solid var(--border)',
-              }}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="onboarding-venice-model" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
-              Modelo
-            </label>
-            <select
-              id="onboarding-venice-model"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
-              style={{
-                backgroundColor: 'var(--bg)',
-                color: 'var(--primary-text)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              {displayModels.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      );
-    }
-
-    if (!providerConfig) return null;
-
     return (
-      <div className="space-y-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+      <section className="space-y-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
         <div>
           <label htmlFor="onboarding-api-key" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
             API Key
@@ -343,19 +211,14 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder={providerConfig.apiKeyPlaceholder || 'Enter API key...'}
-            className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-            style={{
-              backgroundColor: 'var(--bg)',
-              color: 'var(--primary-text)',
-              border: '1px solid var(--border)',
-            }}
+            className="input"
           />
           {providerConfig.docsUrl && (
             <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
               Get your API key at{' '}
-              <a 
-                href={providerConfig.docsUrl} 
-                target="_blank" 
+              <a
+                href={providerConfig.docsUrl}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:opacity-80"
               >
@@ -366,25 +229,20 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
+          <label htmlFor="onboarding-cloud-model" className="block text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
             Modelo
           </label>
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
-            style={{
-              backgroundColor: 'var(--bg)',
-              color: 'var(--primary-text)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            {displayModels.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name} {m.recommended ? '(Recommended)' : ''}
-              </option>
-            ))}
-          </select>
+          <ModelSelector
+            models={displayModels}
+            selectedModelId={model}
+            onChange={setModel}
+            showBadges={true}
+            showDescription={false}
+            showContextWindow={false}
+            searchable={displayModels.length > 5}
+            placeholder="Selecciona un modelo..."
+            providerType="cloud"
+          />
         </div>
 
         {!providerConfig.supportsEmbeddings && (
@@ -392,7 +250,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             Note: {providerConfig.name} doesn't include embeddings. You can use Ollama or Google for semantic search.
           </p>
         )}
-      </div>
+      </section>
     );
   };
 
@@ -426,8 +284,9 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 return (
                   <button
                     key={option.value}
+                    type="button"
                     onClick={() => handleProviderSelect(option.value)}
-                    className={`w-full p-4 rounded-xl text-left transition-all flex items-start gap-4 relative ${
+                    className={`w-full p-4 rounded-xl text-left transition-all flex items-start gap-4 relative cursor-pointer ${
                       isSelected ? 'ring-2 ring-offset-2' : 'hover:bg-black/5 dark:hover:bg-white/5'
                     } ${recommended && !isSelected ? 'border-2 border-green-500/50' : ''}`}
                     style={{
@@ -477,7 +336,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
 
       {/* Ollama Configuration */}
       {provider === 'ollama' && (
-        <div className="space-y-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+        <section className="space-y-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
           {/* Connection Status */}
           <div className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: 'var(--bg)' }}>
             <div className="flex items-center gap-3">
@@ -504,9 +363,10 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               )}
             </div>
             <button
+              type="button"
               onClick={checkOllamaConnection}
               disabled={checkingOllama}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50 hover:opacity-80"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50 hover:opacity-80 cursor-pointer"
               style={{
                 backgroundColor: 'var(--accent)',
                 color: 'white',
@@ -536,12 +396,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               value={ollamaBaseURL}
               onChange={(e) => setOllamaBaseURL(e.target.value)}
               placeholder="http://localhost:11434"
-              className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-              style={{
-                backgroundColor: 'var(--bg)',
-                color: 'var(--primary-text)',
-                border: '1px solid var(--border)',
-              }}
+              className="input"
             />
           </div>
 
@@ -552,9 +407,10 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 Chat model
               </label>
               <button
+                type="button"
                 onClick={loadOllamaModels}
                 disabled={loadingModels}
-                className="text-xs font-medium transition-colors flex items-center gap-1 disabled:opacity-50 hover:opacity-80"
+                className="text-xs font-medium transition-colors flex items-center gap-1 disabled:opacity-50 hover:opacity-80 cursor-pointer"
                 style={{ color: 'var(--accent)' }}
               >
                 <RefreshCw className={`w-3 h-3 ${loadingModels ? 'animate-spin' : ''}`} />
@@ -567,23 +423,26 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 <span className="text-sm" style={{ color: 'var(--secondary-text)' }}>Loading models...</span>
               </div>
             ) : ollamaModels.length > 0 ? (
-              <select
-                id="onboarding-ollama-model"
-                value={ollamaModel}
-                onChange={(e) => setOllamaModel(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
-                style={{
-                  backgroundColor: 'var(--bg)',
-                  color: 'var(--primary-text)',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                {ollamaModels.map((m) => (
-                  <option key={m.name} value={m.name}>
-                    {m.name} ({(m.size / 1024 / 1024 / 1024).toFixed(1)}GB)
-                  </option>
-                ))}
-              </select>
+              <ModelSelector
+                models={ollamaModels.map((m) => ({
+                  id: m.name,
+                  name: m.name,
+                  description: `${(m.size / 1024 / 1024 / 1024).toFixed(1)}GB`,
+                  reasoning: false,
+                  input: ['text'],
+                  contextWindow: 0,
+                  maxTokens: 0,
+                }))}
+                selectedModelId={ollamaModel}
+                onChange={setOllamaModel}
+                searchable={ollamaModels.length > 5}
+                showBadges={false}
+                showDescription={true}
+                showContextWindow={false}
+                placeholder="Selecciona modelo Ollama..."
+                disabled={loadingModels}
+                providerType="ollama"
+              />
             ) : (
               <input
                 id="onboarding-ollama-model"
@@ -591,12 +450,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 value={ollamaModel}
                 onChange={(e) => setOllamaModel(e.target.value)}
                 placeholder="llama3.2"
-                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-                style={{
-                  backgroundColor: 'var(--bg)',
-                  color: 'var(--primary-text)',
-                  border: '1px solid var(--border)',
-                }}
+                className="input"
               />
             )}
           </div>
@@ -607,42 +461,41 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               Embedding model
             </label>
             {ollamaModels.length > 0 ? (
-              <select
-                id="onboarding-ollama-embedding"
-                value={ollamaEmbeddingModel}
-                onChange={(e) => setOllamaEmbeddingModel(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
-                style={{
-                  backgroundColor: 'var(--bg)',
-                  color: 'var(--primary-text)',
-                  border: '1px solid var(--border)',
-                }}
-              >
-                {ollamaModels.map((m) => (
-                  <option key={m.name} value={m.name}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+              <ModelSelector
+                models={ollamaModels.map((m) => ({
+                  id: m.name,
+                  name: m.name,
+                  description: undefined,
+                  reasoning: false,
+                  input: ['text'],
+                  contextWindow: 0,
+                  maxTokens: 0,
+                }))}
+                selectedModelId={ollamaEmbeddingModel}
+                onChange={setOllamaEmbeddingModel}
+                searchable={ollamaModels.length > 5}
+                showBadges={false}
+                showDescription={false}
+                showContextWindow={false}
+                placeholder="Selecciona modelo de embeddings..."
+                disabled={loadingModels}
+                providerType="embedding"
+              />
             ) : (
               <input
+                id="onboarding-ollama-embedding"
                 type="text"
                 value={ollamaEmbeddingModel}
                 onChange={(e) => setOllamaEmbeddingModel(e.target.value)}
                 placeholder="mxbai-embed-large"
-                className="w-full px-4 py-2.5 rounded-lg text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-                style={{
-                  backgroundColor: 'var(--bg)',
-                  color: 'var(--primary-text)',
-                  border: '1px solid var(--border)',
-                }}
+                className="input"
               />
             )}
             <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
               Used for semantic search. Recommended: mxbai-embed-large or nomic-embed-text
             </p>
           </div>
-        </div>
+        </section>
       )}
 
       {/* Hidden button for OnboardingStep to use */}

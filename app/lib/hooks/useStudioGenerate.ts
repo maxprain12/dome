@@ -212,8 +212,9 @@ function buildGeneratePrompt(
     case 'mindmap':
       return `Generate a mind map from the project sources.${sources} ${base}
 Use the generate_mindmap tool first to get source content, then return a JSON object with type "mindmap" containing:
-- nodes: array of { id: string, label: string }
+- nodes: array of { id: string, label: string, description?: string } (description optional: extra detail shown when clicking a node)
 - edges: array of { id: string, source: string, target: string, label?: string }
+Use full labels (do not truncate). Add description for key concepts when helpful.
 Return ONLY the JSON, no other text.`;
     case 'quiz':
       return `Generate a quiz from the project sources.${sources} ${base}
@@ -260,7 +261,7 @@ function buildGeneratePromptNoTools(
   const ctxBlock = context ? `\n\nSOURCE CONTENT:\n${context}\n` : '';
 
   const jsonSpecs: Record<string, string> = {
-    mindmap: 'type "mindmap": nodes: [{ id, label }], edges: [{ id, source, target, label? }]',
+    mindmap: 'type "mindmap": nodes: [{ id, label, description? }], edges: [{ id, source, target, label? }]',
     quiz: 'type "quiz": questions: [{ id, type: "multiple_choice"|"true_false", question, options?, correct, explanation }]',
     guide: 'type "guide": sections: [{ title, content }] (content in markdown)',
     faq: 'type "faq": pairs: [{ question, answer }]',
@@ -282,13 +283,18 @@ export function useStudioGenerate(options?: {
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingType, setGeneratingType] = useState<StudioOutputType | null>(null);
 
   const generate = useCallback(
-    async (type: StudioOutputType): Promise<boolean> => {
+    async (type: StudioOutputType, sourceIdsOverride?: string[]): Promise<boolean> => {
       setIsGenerating(true);
+      setGeneratingType(type);
       try {
         const projectId = options?.projectId ?? useAppStore.getState().currentProject?.id ?? undefined;
-        const sourceIds = options?.selectedSourceIds ?? useAppStore.getState().selectedSourceIds;
+        const sourceIds =
+          sourceIdsOverride ??
+          options?.selectedSourceIds ??
+          useAppStore.getState().selectedSourceIds;
 
         if (!projectId) {
           showToast('error', 'No project selected. Open a resource from a project first.');
@@ -423,10 +429,11 @@ export function useStudioGenerate(options?: {
         return false;
       } finally {
         setIsGenerating(false);
+        setGeneratingType(null);
       }
     },
     [options?.projectId, options?.selectedSourceIds, addStudioOutput, setActiveStudioOutput],
   );
 
-  return { generate, isGenerating };
+  return { generate, isGenerating, generatingType };
 }

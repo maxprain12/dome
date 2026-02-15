@@ -8,8 +8,6 @@
 
 import type { ModelDefinitionConfig, ModelProviderConfig } from './types';
 import type { AIProviderType, ModelDefinition } from './models';
-import { getSyntheticModels, SYNTHETIC_BASE_URL } from './catalogs/synthetic';
-import { getVeniceModels, discoverVeniceModels, VENICE_BASE_URL } from './catalogs/venice';
 import { getCopilotModels } from './catalogs/copilot';
 
 // =============================================================================
@@ -31,12 +29,6 @@ const ENV_KEYS = {
   // Ollama
   OLLAMA_BASE_URL: 'OLLAMA_BASE_URL',
   OLLAMA_HOST: 'OLLAMA_HOST',
-  
-  // Synthetic
-  SYNTHETIC_API_KEY: 'SYNTHETIC_API_KEY',
-  
-  // Venice
-  VENICE_API_KEY: 'VENICE_API_KEY',
   
   // MiniMax
   MINIMAX_API_KEY: 'MINIMAX_API_KEY',
@@ -178,37 +170,6 @@ function discoverGoogle(): DiscoveredProvider {
   };
 }
 
-function discoverSynthetic(): DiscoveredProvider {
-  // Synthetic is always available (free models)
-  const models = getSyntheticModels();
-  
-  return {
-    id: 'synthetic',
-    name: 'Synthetic',
-    available: true,
-    baseUrl: SYNTHETIC_BASE_URL,
-    models,
-    source: 'auto',
-  };
-}
-
-async function discoverVenice(): Promise<DiscoveredProvider> {
-  const apiKey = getEnv(ENV_KEYS.VENICE_API_KEY);
-  
-  // Venice models endpoint is public
-  const models = await discoverVeniceModels();
-  
-  return {
-    id: 'venice',
-    name: 'Venice',
-    available: true, // Public models available
-    apiKey: apiKey ? '***' : undefined,
-    baseUrl: VENICE_BASE_URL,
-    models,
-    source: apiKey ? 'env' : 'auto',
-  };
-}
-
 function discoverMiniMax(): DiscoveredProvider {
   const apiKey = getEnv(ENV_KEYS.MINIMAX_API_KEY);
   const groupId = getEnv(ENV_KEYS.MINIMAX_GROUP_ID);
@@ -279,18 +240,13 @@ function discoverCopilot(): DiscoveredProvider {
  * Discover all available AI providers.
  */
 export async function discoverProviders(): Promise<DiscoveryResult> {
-  const [ollama, venice] = await Promise.all([
-    discoverOllama(),
-    discoverVenice(),
-  ]);
+  const ollama = await discoverOllama();
 
   const providers: DiscoveredProvider[] = [
     discoverOpenAI(),
     discoverAnthropic(),
     discoverGoogle(),
     ollama,
-    discoverSynthetic(),
-    venice,
     discoverCopilot(),
     discoverDeepSeek(),
     discoverMiniMax(),
@@ -335,8 +291,6 @@ export async function getBestAvailableProvider(): Promise<DiscoveredProvider | n
     'anthropic',
     'openai',
     'google',
-    'synthetic',
-    'venice',
     'ollama',
     'deepseek',
   ];

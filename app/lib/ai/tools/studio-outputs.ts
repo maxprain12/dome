@@ -165,7 +165,8 @@ export function createGenerateMindmapTool(): AnyAgentTool {
           message:
             'Source content gathered for mind map generation. ' +
             'Now create the mind map by returning a JSON structure with `type: "mindmap"` containing ' +
-            '`nodes` (array of {id, label}) and `edges` (array of {id, source, target, label?}). ' +
+            '`nodes` (array of {id, label, description?}) and `edges` (array of {id, source, target, label?}). ' +
+            'Use full labels (do not truncate). Add description for key concepts when helpful. ' +
             'The central topic should be the root node, with related concepts branching outward.',
           topic: topic || 'General overview',
           source_count: sourceContent.length,
@@ -177,7 +178,7 @@ export function createGenerateMindmapTool(): AnyAgentTool {
           output_format: {
             type: 'mindmap',
             schema: {
-              nodes: '[{ id: string, label: string }]',
+              nodes: '[{ id: string, label: string, description?: string }]',
               edges: '[{ id: string, source: string, target: string, label?: string }]',
             },
           },

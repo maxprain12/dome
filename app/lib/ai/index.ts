@@ -98,29 +98,6 @@ export {
 // =============================================================================
 
 export {
-  // Synthetic
-  SYNTHETIC_BASE_URL,
-  SYNTHETIC_DEFAULT_MODEL_ID,
-  SYNTHETIC_MODEL_CATALOG,
-  getSyntheticModels,
-  findSyntheticModel,
-  getDefaultSyntheticModel,
-  getSyntheticReasoningModels,
-  getSyntheticVisionModels,
-  
-  // Venice
-  VENICE_BASE_URL,
-  VENICE_DEFAULT_MODEL_ID,
-  VENICE_MODEL_CATALOG,
-  getVeniceModels,
-  findVeniceModel,
-  getDefaultVeniceModel,
-  getVenicePrivateModels,
-  getVeniceAnonymizedModels,
-  getVeniceReasoningModels,
-  getVeniceVisionModels,
-  discoverVeniceModels,
-  
   // Copilot
   COPILOT_BASE_URL,
   COPILOT_DEFAULT_MODEL_ID,
@@ -139,23 +116,16 @@ export {
   findCatalogModel,
 } from './catalogs';
 
-export type { VenicePrivacyMode } from './catalogs';
-
 // =============================================================================
 // Providers
 // =============================================================================
 
 export {
-  SyntheticProvider,
-  createSyntheticProvider,
   createProvider,
   hasNativeProvider,
 } from './providers';
 
-export type {
-  SyntheticProviderConfig,
-  ProviderFactoryConfig,
-} from './providers';
+export type { ProviderFactoryConfig } from './providers';
 
 // =============================================================================
 // Tools

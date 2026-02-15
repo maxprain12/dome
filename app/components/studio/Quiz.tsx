@@ -123,7 +123,7 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
       </div>
 
       {/* Question */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 min-h-0 overflow-y-auto p-6">
         <div className="max-w-2xl mx-auto">
           <h2 className="text-lg font-medium mb-6" style={{ color: 'var(--primary-text)' }}>
             {currentQuestion.question}

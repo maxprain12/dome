@@ -70,8 +70,9 @@ export default function SettingsLayout({ activeSection, onSectionChange, childre
           {sidebarItems.map((item) => (
             <button
               key={item.id}
+              type="button"
               onClick={() => onSectionChange(item.id)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-secondary)]"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-secondary)]"
               style={{
                 backgroundColor: activeSection === item.id ? 'var(--primary-subtle)' : 'transparent',
                 color: activeSection === item.id ? 'var(--accent)' : 'var(--secondary-text)',

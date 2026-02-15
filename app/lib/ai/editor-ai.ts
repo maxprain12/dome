@@ -50,7 +50,7 @@ export async function executeEditorAIAction(
   }
 
   // Pre-validate API key for providers that need one
-  const needsApiKey = config.provider !== 'synthetic' && config.provider !== 'ollama';
+  const needsApiKey = config.provider !== 'ollama';
   if (needsApiKey && !config.apiKey) {
     throw new Error(`API key missing for ${config.provider}. Go to Settings > AI to add your key.`);
   }
@@ -98,7 +98,7 @@ export async function executeEditorAIActionStreaming(
   }
 
   // Pre-validate API key for providers that need one
-  const needsApiKey = config.provider !== 'synthetic' && config.provider !== 'ollama';
+  const needsApiKey = config.provider !== 'ollama';
   if (needsApiKey && !config.apiKey) {
     throw new Error(`API key missing for ${config.provider}. Go to Settings > AI to add your key.`);
   }

@@ -378,6 +378,22 @@ a:hover {
     background-color: var(--bg-secondary);
   }
 
+  /* Range inputs - use theme variables */
+  .range-input {
+    accent-color: var(--accent);
+    background: transparent;
+  }
+
+  .range-input::-webkit-slider-runnable-track {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-full);
+  }
+
+  .range-input::-moz-range-track {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-full);
+  }
+
   /* Icon holders - Pile style */
   .icon-holder {
     display: flex;
@@ -418,6 +434,24 @@ a:hover {
   }
 
   /* Dropdown Menu - Reusable component */
+  /* ModelSelector: Portal uses fixed (inline); base for non-portal fallback */
+  .model-selector-dropdown {
+    z-index: var(--z-popover);
+    min-width: 200px;
+    max-width: 480px;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    padding: 8px;
+    animation: dropdown-appear 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .model-selector-dropdown-portal {
+    /* Position set via inline style (fixed + getBoundingClientRect) */
+    content-visibility: auto;
+  }
+
   .dropdown-menu {
     position: fixed;
     z-index: var(--z-popover);
@@ -716,6 +750,21 @@ a:hover {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+@keyframes slide-in-from-right {
+  from {
+    opacity: 0.9;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-from-right {
+  animation: slide-in-from-right 0.2s ease-out;
 }
 
 .animate-in {

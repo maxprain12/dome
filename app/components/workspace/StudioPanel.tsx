@@ -5,9 +5,22 @@ import { Trash2, Eye, Loader2, X, FileText } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useStudioGenerate } from '@/lib/hooks/useStudioGenerate';
 import { useStudioOutputs } from '@/lib/hooks/useStudioOutputs';
+import { useSourceTitles } from '@/lib/hooks/useSourceTitles';
 import { STUDIO_TILES, STUDIO_TYPE_ICONS } from '@/lib/studio/constants';
+import GenerateSourceModal from '@/components/studio/GenerateSourceModal';
 import type { StudioOutputType, StudioOutput } from '@/types';
 import { formatShortDistance } from '@/lib/utils';
+
+function parseSourceIds(output: StudioOutput): string[] {
+  const raw = output.source_ids;
+  if (!raw) return [];
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed.filter((id: unknown) => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
 interface StudioPanelProps {
   projectId?: string | null;
@@ -16,7 +29,6 @@ interface StudioPanelProps {
 
 export default function StudioPanel({ projectId: projectIdProp, resourceId }: StudioPanelProps = {}) {
   const currentProject = useAppStore((s) => s.currentProject);
-  const selectedSourceIds = useAppStore((s) => s.selectedSourceIds);
   const studioOutputs = useAppStore((s) => s.studioOutputs);
   const setStudioOutputs = useAppStore((s) => s.setStudioOutputs);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
@@ -25,10 +37,9 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
 
   const effectiveProjectId = projectIdProp ?? currentProject?.id;
 
-  const { generate, isGenerating } = useStudioGenerate({
+  const { generate, isGenerating, generatingType } = useStudioGenerate({
     projectId: effectiveProjectId,
     resourceId,
-    selectedSourceIds: selectedSourceIds.length > 0 ? selectedSourceIds : (resourceId ? [resourceId] : undefined),
   });
 
   // Filter outputs to show only those associated with this resource (resource_id or source_ids)
@@ -52,14 +63,32 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
     });
   }, [studioOutputs, resourceId]);
 
+  const allSourceIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const o of filteredOutputs) {
+      for (const id of parseSourceIds(o)) ids.add(id);
+    }
+    return Array.from(ids);
+  }, [filteredOutputs]);
+
+  const { titles: sourceTitles } = useSourceTitles(allSourceIds);
+
   const { isLoading: loadingOutputs } = useStudioOutputs(effectiveProjectId);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingGenerateType, setPendingGenerateType] = useState<StudioOutputType | null>(null);
 
-  const handleTileClick = useCallback(
-    async (type: string) => {
-      await generate(type as StudioOutputType);
+  const handleTileClick = useCallback((type: string) => {
+    if (!type) return;
+    setPendingGenerateType(type as StudioOutputType);
+  }, []);
+
+  const handleModalConfirm = useCallback(
+    async (sourceIds: string[]) => {
+      if (!pendingGenerateType) return;
+      await generate(pendingGenerateType, sourceIds);
+      setPendingGenerateType(null);
     },
-    [generate],
+    [pendingGenerateType, generate]
   );
 
   const handleViewOutput = useCallback((output: StudioOutput) => {
@@ -115,6 +144,19 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
         </button>
       </div>
 
+      <GenerateSourceModal
+        isOpen={pendingGenerateType !== null}
+        onClose={() => setPendingGenerateType(null)}
+        onConfirm={handleModalConfirm}
+        projectId={effectiveProjectId}
+        tileTitle={
+          pendingGenerateType
+            ? (STUDIO_TILES.find((t) => t.type === pendingGenerateType)?.title ?? pendingGenerateType)
+            : ''
+        }
+        focusResourceId={resourceId}
+      />
+
       {/* Tiles grid */}
       <div className="flex-1 overflow-y-auto p-3">
         <div className="grid grid-cols-2 gap-2">
@@ -126,22 +168,14 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
                   handleTileClick(tile.type);
                 }
               }}
-              className="flex flex-col items-start gap-1.5 p-3 rounded-lg text-left transition-all duration-150 relative"
+              className={`flex flex-col items-start gap-1.5 p-3 rounded-lg text-left transition-colors duration-200 relative border border-[var(--border)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:outline-none ${
+                tile.comingSoon || isGenerating
+                  ? 'cursor-default'
+                  : 'hover:border-[var(--accent)] hover:bg-[var(--bg-tertiary)] cursor-pointer'
+              }`}
               style={{
                 background: 'var(--bg)',
-                border: '1px solid var(--border)',
-                cursor: tile.comingSoon || isGenerating ? 'default' : 'pointer',
                 opacity: tile.comingSoon ? 0.6 : isGenerating ? 0.8 : 1,
-              }}
-              onMouseEnter={(e) => {
-                if (!tile.comingSoon) {
-                  e.currentTarget.style.borderColor = 'var(--accent)';
-                  e.currentTarget.style.background = 'var(--bg-tertiary)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border)';
-                e.currentTarget.style.background = 'var(--bg)';
               }}
               disabled={tile.comingSoon || isGenerating}
               title={
@@ -166,8 +200,12 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
               )}
 
               {/* Icon */}
-              <span className="leading-none shrink-0" style={{ color: 'var(--secondary-text)' }}>
-                {tile.icon}
+              <span className="leading-none shrink-0 flex items-center" style={{ color: 'var(--secondary-text)' }}>
+                {isGenerating && generatingType === tile.type ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  tile.icon
+                )}
               </span>
 
               {/* Title */}
@@ -183,7 +221,9 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
                 className="text-[10px] leading-tight"
                 style={{ color: 'var(--tertiary-text)' }}
               >
-                {tile.description}
+                {isGenerating && generatingType === tile.type
+                  ? `Generando ${tile.title}...`
+                  : tile.description}
               </span>
             </button>
           ))}
@@ -202,17 +242,8 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
               {filteredOutputs.map((output) => (
                 <div
                   key={output.id}
-                  className="flex items-center gap-2 p-2 rounded-lg group transition-all duration-150"
-                  style={{
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--accent)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border)';
-                  }}
+                  className="flex items-center gap-2 p-2 rounded-lg group transition-colors duration-200 border border-[var(--border)] hover:border-[var(--accent)] content-visibility-auto"
+                  style={{ background: 'var(--bg)' }}
                 >
                   {/* Type icon */}
                   <span
@@ -241,6 +272,17 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
                     >
                       {formatDate(output.created_at)}
                     </div>
+                    {(() => {
+                      const ids = parseSourceIds(output);
+                      const names = ids.length > 0
+                        ? ids.map((id) => sourceTitles.get(id) || id.slice(0, 8) + '…').filter(Boolean)
+                        : [];
+                      return (
+                        <div className="text-[9px] mt-0.5 truncate" style={{ color: 'var(--tertiary-text)' }} title={names.join(', ') || undefined}>
+                          {names.length > 0 ? `Fuentes: ${names.join(', ')}` : 'Sin fuentes específicas'}
+                        </div>
+                      );
+                    })()}
                   </button>
 
                   {/* Actions */}
