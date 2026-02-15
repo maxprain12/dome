@@ -2,6 +2,73 @@
 
 All notable changes to Dome are documented in this file.
 
+## [0.1.7] - 2026-02-15
+
+### Added
+
+#### Gestión de recursos y carpetas
+
+- **ContextMenu**: Menú contextual para acciones rápidas sobre recursos.
+- **DocumentToolbar**: Barra de herramientas en documentos.
+- **FolderTreePane**: Panel de árbol de carpetas para navegación jerárquica.
+- **InlineFolderNav**: Navegación inline de carpetas con breadcrumbs.
+- **SelectionActionBar**: Barra de acciones para recursos seleccionados.
+- **Drag-and-drop**: Soporte para reorganizar recursos mediante arrastrar y soltar.
+- **Colores en carpetas**: Personalización de color y renombrado de carpetas.
+- **Mover recursos**: Funcionalidad para mover recursos entre carpetas.
+
+#### Indexación y búsqueda vectorial
+
+- **Resource indexer**: Servicio de indexación de recursos para LanceDB.
+- **IndexingSettings**: Panel de ajustes para indexación en Configuración.
+- **Documentación vector-db**: Nuevo documento `docs/vector-db.md` para inspeccionar LanceDB.
+
+#### AI y herramientas
+
+- **ai-tools-handler**: Manejador de herramientas AI en el proceso main.
+- **Herramientas de contexto**: Herramientas AI para acceso a contexto de recursos.
+- **resource-actions mejorado**: Soporte para colores en carpetas y metadatos.
+
+#### Estudio y generación
+
+- **GenerateSourceModal**: Modal para generar fuentes bibliográficas desde el estudio.
+- **useSourceTitles**: Hook para obtener títulos de fuentes.
+- **MindMap mejorado**: Mejoras significativas en el componente de mapas mentales.
+
+#### Dependencias y utilidades
+
+- **Nuevas dependencias**: xterm, @xterm/addon-fit, marked, node-pty, turndown.
+- **markdown.ts**: Utilidades para convertir Markdown a HTML.
+- **folder-tree.ts**: Utilidades para el árbol de carpetas.
+
+### Changed
+
+- **Home**: Refactorización mayor con filtros, breadcrumbs, modo búsqueda y gestión de carpetas.
+- **ResourceCard**: Simplificación y mejora del renderizado, origen de búsqueda y formato de tiempo.
+- **CommandCenter**: Resultados híbridos enriquecidos con datos completos del recurso.
+- **Onboarding**: Simplificación de ProfileStep y AISetupStep, eliminación de avatar.
+- **AIBubbleMenu / SlashCommand**: Conversión de Markdown a HTML al insertar contenido.
+- **Nota**: Guardado manual con feedback visual de estado.
+- **ThemeProvider**: Soporte únicamente para modo claro (removido dark mode).
+- **AppearanceSettings**: Simplificación al eliminar opciones de tema oscuro.
+- **ModelSelector**: Refactorización y mejora del layout.
+- **Catálogos AI**: Eliminados providers synthetic y Venice; catálogos simplificados.
+- **IPC vector**: Mejoras en manejo de errores e indexación.
+
+### Removed
+
+- **Avatar**: Sistema de avatar removido (IPCs, `avatar.ts`, ProfileStep simplificado).
+- **PluginsSettings**: Eliminación de declaraciones globales no usadas.
+- **Synthetic / Venice providers**: Código de proveedores AI experimentales eliminado.
+
+### Fixed
+
+- **Indexación y vector search**: Mejor manejo de errores.
+- **FlashcardStudyView**: Posicionamiento dinámico del overlay según contexto.
+- **DocxViewer / SpreadsheetViewer**: Simplificación y limpieza.
+
+[0.1.7]: https://github.com/maxprain12/dome/releases/tag/v0.1.7
+
 ## [0.1.5] - 2025-02-14
 
 ### Added
