@@ -10,6 +10,7 @@ import GraphPanel from '@/components/workspace/GraphPanel';
 import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import MetadataModal from '@/components/workspace/MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { looksLikeHtml, markdownToHtml, htmlToMarkdown } from '@/lib/utils/markdown';
 import { type Resource } from '@/types';
 
 interface NoteWorkspaceClientProps {
@@ -92,16 +93,17 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     }
   }, [resourceId, resource]);
 
-  // Debounced save on content change
-  const handleContentChange = useCallback((newContent: string) => {
-    setContent(newContent);
+  // Debounced save on content change (editor gives HTML, we convert to Markdown and save)
+  const handleContentChange = useCallback((htmlFromEditor: string) => {
+    const markdown = htmlToMarkdown(htmlFromEditor);
+    setContent(markdown);
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
     saveTimeoutRef.current = setTimeout(() => {
-      saveContent(newContent);
+      saveContent(markdown);
     }, 1000);
   }, [saveContent]);
 
@@ -213,9 +215,10 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
         {/* Editor area */}
         <div className="flex-1 overflow-hidden relative">
           <div className="h-full overflow-auto p-6">
-            <div className="w-full">
+            <div className="note-editor-with-guides w-full">
               <NotionEditor
-                content={content}
+                content={looksLikeHtml(content) ? content : markdownToHtml(content || '')}
+                contentType="html"
                 onChange={handleContentChange}
                 placeholder="Escribe '/' para comandos..."
               />

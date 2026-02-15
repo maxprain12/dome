@@ -1,6 +1,7 @@
 
 import { useState, useCallback } from 'react';
 import { CheckCircle2, XCircle, ArrowRight, RotateCcw, X } from 'lucide-react';
+import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { QuizData, QuizQuestion } from '@/types';
 
 interface QuizProps {
@@ -195,9 +196,9 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
           {showExplanation && currentQuestion.explanation && (
             <div className="mt-3 p-3 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--dome-border)]">
               <div className="text-xs font-semibold uppercase mb-2" style={{ color: 'var(--dome-text)' }}>Explanation</div>
-              <p className="text-sm" style={{ color: 'var(--dome-text)' }}>
-                {currentQuestion.explanation}
-              </p>
+              <div className="prose prose-sm max-w-none" style={{ color: 'var(--dome-text)' }}>
+                <MarkdownRenderer content={currentQuestion.explanation} />
+              </div>
             </div>
           )}
         </div>

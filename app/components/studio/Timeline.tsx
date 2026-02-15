@@ -1,5 +1,6 @@
 
 import { X, Calendar } from 'lucide-react';
+import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { TimelineData } from '@/types';
 
 interface TimelineProps {
@@ -78,12 +79,12 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
                 >
                   {event.title}
                 </h4>
-                <p
-                  className="text-sm leading-relaxed"
+                <div
+                  className="text-sm leading-relaxed prose prose-sm max-w-none"
                   style={{ color: 'var(--secondary-text)' }}
                 >
-                  {event.description}
-                </p>
+                  <MarkdownRenderer content={event.description || ''} />
+                </div>
               </div>
             </div>
           ))}

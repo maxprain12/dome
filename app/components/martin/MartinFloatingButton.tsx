@@ -4,9 +4,10 @@ import { useLocation, useSearchParams } from 'react-router-dom';
 import { Trash2, Copy, RefreshCw, X, Send, Loader2 } from 'lucide-react';
 import MartinIcon from './MartinIcon';
 import { useMartinStore } from '@/lib/store/useMartinStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 import { getAIConfig, chatStream, chatWithTools } from '@/lib/ai/client';
-import { buildMartinFloatingPrompt } from '@/lib/prompts/loader';
-import { createResourceTools } from '@/lib/ai/tools';
+import { buildMartinFloatingPrompt, prompts } from '@/lib/prompts/loader';
+import { createAllMartinTools } from '@/lib/ai/tools';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { showToast } from '@/lib/store/useToastStore';
 
@@ -54,6 +55,7 @@ export default function MartinFloatingButton() {
     currentResourceTitle,
     petPromptOverride,
   } = useMartinStore();
+  const currentFolderId = useAppStore((s) => s.currentFolderId);
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -200,19 +202,28 @@ export default function MartinFloatingButton() {
       let response = '';
       setStatus('speaking');
 
-      // Use chatWithTools when summarizing without injected content - model can call resource_get
-      const useTools = effectiveResourceId && isSummarizeRequest(userMessage) && !contentInjected;
+      // Use tools when in Electron: organize, summarize, search resources, create folders, move documents, etc.
+      const hasElectronTools = typeof window !== 'undefined' && window.electron?.ai?.tools;
+      const useTools =
+        hasElectronTools &&
+        (isSummarizeRequest(userMessage) ? !contentInjected : true);
       if (useTools) {
-        const promptWithToolHint = systemPrompt + `\n\nThe user is viewing resource ID: ${effectiveResourceId}. Use the resource_get tool to retrieve its content.`;
-        const tools = createResourceTools();
+        const toolsPrompt = systemPrompt + '\n\n' + prompts.martin.tools;
+        const toolHint = effectiveResourceId && isSummarizeRequest(userMessage)
+          ? `\n\nThe user is viewing resource ID: ${effectiveResourceId}. Use resource_get to retrieve its content.`
+          : '';
+        const folderHint = (pathname === '/' || pathname === '/home') && currentFolderId
+          ? `\n\nThe user is currently viewing folder ID: ${currentFolderId}. When they ask to create something from "these documents", "this folder", "estos documentos", or similar, use resource_list with folder_id: "${currentFolderId}" to list only resources in that folder, and use resource_create with folder_id: "${currentFolderId}" to place the new resource in the same folder.`
+          : '';
+        const tools = createAllMartinTools();
         const result = await chatWithTools(
           [
-            { role: 'system', content: promptWithToolHint },
+            { role: 'system', content: toolsPrompt + toolHint + folderHint },
             ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
             { role: 'user', content: resolvedUserMessage },
           ],
           tools,
-          { maxIterations: 3 },
+          { maxIterations: 5 },
         );
         response = result.response;
       } else {
@@ -242,7 +253,7 @@ export default function MartinFloatingButton() {
       setIsLoading(false);
       setStatus('idle');
     }
-  }, [input, isLoading, messages, addMessage, setStatus, buildSystemPrompt, effectiveResourceId]);
+  }, [input, isLoading, messages, addMessage, setStatus, buildSystemPrompt, effectiveResourceId, pathname, currentFolderId]);
 
   // Copy message content
   const handleCopy = useCallback((content: string) => {

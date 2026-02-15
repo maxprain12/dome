@@ -1,4 +1,3 @@
-
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
@@ -45,6 +44,7 @@ lowlight.register({ typescript, javascript, python });
 
 interface NotionEditorProps {
   content?: string;
+  contentType?: 'html' | 'json';
   onChange?: (content: string) => void;
   editable?: boolean;
   placeholder?: string;
@@ -52,6 +52,7 @@ interface NotionEditorProps {
 
 export default function NotionEditor({
   content = '',
+  contentType = 'html',
   onChange,
   editable = true,
   placeholder = 'Escribe "/" para comandos...',
@@ -123,6 +124,7 @@ export default function NotionEditor({
       DragHandleExtension,
     ],
     content,
+    contentType,
     editable,
     onUpdate: ({ editor }) => {
       if (onChange) {

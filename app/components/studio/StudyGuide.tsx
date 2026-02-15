@@ -1,6 +1,6 @@
-
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, X, Copy, Check } from 'lucide-react';
+import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { StudyGuideData } from '@/types';
 
 interface StudyGuideProps {
@@ -104,13 +104,8 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
 
                 {/* Section content */}
                 {isExpanded && (
-                  <div className="px-4 pb-4">
-                    <div
-                      className="text-sm leading-relaxed whitespace-pre-wrap"
-                      style={{ color: 'var(--secondary-text)' }}
-                    >
-                      {section.content}
-                    </div>
+                  <div className="px-4 pb-4 prose prose-sm max-w-none" style={{ color: 'var(--secondary-text)' }}>
+                    <MarkdownRenderer content={section.content} />
                   </div>
                 )}
               </div>

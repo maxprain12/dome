@@ -1,0 +1,116 @@
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771154922622,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771154922629,"hypothesisId":"H1"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":true},"timestamp":1771154922631,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771154922631},"timestamp":1771154922631,"hypothesisId":"A"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":false},"timestamp":1771154922655,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771154922656},"timestamp":1771154922656,"hypothesisId":"A"}
+{"location":"window.cjs:notebook-workspace","message":"Opening notebook workspace","data":{"resourceId":"res_1771152639016_b2loa15tv","route":"/workspace/notebook?id=res_1771152639016_b2loa15tv","NODE_OPTIONS":"--max-old-space-size=8192"},"timestamp":1771154924989,"hypothesisId":"B"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771154925176,"hypothesisId":"H1"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":true},"timestamp":1771154925185,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771154925186},"timestamp":1771154925186,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154925193,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154925193,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154925264,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154925264,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154934155,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154934156,"hypothesisId":"A"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"references"},"timestamp":1771154934164,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"references"},"timestamp":1771154934164,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"references"},"timestamp":1771154934166,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"references"},"timestamp":1771154934167,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"references"},"timestamp":1771154944369,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"references"},"timestamp":1771154944370,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"backlinks"},"timestamp":1771154946617,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"backlinks"},"timestamp":1771154946618,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"backlinks"},"timestamp":1771154947644,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"backlinks"},"timestamp":1771154947645,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"search"},"timestamp":1771154948480,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"search"},"timestamp":1771154948480,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"search"},"timestamp":1771154949624,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"search"},"timestamp":1771154949625,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"workspace"},"timestamp":1771154950554,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"workspace"},"timestamp":1771154950555,"hypothesisId":"H1"}
+{"location":"WorkspaceFilesPanel.tsx:module-load","message":"WorkspaceFilesPanel module loaded","data":{},"timestamp":1771154950584,"hypothesisId":"H2"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"workspace"},"timestamp":1771154955294,"hypothesisId":"H1"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154955290,"hypothesisId":"A"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"workspace"},"timestamp":1771154955299,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"workspace"},"timestamp":1771154955299,"hypothesisId":"H1"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154955291,"hypothesisId":"A"}
+{"location":"SidePanel.tsx:render-open","message":"SidePanel rendering (isOpen=true)","data":{"activeTab":"workspace"},"timestamp":1771154955295,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771154988874,"hypothesisId":"H1"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":false},"timestamp":1771154988885,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771154988885},"timestamp":1771154988885,"hypothesisId":"A"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771154988886,"hypothesisId":"H1"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":true},"timestamp":1771154988895,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771154988895},"timestamp":1771154988895,"hypothesisId":"A"}
+{"location":"window.cjs:notebook-workspace","message":"Opening notebook workspace","data":{"resourceId":"res_1771152639016_b2loa15tv","route":"/workspace/notebook?id=res_1771152639016_b2loa15tv","NODE_OPTIONS":"--max-old-space-size=8192"},"timestamp":1771154990655,"hypothesisId":"B"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771154990845,"hypothesisId":"H1"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":true},"timestamp":1771154990854,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771154990854},"timestamp":1771154990854,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154990862,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154990862,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154990939,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154990939,"hypothesisId":"A"}
+{"location":"PyodideProvider:ensureLoaded","message":"Using IPC path","data":{},"timestamp":1771154992048,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154992142,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154992142,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154993143,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154993144,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154993152,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771154993152,"hypothesisId":"A"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771155082753,"hypothesisId":"H1"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771155082760,"hypothesisId":"H1"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":false},"timestamp":1771155082766,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771155082766},"timestamp":1771155082766,"hypothesisId":"A"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":true},"timestamp":1771155082770,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771155082770},"timestamp":1771155082770,"hypothesisId":"A"}
+{"location":"window.cjs:notebook-workspace","message":"Opening notebook workspace","data":{"resourceId":"res_1771152639016_b2loa15tv","route":"/workspace/notebook?id=res_1771152639016_b2loa15tv","NODE_OPTIONS":"--max-old-space-size=8192"},"timestamp":1771155084992,"hypothesisId":"B"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771155085177,"hypothesisId":"H1"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":true},"timestamp":1771155085186,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771155085187},"timestamp":1771155085187,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155085194,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155085194,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155085264,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155085265,"hypothesisId":"A"}
+{"location":"PyodideProvider:ensureLoaded","message":"Using IPC path","data":{},"timestamp":1771155086424,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155086516,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155086516,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155087517,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155087517,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155087523,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155087523,"hypothesisId":"A"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771155120755,"hypothesisId":"H1"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":false},"timestamp":1771155120815,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771155120816},"timestamp":1771155120816,"hypothesisId":"A"}
+{"location":"StudioPanel.tsx:module-load","message":"StudioPanel module loaded","data":{},"timestamp":1771155121251,"hypothesisId":"C"}
+{"location":"GraphPanel.tsx:module-load","message":"GraphPanel module loaded","data":{},"timestamp":1771155121253,"hypothesisId":"C"}
+{"location":"WorkspaceFilesPanel.tsx:module-load","message":"WorkspaceFilesPanel module loaded","data":{},"timestamp":1771155228843,"hypothesisId":"H2"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771155229572,"hypothesisId":"H1"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771155230829},"timestamp":1771155230829,"hypothesisId":"A"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":false},"timestamp":1771155231434,"hypothesisId":"B"}
+{"location":"StudioPanel.tsx:module-load","message":"StudioPanel module loaded","data":{},"timestamp":1771155231463,"hypothesisId":"C"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771155231584},"timestamp":1771155231584,"hypothesisId":"A"}
+{"location":"GraphPanel.tsx:module-load","message":"GraphPanel module loaded","data":{},"timestamp":1771155231655,"hypothesisId":"C"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771155231806},"timestamp":1771155231806,"hypothesisId":"A"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771155242264,"hypothesisId":"H1"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":false},"timestamp":1771155242277,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771155242277},"timestamp":1771155242277,"hypothesisId":"A"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771155242659,"hypothesisId":"H1"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":true},"timestamp":1771155242669,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771155242669},"timestamp":1771155242669,"hypothesisId":"A"}
+{"location":"window.cjs:notebook-workspace","message":"Opening notebook workspace","data":{"resourceId":"res_1771152639016_b2loa15tv","route":"/workspace/notebook?id=res_1771152639016_b2loa15tv","NODE_OPTIONS":"--max-old-space-size=8192"},"timestamp":1771155244968,"hypothesisId":"B"}
+{"location":"SidePanel.tsx:module-load","message":"SidePanel module loaded","data":{},"timestamp":1771155245161,"hypothesisId":"H1"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":true},"timestamp":1771155245171,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:module-load","message":"Notebook chunk loaded","data":{"ts":1771155245171},"timestamp":1771155245171,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155245178,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155245179,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155245247,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155245247,"hypothesisId":"A"}
+{"location":"PyodideProvider:ensureLoaded","message":"Using IPC path","data":{},"timestamp":1771155246431,"hypothesisId":"B"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155246520,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155246520,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155247521,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155247521,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155247526,"hypothesisId":"A"}
+{"location":"notebook/client.tsx:mount","message":"NotebookWorkspaceClient mounted","data":{"resourceId":"res_1771152639016_b2loa15tv"},"timestamp":1771155247526,"hypothesisId":"A"}
+{"location":"PyodideProvider.tsx:module-load","message":"PyodideProvider module loaded","data":{"useIPCKernel":false},"timestamp":1771155310237,"hypothesisId":"B"}

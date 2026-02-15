@@ -65,6 +65,14 @@ const GetCurrentProjectSchema = Type.Object({
   // No parameters - returns the current/default project
 });
 
+const GetLibraryOverviewSchema = Type.Object({
+  project_id: Type.Optional(
+    Type.String({
+      description: 'Project ID. Defaults to current project if omitted.',
+    }),
+  ),
+});
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
@@ -385,6 +393,60 @@ export function createGetCurrentProjectTool(): AnyAgentTool {
   };
 }
 
+/**
+ * Create a tool to get the full library structure (folders and resources per folder).
+ * Essential when the user asks to organize documents or wants to see their library.
+ */
+export function createGetLibraryOverviewTool(): AnyAgentTool {
+  return {
+    label: 'Ver Estructura de Biblioteca',
+    name: 'resource_get_library_overview',
+    description:
+      'Obtiene la estructura completa de la biblioteca: carpetas en raíz, recursos en raíz, y el contenido de cada carpeta (recursos y subcarpetas). ' +
+      'USAR SIEMPRE cuando el usuario pida organizar documentos, ver qué tiene, o listar su biblioteca. Devuelve project, root (folders + resources), folders (cada una con path, resources, subfolders).',
+    parameters: GetLibraryOverviewSchema,
+    execute: async (_toolCallId, args) => {
+      try {
+        if (!isElectron()) {
+          return jsonResult({
+            status: 'error',
+            error: 'Library overview requires Electron environment.',
+          });
+        }
+
+        const params = args as Record<string, unknown>;
+        const projectId = readStringParam(params, 'project_id');
+
+        const result = await window.electron.ai.tools.getLibraryOverview({
+          project_id: projectId,
+        });
+
+        if (!result.success) {
+          return jsonResult({
+            status: 'error',
+            error: result.error || 'Failed to get library overview',
+          });
+        }
+
+        return jsonResult({
+          status: 'success',
+          project: result.project,
+          root: result.root,
+          folders: result.folders,
+          total_resources: result.total_resources,
+          total_folders: result.total_folders,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return jsonResult({
+          status: 'error',
+          error: message,
+        });
+      }
+    },
+  };
+}
+
 // =============================================================================
 // Exports
 // =============================================================================
@@ -399,5 +461,6 @@ export function createContextTools(): AnyAgentTool[] {
     createInteractionListTool(),
     createGetRecentResourcesTool(),
     createGetCurrentProjectTool(),
+    createGetLibraryOverviewTool(),
   ];
 }

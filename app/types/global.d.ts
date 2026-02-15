@@ -644,6 +644,31 @@ declare global {
             } | null;
             error?: string;
           }>;
+          getLibraryOverview: (options?: {
+            project_id?: string;
+          }) => Promise<{
+            success: boolean;
+            project?: { id: string; name: string };
+            root?: {
+              resources: Array<{ id: string; title: string; type: string }>;
+              folders: Array<{
+                id: string;
+                title: string;
+                resource_count: number;
+                subfolder_count: number;
+              }>;
+            };
+            folders?: Array<{
+              id: string;
+              title: string;
+              path: string;
+              resources: Array<{ id: string; title: string; type: string }>;
+              subfolders: Array<{ id: string; title: string }>;
+            }>;
+            total_resources?: number;
+            total_folders?: number;
+            error?: string;
+          }>;
           resourceCreate: (data: {
             title: string;
             type?: string;
@@ -684,6 +709,15 @@ declare global {
               id: string;
               title: string;
             };
+            error?: string;
+          }>;
+          resourceMoveToFolder: (
+            resourceId: string,
+            folderId: string | null
+          ) => Promise<{
+            success: boolean;
+            resource_id?: string;
+            folder_id?: string | null;
             error?: string;
           }>;
           flashcardCreate: (data: {
@@ -890,6 +924,27 @@ declare global {
             error?: string;
           }>;
           delete: (annotationId: string) => Promise<{ success: boolean; error?: string }>;
+        };
+        status: () => Promise<{ available: boolean; path: string | null }>;
+        resources: {
+          index: (payload: { resourceId?: string; resourceIds?: string[] } | string[]) => Promise<{ success: boolean; chunksIndexed?: number; error?: string }>;
+          addEmbeddings: (embeddings: Array<{
+            id: string;
+            resource_id: string;
+            chunk_index?: number;
+            text: string;
+            vector: number[];
+            metadata?: { resource_type?: string; title?: string; project_id?: string; projectId?: string; created_at?: number };
+          }>) => Promise<{ success: boolean; count?: number; error?: string }>;
+          stats: () => Promise<{
+            success: boolean;
+            chunks?: number;
+            resourcesIndexed?: number;
+            tableNames?: string[];
+            lastError?: string | null;
+          }>;
+          reindexAll: () => Promise<{ success: boolean; chunksIndexed?: number; resourcesProcessed?: number; error?: string }>;
+          repair: () => Promise<{ success: boolean; error?: string }>;
         };
       };
 

@@ -198,6 +198,22 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     }
   });
 
+  ipcMain.handle('ai:tools:getLibraryOverview', async (event, { options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const result = await aiToolsHandler.getLibraryOverview(options || {});
+      toolTrace('getLibraryOverview', { options }, result);
+      return result;
+    } catch (error) {
+      toolTrace('getLibraryOverview', { options }, null, error);
+      console.error('[AI Tools] getLibraryOverview error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // AI Tools - Resource Actions (Create, Update, Delete)
   ipcMain.handle('ai:tools:resourceCreate', async (event, { data }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -227,7 +243,14 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       const result = await aiToolsHandler.resourceUpdate(resourceId, updates);
       toolTrace('resourceUpdate', { resourceId }, result);
       if (result.success && result.resource) {
-        windowManager.broadcast('resource:updated', result.resource);
+        const r = result.resource;
+        const broadcastUpdates = {
+          title: r.title,
+          updated_at: r.updated_at,
+        };
+        if (r.metadata != null) broadcastUpdates.metadata = r.metadata;
+        if (updates.content !== undefined) broadcastUpdates.content = updates.content;
+        windowManager.broadcast('resource:updated', { id: r.id, updates: broadcastUpdates });
       }
       return result;
     } catch (error) {
@@ -275,6 +298,29 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     } catch (error) {
       toolTrace('resourceDelete', { resourceId }, null, error);
       console.error('[AI Tools] resourceDelete error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:resourceMoveToFolder', async (event, { resourceId, folderId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const result = await aiToolsHandler.resourceMoveToFolder(resourceId, folderId);
+      toolTrace('resourceMoveToFolder', { resourceId, folderId }, result);
+      if (result.success) {
+        const now = Date.now();
+        windowManager.broadcast('resource:updated', {
+          id: resourceId,
+          updates: { folder_id: folderId ?? null, updated_at: now },
+        });
+      }
+      return result;
+    } catch (error) {
+      toolTrace('resourceMoveToFolder', { resourceId, folderId }, null, error);
+      console.error('[AI Tools] resourceMoveToFolder error:', error);
       return { success: false, error: error.message };
     }
   });

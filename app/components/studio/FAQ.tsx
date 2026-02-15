@@ -1,6 +1,6 @@
-
 import { useState } from 'react';
 import { ChevronDown, X, MessageCircle } from 'lucide-react';
+import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { FAQData } from '@/types';
 
 interface FAQProps {
@@ -88,13 +88,8 @@ export default function FAQ({ data, title, onClose }: FAQProps) {
                 </button>
 
                 {isExpanded && (
-                  <div className="px-4 pb-4 pl-[52px]">
-                    <div
-                      className="text-sm leading-relaxed whitespace-pre-wrap"
-                      style={{ color: 'var(--secondary-text)' }}
-                    >
-                      {pair.answer}
-                    </div>
+                  <div className="px-4 pb-4 pl-[52px] prose prose-sm max-w-none" style={{ color: 'var(--secondary-text)' }}>
+                    <MarkdownRenderer content={pair.answer} />
                   </div>
                 )}
               </div>

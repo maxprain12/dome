@@ -42,7 +42,7 @@ function initializeDefaultSettings() {
   // Initialize default preferences if they don't exist
   const themeRow = queries.getSetting.get('app_theme');
   if (!themeRow) {
-    queries.setSetting.run('app_theme', 'auto', timestamp);
+    queries.setSetting.run('app_theme', 'light', timestamp);
   }
 
   const autoSaveRow = queries.getSetting.get('app_auto_save');
@@ -163,10 +163,36 @@ async function initVectorDB() {
 }
 
 /**
- * Create resource embeddings table
- * Returns null if vectorDB is not available
+ * Build Arrow schema for resource_embeddings table.
+ * Uses Utf8 for all strings (never Dictionary) to avoid "two different dictionaries
+ * with the same Id" when serializing to LanceDB.
+ * @param {number} embeddingDimension - Dimension of embedding vectors (1024 for Ollama mxbai-embed-large)
+ * @returns {import('apache-arrow').Schema}
  */
-async function createResourceEmbeddingsTable() {
+function buildResourceEmbeddingsSchema(embeddingDimension) {
+  return new Schema([
+    new Field('id', new Utf8()),
+    new Field('resource_id', new Utf8()),
+    new Field('chunk_index', new Int32()),
+    new Field('text', new Utf8()),
+    new Field('vector', new FixedSizeList(embeddingDimension, new Field('item', new Float32()))),
+    new Field('metadata', new Struct([
+      new Field('resource_type', new Utf8()),
+      new Field('title', new Utf8()),
+      new Field('project_id', new Utf8()),
+      new Field('created_at', new Float64()),
+    ])),
+  ]);
+}
+
+/**
+ * Create resource embeddings table
+ * Uses 1024 dimensions by default (Ollama mxbai-embed-large)
+ * Returns null if vectorDB is not available
+ * @param {number} embeddingDimension - Dimension of embedding vectors
+ * @param {boolean} forceRecreate - If true, drop existing table and recreate
+ */
+async function createResourceEmbeddingsTable(embeddingDimension = 1024, forceRecreate = false) {
   if (!vectorDB || !vectorDBAvailable) {
     console.log('⚠️ Saltando creación de resource_embeddings (vectorDB no disponible)');
     return null;
@@ -174,18 +200,30 @@ async function createResourceEmbeddingsTable() {
 
   try {
     const tables = await vectorDB.tableNames();
-    if (tables.includes('resource_embeddings')) {
+    const tableExists = tables.includes('resource_embeddings');
+
+    if (tableExists && !forceRecreate) {
       console.log('✓ Tabla resource_embeddings ya existe');
       return await vectorDB.openTable('resource_embeddings');
     }
 
-    // Create table with sample data
+    // If table exists and we need to recreate, drop it first
+    if (tableExists && forceRecreate) {
+      try {
+        await vectorDB.dropTable('resource_embeddings');
+        console.log('🗑️ Tabla resource_embeddings eliminada para recreación');
+      } catch (dropError) {
+        console.warn('⚠️ No se pudo eliminar la tabla existente:', dropError.message);
+      }
+    }
+
+    // Create table with sample data using explicit schema
     const sampleData = [{
       id: 'sample',
       resource_id: 'sample',
       chunk_index: 0,
       text: 'Sample text for initialization',
-      vector: new Array(1536).fill(0), // OpenAI embeddings dimension
+      vector: new Array(embeddingDimension).fill(0),
       metadata: {
         resource_type: 'note',
         title: 'Sample',
@@ -194,12 +232,16 @@ async function createResourceEmbeddingsTable() {
       },
     }];
 
-    const table = await vectorDB.createTable('resource_embeddings', sampleData);
+    const table = await vectorDB.createTable({
+      name: 'resource_embeddings',
+      data: sampleData,
+      schema: buildResourceEmbeddingsSchema(embeddingDimension),
+    });
 
     // Delete sample data
     await table.delete('id = "sample"');
 
-    console.log('✅ Tabla resource_embeddings creada');
+    console.log(`✅ Tabla resource_embeddings creada con dimensión ${embeddingDimension}`);
     return table;
   } catch (error) {
     console.error('❌ Error al crear tabla de embeddings:', error.message);
@@ -514,11 +556,21 @@ function getVectorDB() {
   return vectorDB;
 }
 
+function getVectorDBPath() {
+  try {
+    return path.join(app.getPath('userData'), 'dome-vector');
+  } catch {
+    return null;
+  }
+}
+
 module.exports = {
   initializeApp,
   checkOnboardingStatus,
   getVectorDB,
+  getVectorDBPath,
   isInitialized: () => isInitialized,
   isVectorDBAvailable: () => vectorDBAvailable,
   createAnnotationEmbeddingsTable,
+  createResourceEmbeddingsTable,
 };

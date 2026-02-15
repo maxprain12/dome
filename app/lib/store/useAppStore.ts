@@ -50,6 +50,10 @@ interface AppState {
   viewMode: 'grid' | 'list';
   setViewMode: (mode: 'grid' | 'list') => void;
 
+  // Home folder context (for AI scope when user is viewing a folder)
+  currentFolderId: string | null;
+  setCurrentFolderId: (folderId: string | null) => void;
+
   // Workspace Panel State
   sourcesPanelOpen: boolean;
   studioPanelOpen: boolean;
@@ -159,6 +163,9 @@ export const useAppStore = create<AppState>((set) => ({
   viewMode: 'grid',
   setViewMode: (mode) => set({ viewMode: mode }),
 
+  currentFolderId: null,
+  setCurrentFolderId: (folderId) => set({ currentFolderId: folderId }),
+
   // Workspace Panel State
   sourcesPanelOpen: false,
   studioPanelOpen: false,
@@ -203,7 +210,7 @@ export const useAppStore = create<AppState>((set) => ({
   })),
 
   // App Preferences
-  theme: 'auto',
+  theme: 'light',
   citationStyle: 'apa',
   autoSave: true,
   autoBackup: true,
@@ -219,6 +226,11 @@ export const useAppStore = create<AppState>((set) => ({
       autoBackup: prefs.autoBackup,
       shortcuts: prefs.shortcuts,
     });
+
+    // Sync theme with Electron on load (always light)
+    if (typeof window !== 'undefined' && window.electron) {
+      window.electron.setTheme(prefs.theme);
+    }
   },
 
   updateTheme: async (theme) => {

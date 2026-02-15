@@ -72,13 +72,13 @@ function registerAll(deps) {
   linksHandlers.register({ ipcMain, windowManager, database, validateSender });
   tagsHandlers.register({ ipcMain, windowManager, database, validateSender });
   graphHandlers.register({ ipcMain, windowManager, database, validateSender });
+  vectorHandlers.register({ ipcMain, windowManager, database, ollamaService, initModule, fileStorage, documentExtractor });
   resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor });
   storageHandlers.register({ ipcMain, windowManager, database, fileStorage });
   filesHandlers.register({ ipcMain, app, windowManager, sanitizePath });
   migrationHandlers.register({ ipcMain, fs, windowManager, database, fileStorage, thumbnail });
   webHandlers.register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService });
   ollamaHandlers.register({ ipcMain, windowManager, database, ollamaService, ollamaManager });
-  vectorHandlers.register({ ipcMain, windowManager, database, ollamaService, initModule });
   whatsappHandlers.register({ ipcMain, windowManager, database, fileStorage, ollamaService });
   authHandlers.register({ ipcMain, windowManager, authManager });
   personalityHandlers.register({ ipcMain, windowManager, personalityLoader });

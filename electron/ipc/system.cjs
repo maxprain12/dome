@@ -136,11 +136,11 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     }
   });
 
-  // Theme
+  // Theme - Only light mode is supported
   ipcMain.handle('get-theme', (event) => {
     try {
       validateSender(event, windowManager);
-      return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+      return 'light';
     } catch (error) {
       console.error('[IPC] Error in get-theme:', error.message);
       throw error;
@@ -150,18 +150,9 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   ipcMain.handle('set-theme', (event, theme) => {
     try {
       validateSender(event, windowManager);
-      if (typeof theme !== 'string') {
-        throw new Error('Theme must be a string');
-      }
-      if (!['auto', 'light', 'dark'].includes(theme)) {
-        throw new Error('Invalid theme value. Must be "auto", "light", or "dark"');
-      }
-      if (theme === 'auto') {
-        nativeTheme.themeSource = 'system';
-      } else if (theme === 'light' || theme === 'dark') {
-        nativeTheme.themeSource = theme;
-      }
-      return nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+      // Always force light mode - dark and auto are disabled
+      nativeTheme.themeSource = 'light';
+      return 'light';
     } catch (error) {
       console.error('[IPC] Error in set-theme:', error.message);
       throw error;
@@ -169,9 +160,7 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   });
 
   nativeTheme.on('updated', () => {
-    windowManager.broadcast('theme-changed', {
-      theme: nativeTheme.shouldUseDarkColors ? 'dark' : 'light',
-    });
+    windowManager.broadcast('theme-changed', { theme: 'light' });
   });
 }
 

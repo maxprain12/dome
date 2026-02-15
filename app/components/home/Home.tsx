@@ -1,6 +1,6 @@
 
-import { useState, useCallback } from 'react';
-import { FolderOpen, FolderInput, Plus, Loader2, CheckCircle2, AlertCircle, Upload, ChevronRight, Home as HomeIcon, X, Clock, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, SlidersHorizontal, Filter, Grid3X3, List, Link2, FileText, File, Video, Music, Image as ImageIcon } from 'lucide-react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { FolderOpen, Plus, Loader2, CheckCircle2, AlertCircle, ChevronRight, Home as HomeIcon, X, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { CommandCenter } from '@/components/CommandCenter/CommandCenter';
@@ -12,6 +12,19 @@ import StudioHomeView from '@/components/studio/StudioHomeView';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
+
+const FOLDER_COLORS = [
+  '#7B76D0',
+  '#ef4444',
+  '#f97316',
+  '#eab308',
+  '#22c55e',
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#6b7280',
+  '#14b8a6',
+];
 
 function parseJsonField<T = Record<string, unknown>>(val: unknown): T {
   if (val == null) return {} as T;
@@ -43,6 +56,7 @@ export default function Home() {
   const searchQuery = useAppStore((s) => s.searchQuery);
   const searchResults = useAppStore((s) => s.searchResults);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
+  const setCurrentFolderIdInStore = useAppStore((s) => s.setCurrentFolderId);
 
   // Resource fetching and filtering
   const [selectedTypes, setSelectedTypes] = useState<ResourceType[]>([]);
@@ -50,6 +64,7 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderColor, setNewFolderColor] = useState('#7B76D0');
 
   // Folder navigation state
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -60,6 +75,14 @@ export default function Home() {
 
   // Delete confirmation state
   const [deleteTarget, setDeleteTarget] = useState<Resource | null>(null);
+
+  // Folder menu and rename state
+  const [folderMenuOpenId, setFolderMenuOpenId] = useState<string | null>(null);
+  const [folderMenuPosition, setFolderMenuPosition] = useState({ top: 0, left: 0 });
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [renamingFolderValue, setRenamingFolderValue] = useState('');
+  const folderMenuRef = useRef<HTMLDivElement>(null);
+  const folderMenuTriggerRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   const {
     folders,
@@ -74,7 +97,8 @@ export default function Home() {
     deleteResource,
     updateResource,
     moveToFolder,
-    getFolderById
+    getFolderById,
+    getBreadcrumbPath
   } = useResources({
     types: selectedTypes.length > 0 ? selectedTypes : undefined,
     folderId: currentFolderId,
@@ -82,8 +106,18 @@ export default function Home() {
     sortOrder: 'desc'
   });
 
-  // Get current folder for breadcrumbs
+  // Sync current folder to store so Martin AI knows the scope when user asks "these documents"
+  useEffect(() => {
+    setCurrentFolderIdInStore(currentFolderId);
+    return () => setCurrentFolderIdInStore(null);
+  }, [currentFolderId, setCurrentFolderIdInStore]);
+
+  // Get current folder and breadcrumb path for navigation
   const currentFolder = currentFolderId ? getFolderById(currentFolderId) : null;
+  const breadcrumbPath = useMemo(
+    () => (currentFolderId ? getBreadcrumbPath(currentFolderId) : []),
+    [currentFolderId, getBreadcrumbPath]
+  );
 
   // Search mode: when there is a query and we have results (or explicit empty) from CommandCenter
   const isSearchMode = Boolean(searchQuery && searchResults !== null);
@@ -213,13 +247,15 @@ export default function Home() {
         title: newFolderName,
         project_id: 'default',
         folder_id: currentFolderId,
+        metadata: { color: newFolderColor },
       });
       setNewFolderName('');
+      setNewFolderColor('#7B76D0');
       setShowNewFolderModal(false);
     } catch (err) {
       console.error('Failed to create folder:', err);
     }
-  }, [newFolderName, createResource, currentFolderId]);
+  }, [newFolderName, newFolderColor, createResource, currentFolderId]);
 
   const handleFolderClick = useCallback((folder: Resource) => {
     setCurrentFolderId(folder.id);
@@ -227,6 +263,10 @@ export default function Home() {
 
   const handleNavigateToRoot = useCallback(() => {
     setCurrentFolderId(null);
+  }, []);
+
+  const handleNavigateToFolder = useCallback((folderId: string) => {
+    setCurrentFolderId(folderId);
   }, []);
 
   const handleMoveToFolderRequest = useCallback((resource: Resource) => {
@@ -252,12 +292,65 @@ export default function Home() {
     setDeleteTarget(resource);
   }, []);
 
+  const handleFolderColorChange = useCallback(
+    async (folder: Resource, color: string) => {
+      await updateResource(folder.id, { metadata: { ...folder.metadata, color } });
+      setFolderMenuOpenId(null);
+    },
+    [updateResource]
+  );
+
+  const handleFolderRenameStart = useCallback((folder: Resource) => {
+    setFolderMenuOpenId(null);
+    setRenamingFolderId(folder.id);
+    setRenamingFolderValue(folder.title);
+  }, []);
+
+  const handleFolderRenameSave = useCallback(
+    async (folderId: string) => {
+      if (renamingFolderValue.trim()) {
+        await updateResource(folderId, { title: renamingFolderValue.trim() });
+      }
+      setRenamingFolderId(null);
+      setRenamingFolderValue('');
+    },
+    [renamingFolderValue, updateResource]
+  );
+
+  const handleFolderMenuToggle = useCallback((e: React.MouseEvent, folderId: string) => {
+    e.stopPropagation();
+    const trigger = folderMenuTriggerRefs.current.get(folderId);
+    if (trigger && folderMenuOpenId !== folderId) {
+      const rect = trigger.getBoundingClientRect();
+      setFolderMenuPosition({
+        top: rect.bottom + 4,
+        left: Math.min(rect.left, window.innerWidth - 220),
+      });
+    }
+    setFolderMenuOpenId((prev) => (prev === folderId ? null : folderId));
+  }, [folderMenuOpenId]);
+
+  // Close folder menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!folderMenuOpenId) return;
+      if (folderMenuRef.current?.contains(target)) return;
+      if ((target as Element).closest?.('.folder-menu-trigger')) return;
+      setFolderMenuOpenId(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [folderMenuOpenId]);
+
   const confirmDelete = useCallback(async () => {
     if (deleteTarget) {
+      const wasCurrentFolder = deleteTarget.type === 'folder' && deleteTarget.id === currentFolderId;
       await deleteResource(deleteTarget.id);
+      if (wasCurrentFolder) setCurrentFolderId(null);
       setDeleteTarget(null);
     }
-  }, [deleteTarget, deleteResource]);
+  }, [deleteTarget, deleteResource, currentFolderId]);
 
   // Render content based on active section
   const renderSectionContent = () => {
@@ -357,10 +450,26 @@ export default function Home() {
             <HomeIcon className="w-4 h-4" />
             <span className="text-sm font-medium">Home</span>
           </button>
-          <ChevronRight className="breadcrumb-separator" />
-          <span className="breadcrumb-current">
-            {currentFolder?.title ?? 'Unknown Folder'}
-          </span>
+          {breadcrumbPath.map((folder, index) => {
+            const isLast = index === breadcrumbPath.length - 1;
+            return (
+              <span key={folder.id} className="breadcrumb-segment">
+                <ChevronRight className="breadcrumb-separator" />
+                {isLast ? (
+                  <span className="breadcrumb-current">
+                    {folder.title}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleNavigateToFolder(folder.id)}
+                    className="breadcrumb-item"
+                  >
+                    {folder.title}
+                  </button>
+                )}
+              </span>
+            );
+          })}
         </nav>
       ) : null}
 
@@ -372,21 +481,101 @@ export default function Home() {
           </h2>
           <div className="folder-grid">
             {folders.map((folder) => (
-              <button
-                key={folder.id}
-                onClick={() => handleFolderClick(folder)}
-                className="folder-item"
-              >
-                <div
-                  className="folder-icon-wrapper"
-                  style={{ backgroundColor: folder.metadata?.color ?? 'var(--accent)' }}
+              <div key={folder.id} className="folder-item-wrapper group relative">
+                <button
+                  onClick={() => handleFolderClick(folder)}
+                  className="folder-item"
                 >
-                  <FolderOpen className="w-7 h-7 text-white opacity-90" />
-                </div>
-                <span className="folder-title">
-                  {folder.title}
-                </span>
-              </button>
+                  <div
+                    className="folder-icon-wrapper"
+                    style={{ backgroundColor: folder.metadata?.color ?? 'var(--accent)' }}
+                  >
+                    <FolderOpen className="w-7 h-7 text-white opacity-90" />
+                  </div>
+                  {renamingFolderId === folder.id ? (
+                    <input
+                      type="text"
+                      value={renamingFolderValue}
+                      onChange={(e) => setRenamingFolderValue(e.target.value)}
+                      onBlur={() => handleFolderRenameSave(folder.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleFolderRenameSave(folder.id);
+                        if (e.key === 'Escape') {
+                          setRenamingFolderId(null);
+                          setRenamingFolderValue('');
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="folder-rename-input"
+                      autoFocus
+                    />
+                  ) : (
+                    <span className="folder-title">{folder.title}</span>
+                  )}
+                </button>
+                <button
+                  ref={(el) => {
+                    if (el) folderMenuTriggerRefs.current.set(folder.id, el);
+                  }}
+                  type="button"
+                  className="folder-menu-trigger folder-item-menu-btn"
+                  onClick={(e) => handleFolderMenuToggle(e, folder.id)}
+                  aria-label="Folder options"
+                  aria-expanded={folderMenuOpenId === folder.id}
+                >
+                  <MoreVertical size={16} />
+                </button>
+                {folderMenuOpenId === folder.id ? (
+                  <div
+                    ref={folderMenuRef}
+                    className="dropdown-menu"
+                    style={{
+                      top: folderMenuPosition.top,
+                      left: folderMenuPosition.left,
+                    }}
+                  >
+                    <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+                      <span className="text-xs font-medium" style={{ color: 'var(--secondary-text)' }}>
+                        Folder color
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {FOLDER_COLORS.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => handleFolderColorChange(folder, color)}
+                            className="w-6 h-6 rounded border-2 transition-all focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)]"
+                            style={{
+                              backgroundColor: color,
+                              borderColor: (folder.metadata?.color ?? 'var(--accent)') === color ? 'var(--dome-accent)' : 'var(--border)',
+                            }}
+                            aria-label={`Color ${color}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="dropdown-item"
+                      onClick={() => handleFolderRenameStart(folder)}
+                    >
+                      <Pencil size={16} />
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      className="dropdown-item danger"
+                      onClick={() => {
+                        setFolderMenuOpenId(null);
+                        handleDeleteResource(folder);
+                      }}
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             ))}
           </div>
         </section>
@@ -604,6 +793,32 @@ export default function Home() {
                     if (e.key === 'Escape') setShowNewFolderModal(false);
                   }}
                 />
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text-secondary)' }}>
+                    Folder color
+                  </label>
+                  <div
+                    className="flex flex-wrap gap-2"
+                    role="group"
+                    aria-label="Select folder color"
+                  >
+                    {FOLDER_COLORS.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => setNewFolderColor(color)}
+                        className="w-8 h-8 rounded-lg border-2 transition-all focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+                        style={{
+                          backgroundColor: color,
+                          borderColor: newFolderColor === color ? 'var(--dome-accent)' : 'var(--border)',
+                          transform: newFolderColor === color ? 'scale(1.1)' : 'scale(1)',
+                        }}
+                        aria-label={`Select color ${color}`}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
               </div>
               <div className="modal-footer">
                 <button onClick={() => setShowNewFolderModal(false)} className="btn btn-ghost">

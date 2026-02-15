@@ -112,8 +112,8 @@ const ALLOWED_CHANNELS = {
     'file:readFileAsText',
     'file:writeFile',
     'file:deleteFile',
-    'file:listDirectory',
     'file:copyFile',
+    'file:listDirectory',
     'file:getInfo',
     'file:imageToBase64',
     'file:cleanTemp',
@@ -148,6 +148,12 @@ const ALLOWED_CHANNELS = {
     'vector:annotations:delete',
     'vector:search:generic',
     'vector:semanticSearch',
+    'vector:resources:index',
+    'vector:resources:addEmbeddings',
+    'vector:resources:stats',
+    'vector:resources:reindexAll',
+    'vector:resources:repair',
+    'vector:status',
     // General Vector Database
     'vector:add',
     'vector:search',
@@ -190,10 +196,12 @@ const ALLOWED_CHANNELS = {
     'ai:tools:interactionList',
     'ai:tools:getRecentResources',
     'ai:tools:getCurrentProject',
+    'ai:tools:getLibraryOverview',
     // AI Tools - Resource Actions (for Many agent)
     'ai:tools:resourceCreate',
     'ai:tools:resourceUpdate',
     'ai:tools:resourceDelete',
+    'ai:tools:resourceMoveToFolder',
     // AI Tools - Flashcards
     'ai:tools:flashcardCreate',
     // Database - Flashcards
@@ -234,6 +242,12 @@ const ALLOWED_CHANNELS = {
     'vector:annotations:delete',
     'vector:search:generic',
     'vector:semanticSearch',
+    'vector:resources:index',
+    'vector:resources:addEmbeddings',
+    'vector:resources:stats',
+    'vector:resources:reindexAll',
+    'vector:resources:repair',
+    'vector:status',
     // Notebook (Python via IPC)
     'notebook:runPython',
     'notebook:checkPython',
@@ -672,11 +686,11 @@ const electronHandler = {
     // Delete a file
     deleteFile: (filePath) => ipcRenderer.invoke('file:deleteFile', filePath),
 
-    // List directory contents
-    listDirectory: (dirPath) => ipcRenderer.invoke('file:listDirectory', dirPath),
-
-    // Copy file (for notebook workspace)
+    // Copy file
     copyFile: (sourcePath, destPath) => ipcRenderer.invoke('file:copyFile', sourcePath, destPath),
+
+    // List directory contents (workspace, etc.)
+    listDirectory: (dirPath) => ipcRenderer.invoke('file:listDirectory', dirPath),
 
     // Get file information
     getInfo: (filePath) => ipcRenderer.invoke('file:getInfo', filePath),
@@ -789,6 +803,9 @@ const electronHandler = {
       getCurrentProject: () =>
         ipcRenderer.invoke('ai:tools:getCurrentProject'),
 
+      getLibraryOverview: (options) =>
+        ipcRenderer.invoke('ai:tools:getLibraryOverview', { options }),
+
       // Resource Actions (Create, Update, Delete)
       resourceCreate: (data) =>
         ipcRenderer.invoke('ai:tools:resourceCreate', { data }),
@@ -798,6 +815,9 @@ const electronHandler = {
 
       resourceDelete: (resourceId) =>
         ipcRenderer.invoke('ai:tools:resourceDelete', { resourceId }),
+
+      resourceMoveToFolder: (resourceId, folderId) =>
+        ipcRenderer.invoke('ai:tools:resourceMoveToFolder', { resourceId, folderId }),
 
       // Flashcard creation (for AI-generated study decks)
       flashcardCreate: (data) =>
@@ -897,6 +917,15 @@ const electronHandler = {
     search: (query, options) => ipcRenderer.invoke('vector:search:generic', query, options),
     delete: (filter) => ipcRenderer.invoke('vector:delete', filter),
     count: () => ipcRenderer.invoke('vector:count'),
+    status: () => ipcRenderer.invoke('vector:status'),
+
+    resources: {
+      index: (payload) => ipcRenderer.invoke('vector:resources:index', payload),
+      addEmbeddings: (embeddings) => ipcRenderer.invoke('vector:resources:addEmbeddings', embeddings),
+      stats: () => ipcRenderer.invoke('vector:resources:stats'),
+      reindexAll: () => ipcRenderer.invoke('vector:resources:reindexAll'),
+      repair: () => ipcRenderer.invoke('vector:resources:repair'),
+    },
 
     annotations: {
       // Index annotation in LanceDB

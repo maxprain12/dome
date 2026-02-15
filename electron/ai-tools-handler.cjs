@@ -371,6 +371,113 @@ async function resourceList(options = {}) {
 }
 
 /**
+ * Get library structure overview: folders and resources per folder.
+ * Helps the AI understand the current organization when the user asks to organize documents.
+ * @param {Object} options - Options
+ * @param {string} [options.project_id] - Project to use. Defaults to current project.
+ * @returns {Promise<Object>}
+ */
+async function getLibraryOverview(options = {}) {
+  try {
+    let projectId = options.project_id;
+    if (!projectId) {
+      const current = await getCurrentProject();
+      projectId = current?.id || 'default';
+    }
+
+    const queries = database.getQueries();
+    const project = queries.getProjectById.get(projectId);
+    if (!project) {
+      return { success: false, error: 'Project not found', project_id: projectId };
+    }
+
+    const db = database.getDB();
+    const allResources = db.prepare(`
+      SELECT id, title, type, folder_id, metadata
+      FROM resources
+      WHERE project_id = ?
+      ORDER BY type = 'folder' DESC, title ASC
+    `).all(projectId);
+
+    const folders = allResources.filter(r => r.type === 'folder');
+    const nonFolders = allResources.filter(r => r.type !== 'folder');
+
+    const rootResources = nonFolders.filter(r => !r.folder_id);
+    const rootFolders = folders.filter(f => !f.folder_id);
+
+    const folderMap = new Map(folders.map(f => {
+      let meta = null;
+      try { meta = f.metadata ? JSON.parse(f.metadata) : null; } catch { meta = null; }
+      return [f.id, { id: f.id, title: f.title, folder_id: f.folder_id, metadata: meta }];
+    }));
+    const folderContents = new Map();
+
+    for (const folder of folders) {
+      folderContents.set(folder.id, {
+        title: folder.title,
+        resources: nonFolders.filter(r => r.folder_id === folder.id).map(r => ({ id: r.id, title: r.title, type: r.type })),
+        subfolders: folders.filter(f => f.folder_id === folder.id).map(f => ({ id: f.id, title: f.title })),
+      });
+    }
+
+    const root = {
+      resources: rootResources.map(r => ({ id: r.id, title: r.title, type: r.type })),
+      folders: rootFolders.map(f => {
+        const meta = folderMap.get(f.id)?.metadata;
+        return {
+          id: f.id,
+          title: f.title,
+          color: meta?.color ?? null,
+          resource_count: (folderContents.get(f.id)?.resources?.length ?? 0),
+          subfolder_count: (folderContents.get(f.id)?.subfolders?.length ?? 0),
+        };
+      }),
+    };
+
+    const foldersDetail = [];
+    for (const [folderId, contents] of folderContents) {
+      const folderMeta = folderMap.get(folderId);
+      if (!folderMeta) continue;
+      const parentPath = folderMeta.folder_id
+        ? buildFolderPath(folderMeta.folder_id, folderMap) + '/'
+        : '';
+      foldersDetail.push({
+        id: folderId,
+        title: contents.title,
+        path: 'Root/' + parentPath + contents.title,
+        color: folderMeta.metadata?.color ?? null,
+        resources: contents.resources,
+        subfolders: contents.subfolders,
+      });
+    }
+
+    const out = {
+      success: true,
+      project: { id: project.id, name: project.name },
+      root,
+      folders: foldersDetail,
+      total_resources: nonFolders.length,
+      total_folders: folders.length,
+    };
+    traceLog('getLibraryOverview', { project_id: projectId }, out);
+    return out;
+  } catch (error) {
+    console.error('[AI Tools] getLibraryOverview error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+function buildFolderPath(folderId, folderMap) {
+  const parts = [];
+  let current = folderMap.get(folderId);
+  while (current) {
+    parts.unshift(current.title);
+    current = current.folder_id ? folderMap.get(current.folder_id) : null;
+  }
+  return parts.join('/');
+}
+
+/**
  * Semantic search using embeddings and vector database
  * @param {string} query - Search query
  * @param {Object} options - Search options
@@ -816,6 +923,13 @@ async function resourceUpdate(resourceId, updates) {
     const now = Date.now();
     queries.updateResource.run(title, content, metadata, now, resourceId);
 
+    let metadataObj = null;
+    try {
+      metadataObj = metadata ? JSON.parse(metadata) : null;
+    } catch {
+      metadataObj = null;
+    }
+
     return {
       success: true,
       resource: {
@@ -823,6 +937,7 @@ async function resourceUpdate(resourceId, updates) {
         title,
         type: existing.type,
         project_id: existing.project_id,
+        metadata: metadataObj,
         updated_at: now,
       },
     };
@@ -873,6 +988,65 @@ async function resourceDelete(resourceId) {
     };
   } catch (error) {
     console.error('[AI Tools] resourceDelete error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Move a resource (or folder) to a target folder or to root.
+ * Prevents cycles when moving folders into their descendants.
+ * @param {string} resourceId - Resource ID to move
+ * @param {string|null} folderId - Target folder ID, or null to move to root
+ * @returns {Promise<Object>}
+ */
+async function resourceMoveToFolder(resourceId, folderId) {
+  try {
+    if (!resourceId) {
+      return { success: false, error: 'Resource ID is required' };
+    }
+
+    const queries = database.getQueries();
+    const resource = queries.getResourceById.get(resourceId);
+
+    if (!resource) {
+      return { success: false, error: 'Resource not found' };
+    }
+
+    if (folderId != null && folderId !== '') {
+      const folder = queries.getResourceById.get(folderId);
+      if (!folder) {
+        return { success: false, error: 'Folder not found' };
+      }
+      if (folder.type !== 'folder') {
+        return { success: false, error: 'Target is not a folder' };
+      }
+      if (resourceId === folderId) {
+        return { success: false, error: 'Cannot move folder into itself' };
+      }
+      // Prevent cycle: moving folder A into B where B is inside A
+      if (resource.type === 'folder') {
+        let current = folder;
+        while (current && current.folder_id) {
+          if (current.folder_id === resourceId) {
+            return { success: false, error: 'Cannot move folder into its own descendant (would create a cycle)' };
+          }
+          current = queries.getResourceById.get(current.folder_id);
+        }
+      }
+    }
+
+    const now = Date.now();
+    const targetFolderId = folderId == null || folderId === '' ? null : folderId;
+
+    if (targetFolderId) {
+      queries.moveResourceToFolder.run(targetFolderId, now, resourceId);
+    } else {
+      queries.removeResourceFromFolder.run(now, resourceId);
+    }
+
+    return { success: true, resource_id: resourceId, folder_id: targetFolderId };
+  } catch (error) {
+    console.error('[AI Tools] resourceMoveToFolder error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -1016,11 +1190,13 @@ module.exports = {
   resourceGet,
   resourceList,
   resourceSemanticSearch,
+  getLibraryOverview,
 
   // Resource tools (write)
   resourceCreate,
   resourceUpdate,
   resourceDelete,
+  resourceMoveToFolder,
 
   // Project tools
   projectList,
