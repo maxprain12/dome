@@ -260,8 +260,8 @@ When you first launch Dome:
 2. **Configure AI** (optional but recommended):
    - Go to **Settings** (gear icon)
    - Select your AI provider
-   - Enter your API key
-   - Choose preferred models for chat and embeddings
+   - For **Ollama** (local, sin API key): [guía de instalación](docs/guia-instalacion-ollama.md)
+   - For cloud providers: Enter your API key and choose models for chat and embeddings
 
 ### 2. Creating Projects
 
@@ -464,9 +464,11 @@ Model: gemini-1.5-pro (or gemini-1.5-flash)
 ```
 Provider: ollama
 Base URL: http://localhost:11434
-Model: llama3.2 (or mistral, codellama, etc.)
-Embedding Model: nomic-embed-text
+Model: glm-5:cloud (or llama3.2, mistral, etc.)
+Embedding Model: mxbai-embed-large:latest
 ```
+
+📖 **[Guía completa de instalación con Ollama](docs/guia-instalacion-ollama.md)** – Instalación paso a paso, configuración recomendada y solución de problemas.
 
 ### Data Storage Locations
 

@@ -4,6 +4,7 @@ Documentación orientada a agentes de IA: interfaces, patrones y modelos por fea
 
 | Feature | Archivo | Contenido breve |
 |--------|---------|------------------|
+| **Guía Ollama** | [guia-instalacion-ollama.md](./guia-instalacion-ollama.md) | Instalación y configuración de Ollama como proveedor de IA (chat + embeddings, recomendaciones) |
 | **AI / Chat (Martin)** | [ai-chat.md](./ai-chat.md) | Cliente unificado, streaming, herramientas, UI (AIChatTab, useMartinStore), IPC ai:* |
 | **Recursos** | [resources.md](./resources.md) | Tipos Resource/Project, DB client (renderer), almacenamiento interno, IPC db:resources:*, resource:*, storage:* |
 | **Editor** | [editor.md](./editor.md) | Tiptap/NotionEditor, bloques (Callout, Toggle, PDFEmbed, ResourceMention, FileBlock), slash commands, file drop |
