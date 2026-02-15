@@ -246,8 +246,22 @@ async function indexResource(resourceId, deps) {
       table = await vectorDB.openTable('resource_embeddings');
     }
 
-    await table.add(embeddings);
-    console.log(`[Indexer] Indexed ${embeddings.length} chunks for ${resource.type} ${resourceId}`);
+    try {
+      await table.add(embeddings);
+      console.log(`[Indexer] Indexed ${embeddings.length} chunks for ${resource.type} ${resourceId}`);
+    } catch (addErr) {
+      const msg = addErr?.message || '';
+      const isSchemaError = msg.includes('vector column') || msg.includes('Schema') || msg.includes('schema') || msg.includes('dimension') || msg.includes('dictionary');
+      if (isSchemaError) {
+        console.warn('[Indexer] Schema/dimension mismatch, recreating resource_embeddings table...');
+        await initModule.createResourceEmbeddingsTable(embeddingDimension, true);
+        table = await vectorDB.openTable('resource_embeddings');
+        await table.add(embeddings);
+        console.log(`[Indexer] Indexed ${embeddings.length} chunks for ${resource.type} ${resourceId} (after table recreation)`);
+      } else {
+        throw addErr;
+      }
+    }
   } catch (err) {
     console.error('[Indexer] Error indexing resource:', err);
   }

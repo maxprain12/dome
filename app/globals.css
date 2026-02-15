@@ -2083,6 +2083,13 @@ a:hover {
   text-transform: capitalize;
 }
 
+.list-origin {
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .list-snippet {
   font-size: 11px;
   color: var(--secondary-text);

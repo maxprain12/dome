@@ -21,6 +21,7 @@ import {
   executeEditorAIActionStreaming,
   type EditorAIAction,
 } from '@/lib/ai/editor-ai';
+import { markdownToHtml } from '@/lib/utils/markdown';
 import { showPrompt } from '@/lib/store/usePromptStore';
 import { showToast } from '@/lib/store/useToastStore';
 
@@ -116,14 +117,14 @@ function AIPreviewPanel({
       {/* Content */}
       <div style={{ padding: '12px 14px', maxHeight: '300px', overflowY: 'auto' }}>
         <div
+          className="prose prose-sm max-w-none"
           style={{
             fontSize: '13px',
             lineHeight: '1.6',
             color: 'var(--primary-text)',
-            whiteSpace: 'pre-wrap',
           }}
         >
-          {preview.result}
+          <div dangerouslySetInnerHTML={{ __html: markdownToHtml(preview.result) }} />
           {isProcessing && (
             <span
               style={{
@@ -294,7 +295,7 @@ export function AIBubbleMenu({ editor }: AIBubbleMenuProps) {
       .focus()
       .setTextSelection({ from: preview.from, to: preview.to })
       .deleteSelection()
-      .insertContent(preview.result)
+      .insertContent(markdownToHtml(preview.result))
       .run();
 
     setPreview(null);

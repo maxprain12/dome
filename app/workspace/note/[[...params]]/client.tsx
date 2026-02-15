@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Save, Check, Loader2 } from 'lucide-react';
 import NotionEditor from '@/components/editor/NotionEditor';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import SidePanel from '@/components/workspace/SidePanel';
@@ -31,9 +32,11 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedContentRef = useRef<string>('');
+  const savedFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load resource
   useEffect(() => {
@@ -72,12 +75,13 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     }
   }, [resourceId]);
 
-  // Auto-save content
-  const saveContent = useCallback(async (newContent: string) => {
+  // Auto-save or manual save content
+  const saveContent = useCallback(async (newContent: string, isManual = false) => {
     if (!window.electron?.db?.resources || !resource) return;
     if (newContent === lastSavedContentRef.current) return;
 
     setIsSaving(true);
+    setLastSavedAt(null);
     try {
       await window.electron.db.resources.update({
         id: resourceId,
@@ -86,12 +90,24 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
         updated_at: Date.now(),
       });
       lastSavedContentRef.current = newContent;
+      setLastSavedAt(Date.now());
+      if (savedFeedbackTimeoutRef.current) clearTimeout(savedFeedbackTimeoutRef.current);
+      savedFeedbackTimeoutRef.current = setTimeout(() => setLastSavedAt(null), 2500);
     } catch (err) {
       console.error('Error saving note:', err);
     } finally {
       setIsSaving(false);
     }
   }, [resourceId, resource]);
+
+  // Manual save - triggers immediately with current content
+  const handleManualSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    saveContent(content, true);
+  }, [content, saveContent]);
 
   // Debounced save on content change (editor gives HTML, we convert to Markdown and save)
   const handleContentChange = useCallback((htmlFromEditor: string) => {
@@ -153,11 +169,12 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      if (savedFeedbackTimeoutRef.current) clearTimeout(savedFeedbackTimeoutRef.current);
     };
   }, []);
+
+  const hasUnsavedChanges = content !== lastSavedContentRef.current;
 
   if (loading) {
     return (
@@ -196,9 +213,32 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
           placeholder: 'Untitled Note',
         }}
         savingIndicator={
-          isSaving ? (
-            <span className="text-xs shrink-0" style={{ color: 'var(--secondary-text)' }}>Saving...</span>
-          ) : null
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleManualSave}
+              disabled={isSaving || !hasUnsavedChanges}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: hasUnsavedChanges ? 'var(--accent)' : 'var(--bg-secondary)',
+                color: hasUnsavedChanges ? 'white' : 'var(--secondary-text)',
+                border: '1px solid var(--border)',
+              }}
+              title={hasUnsavedChanges ? 'Guardar ahora' : 'Guardado'}
+            >
+              {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+              <span>{isSaving ? 'Guardando...' : 'Guardar'}</span>
+            </button>
+            {isSaving && (
+              <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>Guardando automáticamente...</span>
+            )}
+            {lastSavedAt && !isSaving && (
+              <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--success, #22c55e)' }}>
+                <Check size={12} />
+                Guardado
+              </span>
+            )}
+          </div>
         }
       />
 

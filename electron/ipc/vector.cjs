@@ -291,21 +291,32 @@ function register({ ipcMain, windowManager, database, ollamaService, initModule 
       const tableNames = await vectorDB.tableNames();
       if (!tableNames.includes('resource_embeddings')) return [];
 
-      const table = await vectorDB.openTable('resource_embeddings');
-      const searchResults = await table.search(queryVector).limit(limit + 5).execute();
+      try {
+        const table = await vectorDB.openTable('resource_embeddings');
+        const searchResults = await table.search(queryVector).limit(limit + 5).execute();
 
-      const results = searchResults
-        .filter((r) => r.resource_id !== resourceId && (!minScore || (1 - r._distance) >= minScore))
-        .slice(0, limit)
-        .map((r) => ({
-          id: r.id,
-          resource_id: r.resource_id,
-          text: r.text,
-          score: 1 - (r._distance || 0),
-          similarity: 1 - (r._distance || 0),
-        }));
-
-      return results;
+        return searchResults
+          .filter((r) => r.resource_id !== resourceId && (!minScore || (1 - r._distance) >= minScore))
+          .slice(0, limit)
+          .map((r) => ({
+            id: r.id,
+            resource_id: r.resource_id,
+            text: r.text,
+            score: 1 - (r._distance || 0),
+            similarity: 1 - (r._distance || 0),
+          }));
+      } catch (searchErr) {
+        const msg = searchErr?.message || '';
+        if (msg.includes('No vector column found') || msg.includes('vector column')) {
+          console.warn('[Vector] Schema error in resource_embeddings, recreating table...');
+          const embeddingDim = Array.isArray(queryVector) ? queryVector.length : 1024;
+          await initModule.createResourceEmbeddingsTable(embeddingDim, true);
+          console.log('[Vector] Table resource_embeddings recreated. Re-index resources to enable semantic search.');
+        } else {
+          console.error('[Vector] semanticSearch error:', searchErr);
+        }
+        return [];
+      }
     } catch (error) {
       console.error('[Vector] semanticSearch error:', error);
       return [];
@@ -363,21 +374,33 @@ function register({ ipcMain, windowManager, database, ollamaService, initModule 
 
         // Search resource embeddings if available
         if (tableNames.includes('resource_embeddings')) {
-          const table = await vectorDB.openTable('resource_embeddings');
-          const searchResults = await table.search(queryVector)
-            .limit(limit)
-            .execute();
+          let table = await vectorDB.openTable('resource_embeddings');
+          try {
+            const searchResults = await table.search(queryVector)
+              .limit(limit)
+              .execute();
 
-          results = searchResults
-            .filter(r => !threshold || (1 - r._distance) >= threshold)
-            .map((result) => ({
-              id: result.id,
-              resource_id: result.resource_id,
-              text: result.text,
-              score: 1 - (result._distance || 0), // Convert distance to similarity score
-              _distance: result._distance,
-              metadata: result.metadata,
-            }));
+            results = searchResults
+              .filter(r => !threshold || (1 - r._distance) >= threshold)
+              .map((result) => ({
+                id: result.id,
+                resource_id: result.resource_id,
+                text: result.text,
+                score: 1 - (result._distance || 0), // Convert distance to similarity score
+                _distance: result._distance,
+                metadata: result.metadata,
+              }));
+          } catch (searchErr) {
+            const msg = searchErr?.message || '';
+            if (msg.includes('No vector column found') || msg.includes('vector column')) {
+              console.warn('[Vector] Schema error in resource_embeddings, recreating table...');
+              const embeddingDim = Array.isArray(queryVector) ? queryVector.length : 1024;
+              await initModule.createResourceEmbeddingsTable(embeddingDim, true);
+              console.log('[Vector] Table resource_embeddings recreated. Re-index resources to enable semantic search.');
+            } else {
+              throw searchErr;
+            }
+          }
         }
       } catch (error) {
         console.error('[Vector] Error searching resource embeddings:', error);

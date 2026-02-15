@@ -222,19 +222,27 @@ export function CommandCenter({
                         })),
                     ]);
 
-                    // Map hybrid results to search results format
-                    const resources = hybridResults.length > 0
-                        ? hybridResults.map((r) => ({
-                            id: r.id,
-                            title: r.title,
-                            type: r.type,
-                            content: r.metadata?.content || '',
-                            source: r.source,
-                            score: r.score,
-                        }))
-                        : (ftsResult as any).success && (ftsResult as any).data
-                            ? (ftsResult as any).data.resources
-                            : [];
+                    // Use hybrid for ranking; enrich with full resource data for display (updated_at, folder_id)
+                    let resources: any[];
+                    if (hybridResults.length > 0) {
+                        const ids = hybridResults.map((r) => r.id);
+                        const fullResources = await Promise.all(
+                            ids.map((id) => window.electron.db.resources.getById(id))
+                        );
+                        resources = fullResources
+                            .filter((r: any) => r?.success && r?.data)
+                            .map((r: any) => r.data)
+                            .sort((a: any, b: any) => {
+                                const idxA = ids.indexOf(a.id);
+                                const idxB = ids.indexOf(b.id);
+                                return idxA - idxB;
+                            });
+                    } else {
+                        resources =
+                            (ftsResult as any).success && (ftsResult as any).data
+                                ? (ftsResult as any).data.resources
+                                : [];
+                    }
 
                     const interactions =
                         (ftsResult as any).success && (ftsResult as any).data

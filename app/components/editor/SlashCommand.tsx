@@ -7,6 +7,7 @@ import type { SlashCommandState } from './extensions/SlashCommandPlugin';
 import type { SlashCommandItem } from './extensions/SlashCommand';
 import { showPrompt } from '@/lib/store/usePromptStore';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { markdownToHtml } from '@/lib/utils/markdown';
 import {
   FileText,
   Heading1,
@@ -766,7 +767,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
               const docContext = editor.getText().slice(0, 2000);
               const result = await executeEditorAIAction('custom', '', docContext, prompt);
               if (result) {
-                editor.chain().focus().insertContent(result).run();
+                editor.chain().focus().insertContent(markdownToHtml(result)).run();
               }
             } catch (error) {
               console.error('AI generation error:', error);
@@ -796,7 +797,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
                 .chain()
                 .focus()
                 .setCallout({ icon: 'file-text', color: 'blue' })
-                .insertContent(result)
+                .insertContent(markdownToHtml(result))
                 .run();
             }
           } catch (error) {
@@ -824,7 +825,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
 
             const result = await executeEditorAIAction('continue', contextSlice, '');
             if (result) {
-              editor.chain().focus().insertContent(result).run();
+              editor.chain().focus().insertContent(markdownToHtml(result)).run();
             }
           } catch (error) {
             console.error('AI continue error:', error);
@@ -856,8 +857,8 @@ export function getSlashCommandItems(): SlashCommandItem[] {
                 `Translate the following text to ${language}. Return only the translated text, preserving all formatting.`
               );
               if (result) {
-                // Replace entire content with translation
-                editor.commands.setContent(result);
+                // Replace entire content with translation (convert markdown to HTML)
+                editor.commands.setContent(markdownToHtml(result));
               }
             } catch (error) {
               console.error('AI translate error:', error);

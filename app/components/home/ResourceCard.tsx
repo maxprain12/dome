@@ -1,18 +1,17 @@
 
-import { useState, useRef, useEffect, memo } from 'react';
+import { memo } from 'react';
 import type { Resource } from '@/types';
-import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, Edit, MoreVertical, FolderOpen, FolderInput, Loader2, CheckCircle2, AlertCircle, Pencil, Notebook, Play } from 'lucide-react';
+import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, FolderOpen, Loader2, CheckCircle2, AlertCircle, Notebook, Play } from 'lucide-react';
 import { formatDistanceToNow, formatShortDistance, extractPlainTextFromTiptap } from '@/lib/utils';
 
 interface ResourceCardProps {
   resource: Resource;
   onClick?: () => void;
-  onEdit?: () => void;
   onDelete?: () => void;
-  onRename?: (newTitle: string) => void;
-  onMoveToFolder?: () => void;
   viewMode?: 'grid' | 'list';
   searchSnippet?: string;
+  /** Shown when searching - e.g. folder path or deck name */
+  searchOrigin?: string;
 }
 
 function ProcessingStatusBadge({ status }: { status?: string }) {
@@ -54,68 +53,11 @@ function ProcessingStatusBadge({ status }: { status?: string }) {
 export default memo(function ResourceCard({
   resource,
   onClick,
-  onEdit,
   onDelete,
-  onRename,
-  onMoveToFolder,
   viewMode = 'grid',
   searchSnippet,
+  searchOrigin,
 }: ResourceCardProps) {
-  const [showMenu, setShowMenu] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState(resource.title);
-  const renameInputRef = useRef<HTMLInputElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-
-  // Position the menu when opened
-  const handleMenuToggle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!showMenu && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const menuWidth = 180;
-      const menuHeight = 150; // approximate
-
-      // Calculate position - align dropdown below button, left-aligned
-      let top = rect.bottom + 4;
-      let left = rect.left;
-
-      // Check if menu would go off-screen
-      if (left + menuWidth > window.innerWidth - 8) {
-        left = window.innerWidth - menuWidth - 8;
-      }
-      if (left < 8) left = 8;
-      if (top + menuHeight > window.innerHeight - 8) {
-        top = rect.top - menuHeight - 4;
-      }
-
-      setMenuPosition({ top, left });
-    }
-    setShowMenu(!showMenu);
-  };
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setShowMenu(false);
-      }
-    };
-
-    const handleScroll = () => {
-      setShowMenu(false);
-    };
-
-    if (showMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('scroll', handleScroll, { capture: true, passive: true } as AddEventListenerOptions);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('scroll', handleScroll, { capture: true } as EventListenerOptions);
-    };
-  }, [showMenu]);
   // Detect document sub-type for type-specific icons and colors
   const getDocumentSubType = (): 'docx' | 'xlsx' | 'csv' | 'txt' | 'generic' => {
     if (resource.type !== 'document') return 'generic';
@@ -369,7 +311,13 @@ export default memo(function ResourceCard({
           <div className="list-meta">
             <span className="list-type">{resource.type}</span>
             <span>·</span>
-            <span>{formatDistanceToNow(resource.updated_at)}</span>
+            <span>{resource.updated_at ? formatDistanceToNow(resource.updated_at) : '—'}</span>
+            {searchOrigin ? (
+              <>
+                <span>·</span>
+                <span className="list-origin" title={searchOrigin}>{searchOrigin}</span>
+              </>
+            ) : null}
           </div>
           {searchSnippet ? (
             <div className="list-snippet" title={searchSnippet}>
@@ -378,16 +326,6 @@ export default memo(function ResourceCard({
           ) : null}
         </div>
         <div className="list-actions">
-          {onEdit ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              className="action-btn"
-              title="Editar"
-              aria-label="Editar"
-            >
-              <Edit size={16} />
-            </button>
-          ) : null}
           {onDelete ? (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -428,89 +366,23 @@ export default memo(function ResourceCard({
       </div>
 
       {/* Time badge — top right */}
-      <div className="overlay-time-badge">
-        {formatShortDistance(resource.updated_at)}
-      </div>
+      {resource.updated_at ? (
+        <div className="overlay-time-badge">
+          {formatShortDistance(resource.updated_at)}
+        </div>
+      ) : null}
 
-      {/* Actions overlay — top left: delete (direct) + 3-dot menu */}
-      {(onEdit || onDelete || onMoveToFolder || onRename) ? (
-          <div className="overlay-menu">
-          {onDelete ? (
-            <button
-              className="overlay-menu-btn overlay-delete-btn focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              aria-label="Eliminar"
-              title="Eliminar"
-            >
-              <Trash2 size={14} />
-            </button>
-          ) : null}
+      {/* Actions overlay — delete only */}
+      {onDelete ? (
+        <div className="overlay-menu">
           <button
-            ref={buttonRef}
-            className="overlay-menu-btn focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-            onClick={handleMenuToggle}
-            aria-label="Options menu"
-            aria-expanded={showMenu}
+            className="overlay-menu-btn overlay-delete-btn focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            aria-label="Eliminar"
+            title="Eliminar"
           >
-            <MoreVertical size={14} />
+            <Trash2 size={14} />
           </button>
-          {showMenu ? (
-            <div
-              ref={menuRef}
-              className="dropdown-menu"
-              style={{ top: menuPosition.top, left: menuPosition.left }}
-            >
-              {onRename ? (
-                <button
-                  className="dropdown-item cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowMenu(false);
-                    setRenameValue(resource.title);
-                    setIsRenaming(true);
-                    setTimeout(() => renameInputRef.current?.focus(), 50);
-                  }}
-                  aria-label="Rename"
-                >
-                  <Pencil size={14} />
-                  <span>Rename</span>
-                </button>
-              ) : null}
-              {onMoveToFolder ? (
-                <button
-                  className="dropdown-item cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-                  onClick={(e) => { e.stopPropagation(); setShowMenu(false); onMoveToFolder(); }}
-                  aria-label="Move to folder"
-                >
-                  <FolderInput size={14} />
-                  <span>Move to folder</span>
-                </button>
-              ) : null}
-              {onEdit ? (
-                <button
-                  className="dropdown-item cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-                  onClick={(e) => { e.stopPropagation(); setShowMenu(false); onEdit(); }}
-                  aria-label="Edit"
-                >
-                  <Edit size={14} />
-                  <span>Edit</span>
-                </button>
-              ) : null}
-              {onDelete ? (
-                <>
-                  <div className="dropdown-divider" />
-                  <button
-                    className="dropdown-item delete cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-                    onClick={(e) => { e.stopPropagation(); setShowMenu(false); onDelete(); }}
-                    aria-label="Delete"
-                  >
-                    <Trash2 size={14} />
-                    <span>Delete</span>
-                  </button>
-                </>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       ) : null}
 
@@ -520,40 +392,17 @@ export default memo(function ResourceCard({
           {getIcon()}
         </div>
         <div className="footer-info">
-          {isRenaming ? (
-            <input
-              ref={renameInputRef}
-              className="footer-title-input"
-              value={renameValue}
-              aria-label="Rename resource"
-              onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  if (renameValue.trim() && renameValue !== resource.title && onRename) {
-                    onRename(renameValue.trim());
-                  }
-                  setIsRenaming(false);
-                }
-                if (e.key === 'Escape') {
-                  setIsRenaming(false);
-                  setRenameValue(resource.title);
-                }
-              }}
-              onBlur={() => {
-                if (renameValue.trim() && renameValue !== resource.title && onRename) {
-                  onRename(renameValue.trim());
-                }
-                setIsRenaming(false);
-              }}
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <div className="footer-title">{resource.title || 'Untitled'}</div>
-          )}
-          {searchSnippet ? (
-            <div className="footer-snippet" title={searchSnippet}>
+          <div className="footer-title">{resource.title || 'Untitled'}</div>
+          {(searchSnippet || searchOrigin) ? (
+            <div className="footer-snippet" title={searchSnippet || searchOrigin}>
               {searchSnippet}
+              {searchSnippet && searchOrigin ? ' · ' : ''}
+              {searchOrigin}
+            </div>
+          ) : null}
+          {(searchSnippet || searchOrigin) && resource.updated_at ? (
+            <div className="footer-date" style={{ fontSize: '10px', opacity: 0.85 }}>
+              {formatDistanceToNow(resource.updated_at)}
             </div>
           ) : null}
         </div>
@@ -569,7 +418,6 @@ export default memo(function ResourceCard({
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparator: solo re-renderizar si props relevantes cambiaron
   return (
     prevProps.resource.id === nextProps.resource.id &&
     prevProps.resource.title === nextProps.resource.title &&
@@ -580,6 +428,7 @@ export default memo(function ResourceCard({
     prevProps.resource.file_mime_type === nextProps.resource.file_mime_type &&
     prevProps.resource.original_filename === nextProps.resource.original_filename &&
     prevProps.viewMode === nextProps.viewMode &&
-    prevProps.searchSnippet === nextProps.searchSnippet
+    prevProps.searchSnippet === nextProps.searchSnippet &&
+    prevProps.searchOrigin === nextProps.searchOrigin
   );
 });

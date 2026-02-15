@@ -121,7 +121,10 @@ export default function Home() {
 
   // Search mode: when there is a query and we have results (or explicit empty) from CommandCenter
   const isSearchMode = Boolean(searchQuery && searchResults !== null);
-  const resourcesToShow = isSearchMode ? (searchResults?.resources ?? []) : nonFolderResources;
+  const rawSearchResources = searchResults?.resources ?? [];
+  const resourcesToShow = isSearchMode
+    ? rawSearchResources.filter((r: Resource) => r.type !== 'folder')
+    : nonFolderResources;
 
   // Command Center handlers
   const handleResourceSelect = useCallback(async (resource: any) => {
@@ -137,9 +140,9 @@ export default function Home() {
       return;
     }
 
-    // Handle folder resources - navigate into the folder
+    // In search mode we don't show folders; if one slips through, open as workspace (or no-op)
     if (resource.type === 'folder') {
-      setCurrentFolderId(resource.id);
+      if (!isSearchMode) setCurrentFolderId(resource.id);
       return;
     }
 
@@ -155,7 +158,7 @@ export default function Home() {
         console.error('Failed to open workspace:', err);
       }
     }
-  }, []);
+  }, [isSearchMode]);
 
   const handleCreateNote = useCallback(async () => {
     try {
@@ -440,8 +443,8 @@ export default function Home() {
         onCreateFolder={() => setShowNewFolderModal(true)}
       />
 
-      {/* Breadcrumb Navigation */}
-      {currentFolderId ? (
+      {/* Breadcrumb Navigation — hidden in search mode */}
+      {!isSearchMode && currentFolderId ? (
         <nav className="breadcrumb-nav" aria-label="Breadcrumb">
           <button
             onClick={handleNavigateToRoot}
@@ -473,8 +476,8 @@ export default function Home() {
         </nav>
       ) : null}
 
-      {/* Folders Section */}
-      {folders.length > 0 ? (
+      {/* Folders Section — hidden in search mode to avoid fake "contents inside folder" */}
+      {!isSearchMode && folders.length > 0 ? (
         <section className="mb-10" aria-label="Folders">
           <h2 className="section-header">
             {currentFolderId ? 'Subfolders' : 'Folders'}
@@ -640,11 +643,12 @@ export default function Home() {
               resource={resource}
               viewMode={viewMode}
               onClick={() => handleResourceSelect(resource)}
-              onMoveToFolder={() => handleMoveToFolderRequest(resource)}
               onDelete={() => handleDeleteResource(resource)}
-              onRename={(newTitle) => updateResource(resource.id, { title: newTitle })}
               searchSnippet={isSearchMode && searchResults?.interactions
                 ? getSearchSnippetForResource(resource.id, searchResults.interactions)
+                : undefined}
+              searchOrigin={isSearchMode && resource.folder_id
+                ? (getBreadcrumbPath(resource.folder_id).map((f) => f.title).join(' / ') || undefined)
                 : undefined}
             />
           ))}
