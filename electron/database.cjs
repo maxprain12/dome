@@ -997,6 +997,9 @@ function getQueries() {
     `),
     getResourcesByProject: db.prepare('SELECT * FROM resources WHERE project_id = ? ORDER BY updated_at DESC'),
     getResourceById: db.prepare('SELECT * FROM resources WHERE id = ?'),
+    getResourceByIdForIndexing: db.prepare(`
+      SELECT id, project_id, type, title, content, metadata FROM resources WHERE id = ?
+    `),
     updateResource: db.prepare(`
       UPDATE resources
       SET title = ?, content = ?, metadata = ?, updated_at = ?

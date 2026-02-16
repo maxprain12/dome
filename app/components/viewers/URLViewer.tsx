@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, AlertCircle, ExternalLink, RefreshCw, Copy, Check } from 'lucide-react';
+import { Loader2, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { type Resource } from '@/types';
 import { processUrlResource } from '@/lib/web/processor';
 import LoadingState from '@/components/ui/LoadingState';
@@ -10,7 +10,6 @@ interface URLViewerProps {
 }
 
 function URLViewerComponent({ resource }: URLViewerProps) {
-  const [copied, setCopied] = useState(false);
   const [url, setUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,18 +86,6 @@ function URLViewerComponent({ resource }: URLViewerProps) {
     }
   }, [url]);
 
-  const handleCopySummary = useCallback(async () => {
-    if (!metadata?.summary) return;
-
-    try {
-      await navigator.clipboard.writeText(metadata.summary);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy summary:', err);
-    }
-  }, [metadata?.summary]);
-
   if (isLoading && !error) {
     return <LoadingState message="Loading URL..." />;
   }
@@ -108,10 +95,21 @@ function URLViewerComponent({ resource }: URLViewerProps) {
   }
 
   const processingStatus = metadata?.processing_status || 'pending';
-  const summary = metadata?.summary;
-  const scrapedContent = metadata?.scraped_content;
+  const scrapedContent = typeof metadata?.scraped_content === 'string' ? metadata.scraped_content : null;
 
   const previewImage = resource.thumbnail_data;
+
+  const safeStr = (v: unknown): string | null =>
+    v != null && typeof v === 'string' && v.length > 0 ? v : null;
+  const safeDate = (v: unknown): string | null => {
+    if (v == null) return null;
+    try {
+      const d = typeof v === 'number' || typeof v === 'string' || v instanceof Date ? new Date(v) : null;
+      return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString() : null;
+    } catch {
+      return null;
+    }
+  };
 
   return (
     <div className="flex flex-col flex-1 min-h-0 w-full">
@@ -124,7 +122,7 @@ function URLViewerComponent({ resource }: URLViewerProps) {
         }}
       >
         <div className="flex items-center gap-2">
-          {processingStatus === 'processing' && (
+          {(processingStatus === 'processing' || isProcessing) && (
             <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--secondary-text)' }}>
               <Loader2 className="w-4 h-4 animate-spin shrink-0" />
               <span>Processing...</span>
@@ -187,51 +185,7 @@ function URLViewerComponent({ resource }: URLViewerProps) {
           {/* Extracted content */}
           {processingStatus === 'completed' ? (
               <div className="space-y-6">
-                {/* Summary */}
-                {summary && (
-                  <div
-                    className="p-6 rounded-lg"
-                    style={{
-                      backgroundColor: 'var(--bg-secondary)',
-                      border: '1px solid var(--border)',
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <h2 className="text-xl font-semibold" style={{ color: 'var(--primary-text)' }}>
-                        Summary
-                      </h2>
-                      <button
-                        type="button"
-                        onClick={handleCopySummary}
-                        className="min-w-[44px] min-h-[44px] px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-                        style={{
-                          backgroundColor: copied ? 'var(--success)' : 'var(--bg)',
-                          color: copied ? 'white' : 'var(--primary-text)',
-                          border: copied ? 'none' : '1px solid var(--border)',
-                        }}
-                        title="Copy summary to clipboard"
-                        aria-label="Copy summary to clipboard"
-                      >
-                        {copied ? (
-                          <>
-                            <Check size={16} />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy size={16} />
-                            Copy
-                          </>
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-sm leading-relaxed" style={{ color: 'var(--secondary-text)' }}>
-                      {summary}
-                    </p>
-                  </div>
-                )}
-
-                {/* Scraped Content */}
+                {/* Full Content */}
                 {scrapedContent && (
                   <div
                     className="p-6 rounded-lg"
@@ -247,7 +201,7 @@ function URLViewerComponent({ resource }: URLViewerProps) {
                       className="text-sm leading-relaxed whitespace-pre-wrap"
                       style={{ color: 'var(--secondary-text)' }}
                     >
-                      {scrapedContent}
+                      {scrapedContent ?? ''}
                     </div>
                   </div>
                 )}
@@ -265,28 +219,28 @@ function URLViewerComponent({ resource }: URLViewerProps) {
                       Metadata
                     </h2>
                     <dl className="space-y-2 text-sm">
-                      {metadata.title && (
+                      {safeStr(metadata.title) && (
                         <>
                           <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>Title:</dt>
-                          <dd style={{ color: 'var(--secondary-text)' }}>{metadata.title}</dd>
+                          <dd style={{ color: 'var(--secondary-text)' }}>{safeStr(metadata.title)}</dd>
                         </>
                       )}
-                      {metadata.description && (
+                      {safeStr(metadata.description) && (
                         <>
                           <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>Description:</dt>
-                          <dd style={{ color: 'var(--secondary-text)' }}>{metadata.description}</dd>
+                          <dd style={{ color: 'var(--secondary-text)' }}>{safeStr(metadata.description)}</dd>
                         </>
                       )}
-                      {metadata.author && (
+                      {safeStr(metadata.author) && (
                         <>
                           <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>Author:</dt>
-                          <dd style={{ color: 'var(--secondary-text)' }}>{metadata.author}</dd>
+                          <dd style={{ color: 'var(--secondary-text)' }}>{safeStr(metadata.author)}</dd>
                         </>
                       )}
-                      {metadata.published_date && (
+                      {safeDate(metadata.published_date) && (
                         <>
                           <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>Published:</dt>
-                          <dd style={{ color: 'var(--secondary-text)' }}>{new Date(metadata.published_date).toLocaleDateString()}</dd>
+                          <dd style={{ color: 'var(--secondary-text)' }}>{safeDate(metadata.published_date)}</dd>
                         </>
                       )}
                       {url && (
@@ -308,15 +262,15 @@ function URLViewerComponent({ resource }: URLViewerProps) {
                   </div>
                 )}
 
-                {!summary && !scrapedContent && (
+                {!scrapedContent && (
                   <div className="text-center py-12">
                     <p style={{ color: 'var(--secondary-text)' }}>
-                      No processed content available. Click "Reprocess" to generate summary and content.
+                      No processed content available. Click "Reprocess" to extract content.
                     </p>
                   </div>
                 )}
               </div>
-          ) : processingStatus === 'processing' ? (
+          ) : processingStatus === 'processing' || isProcessing ? (
             <LoadingState message="Processing content..." />
           ) : (
             <div className="flex items-center justify-center py-16">
@@ -326,7 +280,7 @@ function URLViewerComponent({ resource }: URLViewerProps) {
                   Content Not Processed
                 </h3>
                 <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
-                  This URL resource hasn't been processed yet. Click the button below to generate summary and extract content.
+                  This URL resource hasn't been processed yet. Click the button below to extract content.
                 </p>
                 <button
                   type="button"

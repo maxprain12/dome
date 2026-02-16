@@ -67,6 +67,59 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     loadResource();
   }, [resourceId]);
 
+  // Re-fetch resource when thumbnail is ready (web:process avoids broadcasting thumbnail_data to prevent OOM)
+  useEffect(() => {
+    if (!resourceId || typeof window === 'undefined' || !window.electron?.on) return;
+
+    const unsubscribe = window.electron.on(
+      'resource:updated',
+      ({ id, updates }: { id: string; updates: Partial<Resource> }) => {
+        if (id !== resourceId || !updates?.thumbnail_ready) return;
+
+        window.electron.db.resources
+          .getById(resourceId)
+          .then((result) => {
+            if (result?.success && result.data) {
+              const resourceData = result.data;
+              if (resourceData.metadata && typeof resourceData.metadata === 'string') {
+                resourceData.metadata = JSON.parse(resourceData.metadata);
+              }
+              setResource(resourceData as Resource);
+            }
+          })
+          .catch((err) => console.error('Error re-fetching resource for thumbnail:', err));
+      },
+    );
+
+    return unsubscribe;
+  }, [resourceId]);
+
+  // Merge metadata/title updates from resource:updated (lightweight, no thumbnail_data)
+  useEffect(() => {
+    if (!resourceId || typeof window === 'undefined' || !window.electron?.on) return;
+
+    const unsubscribe = window.electron.on(
+      'resource:updated',
+      ({ id, updates }: { id: string; updates: Partial<Resource> }) => {
+        if (id !== resourceId || !updates || updates.thumbnail_ready) return;
+
+        setResource((prev) => {
+          if (!prev) return prev;
+          const merged = { ...prev, ...updates };
+          if (updates.metadata != null) {
+            merged.metadata =
+              typeof updates.metadata === 'string'
+                ? (JSON.parse(updates.metadata) as Record<string, unknown>)
+                : (updates.metadata as Record<string, unknown>);
+          }
+          return merged;
+        });
+      },
+    );
+
+    return unsubscribe;
+  }, [resourceId]);
+
   // Set selected sources to current resource when opening (for Studio generation)
   useEffect(() => {
     if (resourceId) {

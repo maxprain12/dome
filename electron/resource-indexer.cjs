@@ -9,9 +9,12 @@ const EMBEDDABLE_TYPES = ['note', 'document', 'url', 'pdf', 'video', 'audio'];
 const MIN_TEXT_LENGTH = 50;
 const CHUNK_SIZE = 1000;
 const CHUNK_OVERLAP = 200;
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 3;
+const MAX_CHUNKS_URL = 25; // Limit URL chunks to avoid OOM (~25k chars)
+const MAX_CHUNKS_DEFAULT = 100;
 
 const pending = new Map();
+const inProgress = new Set();
 let debounceTimer = null;
 const DEBOUNCE_MS = 2000;
 
@@ -114,7 +117,7 @@ function extractIndexableText(resource) {
     case 'notebook':
       return notebookToText(resource.content);
     case 'url':
-      return [metadata.scraped_content, metadata.summary].filter(Boolean).join('\n\n');
+      return metadata.scraped_content || '';
     case 'pdf':
       return (resource.content || '').trim(); // Content has extracted text when PDF was imported
     case 'video':
@@ -163,15 +166,21 @@ async function deleteResourceEmbeddings(vectorDB, resourceId) {
 
 /**
  * Index a single resource (extract text, chunk, embed, add to LanceDB)
+ * Uses incremental batch writes to avoid OOM.
  */
 async function indexResource(resourceId, deps) {
+  if (inProgress.has(resourceId)) {
+    console.log(`[Indexer] Skipping ${resourceId} - already indexing`);
+    return;
+  }
+  inProgress.add(resourceId);
   try {
     const { database, initModule, ollamaService } = deps || {};
     if (!database || !initModule || !ollamaService) return;
 
     const queries = database.getQueries();
-    if (!queries || !queries.getResourceById) return;
-    const resource = queries.getResourceById.get(resourceId);
+    if (!queries || !queries.getResourceByIdForIndexing) return;
+    const resource = queries.getResourceByIdForIndexing.get(resourceId);
     if (!resource || !shouldIndex(resource)) return;
 
     const text = extractIndexableText(resource);
@@ -185,7 +194,13 @@ async function indexResource(resourceId, deps) {
 
     await deleteResourceEmbeddings(vectorDB, resourceId);
 
-    const chunks = chunkText(text);
+    let chunks = chunkText(text);
+    const maxChunks = (resource.type || '').toLowerCase() === 'url' ? MAX_CHUNKS_URL : MAX_CHUNKS_DEFAULT;
+    if (chunks.length > maxChunks) {
+      const originalCount = chunks.length;
+      chunks = chunks.slice(0, maxChunks);
+      console.log(`[Indexer] Truncated to ${maxChunks} chunks for ${resource.type} (was ${originalCount})`);
+    }
     if (chunks.length === 0) return;
 
     const metadata = {
@@ -210,15 +225,18 @@ async function indexResource(resourceId, deps) {
       return;
     }
 
-    const embeddings = [];
+    let table = null;
+    let totalIndexed = 0;
+
     for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
       const batch = chunks.slice(i, i + BATCH_SIZE);
+      const batchEmbeddings = [];
       if (isOllamaAvailable) {
         const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
         const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
         const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
         const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
-        const batchEmbeddings = await Promise.all(
+        const results = await Promise.all(
           batch.map(async (chunk, batchIdx) => {
             const globalIdx = i + batchIdx;
             try {
@@ -240,7 +258,7 @@ async function indexResource(resourceId, deps) {
             return null;
           })
         );
-        embeddings.push(...batchEmbeddings.filter(Boolean));
+        batchEmbeddings.push(...results.filter(Boolean));
       } else {
         try {
           const batchTexts = batch.map((c) => c.text);
@@ -249,7 +267,7 @@ async function indexResource(resourceId, deps) {
             const vec = vectors?.[batchIdx];
             if (vec && Array.isArray(vec)) {
               embeddingDimension = vec.length;
-              embeddings.push({
+              batchEmbeddings.push({
                 id: `${resourceId}-${i + batchIdx}`,
                 resource_id: resourceId,
                 chunk_index: i + batchIdx,
@@ -264,37 +282,42 @@ async function indexResource(resourceId, deps) {
           console.error(`[Indexer] Cloud embedding failed for batch ${i}:`, err.message);
         }
       }
-    }
 
-    if (embeddings.length === 0) return;
+      if (batchEmbeddings.length === 0) continue;
 
-    const tables = await vectorDB.tableNames();
-    let table;
-    if (tables.includes('resource_embeddings')) {
-      table = await vectorDB.openTable('resource_embeddings');
-    } else {
-      await initModule.createResourceEmbeddingsTable(embeddingDimension);
-      table = await vectorDB.openTable('resource_embeddings');
-    }
-
-    try {
-      await table.add(embeddings);
-      console.log(`[Indexer] Indexed ${embeddings.length} chunks for ${resource.type} ${resourceId}`);
-    } catch (addErr) {
-      const msg = addErr?.message || '';
-      const isSchemaError = msg.includes('vector column') || msg.includes('Schema') || msg.includes('schema') || msg.includes('dimension') || msg.includes('dictionary');
-      if (isSchemaError) {
-        console.warn('[Indexer] Schema/dimension mismatch, recreating resource_embeddings table...');
-        await initModule.createResourceEmbeddingsTable(embeddingDimension, true);
+      const tables = await vectorDB.tableNames();
+      if (!table) {
+        if (!tables.includes('resource_embeddings')) {
+          await initModule.createResourceEmbeddingsTable(embeddingDimension);
+        }
         table = await vectorDB.openTable('resource_embeddings');
-        await table.add(embeddings);
-        console.log(`[Indexer] Indexed ${embeddings.length} chunks for ${resource.type} ${resourceId} (after table recreation)`);
-      } else {
-        throw addErr;
       }
+
+      try {
+        await table.add(batchEmbeddings);
+        totalIndexed += batchEmbeddings.length;
+      } catch (addErr) {
+        const msg = addErr?.message || '';
+        const isSchemaError = msg.includes('vector column') || msg.includes('Schema') || msg.includes('schema') || msg.includes('dimension') || msg.includes('dictionary');
+        if (isSchemaError) {
+          console.warn('[Indexer] Schema/dimension mismatch, recreating resource_embeddings table...');
+          await initModule.createResourceEmbeddingsTable(embeddingDimension, true);
+          table = await vectorDB.openTable('resource_embeddings');
+          await table.add(batchEmbeddings);
+          totalIndexed += batchEmbeddings.length;
+        } else {
+          throw addErr;
+        }
+      }
+    }
+
+    if (totalIndexed > 0) {
+      console.log(`[Indexer] Indexed ${totalIndexed} chunks for ${resource.type} ${resourceId}`);
     }
   } catch (err) {
     console.error('[Indexer] Error indexing resource:', err);
+  } finally {
+    inProgress.delete(resourceId);
   }
 }
 
@@ -303,6 +326,7 @@ async function indexResource(resourceId, deps) {
  */
 function scheduleIndexing(resourceId, deps) {
   if (!resourceId || !deps) return;
+  if (inProgress.has(resourceId)) return;
   pending.set(resourceId, deps);
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(async () => {

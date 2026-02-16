@@ -75,7 +75,7 @@ function registerAll(deps) {
   storageHandlers.register({ ipcMain, windowManager, database, fileStorage });
   filesHandlers.register({ ipcMain, app, windowManager, sanitizePath });
   migrationHandlers.register({ ipcMain, fs, windowManager, database, fileStorage, thumbnail });
-  webHandlers.register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService });
+  webHandlers.register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService, initModule });
   ollamaHandlers.register({ ipcMain, windowManager, database, ollamaService, ollamaManager });
   whatsappHandlers.register({ ipcMain, windowManager, database, fileStorage, ollamaService });
   authHandlers.register({ ipcMain, windowManager, authManager });

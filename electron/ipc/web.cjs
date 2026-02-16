@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
-function register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService }) {
+const resourceIndexer = require('../resource-indexer.cjs');
+
+function register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService, initModule }) {
   function broadcastResourceUpdated(resourceId, updates) {
     try {
       windowManager.broadcast('resource:updated', { id: resourceId, updates });
@@ -98,7 +100,7 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
   });
 
   /**
-   * Process URL resource completely (scrape + screenshot + embeddings + summary)
+   * Process URL resource completely (scrape + screenshot + chunked indexing for semantic search)
    */
   ipcMain.handle('web:process', async (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -170,20 +172,26 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
         if (scrapeResult.success) {
           // Save screenshot if available
           if (scrapeResult.screenshot) {
+            const isJpeg = scrapeResult.screenshotFormat === 'jpeg';
+            const ext = isJpeg ? 'jpg' : 'png';
+            const mime = isJpeg ? 'image/jpeg' : 'image/png';
             const screenshotBuffer = Buffer.from(scrapeResult.screenshot, 'base64');
             const saved = await fileStorage.importFromBuffer(
               screenshotBuffer,
-              `screenshot_${resourceId}.png`,
+              `screenshot_${resourceId}.${ext}`,
               'url'
             );
 
-            const dataUrl = `data:image/png;base64,${scrapeResult.screenshot}`;
+            const dataUrl = `data:${mime};base64,${scrapeResult.screenshot}`;
             queries.updateResourceThumbnail.run(dataUrl, Date.now(), resourceId);
 
             metadata.screenshot_path = saved.internalPath;
+
+            // Release screenshot from memory ASAP to avoid OOM (don't broadcast thumbnail_data)
+            scrapeResult.screenshot = null;
           }
 
-          // Update title and content
+          // Update title and content (broadcast without thumbnail_data - viewer will re-fetch)
           if (scrapeResult.title) {
             queries.updateResource.run(
               scrapeResult.title,
@@ -192,7 +200,12 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
               Date.now(),
               resourceId
             );
-            broadcastResourceUpdated(resourceId, { title: scrapeResult.title, metadata, updated_at: Date.now() });
+            broadcastResourceUpdated(resourceId, {
+              title: scrapeResult.title,
+              metadata,
+              updated_at: Date.now(),
+              thumbnail_ready: true,
+            });
           }
 
           metadata.scraped_content = scrapeResult.content;
@@ -200,43 +213,10 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
         }
       }
 
-      // Generate embedding and summary if Ollama is available
-      const contentToProcess = scrapeResult?.content || '';
-
-      if (contentToProcess.length > 0) {
-        try {
-          const isOllamaAvailable = await ollamaService.checkAvailability();
-
-          if (isOllamaAvailable) {
-            // Get Ollama config
-            const queries = database.getQueries();
-            const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
-            const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
-            const ollamaModel = queries.getSetting.get('ollama_model');
-
-            const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
-            const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
-            const model = ollamaModel?.value || ollamaService.DEFAULT_MODEL;
-
-            // Generate embedding
-            try {
-              const embedding = await ollamaService.generateEmbedding(contentToProcess, embeddingModel, baseUrl);
-              metadata.embedding = embedding;
-            } catch (error) {
-              console.error('[Web] Error generating embedding:', error);
-            }
-
-            // Generate summary
-            try {
-              const summary = await ollamaService.generateSummary(contentToProcess, model, baseUrl);
-              metadata.summary = summary;
-            } catch (error) {
-              console.error('[Web] Error generating summary:', error);
-            }
-          }
-        } catch (error) {
-          console.error('[Web] Error processing with Ollama:', error);
-        }
+      // Index full content as chunks for semantic search (via resource-indexer)
+      if (scrapeResult?.content && initModule && ollamaService) {
+        const indexerDeps = { database, initModule, ollamaService };
+        resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
       }
 
       // Update final status
@@ -251,7 +231,12 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
         Date.now(),
         resourceId
       );
-      broadcastResourceUpdated(resourceId, { metadata, updated_at: Date.now() });
+      // Broadcast without thumbnail_data to avoid OOM - viewers re-fetch when needed
+      broadcastResourceUpdated(resourceId, {
+        metadata,
+        updated_at: Date.now(),
+        thumbnail_ready: true,
+      });
 
       return { success: true, metadata };
     } catch (error) {

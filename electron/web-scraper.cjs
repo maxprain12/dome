@@ -109,7 +109,7 @@ async function dismissCookieBanners(webContents) {
 }
 
 /**
- * Filter boilerplate paragraphs (cookie notices, etc.) from scraped content before LLM
+ * Filter boilerplate paragraphs (cookie notices, nav, etc.) from scraped content
  * @param {string} content - Raw content text
  * @returns {string} Filtered content
  */
@@ -118,16 +118,23 @@ function filterBoilerplate(content) {
   const boilerplateKeywords = [
     'cookies', 'cookie policy', 'privacy policy', 'we use cookies',
     'improve our services', 'personalize your experience', 'consent',
-    'gdpr', 'accept cookies', 'cookie settings', 'cookie preferences'
+    'gdpr', 'accept cookies', 'cookie settings', 'cookie preferences',
+    'subscribe to our newsletter', 'sign up for', 'join our mailing list',
+    'this site uses cookies', 'by continuing to use', 'we and our partners'
+  ];
+  const strongSignals = [
+    'accept all cookies', 'manage preferences', 'cookie consent',
+    'essential and non-essential cookies'
   ];
   const paragraphs = content.split(/\n\s*\n/);
   const filtered = paragraphs.filter((p) => {
     const pTrim = p.trim();
     if (!pTrim) return false;
     const pLower = pTrim.toLowerCase();
+    if (strongSignals.some((s) => pLower.includes(s))) return false;
     const matches = boilerplateKeywords.filter((k) => pLower.includes(k));
     if (matches.length >= 2) return false;
-    if (pTrim.length < 100 && matches.length >= 1) return false;
+    if (pTrim.length < 80 && matches.length >= 1) return false;
     return true;
   });
   return filtered.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
@@ -141,37 +148,45 @@ function filterBoilerplate(content) {
 async function extractMetadata(webContents) {
   const extractScript = `
     (function() {
-      const metadata = {};
-      
-      // Helper function to get meta content
+      var metadata = {};
       function getMeta(selector) {
-        const el = document.querySelector(selector);
-        return el ? el.content || el.getAttribute('content') : null;
+        var el = document.querySelector(selector);
+        return el ? (el.content || el.getAttribute('content')) : null;
       }
-      
-      // Open Graph tags
       metadata.title = getMeta('meta[property="og:title"]') || document.title || null;
-      metadata.description = getMeta('meta[property="og:description"]') || getMeta('meta[name="description"]');
-      metadata.image = getMeta('meta[property="og:image"]');
-      
-      // Author
+      metadata.description = getMeta('meta[property="og:description"]') || getMeta('meta[name="description"]') || getMeta('meta[name="twitter:description"]');
+      metadata.image = getMeta('meta[property="og:image"]') || getMeta('meta[name="twitter:image"]');
       metadata.author = getMeta('meta[name="author"]') || getMeta('meta[property="article:author"]');
-      
-      // Published date
+      metadata.section = getMeta('meta[property="article:section"]');
+      metadata.tags = getMeta('meta[property="article:tag"]');
       metadata.published_date = getMeta('meta[property="article:published_time"]');
       if (!metadata.published_date) {
-        const timeEl = document.querySelector('time[datetime]');
+        var timeEl = document.querySelector('time[datetime]');
         if (timeEl) metadata.published_date = timeEl.getAttribute('datetime');
       }
-      
-      // Extract images from page
-      const images = Array.from(document.querySelectorAll('img'))
-        .map(img => img.src || img.getAttribute('data-src'))
-        .filter(src => src && (src.startsWith('http') || src.startsWith('//')))
+      metadata.modified_date = getMeta('meta[property="article:modified_time"]');
+      if (!metadata.published_date || !metadata.modified_date) {
+        var scripts = document.querySelectorAll('script[type="application/ld+json"]');
+        for (var i = 0; i < scripts.length; i++) {
+          try {
+            var ld = JSON.parse(scripts[i].textContent);
+            var items = Array.isArray(ld) ? ld : [ld];
+            for (var j = 0; j < items.length; j++) {
+              var obj = items[j];
+              if (obj && (obj['@type'] === 'Article' || obj['@type'] === 'NewsArticle' || obj.datePublished)) {
+                if (obj.datePublished && !metadata.published_date) metadata.published_date = obj.datePublished;
+                if (obj.dateModified && !metadata.modified_date) metadata.modified_date = obj.dateModified;
+                break;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+      var images = Array.from(document.querySelectorAll('img'))
+        .map(function(img) { return img.src || img.getAttribute('data-src'); })
+        .filter(function(src) { return src && (src.indexOf('http') === 0 || src.indexOf('//') === 0); })
         .slice(0, 10);
-      
       metadata.images = images;
-      
       return metadata;
     })();
   `;
@@ -185,30 +200,33 @@ async function extractMetadata(webContents) {
 }
 
 /**
- * Extract main content from page (article body, excluding nav/footer/banners)
+ * Convert DOM element to Markdown-structured text (headings, lists, paragraphs)
  * @param {object} webContents - Electron webContents
- * @returns {Promise<string>} Main content text
+ * @returns {Promise<string>} Main content as Markdown
  */
 async function extractMainContent(webContents) {
   const extractScript = `
     (function() {
-      const contentSelectors = [
+      var contentSelectors = [
         'article',
         'main',
         '[role="main"]',
-        '.content',
+        '[data-slot="article-body"]',
         '.post-content',
         '.article-content',
-        '#content',
         '.entry-content',
         '.prose',
+        '.content',
+        '#content',
         '.article-body',
         '.post-body',
+        '.blog-post-content',
+        '.story-body',
         '[itemprop="articleBody"]',
         '.markdown'
       ];
-      const excludeTags = ['nav', 'footer', 'aside'];
-      const minLength = 300;
+      var excludeTags = ['nav', 'footer', 'aside', 'script', 'style'];
+      var minLength = 300;
 
       function removeExcluded(container) {
         excludeTags.forEach(function(tag) {
@@ -225,20 +243,58 @@ async function extractMainContent(webContents) {
         }
       }
 
+      function toMarkdown(el) {
+        if (!el) return '';
+        var lines = [];
+        var children = el.children;
+        for (var i = 0; i < children.length; i++) {
+          var child = children[i];
+          var tag = (child.tagName || '').toLowerCase();
+          var text = (child.innerText || child.textContent || '').trim();
+          if (!text) continue;
+          if (tag === 'h1') lines.push('\\n# ' + text + '\\n');
+          else if (tag === 'h2') lines.push('\\n## ' + text + '\\n');
+          else if (tag === 'h3') lines.push('\\n### ' + text + '\\n');
+          else if (tag === 'h4') lines.push('\\n#### ' + text + '\\n');
+          else if (tag === 'blockquote') lines.push('\\n> ' + text.replace(/\\n/g, '\\n> ') + '\\n');
+          else if (tag === 'ul' || tag === 'ol') {
+            var items = child.querySelectorAll('li');
+            for (var k = 0; k < items.length; k++) {
+              var itemText = (items[k].innerText || items[k].textContent || '').trim();
+              if (itemText) lines.push('- ' + itemText);
+            }
+            lines.push('');
+          }
+          else if (tag === 'li') lines.push('- ' + text);
+          else if (tag === 'p' || tag === 'div') lines.push('\\n' + text + '\\n');
+          else lines.push('\\n' + text + '\\n');
+        }
+        return lines.join('').replace(/\\n{3,}/g, '\\n\\n').trim();
+      }
+
+      function getTextContent(el) {
+        return (el.innerText || el.textContent || '').trim();
+      }
+
       for (var s = 0; s < contentSelectors.length; s++) {
         var element = document.querySelector(contentSelectors[s]);
         if (!element) continue;
         var clone = element.cloneNode(true);
         removeExcluded(clone);
-        var text = (clone.innerText || clone.textContent || '').trim();
-        if (text && text.length > minLength) return text;
+        var plainText = getTextContent(clone);
+        if (plainText && plainText.length >= minLength) {
+          var md = toMarkdown(clone);
+          return (md && md.length >= minLength) ? md : plainText;
+        }
       }
 
       var body = document.body;
       if (body) {
         var c = body.cloneNode(true);
         removeExcluded(c);
-        return (c.innerText || c.textContent || '').trim();
+        var plain = getTextContent(c);
+        var md = toMarkdown(c);
+        return (md && md.length >= minLength) ? md : plain;
       }
       return '';
     })();
@@ -296,10 +352,10 @@ async function scrapeUrl(url) {
     
     console.log(`[WebScraper] Starting scrape for: ${url}`);
     
-    // Create a hidden browser window
+    // Create a hidden browser window (smaller size to reduce memory - 640x360)
     scraperWindow = new BrowserWindow({
-      width: 1280,
-      height: 720,
+      width: 640,
+      height: 360,
       show: false,
       webPreferences: {
         nodeIntegration: false,
@@ -350,25 +406,37 @@ async function scrapeUrl(url) {
     // Wait for dynamic content to load
     await wait(2000);
 
-    // Extract data
+    // Extract data (get mainContent first - avoid loading full HTML when possible)
     const title = await getPageTitle(webContents);
-    const html = await getPageHtml(webContents);
     const mainContent = await extractMainContent(webContents);
     const metadata = await extractMetadata(webContents);
-    
-    // Generate screenshot
+
+    let content;
+    if (mainContent.length > 300) {
+      content = mainContent;
+    } else {
+      const html = await getPageHtml(webContents);
+      content = extractText(html);
+      // html goes out of scope here - allows GC to reclaim memory
+    }
+    content = filterBoilerplate(content);
+
+    // Generate screenshot (JPEG at 85% for smaller size, avoid OOM)
     let screenshot = null;
+    let screenshotFormat = 'png';
     try {
       const image = await webContents.capturePage();
-      screenshot = image.toPNG().toString('base64');
+      screenshot = image.toJPEG(85).toString('base64');
+      screenshotFormat = 'jpeg';
     } catch (error) {
       console.error('[WebScraper] Error generating screenshot:', error);
-      // Continue without screenshot
+      try {
+        const image = await webContents.capturePage();
+        screenshot = image.toPNG().toString('base64');
+      } catch (fallbackError) {
+        console.error('[WebScraper] JPEG fallback failed:', fallbackError);
+      }
     }
-    
-    // Clean HTML to plain text if main content is too short
-    let content = mainContent.length > 300 ? mainContent : extractText(html);
-    content = filterBoilerplate(content);
 
     const result = {
       success: true,
@@ -379,7 +447,8 @@ async function scrapeUrl(url) {
         ...metadata,
         url
       },
-      screenshot
+      screenshot,
+      screenshotFormat,
     };
     
     console.log(`[WebScraper] Successfully scraped: ${url}`);

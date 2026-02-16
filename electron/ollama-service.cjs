@@ -86,19 +86,27 @@ async function checkAvailability(baseUrl = DEFAULT_BASE_URL) {
  * @param {string} baseUrl - Ollama base URL
  * @returns {Promise<number[]>} Embedding vector
  */
+// Most embedding models (e.g. mxbai-embed-large: 512 tokens) have limited context.
+// ~4 chars per token → 512 * 4 = 2048. Use 2000 to stay safe.
+const EMBEDDING_MAX_CHARS = 2000;
+
 async function generateEmbedding(text, model = DEFAULT_EMBEDDING_MODEL, baseUrl = DEFAULT_BASE_URL) {
   try {
     if (!text || text.trim().length === 0) {
       throw new Error('Text cannot be empty');
     }
 
-    console.log(`[OllamaService] Generating embedding with model: ${model}`);
+    const truncated = text.length > EMBEDDING_MAX_CHARS
+      ? text.substring(0, EMBEDDING_MAX_CHARS) + '...'
+      : text;
+
+    console.log(`[OllamaService] Generating embedding with model: ${model}${text.length > EMBEDDING_MAX_CHARS ? ` (truncated from ${text.length} chars)` : ''}`);
 
     const response = await makeRequest(`${baseUrl}/api/embeddings`, {
       method: 'POST',
       body: {
         model,
-        prompt: text
+        prompt: truncated
       }
     });
 
@@ -133,8 +141,14 @@ async function generateSummary(text, model = DEFAULT_MODEL, baseUrl = DEFAULT_BA
 
     console.log(`[OllamaService] Generating summary with model: ${model}`);
 
-    const prompt = `Resume el siguiente contenido de manera concisa y clara, destacando los puntos principales. El resumen debe ser útil para entender el contenido sin necesidad de leer el texto completo.
-IMPORTANTE: Ignora cualquier mención de cookies, consentimiento, banners de privacidad o elementos de navegación. Enfócate solo en el contenido principal del artículo.
+    const prompt = `Genera un resumen detallado y estructurado del siguiente contenido. El resumen debe capturar el valor real del artículo: qué aporta, qué concluye y a quién va dirigido.
+
+Estructura el resumen así:
+1. Inicio con 2-3 frases de contexto que expliquen de qué trata el artículo y su importancia.
+2. Lista 3-5 puntos clave con viñetas (•).
+3. Termina con la conclusión o tesis principal y el takeaway (qué debe quedarse el lector).
+
+IMPORTANTE: Ignora por completo menciones de cookies, consentimiento, banners de privacidad, suscripción a newsletters o elementos de navegación. Enfócate exclusivamente en el contenido sustancial del artículo.
 
 Contenido:
 ${truncatedText}
@@ -155,12 +169,30 @@ Resumen:`;
       }
     });
 
-    if (response.response) {
-      const summary = response.response.trim();
-      console.log(`[OllamaService] Generated summary (${summary.length} chars)`);
-      return summary;
+    // Support multiple response formats (Ollama standard, cloud models, reasoning models with "thinking")
+    let summaryText =
+      (typeof response.response === 'string' ? response.response : null) ??
+      response.message?.content ??
+      response.text ??
+      response.output ??
+      (response.choices && response.choices[0]?.message?.content);
+
+    // For reasoning models (e.g. glm-5): response may be empty, output might be in "thinking"
+    if ((!summaryText || !summaryText.trim()) && typeof response.thinking === 'string' && response.thinking.trim()) {
+      summaryText = response.thinking;
     }
 
+    if (summaryText && typeof summaryText === 'string') {
+      const summary = summaryText.trim();
+      if (summary) {
+        console.log(`[OllamaService] Generated summary (${summary.length} chars)`);
+        return summary;
+      }
+    }
+
+    const respVal = response?.response;
+    console.error('[OllamaService] Invalid summary response - response type:', typeof respVal,
+      Array.isArray(respVal) ? `len=${respVal.length}` : (typeof respVal === 'string' ? `len=${respVal.length} preview=${respVal.slice(0, 80)}` : ''));
     throw new Error('Invalid response from Ollama API');
   } catch (error) {
     console.error('[OllamaService] Error generating summary:', error);
