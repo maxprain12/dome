@@ -145,9 +145,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         updates: mergedResource,
       });
 
-      if (indexerDeps && resourceIndexer.shouldIndex(mergedResource)) {
-        resourceIndexer.scheduleIndexing(resource.id, indexerDeps);
-      }
+      // NOTE: We intentionally do NOT call scheduleIndexing on update.
+      // Generating embeddings on every note save would exhaust heap memory (OOM).
+      // Embeddings are generated once on initial resource creation only.
 
       return { success: true, data: mergedResource };
     } catch (error) {

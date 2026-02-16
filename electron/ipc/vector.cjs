@@ -131,9 +131,9 @@ function register({ ipcMain, windowManager, database, ollamaService, initModule 
           // If error is about schema/dimension mismatch, recreate table and retry
           const errorMessage = addError.message || '';
           const isSchemaError = errorMessage.includes('dictionary') ||
-                               errorMessage.includes('Schema') ||
-                               errorMessage.includes('schema') ||
-                               errorMessage.includes('dimension');
+            errorMessage.includes('Schema') ||
+            errorMessage.includes('schema') ||
+            errorMessage.includes('dimension');
 
           if (isSchemaError && !tableCreated) {
             console.log('[Vector] Schema/dimension mismatch detected, recreating table...');

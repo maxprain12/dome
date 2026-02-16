@@ -255,7 +255,8 @@ export function useResources(filter?: ResourceFilter) {
             if (result.success && result.data) {
                 // El listener actualiza; fetchResources como respaldo
                 fetchResources();
-                return { success: true, resource: result.data as Resource };
+                const imported = result.data as Resource;
+                return { success: true, resource: imported };
             }
 
             // Handle duplicate

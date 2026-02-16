@@ -134,7 +134,7 @@ function ToolbarButton({
       className={`
         flex items-center gap-2 h-8 px-3 rounded-lg text-sm font-medium transition-all
         ${variant === 'primary'
-          ? 'bg-[var(--dome-accent)] text-white hover:bg-[var(--dome-accent-hover)] shadow-sm hover:shadow'
+          ? 'bg-[var(--dome-accent)] text-white hover:bg-[var(--dome-accent-hover)] hover:text-white shadow-sm hover:shadow'
           : 'text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] hover:bg-[var(--dome-bg-secondary)] border border-transparent hover:border-[var(--dome-border)]'
         }
       `}

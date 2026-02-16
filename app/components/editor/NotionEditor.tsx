@@ -123,17 +123,54 @@ export default function NotionEditor({
       FileBlockExtension,
       DragHandleExtension,
     ],
-    content,
+    // Parse content: if contentType is 'json', parse the JSON string for Tiptap
+    content: contentType === 'json' && content ? (() => { try { return JSON.parse(content); } catch { return content; } })() : content,
     editable,
     onUpdate: ({ editor }) => {
       if (onChange) {
-        onChange(editor.getHTML());
+        // Emit JSON string to preserve all custom node attributes (mermaid, callout, etc.)
+        onChange(JSON.stringify(editor.getJSON()));
       }
     },
     editorProps: {
       attributes: {
         class: 'notion-editor prose prose-sm sm:prose lg:prose-lg xl:prose-xl focus:outline-none max-w-none',
         spellcheck: 'false',
+      },
+      // Prevent ProseMirror's default scrollIntoView from scrolling
+      // ancestor containers (body, #root, etc.) which pushes the header off-screen.
+      // Instead, manually scroll only the nearest overflow-auto scroll container.
+      handleScrollToSelection(view) {
+        // Find the cursor/selection coordinates
+        const { from } = view.state.selection;
+        const coords = view.coordsAtPos(from);
+
+        // Walk up from the editor DOM to find the scroll container (overflow-auto)
+        let scrollParent: HTMLElement | null = view.dom.parentElement;
+        while (scrollParent) {
+          const style = window.getComputedStyle(scrollParent);
+          const overflowY = style.overflowY;
+          if (overflowY === 'auto' || overflowY === 'scroll') {
+            break;
+          }
+          scrollParent = scrollParent.parentElement;
+        }
+
+        if (scrollParent) {
+          const containerRect = scrollParent.getBoundingClientRect();
+          const margin = 80; // px margin from edges
+
+          // Scroll down if cursor is below visible area
+          if (coords.bottom > containerRect.bottom - margin) {
+            scrollParent.scrollTop += coords.bottom - containerRect.bottom + margin;
+          }
+          // Scroll up if cursor is above visible area
+          if (coords.top < containerRect.top + margin) {
+            scrollParent.scrollTop -= containerRect.top + margin - coords.top;
+          }
+        }
+
+        return true; // Prevent default scrollIntoView behavior
       },
     },
   });
@@ -142,7 +179,7 @@ export default function NotionEditor({
     event.preventDefault();
     event.stopPropagation();
     const files = Array.from(event.dataTransfer.files);
-    
+
     if (!files.length || !editor) return;
 
     for (const file of files) {
@@ -169,7 +206,7 @@ export default function NotionEditor({
 
         if (result?.success && result.data) {
           const resource = result.data;
-          
+
           // Insert appropriate block based on type
           if (type === 'image') {
             // Get file data URL for image

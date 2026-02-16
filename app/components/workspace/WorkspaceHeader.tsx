@@ -151,7 +151,7 @@ export default function WorkspaceHeader({
 
   return (
     <header
-      className={`flex items-center justify-between px-4 py-3 border-b app-region-drag${isWindows ? ' win-titlebar-padding' : ''}`}
+      className={`flex items-center justify-between px-4 py-3 border-b app-region-drag shrink-0${isWindows ? ' win-titlebar-padding' : ''}`}
       style={{
         background: 'var(--bg)',
         borderColor: 'var(--border)',

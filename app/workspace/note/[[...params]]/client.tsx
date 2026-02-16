@@ -11,8 +11,33 @@ import GraphPanel from '@/components/workspace/GraphPanel';
 import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import MetadataModal from '@/components/workspace/MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { looksLikeHtml, markdownToHtml, htmlToMarkdown } from '@/lib/utils/markdown';
+import { looksLikeHtml, markdownToHtml } from '@/lib/utils/markdown';
 import { type Resource } from '@/types';
+
+/**
+ * Detect content format for the editor.
+ * - JSON string (new format) → pass as-is, contentType='json'
+ * - HTML (legacy) → pass as-is, contentType='html'
+ * - Markdown (legacy) → convert to HTML, contentType='html'
+ */
+function isJsonContent(content: string): boolean {
+  if (!content) return false;
+  const t = content.trim();
+  // Tiptap JSON always starts with { "type": "doc"
+  return t.startsWith('{') && t.includes('"type"') && t.includes('"doc"');
+}
+
+function detectContentType(content: string): 'html' | 'json' {
+  if (isJsonContent(content)) return 'json';
+  return 'html';
+}
+
+function detectContentForEditor(content: string): string {
+  if (!content) return '';
+  if (isJsonContent(content)) return content;
+  if (looksLikeHtml(content)) return content;
+  return markdownToHtml(content || '');
+}
 
 interface NoteWorkspaceClientProps {
   resourceId: string;
@@ -37,6 +62,19 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedContentRef = useRef<string>('');
   const savedFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Prevent ProseMirror scrollIntoView from scrolling the outer container
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const preventScroll = () => {
+      if (el.scrollTop !== 0) el.scrollTop = 0;
+      if (el.scrollLeft !== 0) el.scrollLeft = 0;
+    };
+    el.addEventListener('scroll', preventScroll);
+    return () => el.removeEventListener('scroll', preventScroll);
+  }, []);
 
   // Load resource
   useEffect(() => {
@@ -109,17 +147,16 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     saveContent(content, true);
   }, [content, saveContent]);
 
-  // Debounced save on content change (editor gives HTML, we convert to Markdown and save)
-  const handleContentChange = useCallback((htmlFromEditor: string) => {
-    const markdown = htmlToMarkdown(htmlFromEditor);
-    setContent(markdown);
+  // Debounced save on content change — editor now emits JSON string directly
+  const handleContentChange = useCallback((jsonFromEditor: string) => {
+    setContent(jsonFromEditor);
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
     saveTimeoutRef.current = setTimeout(() => {
-      saveContent(markdown);
+      saveContent(jsonFromEditor);
     }, 1000);
   }, [saveContent]);
 
@@ -199,7 +236,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
   }
 
   return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
+    <div ref={containerRef} className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)', overflow: 'clip' }}>
       {/* Shared Header */}
       <WorkspaceHeader
         resource={resource}
@@ -243,7 +280,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
       />
 
       {/* Main content */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex relative min-h-0" style={{ overflow: 'clip' }}>
         {/* Sources Panel */}
         {sourcesPanelOpen && resource && (
           <SourcesPanel
@@ -253,12 +290,12 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
         )}
 
         {/* Editor area */}
-        <div className="flex-1 overflow-hidden relative">
+        <div className="flex-1 relative min-h-0" style={{ overflow: 'clip' }}>
           <div className="h-full overflow-auto p-6">
             <div className="note-editor-with-guides w-full">
               <NotionEditor
-                content={looksLikeHtml(content) ? content : markdownToHtml(content || '')}
-                contentType="html"
+                content={detectContentForEditor(content)}
+                contentType={detectContentType(content)}
                 onChange={handleContentChange}
                 placeholder="Escribe '/' para comandos..."
               />

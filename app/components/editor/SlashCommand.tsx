@@ -106,13 +106,13 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({ editor }:
 
   const groupedItems = hasResults
     ? state.items.reduce((acc, item) => {
-    const category = item.category;
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category]!.push(item);
-    return acc;
-  }, {} as Record<string, SlashCommandItem[]>)
+      const category = item.category;
+      if (!acc[category]) {
+        acc[category] = [];
+      }
+      acc[category]!.push(item);
+      return acc;
+    }, {} as Record<string, SlashCommandItem[]>)
     : {};
 
   // Calculate position - ensure menu stays in viewport
@@ -131,11 +131,14 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({ editor }:
     overflowY: 'auto',
     overflowX: 'hidden',
     zIndex: 10001,
-    padding: '8px',
-    backgroundColor: 'var(--bg)',
-    border: '1px solid var(--border)',
-    borderRadius: '12px',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
+    padding: '6px',
+    backgroundColor: 'var(--bg-secondary)',
+    border: '1.5px solid var(--border)',
+    borderRadius: 'var(--radius-xl, 12px)',
+    boxShadow: '0 12px 48px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    animation: 'dropdown-appear 0.15s cubic-bezier(0.16, 1, 0.3, 1)',
   };
 
   const menuContent = (
@@ -149,92 +152,114 @@ export const SlashCommandMenu = React.memo(function SlashCommandMenu({ editor }:
       {state.query && (
         <div
           style={{
-            padding: '6px 12px 8px',
+            padding: '6px 10px 8px',
             fontSize: '11px',
-            color: 'var(--secondary-text)',
+            color: 'var(--tertiary-text)',
+            fontWeight: 500,
           }}
         >
-          Buscando: &quot;{state.query}&quot;
+          Search: &quot;{state.query}&quot;
         </div>
       )}
       {!hasResults ? (
         <div
           style={{
-            padding: '24px 16px',
+            padding: '20px 16px',
             textAlign: 'center',
             fontSize: '13px',
             color: 'var(--secondary-text)',
           }}
         >
-          Ningún comando coincide con &quot;{state.query || ''}&quot;
+          No commands match &quot;{state.query || ''}&quot;
         </div>
       ) : (
-      Object.entries(groupedItems).map(([category, categoryItems]) => (
-        <div key={category}>
-          <div
-            style={{
-              padding: '6px 12px 4px',
-              fontSize: '10px',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              color: 'var(--secondary-text)',
-              letterSpacing: '0.08em',
-            }}
-          >
-            {category}
-          </div>
-          {categoryItems.map((item) => {
-            const globalIndex = state.items.indexOf(item);
-            const isSelected = globalIndex === state.selectedIndex;
-            return (
-              <div
-                key={`${item.title}-${item.category}`}
-                data-index={globalIndex}
-                role="option"
-                aria-selected={isSelected}
-                tabIndex={-1}
-                onClick={() => {
-                  if (state.range) {
-                    item.command({
-                      editor,
-                      range: state.range,
+        Object.entries(groupedItems).map(([category, categoryItems]) => (
+          <div key={category}>
+            <div
+              style={{
+                padding: '8px 10px 4px',
+                fontSize: '10px',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                color: 'var(--tertiary-text)',
+                letterSpacing: '0.06em',
+              }}
+            >
+              {category}
+            </div>
+            {categoryItems.map((item) => {
+              const globalIndex = state.items.indexOf(item);
+              const isSelected = globalIndex === state.selectedIndex;
+              return (
+                <div
+                  key={`${item.title}-${item.category}`}
+                  data-index={globalIndex}
+                  role="option"
+                  aria-selected={isSelected}
+                  tabIndex={-1}
+                  onClick={() => {
+                    if (state.range) {
+                      item.command({
+                        editor,
+                        range: state.range,
+                      });
+                    }
+                  }}
+                  className="flex items-center gap-3 cursor-pointer rounded-lg transition-all duration-100 focus-visible:outline-none"
+                  style={{
+                    padding: '8px 10px',
+                    backgroundColor: isSelected ? 'var(--translucent)' : 'transparent',
+                    marginBottom: '1px',
+                    borderLeft: isSelected ? '2px solid var(--accent)' : '2px solid transparent',
+                  }}
+                  onMouseEnter={() => {
+                    const tr = editor.state.tr.setMeta('slashCommand', {
+                      type: 'updateSelectedIndex',
+                      index: globalIndex,
                     });
-                  }
-                }}
-                className="flex items-center gap-3 min-h-[44px] cursor-pointer rounded-lg transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
-                style={{
-                  padding: '10px 12px',
-                  backgroundColor: isSelected ? 'var(--bg-hover)' : 'transparent',
-                  marginBottom: '2px',
-                }}
-                onMouseEnter={() => {
-                  const tr = editor.state.tr.setMeta('slashCommand', {
-                    type: 'updateSelectedIndex',
-                    index: globalIndex,
-                  });
-                  editor.view.dispatch(tr);
-                }}
-              >
-                {item.icon && (
-                  <div style={{ color: 'var(--primary-text)', display: 'flex', alignItems: 'center', fontSize: '18px' }}>
-                    {item.icon}
-                  </div>
-                )}
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: 'var(--primary-text)', fontSize: '14px', fontWeight: 500 }}>
-                    {item.title}
-                  </div>
-                  {item.description && (
-                    <div style={{ color: 'var(--secondary-text)', fontSize: '12px', marginTop: '2px' }}>
-                      {item.description}
+                    editor.view.dispatch(tr);
+                  }}
+                >
+                  {item.icon && (
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        color: isSelected ? 'var(--accent)' : 'var(--secondary-text)',
+                        width: 28,
+                        height: 28,
+                        borderRadius: 'var(--radius-md, 6px)',
+                        background: isSelected ? 'var(--translucent)' : 'var(--bg-tertiary)',
+                        transition: 'all 0.1s ease',
+                      }}
+                    >
+                      {item.icon}
                     </div>
                   )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      color: isSelected ? 'var(--accent)' : 'var(--primary-text)',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      lineHeight: 1.3,
+                    }}>
+                      {item.title}
+                    </div>
+                    {item.description && (
+                      <div style={{
+                        color: 'var(--tertiary-text)',
+                        fontSize: '11px',
+                        marginTop: '1px',
+                        lineHeight: 1.3,
+                      }}>
+                        {item.description}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      ))
+              );
+            })}
+          </div>
+        ))
       )}
     </div>
   );
@@ -527,15 +552,15 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       command: async ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).run();
-          
+
           if (typeof window !== 'undefined' && window.electron?.selectFile) {
             try {
               const filePaths = await window.electron.selectFile();
-              
+
               if (filePaths && filePaths.length > 0) {
                 const filePath = filePaths[0]!;
                 const filename = filePath.split('/').pop() || 'file';
-                
+
                 editor.chain().focus().insertContent({
                   type: 'fileBlock',
                   attrs: {
@@ -640,7 +665,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       command: async ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).run();
-          
+
           const searchQuery = await showPrompt('Search resource by name:');
           if (searchQuery && typeof window !== 'undefined' && window.electron?.db?.resources) {
             try {
@@ -648,9 +673,9 @@ export function getSlashCommandItems(): SlashCommandItem[] {
               if (result?.success && result.data && result.data.length > 0) {
                 // Show a simple selection if multiple results
                 let selectedResource = result.data[0]!;
-                
+
                 if (result.data.length > 1) {
-                  const options = result.data.slice(0, 5).map((r: { title: string }, i: number) => 
+                  const options = result.data.slice(0, 5).map((r: { title: string }, i: number) =>
                     `${i + 1}. ${r.title}`
                   ).join('\n');
                   const selection = await showPrompt(
@@ -661,7 +686,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
                     selectedResource = result.data[idx]!;
                   }
                 }
-                
+
                 // Insert resource mention
                 editor.chain().focus().insertContent({
                   type: 'resourceMention',
@@ -692,7 +717,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
       command: async ({ editor, range }) => {
         if (editor && range) {
           editor.chain().focus().deleteRange(range).run();
-          
+
           const searchQuery = await showPrompt('Search note by name:');
           if (searchQuery && typeof window !== 'undefined' && window.electron?.db?.resources) {
             try {
@@ -701,12 +726,12 @@ export function getSlashCommandItems(): SlashCommandItem[] {
               if (result?.success && result.data) {
                 // Filter only notes
                 const notes = result.data.filter((r: { type: string }) => r.type === 'note');
-                
+
                 if (notes.length > 0) {
                   let selectedNote = notes[0]!;
-                  
+
                   if (notes.length > 1) {
-                    const options = notes.slice(0, 5).map((r: { title: string }, i: number) => 
+                    const options = notes.slice(0, 5).map((r: { title: string }, i: number) =>
                       `${i + 1}. ${r.title}`
                     ).join('\n');
                     const selection = await showPrompt(
@@ -717,7 +742,7 @@ export function getSlashCommandItems(): SlashCommandItem[] {
                       selectedNote = notes[idx]!;
                     }
                   }
-                  
+
                   // Insert internal link
                   editor.chain().focus().insertContent([
                     {

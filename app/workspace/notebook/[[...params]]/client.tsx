@@ -191,7 +191,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
   }
 
   return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)', overflow: 'clip' }}>
       <WorkspaceHeader
         resource={resource}
         sidePanelOpen={isPanelOpen}
@@ -210,7 +210,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
         }
       />
 
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex relative min-h-0" style={{ overflow: 'clip' }}>
         {sourcesPanelOpen && resource && (
           <SourcesPanel
             resourceId={resourceId}
@@ -218,7 +218,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
           />
         )}
 
-        <div className="flex-1 overflow-hidden relative">
+        <div className="flex-1 relative min-h-0" style={{ overflow: 'clip' }}>
           <div className="h-full overflow-y-auto overflow-x-hidden scrollbar-gutter-stable">
             <PyodideProvider>
               <NotebookEditor

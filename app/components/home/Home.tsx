@@ -1,7 +1,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useClickOutside } from '@/lib/hooks/useClickOutside';
-import { FolderOpen, Plus, Loader2, CheckCircle2, AlertCircle, ChevronRight, Home as HomeIcon, X, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, MoreVertical, Pencil, Trash2, ExternalLink, FolderInput } from 'lucide-react';
+import { FolderOpen, Plus, Loader2, CheckCircle2, AlertCircle, ChevronRight, Home as HomeIcon, X, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, MoreVertical, Pencil, Trash2, ExternalLink, FolderInput, Globe } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { CommandCenter } from '@/components/CommandCenter/CommandCenter';
@@ -160,23 +160,13 @@ export default function Home() {
   const handleResourceSelect = useCallback(async (resource: any) => {
     console.log('Selected resource:', resource);
 
-    // Handle URL resources - open in browser
-    if (resource.type === 'url' && resource.metadata?.url) {
-      if (typeof window !== 'undefined' && window.electron) {
-        window.electron.invoke('open-external-url', resource.metadata.url);
-      } else {
-        window.open(resource.metadata.url, '_blank');
-      }
-      return;
-    }
-
     // In search mode we don't show folders; if one slips through, open as workspace (or no-op)
     if (resource.type === 'folder') {
       if (!isSearchMode) setCurrentFolderId(resource.id);
       return;
     }
 
-    // For all other resources (pdf, video, audio, image, document, note)
+    // For all resources (pdf, video, audio, image, document, note, url)
     // Open in a workspace window
     if (typeof window !== 'undefined' && window.electron?.workspace) {
       try {
@@ -1226,33 +1216,61 @@ export default function Home() {
           <ContextMenu
             x={contextMenu.x}
             y={contextMenu.y}
-            items={[
-              {
+            items={(() => {
+              const r = contextMenu.resource;
+              const items = [];
+
+              // Open action — all types
+              items.push({
                 id: 'open',
-                label: 'Open',
+                label: r.type === 'folder' ? 'Open folder' : 'Open',
                 icon: <ExternalLink size={14} />,
-                onClick: () => handleResourceSelect(contextMenu.resource),
-              },
-              {
+                onClick: () => r.type === 'folder' ? setCurrentFolderId(r.id) : handleResourceSelect(r),
+              });
+
+              // URL-specific: Open in Browser
+              if (r.type === 'url' && r.metadata?.url) {
+                items.push({
+                  id: 'open-browser',
+                  label: 'Open in Browser',
+                  icon: <Globe size={14} />,
+                  onClick: () => {
+                    if (window.electron) {
+                      window.electron.invoke('open-external-url', r.metadata?.url);
+                    }
+                  },
+                });
+              }
+
+              // Rename — all types
+              items.push({
                 id: 'rename',
                 label: 'Rename',
                 icon: <Pencil size={14} />,
-                onClick: () => handleResourceRename(contextMenu.resource),
-              },
-              {
-                id: 'move',
-                label: 'Move to folder',
-                icon: <FolderInput size={14} />,
-                onClick: () => handleMoveToFolderRequest(contextMenu.resource),
-              },
-              {
+                onClick: () => handleResourceRename(r),
+              });
+
+              // Move to folder — non-folder types
+              if (r.type !== 'folder') {
+                items.push({
+                  id: 'move',
+                  label: 'Move to folder',
+                  icon: <FolderInput size={14} />,
+                  onClick: () => handleMoveToFolderRequest(r),
+                });
+              }
+
+              // Delete — all types
+              items.push({
                 id: 'delete',
                 label: 'Delete',
                 icon: <Trash2 size={14} />,
-                onClick: () => handleDeleteResource(contextMenu.resource),
+                onClick: () => handleDeleteResource(r),
                 danger: true,
-              },
-            ]}
+              });
+
+              return items;
+            })()}
             onClose={() => setContextMenu(null)}
           />
         )}

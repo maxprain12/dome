@@ -4,12 +4,30 @@
 
 /* Z-Index utilities using design tokens */
 @layer utilities {
-  .z-dropdown { z-index: var(--z-dropdown); }
-  .z-sticky { z-index: var(--z-sticky); }
-  .z-fixed { z-index: var(--z-fixed); }
-  .z-modal { z-index: var(--z-modal); }
-  .z-popover { z-index: var(--z-popover); }
-  .z-max { z-index: var(--z-max); }
+  .z-dropdown {
+    z-index: var(--z-dropdown);
+  }
+
+  .z-sticky {
+    z-index: var(--z-sticky);
+  }
+
+  .z-fixed {
+    z-index: var(--z-fixed);
+  }
+
+  .z-modal {
+    z-index: var(--z-modal);
+  }
+
+  .z-popover {
+    z-index: var(--z-popover);
+  }
+
+  .z-max {
+    z-index: var(--z-max);
+  }
+
   /* Performance: skip rendering of off-screen list items */
   .content-visibility-auto {
     content-visibility: auto;
@@ -161,6 +179,7 @@
   --dome-text-secondary: var(--secondary-text);
   --dome-text-muted: var(--tertiary-text);
   --dome-accent: var(--accent);
+  --dome-accent-hover: var(--accent-hover);
   --dome-accent-bg: var(--translucent);
   --tertiary: var(--tertiary-text);
   --brand-accent: var(--accent);
@@ -180,6 +199,13 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color-scheme: light;
+  height: 100%;
+  overflow: clip;
+}
+
+#root {
+  height: 100%;
+  overflow: clip;
 }
 
 body {
@@ -191,7 +217,7 @@ body {
   padding-left: var(--safe-area-inset-left);
   padding-right: var(--safe-area-inset-right);
   padding-bottom: var(--safe-area-inset-bottom);
-  overflow: hidden;
+  overflow: clip;
   overscroll-behavior: none;
   font-family: var(--font-sans);
   color: var(--primary-text);
@@ -215,6 +241,7 @@ a:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -772,6 +799,7 @@ a:hover {
     opacity: 0.9;
     transform: translateX(100%);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -954,6 +982,7 @@ a:hover {
   max-width: 72ch;
   margin: 0 auto;
 }
+
 .note-editor-with-guides::before,
 .note-editor-with-guides::after {
   content: '';
@@ -965,9 +994,11 @@ a:hover {
   opacity: 0.5;
   pointer-events: none;
 }
+
 .note-editor-with-guides::before {
   left: 0;
 }
+
 .note-editor-with-guides::after {
   right: 0;
 }
@@ -1188,6 +1219,7 @@ a:hover {
     opacity: 0.9;
     transform: scale(0.97);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -1816,6 +1848,7 @@ a:hover {
   color: var(--secondary-text);
   line-height: 1.5;
 }
+
 .content-preview-note.markdown-preview h1,
 .content-preview-note.markdown-preview h2,
 .content-preview-note.markdown-preview h3 {
@@ -1824,6 +1857,7 @@ a:hover {
   color: var(--primary-text);
   margin: 0 0 4px 0;
 }
+
 .content-preview-note.markdown-preview p,
 .content-preview-note.markdown-preview span {
   margin: 0 0 4px 0;
@@ -1832,6 +1866,7 @@ a:hover {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
 .content-preview-note.markdown-preview ul,
 .content-preview-note.markdown-preview ol {
   margin: 0 0 4px 0;
@@ -1841,12 +1876,14 @@ a:hover {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
 .content-preview-note.markdown-preview code {
   font-size: 12px;
   background: var(--bg-tertiary);
   padding: 1px 4px;
   border-radius: 4px;
 }
+
 .content-preview-note.markdown-preview strong {
   font-weight: 600;
   color: var(--primary-text);
@@ -3308,6 +3345,7 @@ a:hover {
     opacity: 0;
     transform: translateY(-4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -3787,12 +3825,10 @@ a:hover {
 
 .resource-card-skeleton {
   min-height: 220px;
-  background: linear-gradient(
-    90deg,
-    var(--bg-tertiary) 25%,
-    var(--bg-hover) 50%,
-    var(--bg-tertiary) 75%
-  );
+  background: linear-gradient(90deg,
+      var(--bg-tertiary) 25%,
+      var(--bg-hover) 50%,
+      var(--bg-tertiary) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: var(--radius-lg);
@@ -3801,12 +3837,10 @@ a:hover {
 
 .resource-card-list-skeleton {
   height: 72px;
-  background: linear-gradient(
-    90deg,
-    var(--bg-tertiary) 25%,
-    var(--bg-hover) 50%,
-    var(--bg-tertiary) 75%
-  );
+  background: linear-gradient(90deg,
+      var(--bg-tertiary) 25%,
+      var(--bg-hover) 50%,
+      var(--bg-tertiary) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: var(--radius-md);
