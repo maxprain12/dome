@@ -135,11 +135,36 @@ export function useResources(filter?: ResourceFilter) {
         // Listener: Recurso actualizado
         const unsubscribeUpdate = window.electron.on('resource:updated',
             ({ id, updates }: { id: string, updates: Partial<Resource> }) => {
+                // When thumbnail is ready (e.g. URL screenshot), broadcast omits thumbnail_data
+                // to avoid OOM. Re-fetch the resource to get thumbnail_data for preview.
+                if (updates?.thumbnail_ready && window.electron?.db?.resources?.getById) {
+                    window.electron.db.resources.getById(id).then((result) => {
+                        if (result?.success && result.data) {
+                            const full = normalizeResource(result.data as Resource);
+                            setResources(prev =>
+                                prev.map(r => (r.id !== id ? r : full))
+                            );
+                        }
+                    }).catch(() => {
+                        // Fallback to merge if re-fetch fails
+                        setResources(prev =>
+                            prev.map(r => {
+                                if (r.id !== id) return r;
+                                const merged = { ...r, ...updates, updated_at: Date.now() };
+                                if (updates?.metadata != null) {
+                                    merged.metadata = parseResourceMetadata(updates.metadata);
+                                }
+                                return merged;
+                            })
+                        );
+                    });
+                    return;
+                }
                 setResources(prev =>
                     prev.map(r => {
                         if (r.id !== id) return r;
                         const merged = { ...r, ...updates, updated_at: Date.now() };
-                        if (updates.metadata != null) {
+                        if (updates?.metadata != null) {
                             merged.metadata = parseResourceMetadata(updates.metadata);
                         }
                         return merged;

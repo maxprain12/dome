@@ -1,8 +1,8 @@
+import { chunk as llmChunk } from 'llm-chunk';
 
 /**
- * Simple text chunking utility
+ * Chunk with overlap using llm-chunk (efficient, avoids RangeError with long text)
  */
-
 export interface Chunk {
   text: string;
   startIndex: number;
@@ -18,47 +18,29 @@ export interface ChunkingOptions {
 const DEFAULT_OPTIONS: ChunkingOptions = {
   chunkSize: 1000,
   chunkOverlap: 200,
-  separators: ["\n\n", "\n", " ", ""],
+  separators: ['\n\n', '\n', ' ', ''],
 };
 
 export function chunkText(text: string, options: Partial<ChunkingOptions> = {}): Chunk[] {
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  const chunks: Chunk[] = [];
-  
-  if (!text) return chunks;
+  if (!text?.trim()) return [];
 
-  let startIndex = 0;
-  
-  while (startIndex < text.length) {
-    let endIndex = startIndex + opts.chunkSize;
-    
-    if (endIndex >= text.length) {
-      endIndex = text.length;
-    } else {
-        // Try to find a separator to break at
-        let splitFound = false;
-        for (const separator of opts.separators || []) {
-            const lastSeparatorIndex = text.lastIndexOf(separator, endIndex);
-            if (lastSeparatorIndex > startIndex) {
-                endIndex = lastSeparatorIndex + separator.length;
-                splitFound = true;
-                break;
-            }
-        }
-    }
-
-    chunks.push({
-      text: text.slice(startIndex, endIndex),
-      startIndex,
-      endIndex,
+  try {
+    const strings = llmChunk(text, {
+      minLength: 0,
+      maxLength: opts.chunkSize,
+      overlap: opts.chunkOverlap,
+      splitter: 'paragraph',
     });
-
-    startIndex = endIndex - opts.chunkOverlap;
-    // Prevent infinite loops if overlap >= chunksize or no progress
-    if (startIndex >= endIndex) {
-        startIndex = endIndex; 
-    }
+    let offset = 0;
+    return (Array.isArray(strings) ? strings : []).map((t) => {
+      const s = String(t);
+      const startIndex = offset;
+      offset += s.length;
+      return { text: s, startIndex, endIndex: offset };
+    });
+  } catch (err) {
+    console.warn('[Chunking] llm-chunk error:', err instanceof Error ? err.message : err);
+    return [];
   }
-
-  return chunks;
 }

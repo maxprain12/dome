@@ -1,5 +1,4 @@
 /* eslint-disable no-console */
-const resourceIndexer = require('../resource-indexer.cjs');
 
 function register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService, initModule }) {
   function broadcastResourceUpdated(resourceId, updates) {
@@ -156,9 +155,17 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
             'url'
           );
 
-          queries.updateResourceThumbnail.run(
+          const now = Date.now();
+          queries.updateResourceThumbnail.run(thumbnailResult.thumbnail.dataUrl, now, resourceId);
+          // Register internal_path so orphan cleanup keeps the screenshot
+          queries.updateResourceFile.run(
+            saved.internalPath,
+            'image/jpeg',
+            screenshotBuffer.length,
+            saved.hash,
             thumbnailResult.thumbnail.dataUrl,
-            Date.now(),
+            `youtube_${thumbnailResult.videoId}.jpg`,
+            now,
             resourceId
           );
 
@@ -183,7 +190,19 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
             );
 
             const dataUrl = `data:${mime};base64,${scrapeResult.screenshot}`;
-            queries.updateResourceThumbnail.run(dataUrl, Date.now(), resourceId);
+            const now = Date.now();
+            queries.updateResourceThumbnail.run(dataUrl, now, resourceId);
+            // Register internal_path so orphan cleanup keeps the screenshot
+            queries.updateResourceFile.run(
+              saved.internalPath,
+              mime,
+              screenshotBuffer.length,
+              saved.hash,
+              dataUrl,
+              `screenshot_${resourceId}.${ext}`,
+              now,
+              resourceId
+            );
 
             metadata.screenshot_path = saved.internalPath;
 
@@ -213,11 +232,8 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
         }
       }
 
-      // Index full content as chunks for semantic search (via resource-indexer)
-      if (scrapeResult?.content && initModule && ollamaService) {
-        const indexerDeps = { database, initModule, ollamaService };
-        resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
-      }
+      // Embeddings are generated later when the user opens the article workspace
+      // (like note-type resources - indexing triggered on workspace open, not during add)
 
       // Update final status
       metadata.processing_status = 'completed';

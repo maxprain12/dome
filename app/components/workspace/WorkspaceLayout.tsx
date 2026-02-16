@@ -209,9 +209,14 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
         case 'note':
         case 'url':
         case 'notebook': {
+          const metadata = typeof resource.metadata === 'string'
+            ? (() => { try { return JSON.parse(resource.metadata || '{}'); } catch { return {}; } })()
+            : (resource.metadata || {});
+          const isYouTube = metadata.url_type === 'youtube' || !!metadata.video_id;
+
           const routeMap: Record<string, string> = {
             note: `/workspace/note?id=${resource.id}`,
-            url: `/workspace/url?id=${resource.id}`,
+            url: isYouTube ? `/workspace/youtube?id=${resource.id}` : `/workspace/url?id=${resource.id}`,
             notebook: `/workspace/notebook?id=${resource.id}`,
           };
           const route = routeMap[resource.type] || `/workspace?id=${resource.id}`;

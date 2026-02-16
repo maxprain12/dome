@@ -133,6 +133,41 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
   });
 
   /**
+   * Schedule indexing for a resource (called when workspace opens for URL articles
+   * with scraped_content - embeddings generated later like note-type resources)
+   */
+  ipcMain.handle('resource:scheduleIndex', async (event, resourceId) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      if (!resourceId || typeof resourceId !== 'string') {
+        return { success: false, error: 'resourceId required' };
+      }
+
+      if (!indexerDeps) {
+        return { success: true }; // Indexing not available, fail gracefully
+      }
+
+      const queries = database.getQueries();
+      const resource = queries.getResourceById.get(resourceId);
+      if (!resource) {
+        return { success: false, error: 'Resource not found' };
+      }
+
+      if (resourceIndexer.shouldIndex(resource)) {
+        resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('[Resource] Error scheduling index:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
    * Import multiple files at once
    */
   ipcMain.handle('resource:importMultiple', async (event, { filePaths, projectId, type }) => {

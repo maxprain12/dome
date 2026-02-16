@@ -37,6 +37,7 @@ import {
   buildMartinResourceContext,
   prompts as promptTemplates,
 } from '@/lib/prompts/loader';
+import { chunk as llmChunk } from 'llm-chunk';
 
 // =============================================================================
 // Configuration Types
@@ -790,28 +791,23 @@ export async function chatWithTools(
 // Utilities
 // =============================================================================
 
+/**
+ * Chunk text using llm-chunk (efficient, handles edge cases)
+ */
 export function chunkText(text: string, maxChunkSize: number = 512): string[] {
-  const words = text.split(/\s+/);
-  const chunks: string[] = [];
-  let currentChunk: string[] = [];
-  let currentSize = 0;
-
-  for (const word of words) {
-    if (currentSize + word.length > maxChunkSize && currentChunk.length > 0) {
-      chunks.push(currentChunk.join(' '));
-      currentChunk = [word];
-      currentSize = word.length;
-    } else {
-      currentChunk.push(word);
-      currentSize += word.length + 1;
-    }
+  if (!text?.trim()) return [];
+  try {
+    const result = llmChunk(text, {
+      minLength: 0,
+      maxLength: maxChunkSize,
+      overlap: 0,
+      splitter: 'paragraph',
+    });
+    return Array.isArray(result) ? result.map(String) : [];
+  } catch (err) {
+    console.warn('[AI] chunkText error:', err instanceof Error ? err.message : err);
+    return [];
   }
-
-  if (currentChunk.length > 0) {
-    chunks.push(currentChunk.join(' '));
-  }
-
-  return chunks;
 }
 
 export interface MartinSystemPromptOptions {

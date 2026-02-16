@@ -102,6 +102,7 @@ const ALLOWED_CHANNELS = {
     'resource:delete',
     'resource:regenerateThumbnail',
     'resource:setThumbnail',
+    'resource:scheduleIndex',
     // File operations
     'file:generateHash',
     'file:readFile',
@@ -642,6 +643,10 @@ const electronHandler = {
     // Set thumbnail from renderer (PDF first page, etc.)
     setThumbnail: (resourceId, thumbnailDataUrl) =>
       ipcRenderer.invoke('resource:setThumbnail', resourceId, thumbnailDataUrl),
+
+    // Schedule indexing for resource (used when workspace opens - e.g. URL articles with scraped_content)
+    scheduleIndex: (resourceId) =>
+      ipcRenderer.invoke('resource:scheduleIndex', resourceId),
   },
 
   // ============================================

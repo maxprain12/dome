@@ -22,8 +22,11 @@ function getContextFromPath(pathname: string): { location: string; description: 
   if (pathname.startsWith('/workspace/note/')) {
     return { location: 'Note Editor', description: 'editing a note' };
   }
-  if (pathname.startsWith('/workspace/url/')) {
+  if (pathname.startsWith('/workspace/url')) {
     return { location: 'URL Viewer', description: 'viewing a web resource' };
+  }
+  if (pathname.startsWith('/workspace/youtube')) {
+    return { location: 'YouTube Player', description: 'watching a YouTube video' };
   }
   if (pathname.startsWith('/workspace/')) {
     return { location: 'Workspace', description: 'working on a resource' };

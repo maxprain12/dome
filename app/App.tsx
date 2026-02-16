@@ -12,6 +12,7 @@ import WorkspacePage from './pages/WorkspacePage';
 import NoteWorkspacePage from './pages/NoteWorkspacePage';
 import NotebookWorkspacePage from './pages/NotebookWorkspacePage';
 import URLWorkspacePage from './pages/URLWorkspacePage';
+import YouTubeWorkspacePage from './pages/YouTubeWorkspacePage';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/workspace/note" element={<NoteWorkspacePage />} />
           <Route path="/workspace/notebook" element={<NotebookWorkspacePage />} />
           <Route path="/workspace/url" element={<URLWorkspacePage />} />
+          <Route path="/workspace/youtube" element={<YouTubeWorkspacePage />} />
         </Routes>
       </div>
 

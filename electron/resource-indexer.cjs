@@ -4,6 +4,8 @@
  * Only indexes resource types with indexable text content.
  */
 
+const { chunk: llmChunk } = require('llm-chunk');
+
 // Notebook excluded: indexing causes app crashes
 const EMBEDDABLE_TYPES = ['note', 'document', 'url', 'pdf', 'video', 'audio'];
 const MIN_TEXT_LENGTH = 50;
@@ -32,38 +34,27 @@ function stripHtml(html) {
 }
 
 /**
- * Chunk text with overlap (mirrors app/lib/search/chunking.ts)
+ * Chunk text with overlap using llm-chunk (avoids RangeError with very long text)
+ * @param {string} text - Text to chunk
+ * @param {{ chunkSize?: number; chunkOverlap?: number }} options
+ * @returns {Array<{ text: string }>}
  */
 function chunkText(text, options = {}) {
   const chunkSize = options.chunkSize || CHUNK_SIZE;
   const chunkOverlap = options.chunkOverlap || CHUNK_OVERLAP;
-  const separators = options.separators || ['\n\n', '\n', ' ', ''];
-  const chunks = [];
-
-  if (!text || !text.trim()) return chunks;
-
-  let startIndex = 0;
-  while (startIndex < text.length) {
-    let endIndex = Math.min(startIndex + chunkSize, text.length);
-
-    if (endIndex < text.length) {
-      let splitFound = false;
-      for (const sep of separators) {
-        const lastIdx = text.lastIndexOf(sep, endIndex);
-        if (lastIdx > startIndex) {
-          endIndex = lastIdx + sep.length;
-          splitFound = true;
-          break;
-        }
-      }
-    }
-
-    chunks.push({ text: text.slice(startIndex, endIndex), startIndex, endIndex });
-    startIndex = endIndex - chunkOverlap;
-    if (startIndex >= endIndex) startIndex = endIndex;
+  if (!text || !text.trim()) return [];
+  try {
+    const chunks = llmChunk(text, {
+      minLength: 0,
+      maxLength: chunkSize,
+      overlap: chunkOverlap,
+      splitter: 'paragraph',
+    });
+    return Array.isArray(chunks) ? chunks.map((t) => ({ text: String(t) })) : [];
+  } catch (err) {
+    console.warn('[Indexer] llm-chunk error:', err?.message);
+    return [];
   }
-
-  return chunks;
 }
 
 /**
@@ -194,12 +185,17 @@ async function indexResource(resourceId, deps) {
 
     await deleteResourceEmbeddings(vectorDB, resourceId);
 
-    let chunks = chunkText(text);
     const maxChunks = (resource.type || '').toLowerCase() === 'url' ? MAX_CHUNKS_URL : MAX_CHUNKS_DEFAULT;
+    // Truncate text BEFORE chunking to avoid RangeError (Invalid array length) with very long articles
+    const maxTextLength = maxChunks * (CHUNK_SIZE - CHUNK_OVERLAP) + CHUNK_OVERLAP;
+    const textToChunk = text.length > maxTextLength ? text.slice(0, maxTextLength) : text;
+    if (text.length > maxTextLength) {
+      console.log(`[Indexer] Truncated text to ${maxTextLength} chars for ${resource.type} (was ${text.length})`);
+    }
+
+    let chunks = chunkText(textToChunk);
     if (chunks.length > maxChunks) {
-      const originalCount = chunks.length;
       chunks = chunks.slice(0, maxChunks);
-      console.log(`[Indexer] Truncated to ${maxChunks} chunks for ${resource.type} (was ${originalCount})`);
     }
     if (chunks.length === 0) return;
 
@@ -322,26 +318,33 @@ async function indexResource(resourceId, deps) {
 }
 
 /**
- * Schedule indexing with debounce to avoid redundant work
+ * Schedule indexing with debounce to avoid redundant work.
+ * Runs in next event loop tick so callers (notes, URL workspace, etc.) return immediately
+ * without blocking. Indexing happens asynchronously in background.
  */
 function scheduleIndexing(resourceId, deps) {
   if (!resourceId || !deps) return;
   if (inProgress.has(resourceId)) return;
   pending.set(resourceId, deps);
   if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(async () => {
+  debounceTimer = setTimeout(() => {
     debounceTimer = null;
     const ids = Array.from(pending.keys());
     const depsForFirst = ids.length > 0 ? pending.get(ids[0]) : null;
     pending.clear();
     if (!depsForFirst) return;
-    for (const id of ids) {
-      try {
-        await indexResource(id, depsForFirst);
-      } catch (err) {
-        console.error(`[Indexer] Error indexing ${id}:`, err.message);
-      }
-    }
+    // Run indexing in setImmediate so it yields to event loop - no blocking
+    setImmediate(() => {
+      (async () => {
+        for (const id of ids) {
+          try {
+            await indexResource(id, depsForFirst);
+          } catch (err) {
+            console.error(`[Indexer] Error indexing ${id}:`, err.message);
+          }
+        }
+      })().catch((err) => console.error('[Indexer] Indexing loop error:', err));
+    });
   }, DEBOUNCE_MS);
 }
 

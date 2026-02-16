@@ -199,7 +199,12 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
       if (resourceType === 'note') {
         route = `/workspace/note?id=${resourceId}`;
       } else if (resourceType === 'url') {
-        route = `/workspace/url?id=${resourceId}`;
+        let metadata = {};
+        try {
+          metadata = resource.metadata ? JSON.parse(resource.metadata) : {};
+        } catch (e) { /* ignore */ }
+        const isYouTube = metadata.url_type === 'youtube' || !!metadata.video_id;
+        route = isYouTube ? `/workspace/youtube?id=${resourceId}` : `/workspace/url?id=${resourceId}`;
       } else if (resourceType === 'notebook') {
         route = `/workspace/notebook?id=${resourceId}`;
       } else {
