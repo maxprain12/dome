@@ -140,20 +140,94 @@ export function toAnthropicSchema(schema: TSchema): Record<string, unknown> {
 }
 
 /**
+ * Recursively sanitize a schema for Gemini API compatibility.
+ * Gemini rejects: const, additionalProperties, and some anyOf/oneOf patterns.
+ */
+function sanitizeForGemini(schema: Record<string, unknown>): Record<string, unknown> {
+  if (!schema || typeof schema !== 'object') return schema;
+  const out: Record<string, unknown> = {};
+
+  // Skip unsupported keywords
+  if ('additionalProperties' in schema) {
+    /* Gemini does not support additionalProperties */
+  }
+
+  // Convert const to enum (Gemini supports enum, not const)
+  if ('const' in schema) {
+    out.type = schema.type ?? 'string';
+    out.enum = [(schema as { const: unknown }).const];
+    if (schema.description) out.description = schema.description;
+    return out;
+  }
+
+  // Convert anyOf/oneOf to Gemini-compatible format
+  const union = (schema.anyOf ?? schema.oneOf) as Record<string, unknown>[] | undefined;
+  if (Array.isArray(union) && union.length > 0) {
+    const consts = union
+      .filter((b): b is Record<string, unknown> => b != null && typeof b === 'object' && 'const' in b)
+      .map((b) => b.const);
+    const hasNull = union.some(
+      (b) => b != null && typeof b === 'object' && ((b as { type?: string }).type === 'null' || (b as { const?: unknown }).const === null),
+    );
+    const firstNonNull = union.find(
+      (b) =>
+        b != null &&
+        typeof b === 'object' &&
+        (b as { type?: string }).type !== 'null' &&
+        !('const' in b && (b as { const: unknown }).const === null),
+    );
+
+    if (consts.length > 0) {
+      out.type = 'string';
+      out.enum = hasNull ? [...consts, null] : [...consts];
+      if (schema.description) out.description = schema.description;
+      return out;
+    }
+    if (firstNonNull && typeof firstNonNull === 'object') {
+      const sanitized = sanitizeForGemini(firstNonNull as Record<string, unknown>);
+      Object.assign(out, sanitized);
+      if (schema.description && !out.description) out.description = schema.description;
+      return out;
+    }
+    return { type: 'string', description: (schema.description as string) ?? '' };
+  }
+
+  // Copy supported fields
+  if (schema.type) out.type = schema.type;
+  if (schema.description) out.description = schema.description;
+  if (schema.title) out.title = schema.title;
+  if (schema.enum) out.enum = schema.enum;
+  if (schema.minimum !== undefined) out.minimum = schema.minimum;
+  if (schema.maximum !== undefined) out.maximum = schema.maximum;
+  if (schema.default !== undefined) out.default = schema.default;
+
+  // Recursively sanitize properties (objects)
+  if (schema.properties && typeof schema.properties === 'object') {
+    out.properties = {};
+    for (const [k, v] of Object.entries(schema.properties)) {
+      (out.properties as Record<string, unknown>)[k] = sanitizeForGemini(v as Record<string, unknown>);
+    }
+  }
+
+  // Recursively sanitize items (arrays)
+  if (schema.items) {
+    out.items = Array.isArray(schema.items)
+      ? (schema.items as Record<string, unknown>[]).map((item) => sanitizeForGemini(item))
+      : sanitizeForGemini(schema.items as Record<string, unknown>);
+  }
+
+  if (Array.isArray(schema.required)) out.required = schema.required;
+
+  return out;
+}
+
+/**
  * Convert a TypeBox schema to JSON Schema format for Google Gemini.
+ * Removes const, additionalProperties; converts anyOf/oneOf to enum.
  */
 export function toGeminiSchema(schema: TSchema): Record<string, unknown> {
-  const normalized = normalizeSchema(schema);
-  
-  // Gemini has specific requirements for schemas
-  // Remove any anyOf/oneOf patterns that Gemini doesn't support well
-  if ('anyOf' in normalized) {
-    // Try to flatten to first option
-    const firstOption = (normalized.anyOf as Record<string, unknown>[])[0];
-    return firstOption || normalized;
-  }
-  
-  return normalized;
+  const normalized = normalizeSchema(schema) as Record<string, unknown>;
+  return sanitizeForGemini(normalized);
 }
 
 // =============================================================================

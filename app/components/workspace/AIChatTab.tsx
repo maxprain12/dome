@@ -129,20 +129,24 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
     scrollToBottom();
   }, [messages, streamingMessage, scrollToBottom]);
 
-  const buildSystemPrompt = useCallback(() => {
-    return getMartinSystemPrompt({
-      resourceContext: {
-        title: resource.title,
-        type: resource.type,
-        content: resource.content,
-        summary: resource.metadata?.summary,
-        transcription: resource.metadata?.transcription,
-      },
-      toolsEnabled: toolsEnabled && supportsTools,
-      location: 'workspace',
-      includeDateTime: true,
-    });
-  }, [resource, toolsEnabled, supportsTools]);
+  const buildSystemPrompt = useCallback(
+    (provider?: string) => {
+      return getMartinSystemPrompt({
+        resourceContext: {
+          title: resource.title,
+          type: resource.type,
+          content: resource.content,
+          summary: resource.metadata?.summary,
+          transcription: resource.metadata?.transcription,
+        },
+        toolsEnabled: toolsEnabled && supportsTools,
+        location: 'workspace',
+        includeDateTime: true,
+        provider,
+      });
+    },
+    [resource, toolsEnabled, supportsTools],
+  );
 
   const handleStream = useCallback(
     async (userMessage: string) => {
@@ -164,7 +168,7 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
 
       // Build messages array with system prompt and history
       const apiMessages = [
-        { role: 'system', content: buildSystemPrompt() },
+        { role: 'system', content: buildSystemPrompt(config.provider) },
         ...messages.map((m) => ({ role: m.role, content: m.content })),
         { role: 'user', content: userMessage },
       ];

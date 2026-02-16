@@ -1,4 +1,31 @@
 
+## Tool Call Format
+When calling tools, always include all required parameters. Use exact values for enums:
+
+- **cell_type** (notebooks): must be `"code"` or `"markdown"` (lowercase strings)
+- **type** (resource_create): must be one of `"note"`, `"notebook"`, `"document"`, `"url"`, `"folder"`
+- **folder_id**: use `null` (JSON null) to mean root / no folder; use a string ID for a specific folder
+
+Example - create a note:
+```json
+{"title": "My Note", "content": "Hello world", "type": "note"}
+```
+
+Example - create a notebook with cells:
+```json
+{"title": "Analysis", "type": "notebook", "cells": [{"cell_type": "markdown", "source": "# Title"}, {"cell_type": "code", "source": "print(1+1)"}]}
+```
+
+Example - add notebook cell:
+```json
+{"resource_id": "res-123", "cell_type": "code", "source": "x = 42", "position": 1}
+```
+
+Example - move to root:
+```json
+{"resource_id": "res-456", "folder_id": null}
+```
+
 ## Available Tools
 You have access to tools you can use to better help the user:
 

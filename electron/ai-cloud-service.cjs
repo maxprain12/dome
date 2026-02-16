@@ -428,6 +428,78 @@ async function chatGoogle(messages, apiKey, model = 'gemini-3-flash') {
 }
 
 /**
+ * Sanitize a JSON Schema for Gemini API compatibility.
+ * Gemini rejects: const, additionalProperties, and some anyOf/oneOf patterns.
+ * @param {object} schema - JSON Schema (will be cloned, not mutated)
+ * @returns {object} Gemini-compatible schema
+ */
+function sanitizeSchemaForGemini(schema) {
+  if (!schema || typeof schema !== 'object') return schema;
+  const out = {};
+
+  // Skip unsupported keywords (additionalProperties, $id, $schema)
+
+  // Convert const to enum (Gemini supports enum, not const)
+  if ('const' in schema) {
+    out.type = schema.type || 'string';
+    out.enum = [schema.const];
+    if (schema.description) out.description = schema.description;
+    return out;
+  }
+
+  // Convert anyOf/oneOf to Gemini-compatible format
+  const union = schema.anyOf || schema.oneOf;
+  if (Array.isArray(union) && union.length > 0) {
+    const consts = union.filter((b) => b && typeof b === 'object' && 'const' in b).map((b) => b.const);
+    const hasNull = union.some((b) => b && typeof b === 'object' && (b.type === 'null' || b.const === null));
+    const firstNonNull = union.find((b) => b && typeof b === 'object' && b.type !== 'null' && !('const' in b && b.const === null));
+
+    if (consts.length > 0) {
+      out.type = 'string';
+      out.enum = [...consts];
+      if (hasNull) out.enum.push(null);
+      if (schema.description) out.description = schema.description;
+      return out;
+    }
+    if (firstNonNull) {
+      const sanitized = sanitizeSchemaForGemini(firstNonNull);
+      Object.assign(out, sanitized);
+      if (schema.description && !out.description) out.description = schema.description;
+      return out;
+    }
+    return { type: 'string', description: schema.description || '' };
+  }
+
+  // Copy supported fields
+  if (schema.type) out.type = schema.type;
+  if (schema.description) out.description = schema.description;
+  if (schema.title) out.title = schema.title;
+  if (schema.enum) out.enum = schema.enum;
+  if (schema.minimum !== undefined) out.minimum = schema.minimum;
+  if (schema.maximum !== undefined) out.maximum = schema.maximum;
+  if (schema.default !== undefined) out.default = schema.default;
+
+  // Recursively sanitize properties (objects)
+  if (schema.properties && typeof schema.properties === 'object') {
+    out.properties = {};
+    for (const [k, v] of Object.entries(schema.properties)) {
+      out.properties[k] = sanitizeSchemaForGemini(v);
+    }
+  }
+
+  // Recursively sanitize items (arrays)
+  if (schema.items) {
+    out.items = Array.isArray(schema.items)
+      ? schema.items.map((item) => sanitizeSchemaForGemini(item))
+      : sanitizeSchemaForGemini(schema.items);
+  }
+
+  if (Array.isArray(schema.required)) out.required = schema.required;
+
+  return out;
+}
+
+/**
  * Convert OpenAI-format tools to Gemini functionDeclarations format
  * @param {Array} tools - OpenAI format: { type: 'function', function: { name, description, parameters } }
  * @returns {Array|undefined} Gemini format: { functionDeclarations: [...] } or undefined
@@ -438,13 +510,14 @@ function convertToolsToGemini(tools) {
   const functionDeclarations = tools.map((tool) => {
     if (tool.type === 'function' && tool.function) {
       const params = tool.function.parameters || { type: 'object', properties: {} };
+      const sanitized = sanitizeSchemaForGemini(params);
       return {
         name: tool.function.name || 'unknown',
         description: tool.function.description || '',
         parameters: {
-          type: params.type || 'object',
-          properties: params.properties || {},
-          required: params.required || [],
+          type: sanitized.type || 'object',
+          properties: sanitized.properties || {},
+          required: sanitized.required || params.required || [],
         },
       };
     }
