@@ -472,6 +472,7 @@ async function askMartin(from, question) {
 
           const response = await chatWithToolsInMain(provider, messages, toolDefinitions, {
             database,
+            windowManager,
             maxIterations: 5,
           });
           await session.sendText(from, response);
@@ -493,6 +494,7 @@ async function askMartin(from, question) {
 
         const response = await chatWithToolsInMain('ollama', messages, toolDefinitions, {
           database,
+          windowManager,
           maxIterations: 5,
         });
         await session.sendText(from, response);

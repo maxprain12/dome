@@ -214,6 +214,8 @@ async function chatWithToolsInMain(provider, messages, toolDefinitions, options 
       return response;
     }
 
+    const windowManager = options.windowManager;
+
     for (const tc of toolCalls) {
       let args = {};
       try {
@@ -224,6 +226,29 @@ async function chatWithToolsInMain(provider, messages, toolDefinitions, options 
 
       const normalizedName = normalizeToolName(tc.name);
       const result = await executeToolInMain(normalizedName, args);
+
+      // Broadcast resource changes so UI stays in sync (e.g. when WhatsApp runs tools)
+      if (windowManager && result && result.success !== false) {
+        const resourceId = args.resource_id || args.resourceId;
+        if (normalizedName === 'resource_create' && result.resource) {
+          windowManager.broadcast('resource:created', result.resource);
+        } else if (normalizedName === 'resource_update' && result.resource) {
+          const r = result.resource;
+          const broadcastUpdates = { title: r.title, updated_at: r.updated_at };
+          if (r.metadata != null) broadcastUpdates.metadata = r.metadata;
+          if (args.content !== undefined) broadcastUpdates.content = args.content;
+          windowManager.broadcast('resource:updated', { id: r.id, updates: broadcastUpdates });
+        } else if (normalizedName === 'resource_delete' && resourceId) {
+          windowManager.broadcast('resource:deleted', { id: resourceId });
+        } else if (normalizedName === 'resource_move_to_folder' && resourceId) {
+          const folderId = args.folder_id ?? args.folderId ?? null;
+          const now = Date.now();
+          windowManager.broadcast('resource:updated', {
+            id: resourceId,
+            updates: { folder_id: folderId, updated_at: now },
+          });
+        }
+      }
 
       conversationMessages.push({
         role: 'assistant',

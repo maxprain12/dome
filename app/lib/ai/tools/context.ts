@@ -106,7 +106,7 @@ export function createProjectListTool(): AnyAgentTool {
   return {
     label: 'Listar Proyectos',
     name: 'project_list',
-    description: 'Lista todos los proyectos del usuario. Los proyectos son contenedores que agrupan recursos relacionados.',
+    description: 'List all projects.',
     parameters: ProjectListSchema,
     execute: async () => {
       try {
@@ -155,7 +155,7 @@ export function createProjectGetTool(): AnyAgentTool {
   return {
     label: 'Obtener Proyecto',
     name: 'project_get',
-    description: 'Obtiene los detalles de un proyecto específico, incluyendo su nombre, descripción y cantidad de recursos.',
+    description: 'Get project details by ID.',
     parameters: ProjectGetSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -215,7 +215,7 @@ export function createInteractionListTool(): AnyAgentTool {
   return {
     label: 'Listar Interacciones',
     name: 'interaction_list',
-    description: 'Lista las interacciones de un recurso: notas, anotaciones, y mensajes de chat. Útil para ver los comentarios y análisis que el usuario ha hecho sobre un recurso.',
+    description: 'List notes, annotations, and chat for a resource.',
     parameters: InteractionListSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -294,7 +294,7 @@ export function createGetRecentResourcesTool(): AnyAgentTool {
   return {
     label: 'Recursos Recientes',
     name: 'get_recent_resources',
-    description: 'Obtiene los recursos más recientemente actualizados. Útil para conocer en qué ha estado trabajando el usuario.',
+    description: 'Get recently updated resources.',
     parameters: GetRecentResourcesSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -346,7 +346,7 @@ export function createGetCurrentProjectTool(): AnyAgentTool {
   return {
     label: 'Proyecto Actual',
     name: 'get_current_project',
-    description: 'Obtiene el proyecto activo o por defecto del usuario.',
+    description: 'Get current/default project.',
     parameters: GetCurrentProjectSchema,
     execute: async () => {
       try {
@@ -401,9 +401,7 @@ export function createGetLibraryOverviewTool(): AnyAgentTool {
   return {
     label: 'Ver Estructura de Biblioteca',
     name: 'resource_get_library_overview',
-    description:
-      'Obtiene la estructura completa de la biblioteca: carpetas en raíz, recursos en raíz, y el contenido de cada carpeta (recursos y subcarpetas). ' +
-      'USAR SIEMPRE cuando el usuario pida organizar documentos, ver qué tiene, o listar su biblioteca. Devuelve project, root (folders + resources), folders (cada una con path, resources, subfolders).',
+    description: 'Get full library structure: root folders/resources and each folder contents. Use first when organizing documents.',
     parameters: GetLibraryOverviewSchema,
     execute: async (_toolCallId, args) => {
       try {

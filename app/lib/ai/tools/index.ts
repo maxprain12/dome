@@ -290,3 +290,45 @@ export function createResourceOnlyTools(): AnyAgentTool[] {
     ...createMemoryTools(),
   ];
 }
+
+/**
+ * Create Martin tools filtered by context. Reduces token usage by excluding
+ * tools irrelevant to the current screen (e.g. notebook tools when not in a notebook).
+ */
+export function createMartinToolsForContext(
+  pathname: string,
+  config?: DefaultToolsConfig,
+): AnyAgentTool[] {
+  const isNotebook = pathname?.includes('/workspace/notebook/');
+  const isHome = pathname === '/' || pathname === '/home';
+
+  const tools: AnyAgentTool[] = [];
+  tools.push(createWebSearchTool(config?.webSearch));
+  tools.push(createWebFetchTool(config?.webFetch));
+  if (config?.includeMemory !== false) {
+    tools.push(...createMemoryTools());
+  }
+  if (config?.includeResources !== false) {
+    tools.push(...createResourceTools());
+    tools.push(...createResourceActionTools());
+    tools.push(...createFlashcardTools());
+  }
+  if (config?.includeContext !== false) {
+    tools.push(...createContextTools());
+  }
+
+  // Notebook tools only when viewing a notebook (saves tokens elsewhere)
+  if (isNotebook) {
+    tools.push(...createNotebookTools());
+  }
+
+  // Studio, audio, deep research, graph: useful in Home/library context
+  if (isHome || isNotebook) {
+    tools.push(...createStudioTools());
+    tools.push(...createAudioOverviewTools());
+    tools.push(...createDeepResearchTools());
+    tools.push(...createGraphTools());
+  }
+
+  return tools;
+}

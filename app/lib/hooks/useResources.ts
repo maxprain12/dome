@@ -120,6 +120,13 @@ export function useResources(filter?: ResourceFilter) {
         fetchResources();
     }, [fetchResources]);
 
+    // Refetch when AI tools modify resources (defensive fallback if broadcast missed)
+    useEffect(() => {
+        const handler = () => fetchResources();
+        window.addEventListener('dome:resources-changed', handler);
+        return () => window.removeEventListener('dome:resources-changed', handler);
+    }, [fetchResources]);
+
     // Setup event listeners for real-time sync
     useEffect(() => {
         if (typeof window === 'undefined' || !window.electron) return;
@@ -152,7 +159,9 @@ export function useResources(filter?: ResourceFilter) {
                                 if (r.id !== id) return r;
                                 const merged = { ...r, ...updates, updated_at: Date.now() };
                                 if (updates?.metadata != null) {
-                                    merged.metadata = parseResourceMetadata(updates.metadata);
+                                    const existingMeta = parseResourceMetadata(r.metadata) || {};
+                                    const incomingMeta = parseResourceMetadata(updates.metadata) || {};
+                                    merged.metadata = { ...existingMeta, ...incomingMeta };
                                 }
                                 return merged;
                             })
@@ -164,8 +173,11 @@ export function useResources(filter?: ResourceFilter) {
                     prev.map(r => {
                         if (r.id !== id) return r;
                         const merged = { ...r, ...updates, updated_at: Date.now() };
+                        // Deep-merge metadata so partial updates (e.g. folder color) preserve other fields
                         if (updates?.metadata != null) {
-                            merged.metadata = parseResourceMetadata(updates.metadata);
+                            const existingMeta = parseResourceMetadata(r.metadata) || {};
+                            const incomingMeta = parseResourceMetadata(updates.metadata) || {};
+                            merged.metadata = { ...existingMeta, ...incomingMeta };
                         }
                         return merged;
                     })

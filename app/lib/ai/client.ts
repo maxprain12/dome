@@ -859,9 +859,6 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
 
   if (toolsEnabled) {
     prompt += promptTemplates.martin.tools;
-    if (provider === 'google') {
-      prompt += '\n\nWhen calling tools, use exact string values for enum parameters (e.g. "code", "markdown", "note"). Include all required parameters. Use JSON null for folder_id when meaning root.';
-    }
   }
 
   if (resourceContext) {

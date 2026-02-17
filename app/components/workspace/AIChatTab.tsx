@@ -1,5 +1,6 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Send, Loader2, AlertCircle, StopCircle, Globe, Search, Database } from 'lucide-react';
 import { useInteractions } from '@/lib/hooks/useInteractions';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
@@ -10,7 +11,7 @@ import {
   chatWithTools,
   createWebSearchTool,
   createWebFetchTool,
-  createAllMartinTools,
+  createMartinToolsForContext,
   toOpenAIToolDefinitions,
   providerSupportsTools,
   type AnyAgentTool,
@@ -35,10 +36,8 @@ const WEB_TOOLS: AnyAgentTool[] = [
   createWebFetchTool(),
 ];
 
-// All Many tools including resource access
-const ALL_MARTIN_TOOLS: AnyAgentTool[] = createAllMartinTools();
-
 export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
+  const { pathname } = useLocation();
   const {
     chatMessages,
     isLoading: isLoadingHistory,
@@ -77,14 +76,14 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
     };
   }, []);
 
-  // Get the active tools based on settings
+  // Get the active tools based on settings (context-filtered to reduce tokens)
   const activeTools = useMemo(() => {
     if (!toolsEnabled) return [];
     if (resourceToolsEnabled) {
-      return ALL_MARTIN_TOOLS;
+      return createMartinToolsForContext(pathname || '/workspace');
     }
     return WEB_TOOLS;
-  }, [toolsEnabled, resourceToolsEnabled]);
+  }, [toolsEnabled, resourceToolsEnabled, pathname]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -210,6 +209,12 @@ export default function AIChatTab({ resourceId, resource }: AIChatTabProps) {
               result: tr.result,
             });
           });
+
+          // Defensive refetch if AI modified resources (ensures folder/color UI updates)
+          const mutatingTools = ['resource_create', 'resource_update', 'resource_delete', 'resource_move_to_folder'];
+          if (result.toolResults?.some((tr) => mutatingTools.includes(tr.tool?.toLowerCase?.()))) {
+            window.dispatchEvent(new Event('dome:resources-changed'));
+          }
           
           setStreamingMessage(prev => prev ? {
             ...prev,

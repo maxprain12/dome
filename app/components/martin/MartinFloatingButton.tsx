@@ -7,7 +7,7 @@ import { useMartinStore } from '@/lib/store/useMartinStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { getAIConfig, chatStream, chatWithTools } from '@/lib/ai/client';
 import { buildMartinFloatingPrompt, prompts } from '@/lib/prompts/loader';
-import { createAllMartinTools } from '@/lib/ai/tools';
+import { createMartinToolsForContext } from '@/lib/ai/tools';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { showToast } from '@/lib/store/useToastStore';
 
@@ -218,7 +218,7 @@ export default function MartinFloatingButton() {
         const folderHint = (pathname === '/' || pathname === '/home') && currentFolderId
           ? `\n\nThe user is currently viewing folder ID: ${currentFolderId}. When they ask to create something from "these documents", "this folder", "estos documentos", or similar, use resource_list with folder_id: "${currentFolderId}" to list only resources in that folder, and use resource_create with folder_id: "${currentFolderId}" to place the new resource in the same folder.`
           : '';
-        const tools = createAllMartinTools();
+        const tools = createMartinToolsForContext(pathname || '/');
         const result = await chatWithTools(
           [
             { role: 'system', content: toolsPrompt + toolHint + folderHint },
@@ -229,6 +229,11 @@ export default function MartinFloatingButton() {
           { maxIterations: 5 },
         );
         response = result.response;
+        // Defensive refetch if AI modified resources (ensures folder/color UI updates)
+        const mutatingTools = ['resource_create', 'resource_update', 'resource_delete', 'resource_move_to_folder'];
+        if (result.toolResults?.some((tr) => mutatingTools.includes(tr.tool?.toLowerCase?.()))) {
+          window.dispatchEvent(new Event('dome:resources-changed'));
+        }
       } else {
         for await (const chunk of chatStream(chatMessages)) {
           if (chunk.type === 'text' && chunk.text) {

@@ -185,9 +185,7 @@ export function createResourceCreateTool(): AnyAgentTool {
   return {
     label: 'Crear Recurso',
     name: 'resource_create',
-    description:
-      'Crea un nuevo recurso. Tipos: note, notebook, document, url (metadata.url), folder. ' +
-      'Para folder: usa metadata: { color: "#hex" } para el color. Para organizar: usa folder_id para colocar en una carpeta.',
+    description: 'Create resource. Types: note, notebook, document, url, folder. Use folder_id to place in folder.',
     parameters: ResourceCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -279,8 +277,7 @@ export function createResourceUpdateTool(): AnyAgentTool {
   return {
     label: 'Actualizar Recurso',
     name: 'resource_update',
-    description:
-      'Actualiza el título, contenido o metadata de un recurso. Para carpetas: usa metadata: { color: "#hex" } para cambiar el color. Colores válidos: #7B76D0, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #8b5cf6, #ec4899, #6b7280, #14b8a6.',
+    description: 'Update resource title, content, or metadata. For folders: metadata.color (#hex).',
     parameters: ResourceUpdateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -342,8 +339,7 @@ export function createResourceDeleteTool(): AnyAgentTool {
   return {
     label: 'Eliminar Recurso',
     name: 'resource_delete',
-    description:
-      'Elimina un recurso de la base de conocimiento. IMPORTANTE: Siempre confirma con el usuario antes de eliminar. El parámetro confirm debe ser true para proceder.',
+    description: 'Delete a resource. Always confirm with user first. Requires confirm=true.',
     parameters: ResourceDeleteSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -404,10 +400,7 @@ export function createResourceMoveToFolderTool(): AnyAgentTool {
   return {
     label: 'Mover a Carpeta',
     name: 'resource_move_to_folder',
-    description:
-      'Mueve un recurso (nota, documento, PDF, etc.) o carpeta a otra carpeta o a la raíz. ' +
-      'Úsalo para organizar documentos, anidar carpetas, o mover recursos entre carpetas. ' +
-      'Usa get_library_overview primero para obtener IDs de carpetas y recursos.',
+    description: 'Move resource or folder to another folder or root. Use get_library_overview first for IDs.',
     parameters: ResourceMoveToFolderSchema,
     execute: async (_toolCallId, args) => {
       try {

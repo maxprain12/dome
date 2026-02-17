@@ -147,7 +147,7 @@ export function createResourceSearchTool(): AnyAgentTool {
   return {
     label: 'Buscar Recursos',
     name: 'resource_search',
-    description: 'Busca recursos en la base de conocimiento del usuario por título o contenido. Útil para encontrar notas, PDFs, videos, y otros recursos que coincidan con una consulta.',
+    description: 'Search resources by title or content.',
     parameters: ResourceSearchSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -210,7 +210,7 @@ export function createResourceGetTool(): AnyAgentTool {
   return {
     label: 'Obtener Recurso',
     name: 'resource_get',
-    description: 'Obtiene los detalles completos de un recurso específico incluyendo su contenido, transcripción (si es audio/video) y resumen. Usa esto para leer el contenido de una nota, PDF, u otro recurso.',
+    description: 'Get full resource details including content and transcription.',
     parameters: ResourceGetSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -306,7 +306,7 @@ export function createResourceListTool(): AnyAgentTool {
   return {
     label: 'Listar Recursos',
     name: 'resource_list',
-    description: 'Lista los recursos del usuario, opcionalmente filtrados por proyecto, carpeta o tipo. Útil para explorar qué recursos están disponibles.',
+    description: 'List resources filtered by project, folder, or type.',
     parameters: ResourceListSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -371,7 +371,7 @@ export function createResourceSemanticSearchTool(): AnyAgentTool {
   return {
     label: 'Búsqueda Semántica',
     name: 'resource_semantic_search',
-    description: 'Busca recursos usando búsqueda semántica basada en significado, no solo coincidencias de texto. Útil para encontrar recursos relacionados conceptualmente con una pregunta o tema.',
+    description: 'Semantic search by meaning.',
     parameters: ResourceSemanticSearchSchema,
     execute: async (_toolCallId, args) => {
       try {

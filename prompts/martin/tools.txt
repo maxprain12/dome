@@ -1,6 +1,6 @@
-
-## Tool Call Format
-When calling tools, always include all required parameters. Use exact values for enums:
+## Tool Call Format (all providers)
+Use exact string values for enums. Include all required parameters. Use JSON null for folder_id when meaning root.
+When calling tools, always:
 
 - **cell_type** (notebooks): must be `"code"` or `"markdown"` (lowercase strings)
 - **type** (resource_create): must be one of `"note"`, `"notebook"`, `"document"`, `"url"`, `"folder"`
