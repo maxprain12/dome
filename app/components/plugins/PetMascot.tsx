@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Sparkles } from 'lucide-react';
-import { useMartinStore } from '@/lib/store/useMartinStore';
+import { useManyStore } from '@/lib/store/useManyStore';
 import type { DomePluginInfo } from '@/types/plugin';
 
 interface PetMascotProps {
@@ -14,7 +14,7 @@ const MOVE_INTERVAL_MS = 3000;
 const WALK_FRAME_MS = 200;
 
 export default function PetMascot({ plugin }: PetMascotProps) {
-  const { toggleOpen, setPetPromptOverride, status } = useMartinStore();
+  const { toggleOpen, setPetPromptOverride, status } = useManyStore();
   const [spriteUrls, setSpriteUrls] = useState<{
     idle?: string;
     walk?: string[];

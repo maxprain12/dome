@@ -11,7 +11,7 @@ const SECTION_TITLES: Record<string, string> = {
   studio: 'Studio',
   flashcards: 'Flashcards',
   tags: 'Tags',
-  chat: 'Martin Chat',
+  chat: 'Many Chat',
   projects: 'Projects',
 };
 

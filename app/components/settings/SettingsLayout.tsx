@@ -1,7 +1,7 @@
 
-import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle, Puzzle } from 'lucide-react';
+import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2 } from 'lucide-react';
 
-type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'plugins' | 'advanced';
+type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'plugins' | 'advanced';
 
 interface SettingsLayoutProps {
   activeSection: SettingsSection;
@@ -35,6 +35,11 @@ const sidebarItems: SidebarItem[] = [
     id: 'whatsapp',
     label: 'WhatsApp',
     icon: <MessageCircle className="w-4 h-4" />,
+  },
+  {
+    id: 'mcp',
+    label: 'MCP',
+    icon: <Plug2 className="w-4 h-4" />,
   },
   {
     id: 'plugins',

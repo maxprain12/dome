@@ -839,6 +839,66 @@ a:hover {
 }
 
 /* ============================================
+   MARTIN FLOATING CHAT - Keyframes & Utilities
+   ============================================ */
+
+@keyframes martinPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+}
+
+.animate-martin-pulse,
+.animate-many-pulse {
+  animation: martinPulse 1.5s ease-in-out infinite;
+}
+
+.martin-chat-popover::-webkit-scrollbar {
+  width: 5px;
+}
+
+.martin-chat-popover::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.martin-chat-popover::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.martin-chat-popover::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
+
+.many-panel-messages .many-message-group {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 80px;
+}
+
+.many-panel-messages::-webkit-scrollbar {
+  width: 5px;
+}
+
+.many-panel-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.many-panel-messages::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.many-panel-messages::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
+
+/* ============================================
    FLASHCARD ANIMATIONS
    ============================================ */
 
@@ -3120,16 +3180,21 @@ a:hover {
   color: var(--primary-text);
 }
 
-/* Folder Grid */
+/* Folder Grid — horizontal scroll, minimalista */
 .folder-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 1rem;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .folder-item-wrapper {
   position: relative;
-  border-radius: var(--radius-xl);
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
   transition: box-shadow var(--transition-fast), background-color var(--transition-fast);
 }
 
@@ -3192,9 +3257,12 @@ a:hover {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  border-radius: var(--radius-xl);
+  gap: 6px;
+  padding: 8px;
+  width: 72px;
+  min-width: 72px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
   transition: all var(--transition-fast);
   cursor: pointer;
 }
@@ -3209,26 +3277,26 @@ a:hover {
 }
 
 .folder-icon-wrapper {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: var(--radius-xl);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-sm);
   transition: transform var(--transition-fast);
 }
 
 .folder-item:hover .folder-icon-wrapper {
-  transform: scale(1.05);
+  transform: scale(1.02);
 }
 
 .folder-title {
-  font-size: 0.75rem;
+  font-size: 12px;
+  font-weight: 400;
   text-align: center;
   width: 100%;
+  max-width: 72px;
   line-height: 1.25;
-  font-weight: 500;
   color: var(--primary-text);
   white-space: nowrap;
   overflow: hidden;

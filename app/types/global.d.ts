@@ -258,6 +258,11 @@ declare global {
         import: () => Promise<{ success?: boolean; restartRequired?: boolean; cancelled?: boolean; error?: string }>;
       };
 
+      // MCP API
+      mcp: {
+        testConnection: () => Promise<{ success: boolean; toolCount: number; error?: string }>;
+      };
+
       // Plugins API
       plugins: {
         list: () => Promise<{ success: boolean; data?: any[] }>;
@@ -487,9 +492,24 @@ declare global {
           content?: string;
           error?: string;
         }>;
+        streamLangGraph: (
+          provider: 'openai' | 'anthropic' | 'google' | 'ollama',
+          messages: Array<{ role: string; content: string }>,
+          model: string,
+          streamId: string,
+          toolDefinitions: Array<{
+            type: string;
+            function: {
+              name: string;
+              description: string;
+              parameters?: Record<string, any>;
+            };
+          }>,
+          threadId?: string
+        ) => Promise<{ success: boolean; error?: string }>;
         onStreamChunk: (callback: (data: {
           streamId: string;
-          type: 'text' | 'tool_call' | 'done' | 'error';
+          type: 'text' | 'thinking' | 'tool_call' | 'tool_result' | 'done' | 'error';
           text?: string;
           error?: string;
           toolCall?: {
@@ -497,9 +517,11 @@ declare global {
             name: string;
             arguments: string;
           };
+          toolCallId?: string;
+          result?: string;
         }) => void) => RemoveListenerFn;
         embeddings: (
-          provider: 'openai' | 'google',
+          provider: 'openai' | 'google' | 'anthropic',
           texts: string[],
           model?: string
         ) => Promise<{

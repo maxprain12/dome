@@ -19,15 +19,18 @@ import editorContinue from '../../../prompts/editor/actions/continue.txt?raw';
 import studioWithTools from '../../../prompts/studio/with-tools.txt?raw';
 import studioWithoutTools from '../../../prompts/studio/without-tools.txt?raw';
 
+const manyPromptSet = {
+  base: martinBase,
+  tools: martinTools,
+  noteFormat: martinNoteFormat,
+  resourceContext: martinResourceContext,
+  notebookContext: martinNotebookContext,
+  floatingBase: martinFloatingBase,
+};
+
 export const prompts = {
-  martin: {
-    base: martinBase,
-    tools: martinTools,
-    noteFormat: martinNoteFormat,
-    resourceContext: martinResourceContext,
-    notebookContext: martinNotebookContext,
-    floatingBase: martinFloatingBase,
-  },
+  martin: manyPromptSet,
+  many: manyPromptSet,
   editor: {
     system: editorSystem,
     actions: {
@@ -78,9 +81,9 @@ export function buildMartinBasePrompt(options: {
 }
 
 /**
- * Build Martin floating button prompt.
+ * Build Many floating button prompt.
  */
-export function buildMartinFloatingPrompt(options: {
+export function buildManyFloatingPrompt(options: {
   location: string;
   description: string;
   date: string;
@@ -90,7 +93,7 @@ export function buildMartinFloatingPrompt(options: {
 }): string {
   const resourceTitleLine = options.resourceTitle ? `- Active resource: "${options.resourceTitle}"\n` : '';
   const whatsappSuffix = options.whatsappConnected ? ' (connected)' : '';
-  return replaceAll(prompts.martin.floatingBase, {
+  return replaceAll(prompts.many.floatingBase, {
     location: options.location,
     description: options.description,
     date: options.date,
@@ -99,6 +102,9 @@ export function buildMartinFloatingPrompt(options: {
     whatsappSuffix,
   });
 }
+
+/** @deprecated Use buildManyFloatingPrompt */
+export const buildMartinFloatingPrompt = buildManyFloatingPrompt;
 
 /**
  * Build Martin resource context section.

@@ -60,6 +60,11 @@ function initializeDefaultSettings() {
     queries.setSetting.run('app_citation_style', 'apa', timestamp);
   }
 
+  const mcpServersRow = queries.getSetting.get('mcp_servers');
+  if (!mcpServersRow) {
+    queries.setSetting.run('mcp_servers', '[]', timestamp);
+  }
+
   console.log('✅ Configuración inicializada');
 }
 

@@ -1,7 +1,7 @@
 
 import { useImperativeHandle, forwardRef } from 'react';
 import type { ReactNode } from 'react';
-import MartinAvatar from '@/components/martin/MartinAvatar';
+import ManyAvatar from '@/components/many/ManyAvatar';
 
 interface OnboardingStepProps {
   message: string;
@@ -42,7 +42,7 @@ const OnboardingStep = forwardRef<OnboardingStepRef, OnboardingStepProps>(
       <div className="p-8 flex flex-col flex-1 min-h-0">
         {/* Many's message */}
         <div className="flex gap-4 mb-6 flex-shrink-0">
-          <MartinAvatar size="lg" />
+          <ManyAvatar size="lg" />
           <div
             className="flex-1 p-4 rounded-lg rounded-tl-none"
             style={{

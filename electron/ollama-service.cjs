@@ -391,7 +391,7 @@ function chatStream(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL,
             const json = JSON.parse(line);
             if (json.message) {
               if (opts.think && json.message.thinking && typeof onChunk === 'function') {
-                onChunk({ type: 'text', text: json.message.thinking });
+                onChunk({ type: 'thinking', text: json.message.thinking });
                 fullContent += json.message.thinking;
               }
               if (json.message.content && typeof onChunk === 'function') {

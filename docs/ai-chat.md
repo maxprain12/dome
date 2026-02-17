@@ -1,6 +1,6 @@
 # AI/Chat Feature (Martin/Many)
 
-Documentation for Dome's AI chat: unified client, streaming, tools, and UI. Lives in `app/lib/ai/`, `app/components/workspace/AIChatTab.tsx`, `app/components/chat/`, `app/lib/store/useMartinStore.ts`, and `electron/` (main process AI and tools).
+Documentation for Dome's AI chat: unified client, streaming, tools, and UI. The single chat interface is **MartinFloatingButton** (Many). Lives in `app/lib/ai/`, `app/components/martin/MartinFloatingButton.tsx`, `app/components/chat/`, `app/lib/store/useMartinStore.ts`, and `electron/` (main process AI and tools).
 
 ---
 
@@ -167,7 +167,7 @@ interface AIProviderInterface {
 
 ```mermaid
 sequenceDiagram
-  participant UI as AIChatTab
+  participant UI as MartinFloatingButton
   participant Client as app/lib/ai/client
   participant Preload as preload.cjs
   participant Main as main.cjs
@@ -208,7 +208,7 @@ sequenceDiagram
 
 ### Chat with tools
 
-- `chatWithTools(messages, tools, { maxIterations, signal })` in `app/lib/ai/client.ts`: loop up to `maxIterations`; each iteration runs `chatStream(conversationMessages, toOpenAIToolDefinitions(tools), signal)`, collects `tool_call` chunks, runs `executeToolCall` for each, appends assistant message (tool_calls) and user message (tool result) to `conversationMessages`; stops when no tool calls or max iterations. Returns `{ response, toolResults }`.
+- `chatWithTools(messages, tools, { signal })` in `app/lib/ai/client.ts`: uses the LangGraph agent in the main process. Sends messages and tool definitions via IPC `streamLangGraph`; the agent streams text and executes tools server-side. Returns `{ response, toolResults }`.
 
 ### System prompt
 
@@ -234,19 +234,19 @@ sequenceDiagram
 
 ### Chat with tools
 
-- `chatWithTools(messages, tools, { maxIterations, signal })`: as in “Chat with tools” pattern; used by AIChatTab when tools are enabled and provider supports tools.
+- `chatWithTools(messages, tools, { signal })`: as in “Chat with tools” pattern; used by MartinFloatingButton when tools are enabled and provider supports tools.
 
 ### Embeddings
 
 - Via IPC `ai:embeddings` (provider, texts, model); supported for openai and google. Used for vector search (separate from chat; mention only).
 
-### UI (AIChatTab)
+### UI (MartinFloatingButton)
 
-- Uses `useInteractions(resourceId)` for persisted messages (interactions with type 'chat' and metadata.role).
-- Builds system prompt with `getMartinSystemPrompt({ resourceContext: { title, type, content, summary, transcription }, toolsEnabled, location: 'workspace' })`.
-- If tools enabled and provider supports tools: calls `chatWithTools(apiMessages, activeTools, { maxIterations: 5, signal })`, then saves response and tool results into a streaming message and interactions.
-- Else: consumes `chatStream(apiMessages, toolDefinitions, signal)`, updates streaming message on each text chunk, collects tool_call chunks for display; saves final response to interactions.
-- Supports abort (AbortController), regenerate (re-send last user message), and scroll-to-bottom behavior.
+- Uses `useMartinStore` for messages (in-memory; context set by SidePanel via `setContext(resourceId, resourceTitle)` when a resource is open).
+- Builds system prompt with `buildMartinFloatingPrompt` (location, date, time, resourceTitle); optionally injects resource content for summarization requests.
+- If tools enabled and provider supports tools: calls `chatWithToolsStream(apiMessages, tools, { signal, threadId })` for real-time streaming with tool calls and thinking.
+- Else: consumes `chatStream(apiMessages, toolDefinitions, signal)` for text-only streaming.
+- Supports abort (AbortController), regenerate (re-send last user message), save-as-note, tool toggles (My resources, Web search), and smart scroll.
 
 ---
 
@@ -256,6 +256,7 @@ sequenceDiagram
 |--------|-----------|---------|
 | `ai:chat` | invoke | Non-streaming chat (provider, messages, model) |
 | `ai:stream` | invoke | Start stream (provider, messages, model, streamId) |
+| `ai:langgraph:stream` | invoke | Chat with tools via LangGraph agent (provider, messages, model, streamId, toolDefinitions) |
 | `ai:stream:chunk` | on | Stream chunks { streamId, type, text? \| error? } |
 | `ai:embeddings` | invoke | Embeddings (provider, texts, model) |
 | `ai:tools:resourceSearch` | invoke | FTS resource search (query, options) |
@@ -285,13 +286,14 @@ sequenceDiagram
 | `app/lib/ai/tools/resources.ts` | createResourceSearchTool, createResourceGetTool, createResourceListTool, createResourceSemanticSearchTool, createResourceTools |
 | `app/lib/ai/tools/context.ts` | createProjectListTool, createProjectGetTool, createInteractionListTool, createGetRecentResourcesTool, createGetCurrentProjectTool, createContextTools |
 | `app/lib/store/useMartinStore.ts` | Martin state (open, messages, status, context, WhatsApp); actions for chat UI and floating Martin |
-| `app/components/workspace/AIChatTab.tsx` | Workspace chat tab: interactions, system prompt, handleStream (chatWithTools vs chatStream), handleSend, handleAbort, regenerate |
+| `app/components/martin/MartinFloatingButton.tsx` | Main chat UI: useMartinStore, chatWithToolsStream/chatStream, handleSend, handleAbort, handleSaveAsNote, tool toggles, ChatMessageGroup |
 | `app/components/chat/ChatMessage.tsx` | Renders ChatMessageData; ChatMessageData type |
 | `app/components/chat/ChatMessageGroup.tsx` | Groups messages by role; groupMessagesByRole |
 | `app/components/chat/ChatToolCard.tsx` | Renders ToolCallData; ToolCallData type |
 | `app/lib/hooks/useInteractions.ts` | Load/save interactions for a resource (chat history as interactions) |
 | `electron/main.cjs` | IPC handlers ai:chat, ai:stream, ai:embeddings, ai:tools:*; validation and auth |
 | `electron/ai-cloud-service.cjs` | chat(provider, messages, apiKey, model), stream(..., onChunk), embeddings; OpenAI/Anthropic/Google |
+| `electron/langgraph-agent.cjs` | LangGraph agent for chat with tools; invokeLangGraphAgent, runLangGraphAgentSync |
 | `electron/ai-tools-handler.cjs` | resourceSearch, resourceGet, resourceList, resourceSemanticSearch, projectList, projectGet, interactionList, getRecentResources, getCurrentProject (DB + vectorDB) |
 | `electron/personality-loader.cjs` | SOUL.md, USER.md, MEMORY.md, memory/*; getMartinDir, load personality files |
 | `electron/preload.cjs` | window.electron.ai.chat, .stream, .onStreamChunk, .embeddings, .tools.* whitelist and implementation |

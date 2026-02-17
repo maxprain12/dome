@@ -120,7 +120,7 @@ export default function Home() {
     sortOrder: 'desc'
   });
 
-  // Sync current folder to store so Martin AI knows the scope when user asks "these documents"
+  // Sync current folder to store so Many AI knows the scope when user asks "these documents"
   useEffect(() => {
     setCurrentFolderIdInStore(currentFolderId);
     return () => setCurrentFolderIdInStore(null);
@@ -508,10 +508,10 @@ export default function Home() {
               <MessageCircle className="dashboard-icon" />
             </div>
             <h3 className="dashboard-title">
-              Martin Chat
+              Many Chat
             </h3>
             <p className="dashboard-description">
-              Abre un recurso para chatear con Martin sobre su contenido.
+              Abre un recurso para chatear con Many sobre su contenido.
             </p>
           </div>
         );
@@ -718,7 +718,7 @@ export default function Home() {
                         className="folder-icon-wrapper"
                         style={{ backgroundColor: folder.metadata?.color ?? 'var(--accent)' }}
                       >
-                        <FolderOpen className="w-7 h-7 text-white opacity-90" />
+                        <FolderOpen className="w-5 h-5 text-white opacity-90" />
                       </div>
                       {renamingFolderId === folder.id ? (
                         <input
@@ -958,7 +958,7 @@ export default function Home() {
                         : homeSidebarSection === 'tags'
                           ? 'Tags'
                           : homeSidebarSection === 'chat'
-                            ? 'Martin Chat'
+                            ? 'Many Chat'
                             : homeSidebarSection === 'projects'
                               ? 'Projects'
                               : 'Recent Resources'}
@@ -973,7 +973,7 @@ export default function Home() {
                       : homeSidebarSection === 'tags'
                         ? 'Browse resources by tag'
                         : homeSidebarSection === 'chat'
-                          ? 'Chat with Martin about your resources'
+                          ? 'Chat with Many about your resources'
                           : homeSidebarSection === 'projects'
                             ? 'Organize resources by project'
                             : 'Your recently updated files and links'}

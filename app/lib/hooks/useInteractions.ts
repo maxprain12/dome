@@ -40,6 +40,7 @@ interface UseInteractionsResult {
     metadata?: Record<string, any>
   ) => Promise<boolean>;
   deleteInteraction: (id: string) => Promise<boolean>;
+  clearChat: () => Promise<void>;
   refetch: () => Promise<void>;
 }
 
@@ -258,6 +259,14 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
     }
   }, []);
 
+  const clearChat = useCallback(async (): Promise<void> => {
+    if (!resourceId || typeof window === 'undefined' || !window.electron) return;
+    const chatOnly = interactions.filter((i) => i.type === 'chat');
+    for (const msg of chatOnly) {
+      await window.electron.db.interactions.delete(msg.id);
+    }
+  }, [resourceId, interactions]);
+
   // Filter by type (memoized to avoid new array references on every render)
   const notes = useMemo(
     () => interactions.filter((i) => i.type === 'note'),
@@ -282,6 +291,7 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
     addInteraction,
     updateInteraction,
     deleteInteraction,
+    clearChat,
     refetch: fetchInteractions,
   };
 }

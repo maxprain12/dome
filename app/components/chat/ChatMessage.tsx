@@ -1,6 +1,6 @@
 
 import { useState, useMemo } from 'react';
-import { Copy, Check, RefreshCw } from 'lucide-react';
+import { Copy, Check, RefreshCw, ChevronDown, ChevronRight, BookmarkPlus } from 'lucide-react';
 import ChatToolCard, { type ToolCallData } from './ChatToolCard';
 import ReadingIndicator from './ReadingIndicator';
 import MarkdownRenderer from './MarkdownRenderer';
@@ -21,6 +21,8 @@ export interface ChatMessageData {
   isStreaming?: boolean;
   toolCalls?: ToolCallData[];
   citationMap?: Map<number, ParsedCitation>;
+  /** Reasoning/chain-of-thought from models (qwen3, etc.) */
+  thinking?: string;
 }
 
 interface ChatMessageProps {
@@ -45,10 +47,20 @@ export default function ChatMessage({
   className = '',
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
+  const [savedAsNote, setSavedAsNote] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [thinkingExpanded, setThinkingExpanded] = useState(false);
 
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
+
+  const handleSaveAsNote = () => {
+    if (onSaveAsNote && message.content) {
+      onSaveAsNote(message.content);
+      setSavedAsNote(true);
+      setTimeout(() => setSavedAsNote(false), 3000);
+    }
+  };
 
   // Copy message content to clipboard
   const handleCopy = async () => {
@@ -107,6 +119,35 @@ export default function ChatMessage({
               color: isUser ? 'white' : 'var(--primary-text)',
             }}
           >
+            {/* Thinking block (collapsible, assistant only) */}
+            {isAssistant && message.thinking && (
+              <div className="mb-3">
+                <button
+                  type="button"
+                  onClick={() => setThinkingExpanded((v) => !v)}
+                  className="flex items-center gap-1.5 text-xs font-medium w-full text-left opacity-80 hover:opacity-100"
+                  style={{ color: 'inherit' }}
+                >
+                  {thinkingExpanded ? (
+                    <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  Razonamiento
+                </button>
+                {thinkingExpanded && (
+                  <div
+                    className="mt-1.5 pl-4 py-2 text-xs rounded-md border-l-2 whitespace-pre-wrap break-words"
+                    style={{
+                      borderColor: 'var(--border)',
+                      backgroundColor: 'color-mix(in srgb, currentColor 6%, transparent)',
+                    }}
+                  >
+                    {message.thinking}
+                  </div>
+                )}
+              </div>
+            )}
             {/* Message text */}
             {message.content ? (
               <div className="text-sm break-words">
@@ -121,12 +162,16 @@ export default function ChatMessage({
                 )}
               </div>
             ) : message.isStreaming ? (
-              <ReadingIndicator className="opacity-60" />
+              message.thinking ? (
+                <span className="inline-block w-0.5 h-4 animate-pulse" aria-hidden />
+              ) : (
+                <ReadingIndicator className="opacity-60" />
+              )
             ) : null}
 
             {/* Streaming cursor */}
             {message.isStreaming && message.content && (
-              <span className="inline-block w-0.5 h-4 ml-0.5 bg-current animate-pulse" />
+              <span className="inline-block w-0.5 h-4 ml-0.5 bg-current animate-pulse" aria-hidden />
             )}
 
             {/* Source references footer (only for assistant messages with citations) */}
@@ -173,6 +218,17 @@ export default function ChatMessage({
               <Copy className="w-3.5 h-3.5" />
             )}
           </button>
+          {onSaveAsNote && message.content ? (
+            <button
+              onClick={handleSaveAsNote}
+              className="p-2.5 min-h-[44px] min-w-[44px] rounded-md transition-colors hover:bg-[var(--bg-hover)]"
+              style={{ color: savedAsNote ? 'var(--success)' : 'var(--secondary-text)' }}
+              title={savedAsNote ? 'Guardado' : 'Guardar como nota'}
+              aria-label={savedAsNote ? 'Guardado' : 'Guardar como nota'}
+            >
+              {savedAsNote ? <Check className="w-3.5 h-3.5" /> : <BookmarkPlus className="w-3.5 h-3.5" />}
+            </button>
+          ) : null}
           {onRegenerate ? (
             <button
               onClick={onRegenerate}

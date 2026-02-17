@@ -1,10 +1,12 @@
 
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, Globe, Search, FileText, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChevronDown, ChevronRight, Globe, Search, FileText, Loader2, CheckCircle2, XCircle, Database, Plug } from 'lucide-react';
+import MarkdownRenderer from './MarkdownRenderer';
 
 /**
  * ChatToolCard - Displays tool calls and their results
- * Collapsible card with preview for long outputs
+ * Collapsible card with preview for long outputs.
+ * Supports MCP/PostgreSQL and document-style results (content + metadata).
  */
 
 export interface ToolCallData {
@@ -26,6 +28,9 @@ const TOOL_ICONS: Record<string, typeof Globe> = {
   web_fetch: Globe,
   memory_search: FileText,
   memory_get: FileText,
+  resource_create: FileText,
+  resource_get: FileText,
+  resource_search: Search,
 };
 
 const TOOL_LABELS: Record<string, string> = {
@@ -33,13 +38,61 @@ const TOOL_LABELS: Record<string, string> = {
   web_fetch: 'Obteniendo contenido',
   memory_search: 'Buscando en memoria',
   memory_get: 'Obteniendo documento',
+  resource_create: 'Creando recurso',
+  resource_get: 'Obteniendo recurso',
+  resource_search: 'Buscando recursos',
 };
+
+function getIconForTool(name: string): typeof Globe {
+  const norm = (name || '').toLowerCase();
+  if (TOOL_ICONS[name]) return TOOL_ICONS[name];
+  if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query') || norm.includes('database')) {
+    return Database;
+  }
+  if (norm.includes('mcp_') || norm.startsWith('mcp')) return Plug;
+  return Globe;
+}
+
+function getLabelForTool(name: string): string {
+  if (TOOL_LABELS[name]) return TOOL_LABELS[name];
+  const norm = (name || '').toLowerCase();
+  if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query')) return 'Consulta a base de datos';
+  const humanized = name.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return humanized || name;
+}
+
+/** Parse result as document-style array [{ content, metadata }] */
+function parseDocumentResult(result: unknown): Array<{ content?: string; metadata?: Record<string, unknown> }> | null {
+  if (!result) return null;
+  let parsed: unknown;
+  if (typeof result === 'string') {
+    try {
+      parsed = JSON.parse(result);
+    } catch {
+      return null;
+    }
+  } else {
+    parsed = result;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return null;
+  const valid = parsed.every(
+    (item) =>
+      item &&
+      typeof item === 'object' &&
+      (typeof (item as { content?: unknown }).content === 'string' ||
+        typeof (item as { metadata?: unknown }).metadata === 'object')
+  );
+  return valid ? (parsed as Array<{ content?: string; metadata?: Record<string, unknown> }>) : null;
+}
 
 export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [showRawJson, setShowRawJson] = useState(false);
 
-  const Icon = TOOL_ICONS[toolCall.name] || Globe;
-  const label = TOOL_LABELS[toolCall.name] || toolCall.name;
+  const Icon = getIconForTool(toolCall.name);
+  const label = getLabelForTool(toolCall.name);
+
+  const documentItems = useMemo(() => parseDocumentResult(toolCall.result), [toolCall.result]);
 
   // Format result for display
   const formatResult = (result: unknown): string => {
@@ -57,9 +110,61 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
   const previewText = isLongResult ? resultText.slice(0, 120) + '...' : resultText;
 
   // Format arguments for display
-  const argsText = Object.entries(toolCall.arguments)
+  const argsText = Object.entries(toolCall.arguments || {})
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
     .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
     .join(', ');
+
+  const renderResultContent = () => {
+    if (toolCall.error) {
+      return <p className="text-xs" style={{ color: 'var(--error)' }}>{toolCall.error}</p>;
+    }
+    if (showRawJson) {
+      return (
+        <pre className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-64" style={{ color: 'var(--secondary-text)' }}>
+          {resultText}
+        </pre>
+      );
+    }
+    if (documentItems && documentItems.length > 0) {
+      return (
+        <div className="space-y-3">
+          {documentItems.map((item, idx) => (
+            <div key={idx} className="space-y-1.5">
+              {item.metadata?.title && (
+                <p className="text-xs font-medium" style={{ color: 'var(--primary-text)' }}>
+                  {(item.metadata.title as string)}
+                </p>
+              )}
+              {item.metadata?.skills && Array.isArray(item.metadata.skills) && (
+                <div className="flex flex-wrap gap-1">
+                  {(item.metadata.skills as string[]).map((s, i) => (
+                    <span
+                      key={i}
+                      className="px-1.5 py-0.5 rounded text-[10px]"
+                      style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)' }}
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {item.content && (
+                <div className="text-xs prose prose-sm max-w-none" style={{ color: 'var(--secondary-text)' }}>
+                  <MarkdownRenderer content={item.content} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return (
+      <pre className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-64" style={{ color: 'var(--secondary-text)' }}>
+        {resultText}
+      </pre>
+    );
+  };
 
   return (
     <div 
@@ -118,15 +223,20 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
       {/* Result/Error content */}
       {(toolCall.result || toolCall.error) && (
         <div className="border-t px-3 py-2" style={{ borderColor: 'var(--border)' }}>
-          {toolCall.error ? (
-            <p className="text-xs" style={{ color: 'var(--error)' }}>{toolCall.error}</p>
-          ) : expanded ? (
-            <pre 
-              className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-64"
-              style={{ color: 'var(--secondary-text)' }}
-            >
-              {resultText}
-            </pre>
+          {expanded ? (
+            <>
+              {documentItems && (
+                <button
+                  type="button"
+                  className="text-[10px] mb-2 opacity-60 hover:opacity-100 transition-opacity"
+                  style={{ color: 'var(--secondary-text)' }}
+                  onClick={() => setShowRawJson(!showRawJson)}
+                >
+                  {showRawJson ? 'Vista formateada' : 'Ver JSON'}
+                </button>
+              )}
+              {renderResultContent()}
+            </>
           ) : (
             <button
               type="button"
@@ -135,7 +245,9 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
               onClick={() => setExpanded(true)}
               aria-label="Expand tool result"
             >
-              {previewText}
+              {documentItems
+                ? (documentItems[0]?.metadata?.title as string) || previewText
+                : previewText}
             </button>
           )}
         </div>

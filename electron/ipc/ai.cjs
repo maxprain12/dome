@@ -31,6 +31,8 @@ function convertToolsToAnthropic(tools) {
   });
 }
 
+const langgraphAgent = require('../langgraph-agent.cjs');
+
 function register({ ipcMain, windowManager, database, aiCloudService, ollamaService }) {
   /**
    * Chat with cloud AI provider (OpenAI, Anthropic, Google)
@@ -109,7 +111,6 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
           const tempResult = queries.getSetting.get('ollama_temperature');
           const topPResult = queries.getSetting.get('ollama_top_p');
           const numPredictResult = queries.getSetting.get('ollama_num_predict');
-          const showThinkingResult = queries.getSetting.get('ollama_show_thinking');
           const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
           const chatModel = model || modelResult?.value || ollamaService.DEFAULT_MODEL;
 
@@ -128,8 +129,8 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
           const opts = {
             temperature: tempResult?.value ? parseFloat(tempResult.value) : 0.7,
             top_p: topPResult?.value ? parseFloat(topPResult.value) : 0.9,
-            num_predict: numPredictResult?.value ? parseInt(numPredictResult.value, 10) : 500,
-            think: showThinkingResult?.value === 'true',
+            num_predict: numPredictResult?.value ? parseInt(numPredictResult.value, 10) : 4000,
+            think: true,
             tools: tools && tools.length > 0 ? tools : undefined,
           };
 
@@ -202,6 +203,75 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: error.message });
       }
       return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Stream chat using LangGraph agent (alternative to ai:stream for tools)
+   * Uses same ai:stream:chunk format for compatibility with existing UI.
+   */
+  ipcMain.handle('ai:langgraph:stream', async (event, { provider, messages, model, streamId, tools, threadId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      if (!provider || !['openai', 'anthropic', 'google', 'ollama'].includes(provider)) {
+        throw new Error('Invalid provider for LangGraph. Must be openai, anthropic, google, or ollama');
+      }
+      if (!Array.isArray(messages) || messages.length === 0) {
+        throw new Error('Messages must be a non-empty array');
+      }
+      if (!streamId) {
+        throw new Error('streamId is required for streaming');
+      }
+
+      const queries = database.getQueries();
+      let apiKey;
+      let baseUrl;
+
+      let chatModel;
+      if (provider === 'ollama') {
+        baseUrl = queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434';
+        chatModel = model || queries.getSetting.get('ollama_model')?.value || 'llama3.2';
+      } else {
+        apiKey = queries.getSetting.get('ai_api_key')?.value;
+        if (!apiKey) throw new Error(`API key not configured for ${provider}`);
+        chatModel = model || queries.getSetting.get('ai_model')?.value;
+      }
+
+      const controller = new AbortController();
+      const onChunk = (data) => {
+        if (event.sender && !event.sender.isDestroyed()) {
+          event.sender.send('ai:stream:chunk', { streamId, ...data });
+        }
+      };
+
+      await langgraphAgent.invokeLangGraphAgent({
+        provider,
+        model: chatModel,
+        apiKey,
+        baseUrl,
+        messages,
+        toolDefinitions: tools,
+        onChunk,
+        signal: controller.signal,
+        threadId,
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('[AI LangGraph] Stream error:', error);
+      let userMessage = error?.message || 'Unknown error';
+      const statusCode = error?.status_code ?? error?.statusCode;
+      if (statusCode === 500 || userMessage.includes('500')) {
+        userMessage =
+          'Ollama returned an error (500). Try: 1) Ensure Ollama is running 2) Try another model (e.g. llama3.2) 3) For glm-5:cloud, sign in to the Ollama app (Settings → Sign in)';
+      }
+      if (event.sender && !event.sender.isDestroyed()) {
+        event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: userMessage });
+      }
+      return { success: false, error: userMessage };
     }
   });
 

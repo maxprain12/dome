@@ -3,7 +3,7 @@ import { useState } from 'react';
 import OnboardingStep from './OnboardingStep';
 import ProfileStep from './steps/ProfileStep';
 import AISetupStep from './steps/AISetupStep';
-import MartinAvatar from '@/components/martin/MartinAvatar';
+import ManyAvatar from '@/components/many/ManyAvatar';
 
 interface MartinOnboardingProps {
   initialName?: string;
@@ -79,7 +79,7 @@ export default function MartinOnboarding({
         canProceed={true}
       >
         <div className="flex items-center justify-center py-8">
-          <MartinAvatar size="xl" />
+          <ManyAvatar size="xl" />
         </div>
       </OnboardingStep>
     );
@@ -128,7 +128,7 @@ export default function MartinOnboarding({
   return (
     <OnboardingStep message={COMPLETE_MESSAGE} canProceed={false}>
       <div className="flex items-center justify-center py-8">
-        <MartinAvatar size="xl" />
+        <ManyAvatar size="xl" />
       </div>
     </OnboardingStep>
   );

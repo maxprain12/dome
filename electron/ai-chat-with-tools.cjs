@@ -7,8 +7,6 @@
  * provider, executes tool calls via aiToolsHandler, and returns the final response.
  */
 
-const aiCloudService = require('./ai-cloud-service.cjs');
-const ollamaService = require('./ollama-service.cjs');
 const aiToolsHandler = require('./ai-tools-handler.cjs');
 
 /**
@@ -111,159 +109,40 @@ async function executeToolInMain(toolName, args) {
 }
 
 /**
- * Run stream and collect full response + tool_calls
- * @param {string} provider - openai | anthropic | google | ollama
- * @param {Array} messages - Chat messages
- * @param {Array} tools - OpenAI-format tool definitions
- * @param {object} opts - { database, apiKey, model, baseUrl }
- * @returns {Promise<{ response: string, toolCalls: Array }>}
- */
-async function runStreamWithTools(provider, messages, tools, opts) {
-  const toolCalls = [];
-  let fullResponse = '';
-
-  const onChunk = (data) => {
-    if (typeof data === 'string') {
-      fullResponse += data;
-      return;
-    }
-    if (data && data.type === 'text' && data.text) {
-      fullResponse += data.text;
-    } else if (data && data.type === 'tool_call' && data.toolCall) {
-      toolCalls.push(data.toolCall);
-    }
-  };
-
-  const convertToolsToAnthropic = (t) => {
-    if (!t || !Array.isArray(t)) return undefined;
-    return t.map(tool => {
-      if (tool.type === 'function' && tool.function) {
-        return {
-          name: tool.function.name,
-          description: tool.function.description || '',
-          input_schema: tool.function.parameters || { type: 'object', properties: {} },
-        };
-      }
-      return tool;
-    });
-  };
-
-  if (provider === 'ollama') {
-    const baseUrl = opts.baseUrl || ollamaService.DEFAULT_BASE_URL;
-    const model = opts.model || ollamaService.DEFAULT_MODEL;
-    await ollamaService.chatStream(messages, model, baseUrl, onChunk, { tools });
-  } else {
-    const apiKey = opts.apiKey;
-    const model = opts.model;
-    if (!apiKey) throw new Error(`API key required for ${provider}`);
-
-    if (provider === 'anthropic') {
-      const anthropicTools = tools ? convertToolsToAnthropic(tools) : undefined;
-      await aiCloudService.streamAnthropic(messages, apiKey, model, onChunk, anthropicTools);
-    } else {
-      await aiCloudService.stream(provider, messages, apiKey, model, onChunk, tools);
-    }
-  }
-
-  return { response: fullResponse, toolCalls };
-}
-
-/**
- * Chat with tools - main process loop
+ * Chat with tools - main process
+ * Uses LangGraph agent exclusively.
  * @param {string} provider - openai | anthropic | google | ollama
  * @param {Array<{role, content}>} messages - Initial messages
  * @param {Array} toolDefinitions - OpenAI-format tool definitions
- * @param {object} options - { database, maxIterations }
+ * @param {object} options - { database, windowManager }
  * @returns {Promise<string>} Final response text
  */
 async function chatWithToolsInMain(provider, messages, toolDefinitions, options = {}) {
-  const maxIterations = options.maxIterations ?? 5;
   const database = options.database;
   const queries = database?.getQueries?.();
 
   if (!queries) throw new Error('Database required for chatWithToolsInMain');
 
-  let conversationMessages = [...messages];
+  const langgraphAgent = require('./langgraph-agent.cjs');
+  const apiKey = provider === 'ollama' ? undefined : queries.getSetting?.get?.('ai_api_key')?.value;
+  const model =
+    provider === 'ollama'
+      ? (queries.getSetting?.get?.('ollama_model')?.value || 'llama3.2')
+      : queries.getSetting?.get?.('ai_model')?.value;
+  const baseUrl =
+    provider === 'ollama'
+      ? (queries.getSetting?.get?.('ollama_base_url')?.value || 'http://127.0.0.1:11434')
+      : undefined;
 
-  for (let i = 0; i < maxIterations; i++) {
-    let apiKey;
-    let model;
-    let baseUrl;
-
-    if (provider === 'ollama') {
-      const baseUrlRow = queries.getSetting?.get?.('ollama_base_url');
-      const modelRow = queries.getSetting?.get?.('ollama_model');
-      baseUrl = baseUrlRow?.value || ollamaService.DEFAULT_BASE_URL;
-      model = modelRow?.value || ollamaService.DEFAULT_MODEL;
-    } else {
-      apiKey = queries.getSetting?.get?.('ai_api_key')?.value;
-      model = queries.getSetting?.get?.('ai_model')?.value;
-      baseUrl = ollamaService.DEFAULT_BASE_URL;
-    }
-
-    const opts = {
-      database,
-      apiKey,
-      model,
-      baseUrl,
-    };
-
-    const { response, toolCalls } = await runStreamWithTools(provider, conversationMessages, toolDefinitions, opts);
-
-    if (!toolCalls || toolCalls.length === 0) {
-      return response;
-    }
-
-    const windowManager = options.windowManager;
-
-    for (const tc of toolCalls) {
-      let args = {};
-      try {
-        args = typeof tc.arguments === 'string' ? JSON.parse(tc.arguments || '{}') : (tc.arguments || {});
-      } catch (e) {
-        console.warn('[AI Chat Tools] Failed to parse tool args:', tc.arguments);
-      }
-
-      const normalizedName = normalizeToolName(tc.name);
-      const result = await executeToolInMain(normalizedName, args);
-
-      // Broadcast resource changes so UI stays in sync (e.g. when WhatsApp runs tools)
-      if (windowManager && result && result.success !== false) {
-        const resourceId = args.resource_id || args.resourceId;
-        if (normalizedName === 'resource_create' && result.resource) {
-          windowManager.broadcast('resource:created', result.resource);
-        } else if (normalizedName === 'resource_update' && result.resource) {
-          const r = result.resource;
-          const broadcastUpdates = { title: r.title, updated_at: r.updated_at };
-          if (r.metadata != null) broadcastUpdates.metadata = r.metadata;
-          if (args.content !== undefined) broadcastUpdates.content = args.content;
-          windowManager.broadcast('resource:updated', { id: r.id, updates: broadcastUpdates });
-        } else if (normalizedName === 'resource_delete' && resourceId) {
-          windowManager.broadcast('resource:deleted', { id: resourceId });
-        } else if (normalizedName === 'resource_move_to_folder' && resourceId) {
-          const folderId = args.folder_id ?? args.folderId ?? null;
-          const now = Date.now();
-          windowManager.broadcast('resource:updated', {
-            id: resourceId,
-            updates: { folder_id: folderId, updated_at: now },
-          });
-        }
-      }
-
-      conversationMessages.push({
-        role: 'assistant',
-        content: JSON.stringify({
-          tool_calls: [{ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.arguments } }],
-        }),
-      });
-      conversationMessages.push({
-        role: 'user',
-        content: `[Tool result for ${tc.name}]: ${JSON.stringify(result)}`,
-      });
-    }
-  }
-
-  return 'Maximum tool iterations reached.';
+  const result = await langgraphAgent.runLangGraphAgentSync({
+    provider,
+    model,
+    apiKey,
+    baseUrl,
+    messages,
+    toolDefinitions,
+  });
+  return result?.response ?? '';
 }
 
 /**

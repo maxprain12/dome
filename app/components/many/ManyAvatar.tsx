@@ -1,7 +1,6 @@
+import ManyIcon from './ManyIcon';
 
-import MartinIcon from './MartinIcon';
-
-interface MartinAvatarProps {
+interface ManyAvatarProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
 }
@@ -20,7 +19,7 @@ const iconSizes = {
   xl: 40,
 };
 
-export default function MartinAvatar({ size = 'md', className = '' }: MartinAvatarProps) {
+export default function ManyAvatar({ size = 'md', className = '' }: ManyAvatarProps) {
   const sizeClass = sizeClasses[size];
   const iconSize = iconSizes[size];
 
@@ -32,7 +31,7 @@ export default function MartinAvatar({ size = 'md', className = '' }: MartinAvat
         border: '1px solid var(--border)',
       }}
     >
-      <MartinIcon size={iconSize} />
+      <ManyIcon size={iconSize} />
     </div>
   );
 }

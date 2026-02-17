@@ -137,7 +137,7 @@ export default function FlashcardDeckList() {
             className="text-sm mb-6 max-w-sm mx-auto"
             style={{ color: 'var(--secondary-text)' }}
           >
-            Crea un mazo manualmente o pidele a Martin que genere flashcards desde tus documentos.
+            Crea un mazo manualmente o pídele a Many que genere flashcards desde tus documentos.
           </p>
           <button
             onClick={() => setShowCreateModal(true)}

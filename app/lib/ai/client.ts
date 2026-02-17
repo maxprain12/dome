@@ -28,9 +28,7 @@ import {
   createToolRegistry,
   toOpenAIToolDefinitions,
   toAnthropicToolDefinitions,
-  executeToolCall,
   type AnyAgentTool,
-  type ToolCall,
 } from './tools';
 import {
   buildMartinBasePrompt,
@@ -394,7 +392,9 @@ export async function* streamOllama(
   const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
     if (data.streamId !== streamId) return;
 
-    if (data.type === 'text' && data.text) {
+    if (data.type === 'thinking' && data.text) {
+      chunks.push({ type: 'thinking', text: data.text });
+    } else if (data.type === 'text' && data.text) {
       chunks.push({ type: 'text', text: data.text });
     } else if (data.type === 'tool_call' && data.toolCall) {
       chunks.push({
@@ -668,123 +668,149 @@ export async function* chatStream(
 }
 
 // =============================================================================
-// Tool Execution
+// Tool Execution (LangGraph)
 // =============================================================================
 
-const TOOL_TRACE =
-  (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') ||
-  (typeof process !== 'undefined' && process.env?.DEBUG_AI_TOOLS === '1');
+type StreamChunkData = {
+  streamId: string;
+  type: string;
+  text?: string;
+  error?: string;
+  toolCall?: { id: string; name: string; arguments: string };
+  toolCallId?: string;
+  result?: string;
+};
 
-function toolTraceLog(msg: string, data?: Record<string, unknown>) {
-  if (TOOL_TRACE) {
-    const payload = data ? ` ${JSON.stringify(sanitizeForLog(data))}` : '';
-    console.log(`[AI:Tools] ${msg}${payload}`);
+/**
+ * Stream chat with tools using LangGraph agent.
+ * Yields chunks in real time (text, thinking, tool_call, tool_result, done, error).
+ */
+export async function* chatWithToolsStream(
+  messages: Array<{ role: string; content: string }>,
+  tools: AnyAgentTool[],
+  options?: {
+    signal?: AbortSignal;
+    threadId?: string;
+  },
+): AsyncIterable<import('./types').ChatStreamChunk> {
+  if (!isElectron() || !window.electron?.ai?.streamLangGraph) {
+    throw new Error('Chat with tools requires Electron with LangGraph support');
   }
-}
 
-function sanitizeForLog(obj: unknown, maxLen = 200): unknown {
-  if (obj == null) return obj;
-  if (typeof obj === 'string') return obj.length > maxLen ? obj.slice(0, maxLen) + '...' : obj;
-  if (Array.isArray(obj)) return obj.map((x) => sanitizeForLog(x, 80));
-  if (typeof obj === 'object') {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj)) {
-      out[k] = sanitizeForLog(v, k === 'content' || k === 'snippet' ? 100 : 80);
+  const config = await getAIConfig();
+  if (!config) throw new Error('AI not configured.');
+
+  const provider = config.provider as string;
+  const model = provider === 'ollama'
+    ? (config.ollamaModel || getDefaultModelId('ollama' as AIProviderType))
+    : (config.model || getDefaultModelId(provider as AIProviderType));
+  const toolDefinitions = toOpenAIToolDefinitions(tools);
+
+  const streamId = generateStreamId();
+  const chunks: import('./types').ChatStreamChunk[] = [];
+  let resolveWait: (() => void) | null = null;
+  let done = false;
+  let streamError: Error | null = null;
+
+  const unsub = window.electron!.ai.onStreamChunk((data: StreamChunkData) => {
+    if (data.streamId !== streamId) return;
+    if (data.type === 'thinking' && data.text) {
+      chunks.push({ type: 'thinking', text: data.text });
+    } else if (data.type === 'text' && data.text) {
+      chunks.push({ type: 'text', text: data.text });
+    } else if (data.type === 'tool_call' && data.toolCall) {
+      chunks.push({ type: 'tool_call', toolCall: data.toolCall });
+    } else if (data.type === 'tool_result' && data.toolCallId != null) {
+      chunks.push({ type: 'tool_result', toolCallId: data.toolCallId, result: data.result ?? '' });
+    } else if (data.type === 'done') {
+      chunks.push({ type: 'done' });
+      done = true;
+      unsub();
+    } else if (data.type === 'error') {
+      streamError = new Error(data.error || 'Stream error');
+      chunks.push({ type: 'error', error: data.error ?? 'Stream error' });
+      done = true;
+      unsub();
     }
-    return out;
+    if (resolveWait) {
+      resolveWait();
+      resolveWait = null;
+    }
+  });
+
+  const invokePromise = window.electron.ai.streamLangGraph(
+    provider as 'openai' | 'anthropic' | 'google' | 'ollama',
+    messages,
+    model,
+    streamId,
+    toolDefinitions,
+    options?.threadId,
+  );
+
+  invokePromise.catch((err) => {
+    streamError = err instanceof Error ? err : new Error(String(err));
+    done = true;
+    if (resolveWait) {
+      resolveWait();
+      resolveWait = null;
+    }
+  });
+
+  try {
+    while (!done || chunks.length > 0) {
+      if (chunks.length > 0) {
+        const chunk = chunks.shift()!;
+        if (chunk.type === 'error' && streamError) throw streamError;
+        yield chunk;
+        if (chunk.type === 'done') break;
+        if (chunk.type === 'error') break;
+      } else if (!done) {
+        await new Promise<void>((resolve) => {
+          resolveWait = resolve;
+        });
+      }
+    }
+    if (streamError) throw streamError;
+  } finally {
+    unsub();
   }
-  return obj;
 }
 
 /**
- * Execute a chat with tool support, automatically handling tool calls.
+ * Execute a chat with tools using LangGraph agent (runs in main process).
+ * Consumes chatWithToolsStream and returns the final result. Use for non-UI consumers (e.g. WhatsApp).
  */
 export async function chatWithTools(
   messages: Array<{ role: string; content: string }>,
   tools: AnyAgentTool[],
   options?: {
-    maxIterations?: number;
+    maxIterations?: number; // Deprecated, kept for API compatibility
     signal?: AbortSignal;
+    threadId?: string;
   },
-): Promise<{ response: string; toolResults: Array<{ tool: string; result: unknown }> }> {
-  const maxIterations = options?.maxIterations ?? 5;
-  const toolResults: Array<{ tool: string; result: unknown }> = [];
-  const conversationMessages = [...messages];
-  
-  const toolDefinitions = toOpenAIToolDefinitions(tools);
-  toolTraceLog('chatWithTools start', { toolsCount: tools.length, maxIterations });
+): Promise<{ response: string; toolResults: Array<{ tool: string; result: unknown }>; thinking?: string }> {
+  let fullResponse = '';
+  let fullThinking = '';
+  const toolResultsMap = new Map<string, { tool: string; result: unknown }>();
 
-  for (let i = 0; i < maxIterations; i++) {
-    let fullResponse = '';
-    const pendingToolCalls: ToolCall[] = [];
-
-    toolTraceLog(`iteration ${i + 1}/${maxIterations} - streaming from AI`);
-    for await (const chunk of chatStream(conversationMessages, toolDefinitions, options?.signal)) {
-      if (chunk.type === 'text' && chunk.text) {
-        fullResponse += chunk.text;
-      } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-        pendingToolCalls.push({
-          id: chunk.toolCall.id,
-          name: chunk.toolCall.name,
-          arguments: JSON.parse(chunk.toolCall.arguments || '{}'),
-        });
-        toolTraceLog('AI emitted tool_call', {
-          name: chunk.toolCall.name,
-          argsPreview: (chunk.toolCall.arguments || '{}').slice(0, 100),
-        });
-      }
+  for await (const chunk of chatWithToolsStream(messages, tools, {
+    signal: options?.signal,
+    threadId: options?.threadId,
+  })) {
+    if (options?.signal?.aborted) break;
+    if (chunk.type === 'thinking' && chunk.text) fullThinking += chunk.text;
+    if (chunk.type === 'text' && chunk.text) fullResponse += chunk.text;
+    if (chunk.type === 'tool_call' && chunk.toolCall) {
+      toolResultsMap.set(chunk.toolCall.id, { tool: chunk.toolCall.name, result: { toolCall: chunk.toolCall } });
     }
-
-    toolTraceLog(`iteration ${i + 1} complete`, {
-      textLength: fullResponse.length,
-      toolCallsCount: pendingToolCalls.length,
-      toolNames: pendingToolCalls.map((t) => t.name),
-    });
-
-    // If no tool calls, return the response
-    if (pendingToolCalls.length === 0) {
-      toolTraceLog('chatWithTools end - no more tool calls', { responseLength: fullResponse.length });
-      return { response: fullResponse, toolResults };
-    }
-
-    // Execute tool calls
-    for (const toolCall of pendingToolCalls) {
-      toolTraceLog('executing tool', { name: toolCall.name, args: toolCall.arguments });
-      const result = await executeToolCall(tools, toolCall, options?.signal);
-      const details = result.result.details as Record<string, unknown>;
-      toolTraceLog('tool result', {
-        name: toolCall.name,
-        success: details?.status !== 'error',
-        error: details?.error,
-      });
-      toolResults.push({
-        tool: toolCall.name,
-        result: result.result.details,
-      });
-
-      // Add tool result to conversation
-      conversationMessages.push({
-        role: 'assistant',
-        content: JSON.stringify({
-          tool_calls: [{
-            id: toolCall.id,
-            type: 'function',
-            function: { name: toolCall.name, arguments: JSON.stringify(toolCall.arguments) },
-          }],
-        }),
-      });
-      conversationMessages.push({
-        role: 'user', // Tool results go as user messages in simplified format
-        content: `[Tool result for ${toolCall.name}]: ${JSON.stringify(result.result.details)}`,
-      });
+    if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
+      const entry = toolResultsMap.get(chunk.toolCallId);
+      if (entry) entry.result = chunk.result ?? '';
     }
   }
 
-  toolTraceLog('chatWithTools end - max iterations reached');
-  return {
-    response: 'Maximum tool iterations reached.',
-    toolResults,
-  };
+  const toolResults = Array.from(toolResultsMap.values());
+  return { response: fullResponse, toolResults, thinking: fullThinking || undefined };
 }
 
 // =============================================================================

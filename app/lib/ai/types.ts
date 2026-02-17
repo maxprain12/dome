@@ -335,13 +335,16 @@ export interface ToolDefinition {
  * Streaming chunk from chat completion
  */
 export interface ChatStreamChunk {
-  type: 'text' | 'tool_call' | 'done' | 'error';
+  type: 'text' | 'thinking' | 'tool_call' | 'tool_result' | 'done' | 'error';
   text?: string;
   toolCall?: {
     id: string;
     name: string;
     arguments: string;
   };
+  /** Only when type is 'tool_result' - result from completed tool execution */
+  toolCallId?: string;
+  result?: string;
   error?: string;
   /** Usage statistics (only on final chunk) */
   usage?: {

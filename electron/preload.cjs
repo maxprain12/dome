@@ -182,6 +182,7 @@ const ALLOWED_CHANNELS = {
     // AI Cloud (OpenAI, Anthropic, Google)
     'ai:chat',
     'ai:stream',
+    'ai:langgraph:stream',
     'ai:embeddings',
     'ai:testConnection',
     // AI Tools (for Many agent)
@@ -256,6 +257,8 @@ const ALLOWED_CHANNELS = {
     // Sync export/import
     'sync:export',
     'sync:import',
+    // MCP
+    'mcp:testConnection',
     // Plugins
     'plugin:list',
     'plugin:install-from-folder',
@@ -465,6 +468,13 @@ const electronHandler = {
   sync: {
     export: () => ipcRenderer.invoke('sync:export'),
     import: () => ipcRenderer.invoke('sync:import'),
+  },
+
+  // ============================================
+  // MCP API
+  // ============================================
+  mcp: {
+    testConnection: () => ipcRenderer.invoke('mcp:testConnection'),
   },
 
   // ============================================
@@ -747,6 +757,10 @@ const electronHandler = {
     // Stream chat with cloud provider (tools passed for provider-level tool support)
     stream: (provider, messages, model, streamId, tools) =>
       ipcRenderer.invoke('ai:stream', { provider, messages, model, streamId, tools }),
+
+    // Stream chat using LangGraph agent (tools executed in main process)
+    streamLangGraph: (provider, messages, model, streamId, tools, threadId) =>
+      ipcRenderer.invoke('ai:langgraph:stream', { provider, messages, model, streamId, tools, threadId }),
 
     // Listen for stream chunks
     onStreamChunk: (callback) => {

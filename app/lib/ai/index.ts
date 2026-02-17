@@ -141,6 +141,8 @@ export {
   createMemoryGetStub,
   createDefaultTools,
   createAllMartinTools,
+  createManyToolsForContext,
+  createMartinToolsForContext,
   createToolRegistry,
   
   // Schema helpers
@@ -234,6 +236,7 @@ export {
   chat,
   chatStream,
   chatWithTools,
+  chatWithToolsStream,
   chatWithOpenAI,
   chatWithClaude,
   chatWithGemini,

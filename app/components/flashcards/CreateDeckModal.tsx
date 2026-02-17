@@ -97,7 +97,7 @@ export default function CreateDeckModal({ onClose, onCreated }: CreateDeckModalP
               color: 'var(--secondary-text)',
             }}
           >
-            Tambien puedes pedirle a Martin que cree flashcards automaticamente desde cualquier documento.
+            También puedes pedirle a Many que cree flashcards automáticamente desde cualquier documento.
           </div>
         </div>
 

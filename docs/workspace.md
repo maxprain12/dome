@@ -1,6 +1,6 @@
 # Workspace Feature
 
-Documentation for Dome's resource workspace: layout, tabs (Notes, Annotations, AI Chat, Metadata), routing, and viewers. Lives in `app/workspace/`, `app/components/workspace/`, and dynamic viewer imports.
+Documentation for Dome's resource workspace: layout, side panel tabs (References, Backlinks, Search, Workspace), routing, and viewers. Lives in `app/workspace/`, `app/components/workspace/`, and dynamic viewer imports.
 
 ---
 
@@ -22,8 +22,9 @@ interface WorkspaceLayoutProps {
 
 - **NotesTab**: Notes for the resource (interactions type 'note'); editor or list.
 - **AnnotationsTab**: Annotations (interactions type 'annotation'); list + PDF position data.
-- **AIChatTab**: Chat with Many for this resource; uses useInteractions(resourceId), getMartinSystemPrompt({ resourceContext }), chatWithTools / chatStream.
 - **MetadataModal**: Modal to view/edit resource metadata (title, type, metadata fields); save via db.resources.update.
+
+AI Chat is available globally via **MartinFloatingButton** (Many); the SidePanel sets context via `setContext(resourceId, resourceTitle)` when a resource is open.
 
 ### Routing
 
@@ -38,7 +39,7 @@ interface WorkspaceLayoutProps {
 
 ### Layout structure
 
-- **WorkspaceLayout**: Header (WorkspaceHeader: title, back, metadata button, panel toggle) + main area + optional SidePanel (tabs: Notes, Annotations, AI Chat).
+- **WorkspaceLayout**: Header (WorkspaceHeader: title, back, metadata button, panel toggle) + main area + optional SidePanel (tabs: References, Backlinks, Search, Workspace for notebooks).
 - **Main area**: Renders viewer by resource.type — PDFViewer, VideoPlayer, AudioPlayer, ImageViewer, or URLViewer (and for note, Editor/NotionEditor in main or in Notes tab).
 - **Dynamic imports**: PDFViewer, VideoPlayer, AudioPlayer, ImageViewer loaded with `dynamic(..., { ssr: false })` to avoid SSR/Node issues.
 
@@ -49,9 +50,12 @@ interface WorkspaceLayoutProps {
 
 ### Side panel tabs
 
-- **NotesTab**: Load/save interactions with type 'note'; rich text or list UI.
-- **AnnotationsTab**: Load interactions type 'annotation'; display position_data (e.g. page, rect) and content; link to PDF viewer position if applicable.
-- **AIChatTab**: See docs/ai-chat.md; context is current resource (title, type, content, summary, transcription).
+- **ReferencesTab**: Linked resources from this resource.
+- **BacklinksTab**: Resources linking to this resource.
+- **SearchTab**: Find resources to link.
+- **WorkspaceTab**: (Notebooks only) Workspace files panel.
+
+Note: AI Chat was removed from SidePanel; use MartinFloatingButton (Many) for chat. SidePanel calls `setContext(resourceId, resourceTitle)` so Many has resource context.
 
 ### Metadata
 
@@ -80,7 +84,7 @@ interface WorkspaceLayoutProps {
 - **AI Chat**: Many chat with resource context and optional tools (see ai-chat.md).
 - **Metadata**: View and edit resource fields and metadata in modal.
 - **Back/close**: Header back button closes window or navigates back depending on context.
-- **Panel toggle**: Show/hide side panel (Notes / Annotations / AI Chat).
+- **Panel toggle**: Show/hide side panel (References / Backlinks / Search / Workspace).
 
 ---
 
@@ -95,9 +99,7 @@ interface WorkspaceLayoutProps {
 | `app/workspace/url/[[...params]]/` | URL workspace route (same pattern) |
 | `app/components/workspace/WorkspaceLayout.tsx` | Layout: header, viewer, side panel, metadata modal; resource load and resource:updated |
 | `app/components/workspace/WorkspaceHeader.tsx` | Title, back, metadata button, panel toggle |
-| `app/components/workspace/SidePanel.tsx` | Tabs: Notes, Annotations, AI Chat; renders NotesTab, AnnotationsTab, AIChatTab |
-| `app/components/workspace/NotesTab.tsx` | Notes (interactions type 'note') |
-| `app/components/workspace/AnnotationsTab.tsx` | Annotations list and position_data |
+| `app/components/workspace/SidePanel.tsx` | Tabs: References, Backlinks, Search, Workspace (notebooks); setContext for Martin |
 | `app/components/workspace/AIChatTab.tsx` | Many chat tab (see ai-chat.md) |
 | `app/components/workspace/MetadataModal.tsx` | Metadata form and save |
 | `app/components/workspace/index.ts` | Exports |

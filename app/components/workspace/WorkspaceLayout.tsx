@@ -8,7 +8,7 @@ import GraphPanel from './GraphPanel';
 import StudioOutputViewer from './StudioOutputViewer';
 import MetadataModal from './MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { useMartinStore } from '@/lib/store/useMartinStore';
+import { useManyStore } from '@/lib/store/useManyStore';
 import { type Resource } from '@/types';
 
 const PDFViewer = lazy(() => import('../viewers/PDFViewer'));
@@ -33,7 +33,7 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
   const graphPanelOpen = useAppStore((s) => s.graphPanelOpen);
   const activeStudioOutput = useAppStore((s) => s.activeStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
-  const setContext = useMartinStore((s) => s.setContext);
+  const setContext = useManyStore((s) => s.setContext);
 
   // Load resource data
   useEffect(() => {
@@ -65,7 +65,7 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
     loadResource();
   }, [resourceId]);
 
-  // Update Many context when resource loads (ensures MartinFloatingButton has current resource)
+  // Update Many context when resource loads (ensures ManyFloatingButton has current resource)
   useEffect(() => {
     if (resource) {
       setContext(resourceId, resource.title);

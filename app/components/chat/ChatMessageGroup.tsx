@@ -2,7 +2,7 @@
 import { useMemo, memo } from 'react';
 import { User } from 'lucide-react';
 import ChatMessage, { type ChatMessageData } from './ChatMessage';
-import MartinAvatar from '@/components/martin/MartinAvatar';
+import ManyAvatar from '@/components/many/ManyAvatar';
 
 /**
  * ChatMessageGroup - Groups consecutive messages from the same role
@@ -12,12 +12,14 @@ import MartinAvatar from '@/components/martin/MartinAvatar';
 interface ChatMessageGroupProps {
   messages: ChatMessageData[];
   onRegenerate?: (messageId: string) => void;
+  onSaveAsNote?: (content: string) => void;
   className?: string;
 }
 
 export default memo(function ChatMessageGroup({
   messages,
   onRegenerate,
+  onSaveAsNote,
   className = '',
 }: ChatMessageGroupProps) {
   const firstMessage = messages[0];
@@ -38,7 +40,7 @@ export default memo(function ChatMessageGroup({
       {/* Avatar - only for first message in group */}
       <div className="flex-shrink-0 w-8">
         {isAssistant ? (
-          <MartinAvatar size="sm" />
+          <ManyAvatar size="sm" />
         ) : isUser ? (
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -63,6 +65,7 @@ export default memo(function ChatMessageGroup({
                 ? () => onRegenerate(message.id)
                 : undefined
             }
+            onSaveAsNote={isAssistant ? onSaveAsNote : undefined}
           />
         ))}
       </div>

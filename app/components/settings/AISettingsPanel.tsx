@@ -29,10 +29,6 @@ export default function AISettingsPanel() {
   const [ollamaBaseURL, setOllamaBaseURL] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3.2');
   const [ollamaEmbeddingModel, setOllamaEmbeddingModel] = useState('mxbai-embed-large');
-  const [ollamaTemperature, setOllamaTemperature] = useState(0.7);
-  const [ollamaTopP, setOllamaTopP] = useState(0.9);
-  const [ollamaNumPredict, setOllamaNumPredict] = useState(500);
-  const [ollamaShowThinking, setOllamaShowThinking] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -77,10 +73,6 @@ export default function AISettingsPanel() {
         setOllamaBaseURL(config.ollama_base_url || 'http://localhost:11434');
         setOllamaModel(config.ollama_model || 'llama3.2');
         setOllamaEmbeddingModel(config.ollama_embedding_model || 'mxbai-embed-large');
-        setOllamaTemperature(config.ollama_temperature ?? 0.7);
-        setOllamaTopP(config.ollama_top_p ?? 0.9);
-        setOllamaNumPredict(config.ollama_num_predict ?? 500);
-        setOllamaShowThinking(config.ollama_show_thinking ?? false);
       }
     };
     loadConfig();
@@ -172,10 +164,6 @@ export default function AISettingsPanel() {
         config.ollama_base_url = ollamaBaseURL;
         config.ollama_model = ollamaModel;
         config.ollama_embedding_model = ollamaEmbeddingModel;
-        config.ollama_temperature = ollamaTemperature;
-        config.ollama_top_p = ollamaTopP;
-        config.ollama_num_predict = ollamaNumPredict;
-        config.ollama_show_thinking = ollamaShowThinking;
         break;
     }
 
@@ -573,100 +561,6 @@ export default function AISettingsPanel() {
               )}
             </div>
 
-            {/* Advanced Ollama Settings */}
-            <div className="pt-6">
-              <h4 className="text-xs uppercase tracking-wider font-semibold mb-4 opacity-60" style={{ color: 'var(--secondary-text)' }}>
-                Fine Tuning
-              </h4>
-
-              <div className="space-y-6">
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <label htmlFor="ai-ollama-temperature" className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
-                      Temperature
-                    </label>
-                    <span className="text-xs font-mono opacity-60" style={{ color: 'var(--primary-text)' }}>{ollamaTemperature}</span>
-                  </div>
-                  <input
-                    id="ai-ollama-temperature"
-                    type="range"
-                    min="0"
-                    max="2"
-                    step="0.1"
-                    value={ollamaTemperature}
-                    onChange={(e) => setOllamaTemperature(parseFloat(e.target.value))}
-                    className="w-full h-2 rounded-lg appearance-none cursor-pointer range-input"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <label htmlFor="ai-ollama-top-p" className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
-                      Top P
-                    </label>
-                    <span className="text-xs font-mono opacity-60" style={{ color: 'var(--primary-text)' }}>{ollamaTopP}</span>
-                  </div>
-                  <input
-                    id="ai-ollama-top-p"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    value={ollamaTopP}
-                    onChange={(e) => setOllamaTopP(parseFloat(e.target.value))}
-                    className="w-full h-2 rounded-lg appearance-none cursor-pointer range-input"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <label htmlFor="ai-ollama-num-predict" className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
-                      Num Predict
-                    </label>
-                    <span className="text-xs font-mono opacity-60" style={{ color: 'var(--primary-text)' }}>{ollamaNumPredict}</span>
-                  </div>
-                  <input
-                    id="ai-ollama-num-predict"
-                    type="range"
-                    min="100"
-                    max="4096"
-                    step="100"
-                    value={ollamaNumPredict}
-                    onChange={(e) => setOllamaNumPredict(parseInt(e.target.value, 10))}
-                    className="w-full h-2 rounded-lg appearance-none cursor-pointer range-input"
-                  />
-                  <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
-                    Maximum tokens to generate per response.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
-                      Show thinking
-                    </label>
-                    <p className="text-xs mt-0.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
-                      Mostrar el razonamiento interno de modelos con chain-of-thought (qwen3, etc.). Por defecto desactivado.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={ollamaShowThinking}
-                    onClick={() => setOllamaShowThinking((v) => !v)}
-                    className="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2"
-                    style={{
-                      backgroundColor: ollamaShowThinking ? 'var(--accent)' : 'var(--bg-tertiary)',
-                    }}
-                  >
-                    <span
-                      className="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition"
-                      style={{ transform: ollamaShowThinking ? 'translateX(22px)' : 'translateX(2px)' }}
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 

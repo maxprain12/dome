@@ -183,7 +183,7 @@ export async function getAIConfig(): Promise<AISettings> {
     ollama_temperature: ollamaTemperatureResult.data ? parseFloat(ollamaTemperatureResult.data) : undefined,
     ollama_top_p: ollamaTopPResult.data ? parseFloat(ollamaTopPResult.data) : undefined,
     ollama_num_predict: ollamaNumPredictResult.data ? parseInt(ollamaNumPredictResult.data, 10) : undefined,
-    ollama_show_thinking: ollamaShowThinkingResult.data === 'true',
+    ollama_show_thinking: ollamaShowThinkingResult.data !== 'false',
   };
 }
 

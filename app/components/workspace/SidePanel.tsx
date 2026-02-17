@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown } from 'lucide-react';
-import NotesTab from './NotesTab';
-import AnnotationsTab from './AnnotationsTab';
 import WorkspaceFilesPanel from './WorkspaceFilesPanel';
 import { type Resource } from '@/types';
-import { useMartinStore } from '@/lib/store/useMartinStore';
+import { useManyStore } from '@/lib/store/useManyStore';
 
 type TabType = 'references' | 'backlinks' | 'search' | 'workspace';
 
@@ -36,7 +34,7 @@ export default function SidePanel({
   const [activeTab, setActiveTab] = useState<TabType>('references');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { setContext } = useMartinStore();
+  const { setContext } = useManyStore();
 
   const isNotebook = resource?.type === 'notebook';
   const tabs = isNotebook ? TAB_CONFIG : TAB_CONFIG.filter((t) => t.id !== 'workspace');

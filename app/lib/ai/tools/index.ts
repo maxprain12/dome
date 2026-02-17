@@ -79,6 +79,13 @@ export {
   type ActionGate,
 } from './common';
 
+// LangChain adapter (for LangGraph integration)
+export {
+  toLangChainTools,
+  toLangChainToolsFromOpenAIDefinitions,
+  type StructuredToolInterface,
+} from './langchain-adapter';
+
 // Adapter
 export {
   normalizeToolName,
@@ -292,10 +299,10 @@ export function createResourceOnlyTools(): AnyAgentTool[] {
 }
 
 /**
- * Create Martin tools filtered by context. Reduces token usage by excluding
+ * Create Many tools filtered by context. Reduces token usage by excluding
  * tools irrelevant to the current screen (e.g. notebook tools when not in a notebook).
  */
-export function createMartinToolsForContext(
+export function createManyToolsForContext(
   pathname: string,
   config?: DefaultToolsConfig,
 ): AnyAgentTool[] {
@@ -332,3 +339,6 @@ export function createMartinToolsForContext(
 
   return tools;
 }
+
+/** @deprecated Use createManyToolsForContext */
+export const createMartinToolsForContext = createManyToolsForContext;

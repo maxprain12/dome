@@ -29,6 +29,7 @@ const noteExportHandlers = require('./note-export.cjs');
 const updaterHandlers = require('./updater.cjs');
 const syncHandlers = require('./sync.cjs');
 const pluginsHandlers = require('./plugins.cjs');
+const mcpHandlers = require('./mcp.cjs');
 
 /**
  * Register all IPC handlers
@@ -91,6 +92,7 @@ function registerAll(deps) {
   updaterHandlers.register({ ipcMain, windowManager, validateSender });
   syncHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender, sanitizePath });
   pluginsHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });
+  mcpHandlers.register({ ipcMain, windowManager, database, validateSender });
 
   console.log('[IPC] All handlers registered successfully');
 }
