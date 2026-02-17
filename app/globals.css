@@ -3258,9 +3258,9 @@ a:hover {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 8px;
-  width: 72px;
-  min-width: 72px;
+  padding: 10px;
+  width: 88px;
+  min-width: 88px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
   transition: all var(--transition-fast);
@@ -3277,8 +3277,8 @@ a:hover {
 }
 
 .folder-icon-wrapper {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -3295,7 +3295,7 @@ a:hover {
   font-weight: 400;
   text-align: center;
   width: 100%;
-  max-width: 72px;
+  max-width: 88px;
   line-height: 1.25;
   color: var(--primary-text);
   white-space: nowrap;

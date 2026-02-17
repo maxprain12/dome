@@ -43,6 +43,7 @@ function traceLog(fn, params, result, err) {
 const database = require('./database.cjs');
 const fileStorage = require('./file-storage.cjs');
 const documentExtractor = require('./document-extractor.cjs');
+const webScraper = require('./web-scraper.cjs');
 
 // Reference to vector database (set by init.cjs)
 let vectorDB = null;
@@ -1177,6 +1178,73 @@ async function flashcardCreate(data) {
 }
 
 // =============================================================================
+// Web Fetch Tool (LangGraph)
+// =============================================================================
+
+/**
+ * Fetch and extract content from a web page using BrowserWindow (handles JS, cookies).
+ * Used by LangGraph when the AI requests to read a URL.
+ * @param {Object} args - Tool arguments
+ * @param {string} args.url - URL to fetch (required)
+ * @param {number} [args.maxLength=50000] - Max content length
+ * @param {boolean} [args.includeMetadata=true] - Include page metadata
+ * @returns {Promise<Object>} Result compatible with web_fetch tool format
+ */
+async function webFetch(args) {
+  const url = args?.url;
+  if (!url || typeof url !== 'string') {
+    return { status: 'error', error: 'URL is required for web_fetch' };
+  }
+  try {
+    new URL(url);
+  } catch {
+    return { status: 'error', error: 'Invalid URL provided' };
+  }
+
+  const maxLength = Math.min(Math.max(1000, parseInt(args?.max_length ?? args?.maxLength ?? 50000, 10) || 50000), 100000);
+  const includeMetadata = args?.include_metadata !== false && args?.includeMetadata !== false;
+
+  try {
+    const scraped = await webScraper.scrapeUrl(url);
+    if (!scraped?.success) {
+      return {
+        status: 'error',
+        error: scraped?.error || 'Failed to fetch page',
+      };
+    }
+
+    let content = scraped.content || '';
+    const truncated = content.length > maxLength;
+    if (truncated) {
+      content = content.substring(0, maxLength);
+    }
+
+    const out = {
+      url: scraped.url,
+      finalUrl: scraped.url,
+      content,
+      contentLength: content.length,
+      truncated,
+      statusCode: 200,
+    };
+    if (includeMetadata && scraped.metadata) {
+      out.metadata = {
+        title: scraped.title || scraped.metadata?.title,
+        description: scraped.metadata?.description,
+        author: scraped.metadata?.author,
+        sourceUrl: scraped.url,
+      };
+    }
+    traceLog('webFetch', { url }, { success: true, contentLength: out.contentLength });
+    return out;
+  } catch (error) {
+    traceLog('webFetch', { url }, null, error);
+    console.error('[AI Tools] webFetch error:', error);
+    return { status: 'error', error: error.message };
+  }
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -1211,4 +1279,7 @@ module.exports = {
 
   // Flashcard tools
   flashcardCreate,
+
+  // Web tools (LangGraph)
+  webFetch,
 };

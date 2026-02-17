@@ -4,9 +4,7 @@ import { ChevronDown, ChevronRight, Globe, Search, FileText, Loader2, CheckCircl
 import MarkdownRenderer from './MarkdownRenderer';
 
 /**
- * ChatToolCard - Displays tool calls and their results
- * Collapsible card with preview for long outputs.
- * Supports MCP/PostgreSQL and document-style results (content + metadata).
+ * ChatToolCard - Minimalist display for tool calls
  */
 
 export interface ToolCallData {
@@ -106,8 +104,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
   };
 
   const resultText = formatResult(toolCall.result);
-  const isLongResult = resultText.length > 120;
-  const previewText = isLongResult ? resultText.slice(0, 120) + '...' : resultText;
+  const isPending = toolCall.status === 'pending' || toolCall.status === 'running';
 
   // Format arguments for display
   const argsText = Object.entries(toolCall.arguments || {})
@@ -117,11 +114,11 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
 
   const renderResultContent = () => {
     if (toolCall.error) {
-      return <p className="text-xs" style={{ color: 'var(--error)' }}>{toolCall.error}</p>;
+      return <p className="text-xs text-[var(--error)]">{toolCall.error}</p>;
     }
     if (showRawJson) {
       return (
-        <pre className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-64" style={{ color: 'var(--secondary-text)' }}>
+        <pre className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-64 text-[var(--secondary-text)]">
           {resultText}
         </pre>
       );
@@ -132,25 +129,12 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
           {documentItems.map((item, idx) => (
             <div key={idx} className="space-y-1.5">
               {item.metadata?.title && (
-                <p className="text-xs font-medium" style={{ color: 'var(--primary-text)' }}>
+                <p className="text-xs font-medium text-[var(--primary-text)]">
                   {(item.metadata.title as string)}
                 </p>
               )}
-              {item.metadata?.skills && Array.isArray(item.metadata.skills) && (
-                <div className="flex flex-wrap gap-1">
-                  {(item.metadata.skills as string[]).map((s, i) => (
-                    <span
-                      key={i}
-                      className="px-1.5 py-0.5 rounded text-[10px]"
-                      style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)' }}
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              )}
               {item.content && (
-                <div className="text-xs prose prose-sm max-w-none" style={{ color: 'var(--secondary-text)' }}>
+                <div className="text-xs prose prose-sm max-w-none text-[var(--secondary-text)]">
                   <MarkdownRenderer content={item.content} />
                 </div>
               )}
@@ -160,96 +144,62 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
       );
     }
     return (
-      <pre className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-64" style={{ color: 'var(--secondary-text)' }}>
+      <pre className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-64 text-[var(--secondary-text)]">
         {resultText}
       </pre>
     );
   };
 
   return (
-    <div 
-      className={`rounded-lg border transition-all ${className}`}
-      style={{ 
-        backgroundColor: 'var(--bg-secondary)', 
-        borderColor: 'var(--border)',
-      }}
-    >
-      {/* Header */}
+    <div className={`text-sm ${className}`}>
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-3 py-2 flex items-center gap-2 text-left transition-colors rounded-lg"
-        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-hover)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+        disabled={isPending}
+        className={`group flex items-center gap-2 py-1 px-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)] max-w-full ${isPending ? 'cursor-default' : 'cursor-pointer'
+          }`}
       >
-        {/* Status indicator */}
-        <div className="flex-shrink-0">
-          {toolCall.status === 'pending' && (
-            <div className="w-4 h-4 rounded-full border-2" style={{ borderColor: 'var(--border)' }} />
-          )}
-          {toolCall.status === 'running' && (
-            <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--accent)' }} />
-          )}
-          {toolCall.status === 'success' && (
-            <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--success)' }} />
-          )}
-          {toolCall.status === 'error' && (
-            <XCircle className="w-4 h-4" style={{ color: 'var(--error)' }} />
+        <div className={`flex items-center justify-center h-5 w-5 rounded transition-colors ${isPending ? 'text-[var(--accent)]' : toolCall.status === 'error' ? 'text-[var(--error)]' : 'text-[var(--tertiary-text)] group-hover:text-[var(--secondary-text)]'
+          }`}>
+          {isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : toolCall.status === 'error' ? (
+            <XCircle className="h-3.5 w-3.5" />
+          ) : (
+            <Icon className="h-3.5 w-3.5" />
           )}
         </div>
 
-        {/* Icon and label */}
-        <Icon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--secondary-text)' }} />
-        <span className="text-sm font-medium flex-1 truncate" style={{ color: 'var(--primary-text)' }}>
+        <span className={`text-[13px] font-medium truncate flex-1 text-left ${isPending ? 'text-[var(--primary-text)]' : 'text-[var(--secondary-text)]'
+          }`}>
           {label}
+          {argsText && (isPending || expanded) && (
+            <span className="ml-2 text-[12px] opacity-60 font-normal">{argsText}</span>
+          )}
         </span>
 
-        {/* Expand/collapse */}
-        {(toolCall.result || toolCall.error) && (
-          <div className="flex-shrink-0" style={{ color: 'var(--secondary-text)' }}>
-            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        {!isPending && (toolCall.result || toolCall.error) && (
+          <div className="text-[var(--tertiary-text)] opacity-0 group-hover:opacity-100 transition-opacity">
+            {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           </div>
         )}
       </button>
 
-      {/* Arguments preview (always visible) */}
-      {argsText && (
-        <div className="px-3 pb-2 -mt-1">
-          <p className="text-xs opacity-60 truncate" style={{ color: 'var(--secondary-text)' }}>
-            {argsText}
-          </p>
-        </div>
-      )}
-
-      {/* Result/Error content */}
-      {(toolCall.result || toolCall.error) && (
-        <div className="border-t px-3 py-2" style={{ borderColor: 'var(--border)' }}>
-          {expanded ? (
-            <>
-              {documentItems && (
-                <button
-                  type="button"
-                  className="text-[10px] mb-2 opacity-60 hover:opacity-100 transition-opacity"
-                  style={{ color: 'var(--secondary-text)' }}
-                  onClick={() => setShowRawJson(!showRawJson)}
-                >
-                  {showRawJson ? 'Vista formateada' : 'Ver JSON'}
-                </button>
-              )}
-              {renderResultContent()}
-            </>
-          ) : (
-            <button
-              type="button"
-              className="text-xs truncate cursor-pointer w-full text-left bg-transparent border-none p-0 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 rounded"
-              style={{ color: 'var(--secondary-text)' }}
-              onClick={() => setExpanded(true)}
-              aria-label="Expand tool result"
-            >
-              {documentItems
-                ? (documentItems[0]?.metadata?.title as string) || previewText
-                : previewText}
-            </button>
+      {/* Expandable Result Area */}
+      {expanded && !isPending && (toolCall.result || toolCall.error) && (
+        <div className="mt-1 ml-2 pl-4 border-l border-[var(--border)] py-1 animate-in fade-in duration-200 slide-in-from-top-1">
+          {documentItems && (
+            <div className="mb-2">
+              <button
+                type="button"
+                className="text-[10px] opacity-60 hover:opacity-100 transition-opacity text-[var(--secondary-text)]"
+                onClick={() => setShowRawJson(!showRawJson)}
+              >
+                {showRawJson ? 'Vista formateada' : 'Ver JSON'}
+              </button>
+            </div>
           )}
+          {renderResultContent()}
         </div>
       )}
     </div>

@@ -124,11 +124,14 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
   }, []);
 
   const activeTools = useMemo(() => {
-    if (!toolsEnabled) return [];
-    if (resourceToolsEnabled) {
-      return createManyToolsForContext(pathname || '/');
+    const tools = [];
+    if (toolsEnabled) {
+      tools.push(...WEB_TOOLS);
     }
-    return WEB_TOOLS;
+    if (resourceToolsEnabled) {
+      tools.push(...createManyToolsForContext(pathname || '/'));
+    }
+    return tools;
   }, [toolsEnabled, resourceToolsEnabled, pathname]);
 
   const scrollToBottom = useCallback(
@@ -224,6 +227,8 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
 
       let systemPrompt = buildSystemPrompt();
       let contentInjected = false;
+      let fullResponse = '';
+      let toolCallsData: ToolCallData[] = [];
 
       if (effectiveResourceId && isSummarizeRequest(userMessage) && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
         try {
@@ -252,9 +257,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         { role: 'user', content: userMessage },
       ];
 
-      let fullResponse = '';
       let fullThinking = '';
-      const toolCallsData: ToolCallData[] = [];
 
       if (useToolsForThisRequest) {
         const toolsPrompt = systemPrompt + '\n\n' + prompts.many.tools + '\n\n' + prompts.many.noteFormat;
@@ -480,8 +483,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       />
 
       <div
-        ref={messagesContainerRef}
-        className="many-panel-messages flex-1 overflow-y-auto p-4 space-y-5 min-h-0"
+        className="many-panel-messages flex-1 overflow-y-auto px-4 pt-4 pb-10 space-y-5 min-h-0"
       >
         {chatMessages.length === 0 && !streamingMessage ? (
           <div className="py-10 text-center">

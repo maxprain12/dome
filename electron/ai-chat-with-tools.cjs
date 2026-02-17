@@ -27,6 +27,7 @@ const TOOL_HANDLER_MAP = {
   resource_delete: 'resourceDelete',
   resource_move_to_folder: 'resourceMoveToFolder',
   flashcard_create: 'flashcardCreate',
+  web_fetch: 'webFetch',
 };
 
 function normalizeToolName(name) {
@@ -95,6 +96,9 @@ async function executeToolInMain(toolName, args) {
         result = await fn(args.resource_id || args.resourceId, args.folder_id ?? args.folderId);
         break;
       case 'flashcardCreate':
+        result = await fn(args);
+        break;
+      case 'webFetch':
         result = await fn(args);
         break;
       default:
