@@ -144,7 +144,8 @@ export function useResources(filter?: ResourceFilter) {
             ({ id, updates }: { id: string, updates: Partial<Resource> }) => {
                 // When thumbnail is ready (e.g. URL screenshot), broadcast omits thumbnail_data
                 // to avoid OOM. Re-fetch the resource to get thumbnail_data for preview.
-                if (updates?.thumbnail_ready && window.electron?.db?.resources?.getById) {
+                // NOTE: Partial<Resource> may not have thumbnail_ready property - check using 'in' operator.
+                if ('thumbnail_ready' in updates && updates.thumbnail_ready && window.electron?.db?.resources?.getById) {
                     window.electron.db.resources.getById(id).then((result) => {
                         if (result?.success && result.data) {
                             const full = normalizeResource(result.data as Resource);
