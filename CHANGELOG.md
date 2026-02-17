@@ -2,6 +2,21 @@
 
 All notable changes to Dome are documented in this file.
 
+## [0.2.3] - 2026-02-17
+
+### Fixed
+
+- **Sincronización de carpetas**: Los estados de carpetas ahora se refrescan correctamente cuando el AI ejecuta tools (mover recursos, cambiar colores). Broadcast añadido en `executeToolInMain` (WhatsApp) y refetch defensivo tras tool results en Martin y AIChatTab.
+- **Metadata merge**: Merge profundo de metadata en `useResources` para que actualizaciones parciales (ej. color de carpeta) preserven el resto de campos.
+
+### Changed
+
+- **AI tools por contexto**: `createMartinToolsForContext` filtra tools según la ruta (ej. notebook tools solo en workspace/notebook) para reducir tokens y mejorar uso.
+- **Descripciones de tools**: Descripciones más concisas en resource-actions, resources y context para optimizar tokens.
+- **System prompt unificado**: Instrucciones de tools centralizadas en `tools.txt` para todos los proveedores (OpenAI, Anthropic, Google, Ollama).
+
+[0.2.3]: https://github.com/maxprain12/dome/releases/tag/v0.2.3
+
 ## [0.1.7] - 2026-02-15
 
 ### Added
