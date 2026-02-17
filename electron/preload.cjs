@@ -99,6 +99,7 @@ const ALLOWED_CHANNELS = {
     'resource:readFile',
     'resource:readDocumentContent',
     'resource:export',
+    'note:exportToPdf',
     'resource:delete',
     'resource:regenerateThumbnail',
     'resource:setThumbnail',
@@ -647,6 +648,15 @@ const electronHandler = {
     // Schedule indexing for resource (used when workspace opens - e.g. URL articles with scraped_content)
     scheduleIndex: (resourceId) =>
       ipcRenderer.invoke('resource:scheduleIndex', resourceId),
+  },
+
+  // ============================================
+  // NOTE EXPORT API
+  // ============================================
+  note: {
+    // Export note content to PDF (opens save dialog, renders HTML, prints to PDF)
+    exportToPdf: (params) =>
+      ipcRenderer.invoke('note:exportToPdf', params),
   },
 
   // ============================================

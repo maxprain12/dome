@@ -1,7 +1,12 @@
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, mergeAttributes, createAtomBlockMarkdownSpec } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import type { FileBlockAttributes } from '@/types';
 import { FileBlock as FileBlockComponent } from '../blocks/FileBlock';
+
+const fileBlockMarkdownSpec = createAtomBlockMarkdownSpec({
+  nodeName: 'fileBlock',
+  allowedAttributes: ['resourceId', 'filename', 'mimeType', 'size'],
+});
 
 export const FileBlockExtension = Node.create({
   name: 'fileBlock',
@@ -95,6 +100,8 @@ export const FileBlockExtension = Node.create({
   addNodeView() {
     return ReactNodeViewRenderer(FileBlockComponent as any);
   },
+
+  ...fileBlockMarkdownSpec,
 
   addCommands() {
     return {

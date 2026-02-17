@@ -1,5 +1,5 @@
 
-import { FloatingMenu as TiptapFloatingMenu } from '@tiptap/react';
+import { FloatingMenu as TiptapFloatingMenu } from '@tiptap/react/menus';
 import { Editor } from '@tiptap/core';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
@@ -22,7 +22,7 @@ export function FloatingMenu({ editor }: FloatingMenuProps) {
   return (
     <TiptapFloatingMenu
       editor={editor}
-      tippyOptions={{ duration: 100 }}
+      options={{ placement: 'top-start', offset: 6 }}
       shouldShow={({ state, view }) => {
         const { selection } = state;
         const { $anchor } = selection;

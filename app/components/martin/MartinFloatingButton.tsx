@@ -211,7 +211,7 @@ export default function MartinFloatingButton() {
         hasElectronTools &&
         (isSummarizeRequest(userMessage) ? !contentInjected : true);
       if (useTools) {
-        const toolsPrompt = systemPrompt + '\n\n' + prompts.martin.tools;
+        const toolsPrompt = systemPrompt + '\n\n' + prompts.martin.tools + '\n\n' + prompts.martin.noteFormat;
         const toolHint = effectiveResourceId && isSummarizeRequest(userMessage)
           ? `\n\nThe user is viewing resource ID: ${effectiveResourceId}. Use resource_get to retrieve its content.`
           : '';

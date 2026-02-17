@@ -11,32 +11,36 @@ import GraphPanel from '@/components/workspace/GraphPanel';
 import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import MetadataModal from '@/components/workspace/MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { looksLikeHtml, markdownToHtml } from '@/lib/utils/markdown';
+import { looksLikeHtml, htmlToMarkdown } from '@/lib/utils/markdown';
+import { contentToPrintHtml } from '@/lib/utils/note-to-html';
 import { type Resource } from '@/types';
 
 /**
- * Detect content format for the editor.
- * - JSON string (new format) → pass as-is, contentType='json'
- * - HTML (legacy) → pass as-is, contentType='html'
- * - Markdown (legacy) → convert to HTML, contentType='html'
+ * Detect if content is legacy Tiptap JSON (for lazy migration to Markdown).
  */
 function isJsonContent(content: string): boolean {
   if (!content) return false;
   const t = content.trim();
-  // Tiptap JSON always starts with { "type": "doc"
   return t.startsWith('{') && t.includes('"type"') && t.includes('"doc"');
 }
 
-function detectContentType(content: string): 'html' | 'json' {
+/**
+ * Content type for editor: 'markdown' (default) or 'json' for legacy notes.
+ */
+function detectContentType(content: string): 'markdown' | 'json' {
   if (isJsonContent(content)) return 'json';
-  return 'html';
+  return 'markdown';
 }
 
+/**
+ * Content to pass to editor. JSON passed as-is for lazy migration.
+ * Legacy HTML converted to Markdown. Otherwise pass Markdown as-is.
+ */
 function detectContentForEditor(content: string): string {
   if (!content) return '';
   if (isJsonContent(content)) return content;
-  if (looksLikeHtml(content)) return content;
-  return markdownToHtml(content || '');
+  if (looksLikeHtml(content)) return htmlToMarkdown(content);
+  return content;
 }
 
 interface NoteWorkspaceClientProps {
@@ -147,16 +151,16 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     saveContent(content, true);
   }, [content, saveContent]);
 
-  // Debounced save on content change — editor now emits JSON string directly
-  const handleContentChange = useCallback((jsonFromEditor: string) => {
-    setContent(jsonFromEditor);
+  // Debounced save on content change — editor emits Markdown string
+  const handleContentChange = useCallback((markdownFromEditor: string) => {
+    setContent(markdownFromEditor);
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
     saveTimeoutRef.current = setTimeout(() => {
-      saveContent(jsonFromEditor);
+      saveContent(markdownFromEditor);
     }, 1000);
   }, [saveContent]);
 
@@ -177,6 +181,16 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
       console.error('Error saving title:', err);
     }
   }, [resourceId, resource, title]);
+
+  // Export note to PDF
+  const handleExportPdf = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron?.note) return;
+    const html = contentToPrintHtml(content, title);
+    const result = await window.electron.note.exportToPdf({ html, title });
+    if (result.success && result.path) {
+      await window.electron.openPath(result.path);
+    }
+  }, [content, title]);
 
   // Save metadata from modal
   const handleSaveMetadata = useCallback(async (updates: Partial<Resource>): Promise<boolean> => {
@@ -243,6 +257,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
         sidePanelOpen={isPanelOpen}
         onToggleSidePanel={() => setIsPanelOpen(!isPanelOpen)}
         onShowMetadata={() => setShowMetadata(true)}
+        onExportPdf={handleExportPdf}
         editableTitle={{
           value: title,
           onChange: setTitle,

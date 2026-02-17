@@ -1,5 +1,6 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import { Markdown } from '@tiptap/markdown';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import TaskList from '@tiptap/extension-task-list';
@@ -44,7 +45,8 @@ lowlight.register({ typescript, javascript, python });
 
 interface NotionEditorProps {
   content?: string;
-  contentType?: 'html' | 'json';
+  /** Content format: 'markdown' (default) or 'json' for legacy notes */
+  contentType?: 'markdown' | 'json';
   onChange?: (content: string) => void;
   editable?: boolean;
   placeholder?: string;
@@ -52,13 +54,14 @@ interface NotionEditorProps {
 
 export default function NotionEditor({
   content = '',
-  contentType = 'html',
+  contentType = 'markdown',
   onChange,
   editable = true,
   placeholder = 'Escribe "/" para comandos...',
 }: NotionEditorProps) {
   const editor = useEditor({
     extensions: [
+      Markdown.configure({ markedOptions: { gfm: true, breaks: true } }),
       StarterKit.configure({
         dropcursor: false,
         gapcursor: false,
@@ -123,13 +126,12 @@ export default function NotionEditor({
       FileBlockExtension,
       DragHandleExtension,
     ],
-    // Parse content: if contentType is 'json', parse the JSON string for Tiptap
-    content: contentType === 'json' && content ? (() => { try { return JSON.parse(content); } catch { return content; } })() : content,
+    content: contentType === 'json' && content ? (() => { try { return JSON.parse(content); } catch { return content; } })() : (content || ''),
+    contentType: contentType === 'json' ? 'json' : 'markdown',
     editable,
     onUpdate: ({ editor }) => {
-      if (onChange) {
-        // Emit JSON string to preserve all custom node attributes (mermaid, callout, etc.)
-        onChange(JSON.stringify(editor.getJSON()));
+      if (onChange && editor.markdown) {
+        onChange(editor.getMarkdown());
       }
     },
     editorProps: {

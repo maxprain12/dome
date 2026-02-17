@@ -5,6 +5,7 @@
 
 import martinBase from '../../../prompts/martin/base.txt?raw';
 import martinTools from '../../../prompts/martin/tools.txt?raw';
+import martinNoteFormat from '../../../prompts/martin/note-format.txt?raw';
 import martinResourceContext from '../../../prompts/martin/resource-context.txt?raw';
 import martinNotebookContext from '../../../prompts/martin/notebook-context.txt?raw';
 import martinFloatingBase from '../../../prompts/martin/floating-base.txt?raw';
@@ -22,6 +23,7 @@ export const prompts = {
   martin: {
     base: martinBase,
     tools: martinTools,
+    noteFormat: martinNoteFormat,
     resourceContext: martinResourceContext,
     notebookContext: martinNotebookContext,
     floatingBase: martinFloatingBase,

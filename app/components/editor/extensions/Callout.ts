@@ -1,7 +1,14 @@
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, mergeAttributes, createBlockMarkdownSpec } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import type { CalloutBlockAttributes } from '@/types';
 import { CalloutBlock } from '../blocks/CalloutBlock';
+
+const calloutMarkdownSpec = createBlockMarkdownSpec({
+  nodeName: 'callout',
+  defaultAttributes: { icon: 'lightbulb', color: 'yellow' },
+  allowedAttributes: ['icon', 'color'],
+  content: 'block',
+});
 
 export const CalloutExtension = Node.create({
   name: 'callout',
@@ -72,6 +79,8 @@ export const CalloutExtension = Node.create({
   addNodeView() {
     return ReactNodeViewRenderer(CalloutBlock as any);
   },
+
+  ...calloutMarkdownSpec,
 
   addCommands() {
     return {

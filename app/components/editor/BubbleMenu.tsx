@@ -1,5 +1,5 @@
 
-import { BubbleMenu as TiptapBubbleMenu } from '@tiptap/react';
+import { BubbleMenu as TiptapBubbleMenu } from '@tiptap/react/menus';
 import { Editor } from '@tiptap/core';
 import {
   Bold,
@@ -32,7 +32,7 @@ export function BubbleMenu({ editor }: BubbleMenuProps) {
     <TiptapBubbleMenu
       editor={editor}
       pluginKey="formattingBubbleMenu"
-      tippyOptions={{ duration: 100 }}
+      options={{ placement: 'bottom', offset: 6 }}
       className="bubble-menu"
     >
       <div

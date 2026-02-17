@@ -2,6 +2,22 @@
 
 All notable changes to Dome are documented in this file.
 
+## [0.2.4] - 2026-02-17
+
+### Added
+
+- **Export de notas a HTML**: Nuevo módulo `note-to-html.ts` y IPC `note-export` para exportar notas al formato HTML.
+- **Formato de notas para AI**: Prompt `note-format.txt` para que Martin procese correctamente el contenido de notas.
+
+### Changed
+
+- **Editor**: Mejoras en BubbleMenu, FloatingMenu, AIBubbleMenu y NotionEditor.
+- **Extensiones del editor**: Actualizaciones en Callout, Divider, Toggle, FileBlock, PDFEmbed, VideoEmbed, AudioEmbed, Mermaid y ResourceMention.
+- **Martin**: Mejoras en prompts, tools y componentes (MartinFloatingButton).
+- **Indexación de recursos**: Actualizaciones en resource-indexer e IPC.
+
+[0.2.4]: https://github.com/maxprain12/dome/releases/tag/v0.2.4
+
 ## [0.2.3] - 2026-02-17
 
 ### Fixed

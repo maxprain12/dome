@@ -395,6 +395,16 @@ declare global {
         setThumbnail: (resourceId: string, thumbnailDataUrl: string) => Promise<DBResponse<void>>;
       };
 
+      // Note Export API
+      note: {
+        exportToPdf: (params: { html: string; title?: string }) => Promise<{
+          success?: boolean;
+          path?: string;
+          canceled?: boolean;
+          error?: string;
+        }>;
+      };
+
       // Storage Management API
       storage: {
         getUsage: () => Promise<DBResponse<StorageUsage>>;

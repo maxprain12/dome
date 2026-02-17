@@ -1,7 +1,13 @@
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, mergeAttributes, createAtomBlockMarkdownSpec } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import type { DividerAttributes } from '@/types';
 import { DividerBlock } from '../blocks/DividerBlock';
+
+const dividerMarkdownSpec = createAtomBlockMarkdownSpec({
+  nodeName: 'divider',
+  defaultAttributes: { variant: 'line' },
+  allowedAttributes: ['variant'],
+});
 
 export const DividerExtension = Node.create({
   name: 'divider',
@@ -36,6 +42,8 @@ export const DividerExtension = Node.create({
   addNodeView() {
     return ReactNodeViewRenderer(DividerBlock as any);
   },
+
+  ...dividerMarkdownSpec,
 
   addCommands() {
     return {

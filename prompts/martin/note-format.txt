@@ -1,0 +1,56 @@
+## Note Format Guide (for resource_create type=note)
+
+When creating notes, use **Markdown GFM** (GitHub Flavored Markdown). The content is converted to formatted display. Use these elements for best results:
+
+### Supported Markdown
+- **Headers**: `#`, `##`, `###` (H1, H2, H3)
+- **Lists**: `-` or `*` for bullets, `1.` for numbered
+- **Task list**: `- [ ]` unchecked, `- [x]` checked
+- **Tables**: GFM style with header separator:
+  ```
+  | Col1 | Col2 |
+  | --- | --- |
+  | A | B |
+  ```
+- **Code**: Inline `` `code` `` or fenced blocks:
+  ````
+  ```javascript
+  const x = 1;
+  ```
+  ````
+- **Blockquote**: `> text`
+- **Separator**: `---` (horizontal rule)
+- **Bold**: `**text**` or `__text__`
+- **Italic**: `*text*` or `_text_`
+- **Links**: `[label](https://url)`
+
+### Custom blocks (Dome-specific)
+- **Callout** (highlighted info box):
+  ```
+  :::callout {icon="lightbulb" color="yellow"}
+  Your content here
+  :::
+  ```
+  Icons: lightbulb, info, alert, check. Colors: yellow, blue, green, red, gray.
+- **Toggle** (collapsible section):
+  ```
+  :::toggle
+  Hidden content until expanded
+  :::
+  ```
+- **Mermaid diagram**:
+  ```
+  :::mermaid
+  ```mermaid
+  graph TD
+    A --> B
+  ```
+  :::
+  ```
+- **Resource mention**: `@[Label](resourceId)` to link to another note/resource.
+
+### Guidelines
+- Prefer plain text in titles; avoid emojis in headings if they cause display issues.
+- Use tables for structured data (parameters, checklists, comparisons).
+- For long documents, use headers (H1, H2, H3) for clear structure.
+- Keep custom blocks (:::callout, :::toggle) for emphasis and organization.

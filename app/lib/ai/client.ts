@@ -859,6 +859,7 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
 
   if (toolsEnabled) {
     prompt += promptTemplates.martin.tools;
+    prompt += '\n\n' + promptTemplates.martin.noteFormat;
   }
 
   if (resourceContext) {

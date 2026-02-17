@@ -6,9 +6,9 @@ When calling tools, always:
 - **type** (resource_create): must be one of `"note"`, `"notebook"`, `"document"`, `"url"`, `"folder"`
 - **folder_id**: use `null` (JSON null) to mean root / no folder; use a string ID for a specific folder
 
-Example - create a note:
+Example - create a note (use Markdown GFM, see note format guide):
 ```json
-{"title": "My Note", "content": "Hello world", "type": "note"}
+{"title": "My Note", "content": "# Title\n\nParagraph with **bold** and lists:\n- Item 1\n- Item 2\n\n| Col1 | Col2 |\n| --- | --- |\n| A | B |", "type": "note"}
 ```
 
 Example - create a notebook with cells:
@@ -66,7 +66,7 @@ Use these to generate code, fix errors, or restructure the notebook when the use
 ## Resource Creation
 When the user says "create a resource of type X" or "create a note/notebook/folder":
 
-- **note** or **document**: Provide `title` and `content` (plain text, Markdown, or HTML). Markdown (headers, tables, code blocks, lists) is converted automatically to formatted content. Use folder_id when the user is viewing a folder in Home to place the note in that folder.
+- **note** or **document**: Provide `title` and `content`. Use **Markdown GFM** (headers # ## ###, tables, lists, task lists, code blocks, blockquotes). Custom blocks: `:::callout {icon="lightbulb" color="yellow"}` ... `:::`, `:::toggle` ... `:::`, `:::mermaid` with ```mermaid code ```. Avoid emojis in headings; prefer plain text. Use folder_id when the user is viewing a folder in Home to place the note in that folder.
 - **notebook**: Provide `title` and `cells` array: `[{cell_type: "markdown", source: "# Title"}, {cell_type: "code", source: "print('Hello')"}]`. Include at least one markdown and one code cell.
 - **url**: Provide `title` and `metadata: { url: "https://..." }`. Optionally add `content` for a description.
 - **folder**: Provide `title`. Optionally add `metadata: { color: "#hex" }` for folder color (e.g. #7B76D0, #22c55e, #3b82f6).

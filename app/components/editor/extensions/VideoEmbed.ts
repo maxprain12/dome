@@ -1,7 +1,13 @@
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, mergeAttributes, createAtomBlockMarkdownSpec } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import type { VideoEmbedAttributes } from '@/types';
 import { VideoEmbedBlock } from '../blocks/VideoEmbedBlock';
+
+const videoEmbedMarkdownSpec = createAtomBlockMarkdownSpec({
+  nodeName: 'videoEmbed',
+  defaultAttributes: { provider: 'direct' },
+  allowedAttributes: ['src', 'provider', 'videoId'],
+});
 
 export const VideoEmbedExtension = Node.create({
   name: 'videoEmbed',
@@ -64,6 +70,8 @@ export const VideoEmbedExtension = Node.create({
   addNodeView() {
     return ReactNodeViewRenderer(VideoEmbedBlock as any);
   },
+
+  ...videoEmbedMarkdownSpec,
 
   addCommands() {
     return {

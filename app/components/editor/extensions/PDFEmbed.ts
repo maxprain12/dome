@@ -1,7 +1,13 @@
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, mergeAttributes, createAtomBlockMarkdownSpec } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import type { PDFEmbedAttributes } from '@/types';
 import { PDFEmbedBlock } from '../blocks/PDFEmbedBlock';
+
+const pdfEmbedMarkdownSpec = createAtomBlockMarkdownSpec({
+  nodeName: 'pdfEmbed',
+  defaultAttributes: { pageStart: 1, zoom: 1 },
+  allowedAttributes: ['resourceId', 'pageStart', 'pageEnd', 'zoom'],
+});
 
 export const PDFEmbedExtension = Node.create({
   name: 'pdfEmbed',
@@ -92,6 +98,8 @@ export const PDFEmbedExtension = Node.create({
   addNodeView() {
     return ReactNodeViewRenderer(PDFEmbedBlock as any);
   },
+
+  ...pdfEmbedMarkdownSpec,
 
   addCommands() {
     return {

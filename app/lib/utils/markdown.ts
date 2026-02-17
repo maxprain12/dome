@@ -117,13 +117,24 @@ export function htmlToMarkdown(html: string): string {
 }
 
 /**
+ * Check if content contains custom blocks (:::callout, :::toggle, @[mention], etc.)
+ * that @tiptap/markdown does not natively support.
+ */
+export function hasCustomBlocks(text: string): boolean {
+  if (!text || typeof text !== 'string') return false;
+  return /:::|@\[/.test(text);
+}
+
+/**
  * Heuristically detect if the string looks like Markdown.
  * Only converts when clear Markdown signs are present to avoid
  * double-converting HTML or corrupting plain text.
  */
-function looksLikeMarkdown(text: string): boolean {
-  if (!text || text.trim().length === 0) return false;
-  const t = text.trim();
+export function looksLikeMarkdown(text: string): boolean {
+  if (!text || typeof text !== 'string') return false;
+  // Strip BOM if present (can appear when content is read from file)
+  const t = text.replace(/^\uFEFF/, '').trim();
+  if (t.length === 0) return false;
   // Headers: # ## ### ####
   if (/^#{1,6}\s/m.test(t)) return true;
   // Table syntax: | ... |
@@ -135,6 +146,10 @@ function looksLikeMarkdown(text: string): boolean {
   // Lists: - or * or 1. at line start
   if (/^[\s]*[-*]\s/m.test(t)) return true;
   if (/^[\s]*\d+\.\s/m.test(t)) return true;
+  // Blockquote: > at line start
+  if (/^[\s]*>\s/m.test(t)) return true;
+  // Horizontal rule: --- or *** or ___ (at line start)
+  if (/(^|\n)[\s]*(-{3,}|\*{3,}|_{3,})[\s]*($|\n)/.test(t)) return true;
   return false;
 }
 
@@ -180,7 +195,13 @@ function preprocessCustomBlocks(md: string): string {
     const fn = attrs?.match(/filename=["']([^"']*)["']/)?.[1] || '';
     return `<div data-type="file-block" data-resource-id="${rid}" data-filename="${fn.replace(/"/g, '&quot;')}" class="file-block"></div>`;
   });
-  // :::mermaid\n```mermaid\ncode\n```\n:::
+  // :::mermaid {code="..."} ::: (atom format)
+  out = out.replace(/:::mermaid\s*\{([^}]*)\}\s*:::/g, (_m, attrs) => {
+    const codeMatch = attrs.match(/code=["']([^"']*)["']/);
+    const c = codeMatch ? codeMatch[1].replace(/&quot;/g, '"').replace(/&lt;/g, '<') : '';
+    return `<div data-type="mermaid" data-code="${c.replace(/"/g, '&quot;').replace(/</g, '&lt;')}" class="mermaid-block"></div>`;
+  });
+  // :::mermaid\n```mermaid\ncode\n```\n::: (block format)
   out = out.replace(/:::mermaid\s*\n(?:```mermaid\n)?([\s\S]*?)(?:\n```)?\n:::/g, (_m, code) => {
     const c = code.trim().replace(/^```mermaid\n?|\n?```$/g, '');
     return `<div data-type="mermaid" data-code="${c.replace(/"/g, '&quot;').replace(/</g, '&lt;')}" class="mermaid-block"></div>`;

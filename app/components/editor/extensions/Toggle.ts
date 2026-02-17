@@ -1,7 +1,13 @@
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, mergeAttributes, createBlockMarkdownSpec } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import type { ToggleBlockAttributes } from '@/types';
 import { ToggleBlock } from '../blocks/ToggleBlock';
+
+const toggleMarkdownSpec = createBlockMarkdownSpec({
+  nodeName: 'toggle',
+  defaultAttributes: {},
+  content: 'block',
+});
 
 export const ToggleExtension = Node.create({
   name: 'toggle',
@@ -57,6 +63,8 @@ export const ToggleExtension = Node.create({
   addNodeView() {
     return ReactNodeViewRenderer(ToggleBlock as any);
   },
+
+  ...toggleMarkdownSpec,
 
   addCommands() {
     return {

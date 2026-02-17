@@ -19,6 +19,7 @@ import {
   Network,
   ChevronDown,
   Check,
+  FileDown,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
@@ -37,6 +38,7 @@ interface WorkspaceHeaderProps {
   onShowMetadata: () => void;
   editableTitle?: EditableTitle;
   savingIndicator?: React.ReactNode;
+  onExportPdf?: () => void | Promise<void>;
 }
 
 export default function WorkspaceHeader({
@@ -46,6 +48,7 @@ export default function WorkspaceHeader({
   onShowMetadata,
   editableTitle,
   savingIndicator,
+  onExportPdf,
 }: WorkspaceHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelsOpen, setPanelsOpen] = useState(false);
@@ -334,6 +337,42 @@ export default function WorkspaceHeader({
                 <Info size={16} style={{ color: 'var(--secondary-text)' }} />
                 Resource info
               </button>
+
+              {resource.type === 'note' && onExportPdf && (
+                <>
+                  <div
+                    style={{
+                      height: '1px',
+                      background: 'var(--border)',
+                      margin: '4px 0',
+                    }}
+                  />
+                  <button
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      await onExportPdf();
+                    }}
+                    className="dropdown-item"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      color: 'var(--primary-text)',
+                      width: '100%',
+                      border: 'none',
+                      textAlign: 'left',
+                    }}
+                    role="menuitem"
+                  >
+                    <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                    Exportar a PDF
+                  </button>
+                </>
+              )}
 
               {hasFile && (
                 <>

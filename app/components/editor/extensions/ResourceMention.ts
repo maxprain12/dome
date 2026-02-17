@@ -4,6 +4,38 @@ import type { ResourceMentionAttributes, ResourceType } from '@/types';
 import { ResourceMentionBlock } from '../blocks/ResourceMentionBlock';
 
 export const ResourceMentionExtension = Node.create({
+  markdownTokenizer: {
+    name: 'resourceMention',
+    level: 'inline' as const,
+    start: (src) => src.indexOf('@['),
+    tokenize: (src, _tokens, lexer) => {
+      const match = /^@\[([^\]]*)\]\(([^)\s]+)\)/.exec(src);
+      if (!match) return undefined;
+      return {
+        type: 'resourceMention',
+        raw: match[0],
+        label: match[1] || '',
+        resourceId: match[2] || '',
+      };
+    },
+  },
+
+  parseMarkdown: (token, _helpers) => ({
+    type: 'resourceMention',
+    attrs: {
+      resourceId: token.resourceId || '',
+      title: token.label || 'Resource',
+      type: 'note' as ResourceType,
+      label: token.label || '',
+    },
+  }),
+
+  renderMarkdown: (node) => {
+    const attrs = node.attrs as ResourceMentionAttributes & { label?: string };
+    const label = attrs?.title || attrs?.label || 'Resource';
+    const id = attrs?.resourceId || '';
+    return `@[${label}](${id})`;
+  },
   name: 'resourceMention',
 
   group: 'inline',

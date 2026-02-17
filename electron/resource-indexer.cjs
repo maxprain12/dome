@@ -34,6 +34,28 @@ function stripHtml(html) {
 }
 
 /**
+ * Strip Markdown syntax to plain text (for note/document content)
+ */
+function stripMarkdown(md) {
+  if (!md || typeof md !== 'string') return '';
+  return md
+    .replace(/^#{1,6}\s+/gm, '') // headers
+    .replace(/\*\*([^*]+)\*\*|__([^_]+)__/g, '$1$2') // bold
+    .replace(/\*([^*]+)\*|_([^_]+)_/g, '$1$2') // italic
+    .replace(/`([^`]+)`/g, '$1') // inline code
+    .replace(/```[\s\S]*?```/g, '') // fenced code blocks
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links
+    .replace(/^[-*+]\s/gm, '') // list markers
+    .replace(/^\d+\.\s/gm, '') // ordered list
+    .replace(/^>\s/gm, '') // blockquote
+    .replace(/^---+$/gm, '') // horizontal rule
+    .replace(/:::[\s\S]*?:::/g, '') // custom blocks (callout, toggle, etc.)
+    .replace(/@\[[^\]]*\]\([^)]+\)/g, '') // resource mentions
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Chunk text with overlap using llm-chunk (avoids RangeError with very long text)
  * @param {string} text - Text to chunk
  * @param {{ chunkSize?: number; chunkOverlap?: number }} options
@@ -103,8 +125,11 @@ function extractIndexableText(resource) {
 
     switch (type) {
     case 'note':
-    case 'document':
-      return stripHtml(resource.content || '');
+    case 'document': {
+      const raw = resource.content || '';
+      if (/<[a-z][\s>]/.test(raw)) return stripHtml(raw);
+      return stripMarkdown(raw);
+    }
     case 'notebook':
       return notebookToText(resource.content);
     case 'url':

@@ -1,7 +1,13 @@
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, mergeAttributes, createAtomBlockMarkdownSpec } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import type { AudioEmbedAttributes } from '@/types';
 import { AudioEmbedBlock } from '../blocks/AudioEmbedBlock';
+
+const audioEmbedMarkdownSpec = createAtomBlockMarkdownSpec({
+  nodeName: 'audioEmbed',
+  defaultAttributes: { isLocal: false },
+  allowedAttributes: ['src', 'isLocal'],
+});
 
 export const AudioEmbedExtension = Node.create({
   name: 'audioEmbed',
@@ -55,6 +61,8 @@ export const AudioEmbedExtension = Node.create({
   addNodeView() {
     return ReactNodeViewRenderer(AudioEmbedBlock as any);
   },
+
+  ...audioEmbedMarkdownSpec,
 
   addCommands() {
     return {

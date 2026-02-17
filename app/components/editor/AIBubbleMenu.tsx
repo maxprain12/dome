@@ -1,7 +1,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { BubbleMenu as TiptapBubbleMenu } from '@tiptap/react';
+import { BubbleMenu as TiptapBubbleMenu } from '@tiptap/react/menus';
 import { Editor } from '@tiptap/core';
 import {
   Sparkles,
@@ -295,7 +295,7 @@ export function AIBubbleMenu({ editor }: AIBubbleMenuProps) {
       .focus()
       .setTextSelection({ from: preview.from, to: preview.to })
       .deleteSelection()
-      .insertContent(markdownToHtml(preview.result))
+      .insertContent(preview.result, { contentType: 'markdown' })
       .run();
 
     setPreview(null);
@@ -339,11 +339,9 @@ export function AIBubbleMenu({ editor }: AIBubbleMenuProps) {
       <TiptapBubbleMenu
         editor={editor}
         pluginKey="aiBubbleMenu"
-        tippyOptions={{
-          duration: 100,
+        options={{
           placement: 'bottom-start',
-          offset: [0, 8],
-          maxWidth: 'none',
+          offset: 8,
         }}
         shouldShow={({ editor: e }) => {
           // Hide when preview is active (use ref to avoid stale closure)
