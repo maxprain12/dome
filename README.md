@@ -4,18 +4,20 @@
 
 [![Bun](https://img.shields.io/badge/Bun-%23000000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh/)
 [![Electron](https://img.shields.io/badge/Electron-47848F?style=flat&logo=electron&logoColor=white)](https://www.electronjs.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![LangGraph](https://img.shields.io/badge/LangGraph-1.1-00C853?style=flat)](https://langchain-ai.github.io/langgraphjs/)
 [![License](https://img.shields.io/badge/License-Custom%20Open%20Source-blue.svg)](LICENSE)
 
-Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently.
+**v1.0.0-preview** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
+- [What's New in v1.0.0-preview](#whats-new-in-v100-preview)
 - [Features](#features)
 - [Technology Stack](#technology-stack)
 - [Installation](#installation)
@@ -32,13 +34,27 @@ Dome is a comprehensive desktop application designed for researchers, academics,
 
 Dome provides a unified workspace for managing your research and knowledge. It combines powerful AI capabilities with an intuitive interface, allowing you to:
 
-- Organize resources (notes, PDFs, videos, audios, images, URLs) in projects
-- Leverage AI assistants for analysis, summarization, and semantic search
-- Annotate PDFs with highlights, comments, and notes
-- Create rich documents with a Notion-style editor
-- Manage academic sources and generate citations
-- Scrape web content for offline access
-- Connect with WhatsApp for mobile integration
+- **Organize resources** (notes, PDFs, videos, audios, images, URLs) in projects
+- **Many AI Assistant** — Chat with LangGraph-powered agent (web search, resource search, memory, MCP tools)
+- **Studio** — Generate mindmaps, quizzes, flashcards, guides, FAQs, timelines from your content
+- **Flashcards** — Spaced repetition (SM-2) with AI-generated decks from your documents
+- **Annotate PDFs** with highlights, comments, and notes
+- **Notion-style editor** for rich documents
+- **Manage academic sources** and generate citations
+- **MCP Integration** — Connect Model Context Protocol servers for extended AI capabilities
+- **Web scraping** for offline access
+- **WhatsApp** connection for mobile integration
+
+---
+
+## What's New in v1.0.0-preview
+
+- **LangGraph** — AI chat with tools runs on LangGraph; persistent sessions (SQLite checkpoints)
+- **Many** — New assistant panel with sessions, quick prompts, resource + web tools
+- **MCP** — Model Context Protocol support; connect stdio/http servers in Settings → MCP
+- **Studio** — Generate mindmaps, quizzes, guides, FAQs, timelines, tables, flashcards from projects
+- **Flashcards** — SM-2 spaced repetition; AI-generated decks via Many or Studio
+- **Vite** — Migrated from Next.js to Vite for faster builds
 
 ---
 
@@ -60,22 +76,65 @@ Centralized management for all your resources:
 
 ### AI Integration
 
-Dome supports multiple AI providers for maximum flexibility:
+Dome uses **LangGraph** for the chat-with-tools experience and supports multiple AI providers:
 
 **Supported Providers:**
 - OpenAI (GPT-4, GPT-4o, etc.)
 - Anthropic (Claude 3.5 Sonnet, Claude 3 Opus, etc.)
 - Google (Gemini models)
-- Ollama (Local models - Llama, Mistral, etc.)
+- Ollama (Local models — Llama, Mistral, etc.)
 - Venice (Privacy-focused AI)
 - Synthetic (Custom providers)
 
-**AI Capabilities:**
-- **Many AI Assistant**: Built-in chat assistant for research help
-- **Semantic Search**: Find resources by meaning, not just keywords
-- **Auto-Transcription**: Convert audio/video to text
-- **Document Summarization**: Get quick summaries of long documents
-- **AI Tools**: Web search, web fetch, memory management, context awareness
+**Many AI Assistant (LangGraph-powered):**
+- **Persistent sessions** — Conversations survive app restart (SQLite checkpoints)
+- **Streaming chat** with real-time tool execution
+- **Built-in tools**: Web search, web fetch, resource search, semantic search, project context
+- **Memory tools** — Save and recall information across sessions
+- **Flashcard creation** — Generate study decks from documents via chat
+- **MCP tools** — Use tools from configured Model Context Protocol servers
+- **Quick prompts** — Summarize, organize, search your resources in one click
+
+**Other AI Capabilities:**
+- **Semantic Search** — Find resources by meaning (LanceDB)
+- **Auto-Transcription** — Convert audio/video to text
+- **Document Summarization** — Quick summaries of long documents
+
+### MCP (Model Context Protocol)
+
+Extend Many's capabilities with external MCP servers:
+
+- **Configure servers** in Settings → MCP
+- **stdio** — Run local commands (e.g. `npx`, `uvx`) with optional args and env
+- **http** — Connect to remote MCP servers via URL
+- **Test connection** — Verify servers before using in chat
+- Tools from MCP servers are automatically available to Many
+
+### Studio
+
+Generate study materials and visualizations from your project sources:
+
+| Output Type | Description |
+|-------------|-------------|
+| **Mindmap** | Visual concept maps |
+| **Quiz** | Interactive quiz from content |
+| **Guide** | Structured study guide |
+| **FAQ** | Question-answer pairs |
+| **Timeline** | Chronological views |
+| **Table** | Structured data tables |
+| **Flashcards** | AI-generated decks (SM-2 spaced repetition) |
+
+Use **Studio** in the home sidebar to select a project and generate outputs. Many can also create flashcards directly from chat.
+
+### Flashcards
+
+Study with spaced repetition:
+
+- **Create decks** manually or ask Many to generate them from your documents
+- **SM-2 algorithm** for optimal review scheduling
+- **Study sessions** with swipe gestures (known/unknown)
+- **Stats** — Cards due, retention, progress per deck
+- **Integration** — Decks appear in Studio and link to resources
 
 ### PDF Viewer with Annotations
 
@@ -159,10 +218,12 @@ Comprehensive source management for academic work:
 
 ### Settings & Customization
 
-- **AI Settings**: Configure providers, API keys, and models
-- **Appearance**: Light, dark, and system theme modes
-- **General**: Auto-save, backup preferences
-- **WhatsApp**: Connection management
+- **General** — Profile, auto-save, backup preferences
+- **Appearance** — Light, dark, and system theme modes
+- **AI Configuration** — Providers, API keys, models, embedding models
+- **MCP** — Configure Model Context Protocol servers (stdio/http)
+- **Plugins** — Extensibility and integrations
+- **WhatsApp** — Connection management
 
 ---
 
@@ -172,9 +233,11 @@ Comprehensive source management for academic work:
 |-----------|------------|
 | Runtime | [Bun](https://bun.sh/) |
 | Desktop Framework | [Electron 32](https://www.electronjs.org/) |
-| Frontend Framework | [Next.js 14](https://nextjs.org/) + [React 18](https://reactjs.org/) |
+| Frontend | [Vite 7](https://vitejs.dev/) + [React 18](https://reactjs.org/) |
 | UI Styling | [Tailwind CSS](https://tailwindcss.com/) |
 | Rich Text Editor | [Tiptap](https://tiptap.dev/) (ProseMirror) |
+| AI Agent | [LangGraph](https://langchain-ai.github.io/langgraphjs/) + [LangChain](https://js.langchain.com/) |
+| MCP | [@langchain/mcp-adapters](https://js.langchain.com/docs/integrations/tools/mcp) |
 | Relational Database | SQLite ([better-sqlite3](https://github.com/WiseLibs/better-sqlite3)) |
 | Vector Database | [LanceDB](https://lancedb.com/) |
 | State Management | [Zustand](https://github.com/pmndrs/zustand) |
@@ -198,7 +261,7 @@ Comprehensive source management for academic work:
 
 ```bash
 git clone https://github.com/maxprain12/dome.git
-cd dome-local
+cd dome
 ```
 
 2. **Install dependencies**
@@ -228,24 +291,26 @@ bun run electron:dev
 ```
 
 This will start:
-- Next.js development server at http://localhost:3000
+- Vite dev server at http://localhost:5173
 - Electron application with hot reload
 
 ### Available Commands
 
 ```bash
 # Development
-bun run dev              # Start Next.js only
+bun run dev              # Start Vite dev server only
 bun run electron         # Start Electron only
-bun run electron:dev     # Full development (Next.js + Electron)
+bun run electron:dev     # Full development (Vite + Electron)
 
 # Production
-bun run build            # Build Next.js
+bun run build            # Build Vite
 bun run electron:build   # Build desktop application
 
 # Utilities
 bun run test:db          # Test database connection
 bun run clean            # Clean build artifacts
+bun run rebuild:natives  # Rebuild native modules (better-sqlite3, sharp, etc.)
+bun run verify:natives  # Verify native modules
 ```
 
 ---
@@ -258,10 +323,12 @@ When you first launch Dome:
 
 1. **Complete the onboarding** with your profile information
 2. **Configure AI** (optional but recommended):
-   - Go to **Settings** (gear icon)
-   - Select your AI provider
+   - Go to **Settings** (gear icon) → **AI Configuration**
+   - Select your AI provider (OpenAI, Anthropic, Google, Ollama)
    - For **Ollama** (local, sin API key): [guía de instalación](docs/guia-instalacion-ollama.md)
    - For cloud providers: Enter your API key and choose models for chat and embeddings
+
+3. **Configure MCP** (optional): Add MCP servers in Settings → MCP for extended AI tools
 
 ### 2. Creating Projects
 
@@ -298,14 +365,35 @@ Add different types of content to your projects:
 
 ### 4. Using the AI Assistant (Many)
 
-The built-in AI assistant helps with research:
+The LangGraph-powered assistant helps with research:
 
-1. Click the **Many** floating button
-2. Ask questions about your resources
-3. Request summaries, analysis, or explanations
-4. Use context from your current resource
+1. Click the **Many** floating button (bottom-right)
+2. Chat with context from your current resource — Many knows what you're viewing
+3. Enable **My resources** and **Web search** for tool use
+4. Use quick prompts: "Summarize my current resource", "Search my resources"
+5. Create flashcards: "Generate flashcards from this document"
+6. Sessions persist across app restarts
 
-### 5. Annotating PDFs
+### 5. Studio — Generate Study Materials
+
+From your project content:
+
+1. Go to **Home** → **Studio** (sidebar)
+2. Select a project
+3. Choose output type: Mindmap, Quiz, Guide, FAQ, Timeline, Table, Flashcards
+4. Click **Generate** — Many will fetch sources and create the output
+5. View and edit outputs; flashcards open in study mode
+
+### 6. Flashcards
+
+Study with spaced repetition:
+
+1. **Home** → **Flashcards**
+2. Create a deck manually or ask Many: "Create flashcards from my notes about X"
+3. Use swipe (← known / → unknown) or buttons during study
+4. Track progress and due cards per deck
+
+### 7. Annotating PDFs
 
 The PDF viewer provides comprehensive annotation:
 
@@ -315,7 +403,7 @@ The PDF viewer provides comprehensive annotation:
 4. Add comments by clicking the comment icon
 5. View all annotations in the side panel
 
-### 6. Semantic Search
+### 8. Semantic Search
 
 Find resources by meaning:
 
@@ -324,7 +412,7 @@ Find resources by meaning:
 3. Results are ranked by semantic similarity
 4. Filter by type, project, or tags
 
-### 7. Managing Sources
+### 9. Managing Sources
 
 For academic work:
 
@@ -334,7 +422,7 @@ For academic work:
 4. Link sources to resources
 5. Generate citations with your preferred style
 
-### 8. Using the Editor
+### 10. Using the Editor
 
 The Notion-style editor supports:
 
@@ -358,7 +446,7 @@ The Notion-style editor supports:
 - `/pdf` - Embed PDF
 - `/file` - Attach file
 
-### 9. WhatsApp Connection
+### 11. WhatsApp Connection
 
 To connect WhatsApp:
 
@@ -373,43 +461,42 @@ To connect WhatsApp:
 
 ```
 dome/
-├── app/                          # Next.js Application (Renderer Process)
+├── app/                          # React Application (Renderer Process)
 │   ├── components/               # React Components
-│   │   ├── chat/                 # AI Chat components
+│   │   ├── chat/                 # AI Chat (messages, tool cards)
 │   │   ├── CommandCenter/        # Search and command palette
-│   │   ├── common/               # Shared components (Many avatar, etc.)
 │   │   ├── editor/               # Notion-style editor
 │   │   │   ├── blocks/           # Custom block components
 │   │   │   └── extensions/       # Tiptap extensions
+│   │   ├── flashcards/           # Flashcard decks, study view
+│   │   ├── many/                 # Many AI panel (floating, chat, header)
 │   │   ├── onboarding/           # First-run setup
-│   │   ├── settings/             # Settings panels
+│   │   ├── settings/             # Settings panels (AI, MCP, etc.)
+│   │   ├── studio/               # Studio home view (mindmap, quiz, etc.)
 │   │   ├── user/                 # User profile components
 │   │   ├── viewers/              # Resource viewers (PDF, Video, etc.)
-│   │   │   └── pdf/              # PDF annotation components
-│   │   └── workspace/            # Workspace layout components
+│   │   └── workspace/            # Workspace layout
 │   ├── lib/                      # Business Logic
-│   │   ├── ai/                   # AI Client and Tools
+│   │   ├── ai/                   # AI Client, LangChain adapter, Tools
 │   │   │   ├── catalogs/         # Model catalogs by provider
 │   │   │   ├── providers/        # Provider implementations
-│   │   │   └── tools/            # AI tool definitions
+│   │   │   └── tools/            # Web, resources, memory, flashcards
 │   │   ├── db/                   # Database clients
-│   │   ├── files/                # File management
 │   │   ├── hooks/                # React hooks
-│   │   ├── pdf/                  # PDF utilities
-│   │   ├── settings/             # Settings management
-│   │   ├── store/                # Zustand stores
-│   │   ├── utils/                # Utility functions
-│   │   └── web/                  # Web processing
+│   │   ├── store/                # Zustand (useManyStore, etc.)
+│   │   ├── studio/               # Studio constants and outputs
+│   │   └── utils/                # Utilities
 │   ├── types/                    # TypeScript definitions
-│   ├── settings/                 # Settings page
 │   └── workspace/                # Workspace routes
 ├── electron/                     # Electron Main Process
-│   ├── main.cjs                  # Main entry point
-│   ├── preload.cjs               # Preload script (IPC bridge)
+│   ├── main.cjs                  # Entry point, IPC handlers
+│   ├── preload.cjs               # Preload (IPC bridge)
 │   ├── database.cjs              # SQLite operations
 │   ├── file-storage.cjs          # File system management
 │   ├── ai-cloud-service.cjs      # Cloud AI providers
-│   ├── ai-tools-handler.cjs      # AI tool execution
+│   ├── ai-tools-handler.cjs      # AI tools (resources, flashcard create)
+│   ├── langgraph-agent.cjs       # LangGraph agent (chat with tools)
+│   ├── mcp-client.cjs            # MCP server connections
 │   ├── ollama-service.cjs        # Ollama integration
 │   ├── youtube-service.cjs       # YouTube utilities
 │   ├── web-scraper.cjs           # Playwright scraper
@@ -417,14 +504,12 @@ dome/
 │   ├── window-manager.cjs        # Window management
 │   ├── security.cjs              # Security utilities
 │   └── whatsapp/                 # WhatsApp integration
-│       ├── service.cjs           # Main service
-│       ├── session.cjs           # Session management
-│       └── message-handler.cjs   # Message processing
+├── prompts/                       # System prompts (Many, tools)
 ├── public/                       # Static assets
 ├── assets/                       # Application assets
-├── scripts/                      # Utility scripts
+├── scripts/                      # Build and utility scripts
 ├── package.json                  # Dependencies and scripts
-├── next.config.mjs               # Next.js configuration
+├── vite.config.ts                # Vite configuration
 ├── tailwind.config.cjs           # Tailwind configuration
 ├── tsconfig.json                 # TypeScript configuration
 └── README.md                     # This file
@@ -436,7 +521,7 @@ dome/
 
 ### AI Providers
 
-Configure AI in **Settings** → **AI**:
+Configure AI in **Settings** → **AI Configuration**:
 
 **OpenAI:**
 ```
@@ -469,6 +554,30 @@ Embedding Model: mxbai-embed-large:latest
 ```
 
 📖 **[Guía completa de instalación con Ollama](docs/guia-instalacion-ollama.md)** – Instalación paso a paso, configuración recomendada y solución de problemas.
+
+### MCP Servers
+
+Configure in **Settings** → **MCP**:
+
+**stdio** (local process):
+```json
+{
+  "name": "my-tools",
+  "type": "stdio",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/dir"],
+  "env": { "API_KEY": "optional" }
+}
+```
+
+**http** (remote):
+```json
+{
+  "name": "remote-mcp",
+  "type": "http",
+  "url": "https://your-mcp-server.com/mcp"
+}
+```
 
 ### Data Storage Locations
 
@@ -558,8 +667,11 @@ Dome is released under a custom open-source license. See the [LICENSE](LICENSE) 
 Dome is built with these amazing open-source projects:
 
 - [Electron](https://www.electronjs.org/) - Cross-platform desktop apps
-- [Next.js](https://nextjs.org/) - React framework
+- [Vite](https://vitejs.dev/) - Build tool and dev server
+- [React](https://reactjs.org/) - UI library
 - [Bun](https://bun.sh/) - Fast JavaScript runtime
+- [LangGraph](https://langchain-ai.github.io/langgraphjs/) - AI agent framework
+- [LangChain](https://js.langchain.com/) - LLM orchestration and tools
 - [Tiptap](https://tiptap.dev/) - Headless editor framework
 - [LanceDB](https://lancedb.com/) - Vector database
 - [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS
