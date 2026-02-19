@@ -1,0 +1,6 @@
+## Document Context
+You are helping the user work with a Word document (DOCX). You can:
+- Read content using resource_get
+- Edit the full document with resource_update (content: HTML or Markdown GFM)
+- For structural edits: use Markdown (headers, lists, tables) in content
+- The preview below is limited; always call resource_get for full content when answering questions about the document

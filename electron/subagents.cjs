@@ -51,9 +51,10 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
   return tool(
     async ({ query }) => {
       const { HumanMessage } = await import('@langchain/core/messages');
-      const result = await subagent.invoke({
-        messages: [new HumanMessage(query)],
-      });
+      const result = await subagent.invoke(
+        { messages: [new HumanMessage(query)] },
+        { recursionLimit: 100 }
+      );
       const lastMsg = result?.messages?.at(-1);
       const content = lastMsg?.content;
       if (typeof content === 'string') return content;

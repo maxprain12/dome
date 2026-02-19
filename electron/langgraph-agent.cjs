@@ -231,6 +231,7 @@ async function invokeLangGraphAgent(opts) {
 
   const config = {
     configurable: { thread_id: threadId || `dome_${Date.now()}` },
+    recursionLimit: 100, // Aumentado desde el default 25 para tareas Excel con muchas filas
     signal,
   };
 
@@ -399,6 +400,7 @@ async function resumeLangGraphAgent(opts) {
 
   const config = {
     configurable: { thread_id: threadId },
+    recursionLimit: 100, // Aumentado desde el default 25 para tareas Excel con muchas filas
     signal,
   };
 

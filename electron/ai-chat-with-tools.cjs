@@ -426,13 +426,13 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_update',
-        description: 'Update an existing resource.',
+        description: 'Update an existing resource. For DOCX documents: use content as HTML or Markdown GFM; it is persisted to the DOCX file.',
         parameters: {
           type: 'object',
           properties: {
             resource_id: { type: 'string', description: 'Resource ID' },
             title: { type: 'string', description: 'New title' },
-            content: { type: 'string', description: 'New content' },
+            content: { type: 'string', description: 'New content (for notes/DOCX: HTML or Markdown GFM; DOCX content is written to file)' },
             metadata: { type: 'object', description: 'Metadata to merge' },
           },
           required: ['resource_id'],

@@ -338,8 +338,8 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           resourceTitle: currentResourceTitle || undefined,
           includeDateTime: true,
         });
-        const toolHint = effectiveResourceId && isSummarizeRequest(userMessage)
-          ? `\n\nThe user is viewing resource ID: ${effectiveResourceId}. When delegating to the library agent, include this so it can fetch the resource content.`
+        const toolHint = effectiveResourceId
+          ? `\n\nThe user is viewing resource ID: ${effectiveResourceId} (title: "${currentResourceTitle || 'unknown'}"). When delegating to library, writer, or data agents, include resource_id: "${effectiveResourceId}" in the context so they can access this resource (e.g. for Excel: excel_add_row, excel_set_cell require resource_id).`
           : '';
         const folderHint = (pathname === '/' || pathname === '/home') && currentFolderId
           ? `\n\nThe user is viewing folder ID: ${currentFolderId}. When delegating to library or writer agents, include folder_id: "${currentFolderId}" for listing/creating resources in that folder.`

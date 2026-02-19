@@ -55,6 +55,36 @@ function stripMarkdown(md) {
     .trim();
 }
 
+/** Regex to match [Sheet: Name] headers in Excel content */
+const EXCEL_SHEET_HEADER_RE = /\[Sheet:\s*([^\]]+)\]\s*\n/g;
+
+/**
+ * Chunk Excel content by sheet blocks. Preserves logical table structure.
+ * Content format from document-extractor: [Sheet: Name]\n...csv...
+ * @param {string} text - Excel content with [Sheet: Name] headers
+ * @returns {Array<{ text: string; sheet_name?: string }>}
+ */
+function chunkExcelBySheet(text) {
+  if (!text || !text.trim()) return [];
+  const trimmed = text.trim();
+  const matches = [...trimmed.matchAll(EXCEL_SHEET_HEADER_RE)];
+  if (matches.length === 0) return [{ text: trimmed }];
+
+  const chunks = [];
+  for (let i = 0; i < matches.length; i++) {
+    const match = matches[i];
+    const sheetName = match[1]?.trim() || 'Sheet1';
+    const start = match.index + match[0].length;
+    const end = i + 1 < matches.length ? matches[i + 1].index : trimmed.length;
+    const blockContent = trimmed.slice(start, end).trim();
+    if (blockContent) {
+      const fullBlock = `[Sheet: ${sheetName}]\n${blockContent}`;
+      chunks.push({ text: fullBlock, sheet_name: sheetName });
+    }
+  }
+  return chunks.length > 0 ? chunks : [{ text: trimmed }];
+}
+
 /**
  * Chunk text with overlap using llm-chunk (avoids RangeError with very long text)
  * @param {string} text - Text to chunk
@@ -139,6 +169,8 @@ function extractIndexableText(resource) {
     case 'video':
     case 'audio':
       return [metadata.transcription, metadata.summary].filter(Boolean).join('\n\n');
+    case 'excel':
+      return (resource.content || '').trim();
     default:
       return '';
     }
@@ -211,25 +243,33 @@ async function indexResource(resourceId, deps) {
     await deleteResourceEmbeddings(vectorDB, resourceId);
 
     const maxChunks = (resource.type || '').toLowerCase() === 'url' ? MAX_CHUNKS_URL : MAX_CHUNKS_DEFAULT;
-    // Truncate text BEFORE chunking to avoid RangeError (Invalid array length) with very long articles
-    const maxTextLength = maxChunks * (CHUNK_SIZE - CHUNK_OVERLAP) + CHUNK_OVERLAP;
-    const textToChunk = text.length > maxTextLength ? text.slice(0, maxTextLength) : text;
-    if (text.length > maxTextLength) {
-      console.log(`[Indexer] Truncated text to ${maxTextLength} chars for ${resource.type} (was ${text.length})`);
-    }
+    const isExcel = (resource.type || '').toLowerCase() === 'excel';
 
-    let chunks = chunkText(textToChunk);
-    if (chunks.length > maxChunks) {
-      chunks = chunks.slice(0, maxChunks);
+    let chunks;
+    if (isExcel) {
+      chunks = chunkExcelBySheet(text);
+      if (chunks.length > maxChunks) chunks = chunks.slice(0, maxChunks);
+    } else {
+      const maxTextLength = maxChunks * (CHUNK_SIZE - CHUNK_OVERLAP) + CHUNK_OVERLAP;
+      const textToChunk = text.length > maxTextLength ? text.slice(0, maxTextLength) : text;
+      if (text.length > maxTextLength) {
+        console.log(`[Indexer] Truncated text to ${maxTextLength} chars for ${resource.type} (was ${text.length})`);
+      }
+      chunks = chunkText(textToChunk);
+      if (chunks.length > maxChunks) chunks = chunks.slice(0, maxChunks);
     }
     if (chunks.length === 0) return;
 
-    const metadata = {
+    const baseMetadata = {
       resource_type: resource.type,
       title: resource.title || 'Untitled',
       project_id: resource.project_id || 'default',
       created_at: Date.now(),
     };
+    const getChunkMetadata = (chunk) =>
+      chunk.sheet_name
+        ? { ...baseMetadata, sheet_name: chunk.sheet_name }
+        : baseMetadata;
 
     let embeddingDimension = 1024;
     const isOllamaAvailable = await ollamaService.checkAvailability();
@@ -270,7 +310,7 @@ async function indexResource(resourceId, deps) {
                   chunk_index: globalIdx,
                   text: chunk.text,
                   vector: vec,
-                  metadata,
+                  metadata: getChunkMetadata(chunk),
                 };
               }
             } catch (err) {
@@ -294,7 +334,7 @@ async function indexResource(resourceId, deps) {
                 chunk_index: i + batchIdx,
                 text: batch[batchIdx].text,
                 vector: vec,
-                metadata,
+                metadata: getChunkMetadata(batch[batchIdx]),
               });
             }
           }

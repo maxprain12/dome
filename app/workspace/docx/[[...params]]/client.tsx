@@ -58,6 +58,38 @@ export default function DocxWorkspaceClient({ resourceId }: DocxWorkspaceClientP
   const lastSavedContentRef = useRef<string>('');
   const savedFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const reloadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadDocumentContentFromFile = useCallback(async (markAsSaved = false) => {
+    if (!window.electron?.resource?.readDocumentContent) return;
+    try {
+      const docResult = await window.electron.resource.readDocumentContent(resourceId);
+      if (!docResult.success || !docResult.data) return;
+      const binary = atob(docResult.data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const mammoth = await import('mammoth');
+      const mammothResult = await mammoth.convertToHtml(
+        { arrayBuffer: bytes.buffer },
+        {
+          styleMap: [
+            "p[style-name='Heading 1'] => h1:fresh",
+            "p[style-name='Heading 2'] => h2:fresh",
+            "p[style-name='Heading 3'] => h3:fresh",
+          ],
+        }
+      );
+      const editorContent = contentForEditor(mammothResult.value);
+      setContent(editorContent);
+      if (markAsSaved) {
+        lastSavedContentRef.current = editorContent;
+      }
+    } catch (err) {
+      console.error('[DocxWorkspace] Error reloading from file:', err);
+    }
+  }, [resourceId]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -131,6 +163,24 @@ export default function DocxWorkspaceClient({ resourceId }: DocxWorkspaceClientP
 
     loadResource();
   }, [resourceId]);
+
+  // Refresh when Many (AI) modifies the document via resource_update
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron?.on || !resource) return;
+    const unsubscribe = window.electron.on('resource:updated', (payload: { id?: string }) => {
+      if (payload?.id !== resourceId) return;
+      if (content !== lastSavedContentRef.current) return;
+      if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
+      reloadDebounceRef.current = setTimeout(() => {
+        reloadDebounceRef.current = null;
+        loadDocumentContentFromFile(true);
+      }, 300);
+    });
+    return () => {
+      if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
+      unsubscribe();
+    };
+  }, [resourceId, resource, content, loadDocumentContentFromFile]);
 
   useEffect(() => {
     if (resourceId) {
@@ -244,6 +294,7 @@ export default function DocxWorkspaceClient({ resourceId }: DocxWorkspaceClientP
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
       if (savedFeedbackTimeoutRef.current) clearTimeout(savedFeedbackTimeoutRef.current);
+      if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
     };
   }, []);
 

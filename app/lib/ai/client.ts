@@ -914,16 +914,29 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
 
   if (resourceContext) {
     const isNotebook = resourceContext.type === 'notebook';
+    const isExcel = resourceContext.type === 'excel';
+    const isDocument = resourceContext.type === 'document';
+    const contentOverride = isNotebook
+      ? 'This is a notebook. Use notebook_get to read its structure, cells, and code.'
+      : isExcel && toolsEnabled
+        ? 'This is an Excel spreadsheet. Use excel_get to read its sheets, cells, and ranges. The preview below is limited; always call excel_get for accurate data.'
+        : isDocument && toolsEnabled
+          ? 'This is a Word document. Use resource_get to read its content. Edit with resource_update (content as HTML or Markdown).'
+          : resourceContext.content;
     prompt += '\n\n' + buildMartinResourceContext({
       type: resourceContext.type,
       summary: resourceContext.summary,
-      content: isNotebook
-        ? 'This is a notebook. Use notebook_get to read its structure, cells, and code.'
-        : resourceContext.content,
+      content: contentOverride,
       transcription: resourceContext.transcription,
     });
     if (isNotebook && toolsEnabled) {
       prompt += '\n\n' + promptTemplates.martin.notebookContext;
+    }
+    if (isExcel && toolsEnabled) {
+      prompt += '\n\n' + promptTemplates.martin.excelContext;
+    }
+    if (isDocument && toolsEnabled) {
+      prompt += '\n\n' + promptTemplates.martin.documentContext;
     }
   }
 

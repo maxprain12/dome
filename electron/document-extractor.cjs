@@ -47,27 +47,53 @@ async function extractDocxText(filePath, maxChars = 500) {
   }
 }
 
+/** Default rows per sheet when extracting XLSX (configurable) */
+const XLSX_SHEET_ROWS = 150;
+/** Default max chars for XLSX extraction (for indexing/RAG) */
+const XLSX_MAX_CHARS = 3000;
+
 /**
  * Extract plain text from an XLSX/XLS file
+ * Iterates all sheets with [Sheet: Name] headers for context preservation
  * @param {string} filePath - Path to the spreadsheet file
- * @param {number} maxChars - Maximum characters to extract
+ * @param {number} maxChars - Maximum characters to extract (default 3000)
  * @returns {string|null}
  */
-function extractXlsxText(filePath, maxChars = 500) {
+function extractXlsxText(filePath, maxChars = XLSX_MAX_CHARS) {
   if (!XLSX) {
     console.warn('[DocumentExtractor] xlsx not available, skipping XLSX extraction');
     return null;
   }
 
   try {
-    const workbook = XLSX.readFile(filePath, { sheetRows: 20 });
-    const firstSheetName = workbook.SheetNames[0];
-    if (!firstSheetName) return null;
+    const workbook = XLSX.readFile(filePath, {
+      sheetRows: XLSX_SHEET_ROWS,
+      cellDates: true, // Convert Excel serial dates to JS Date for readable output
+    });
+    const sheetNames = workbook.SheetNames || [];
+    if (sheetNames.length === 0) return null;
 
-    const firstSheet = workbook.Sheets[firstSheetName];
-    const csv = XLSX.utils.sheet_to_csv(firstSheet);
-    const text = csv.trim();
-    return text ? text.substring(0, maxChars) : null;
+    const parts = [];
+    let totalChars = 0;
+
+    for (const sheetName of sheetNames) {
+      if (totalChars >= maxChars) break;
+      const sheet = workbook.Sheets[sheetName];
+      if (!sheet) continue;
+
+      const csv = XLSX.utils.sheet_to_csv(sheet).trim();
+      if (!csv) continue;
+
+      const header = `[Sheet: ${sheetName}]\n`;
+      const block = header + csv;
+      const remaining = maxChars - totalChars;
+      const chunk = block.length > remaining ? block.substring(0, remaining) : block;
+      parts.push(chunk);
+      totalChars += chunk.length;
+    }
+
+    const text = parts.join('\n\n').trim();
+    return text || null;
   } catch (error) {
     console.error('[DocumentExtractor] Error extracting XLSX text:', error.message);
     return null;
