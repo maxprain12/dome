@@ -12,11 +12,11 @@ import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import MetadataModal from '@/components/workspace/MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { looksLikeHtml, htmlToMarkdown } from '@/lib/utils/markdown';
-import { contentToPrintHtml, contentToHtmlBody } from '@/lib/utils/note-to-html';
+import { contentToHtmlBody } from '@/lib/utils/note-to-html';
 import { type Resource } from '@/types';
 
 /**
- * Detect if content is legacy Tiptap JSON (for lazy migration to Markdown).
+ * Detect if content is legacy Tiptap JSON.
  */
 function isJsonContent(content: string): boolean {
   if (!content) return false;
@@ -25,29 +25,20 @@ function isJsonContent(content: string): boolean {
 }
 
 /**
- * Content type for editor: 'markdown' (default) or 'json' for legacy notes.
+ * Content to pass to editor. HTML from mammoth -> Markdown. Legacy -> as-is.
  */
-function detectContentType(content: string): 'markdown' | 'json' {
-  if (isJsonContent(content)) return 'json';
-  return 'markdown';
-}
-
-/**
- * Content to pass to editor. JSON passed as-is for lazy migration.
- * Legacy HTML converted to Markdown. Otherwise pass Markdown as-is.
- */
-function detectContentForEditor(content: string): string {
+function contentForEditor(content: string): string {
   if (!content) return '';
   if (isJsonContent(content)) return content;
   if (looksLikeHtml(content)) return htmlToMarkdown(content);
   return content;
 }
 
-interface NoteWorkspaceClientProps {
+interface DocxWorkspaceClientProps {
   resourceId: string;
 }
 
-export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientProps) {
+export default function DocxWorkspaceClient({ resourceId }: DocxWorkspaceClientProps) {
   const [resource, setResource] = useState<Resource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +59,6 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
   const savedFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Prevent ProseMirror scrollIntoView from scrolling the outer container
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -80,7 +70,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     return () => el.removeEventListener('scroll', preventScroll);
   }, []);
 
-  // Load resource
+  // Load resource and content (from file or DB)
   useEffect(() => {
     async function loadResource() {
       if (!window.electron?.db?.resources) {
@@ -91,17 +81,49 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
 
       try {
         const result = await window.electron.db.resources.getById(resourceId);
-        if (result?.success && result.data) {
-          setResource(result.data);
-          setTitle(result.data.title || '');
-          setContent(result.data.content || '');
-          lastSavedContentRef.current = result.data.content || '';
-        } else {
-          setError('Note not found');
+        if (!result?.success || !result.data) {
+          setError('Document not found');
+          setLoading(false);
+          return;
         }
+
+        const res = result.data;
+        setResource(res);
+        setTitle(res.title || '');
+
+        let initialContent = '';
+        if (res.internal_path) {
+          const docResult = await window.electron.resource.readDocumentContent(resourceId);
+          if (docResult.success && docResult.data) {
+            const binary = atob(docResult.data);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+              bytes[i] = binary.charCodeAt(i);
+            }
+            const mammoth = await import('mammoth');
+            const mammothResult = await mammoth.convertToHtml(
+              { arrayBuffer: bytes.buffer },
+              {
+                styleMap: [
+                  "p[style-name='Heading 1'] => h1:fresh",
+                  "p[style-name='Heading 2'] => h2:fresh",
+                  "p[style-name='Heading 3'] => h3:fresh",
+                ],
+              }
+            );
+            initialContent = contentForEditor(mammothResult.value);
+          } else {
+            initialContent = contentForEditor(res.content || '');
+          }
+        } else {
+          initialContent = contentForEditor(res.content || '');
+        }
+
+        setContent(initialContent);
+        lastSavedContentRef.current = initialContent;
       } catch (err) {
-        console.error('Error loading note:', err);
-        setError('Failed to load note');
+        console.error('Error loading document:', err);
+        setError('Failed to load document');
       } finally {
         setLoading(false);
       }
@@ -110,48 +132,43 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     loadResource();
   }, [resourceId]);
 
-  // Set selected sources to current resource when opening (for Studio generation)
   useEffect(() => {
     if (resourceId) {
       useAppStore.getState().setSelectedSourceIds([resourceId]);
     }
   }, [resourceId]);
 
-  // Auto-save or manual save content
-  const saveContent = useCallback(async (newContent: string, isManual = false) => {
-    if (!window.electron?.db?.resources || !resource) return;
+  const saveContent = useCallback(async (newContent: string) => {
+    if (!window.electron?.resource?.saveDocxFromHtml || !resource) return;
     if (newContent === lastSavedContentRef.current) return;
 
     setIsSaving(true);
     setLastSavedAt(null);
     try {
-      await window.electron.db.resources.update({
-        id: resourceId,
-        title: resource.title,
-        content: newContent,
-        updated_at: Date.now(),
-      });
-      lastSavedContentRef.current = newContent;
-      setLastSavedAt(Date.now());
-      if (savedFeedbackTimeoutRef.current) clearTimeout(savedFeedbackTimeoutRef.current);
-      savedFeedbackTimeoutRef.current = setTimeout(() => setLastSavedAt(null), 2500);
+      const html = contentToHtmlBody(newContent);
+      const result = await window.electron.resource.saveDocxFromHtml(resourceId, html);
+      if (result.success && result.data) {
+        lastSavedContentRef.current = newContent;
+        setResource(result.data);
+        setLastSavedAt(Date.now());
+        if (savedFeedbackTimeoutRef.current) clearTimeout(savedFeedbackTimeoutRef.current);
+        savedFeedbackTimeoutRef.current = setTimeout(() => setLastSavedAt(null), 2500);
+      }
     } catch (err) {
-      console.error('Error saving note:', err);
+      console.error('Error saving document:', err);
     } finally {
       setIsSaving(false);
     }
   }, [resourceId, resource]);
 
-  // Manual save - triggers immediately with current content
   const handleManualSave = useCallback(() => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
     }
-    saveContent(content, true);
+    saveContent(content);
   }, [content, saveContent]);
 
-  // Debounced save on content change — editor emits Markdown string
   const handleContentChange = useCallback((markdownFromEditor: string) => {
     setContent(markdownFromEditor);
 
@@ -164,7 +181,6 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     }, 1000);
   }, [saveContent]);
 
-  // Save title
   const handleTitleBlur = useCallback(async () => {
     if (!window.electron?.db?.resources || !resource) return;
     if (title === resource.title) return;
@@ -182,27 +198,24 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     }
   }, [resourceId, resource, title]);
 
-  // Export note to PDF
-  const handleExportPdf = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.electron?.note) return;
-    const html = contentToPrintHtml(content, title);
-    const result = await window.electron.note.exportToPdf({ html, title });
-    if (result.success && result.path) {
-      await window.electron.openPath(result.path);
-    }
-  }, [content, title]);
-
-  // Export note to DOCX
   const handleExportDocx = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.electron?.note) return;
-    const html = contentToHtmlBody(content);
-    const result = await window.electron.note.exportToDocx({ html, title });
-    if (result.success && result.path) {
-      await window.electron.openPath(result.path);
+    if (!resource || !window.electron?.resource?.export) return;
+    try {
+      const filePath = await window.electron.showSaveDialog({
+        defaultPath: (title || 'Document').replace(/[<>:"/\\|?*]/g, '_').substring(0, 80) + '.docx',
+        filters: [{ name: 'Word Document', extensions: ['docx'] }],
+      });
+      if (filePath) {
+        const result = await window.electron.resource.export(resourceId, filePath);
+        if (result?.success && result?.data && window.electron?.openPath) {
+          await window.electron.openPath(result.data);
+        }
+      }
+    } catch (err) {
+      console.error('Export failed:', err);
     }
-  }, [content, title]);
+  }, [resourceId, resource, title]);
 
-  // Save metadata from modal
   const handleSaveMetadata = useCallback(async (updates: Partial<Resource>): Promise<boolean> => {
     if (!resource || typeof window === 'undefined' || !window.electron) return false;
 
@@ -227,7 +240,6 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     }
   }, [resource]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -240,7 +252,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <div className="animate-pulse" style={{ color: 'var(--secondary-text)' }}>Loading note...</div>
+        <div className="animate-pulse" style={{ color: 'var(--secondary-text)' }}>Loading document...</div>
       </div>
     );
   }
@@ -248,7 +260,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
   if (error || !resource) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--bg)' }}>
-        <div style={{ color: 'var(--error)' }}>{error || 'Note not found'}</div>
+        <div style={{ color: 'var(--error)' }}>{error || 'Document not found'}</div>
         <button
           onClick={() => { if (typeof window !== 'undefined') window.close(); }}
           className="btn btn-primary"
@@ -261,19 +273,17 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
 
   return (
     <div ref={containerRef} className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)', overflow: 'clip' }}>
-      {/* Shared Header */}
       <WorkspaceHeader
         resource={resource}
         sidePanelOpen={isPanelOpen}
         onToggleSidePanel={() => setIsPanelOpen(!isPanelOpen)}
         onShowMetadata={() => setShowMetadata(true)}
-        onExportPdf={handleExportPdf}
         onExportDocx={handleExportDocx}
         editableTitle={{
           value: title,
           onChange: setTitle,
           onBlur: handleTitleBlur,
-          placeholder: 'Untitled Note',
+          placeholder: 'Untitled Document',
         }}
         savingIndicator={
           <div className="flex items-center gap-2 shrink-0">
@@ -305,9 +315,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
         }
       />
 
-      {/* Main content */}
       <div className="flex-1 flex relative min-h-0" style={{ overflow: 'clip' }}>
-        {/* Sources Panel */}
         {sourcesPanelOpen && resource && (
           <SourcesPanel
             resourceId={resourceId}
@@ -315,20 +323,18 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
           />
         )}
 
-        {/* Editor area */}
         <div className="flex-1 relative min-h-0" style={{ overflow: 'clip' }}>
           <div className="h-full overflow-auto p-6">
             <div className="note-editor-with-guides w-full">
               <NotionEditor
-                content={detectContentForEditor(content)}
-                contentType={detectContentType(content)}
+                content={contentForEditor(content)}
+                contentType="markdown"
                 onChange={handleContentChange}
                 placeholder="Escribe '/' para comandos..."
               />
             </div>
           </div>
 
-          {/* Studio Output Viewer Overlay */}
           {activeStudioOutput && (
             <StudioOutputViewer
               output={activeStudioOutput}
@@ -337,7 +343,6 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
           )}
         </div>
 
-        {/* Side Panel */}
         <SidePanel
           resourceId={resourceId}
           resource={resource}
@@ -345,18 +350,15 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
           onClose={() => setIsPanelOpen(false)}
         />
 
-        {/* Studio Panel */}
         {studioPanelOpen && resource && (
           <StudioPanel projectId={resource.project_id} resourceId={resource.id} />
         )}
 
-        {/* Graph Panel */}
         {graphPanelOpen && resource && (
           <GraphPanel resource={resource} />
         )}
       </div>
 
-      {/* Metadata Modal */}
       <MetadataModal
         resource={resource}
         isOpen={showMetadata}

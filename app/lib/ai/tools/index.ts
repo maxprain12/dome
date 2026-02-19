@@ -192,6 +192,18 @@ export {
   createNotebookTools,
 } from './notebook-tools';
 
+// Tools - Excel
+export {
+  createExcelGetTool,
+  createExcelSetCellTool,
+  createExcelSetRangeTool,
+  createExcelAddRowTool,
+  createExcelAddSheetTool,
+  createExcelCreateTool,
+  createExcelExportTool,
+  createExcelTools,
+} from './excel-tools';
+
 // =============================================================================
 // Default Tools
 // =============================================================================
@@ -209,6 +221,7 @@ import { createAudioOverviewTools } from './audio-overview';
 import { createDeepResearchTools } from './deep-research';
 import { createGraphTools } from './graph-tools';
 import { createNotebookTools } from './notebook-tools';
+import { createExcelTools } from './excel-tools';
 
 /**
  * Configuration for creating default tools
@@ -283,6 +296,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // Notebook tools (read/modify notebook cells)
   tools.push(...createNotebookTools());
 
+  // Excel tools (read/modify Excel resources)
+  tools.push(...createExcelTools());
+
   return tools;
 }
 
@@ -328,6 +344,9 @@ export function createManyToolsForContext(
   if (isNotebook) {
     tools.push(...createNotebookTools());
   }
+
+  // Excel tools (always include - useful when user has spreadsheets)
+  tools.push(...createExcelTools());
 
   // Studio, audio, deep research, graph: useful in Home/library context
   if (isHome || isNotebook) {

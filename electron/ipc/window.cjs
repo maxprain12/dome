@@ -207,6 +207,11 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
         route = isYouTube ? `/workspace/youtube?id=${resourceId}` : `/workspace/url?id=${resourceId}`;
       } else if (resourceType === 'notebook') {
         route = `/workspace/notebook?id=${resourceId}`;
+      } else if (resourceType === 'document') {
+        const filename = (resource.original_filename || resource.title || '').toLowerCase();
+        const mime = resource.file_mime_type || '';
+        const isDocx = filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword') || !resource.internal_path;
+        route = isDocx ? `/workspace/docx?id=${resourceId}` : `/workspace?id=${resourceId}`;
       } else {
         route = `/workspace?id=${resourceId}`;
       }

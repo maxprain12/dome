@@ -1,7 +1,7 @@
 
-import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2 } from 'lucide-react';
+import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2, Wand2 } from 'lucide-react';
 
-type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'plugins' | 'advanced';
+type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced';
 
 interface SettingsLayoutProps {
   activeSection: SettingsSection;
@@ -40,6 +40,11 @@ const sidebarItems: SidebarItem[] = [
     id: 'mcp',
     label: 'MCP',
     icon: <Plug2 className="w-4 h-4" />,
+  },
+  {
+    id: 'skills',
+    label: 'Skills',
+    icon: <Wand2 className="w-4 h-4" />,
   },
   {
     id: 'plugins',

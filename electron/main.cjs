@@ -24,6 +24,7 @@ if (app.isPackaged) {
 
 // Register custom protocol scheme as privileged before app is ready
 // This allows the app:// protocol to work like https:// with full privileges
+// dome:// for OAuth callbacks (MCP backlinks)
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'app',
@@ -35,7 +36,33 @@ protocol.registerSchemesAsPrivileged([
       stream: true,
     },
   },
+  {
+    scheme: 'dome',
+    privileges: {
+      standard: true,
+      secure: true,
+    },
+  },
 ]);
+
+// Single instance lock - on Windows/Linux, second instance receives dome:// URL for OAuth callback
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, commandLine) => {
+    const mcpOauth = require('./mcp-oauth.cjs');
+    const url = commandLine.find((arg) => typeof arg === 'string' && arg.startsWith('dome://'));
+    if (url && mcpOauth.handleOAuthCallback(url)) {
+      console.log('[MCP OAuth] Callback received via second-instance');
+    }
+    const win = windowManager?.get?.('main');
+    if (win && !win.isDestroyed()) {
+      win.focus();
+    }
+  });
+}
+
 const windowManager = require('./window-manager.cjs');
 const database = require('./database.cjs');
 const initModule = require('./init.cjs');
@@ -46,14 +73,17 @@ const youtubeService = require('./youtube-service.cjs');
 const ollamaService = require('./ollama-service.cjs');
 const ollamaManager = require('./ollama-manager.cjs');
 const aiToolsHandler = require('./ai-tools-handler.cjs');
+const excelToolsHandler = require('./excel-tools-handler.cjs');
 const vectorHandler = require('./vector-handler.cjs');
 const documentExtractor = require('./document-extractor.cjs');
+const docxConverter = require('./docx-converter.cjs');
 const authManager = require('./auth-manager.cjs');
 const personalityLoader = require('./personality-loader.cjs');
 const aiCloudService = require('./ai-cloud-service.cjs');
 const updateService = require('./update-service.cjs');
 const ttsService = require('./tts-service.cjs');
 const notebookPython = require('./notebook-python.cjs');
+const mcpOauth = require('./mcp-oauth.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
 
 // IPC handlers (modularized)
@@ -364,6 +394,31 @@ app
 
     console.log('[Protocol] app:// protocol registered successfully');
 
+    // Register dome:// for OAuth callbacks (MCP backlinks)
+    if (process.defaultApp && process.argv.length >= 2) {
+      app.setAsDefaultProtocolClient('dome', process.execPath, [path.resolve(process.argv[1])]);
+    } else {
+      app.setAsDefaultProtocolClient('dome');
+    }
+
+    // Handle OAuth callback when user is redirected to dome://...
+    if (process.platform === 'darwin') {
+      app.on('open-url', (event, url) => {
+        event.preventDefault();
+        if (mcpOauth.handleOAuthCallback(url)) {
+          console.log('[MCP OAuth] Callback received and processed');
+        }
+      });
+    }
+
+    // Cold start on Windows/Linux: URL may be in argv
+    if (process.platform !== 'darwin') {
+      const coldStartUrl = process.argv.find((arg) => typeof arg === 'string' && arg.startsWith('dome://'));
+      if (coldStartUrl && mcpOauth.handleOAuthCallback(coldStartUrl)) {
+        console.log('[MCP OAuth] Callback received on cold start');
+      }
+    }
+
     setupUserDataFolder();
     // Initialize file storage
     fileStorage.initStorage();
@@ -372,6 +427,8 @@ app
     // Database initialization is now handled by initModule
     // but we still need to ensure it's ready
     database.initDatabase();
+
+    excelToolsHandler.setWindowManager(windowManager);
 
     // Register all IPC handlers (modularized in electron/ipc/)
     registerAll({
@@ -390,6 +447,7 @@ app
       ttsService,
     vectorHandler,
     documentExtractor,
+    docxConverter,
     authManager,
     personalityLoader,
     notebookPython,

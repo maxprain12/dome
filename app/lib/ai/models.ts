@@ -93,8 +93,9 @@ const ANTHROPIC_COSTS: Record<string, ModelCost> = {
 };
 
 const GOOGLE_COSTS: Record<string, ModelCost> = {
-  'gemini-3-flash': { input: 0.5, output: 3, cacheRead: 0.05, cacheWrite: 0.5 },
-  'gemini-3-pro': { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2 },
+  'gemini-3-flash-preview': { input: 0.5, output: 3, cacheRead: 0.05, cacheWrite: 0.5 },
+  'gemini-3-pro-preview': { input: 2, output: 12, cacheRead: 0.2, cacheWrite: 2 },
+  'gemini-2.5-flash': { input: 0.15, output: 0.6, cacheRead: 0.0375, cacheWrite: 0.15 },
   'gemini-2.5-flash-lite': { input: 0.1, output: 0.4, cacheRead: 0.025, cacheWrite: 0.1 },
 };
 
@@ -243,8 +244,8 @@ export const ANTHROPIC_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
 
 export const GOOGLE_MODELS: ModelDefinition[] = [
   {
-    id: 'gemini-3-flash',
-    name: 'Gemini 3 Flash',
+    id: 'gemini-3-flash-preview',
+    name: 'Gemini 3 Flash Preview',
     reasoning: false,
     input: ['text', 'image'],
     contextWindow: 1048576,
@@ -252,19 +253,31 @@ export const GOOGLE_MODELS: ModelDefinition[] = [
     recommended: true,
     description: 'Equilibrado: velocidad, escala e inteligencia de vanguardia',
     api: 'google-generative-ai',
-    cost: GOOGLE_COSTS['gemini-3-flash'],
+    cost: GOOGLE_COSTS['gemini-3-flash-preview'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
   {
-    id: 'gemini-3-pro',
-    name: 'Gemini 3 Pro',
+    id: 'gemini-3-pro-preview',
+    name: 'Gemini 3 Pro Preview',
     reasoning: false,
     input: ['text', 'image'],
     contextWindow: 1048576,
     maxTokens: 65536,
     description: 'Mejor modelo para comprensión multimodal y codificación',
     api: 'google-generative-ai',
-    cost: GOOGLE_COSTS['gemini-3-pro'],
+    cost: GOOGLE_COSTS['gemini-3-pro-preview'],
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash',
+    reasoning: false,
+    input: ['text', 'image'],
+    contextWindow: 1048576,
+    maxTokens: 65536,
+    description: 'Modelo rápido y eficiente de la familia Gemini 2.5',
+    api: 'google-generative-ai',
+    cost: GOOGLE_COSTS['gemini-2.5-flash'],
     compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
   },
   {
@@ -326,7 +339,7 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
   google: {
     id: 'google',
     name: 'Google Gemini',
-    description: 'Gemini 3 Flash, 3 Pro y 2.5 Flash Lite',
+    description: 'Gemini 3 Flash Preview, 3 Pro Preview y 2.5 Flash',
     icon: 'google',
     models: GOOGLE_MODELS,
     embeddingModels: GOOGLE_EMBEDDING_MODELS,
@@ -477,7 +490,7 @@ export function getDefaultModelId(providerId: AIProviderType): string {
   switch (providerId) {
     case 'openai': return 'gpt-5.2';
     case 'anthropic': return 'claude-sonnet-4-5';
-    case 'google': return 'gemini-3-flash';
+    case 'google': return 'gemini-3-flash-preview';
     case 'ollama': return 'llama3.2';
     case 'copilot': return 'gpt-4o';
     case 'deepseek': return 'deepseek-chat';

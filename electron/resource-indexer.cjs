@@ -7,7 +7,7 @@
 const { chunk: llmChunk } = require('llm-chunk');
 
 // Notebook excluded: indexing causes app crashes
-const EMBEDDABLE_TYPES = ['note', 'document', 'url', 'pdf', 'video', 'audio'];
+const EMBEDDABLE_TYPES = ['note', 'document', 'url', 'pdf', 'video', 'audio', 'excel'];
 const MIN_TEXT_LENGTH = 50;
 const CHUNK_SIZE = 1000;
 const CHUNK_OVERLAP = 200;

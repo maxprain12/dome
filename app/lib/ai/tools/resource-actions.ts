@@ -42,7 +42,7 @@ const ResourceCreateSchema = Type.Object({
   content: Type.Optional(
     Type.String({
       description:
-        'Content: for note/document = text or HTML. For notebook = JSON string of NotebookContent, or omit and use cells instead.',
+        'Content: for note = text or HTML. For document = HTML or Markdown (recommended HTML for better fidelity when generating DOCX). For notebook = JSON string of NotebookContent, or omit and use cells instead.',
     }),
   ),
   cells: Type.Optional(

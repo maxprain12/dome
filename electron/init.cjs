@@ -65,6 +65,16 @@ function initializeDefaultSettings() {
     queries.setSetting.run('mcp_servers', '[]', timestamp);
   }
 
+  const mcpEnabledRow = queries.getSetting.get('mcp_enabled');
+  if (!mcpEnabledRow) {
+    queries.setSetting.run('mcp_enabled', 'true', timestamp);
+  }
+
+  const aiSkillsRow = queries.getSetting.get('ai_skills');
+  if (!aiSkillsRow) {
+    queries.setSetting.run('ai_skills', '[]', timestamp);
+  }
+
   console.log('✅ Configuración inicializada');
 }
 

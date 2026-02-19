@@ -9,7 +9,7 @@ function generateId() {
   return crypto.randomUUID();
 }
 
-function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, initModule, ollamaService }) {
+function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, docxConverter, initModule, ollamaService }) {
   const indexerDeps = initModule && ollamaService ? { database, initModule, ollamaService } : null;
   /**
    * Import a file: copy to internal storage and create resource
@@ -25,8 +25,12 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'File not found' };
       }
 
+      const ext = path.extname(filePath).toLowerCase();
+      const isExcel = ext === '.xlsx' || ext === '.xls';
+      const effectiveType = (type === 'document' && isExcel) ? 'excel' : type;
+
       // Import file to internal storage
-      const importResult = await fileStorage.importFile(filePath, type);
+      const importResult = await fileStorage.importFile(filePath, effectiveType);
 
       // Check for duplicate by hash
       const queries = database.getQueries();
@@ -64,9 +68,9 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         }
       }
 
-      // Extract text content for document types (for card preview and AI tools)
+      // Extract text content for document/excel types (for card preview and AI tools)
       let contentText = null;
-      if (type === 'document') {
+      if (effectiveType === 'document' || effectiveType === 'excel') {
         try {
           contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
         } catch (extractError) {
@@ -94,7 +98,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       queries.createResourceWithFile.run(
         resourceId,
         projectId,
-        type,
+        effectiveType,
         resourceTitle,
         contentText, // content - extracted text for documents
         null, // file_path (legacy, not used)
@@ -401,6 +405,152 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
     } catch (error) {
       console.error('[Resource] Error reading document content:', error);
       return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Write Excel content from base64 (for editor saves).
+   * Overwrites the file at internal_path and updates content for search.
+   */
+  ipcMain.handle('resource:writeExcelContent', async (event, { resourceId, data }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      if (!resourceId || typeof data !== 'string') {
+        return { success: false, error: 'resourceId and data (base64) required' };
+      }
+
+      const queries = database.getQueries();
+      const resource = queries.getResourceById.get(resourceId);
+
+      if (!resource) {
+        return { success: false, error: 'Resource not found' };
+      }
+
+      if (!resource.internal_path) {
+        return { success: false, error: 'No internal file path' };
+      }
+
+      const fullPath = fileStorage.getFullPath(resource.internal_path);
+      const buffer = Buffer.from(data, 'base64');
+      fs.writeFileSync(fullPath, buffer);
+
+      let contentText = null;
+      try {
+        contentText = await documentExtractor.extractDocumentText(fullPath, resource.file_mime_type);
+      } catch (e) {
+        console.warn('[Resource] Excel text extraction failed:', e?.message);
+      }
+
+      const now = Date.now();
+      queries.updateResource.run(
+        resource.title,
+        contentText ?? resource.content,
+        resource.metadata,
+        now,
+        resourceId
+      );
+
+      windowManager.broadcast('resource:updated', {
+        id: resourceId,
+        updates: { content: contentText ?? resource.content, updated_at: now },
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('[Resource] Error writing Excel content:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Save DOCX from HTML (create or overwrite)
+   * For document resources: converts HTML to DOCX, saves to file storage, updates content for search.
+   */
+  ipcMain.handle('resource:saveDocxFromHtml', async (event, { resourceId, html }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      if (!resourceId || typeof html !== 'string') {
+        return { success: false, error: 'resourceId and html required' };
+      }
+
+      const queries = database.getQueries();
+      const resource = queries.getResourceById.get(resourceId);
+
+      if (!resource) {
+        return { success: false, error: 'Resource not found' };
+      }
+
+      if (resource.type !== 'document') {
+        return { success: false, error: 'Resource must be type document' };
+      }
+
+      const filename = (resource.original_filename || resource.title || 'document').toLowerCase();
+      const mime = resource.file_mime_type || '';
+      const isDocx = resource.internal_path?.toLowerCase().endsWith('.docx') ||
+        filename.endsWith('.docx') || filename.endsWith('.doc') ||
+        mime.includes('wordprocessingml') || mime.includes('msword');
+
+      if (!isDocx && resource.internal_path) {
+        return { success: false, error: 'Resource is not a DOCX document' };
+      }
+
+      const buffer = await docxConverter.htmlToDocxBuffer(html);
+      if (!buffer) {
+        return { success: false, error: 'Failed to convert HTML to DOCX' };
+      }
+
+      const now = Date.now();
+      let fullPath;
+
+      if (resource.internal_path) {
+        fileStorage.overwriteFile(resource.internal_path, buffer);
+        fullPath = fileStorage.getFullPath(resource.internal_path);
+      } else {
+        const safeTitle = (resource.title || 'document').replace(/[<>:"/\\|?*]/g, '_').substring(0, 80);
+        const importResult = await fileStorage.importFromBuffer(buffer, `${safeTitle}.docx`, 'document');
+        fullPath = fileStorage.getFullPath(importResult.internalPath);
+
+        queries.updateResourceFile.run(
+          importResult.internalPath,
+          importResult.mimeType,
+          importResult.size,
+          importResult.hash,
+          resource.thumbnail_data,
+          importResult.originalName,
+          now,
+          resourceId
+        );
+      }
+
+      let contentText = null;
+      try {
+        contentText = await documentExtractor.extractDocxText(fullPath, 50000);
+      } catch (e) {
+        console.warn('[Resource] DOCX text extraction failed:', e?.message);
+      }
+
+      queries.updateResource.run(
+        resource.title,
+        contentText || resource.content || '',
+        resource.metadata,
+        now,
+        resourceId
+      );
+
+      const updated = queries.getResourceById.get(resourceId);
+      windowManager.broadcast('resource:updated', { id: resourceId, updates: updated });
+
+      console.log(`[Resource] DOCX saved: ${resource.title}`);
+      return { success: true, data: updated };
+    } catch (error) {
+      console.error('[Resource] Error saving DOCX:', error);
+      return { success: false, error: error?.message || 'Failed to save DOCX' };
     }
   });
 

@@ -43,7 +43,9 @@ function traceLog(fn, params, result, err) {
 const database = require('./database.cjs');
 const fileStorage = require('./file-storage.cjs');
 const documentExtractor = require('./document-extractor.cjs');
+const docxConverter = require('./docx-converter.cjs');
 const webScraper = require('./web-scraper.cjs');
+const excelToolsHandler = require('./excel-tools-handler.cjs');
 
 // Reference to vector database (set by init.cjs)
 let vectorDB = null;
@@ -825,9 +827,35 @@ async function resourceCreate(data) {
     const queries = database.getQueries();
 
     const type = data.type || 'note';
-    const validTypes = ['note', 'notebook', 'document', 'url', 'folder'];
+    const validTypes = ['note', 'notebook', 'document', 'url', 'folder', 'excel'];
     if (!validTypes.includes(type)) {
       return { success: false, error: `AI can only create resources of type: ${validTypes.join(', ')}` };
+    }
+
+    if (type === 'excel') {
+      let projectId = data.project_id;
+      if (!projectId) {
+        const currentProject = await getCurrentProject();
+        projectId = currentProject?.id || 'default';
+      }
+      const result = await excelToolsHandler.excelCreate(projectId, data.title.trim(), {
+        sheet_name: data.sheet_name,
+        initial_data: data.initial_data,
+        folder_id: data.folder_id,
+      });
+      if (!result.success) return result;
+      return {
+        success: true,
+        resource: {
+          id: result.resource.id,
+          title: result.resource.title,
+          type: result.resource.type,
+          project_id: result.resource.project_id,
+          folder_id: data.folder_id || null,
+          created_at: Date.now(),
+          updated_at: Date.now(),
+        },
+      };
     }
 
     let content = data.content || '';
@@ -858,18 +886,62 @@ async function resourceCreate(data) {
     const now = Date.now();
     const id = `res_${now}_${Math.random().toString(36).substr(2, 9)}`;
 
-    queries.createResource.run(
-      id,
-      projectId,
-      type,
-      data.title.trim(),
-      content,
-      null, // file_path
-      data.folder_id ?? null, // folder_id
-      data.metadata ? JSON.stringify(data.metadata) : null,
-      now,
-      now
-    );
+    if (type === 'document' && content && content.trim()) {
+      try {
+        let html = content.trim();
+        if (!html.startsWith('<') || !html.includes('>')) {
+          const { marked } = require('marked');
+          html = marked.parse(html);
+        }
+        const buffer = await docxConverter.htmlToDocxBuffer(html);
+        if (buffer) {
+          const safeTitle = data.title.trim().replace(/[<>:"/\\|?*]/g, '_').substring(0, 80);
+          const importResult = await fileStorage.importFromBuffer(buffer, `${safeTitle}.docx`, 'document');
+          const fullPath = fileStorage.getFullPath(importResult.internalPath);
+          let contentText = null;
+          try {
+            contentText = await documentExtractor.extractDocxText(fullPath, 50000);
+          } catch (e) {
+            console.warn('[AI Tools] DOCX text extraction failed:', e?.message);
+          }
+          queries.createResourceWithFile.run(
+            id,
+            projectId,
+            type,
+            data.title.trim(),
+            contentText || content,
+            null,
+            importResult.internalPath,
+            importResult.mimeType,
+            importResult.size,
+            importResult.hash,
+            null,
+            importResult.originalName,
+            data.metadata ? JSON.stringify(data.metadata) : null,
+            now,
+            now
+          );
+        } else {
+          queries.createResource.run(id, projectId, type, data.title.trim(), content, null, data.folder_id ?? null, data.metadata ? JSON.stringify(data.metadata) : null, now, now);
+        }
+      } catch (docxErr) {
+        console.warn('[AI Tools] DOCX creation failed, falling back to note-style:', docxErr?.message);
+        queries.createResource.run(id, projectId, type, data.title.trim(), content, null, data.folder_id ?? null, data.metadata ? JSON.stringify(data.metadata) : null, now, now);
+      }
+    } else {
+      queries.createResource.run(
+        id,
+        projectId,
+        type,
+        data.title.trim(),
+        content,
+        null, // file_path
+        data.folder_id ?? null, // folder_id
+        data.metadata ? JSON.stringify(data.metadata) : null,
+        now,
+        now
+      );
+    }
 
     const resource = {
       id,
@@ -911,7 +983,7 @@ async function resourceUpdate(resourceId, updates) {
     }
 
     const title = updates.title !== undefined ? updates.title.trim() : existing.title;
-    const content = updates.content !== undefined ? updates.content : existing.content;
+    let content = updates.content !== undefined ? updates.content : existing.content;
 
     // Merge metadata
     let metadata = existing.metadata;
@@ -922,6 +994,51 @@ async function resourceUpdate(resourceId, updates) {
     }
 
     const now = Date.now();
+
+    const filename = (existing.original_filename || existing.title || '').toLowerCase();
+    const mime = existing.file_mime_type || '';
+    const isDocx = existing.type === 'document' && (
+      existing.internal_path?.toLowerCase().endsWith('.docx') ||
+      filename.endsWith('.docx') || filename.endsWith('.doc') ||
+      mime.includes('wordprocessingml') || mime.includes('msword')
+    );
+
+    if (isDocx && updates.content !== undefined && content) {
+      try {
+        let html = String(content).trim();
+        if (!html.startsWith('<') || !html.includes('>')) {
+          const { marked } = require('marked');
+          html = marked.parse(html);
+        }
+        const buffer = await docxConverter.htmlToDocxBuffer(html);
+        if (buffer && existing.internal_path) {
+          fileStorage.overwriteFile(existing.internal_path, buffer);
+          const fullPath = fileStorage.getFullPath(existing.internal_path);
+          let contentText = null;
+          try {
+            contentText = await documentExtractor.extractDocxText(fullPath, 50000);
+          } catch (e) {
+            console.warn('[AI Tools] DOCX text extraction failed:', e?.message);
+          }
+          content = contentText || content;
+        } else if (buffer && !existing.internal_path) {
+          const safeTitle = (existing.title || 'document').replace(/[<>:"/\\|?*]/g, '_').substring(0, 80);
+          const importResult = await fileStorage.importFromBuffer(buffer, `${safeTitle}.docx`, 'document');
+          const fullPath = fileStorage.getFullPath(importResult.internalPath);
+          let contentText = null;
+          try {
+            contentText = await documentExtractor.extractDocxText(fullPath, 50000);
+          } catch (e) {
+            console.warn('[AI Tools] DOCX text extraction failed:', e?.message);
+          }
+          content = contentText || content;
+          queries.updateResourceFile.run(importResult.internalPath, importResult.mimeType, importResult.size, importResult.hash, existing.thumbnail_data, importResult.originalName, now, resourceId);
+        }
+      } catch (docxErr) {
+        console.warn('[AI Tools] DOCX update failed:', docxErr?.message);
+      }
+    }
+
     queries.updateResource.run(title, content, metadata, now, resourceId);
 
     let metadataObj = null;
@@ -1245,6 +1362,146 @@ async function webFetch(args) {
 }
 
 // =============================================================================
+// Web Search Tool (LangGraph / Subagents)
+// =============================================================================
+
+const BRAVE_SEARCH_ENDPOINT = 'https://api.search.brave.com/res/v1/web/search';
+const DEFAULT_PERPLEXITY_BASE = 'https://api.perplexity.ai';
+const DEFAULT_PERPLEXITY_MODEL = 'perplexity/sonar-pro';
+
+async function webSearch(args) {
+  const query = args?.query;
+  if (!query || typeof query !== 'string') {
+    return { status: 'error', error: 'Query is required for web_search' };
+  }
+
+  const braveKey = process.env.BRAVE_API_KEY;
+  const perplexityKey = process.env.PERPLEXITY_API_KEY || process.env.OPENROUTER_API_KEY;
+  const provider = perplexityKey ? 'perplexity' : (braveKey ? 'brave' : null);
+
+  if (!provider) {
+    return {
+      status: 'error',
+      error: 'Web search requires BRAVE_API_KEY or PERPLEXITY_API_KEY environment variable.',
+    };
+  }
+
+  const count = Math.min(Math.max(1, parseInt(args?.count, 10) || 5), 10);
+  const timeoutMs = 15000;
+
+  try {
+    if (provider === 'perplexity') {
+      const endpoint = `${DEFAULT_PERPLEXITY_BASE}/chat/completions`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${perplexityKey}`,
+          'HTTP-Referer': 'https://dome.app',
+        },
+        body: JSON.stringify({
+          model: DEFAULT_PERPLEXITY_MODEL,
+          messages: [{ role: 'user', content: query }],
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!res.ok) {
+        const detail = await res.text();
+        throw new Error(`Perplexity API error (${res.status}): ${detail || res.statusText}`);
+      }
+
+      const data = await res.json();
+      const content = data.choices?.[0]?.message?.content ?? 'No response';
+      traceLog('webSearch', { query, provider }, { success: true });
+      return { query, provider: 'perplexity', content, citations: data.citations ?? [] };
+    }
+
+    // Brave
+    const url = new URL(BRAVE_SEARCH_ENDPOINT);
+    url.searchParams.set('q', query);
+    url.searchParams.set('count', String(count));
+    if (args?.country) url.searchParams.set('country', args.country);
+    if (args?.search_lang) url.searchParams.set('search_lang', args.search_lang);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        'X-Subscription-Token': braveKey,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      const detail = await res.text();
+      throw new Error(`Brave Search API error (${res.status}): ${detail || res.statusText}`);
+    }
+
+    const data = await res.json();
+    const results = Array.isArray(data.web?.results) ? data.web.results : [];
+    const mapped = results.map((r) => ({
+      title: r.title ?? '',
+      url: r.url ?? '',
+      description: r.description ?? '',
+      published: r.age ?? undefined,
+    }));
+    traceLog('webSearch', { query, provider }, { success: true, count: mapped.length });
+    return { query, provider: 'brave', count: mapped.length, results: mapped };
+  } catch (err) {
+    traceLog('webSearch', { query }, null, err);
+    return { status: 'error', error: err?.message || String(err) };
+  }
+}
+
+// =============================================================================
+// Deep Research Tool (returns instructions for subagent)
+// =============================================================================
+
+function deepResearch(args) {
+  const topic = args?.topic || 'General topic';
+  const depthRaw = (args?.depth || 'standard').toLowerCase().trim();
+  const validDepths = ['quick', 'standard', 'comprehensive'];
+  const depth = validDepths.includes(depthRaw) ? depthRaw : 'standard';
+
+  const subtopicCount = depth === 'quick' ? '3-4' : depth === 'comprehensive' ? '6-8' : '4-6';
+  const sourceCount = depth === 'quick' ? '3-5' : depth === 'comprehensive' ? '15+' : '8-12';
+
+  return {
+    status: 'success',
+    message:
+      `Research initiated on: "${topic}" at ${depth} depth. ` +
+      'Create a research plan with subtopics, then use web_search and web_fetch tools to gather information. ' +
+      'After gathering data, synthesize findings into a structured report with type: "deep_research".',
+    topic,
+    depth,
+    instructions: {
+      plan: `List ${subtopicCount} subtopics to investigate based on the topic`,
+      search: 'Use web_search for each subtopic to find relevant sources',
+      fetch: 'Use web_fetch to read key pages and extract detailed information',
+      report:
+        `Synthesize into a structured report with sections and ${sourceCount} source citations. ` +
+        'Include an Executive Summary, Key Findings, Detailed Analysis per subtopic, and a Sources section.',
+    },
+    output_format: {
+      type: 'deep_research',
+      schema: {
+        title: 'string',
+        sections: '[{ id: string, heading: string, content: string (markdown) }]',
+        sources: '[{ id: string, title: string, url?: string, snippet: string }]',
+      },
+    },
+  };
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -1282,4 +1539,15 @@ module.exports = {
 
   // Web tools (LangGraph)
   webFetch,
+  webSearch,
+  deepResearch,
+
+  // Excel tools
+  excelGet: excelToolsHandler.excelGet,
+  excelSetCell: excelToolsHandler.excelSetCell,
+  excelSetRange: excelToolsHandler.excelSetRange,
+  excelAddRow: excelToolsHandler.excelAddRow,
+  excelAddSheet: excelToolsHandler.excelAddSheet,
+  excelCreate: excelToolsHandler.excelCreate,
+  excelExport: excelToolsHandler.excelExport,
 };

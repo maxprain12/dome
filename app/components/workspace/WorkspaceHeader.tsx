@@ -39,6 +39,7 @@ interface WorkspaceHeaderProps {
   editableTitle?: EditableTitle;
   savingIndicator?: React.ReactNode;
   onExportPdf?: () => void | Promise<void>;
+  onExportDocx?: () => void | Promise<void>;
 }
 
 export default function WorkspaceHeader({
@@ -49,6 +50,7 @@ export default function WorkspaceHeader({
   editableTitle,
   savingIndicator,
   onExportPdf,
+  onExportDocx,
 }: WorkspaceHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelsOpen, setPanelsOpen] = useState(false);
@@ -338,7 +340,7 @@ export default function WorkspaceHeader({
                 Resource info
               </button>
 
-              {resource.type === 'note' && onExportPdf && (
+              {((resource.type === 'note' && (onExportPdf || onExportDocx)) || (resource.type === 'document' && onExportDocx)) ? (
                 <>
                   <div
                     style={{
@@ -347,32 +349,90 @@ export default function WorkspaceHeader({
                       margin: '4px 0',
                     }}
                   />
-                  <button
-                    onClick={async () => {
-                      setMenuOpen(false);
-                      await onExportPdf();
-                    }}
-                    className="dropdown-item"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '10px 12px',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      color: 'var(--primary-text)',
-                      width: '100%',
-                      border: 'none',
-                      textAlign: 'left',
-                    }}
-                    role="menuitem"
-                  >
-                    <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
-                    Exportar a PDF
-                  </button>
+                  {resource.type === 'note' && (onExportPdf || onExportDocx) && (
+                    <>
+                      {onExportPdf && (
+                        <button
+                          onClick={async () => {
+                            setMenuOpen(false);
+                            await onExportPdf();
+                          }}
+                          className="dropdown-item"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            fontWeight: 500,
+                            color: 'var(--primary-text)',
+                            width: '100%',
+                            border: 'none',
+                            textAlign: 'left',
+                          }}
+                          role="menuitem"
+                        >
+                          <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                          Exportar a PDF
+                        </button>
+                      )}
+                      {onExportDocx && (
+                        <button
+                          onClick={async () => {
+                            setMenuOpen(false);
+                            await onExportDocx();
+                          }}
+                          className="dropdown-item"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            padding: '10px 12px',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            fontWeight: 500,
+                            color: 'var(--primary-text)',
+                            width: '100%',
+                            border: 'none',
+                            textAlign: 'left',
+                          }}
+                          role="menuitem"
+                        >
+                          <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                          Exportar a DOCX
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {resource.type === 'document' && onExportDocx && (
+                    <button
+                      onClick={async () => {
+                        setMenuOpen(false);
+                        await onExportDocx();
+                      }}
+                      className="dropdown-item"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 12px',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        color: 'var(--primary-text)',
+                        width: '100%',
+                        border: 'none',
+                        textAlign: 'left',
+                      }}
+                      role="menuitem"
+                    >
+                      <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                      Exportar a DOCX
+                    </button>
+                  )}
                 </>
-              )}
+              ) : null}
 
               {hasFile && (
                 <>

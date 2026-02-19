@@ -261,6 +261,9 @@ declare global {
       // MCP API
       mcp: {
         testConnection: () => Promise<{ success: boolean; toolCount: number; error?: string }>;
+        testServer: (server: { name: string; type: string; command?: string; args?: string[]; url?: string; headers?: Record<string, string>; env?: Record<string, string> }) => Promise<{ success: boolean; toolCount: number; error?: string }>;
+        startOAuthFlow: (providerId: string) => Promise<{ success: boolean; token?: string; error?: string }>;
+        getOAuthProviders: () => Promise<string[]>;
       };
 
       // Plugins API
@@ -391,6 +394,15 @@ declare global {
           filename?: string;
           error?: string;
         }>;
+        writeExcelContent: (resourceId: string, data: string) => Promise<{
+          success: boolean;
+          error?: string;
+        }>;
+        saveDocxFromHtml: (resourceId: string, html: string) => Promise<{
+          success: boolean;
+          data?: Resource;
+          error?: string;
+        }>;
         export: (
           resourceId: string,
           destinationPath: string
@@ -403,6 +415,12 @@ declare global {
       // Note Export API
       note: {
         exportToPdf: (params: { html: string; title?: string }) => Promise<{
+          success?: boolean;
+          path?: string;
+          canceled?: boolean;
+          error?: string;
+        }>;
+        exportToDocx: (params: { html: string; title?: string }) => Promise<{
           success?: boolean;
           path?: string;
           canceled?: boolean;
@@ -507,9 +525,17 @@ declare global {
           }>,
           threadId?: string
         ) => Promise<{ success: boolean; error?: string }>;
+        abortLangGraph: (streamId: string) => Promise<void>;
+        resumeLangGraph: (opts: {
+          threadId: string;
+          streamId: string;
+          decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>;
+          provider?: string;
+          model?: string;
+        }) => Promise<{ success: boolean; interrupted?: boolean; threadId?: string; error?: string }>;
         onStreamChunk: (callback: (data: {
           streamId: string;
-          type: 'text' | 'thinking' | 'tool_call' | 'tool_result' | 'done' | 'error';
+          type: 'text' | 'thinking' | 'tool_call' | 'tool_result' | 'done' | 'error' | 'interrupt';
           text?: string;
           error?: string;
           toolCall?: {
@@ -519,6 +545,8 @@ declare global {
           };
           toolCallId?: string;
           result?: string;
+          actionRequests?: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
+          reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
         }) => void) => RemoveListenerFn;
         embeddings: (
           provider: 'openai' | 'google' | 'anthropic',
@@ -794,6 +822,46 @@ declare global {
             };
             error?: string;
           }>;
+          excelGet: (
+            resourceId: string,
+            options?: { sheet_name?: string; range?: string }
+          ) => Promise<{ success: boolean; data?: unknown; sheet_names?: string[]; error?: string }>;
+          excelSetCell: (
+            resourceId: string,
+            sheetName: string | undefined,
+            cell: string,
+            value: string | number | boolean
+          ) => Promise<{ success: boolean; error?: string }>;
+          excelSetRange: (
+            resourceId: string,
+            sheetName: string | undefined,
+            range: string,
+            values: (string | number | boolean | null)[][]
+          ) => Promise<{ success: boolean; error?: string }>;
+          excelAddRow: (
+            resourceId: string,
+            sheetName: string | undefined,
+            values: (string | number | boolean | null)[],
+            afterRow?: number
+          ) => Promise<{ success: boolean; error?: string }>;
+          excelAddSheet: (
+            resourceId: string,
+            sheetName: string,
+            data?: (string | number | boolean | null)[][]
+          ) => Promise<{ success: boolean; error?: string }>;
+          excelCreate: (
+            projectId: string,
+            title: string,
+            options?: { sheet_name?: string; initial_data?: (string | number | boolean | null)[][] }
+          ) => Promise<{
+            success: boolean;
+            resource?: { id: string; title: string; type: string; project_id: string };
+            error?: string;
+          }>;
+          excelExport: (
+            resourceId: string,
+            options?: { format?: string; sheet_name?: string }
+          ) => Promise<{ success: boolean; data?: string; format?: string; error?: string }>;
         };
       };
 

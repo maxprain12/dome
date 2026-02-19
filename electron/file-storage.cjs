@@ -19,6 +19,7 @@ const TYPE_DIRECTORIES = {
   video: 'videos',
   audio: 'audio',
   document: 'documents',
+  excel: 'documents',
   note: 'notes',
   url: 'urls',
 };
@@ -231,6 +232,19 @@ function readFileAsDataUrl(internalPath) {
 }
 
 /**
+ * Overwrite an existing file in internal storage
+ * @param {string} internalPath - Relative path within dome-files
+ * @param {Buffer} buffer - New file content
+ */
+function overwriteFile(internalPath, buffer) {
+  if (!internalPath) throw new Error('internalPath required');
+  const fullPath = getFullPath(internalPath);
+  ensureDir(path.dirname(fullPath));
+  fs.writeFileSync(fullPath, buffer);
+  console.log('[FileStorage] Overwrote:', internalPath);
+}
+
+/**
  * Delete a file from internal storage
  * @param {string} internalPath - Relative path within dome-files
  * @returns {boolean} True if deleted, false if not found
@@ -388,6 +402,7 @@ module.exports = {
   calculateHash,
   importFile,
   importFromBuffer,
+  overwriteFile,
   getFullPath,
   fileExists,
   readFile,

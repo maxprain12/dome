@@ -17,6 +17,7 @@ import NoteWorkspacePage from './pages/NoteWorkspacePage';
 import NotebookWorkspacePage from './pages/NotebookWorkspacePage';
 import URLWorkspacePage from './pages/URLWorkspacePage';
 import YouTubeWorkspacePage from './pages/YouTubeWorkspacePage';
+import DocxWorkspacePage from './pages/DocxWorkspacePage';
 
 const HIDDEN_ROUTES = ['/settings', '/onboarding'];
 const MANY_PANEL_MIN = 320;
@@ -89,6 +90,7 @@ export default function App() {
               <Route path="/workspace/notebook" element={<NotebookWorkspacePage />} />
               <Route path="/workspace/url" element={<URLWorkspacePage />} />
               <Route path="/workspace/youtube" element={<YouTubeWorkspacePage />} />
+              <Route path="/workspace/docx" element={<DocxWorkspacePage />} />
             </Routes>
           </div>
 

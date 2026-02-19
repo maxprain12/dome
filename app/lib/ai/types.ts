@@ -335,8 +335,16 @@ export interface ToolDefinition {
  * Streaming chunk from chat completion
  */
 export interface ChatStreamChunk {
-  type: 'text' | 'thinking' | 'tool_call' | 'tool_result' | 'done' | 'error';
+  type: 'text' | 'thinking' | 'tool_call' | 'tool_result' | 'done' | 'error' | 'interrupt';
   text?: string;
+  /** Human-in-the-loop: thread ID for resume */
+  threadId?: string;
+  /** Human-in-the-loop: actions pending approval */
+  actionRequests?: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
+  /** Human-in-the-loop: allowed decisions per action */
+  reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
+  /** Human-in-the-loop: call with decisions to resume (approve/edit/reject) */
+  submitResume?: (decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => void;
   toolCall?: {
     id: string;
     name: string;

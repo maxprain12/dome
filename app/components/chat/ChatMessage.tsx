@@ -163,8 +163,9 @@ export default function ChatMessage({
                   )}
                 </div>
               ) : message.isStreaming ? (
-                <div className="flex items-center gap-1.5 h-6">
-                  <ReadingIndicator className="opacity-60" />
+                <div className="flex items-center gap-2">
+                  <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />
+                  <span className="text-[13px] text-[var(--secondary-text)]">Procesando...</span>
                 </div>
               ) : null}
 

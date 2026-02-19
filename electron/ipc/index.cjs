@@ -52,6 +52,7 @@ function registerAll(deps) {
     ttsService,
     vectorHandler,
     documentExtractor,
+    docxConverter,
     authManager,
     personalityLoader,
     notebookPython,
@@ -73,7 +74,7 @@ function registerAll(deps) {
   tagsHandlers.register({ ipcMain, windowManager, database, validateSender });
   graphHandlers.register({ ipcMain, windowManager, database, validateSender });
   vectorHandlers.register({ ipcMain, windowManager, database, ollamaService, initModule, fileStorage, documentExtractor });
-  resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, initModule, ollamaService });
+  resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, docxConverter, initModule, ollamaService });
   storageHandlers.register({ ipcMain, windowManager, database, fileStorage });
   filesHandlers.register({ ipcMain, app, windowManager, sanitizePath });
   migrationHandlers.register({ ipcMain, fs, windowManager, database, fileStorage, thumbnail });
@@ -88,7 +89,7 @@ function registerAll(deps) {
   studioHandlers.register({ ipcMain, windowManager, database, validateSender });
   audioHandlers.register({ ipcMain, windowManager, database, ttsService });
   notebookHandlers.register({ ipcMain, windowManager, notebookPython });
-  noteExportHandlers.register({ ipcMain, windowManager });
+  noteExportHandlers.register({ ipcMain, windowManager, docxConverter });
   updaterHandlers.register({ ipcMain, windowManager, validateSender });
   syncHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender, sanitizePath });
   pluginsHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });

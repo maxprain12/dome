@@ -62,6 +62,7 @@ export default memo(function ResourceCard({
 }: ResourceCardProps) {
   // Detect document sub-type for type-specific icons and colors
   const getDocumentSubType = (): 'docx' | 'xlsx' | 'csv' | 'txt' | 'generic' => {
+    if (resource.type === 'excel') return 'xlsx';
     if (resource.type !== 'document') return 'generic';
     const filename = (resource.original_filename || resource.title || '').toLowerCase();
     const mime = resource.file_mime_type || '';
@@ -75,8 +76,8 @@ export default memo(function ResourceCard({
   const docSubType = getDocumentSubType();
 
   const getIcon = () => {
-    // Document sub-type specific icons
-    if (resource.type === 'document') {
+    // Document sub-type specific icons (includes excel)
+    if (resource.type === 'document' || resource.type === 'excel') {
       switch (docSubType) {
         case 'docx': return <FileText className="w-5 h-5" strokeWidth={1.5} />;
         case 'xlsx': return <FileSpreadsheet className="w-5 h-5" strokeWidth={1.5} />;
@@ -89,6 +90,7 @@ export default memo(function ResourceCard({
     switch (resource.type) {
       case 'note': return <FileText className="w-5 h-5" strokeWidth={1.5} />;
       case 'notebook': return <Notebook className="w-5 h-5" strokeWidth={1.5} />;
+      case 'excel': return <FileSpreadsheet className="w-5 h-5" strokeWidth={1.5} />;
       case 'pdf': return <File className="w-5 h-5" strokeWidth={1.5} />;
       case 'video': return <Video className="w-5 h-5" strokeWidth={1.5} />;
       case 'audio': return <Music className="w-5 h-5" strokeWidth={1.5} />;
@@ -100,7 +102,7 @@ export default memo(function ResourceCard({
   };
 
   const getTypeColor = () => {
-    if (resource.type === 'document') {
+    if (resource.type === 'document' || resource.type === 'excel') {
       switch (docSubType) {
         case 'docx': return '#2b579a';
         case 'xlsx': return '#217346';
@@ -112,6 +114,7 @@ export default memo(function ResourceCard({
     switch (resource.type) {
       case 'note': return 'var(--accent)';
       case 'notebook': return 'var(--success)';
+      case 'excel': return '#217346';
       case 'image': return 'var(--brand-accent)';
       case 'video': return 'var(--info)';
       case 'audio': return 'var(--warning)';

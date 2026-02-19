@@ -98,8 +98,11 @@ const ALLOWED_CHANNELS = {
     'resource:getFilePath',
     'resource:readFile',
     'resource:readDocumentContent',
+    'resource:writeExcelContent',
+    'resource:saveDocxFromHtml',
     'resource:export',
     'note:exportToPdf',
+    'note:exportToDocx',
     'resource:delete',
     'resource:regenerateThumbnail',
     'resource:setThumbnail',
@@ -183,6 +186,8 @@ const ALLOWED_CHANNELS = {
     'ai:chat',
     'ai:stream',
     'ai:langgraph:stream',
+    'ai:langgraph:abort',
+    'ai:langgraph:resume',
     'ai:embeddings',
     'ai:testConnection',
     // AI Tools (for Many agent)
@@ -203,6 +208,14 @@ const ALLOWED_CHANNELS = {
     'ai:tools:resourceMoveToFolder',
     // AI Tools - Flashcards
     'ai:tools:flashcardCreate',
+    // AI Tools - Excel
+    'ai:tools:excelGet',
+    'ai:tools:excelSetCell',
+    'ai:tools:excelSetRange',
+    'ai:tools:excelAddRow',
+    'ai:tools:excelAddSheet',
+    'ai:tools:excelCreate',
+    'ai:tools:excelExport',
     // Database - Flashcards
     'db:flashcards:createDeck',
     'db:flashcards:getDeck',
@@ -259,6 +272,9 @@ const ALLOWED_CHANNELS = {
     'sync:import',
     // MCP
     'mcp:testConnection',
+    'mcp:testServer',
+    'mcp:startOAuthFlow',
+    'mcp:getOAuthProviders',
     // Plugins
     'plugin:list',
     'plugin:install-from-folder',
@@ -475,6 +491,9 @@ const electronHandler = {
   // ============================================
   mcp: {
     testConnection: () => ipcRenderer.invoke('mcp:testConnection'),
+    testServer: (server) => ipcRenderer.invoke('mcp:testServer', server),
+    startOAuthFlow: (providerId) => ipcRenderer.invoke('mcp:startOAuthFlow', providerId),
+    getOAuthProviders: () => ipcRenderer.invoke('mcp:getOAuthProviders'),
   },
 
   // ============================================
@@ -639,6 +658,13 @@ const electronHandler = {
     readDocumentContent: (resourceId) =>
       ipcRenderer.invoke('resource:readDocumentContent', resourceId),
 
+    writeExcelContent: (resourceId, data) =>
+      ipcRenderer.invoke('resource:writeExcelContent', { resourceId, data }),
+
+    // Save DOCX from HTML (for editable document workspace)
+    saveDocxFromHtml: (resourceId, html) =>
+      ipcRenderer.invoke('resource:saveDocxFromHtml', { resourceId, html }),
+
     // Export resource to user-selected location
     export: (resourceId, destinationPath) =>
       ipcRenderer.invoke('resource:export', { resourceId, destinationPath }),
@@ -667,6 +693,9 @@ const electronHandler = {
     // Export note content to PDF (opens save dialog, renders HTML, prints to PDF)
     exportToPdf: (params) =>
       ipcRenderer.invoke('note:exportToPdf', params),
+    // Export note content to DOCX
+    exportToDocx: (params) =>
+      ipcRenderer.invoke('note:exportToDocx', params),
   },
 
   // ============================================
@@ -762,6 +791,12 @@ const electronHandler = {
     streamLangGraph: (provider, messages, model, streamId, tools, threadId) =>
       ipcRenderer.invoke('ai:langgraph:stream', { provider, messages, model, streamId, tools, threadId }),
 
+    // Abort LangGraph stream (for Stop button in chat)
+    abortLangGraph: (streamId) => ipcRenderer.invoke('ai:langgraph:abort', streamId),
+
+    // Resume LangGraph after HITL interrupt
+    resumeLangGraph: (opts) => ipcRenderer.invoke('ai:langgraph:resume', opts),
+
     // Listen for stream chunks
     onStreamChunk: (callback) => {
       const subscription = (event, data) => callback(data);
@@ -834,6 +869,22 @@ const electronHandler = {
       // Flashcard creation (for AI-generated study decks)
       flashcardCreate: (data) =>
         ipcRenderer.invoke('ai:tools:flashcardCreate', { data }),
+
+      // Excel tools
+      excelGet: (resourceId, options) =>
+        ipcRenderer.invoke('ai:tools:excelGet', { resourceId, options }),
+      excelSetCell: (resourceId, sheetName, cell, value) =>
+        ipcRenderer.invoke('ai:tools:excelSetCell', { resourceId, sheetName, cell, value }),
+      excelSetRange: (resourceId, sheetName, range, values) =>
+        ipcRenderer.invoke('ai:tools:excelSetRange', { resourceId, sheetName, range, values }),
+      excelAddRow: (resourceId, sheetName, values, afterRow) =>
+        ipcRenderer.invoke('ai:tools:excelAddRow', { resourceId, sheetName, values, afterRow }),
+      excelAddSheet: (resourceId, sheetName, data) =>
+        ipcRenderer.invoke('ai:tools:excelAddSheet', { resourceId, sheetName, data }),
+      excelCreate: (projectId, title, options) =>
+        ipcRenderer.invoke('ai:tools:excelCreate', { projectId, title, options }),
+      excelExport: (resourceId, options) =>
+        ipcRenderer.invoke('ai:tools:excelExport', { resourceId, options }),
     },
   },
 

@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Filter, Grid3X3, List, Calendar, Tag, FileText, Image as ImageIcon, Video, Music, Link2, File, FolderOpen, Notebook, X } from 'lucide-react';
 
-export type ResourceType = 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook';
+export type ResourceType = 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook' | 'excel';
 
 interface FilterBarProps {
   selectedTypes: ResourceType[];
@@ -23,6 +23,7 @@ const RESOURCE_TYPES: { type: ResourceType; label: string; icon: React.ReactNode
   { type: 'pdf', label: 'PDFs', icon: <File size={14} /> },
   { type: 'url', label: 'Links', icon: <Link2 size={14} /> },
   { type: 'document', label: 'Docs', icon: <File size={14} /> },
+  { type: 'excel', label: 'Excel', icon: <File size={14} /> },
 ];
 
 export function FilterBar({

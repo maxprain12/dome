@@ -16,7 +16,7 @@ import {
   toOpenAIToolDefinitions,
   type AIProviderType,
 } from '@/lib/ai';
-import { buildManyFloatingPrompt, prompts } from '@/lib/prompts/loader';
+import { buildManyFloatingPrompt, buildMartinSupervisorPrompt, prompts } from '@/lib/prompts/loader';
 import { showToast } from '@/lib/store/useToastStore';
 import ManyAvatar from './ManyAvatar';
 import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
@@ -44,6 +44,9 @@ function getContextFromPath(pathname: string): { location: string; description: 
   }
   if (pathname.startsWith('/workspace/note/')) {
     return { location: 'Note Editor', description: 'editing a note' };
+  }
+  if (pathname.startsWith('/workspace/docx')) {
+    return { location: 'Document Editor', description: 'editing a DOCX document' };
   }
   if (pathname.startsWith('/workspace/url')) {
     return { location: 'URL Viewer', description: 'viewing a web resource' };
@@ -87,15 +90,22 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [toolsEnabled, setToolsEnabled] = useState(true);
   const [resourceToolsEnabled, setResourceToolsEnabled] = useState(true);
+  const [mcpEnabled, setMcpEnabledState] = useState(true);
   const [supportsTools, setSupportsTools] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<{
+    actionRequests: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
+    reviewConfigs: Array<{ actionName: string; allowedDecisions: string[] }>;
+    submitResume: (decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => void;
+  } | null>(null);
   const prefersReducedMotion = useReducedMotion();
   const [providerInfo, setProviderInfo] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const pendingApprovalRef = useRef<HTMLDivElement>(null);
   const isSubmittingRef = useRef(false);
 
   const effectiveResourceId =
@@ -121,6 +131,23 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     const handleConfigChanged = () => loadProviderInfo();
     window.addEventListener('dome:ai-config-changed', handleConfigChanged);
     return () => window.removeEventListener('dome:ai-config-changed', handleConfigChanged);
+  }, []);
+
+  useEffect(() => {
+    const loadMcpEnabled = async () => {
+      if (db.isAvailable()) {
+        const res = await db.getSetting('mcp_enabled');
+        setMcpEnabledState(res.data !== 'false');
+      }
+    };
+    loadMcpEnabled();
+  }, []);
+
+  const setMcpEnabled = useCallback(async (value: boolean) => {
+    setMcpEnabledState(value);
+    if (db.isAvailable()) {
+      await db.setSetting('mcp_enabled', value ? 'true' : 'false');
+    }
   }, []);
 
   const activeTools = useMemo(() => {
@@ -151,6 +178,12 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamingMessage, scrollToBottom]);
+
+  useEffect(() => {
+    if (pendingApproval && pendingApprovalRef.current) {
+      pendingApprovalRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [pendingApproval]);
 
   useEffect(() => {
     if (inputRef.current) {
@@ -204,6 +237,10 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     addMessage({ role: 'user', content: userMessage });
     scrollToBottom(true);
 
+    let fullResponse = '';
+    let toolCallsData: ToolCallData[] = [];
+    let fullThinking = '';
+
     try {
       const config = await getAIConfig();
       if (!config) {
@@ -227,8 +264,6 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
 
       let systemPrompt = buildSystemPrompt();
       let contentInjected = false;
-      let fullResponse = '';
-      let toolCallsData: ToolCallData[] = [];
 
       if (effectiveResourceId && isSummarizeRequest(userMessage) && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
         try {
@@ -250,6 +285,42 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         }
       }
 
+      // Append user-configured skills (prompt-driven specializations)
+      let skillsBlock = '';
+      if (db.isAvailable()) {
+        try {
+          const skillsResult = await db.getSetting('ai_skills');
+          if (skillsResult.success && skillsResult.data) {
+            const parsed = JSON.parse(skillsResult.data || '[]');
+            const skills = Array.isArray(parsed)
+              ? parsed.filter((s: { enabled?: boolean }) => s.enabled !== false)
+              : [];
+            if (skills.length > 0) {
+              const MAX_SKILLS_CHARS = 8000;
+              let block = '\n\n## Available Skills\n';
+              for (const s of skills) {
+                const name = s.name || 'unnamed';
+                const desc = s.description || '';
+                const prompt = s.prompt || '';
+                if (!prompt.trim()) continue;
+                const section = `### Skill: ${name}\n${desc ? `${desc}\n\n` : ''}${prompt}\n\n`;
+                if (block.length + section.length > MAX_SKILLS_CHARS) {
+                  block += '\n[Additional skills truncated for context length]';
+                  break;
+                }
+                block += section;
+              }
+              if (block.trim().length > 20) {
+                skillsBlock = block;
+                systemPrompt += skillsBlock;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[Many] Could not load skills:', e);
+        }
+      }
+
       const useToolsForThisRequest = useToolsStream && (isSummarizeRequest(userMessage) ? !contentInjected : true);
       const apiMessages = [
         { role: 'system', content: systemPrompt },
@@ -257,19 +328,25 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         { role: 'user', content: userMessage },
       ];
 
-      let fullThinking = '';
-
       if (useToolsForThisRequest) {
-        const toolsPrompt = systemPrompt + '\n\n' + prompts.many.tools + '\n\n' + prompts.many.noteFormat;
+        const context = getContextFromPath(pathname || '/');
+        const now = new Date();
+        const supervisorPrompt = buildMartinSupervisorPrompt({
+          location: context.location,
+          date: now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+          time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          resourceTitle: currentResourceTitle || undefined,
+          includeDateTime: true,
+        });
         const toolHint = effectiveResourceId && isSummarizeRequest(userMessage)
-          ? `\n\nThe user is viewing resource ID: ${effectiveResourceId}. Use resource_get to retrieve its content.`
+          ? `\n\nThe user is viewing resource ID: ${effectiveResourceId}. When delegating to the library agent, include this so it can fetch the resource content.`
           : '';
         const folderHint = (pathname === '/' || pathname === '/home') && currentFolderId
-          ? `\n\nThe user is currently viewing folder ID: ${currentFolderId}. When they ask to create something from "these documents", "this folder", "estos documentos", or similar, use resource_list with folder_id: "${currentFolderId}" to list only resources in that folder, and use resource_create with folder_id: "${currentFolderId}" to place the new resource in the same folder.`
+          ? `\n\nThe user is viewing folder ID: ${currentFolderId}. When delegating to library or writer agents, include folder_id: "${currentFolderId}" for listing/creating resources in that folder.`
           : '';
-        const tools = createManyToolsForContext(pathname || '/');
+        const tools = []; // Subagents architecture: main agent uses subagent-invocation tools (built in main process)
         const toolsMessages = [
-          { role: 'system', content: toolsPrompt + toolHint + folderHint },
+          { role: 'system', content: supervisorPrompt + (skillsBlock || '') + toolHint + folderHint },
           ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
           { role: 'user', content: userMessage },
         ];
@@ -284,9 +361,10 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         });
 
         let mutatingToolsUsed = false;
+        const threadId = `many_${effectiveResourceId || 'global'}_${Date.now()}`;
         for await (const chunk of chatWithToolsStream(toolsMessages, tools, {
           signal: controller.signal,
-          threadId: `many_${effectiveResourceId || 'global'}`,
+          threadId,
         })) {
           if (chunk.type === 'thinking' && chunk.text) {
             fullThinking += chunk.text;
@@ -310,7 +388,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
               status: 'running',
             };
             toolCallsData.push(tc);
-            if (['resource_create', 'resource_update', 'resource_delete', 'resource_move_to_folder'].includes(chunk.toolCall.name?.toLowerCase?.())) {
+            if (['resource_create', 'resource_update', 'resource_delete', 'resource_move_to_folder', 'call_writer_agent', 'call_library_agent'].includes(chunk.toolCall.name?.toLowerCase?.())) {
               mutatingToolsUsed = true;
             }
             setStreamingMessage((prev) => (prev ? { ...prev, toolCalls: [...toolCallsData] } : null));
@@ -323,6 +401,14 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
             setStreamingMessage((prev) => (prev ? { ...prev, toolCalls: [...toolCallsData] } : null));
           } else if (chunk.type === 'done') {
             setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
+            setPendingApproval(null);
+          } else if (chunk.type === 'interrupt' && chunk.submitResume && chunk.actionRequests && chunk.reviewConfigs) {
+            setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
+            setPendingApproval({
+              actionRequests: chunk.actionRequests,
+              reviewConfigs: chunk.reviewConfigs,
+              submitResume: chunk.submitResume,
+            });
           } else if (chunk.type === 'error') {
             throw new Error(chunk.error);
           }
@@ -330,7 +416,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         if (mutatingToolsUsed) {
           window.dispatchEvent(new Event('dome:resources-changed'));
         }
-        addMessage({ role: 'assistant', content: fullResponse });
+        if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
       } else {
         const toolDefs =
           toolsEnabled && activeTools.length > 0 && supportsTools
@@ -355,7 +441,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           }
         }
         setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
-        addMessage({ role: 'assistant', content: fullResponse });
+        if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
@@ -371,6 +457,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       setIsLoading(false);
       setStatus('idle');
       setStreamingMessage(null);
+      setPendingApproval(null);
       setAbortController(null);
       inputRef.current?.focus();
     }
@@ -457,6 +544,21 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
 
   const context = getContextFromPath(pathname || '/');
 
+  const loadingHint = useMemo(() => {
+    if (pendingApproval) return 'Esperando aprobación';
+    const running = streamingMessage?.toolCalls?.find((t) => t.status === 'running');
+    if (running) {
+      const labels: Record<string, string> = {
+        call_data_agent: 'Procesando datos',
+        call_writer_agent: 'Creando contenido',
+        call_library_agent: 'Consultando biblioteca',
+        call_research_agent: 'Investigando',
+      };
+      return `${labels[running.name] || running.name.replace(/_/g, ' ')}...`;
+    }
+    return undefined;
+  }, [pendingApproval, streamingMessage?.toolCalls]);
+
   return (
     <div
       className="flex flex-col h-full overflow-hidden shrink-0 border-l"
@@ -473,6 +575,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         providerInfo={providerInfo}
         contextDescription={context.description}
         messagesCount={messages.length}
+        loadingHint={loadingHint}
         sessions={sessions}
         currentSessionId={currentSessionId}
         onClear={handleClear}
@@ -524,8 +627,9 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
             {isLoading && !streamingMessage ? (
               <div className="flex gap-3">
                 <ManyAvatar size="sm" />
-                <div className="rounded-2xl rounded-tl-md bg-[var(--bg-secondary)] px-4 py-3">
-                  <ReadingIndicator className="opacity-60" />
+                <div className="flex items-center gap-2 rounded-2xl rounded-tl-md bg-[var(--bg-secondary)] px-4 py-3">
+                  <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />
+                  <span className="text-[13px] text-[var(--secondary-text)]">Analizando tu consulta...</span>
                 </div>
               </div>
             ) : null}
@@ -545,6 +649,62 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         <div ref={messagesEndRef} />
       </div>
 
+      {pendingApproval ? (
+        <div
+          ref={pendingApprovalRef}
+          className="sticky bottom-0 z-10 border-t border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[11px] text-[var(--secondary-text)]">
+              {pendingApproval.actionRequests.length}{' '}
+              {pendingApproval.actionRequests.length === 1 ? 'acción pendiente' : 'acciones pendientes'}
+            </span>
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  pendingApproval.submitResume(pendingApproval.actionRequests.map(() => ({ type: 'approve' as const })));
+                  setPendingApproval(null);
+                }}
+                className="rounded-md bg-[var(--accent)] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[var(--accent-hover)]"
+              >
+                Aprobar todo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  pendingApproval.submitResume(
+                    pendingApproval.actionRequests.map(() => ({
+                      type: 'reject' as const,
+                      message: 'Rechazado por el usuario',
+                    })),
+                  );
+                  setPendingApproval(null);
+                }}
+                className="rounded-md px-2.5 py-1 text-[11px] font-medium text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+              >
+                Rechazar
+              </button>
+            </div>
+          </div>
+          <details className="mt-1.5">
+            <summary className="cursor-pointer text-[11px] text-[var(--secondary-text)] hover:text-[var(--primary-text)]">
+              Ver detalles
+            </summary>
+            <div className="mt-1 space-y-1 rounded border border-[var(--border)] bg-[var(--bg)] p-2">
+              {pendingApproval.actionRequests.map((req, i) => (
+                <div key={i} className="text-[11px]">
+                  <span className="font-medium text-[var(--primary-text)]">{req.name}</span>
+                  {req.args?.query && (
+                    <p className="mt-0.5 line-clamp-2 text-[var(--secondary-text)]">{String(req.args.query)}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </details>
+        </div>
+      ) : null}
+
       <ManyChatInput
         input={input}
         setInput={setInput}
@@ -552,9 +712,12 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         isLoading={isLoading}
         toolsEnabled={toolsEnabled}
         resourceToolsEnabled={resourceToolsEnabled}
+        mcpEnabled={mcpEnabled}
         setToolsEnabled={setToolsEnabled}
         setResourceToolsEnabled={setResourceToolsEnabled}
+        setMcpEnabled={setMcpEnabled}
         supportsTools={supportsTools}
+        hasMcp={hasLangGraph}
         onSend={() => handleSend()}
         onAbort={handleAbort}
       />

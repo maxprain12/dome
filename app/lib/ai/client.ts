@@ -679,6 +679,9 @@ type StreamChunkData = {
   toolCall?: { id: string; name: string; arguments: string };
   toolCallId?: string;
   result?: string;
+  threadId?: string;
+  actionRequests?: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
+  reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
 };
 
 /**
@@ -712,6 +715,12 @@ export async function* chatWithToolsStream(
   let done = false;
   let streamError: Error | null = null;
 
+  if (options?.signal && window.electron?.ai?.abortLangGraph) {
+    options.signal.addEventListener('abort', () => {
+      window.electron.ai.abortLangGraph(streamId);
+    });
+  }
+
   const unsub = window.electron!.ai.onStreamChunk((data: StreamChunkData) => {
     if (data.streamId !== streamId) return;
     if (data.type === 'thinking' && data.text) {
@@ -726,6 +735,20 @@ export async function* chatWithToolsStream(
       chunks.push({ type: 'done' });
       done = true;
       unsub();
+    } else if (data.type === 'interrupt' && data.actionRequests && data.reviewConfigs) {
+      const threadId = data.threadId;
+      chunks.push({
+        type: 'interrupt',
+        threadId,
+        actionRequests: data.actionRequests,
+        reviewConfigs: data.reviewConfigs,
+        submitResume: threadId
+          ? (decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => {
+              void window.electron?.ai?.resumeLangGraph?.({ threadId, streamId, decisions });
+            }
+          : undefined,
+      });
+      // Don't set done - resume will send more chunks; keep listener active
     } else if (data.type === 'error') {
       streamError = new Error(data.error || 'Stream error');
       chunks.push({ type: 'error', error: data.error ?? 'Stream error' });
@@ -758,6 +781,7 @@ export async function* chatWithToolsStream(
 
   try {
     while (!done || chunks.length > 0) {
+      if (options?.signal?.aborted) break;
       if (chunks.length > 0) {
         const chunk = chunks.shift()!;
         if (chunk.type === 'error' && streamError) throw streamError;
@@ -770,7 +794,7 @@ export async function* chatWithToolsStream(
         });
       }
     }
-    if (streamError) throw streamError;
+    if (streamError && !options?.signal?.aborted) throw streamError;
   } finally {
     unsub();
   }

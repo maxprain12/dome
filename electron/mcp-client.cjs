@@ -5,9 +5,10 @@
  * Connects to configured MCP servers and provides tools for the LangGraph agent.
  * Config is stored in settings as mcp_servers (JSON array).
  *
- * Format: [{ name, type: "stdio"|"http", command?, args?, url? }]
+ * Format: [{ name, type: "stdio"|"http"|"sse", command?, args?, url?, headers? }]
  * - stdio: command (required), args (optional array)
- * - http: url (required)
+ * - http: url (required), Streamable HTTP transport
+ * - sse: url (required), SSE legacy transport
  */
 
 const DEFAULT_MCP_SERVERS = [];
@@ -25,20 +26,39 @@ function sanitizeArgs(args) {
 }
 
 /**
+ * Normalize headers to Record<string, string>.
+ * @param {unknown} h
+ * @returns {Record<string, string>|undefined}
+ */
+function sanitizeHeaders(h) {
+  if (!h || typeof h !== 'object' || Array.isArray(h)) return undefined;
+  const out = {};
+  for (const [k, v] of Object.entries(h)) {
+    if (typeof k === 'string' && typeof v === 'string') out[k] = v;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/**
  * Normalize a single server entry to our format.
  * @param {string} name - Server name (key)
  * @param {object} s - Server config (from mcpServers or our array)
- * @returns {{ name: string; type: string; command?: string; args?: string[]; url?: string; env?: Record<string, string> }|null}
+ * @returns {{ name: string; type: string; command?: string; args?: string[]; url?: string; headers?: Record<string, string>; env?: Record<string, string> }|null}
  */
 function normalizeServerEntry(name, s) {
   if (!s || typeof s !== 'object') return null;
   const n = String(name || '').trim();
   if (!n) return null;
+  if (s.enabled === false) return null;
   const env = s.env && typeof s.env === 'object' && !Array.isArray(s.env)
     ? s.env
     : undefined;
+  const headers = sanitizeHeaders(s.headers);
+  if ((s.type === 'sse' || s.transport === 'sse') && typeof s.url === 'string') {
+    return { name: n, type: 'sse', url: s.url, headers };
+  }
   if ((s.type === 'http' || s.url) && typeof s.url === 'string') {
-    return { name: n, type: 'http', url: s.url };
+    return { name: n, type: 'http', url: s.url, headers };
   }
   if ((s.type === 'stdio' || s.command) && typeof s.command === 'string') {
     return {
@@ -70,7 +90,9 @@ function parseMcpServersConfig(raw) {
         .filter(Boolean)
         .filter(
           (s) =>
-            (s.type === 'stdio' && s.command) || (s.type === 'http' && s.url),
+            (s.type === 'stdio' && s.command) ||
+            (s.type === 'http' && s.url) ||
+            (s.type === 'sse' && s.url),
         );
     }
     if (parsed && typeof parsed.mcpServers === 'object') {
@@ -79,7 +101,9 @@ function parseMcpServersConfig(raw) {
         .filter(Boolean)
         .filter(
           (s) =>
-            (s.type === 'stdio' && s.command) || (s.type === 'http' && s.url),
+            (s.type === 'stdio' && s.command) ||
+            (s.type === 'http' && s.url) ||
+            (s.type === 'sse' && s.url),
         );
     }
     return DEFAULT_MCP_SERVERS;
@@ -92,7 +116,7 @@ function parseMcpServersConfig(raw) {
 /**
  * Build mcpServers object for MultiServerMCPClient from parsed config.
  * @param {Array} servers
- * @returns {Record<string, { transport?: string; command?: string; args?: string[]; url?: string; env?: Record<string, string> }>}
+ * @returns {Record<string, { transport?: string; command?: string; args?: string[]; url?: string; headers?: Record<string, string>; env?: Record<string, string> }>}
  */
 function buildMcpServersObject(servers) {
   const out = {};
@@ -109,10 +133,17 @@ function buildMcpServersObject(servers) {
       }
       out[key] = entry;
     } else if (s.type === 'http' && s.url) {
-      out[key] = {
-        transport: 'sse',
-        url: s.url,
-      };
+      const entry = { transport: 'http', url: s.url };
+      if (s.headers && typeof s.headers === 'object' && Object.keys(s.headers).length > 0) {
+        entry.headers = s.headers;
+      }
+      out[key] = entry;
+    } else if (s.type === 'sse' && s.url) {
+      const entry = { transport: 'sse', url: s.url };
+      if (s.headers && typeof s.headers === 'object' && Object.keys(s.headers).length > 0) {
+        entry.headers = s.headers;
+      }
+      out[key] = entry;
     }
   }
   return out;
@@ -126,6 +157,9 @@ function buildMcpServersObject(servers) {
 async function getMCPTools(database) {
   const queries = database?.getQueries?.();
   if (!queries) return [];
+
+  const mcpEnabledRow = queries.getSetting?.get?.('mcp_enabled');
+  if (mcpEnabledRow?.value === 'false') return [];
 
   const row = queries.getSetting?.get?.('mcp_servers');
   const raw = row?.value;
@@ -150,8 +184,42 @@ async function getMCPTools(database) {
   }
 }
 
+/**
+ * Test a single MCP server.
+ * @param {object} server - { name, type, command?, args?, url?, env? }
+ * @returns {Promise<{ success: boolean; toolCount: number; error?: string }>}
+ */
+async function testSingleMcpServer(server) {
+  if (!server || !server.name) {
+    return { success: false, toolCount: 0, error: 'Config inválida' };
+  }
+  const servers = [server];
+  const mcpServers = buildMcpServersObject(servers);
+  if (Object.keys(mcpServers).length === 0) {
+    return { success: false, toolCount: 0, error: 'Servidor no configurado correctamente' };
+  }
+  try {
+    const { MultiServerMCPClient } = await import('@langchain/mcp-adapters');
+    const client = new MultiServerMCPClient({
+      mcpServers,
+      throwOnLoadError: false,
+      onConnectionError: 'ignore',
+    });
+    const tools = await client.getTools();
+    const toolCount = Array.isArray(tools) ? tools.length : 0;
+    return { success: true, toolCount };
+  } catch (err) {
+    return {
+      success: false,
+      toolCount: 0,
+      error: err?.message || String(err),
+    };
+  }
+}
+
 module.exports = {
   getMCPTools,
   parseMcpServersConfig,
   buildMcpServersObject,
+  testSingleMcpServer,
 };

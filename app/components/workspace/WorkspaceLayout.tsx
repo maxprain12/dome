@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle, File, ExternalLink } from 'lucide-react';
 import WorkspaceHeader from './WorkspaceHeader';
 import SidePanel from './SidePanel';
@@ -23,6 +24,7 @@ interface WorkspaceLayoutProps {
 }
 
 export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
+  const navigate = useNavigate();
   const [resource, setResource] = useState<Resource | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -163,6 +165,8 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
           return <AudioPlayer resource={resource} />;
         case 'image':
           return <ImageViewer resource={resource} />;
+        case 'excel':
+          return <SpreadsheetViewer resource={resource} />;
         case 'document': {
           if (isDocumentPdf(resource)) {
             return <PDFViewer resource={resource} />;
@@ -170,10 +174,19 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
 
           const filename = (resource.original_filename || resource.title || '').toLowerCase();
           const mime = resource.file_mime_type || '';
+          const isDocx = filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword') || !resource.internal_path;
 
-          // DOCX / DOC
-          if (filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword')) {
-            return <DocxViewer resource={resource} />;
+          // DOCX / DOC — redirect to editable workspace (incl. AI-created document without file)
+          if (isDocx) {
+            navigate(`/workspace/docx?id=${resource.id}`, { replace: true });
+            return (
+              <div className="flex flex-col items-center justify-center h-full p-8">
+                <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
+                <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+                  Abriendo documento...
+                </p>
+              </div>
+            );
           }
 
           // XLSX / XLS

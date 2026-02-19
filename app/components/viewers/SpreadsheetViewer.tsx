@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { type Resource } from '@/types';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
@@ -25,67 +25,67 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
     return mime === 'text/csv' || filename.endsWith('.csv');
   }, [resource.file_mime_type, resource.original_filename, resource.title]);
 
-  useEffect(() => {
-    async function loadSpreadsheet() {
-      if (typeof window === 'undefined' || !window.electron) return;
+  const loadSpreadsheet = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron) return;
 
-      try {
-        setIsLoading(true);
-        setError(null);
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        const result = await window.electron.resource.readDocumentContent(resource.id);
-        if (!result.success || !result.data) {
-          throw new Error(result.error || 'Failed to read file');
-        }
-
-        if (isCSV) {
-          // Dynamically import papaparse for CSV
-          const Papa = await import('papaparse');
-
-          // Decode base64 to text
-          const text = decodeBase64ToText(result.data);
-
-          const parsed = Papa.default.parse(text, {
-            header: false,
-            skipEmptyLines: true,
-          });
-
-          setSheets([{ name: 'Sheet1', data: parsed.data as string[][] }]);
-        } else {
-          // Dynamically import xlsx for XLSX/XLS
-          const XLSX = await import('xlsx');
-
-          // Decode base64 to Uint8Array
-          const binary = atob(result.data);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
-
-          const workbook = XLSX.read(bytes, { type: 'array' });
-
-          const parsedSheets: SheetData[] = workbook.SheetNames
-            .filter((name) => workbook.Sheets[name])
-            .map((name) => ({
-              name,
-              data: XLSX.utils.sheet_to_json<string[]>(workbook.Sheets[name]!, {
-                header: 1,
-                defval: '',
-              }),
-            }));
-
-          setSheets(parsedSheets);
-        }
-      } catch (err) {
-        console.error('[SpreadsheetViewer] Error loading spreadsheet:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load spreadsheet');
-      } finally {
-        setIsLoading(false);
+      const result = await window.electron.resource.readDocumentContent(resource.id);
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to read file');
       }
-    }
 
-    loadSpreadsheet();
+      if (isCSV) {
+        const Papa = await import('papaparse');
+        const text = decodeBase64ToText(result.data);
+        const parsed = Papa.default.parse(text, {
+          header: false,
+          skipEmptyLines: true,
+        });
+        setSheets([{ name: 'Sheet1', data: parsed.data as string[][] }]);
+      } else {
+        const XLSX = await import('xlsx');
+        const binary = atob(result.data);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        const workbook = XLSX.read(bytes, { type: 'array' });
+        const parsedSheets: SheetData[] = workbook.SheetNames
+          .filter((name) => workbook.Sheets[name])
+          .map((name) => ({
+            name,
+            data: XLSX.utils.sheet_to_json<string[]>(workbook.Sheets[name]!, {
+              header: 1,
+              defval: '',
+            }),
+          }));
+        setSheets(parsedSheets);
+      }
+    } catch (err) {
+      console.error('[SpreadsheetViewer] Error loading spreadsheet:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load spreadsheet');
+    } finally {
+      setIsLoading(false);
+    }
   }, [resource.id, isCSV]);
+
+  useEffect(() => {
+    loadSpreadsheet();
+  }, [loadSpreadsheet]);
+
+  // Refresh when Many (AI) modifies the Excel via tools
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron?.on) return;
+    const unsubscribe = window.electron.on('resource:updated', (payload: { id?: string }) => {
+      if (payload?.id === resource.id) {
+        loadSpreadsheet();
+      }
+    });
+    return unsubscribe;
+  }, [resource.id, loadSpreadsheet]);
 
   const currentSheet = sheets[activeSheet];
 

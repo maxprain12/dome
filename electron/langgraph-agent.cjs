@@ -5,24 +5,25 @@
  * Runs the chat with tools using LangGraph/createAgent.
  * Converts Dome's OpenAI-format tool definitions to LangChain tools,
  * creates a model from provider config, and streams results.
- * Uses SqliteSaver for persistent checkpoints (survives app restart).
+ *
+ * Human-in-the-Loop (HITL): call_writer_agent and call_data_agent require
+ * human approval. Uses MemorySaver checkpointer for interrupt/resume state.
  */
 
-const path = require('path');
-const { app } = require('electron');
 const aiChatWithTools = require('./ai-chat-with-tools.cjs');
 const { executeToolInMain, getWhatsAppToolDefinitions } = aiChatWithTools;
+const { createSubagentTools } = require('./subagents.cjs');
 const { getMCPTools } = require('./mcp-client.cjs');
 const database = require('./database.cjs');
 
-let _checkpointer = null;
-
-async function getCheckpointer() {
-  if (_checkpointer) return _checkpointer;
-  const { SqliteSaver } = await import('@langchain/langgraph-checkpoint-sqlite');
-  const dbPath = path.join(app.getPath('userData'), 'langgraph-checkpoints.db');
-  _checkpointer = SqliteSaver.fromConnString(dbPath);
-  return _checkpointer;
+/** Shared checkpointer for HITL so resume can find the checkpoint from the same thread */
+let sharedCheckpointer = null;
+function getSharedCheckpointer() {
+  if (!sharedCheckpointer) {
+    const { MemorySaver } = require('@langchain/langgraph-checkpoint');
+    sharedCheckpointer = new MemorySaver();
+  }
+  return sharedCheckpointer;
 }
 
 function normalizeToolName(name) {
@@ -127,7 +128,7 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
   if (provider === 'google') {
     const { ChatGoogleGenerativeAI } = await import('@langchain/google-genai');
     return new ChatGoogleGenerativeAI({
-      model: model || 'gemini-1.5-flash',
+      model: model || 'gemini-3-flash-preview',
       apiKey: apiKey || process.env.GOOGLE_API_KEY,
       temperature: 0.7,
     });
@@ -199,93 +200,142 @@ async function invokeLangGraphAgent(opts) {
     threadId,
   } = opts;
 
-  const { createAgent } = await import('langchain');
-
-  const executeFn = (name, args) => executeToolInMain(name, args);
-
-  const domeTools = await createLangChainToolsFromOpenAIDefinitions(
-    toolDefinitions || getWhatsAppToolDefinitions(),
-    executeFn,
-  );
-  const mcpTools = await getMCPTools(database);
-  const tools = [...domeTools, ...mcpTools];
+  const { createAgent, humanInTheLoopMiddleware } = await import('langchain');
 
   const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
 
-  const checkpointer = await getCheckpointer();
+  // Subagents architecture: main agent (supervisor) has only subagent-invocation tools + MCP.
+  const subagentTools = await createSubagentTools(llm, createLangChainToolsFromOpenAIDefinitions);
+  const mcpTools = await getMCPTools(database);
+  const tools = [...subagentTools, ...mcpTools];
+
+  const hitlMiddleware = humanInTheLoopMiddleware({
+    interruptOn: {
+      call_writer_agent: true,
+      call_data_agent: true,
+    },
+    descriptionPrefix: 'Acción pendiente de aprobación',
+  });
 
   const agent = createAgent({
     model: llm,
     tools,
-    checkpointer,
+    middleware: [hitlMiddleware],
+    checkpointer: getSharedCheckpointer(),
   });
 
   let lcMessages = await toLangChainMessages(messages);
   if (provider === 'ollama' && lcMessages.length > 0) {
     lcMessages = await trimMessagesForOllama(lcMessages, llm);
   }
-  const thread_id = threadId || 'default';
+
+  const config = {
+    configurable: { thread_id: threadId || `dome_${Date.now()}` },
+    signal,
+  };
+
+  let callCounter = 0;
   let fullText = '';
 
   try {
-    const stream = await agent.stream(
-      { messages: lcMessages },
-      {
-        streamMode: 'messages',
-        signal,
-        configurable: { thread_id },
-      },
-    );
+    // Use invoke (non-streaming) to avoid streamMode chunk format complexity.
+    const result = await agent.invoke({ messages: lcMessages }, config);
 
-    for await (const chunk of stream) {
-      if (signal?.aborted) break;
-      if (Array.isArray(chunk)) {
-        for (const msg of chunk) {
-          // ToolMessage: tool result from completed tool execution
-          const msgType = msg?._getType?.() ?? msg?.constructor?.name;
-          if ((msgType === 'tool' || msgType === 'ToolMessage') && msg.tool_call_id != null) {
-            let resultContent = msg.content;
-            if (typeof resultContent !== 'string') {
-              try {
-                resultContent = JSON.stringify(resultContent);
-              } catch {
-                resultContent = String(resultContent);
-              }
-            }
-            if (onChunk) {
-              onChunk({ type: 'tool_result', toolCallId: msg.tool_call_id, result: resultContent });
-            }
-            continue;
-          }
-          const reasoning = msg?.additional_kwargs?.reasoning_content;
-          if (reasoning && typeof reasoning === 'string' && onChunk) {
-            onChunk({ type: 'thinking', text: reasoning });
-          }
-          if (msg?.content && typeof msg.content === 'string') {
-            fullText += msg.content;
-            if (onChunk) onChunk({ type: 'text', text: msg.content });
-          }
-          if (msg?.tool_calls?.length) {
-            for (const tc of msg.tool_calls) {
-              if (onChunk) {
-                onChunk({
-                  type: 'tool_call',
-                  toolCall: {
-                    id: tc.id || `call_${Date.now()}`,
-                    name: tc.name,
-                    arguments: typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args || {}),
-                  },
-                });
-              }
-            }
+    // Check for HITL interrupt (graph paused waiting for human decision)
+    // LangChain puts interrupt on result.__interrupt__; fallback to getState for compatibility
+    let interrupts = null;
+    let interruptSource = '';
+    try {
+      if (result?.__interrupt__ && Array.isArray(result.__interrupt__) && result.__interrupt__.length > 0) {
+        interrupts = result.__interrupt__;
+        interruptSource = 'result';
+      }
+      if (!interrupts) {
+        const state = await agent.getState(config);
+        const fromState = state?.values?.__interrupt__ ?? state?.__interrupt__;
+        if (fromState && Array.isArray(fromState) && fromState.length > 0) {
+          interrupts = fromState;
+          interruptSource = 'state';
+        }
+      }
+      if (interrupts) {
+        const first = interrupts[0];
+        const value = first?.value ?? first;
+        const actionRequests = value?.actionRequests ?? value?.action_requests ?? [];
+        const reviewConfigs = value?.reviewConfigs ?? value?.review_configs ?? [];
+        const safeActionRequests = Array.isArray(actionRequests) ? actionRequests : [];
+        const safeReviewConfigs = Array.isArray(reviewConfigs) ? reviewConfigs : [];
+        console.log(`[AI LangGraph] HITL interrupt detected (${interruptSource}), ${safeActionRequests.length} action(s)`);
+        if (onChunk) {
+          onChunk({
+            type: 'interrupt',
+            threadId: config.configurable.thread_id,
+            actionRequests: safeActionRequests,
+            reviewConfigs: safeReviewConfigs,
+          });
+        }
+        return { __interrupt__: true, threadId: config.configurable.thread_id };
+      }
+    } catch (e) {
+      // getState can fail if no checkpoint; ignore
+    }
+
+    // Emit tool calls and tool results in message order for UI cards
+    const resultMessages = result?.messages || [];
+    for (const msg of resultMessages) {
+      if (!msg || typeof msg._getType !== 'function') continue;
+      const msgType = msg._getType();
+      if (msgType === 'ai' && msg.tool_calls?.length) {
+        for (const tc of msg.tool_calls) {
+          if (onChunk) {
+            onChunk({
+              type: 'tool_call',
+              toolCall: {
+                id: tc.id || `call_${threadId || 'x'}_${++callCounter}`,
+                name: tc.name,
+                arguments: typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args || {}),
+              },
+            });
           }
         }
+      } else if ((msgType === 'tool' || msgType === 'ToolMessage') && msg.tool_call_id != null) {
+        let resultContent = msg.content;
+        if (typeof resultContent !== 'string') {
+          try { resultContent = JSON.stringify(resultContent); } catch { resultContent = String(resultContent); }
+        }
+        if (onChunk) onChunk({ type: 'tool_result', toolCallId: msg.tool_call_id, result: resultContent });
+      }
+    }
+
+    // Extract the final AI message as the response text
+    const lastAI = [...resultMessages].reverse().find((m) => m && typeof m._getType === 'function' && m._getType() === 'ai');
+    if (lastAI) {
+      const rawContent = lastAI.content;
+      let textContent = '';
+      if (typeof rawContent === 'string') {
+        textContent = rawContent;
+      } else if (Array.isArray(rawContent)) {
+        textContent = rawContent
+          .filter((b) => b?.type === 'text' && typeof b.text === 'string')
+          .map((b) => b.text)
+          .join('');
+      }
+      if (textContent) {
+        fullText = textContent;
+        if (onChunk) onChunk({ type: 'text', text: textContent });
       }
     }
 
     if (onChunk) onChunk({ type: 'done' });
   } catch (err) {
-    if (onChunk) onChunk({ type: 'error', error: err?.message || String(err) });
+    const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
+    if (onChunk) {
+      if (isAbort) {
+        onChunk({ type: 'done' });
+      } else {
+        onChunk({ type: 'error', error: err?.message || String(err) });
+      }
+    }
     throw err;
   }
 
@@ -305,8 +355,160 @@ async function runLangGraphAgentSync(opts) {
   return { response: fullResponse };
 }
 
+/**
+ * Resume LangGraph agent after HITL interrupt.
+ * Invokes with Command({ resume: { decisions } }) and streams the continuation.
+ * @param {Object} opts - Same as invokeLangGraphAgent plus { threadId, decisions }
+ * @returns {Promise<string>} Final response text, or { __interrupt__: true } if another interrupt
+ */
+async function resumeLangGraphAgent(opts) {
+  const { threadId, decisions, ...rest } = opts;
+  if (!threadId || !decisions || !Array.isArray(decisions)) {
+    throw new Error('resumeLangGraphAgent requires threadId and decisions array');
+  }
+
+  const { createAgent, humanInTheLoopMiddleware } = await import('langchain');
+  const { Command } = await import('@langchain/langgraph');
+
+  const {
+    provider,
+    model,
+    apiKey,
+    baseUrl,
+    messages,
+    onChunk,
+    signal,
+  } = rest;
+
+  const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
+  const subagentTools = await createSubagentTools(llm, createLangChainToolsFromOpenAIDefinitions);
+  const mcpTools = await getMCPTools(database);
+  const tools = [...subagentTools, ...mcpTools];
+
+  const hitlMiddleware = humanInTheLoopMiddleware({
+    interruptOn: { call_writer_agent: true, call_data_agent: true },
+    descriptionPrefix: 'Acción pendiente de aprobación',
+  });
+
+  const agent = createAgent({
+    model: llm,
+    tools,
+    middleware: [hitlMiddleware],
+    checkpointer: getSharedCheckpointer(),
+  });
+
+  const config = {
+    configurable: { thread_id: threadId },
+    signal,
+  };
+
+  let callCounter = 0;
+  let fullText = '';
+
+  try {
+    // Use invoke (non-streaming) to avoid streamMode chunk format complexity.
+    const result = await agent.invoke(new Command({ resume: { decisions } }), config);
+
+    // Check for HITL interrupt after resume (result first, then state)
+    let resumeInterrupts = null;
+    let resumeInterruptSource = '';
+    try {
+      if (result?.__interrupt__ && Array.isArray(result.__interrupt__) && result.__interrupt__.length > 0) {
+        resumeInterrupts = result.__interrupt__;
+        resumeInterruptSource = 'result';
+      }
+      if (!resumeInterrupts) {
+        const state = await agent.getState(config);
+        const fromState = state?.values?.__interrupt__ ?? state?.__interrupt__;
+        if (fromState && Array.isArray(fromState) && fromState.length > 0) {
+          resumeInterrupts = fromState;
+          resumeInterruptSource = 'state';
+        }
+      }
+      if (resumeInterrupts) {
+        const first = resumeInterrupts[0];
+        const value = first?.value ?? first;
+        const actionRequests = value?.actionRequests ?? value?.action_requests ?? [];
+        const reviewConfigs = value?.reviewConfigs ?? value?.review_configs ?? [];
+        const safeActionRequests = Array.isArray(actionRequests) ? actionRequests : [];
+        const safeReviewConfigs = Array.isArray(reviewConfigs) ? reviewConfigs : [];
+        console.log(`[AI LangGraph] HITL interrupt after resume (${resumeInterruptSource}), ${safeActionRequests.length} action(s)`);
+        if (onChunk) {
+          onChunk({
+            type: 'interrupt',
+            threadId,
+            actionRequests: safeActionRequests,
+            reviewConfigs: safeReviewConfigs,
+          });
+        }
+        return { __interrupt__: true, threadId };
+      }
+    } catch (e) {
+      // getState can fail; ignore
+    }
+
+    // Emit tool calls and tool results in message order for UI cards
+    const resultMessages = result?.messages || [];
+    for (const msg of resultMessages) {
+      if (!msg || typeof msg._getType !== 'function') continue;
+      const msgType = msg._getType();
+      if (msgType === 'ai' && msg.tool_calls?.length) {
+        for (const tc of msg.tool_calls) {
+          if (onChunk) {
+            onChunk({
+              type: 'tool_call',
+              toolCall: {
+                id: tc.id || `call_${threadId}_${++callCounter}`,
+                name: tc.name,
+                arguments: typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args || {}),
+              },
+            });
+          }
+        }
+      } else if ((msgType === 'tool' || msgType === 'ToolMessage') && msg.tool_call_id != null) {
+        let resultContent = msg.content;
+        if (typeof resultContent !== 'string') {
+          try { resultContent = JSON.stringify(resultContent); } catch { resultContent = String(resultContent); }
+        }
+        if (onChunk) onChunk({ type: 'tool_result', toolCallId: msg.tool_call_id, result: resultContent });
+      }
+    }
+
+    // Extract the final AI message as the response text
+    const lastAI = [...resultMessages].reverse().find((m) => m && typeof m._getType === 'function' && m._getType() === 'ai');
+    if (lastAI) {
+      const rawContent = lastAI.content;
+      let textContent = '';
+      if (typeof rawContent === 'string') {
+        textContent = rawContent;
+      } else if (Array.isArray(rawContent)) {
+        textContent = rawContent
+          .filter((b) => b?.type === 'text' && typeof b.text === 'string')
+          .map((b) => b.text)
+          .join('');
+      }
+      if (textContent) {
+        fullText = textContent;
+        if (onChunk) onChunk({ type: 'text', text: textContent });
+      }
+    }
+
+    if (onChunk) onChunk({ type: 'done' });
+  } catch (err) {
+    const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
+    if (onChunk) {
+      if (isAbort) onChunk({ type: 'done' });
+      else onChunk({ type: 'error', error: err?.message || String(err) });
+    }
+    throw err;
+  }
+
+  return fullText;
+}
+
 module.exports = {
   invokeLangGraphAgent,
+  resumeLangGraphAgent,
   runLangGraphAgentSync,
   createLangChainToolsFromOpenAIDefinitions,
 };

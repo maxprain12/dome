@@ -324,6 +324,105 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       return { success: false, error: error.message };
     }
   });
+
+  // Excel tools
+  ipcMain.handle('ai:tools:excelGet', async (event, { resourceId, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.excelGet(resourceId, options || {});
+      toolTrace('excelGet', { resourceId }, result);
+      return result;
+    } catch (error) {
+      toolTrace('excelGet', { resourceId }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:excelSetCell', async (event, { resourceId, sheetName, cell, value }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.excelSetCell(resourceId, sheetName, cell, value);
+      toolTrace('excelSetCell', { resourceId, cell }, result);
+      return result;
+    } catch (error) {
+      toolTrace('excelSetCell', { resourceId }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:excelSetRange', async (event, { resourceId, sheetName, range, values }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.excelSetRange(resourceId, sheetName, range, values);
+      toolTrace('excelSetRange', { resourceId, range }, result);
+      return result;
+    } catch (error) {
+      toolTrace('excelSetRange', { resourceId }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:excelAddRow', async (event, { resourceId, sheetName, values, afterRow }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.excelAddRow(resourceId, sheetName, values, afterRow);
+      toolTrace('excelAddRow', { resourceId }, result);
+      return result;
+    } catch (error) {
+      toolTrace('excelAddRow', { resourceId }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:excelAddSheet', async (event, { resourceId, sheetName, data }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.excelAddSheet(resourceId, sheetName, data);
+      toolTrace('excelAddSheet', { resourceId, sheetName }, result);
+      return result;
+    } catch (error) {
+      toolTrace('excelAddSheet', { resourceId }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:excelCreate', async (event, { projectId, title, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.excelCreate(projectId, title, options || {});
+      toolTrace('excelCreate', { title }, result);
+      return result;
+    } catch (error) {
+      toolTrace('excelCreate', { title }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:excelExport', async (event, { resourceId, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.excelExport(resourceId, options || {});
+      toolTrace('excelExport', { resourceId }, result);
+      return result;
+    } catch (error) {
+      toolTrace('excelExport', { resourceId }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 module.exports = { register };

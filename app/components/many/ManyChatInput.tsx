@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react';
-import { Database, Search, Send, StopCircle } from 'lucide-react';
+import { Database, Search, Send, StopCircle, Plug2 } from 'lucide-react';
 
 interface ManyChatInputProps {
   input: string;
@@ -8,9 +8,12 @@ interface ManyChatInputProps {
   isLoading: boolean;
   toolsEnabled: boolean;
   resourceToolsEnabled: boolean;
+  mcpEnabled: boolean;
   setToolsEnabled: (v: boolean) => void;
   setResourceToolsEnabled: (v: boolean) => void;
+  setMcpEnabled: (v: boolean) => void;
   supportsTools: boolean;
+  hasMcp: boolean;
   onSend: () => void;
   onAbort: () => void;
 }
@@ -22,9 +25,12 @@ export default memo(function ManyChatInput({
   isLoading,
   toolsEnabled,
   resourceToolsEnabled,
+  mcpEnabled,
   setToolsEnabled,
   setResourceToolsEnabled,
+  setMcpEnabled,
   supportsTools,
+  hasMcp,
   onSend,
   onAbort,
 }: ManyChatInputProps) {
@@ -100,6 +106,20 @@ export default memo(function ManyChatInput({
                   <Search size={14} strokeWidth={2} />
                   <span className="hidden sm:inline">Web</span>
                 </button>
+                {hasMcp && (
+                  <button
+                    type="button"
+                    onClick={() => setMcpEnabled(!mcpEnabled)}
+                    className={`group flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium transition-all ${mcpEnabled
+                      ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'
+                      : 'text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]'
+                      }`}
+                    title={mcpEnabled ? 'MCP activo' : 'Activar MCP'}
+                  >
+                    <Plug2 size={14} strokeWidth={2} />
+                    <span className="hidden sm:inline">MCP</span>
+                  </button>
+                )}
               </>
             )}
           </div>

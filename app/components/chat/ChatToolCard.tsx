@@ -29,6 +29,10 @@ const TOOL_ICONS: Record<string, typeof Globe> = {
   resource_create: FileText,
   resource_get: FileText,
   resource_search: Search,
+  call_research_agent: Search,
+  call_library_agent: FileText,
+  call_writer_agent: FileText,
+  call_data_agent: Database,
 };
 
 const TOOL_LABELS: Record<string, string> = {
@@ -39,6 +43,10 @@ const TOOL_LABELS: Record<string, string> = {
   resource_create: 'Creando recurso',
   resource_get: 'Obteniendo recurso',
   resource_search: 'Buscando recursos',
+  call_research_agent: 'Investigando',
+  call_library_agent: 'Consultando biblioteca',
+  call_writer_agent: 'Creando contenido',
+  call_data_agent: 'Procesando datos',
 };
 
 function getIconForTool(name: string): typeof Globe {

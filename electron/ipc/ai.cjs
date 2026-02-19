@@ -33,6 +33,9 @@ function convertToolsToAnthropic(tools) {
 
 const langgraphAgent = require('../langgraph-agent.cjs');
 
+/** Abort controllers by streamId for ai:langgraph:stream (enables renderer to stop stream) */
+const langGraphAbortControllers = new Map();
+
 function register({ ipcMain, windowManager, database, aiCloudService, ollamaService }) {
   /**
    * Chat with cloud AI provider (OpenAI, Anthropic, Google)
@@ -241,37 +244,117 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       }
 
       const controller = new AbortController();
+      langGraphAbortControllers.set(streamId, controller);
+
       const onChunk = (data) => {
         if (event.sender && !event.sender.isDestroyed()) {
           event.sender.send('ai:stream:chunk', { streamId, ...data });
         }
       };
 
-      await langgraphAgent.invokeLangGraphAgent({
-        provider,
-        model: chatModel,
-        apiKey,
-        baseUrl,
-        messages,
-        toolDefinitions: tools,
-        onChunk,
-        signal: controller.signal,
-        threadId,
-      });
-
-      return { success: true };
+      try {
+        const result = await langgraphAgent.invokeLangGraphAgent({
+          provider,
+          model: chatModel,
+          apiKey,
+          baseUrl,
+          messages,
+          toolDefinitions: tools,
+          onChunk,
+          signal: controller.signal,
+          threadId,
+        });
+        if (result && typeof result === 'object' && result.__interrupt__) {
+          return { success: true, interrupted: true, threadId: result.threadId };
+        }
+        return { success: true };
+      } finally {
+        langGraphAbortControllers.delete(streamId);
+      }
     } catch (error) {
       console.error('[AI LangGraph] Stream error:', error);
-      let userMessage = error?.message || 'Unknown error';
-      const statusCode = error?.status_code ?? error?.statusCode;
-      if (statusCode === 500 || userMessage.includes('500')) {
-        userMessage =
-          'Ollama returned an error (500). Try: 1) Ensure Ollama is running 2) Try another model (e.g. llama3.2) 3) For glm-5:cloud, sign in to the Ollama app (Settings → Sign in)';
+      const isAbort = error?.name === 'AbortError' || error?.message?.includes('abort');
+      if (isAbort && event.sender && !event.sender.isDestroyed()) {
+        event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
+      } else {
+        let userMessage = error?.message || 'Unknown error';
+        const statusCode = error?.status_code ?? error?.statusCode;
+        if (statusCode === 500 || userMessage.includes('500')) {
+          userMessage =
+            'Ollama returned an error (500). Try: 1) Ensure Ollama is running 2) Try another model (e.g. llama3.2) 3) For glm-5:cloud, sign in to the Ollama app (Settings → Sign in)';
+        }
+        if (event.sender && !event.sender.isDestroyed()) {
+          event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: userMessage });
+        }
       }
+      langGraphAbortControllers.delete(streamId);
+      return { success: isAbort, error: isAbort ? undefined : error?.message };
+    }
+  });
+
+  ipcMain.handle('ai:langgraph:abort', async (event, streamId) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return;
+    const controller = langGraphAbortControllers.get(streamId);
+    if (controller) controller.abort();
+  });
+
+  ipcMain.handle('ai:langgraph:resume', async (event, { threadId, streamId, decisions, provider: providerArg, model: modelArg }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      if (!threadId || !streamId || !Array.isArray(decisions)) {
+        throw new Error('threadId, streamId, and decisions are required');
+      }
+
+      const queries = database.getQueries();
+      const provider = providerArg || queries.getSetting.get('ai_provider')?.value || 'ollama';
+      let apiKey;
+      let baseUrl;
+      let chatModel;
+      if (provider === 'ollama') {
+        baseUrl = queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434';
+        chatModel = modelArg || queries.getSetting.get('ollama_model')?.value || 'llama3.2';
+      } else {
+        apiKey = queries.getSetting.get('ai_api_key')?.value;
+        if (!apiKey) throw new Error(`API key not configured for ${provider}`);
+        chatModel = modelArg || queries.getSetting.get('ai_model')?.value;
+      }
+
+      const controller = new AbortController();
+      langGraphAbortControllers.set(streamId, controller);
+
+      const onChunk = (data) => {
+        if (event.sender && !event.sender.isDestroyed()) {
+          event.sender.send('ai:stream:chunk', { streamId, ...data });
+        }
+      };
+
+      try {
+        const result = await langgraphAgent.resumeLangGraphAgent({
+          provider,
+          model: chatModel,
+          apiKey,
+          baseUrl,
+          messages: [],
+          onChunk,
+          signal: controller.signal,
+          threadId,
+          decisions,
+        });
+        if (result && typeof result === 'object' && result.__interrupt__) {
+          return { success: true, interrupted: true, threadId: result.threadId };
+        }
+        return { success: true };
+      } finally {
+        langGraphAbortControllers.delete(streamId);
+      }
+    } catch (error) {
+      console.error('[AI LangGraph] Resume error:', error);
       if (event.sender && !event.sender.isDestroyed()) {
-        event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: userMessage });
+        event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: error?.message || String(error) });
       }
-      return { success: false, error: userMessage };
+      return { success: false, error: error?.message };
     }
   });
 

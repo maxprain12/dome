@@ -23,6 +23,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/workspace/notebook': 'Notebook',
   '/workspace/url': 'URL',
   '/workspace/youtube': 'YouTube',
+  '/workspace/docx': 'Document',
 };
 
 export default function AppHeader() {

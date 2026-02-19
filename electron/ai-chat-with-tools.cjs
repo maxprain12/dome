@@ -28,6 +28,15 @@ const TOOL_HANDLER_MAP = {
   resource_move_to_folder: 'resourceMoveToFolder',
   flashcard_create: 'flashcardCreate',
   web_fetch: 'webFetch',
+  web_search: 'webSearch',
+  deep_research: 'deepResearch',
+  excel_get: 'excelGet',
+  excel_set_cell: 'excelSetCell',
+  excel_set_range: 'excelSetRange',
+  excel_add_row: 'excelAddRow',
+  excel_add_sheet: 'excelAddSheet',
+  excel_create: 'excelCreate',
+  excel_export: 'excelExport',
 };
 
 function normalizeToolName(name) {
@@ -101,6 +110,37 @@ async function executeToolInMain(toolName, args) {
       case 'webFetch':
         result = await fn(args);
         break;
+      case 'webSearch':
+        result = await fn(args);
+        break;
+      case 'deepResearch':
+        result = fn(args);
+        break;
+      case 'excelGet':
+        result = await fn(args.resource_id || args.resourceId, { sheet_name: args.sheet_name, range: args.range });
+        break;
+      case 'excelSetCell':
+        result = await fn(args.resource_id || args.resourceId, args.sheet_name, args.cell, args.value);
+        break;
+      case 'excelSetRange':
+        result = await fn(args.resource_id || args.resourceId, args.sheet_name, args.range, args.values);
+        break;
+      case 'excelAddRow':
+        result = await fn(args.resource_id || args.resourceId, args.sheet_name, args.values, args.after_row);
+        break;
+      case 'excelAddSheet':
+        result = await fn(args.resource_id || args.resourceId, args.sheet_name, args.data);
+        break;
+      case 'excelCreate':
+        result = await fn(args.project_id || args.projectId, args.title, {
+          sheet_name: args.sheet_name,
+          initial_data: args.initial_data,
+          folder_id: args.folder_id,
+        });
+        break;
+      case 'excelExport':
+        result = await fn(args.resource_id || args.resourceId, { format: args.format, sheet_name: args.sheet_name });
+        break;
       default:
         result = await fn(args);
     }
@@ -150,11 +190,104 @@ async function chatWithToolsInMain(provider, messages, toolDefinitions, options 
 }
 
 /**
- * OpenAI-format tool definitions for WhatsApp (subset of Many tools)
- * Covers resource search/get/list, project context, and flashcard creation.
+ * OpenAI-format tool definitions per subagent.
+ * Used by the subagents architecture (langgraph-agent).
+ * @returns {{ research: Array, library: Array, writer: Array, data: Array }}
  */
-function getWhatsAppToolDefinitions() {
+function getToolDefsBySubagent() {
+  const all = getAllToolDefinitions();
+  const byName = {};
+  for (const def of all) {
+    const name = def?.function?.name;
+    if (name) byName[name] = def;
+  }
+  const pick = (...names) => names.map((n) => byName[n]).filter(Boolean);
+  return {
+    research: pick('web_search', 'web_fetch', 'deep_research'),
+    library: pick(
+      'resource_search',
+      'resource_get',
+      'resource_list',
+      'resource_semantic_search',
+      'project_list',
+      'project_get',
+      'get_recent_resources',
+      'get_current_project',
+      'get_library_overview',
+      'resource_move_to_folder',
+    ),
+    writer: pick(
+      'resource_create',
+      'resource_update',
+      'resource_delete',
+      'flashcard_create',
+    ),
+    data: pick(
+      'excel_get',
+      'excel_set_cell',
+      'excel_set_range',
+      'excel_add_row',
+      'excel_add_sheet',
+      'excel_create',
+      'excel_export',
+    ),
+  };
+}
+
+/**
+ * All OpenAI-format tool definitions (flat array).
+ * Used by getToolDefsBySubagent and getWhatsAppToolDefinitions.
+ */
+function getAllToolDefinitions() {
   return [
+    {
+      type: 'function',
+      function: {
+        name: 'web_search',
+        description: 'Search the web for information. Use Brave or Perplexity. Returns titles, URLs, snippets. Requires BRAVE_API_KEY or PERPLEXITY_API_KEY env var.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query' },
+            count: { type: 'number', description: 'Max results (1-10). Default: 5' },
+            country: { type: 'string', description: '2-letter country code (e.g. US, DE)' },
+            search_lang: { type: 'string', description: 'ISO language code' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'web_fetch',
+        description: 'Fetch and extract content from a web page.',
+        parameters: {
+          type: 'object',
+          properties: {
+            url: { type: 'string', description: 'URL to fetch' },
+            max_length: { type: 'number', description: 'Max content length. Default: 50000' },
+          },
+          required: ['url'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'deep_research',
+        description:
+          'Initiate deep research on a topic. Returns a plan: use web_search and web_fetch to gather info, then synthesize a structured report with sections and citations.',
+        parameters: {
+          type: 'object',
+          properties: {
+            topic: { type: 'string', description: 'Research topic' },
+            depth: { type: 'string', description: "Depth: 'quick', 'standard', or 'comprehensive'" },
+          },
+          required: ['topic'],
+        },
+      },
+    },
     {
       type: 'function',
       function: {
@@ -363,11 +496,138 @@ function getWhatsAppToolDefinitions() {
         },
       },
     },
+    {
+      type: 'function',
+      function: {
+        name: 'excel_get',
+        description: 'Get cells or range from an Excel spreadsheet resource.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Excel resource ID' },
+            sheet_name: { type: 'string', description: 'Sheet name' },
+            range: { type: 'string', description: 'Cell range (e.g. A1:B10)' },
+          },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'excel_set_cell',
+        description: 'Set a single cell value in an Excel spreadsheet.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Excel resource ID' },
+            sheet_name: { type: 'string', description: 'Sheet name' },
+            cell: { type: 'string', description: 'Cell address (e.g. A1)' },
+            value: { type: 'string', description: 'Value to set' },
+          },
+          required: ['resource_id', 'sheet_name', 'cell', 'value'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'excel_set_range',
+        description: 'Set a range of cells in an Excel spreadsheet.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Excel resource ID' },
+            sheet_name: { type: 'string', description: 'Sheet name' },
+            range: { type: 'string', description: 'Range (e.g. A1:B2)' },
+            values: { type: 'array', description: '2D array of values' },
+          },
+          required: ['resource_id', 'sheet_name', 'range', 'values'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'excel_add_row',
+        description: 'Add a row to an Excel spreadsheet.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Excel resource ID' },
+            sheet_name: { type: 'string', description: 'Sheet name' },
+            values: { type: 'array', description: 'Array of cell values' },
+            after_row: { type: 'number', description: 'Insert after this row index' },
+          },
+          required: ['resource_id', 'sheet_name', 'values'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'excel_add_sheet',
+        description: 'Add a new sheet to an Excel spreadsheet.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Excel resource ID' },
+            sheet_name: { type: 'string', description: 'Sheet name' },
+            data: { type: 'array', description: '2D array of initial data' },
+          },
+          required: ['resource_id', 'sheet_name'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'excel_create',
+        description: 'Create a new Excel spreadsheet resource.',
+        parameters: {
+          type: 'object',
+          properties: {
+            project_id: { type: 'string', description: 'Project ID' },
+            title: { type: 'string', description: 'Spreadsheet title' },
+            sheet_name: { type: 'string', description: 'Initial sheet name' },
+            initial_data: { type: 'array', description: '2D array of initial data' },
+            folder_id: { type: 'string', description: 'Parent folder ID' },
+          },
+          required: ['project_id', 'title'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'excel_export',
+        description: 'Export Excel spreadsheet to CSV or XLSX.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Excel resource ID' },
+            format: { type: 'string', description: "'csv' or 'xlsx'" },
+            sheet_name: { type: 'string', description: 'Sheet to export' },
+          },
+          required: ['resource_id'],
+        },
+      },
+    },
   ];
+}
+
+/**
+ * OpenAI-format tool definitions for WhatsApp (subset of Many tools).
+ * With subagents architecture, the main agent uses subagent-invocation tools;
+ * this is kept for backward compatibility when toolDefinitions is passed.
+ */
+function getWhatsAppToolDefinitions() {
+  return getAllToolDefinitions();
 }
 
 module.exports = {
   chatWithToolsInMain,
   executeToolInMain,
   getWhatsAppToolDefinitions,
+  getToolDefsBySubagent,
 };
