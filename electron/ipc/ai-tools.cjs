@@ -340,6 +340,20 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     }
   });
 
+  ipcMain.handle('ai:tools:excelGetFilePath', async (event, { resourceId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.excelGetFilePath(resourceId);
+      toolTrace('excelGetFilePath', { resourceId }, result);
+      return result;
+    } catch (error) {
+      toolTrace('excelGetFilePath', { resourceId }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('ai:tools:excelSetCell', async (event, { resourceId, sheetName, cell, value }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };

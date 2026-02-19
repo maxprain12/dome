@@ -112,7 +112,7 @@ export function createNotebookGetTool(): AnyAgentTool {
     label: 'Obtener Notebook',
     name: 'notebook_get',
     description:
-      'Obtiene el contenido estructurado de un notebook (celdas, código, outputs). Úsalo para leer el notebook antes de modificarlo o cuando el usuario pregunta sobre su contenido.',
+      'Obtiene el contenido estructurado de un notebook (celdas, código, outputs). Úsalo para leer el notebook antes de modificarlo, o cuando el usuario pide análisis de datos. Para flujos Excel→Notebook: combina con excel_get_file_path y notebook_add_cell.',
     parameters: NotebookGetSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -188,7 +188,7 @@ export function createNotebookAddCellTool(): AnyAgentTool {
     label: 'Añadir Celda',
     name: 'notebook_add_cell',
     description:
-      'Añade una celda de código o markdown al notebook. Úsalo para generar código, añadir explicaciones, o extender el notebook según lo que pida el usuario.',
+      'Añade una celda de código o markdown al notebook. Úsalo para generar código (pandas, sklearn), añadir explicaciones, o extender el notebook. Para "extrae datos del Excel X y genera análisis": usa excel_get_file_path para obtener la ruta, luego añade una celda con pd.read_excel(ruta). Usa position para insertar después de una celda concreta.',
     parameters: NotebookAddCellSchema,
     execute: async (_toolCallId, args) => {
       try {

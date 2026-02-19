@@ -34,6 +34,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedContentRef = useRef<string>('');
+  const reloadDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     async function loadResource() {
@@ -63,6 +64,30 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
 
     loadResource();
   }, [resourceId]);
+
+  // Refresh when Many (AI) modifies the notebook via notebook_add_cell, notebook_update_cell, etc.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron?.on || !resource) return;
+    const unsubscribe = window.electron.on(
+      'resource:updated',
+      (payload: { id?: string; updates?: { content?: string } }) => {
+        if (payload?.id !== resourceId) return;
+        if (content !== lastSavedContentRef.current) return; // avoid overwriting unsaved user edits
+        const newContent = payload?.updates?.content;
+        if (newContent === undefined) return;
+        if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
+        reloadDebounceRef.current = setTimeout(() => {
+          reloadDebounceRef.current = null;
+          setContent(newContent);
+          lastSavedContentRef.current = newContent;
+        }, 300);
+      }
+    );
+    return () => {
+      if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
+      unsubscribe();
+    };
+  }, [resourceId, resource, content]);
 
   useEffect(() => {
     if (resourceId) {
@@ -147,6 +172,10 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
     ? (resource.metadata as Record<string, unknown>).notebook_workspace_path as string | undefined
     : undefined;
 
+  const notebookVenvPath = resource?.metadata && typeof resource.metadata === 'object'
+    ? (resource.metadata as Record<string, unknown>).notebook_venv_path as string | undefined
+    : undefined;
+
   const handleWorkspacePathChange = useCallback(
     async (path: string) => {
       if (!resource) return;
@@ -154,6 +183,19 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
         metadata: {
           ...(resource.metadata || {}),
           notebook_workspace_path: path,
+        },
+      });
+    },
+    [resource, handleSaveMetadata]
+  );
+
+  const handleVenvPathChange = useCallback(
+    async (path: string) => {
+      if (!resource) return;
+      await handleSaveMetadata({
+        metadata: {
+          ...(resource.metadata || {}),
+          notebook_venv_path: path || undefined,
         },
       });
     },
@@ -226,6 +268,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
                 onChange={handleContentChange}
                 title={title}
                 workingDirectory={notebookWorkspacePath}
+                venvPath={notebookVenvPath}
               />
             </PyodideProvider>
           </div>
@@ -245,6 +288,8 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
           onClose={() => setIsPanelOpen(false)}
           notebookWorkspacePath={notebookWorkspacePath}
           onNotebookWorkspacePathChange={handleWorkspacePathChange}
+          notebookVenvPath={notebookVenvPath}
+          onNotebookVenvPathChange={handleVenvPathChange}
         />
 
         {studioPanelOpen && resource && (

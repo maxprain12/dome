@@ -14,6 +14,8 @@ export interface RunPythonOptions {
   currentCellCode?: string;
   /** Working directory for Python execution (notebook workspace folder) */
   cwd?: string;
+  /** Path to Python virtual environment (venv directory) */
+  venvPath?: string;
 }
 
 /**

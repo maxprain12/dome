@@ -50,6 +50,17 @@ const excelToolsHandler = require('./excel-tools-handler.cjs');
 // Reference to vector database (set by init.cjs)
 let vectorDB = null;
 
+// Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
+let windowManagerRef = null;
+
+/**
+ * Set window manager reference for broadcasting updates when tools run in main process
+ * @param {Object} wm - Window manager instance
+ */
+function setWindowManager(wm) {
+  windowManagerRef = wm;
+}
+
 /**
  * Set vector database reference
  * @param {Object} db - LanceDB connection
@@ -1048,6 +1059,14 @@ async function resourceUpdate(resourceId, updates) {
       metadataObj = null;
     }
 
+    // Broadcast so notebook and other viewers get updates in real time when tools run in main (e.g. subagent notebook_add_cell)
+    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
+      const broadcastUpdates = { title, updated_at: now };
+      if (updates.content !== undefined) broadcastUpdates.content = content;
+      if (metadataObj != null) broadcastUpdates.metadata = metadataObj;
+      windowManagerRef.broadcast('resource:updated', { id: resourceId, updates: broadcastUpdates });
+    }
+
     return {
       success: true,
       resource: {
@@ -1063,6 +1082,116 @@ async function resourceUpdate(resourceId, updates) {
     console.error('[AI Tools] resourceUpdate error:', error);
     return { success: false, error: error.message };
   }
+}
+
+// -----------------------------------------------------------------------------
+// Notebook tools
+// -----------------------------------------------------------------------------
+function parseNotebookContent(content) {
+  if (!content || !content.trim()) return { nbformat: 4, nbformat_minor: 1, cells: [], metadata: {} };
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.nbformat && Array.isArray(parsed.cells)) return parsed;
+  } catch {}
+  return { nbformat: 4, nbformat_minor: 1, cells: [], metadata: {} };
+}
+
+function sourceToString(source) {
+  return typeof source === 'string' ? source : (Array.isArray(source) ? source.join('') : '');
+}
+
+async function notebookGet(resourceId) {
+  const result = await resourceGet(resourceId, { includeContent: true, maxContentLength: 50000 });
+  if (!result.success || !result.resource) {
+    return { success: false, error: result.error || 'Resource not found' };
+  }
+  const resource = result.resource;
+  if (resource.type !== 'notebook') {
+    return { success: false, error: `Resource "${resourceId}" is not a notebook (type: ${resource.type}).` };
+  }
+  const nb = parseNotebookContent(resource.content);
+  const cells = nb.cells.map((cell, idx) => {
+    const source = sourceToString(cell.source);
+    const item = { index: idx, cell_type: cell.cell_type, source };
+    if (cell.cell_type === 'code') {
+      item.outputs = cell.outputs?.length ?? 0;
+      item.execution_count = cell.execution_count;
+    }
+    return item;
+  });
+  return {
+    success: true,
+    resource_id: resourceId,
+    title: resource.title,
+    cell_count: cells.length,
+    cells,
+  };
+}
+
+function buildNotebookCell(cellType, source) {
+  if (cellType === 'code') {
+    return { cell_type: 'code', source, outputs: [], execution_count: null, metadata: {} };
+  }
+  return { cell_type: 'markdown', source, metadata: {} };
+}
+
+async function notebookAddCell(resourceId, cellType, source, position) {
+  const getResult = await resourceGet(resourceId, { includeContent: true, maxContentLength: 50000 });
+  if (!getResult.success || !getResult.resource) {
+    return { success: false, error: getResult.error || 'Notebook not found' };
+  }
+  if (getResult.resource.type !== 'notebook') {
+    return { success: false, error: 'Resource is not a notebook.' };
+  }
+  const nb = parseNotebookContent(getResult.resource.content);
+  const newCell = buildNotebookCell(cellType, source);
+  const pos = position != null && position >= 0 && position <= nb.cells.length ? position : nb.cells.length;
+  nb.cells.splice(pos, 0, newCell);
+  const newContent = JSON.stringify(nb, null, 0);
+  const updateResult = await resourceUpdate(resourceId, { content: newContent });
+  if (!updateResult.success) return { success: false, error: updateResult.error || 'Failed to update notebook' };
+  return { success: true, message: `Added ${cellType} cell at position ${pos}.`, resource_id: resourceId, cell_index: pos, cell_type: cellType };
+}
+
+async function notebookUpdateCell(resourceId, cellIndex, source) {
+  const getResult = await resourceGet(resourceId, { includeContent: true, maxContentLength: 50000 });
+  if (!getResult.success || !getResult.resource) {
+    return { success: false, error: getResult.error || 'Notebook not found' };
+  }
+  if (getResult.resource.type !== 'notebook') {
+    return { success: false, error: 'Resource is not a notebook.' };
+  }
+  const nb = parseNotebookContent(getResult.resource.content);
+  if (cellIndex >= nb.cells.length) {
+    return { success: false, error: `Cell index ${cellIndex} out of range (notebook has ${nb.cells.length} cells).` };
+  }
+  nb.cells[cellIndex] = { ...nb.cells[cellIndex], source };
+  const newContent = JSON.stringify(nb, null, 0);
+  const updateResult = await resourceUpdate(resourceId, { content: newContent });
+  if (!updateResult.success) return { success: false, error: updateResult.error || 'Failed to update notebook' };
+  return { success: true, message: `Updated cell ${cellIndex}.`, resource_id: resourceId, cell_index: cellIndex };
+}
+
+async function notebookDeleteCell(resourceId, cellIndex) {
+  const getResult = await resourceGet(resourceId, { includeContent: true, maxContentLength: 50000 });
+  if (!getResult.success || !getResult.resource) {
+    return { success: false, error: getResult.error || 'Notebook not found' };
+  }
+  if (getResult.resource.type !== 'notebook') {
+    return { success: false, error: 'Resource is not a notebook.' };
+  }
+  const nb = parseNotebookContent(getResult.resource.content);
+  if (nb.cells.length <= 1) {
+    return { success: false, error: 'Cannot delete the last cell. A notebook must have at least one cell.' };
+  }
+  if (cellIndex >= nb.cells.length) {
+    return { success: false, error: `Cell index ${cellIndex} out of range (notebook has ${nb.cells.length} cells).` };
+  }
+  nb.cells.splice(cellIndex, 1);
+  const newContent = JSON.stringify(nb, null, 0);
+  const updateResult = await resourceUpdate(resourceId, { content: newContent });
+  if (!updateResult.success) return { success: false, error: updateResult.error || 'Failed to update notebook' };
+  return { success: true, message: `Deleted cell ${cellIndex}.`, resource_id: resourceId, cell_count: nb.cells.length };
 }
 
 /**
@@ -1510,6 +1639,10 @@ module.exports = {
   setVectorDB,
   getVectorDB,
 
+  // Window manager (for broadcast when tools modify resources in main)
+  setWindowManager,
+
+
   // Resource tools (read)
   resourceSearch,
   resourceGet,
@@ -1542,8 +1675,15 @@ module.exports = {
   webSearch,
   deepResearch,
 
+  // Notebook tools
+  notebookGet,
+  notebookAddCell,
+  notebookUpdateCell,
+  notebookDeleteCell,
+
   // Excel tools
   excelGet: excelToolsHandler.excelGet,
+  excelGetFilePath: excelToolsHandler.excelGetFilePath,
   excelSetCell: excelToolsHandler.excelSetCell,
   excelSetRange: excelToolsHandler.excelSetRange,
   excelAddRow: excelToolsHandler.excelAddRow,

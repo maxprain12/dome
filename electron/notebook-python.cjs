@@ -19,10 +19,33 @@ let cachedPython = null;
 let cachedPythonVersion = null;
 
 /**
- * Find Python executable on the system
+ * Find Python executable on the system.
+ * If venvPath is provided and valid, uses venv/bin/python (or Scripts/python.exe on Windows).
+ * @param {{ venvPath?: string }} [options]
  * @returns {Promise<{ path: string; runArgs: string[]; version: string } | null>}
  */
-async function findPython() {
+async function findPython(options = {}) {
+  const { venvPath } = options;
+  if (venvPath && typeof venvPath === 'string' && venvPath.trim()) {
+    const venvPython = process.platform === 'win32'
+      ? path.join(venvPath.trim(), 'Scripts', 'python.exe')
+      : path.join(venvPath.trim(), 'bin', 'python');
+    if (fs.existsSync(venvPython)) {
+      try {
+        const result = await execSync(venvPython, ['--version'], 5000);
+        const versionOutput = (result.stdout || result.stderr || '').trim();
+        const versionMatch = versionOutput.match(/Python (\d+\.\d+\.\d+)/);
+        return {
+          path: venvPython,
+          runArgs: [],
+          version: versionMatch ? versionMatch[1] : versionOutput || 'venv',
+        };
+      } catch {
+        // Fall through to PATH
+      }
+    }
+  }
+
   if (cachedPython) {
     return { ...cachedPython, version: cachedPythonVersion || 'unknown' };
   }
@@ -265,7 +288,7 @@ function getDefaultCwd() {
 /**
  * Run Python code and return NotebookOutput-compatible result
  * @param {string} code - Python source code
- * @param {{ cells?: string[]; targetCellIndex?: number; cwd?: string }} options
+ * @param {{ cells?: string[]; targetCellIndex?: number; cwd?: string; venvPath?: string }} options
  * @returns {Promise<{ success: boolean; outputs: object[]; error?: string }>}
  */
 async function runPythonCode(code, options = {}) {
@@ -297,7 +320,7 @@ async function runPythonCode(code, options = {}) {
     };
   }
 
-  const pythonInfo = await findPython();
+  const pythonInfo = await findPython({ venvPath: options.venvPath });
   if (!pythonInfo) {
     return {
       success: false,
@@ -449,7 +472,203 @@ async function checkPython() {
   };
 }
 
+/**
+ * Check if path is a valid venv (has bin/python or Scripts/python.exe)
+ * @param {string} venvPath
+ * @returns {Promise<{ valid: boolean; error?: string }>}
+ */
+async function checkVenv(venvPath) {
+  if (!venvPath || typeof venvPath !== 'string' || !venvPath.trim()) {
+    return { valid: false, error: 'No path provided' };
+  }
+  const p = venvPath.trim();
+  const venvPython = process.platform === 'win32'
+    ? path.join(p, 'Scripts', 'python.exe')
+    : path.join(p, 'bin', 'python');
+  if (!fs.existsSync(venvPython)) {
+    return { valid: false, error: `No python found at ${venvPython}` };
+  }
+  return { valid: true };
+}
+
+/**
+ * Create a virtual environment at basePath/.venv
+ * @param {string} basePath - Parent directory for the venv (e.g. workspace folder)
+ * @returns {Promise<{ success: boolean; venvPath?: string; error?: string }>}
+ */
+async function createVenv(basePath) {
+  if (!basePath || typeof basePath !== 'string' || !basePath.trim()) {
+    return { success: false, error: 'Base path is required' };
+  }
+  const p = path.resolve(basePath.trim());
+  if (!fs.existsSync(p) || !fs.statSync(p).isDirectory()) {
+    return { success: false, error: 'Base path does not exist or is not a directory' };
+  }
+  const venvDir = path.join(p, '.venv');
+  if (fs.existsSync(venvDir)) {
+    const existing = await checkVenv(venvDir);
+    if (existing.valid) {
+      return { success: true, venvPath: venvDir };
+    }
+    return { success: false, error: 'Directory .venv already exists but is not a valid venv' };
+  }
+
+  const sysPython = await findPython();
+  if (!sysPython) {
+    return { success: false, error: 'System Python not found. Install Python 3.' };
+  }
+
+  return new Promise((resolve) => {
+    const args = [...(sysPython.runArgs || []), '-m', 'venv', venvDir];
+    const proc = spawn(sysPython.path, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+    });
+    let stderr = '';
+    proc.stderr?.on('data', (chunk) => { stderr += chunk.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ success: true, venvPath: venvDir });
+      } else {
+        resolve({ success: false, error: stderr || `venv creation failed (exit ${code})` });
+      }
+    });
+    proc.on('error', (err) => {
+      resolve({ success: false, error: err.message || 'Failed to spawn venv' });
+    });
+  });
+}
+
+/**
+ * Install packages in a venv via pip
+ * @param {string} venvPath - Path to venv directory
+ * @param {string[]} packages - Package names (e.g. ['pandas', 'matplotlib'])
+ * @returns {Promise<{ success: boolean; stdout?: string; stderr?: string; error?: string }>}
+ */
+async function pipInstall(venvPath, packages) {
+  const check = await checkVenv(venvPath);
+  if (!check.valid) {
+    return { success: false, error: check.error || 'Invalid venv' };
+  }
+  if (!Array.isArray(packages) || packages.length === 0) {
+    return { success: false, error: 'No packages specified' };
+  }
+  const venvPython = process.platform === 'win32'
+    ? path.join(venvPath.trim(), 'Scripts', 'python.exe')
+    : path.join(venvPath.trim(), 'bin', 'python');
+
+  return new Promise((resolve) => {
+    const args = ['-m', 'pip', 'install', ...packages];
+    const proc = spawn(venvPython, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+    });
+    let stdout = '';
+    let stderr = '';
+    proc.stdout?.on('data', (chunk) => { stdout += chunk.toString(); });
+    proc.stderr?.on('data', (chunk) => { stderr += chunk.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ success: true, stdout, stderr });
+      } else {
+        resolve({ success: false, error: stderr || stdout || `pip install failed (exit ${code})`, stderr, stdout });
+      }
+    });
+    proc.on('error', (err) => {
+      resolve({ success: false, error: err.message || 'Failed to run pip' });
+    });
+  });
+}
+
+/**
+ * List installed packages in a venv via pip list
+ * @param {string} venvPath - Path to venv directory
+ * @returns {Promise<{ success: boolean; stdout?: string; stderr?: string; error?: string }>}
+ */
+async function pipList(venvPath) {
+  const check = await checkVenv(venvPath);
+  if (!check.valid) {
+    return { success: false, error: check.error || 'Invalid venv' };
+  }
+  const venvPython = process.platform === 'win32'
+    ? path.join(venvPath.trim(), 'Scripts', 'python.exe')
+    : path.join(venvPath.trim(), 'bin', 'python');
+
+  return new Promise((resolve) => {
+    const args = ['-m', 'pip', 'list'];
+    const proc = spawn(venvPython, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+    });
+    let stdout = '';
+    let stderr = '';
+    proc.stdout?.on('data', (chunk) => { stdout += chunk.toString(); });
+    proc.stderr?.on('data', (chunk) => { stderr += chunk.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ success: true, stdout, stderr });
+      } else {
+        resolve({ success: false, error: stderr || stdout || `pip list failed (exit ${code})`, stderr, stdout });
+      }
+    });
+    proc.on('error', (err) => {
+      resolve({ success: false, error: err.message || 'Failed to run pip' });
+    });
+  });
+}
+
+/**
+ * Install packages from a requirements.txt file
+ * @param {string} venvPath - Path to venv directory
+ * @param {string} requirementsPath - Full path to requirements.txt
+ * @returns {Promise<{ success: boolean; stdout?: string; stderr?: string; error?: string }>}
+ */
+async function pipInstallFromRequirements(venvPath, requirementsPath) {
+  const check = await checkVenv(venvPath);
+  if (!check.valid) {
+    return { success: false, error: check.error || 'Invalid venv' };
+  }
+  if (!requirementsPath || typeof requirementsPath !== 'string' || !requirementsPath.trim()) {
+    return { success: false, error: 'Requirements file path is required' };
+  }
+  const reqPath = path.resolve(requirementsPath.trim());
+  if (!fs.existsSync(reqPath) || !fs.statSync(reqPath).isFile()) {
+    return { success: false, error: 'Requirements file does not exist' };
+  }
+  const venvPython = process.platform === 'win32'
+    ? path.join(venvPath.trim(), 'Scripts', 'python.exe')
+    : path.join(venvPath.trim(), 'bin', 'python');
+
+  return new Promise((resolve) => {
+    const args = ['-m', 'pip', 'install', '-r', reqPath];
+    const proc = spawn(venvPython, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env },
+      cwd: path.dirname(reqPath),
+    });
+    let stdout = '';
+    let stderr = '';
+    proc.stdout?.on('data', (chunk) => { stdout += chunk.toString(); });
+    proc.stderr?.on('data', (chunk) => { stderr += chunk.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ success: true, stdout, stderr });
+      } else {
+        resolve({ success: false, error: stderr || stdout || `pip install -r failed (exit ${code})`, stderr, stdout });
+      }
+    });
+    proc.on('error', (err) => {
+      resolve({ success: false, error: err.message || 'Failed to run pip' });
+    });
+  });
+}
+
 module.exports = {
   runPythonCode,
   checkPython,
+  checkVenv,
+  createVenv,
+  pipInstall,
+  pipList,
+  pipInstallFromRequirements,
 };

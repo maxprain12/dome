@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { FolderOpen, FilePlus, Folder, File, RefreshCw, FolderGit2 } from 'lucide-react';
+import { FolderOpen, FilePlus, Folder, File, RefreshCw, FolderGit2, Terminal, Package, Loader2, List, FileText } from 'lucide-react';
 
 interface WorkspaceFilesPanelProps {
   workspacePath: string | undefined;
   onWorkspacePathChange: (path: string) => Promise<void>;
+  /** Python venv path (Electron only) */
+  venvPath?: string;
+  onVenvPathChange?: (path: string) => Promise<void>;
 }
 
 interface DirEntry {
@@ -14,14 +17,25 @@ interface DirEntry {
   path: string;
 }
 
+const useElectron = typeof window !== 'undefined' && !!window.electron?.notebook;
+
 export default function WorkspaceFilesPanel({
   workspacePath,
   onWorkspacePathChange,
+  venvPath,
+  onVenvPathChange,
 }: WorkspaceFilesPanelProps) {
   const [entries, setEntries] = useState<DirEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addingFile, setAddingFile] = useState(false);
+  const [venvCreating, setVenvCreating] = useState(false);
+  const [pipInstalling, setPipInstalling] = useState(false);
+  const [pipInput, setPipInput] = useState('');
+  const [pipListLoading, setPipListLoading] = useState(false);
+  const [pipListOutput, setPipListOutput] = useState<string | null>(null);
+  const [pipListExpanded, setPipListExpanded] = useState(false);
+  const [pipRequirementsInstalling, setPipRequirementsInstalling] = useState(false);
 
   const loadEntries = useCallback(async () => {
     if (!workspacePath?.trim()) return;
@@ -116,6 +130,104 @@ export default function WorkspaceFilesPanel({
     }
   }, [workspacePath, loadEntries]);
 
+  const handleCreateVenv = useCallback(async () => {
+    const base = workspacePath?.trim() || (await window.electron?.selectFolder?.());
+    if (!base || !onVenvPathChange || !window.electron?.notebook?.createVenv) return;
+    setVenvCreating(true);
+    setError(null);
+    try {
+      const result = await window.electron.notebook.createVenv(base);
+      if (result?.success && result.venvPath) {
+        await onVenvPathChange(result.venvPath);
+      } else {
+        setError(result?.error || 'No se pudo crear el venv');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al crear venv');
+    } finally {
+      setVenvCreating(false);
+    }
+  }, [workspacePath, onVenvPathChange]);
+
+  const handleSelectVenv = useCallback(async () => {
+    if (!window.electron?.selectFolder || !onVenvPathChange || !window.electron?.notebook?.checkVenv) return;
+    const path = await window.electron.selectFolder();
+    if (!path) return;
+    setError(null);
+    try {
+      const check = await window.electron.notebook.checkVenv(path);
+      if (check?.valid) {
+        await onVenvPathChange(path);
+      } else {
+        setError(check?.error || 'No es un venv válido (debe tener bin/python o Scripts/python.exe)');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al verificar venv');
+    }
+  }, [onVenvPathChange]);
+
+  const handlePipInstall = useCallback(async () => {
+    if (!venvPath?.trim() || !pipInput.trim() || !window.electron?.notebook?.pipInstall || !pipInput.trim().split(/\s+/).some(Boolean)) return;
+    const pkgs = pipInput.trim().split(/\s+/).filter(Boolean);
+    setPipInstalling(true);
+    setError(null);
+    try {
+      const result = await window.electron.notebook.pipInstall(venvPath, pkgs);
+      if (result?.success) {
+        setPipInput('');
+      } else {
+        setError(result?.error || 'pip install falló');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al instalar paquetes');
+    } finally {
+      setPipInstalling(false);
+    }
+  }, [venvPath, pipInput]);
+
+  const handlePipList = useCallback(async () => {
+    if (!venvPath?.trim() || !window.electron?.notebook?.pipList) return;
+    setPipListLoading(true);
+    setError(null);
+    setPipListOutput(null);
+    try {
+      const result = await window.electron.notebook.pipList(venvPath);
+      if (result?.success && result.stdout) {
+        setPipListOutput(result.stdout);
+        setPipListExpanded(true);
+      } else {
+        setError(result?.error || 'No se pudo listar paquetes');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al listar paquetes');
+    } finally {
+      setPipListLoading(false);
+    }
+  }, [venvPath]);
+
+  const handlePipInstallFromRequirements = useCallback(async () => {
+    if (!venvPath?.trim() || !window.electron?.notebook?.pipInstallFromRequirements || !window.electron?.selectFile) return;
+    const paths = await window.electron.selectFile({
+      filters: [
+        { name: 'requirements.txt', extensions: ['txt'] },
+        { name: 'Todos los archivos', extensions: ['*'] },
+      ],
+    });
+    if (!paths?.length || !paths[0]) return;
+    setPipRequirementsInstalling(true);
+    setError(null);
+    try {
+      const result = await window.electron.notebook.pipInstallFromRequirements(venvPath, paths[0]);
+      if (!result?.success) {
+        setError(result?.error || 'pip install -r falló');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al instalar desde requirements.txt');
+    } finally {
+      setPipRequirementsInstalling(false);
+    }
+  }, [venvPath]);
+
   return (
     <div className="h-full flex flex-col min-h-0">
       {!workspacePath ? (
@@ -156,31 +268,65 @@ export default function WorkspaceFilesPanel({
             <FolderOpen size={18} />
             Seleccionar carpeta
           </button>
+          {useElectron && onVenvPathChange && (
+            <div className="mt-6 pt-6 border-t w-full max-w-[240px]" style={{ borderColor: 'var(--border)' }}>
+              <p className="text-xs font-medium mb-2" style={{ color: 'var(--secondary-text)' }}>
+                Entorno Python
+              </p>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <button
+                  type="button"
+                  onClick={handleCreateVenv}
+                  disabled={venvCreating}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+                  style={{ background: 'var(--bg-secondary)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
+                >
+                  {venvCreating ? <Loader2 size={14} className="animate-spin" /> : <Terminal size={14} />}
+                  {venvCreating ? 'Creando...' : 'Crear venv'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSelectVenv}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+                  style={{ background: 'var(--bg-secondary)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
+                >
+                  <FolderOpen size={14} />
+                  Seleccionar venv
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-4 p-4 h-full min-h-0 overflow-hidden">
-          {/* Ruta seleccionada */}
-          <div
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl shrink-0"
-            style={{
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border)',
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
+          {/* Workspace (archivos) */}
+          <div className="shrink-0">
+            <h4 className="text-xs font-semibold flex items-center gap-2 mb-2" style={{ color: 'var(--primary-text)' }}>
+              <Folder size={14} style={{ color: 'var(--accent)' }} />
+              Workspace (archivos)
+            </h4>
             <div
-              className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
-              style={{ background: 'var(--translucent)', color: 'var(--accent)' }}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
+              style={{
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border)',
+                boxShadow: 'var(--shadow-sm)',
+              }}
             >
-              <Folder size={16} />
+              <div
+                className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
+                style={{ background: 'var(--translucent)', color: 'var(--accent)' }}
+              >
+                <Folder size={16} />
+              </div>
+              <span
+                className="text-xs truncate flex-1 font-medium"
+                style={{ color: 'var(--primary-text)' }}
+                title={workspacePath}
+              >
+                {workspacePath}
+              </span>
             </div>
-            <span
-              className="text-xs truncate flex-1 font-medium"
-              style={{ color: 'var(--primary-text)' }}
-              title={workspacePath}
-            >
-              {workspacePath}
-            </span>
           </div>
 
           {/* Botones de acción */}
@@ -233,6 +379,163 @@ export default function WorkspaceFilesPanel({
               style={{ background: 'var(--error-bg)', color: 'var(--error)', border: '1px solid var(--error)' }}
             >
               {error}
+            </div>
+          )}
+
+          {/* Entorno Python (Electron only) */}
+          {useElectron && onVenvPathChange && (
+            <div
+              className="flex flex-col gap-3 shrink-0 pt-2 border-t"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <h4 className="text-xs font-semibold flex items-center gap-2" style={{ color: 'var(--primary-text)' }}>
+                <Terminal size={14} style={{ color: 'var(--accent)' }} />
+                Entorno Python
+              </h4>
+              {venvPath ? (
+                <>
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs truncate"
+                    style={{ background: 'var(--bg-tertiary)', color: 'var(--primary-text)' }}
+                    title={venvPath}
+                  >
+                    <Folder size={14} className="shrink-0" />
+                    <span className="truncate">{venvPath}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleSelectVenv}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--primary-text)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      <FolderOpen size={14} />
+                      Cambiar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onVenvPathChange?.('')}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--secondary-text)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      Usar sistema
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePipList}
+                      disabled={pipListLoading}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--primary-text)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      {pipListLoading ? <Loader2 size={14} className="animate-spin" /> : <List size={14} />}
+                      Ver paquetes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePipInstallFromRequirements}
+                      disabled={pipRequirementsInstalling}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--primary-text)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      {pipRequirementsInstalling ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+                      requirements.txt
+                    </button>
+                  </div>
+                  {pipListOutput && (
+                    <div
+                      className="rounded-lg overflow-hidden border shrink-0"
+                      style={{ borderColor: 'var(--border)', background: 'var(--bg-tertiary)' }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setPipListExpanded(!pipListExpanded)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-left text-xs font-medium"
+                        style={{ color: 'var(--primary-text)' }}
+                      >
+                        Paquetes instalados
+                        <span className="text-[10px]" style={{ color: 'var(--tertiary-text)' }}>
+                          {pipListExpanded ? 'Ocultar' : 'Ver'}
+                        </span>
+                      </button>
+                      {pipListExpanded && (
+                        <pre
+                          className="px-3 py-2 text-[11px] overflow-auto max-h-40 whitespace-pre-wrap break-words"
+                          style={{ color: 'var(--secondary-text)', borderTop: '1px solid var(--border)' }}
+                        >
+                          {pipListOutput}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex gap-2 shrink-0 min-w-0">
+                    <input
+                      type="text"
+                      placeholder="pip install pandas matplotlib..."
+                      value={pipInput}
+                      onChange={(e) => setPipInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handlePipInstall()}
+                      className="flex-1 min-w-0 px-2 py-2 rounded-lg text-xs"
+                      style={{
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--primary-text)',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handlePipInstall}
+                      disabled={pipInstalling || !pipInput.trim()}
+                      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium shrink-0"
+                      style={{ background: 'var(--accent)', color: 'white' }}
+                    >
+                      {pipInstalling ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
+                      Instalar
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCreateVenv}
+                    disabled={venvCreating}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                    style={{ background: 'var(--accent)', color: 'white' }}
+                  >
+                    {venvCreating ? <Loader2 size={14} className="animate-spin" /> : <Terminal size={14} />}
+                    {venvCreating ? 'Creando...' : 'Crear venv'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSelectVenv}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--primary-text)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <FolderOpen size={14} />
+                    Seleccionar venv
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

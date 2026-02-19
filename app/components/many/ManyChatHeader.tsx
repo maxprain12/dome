@@ -48,7 +48,7 @@ export default memo(function ManyChatHeader({
   }, [sessionsOpen]);
 
   const subtitle =
-    status === 'thinking' ? (loadingHint || 'Pensando...') : status === 'speaking' ? 'Respondiendo...' : providerInfo || contextDescription;
+    status === 'thinking' ? 'Pensando...' : status === 'speaking' ? 'Respondiendo...' : (loadingHint || providerInfo || contextDescription);
   const showClear = messagesCount > 0 && status !== 'thinking' && status !== 'speaking';
 
   const sortedSessions = [...sessions].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));

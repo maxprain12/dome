@@ -38,6 +38,13 @@ const QUICK_PROMPTS_WITH_TOOLS = [
   'Query my database',
 ];
 
+const STREAMING_LABELS: Record<string, string> = {
+  call_data_agent: 'Procesando datos',
+  call_writer_agent: 'Creando contenido',
+  call_library_agent: 'Consultando biblioteca',
+  call_research_agent: 'Investigando',
+};
+
 function getContextFromPath(pathname: string): { location: string; description: string } {
   if (pathname === '/' || pathname === '/home') {
     return { location: 'Home', description: 'in the main library' };
@@ -338,8 +345,9 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           resourceTitle: currentResourceTitle || undefined,
           includeDateTime: true,
         });
+        const isNotebook = pathname?.includes('/workspace/notebook');
         const toolHint = effectiveResourceId
-          ? `\n\nThe user is viewing resource ID: ${effectiveResourceId} (title: "${currentResourceTitle || 'unknown'}"). When delegating to library, writer, or data agents, include resource_id: "${effectiveResourceId}" in the context so they can access this resource (e.g. for Excel: excel_add_row, excel_set_cell require resource_id).`
+          ? `\n\nThe user is viewing resource ID: ${effectiveResourceId} (title: "${currentResourceTitle || 'unknown'}"). When delegating to library, writer, or data agents, include resource_id: "${effectiveResourceId}" in the context so they can access this resource.${isNotebook ? ` The user is editing a notebook: use notebook_get, notebook_add_cell, notebook_update_cell with resource_id: "${effectiveResourceId}".` : ''} For Excel: excel_get, excel_set_cell, excel_get_file_path require resource_id.`
           : '';
         const folderHint = (pathname === '/' || pathname === '/home') && currentFolderId
           ? `\n\nThe user is viewing folder ID: ${currentFolderId}. When delegating to library or writer agents, include folder_id: "${currentFolderId}" for listing/creating resources in that folder.`
@@ -358,6 +366,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           timestamp: Date.now(),
           isStreaming: true,
           toolCalls: [],
+          streamingLabel: 'Ejecutando herramientas...',
         });
 
         let mutatingToolsUsed = false;
@@ -388,10 +397,11 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
               status: 'running',
             };
             toolCallsData.push(tc);
-            if (['resource_create', 'resource_update', 'resource_delete', 'resource_move_to_folder', 'call_writer_agent', 'call_library_agent'].includes(chunk.toolCall.name?.toLowerCase?.())) {
+            if (['resource_create', 'resource_update', 'resource_delete', 'resource_move_to_folder', 'call_writer_agent', 'call_library_agent', 'notebook_add_cell', 'notebook_update_cell', 'notebook_delete_cell'].includes(chunk.toolCall.name?.toLowerCase?.())) {
               mutatingToolsUsed = true;
             }
-            setStreamingMessage((prev) => (prev ? { ...prev, toolCalls: [...toolCallsData] } : null));
+            const toolLabel = STREAMING_LABELS[chunk.toolCall.name || ''] || chunk.toolCall.name?.replace(/_/g, ' ') || 'Ejecutando...';
+            setStreamingMessage((prev) => (prev ? { ...prev, toolCalls: [...toolCallsData], streamingLabel: `${toolLabel}...` } : null));
           } else if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
             const entry = toolCallsData.find((t) => t.id === chunk.toolCallId);
             if (entry) {
@@ -428,6 +438,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           content: '',
           timestamp: Date.now(),
           isStreaming: true,
+          streamingLabel: 'Procesando...',
         });
         for await (const chunk of chatStream(apiMessages, toolDefs, controller.signal)) {
           if (chunk.type === 'thinking' && chunk.text) {
@@ -556,8 +567,12 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       };
       return `${labels[running.name] || running.name.replace(/_/g, ' ')}...`;
     }
+    // When thinking with tools but no toolCalls yet (LangGraph invoke buffers until end)
+    if (isLoading && toolsEnabled && status === 'thinking') {
+      return 'Ejecutando herramientas...';
+    }
     return undefined;
-  }, [pendingApproval, streamingMessage?.toolCalls]);
+  }, [pendingApproval, streamingMessage?.toolCalls, isLoading, toolsEnabled, status]);
 
   return (
     <div

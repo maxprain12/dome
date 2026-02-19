@@ -826,6 +826,9 @@ declare global {
             resourceId: string,
             options?: { sheet_name?: string; range?: string }
           ) => Promise<{ success: boolean; data?: unknown; sheet_names?: string[]; error?: string }>;
+          excelGetFilePath: (
+            resourceId: string
+          ) => Promise<{ success: boolean; file_path?: string; resource_id?: string; title?: string; error?: string }>;
           excelSetCell: (
             resourceId: string,
             sheetName: string | undefined,
@@ -1072,7 +1075,7 @@ declare global {
 
       // Notebook API (Python via IPC - Electron only)
       notebook: {
-        runPython: (code: string, options?: { cells?: string[]; targetCellIndex?: number; currentCellCode?: string }) => Promise<{
+        runPython: (code: string, options?: { cells?: string[]; targetCellIndex?: number; currentCellCode?: string; cwd?: string; venvPath?: string }) => Promise<{
           success: boolean;
           outputs: Array<{
             output_type: 'stream' | 'execute_result' | 'display_data' | 'error';
@@ -1090,6 +1093,11 @@ declare global {
           version?: string;
           path?: string;
         }>;
+        createVenv: (basePath: string) => Promise<{ success: boolean; venvPath?: string; error?: string }>;
+        pipInstall: (venvPath: string, packages: string[]) => Promise<{ success: boolean; stdout?: string; stderr?: string; error?: string }>;
+        checkVenv: (venvPath: string) => Promise<{ valid: boolean; error?: string }>;
+        pipList: (venvPath: string) => Promise<{ success: boolean; stdout?: string; stderr?: string; error?: string }>;
+        pipInstallFromRequirements: (venvPath: string, requirementsPath: string) => Promise<{ success: boolean; stdout?: string; stderr?: string; error?: string }>;
       };
     };
   }

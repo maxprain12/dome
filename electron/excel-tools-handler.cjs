@@ -145,6 +145,40 @@ async function excelGet(resourceId, options = {}) {
 }
 
 /**
+ * Get the absolute file path for an Excel resource.
+ * Use this to generate Python code that reads the Excel with pd.read_excel(path).
+ * @param {string} resourceId - Resource ID
+ * @returns {Promise<Object>} { success, file_path?, error? }
+ */
+async function excelGetFilePath(resourceId) {
+  try {
+    const queries = database.getQueries();
+    const resource = queries.getResourceById.get(resourceId);
+    if (!resource) {
+      return { success: false, error: 'Resource not found' };
+    }
+    if (!isExcelResource(resource)) {
+      return { success: false, error: 'Resource is not an Excel file (xlsx/xls)' };
+    }
+
+    const fullPath = getFullPathForResource(resource);
+    if (!fullPath) {
+      return { success: false, error: 'Excel file not found on disk' };
+    }
+
+    return {
+      success: true,
+      resource_id: resourceId,
+      title: resource.title,
+      file_path: fullPath,
+    };
+  } catch (error) {
+    console.error('[ExcelTools] excelGetFilePath error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Set a single cell value.
  * @param {string} resourceId - Resource ID
  * @param {string} sheetName - Sheet name (or first sheet if null)
@@ -554,6 +588,7 @@ async function excelExport(resourceId, options = {}) {
 module.exports = {
   setWindowManager,
   excelGet,
+  excelGetFilePath,
   excelSetCell,
   excelSetRange,
   excelAddRow,

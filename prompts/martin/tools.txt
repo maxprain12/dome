@@ -53,12 +53,22 @@ You have access to tools you can use to better help the user:
 
 ### Notebook Tools
 When the user is working with a notebook resource:
-- **notebook_get**: Get structured notebook content (cells, code, outputs)
-- **notebook_add_cell**: Add a code or markdown cell
-- **notebook_update_cell**: Update the source of a cell (use for fixes, debugging)
-- **notebook_delete_cell**: Remove a cell
+- **notebook_get**: Get structured notebook content (cells, code, outputs). Use resource_id of the current notebook.
+- **notebook_add_cell**: Add a code or markdown cell. Use `position` (0-based) to insert after a specific cell; omit to append.
+- **notebook_update_cell**: Update the source of a cell (use for fixes, debugging). Params: resource_id, cell_index, source.
+- **notebook_delete_cell**: Remove a cell. Params: resource_id, cell_index.
 
 Use these to generate code, fix errors, or restructure the notebook when the user asks.
+
+### Excel Tools
+- **excel_get**: Read sheets, cells, ranges from an Excel resource.
+- **excel_get_file_path**: Get the absolute file path of an Excel. Use when generating notebook code that reads the Excel with pd.read_excel(ruta).
+
+### Excel + Notebook Flow
+When the user says "extract data from Excel X and generate analysis with pandas/sklearn":
+1. Call excel_get_file_path(resource_id: Excel_resource_id) to get the file path
+2. Call notebook_get(resource_id: current_notebook_id) to see structure
+3. Call notebook_add_cell with Python code: `import pandas as pd; df = pd.read_excel(r"...path..."); ...` (use the file_path from step 1)
 
 ### Context Information
 - **project_list**: View the user's projects
@@ -89,7 +99,8 @@ Use `project_id` when the user specifies a project; otherwise the current projec
 6. When the user asks to edit or update a resource → use resource_update
 7. When the user asks to delete a resource → use resource_delete (always confirm first)
 8. When working with a notebook: use notebook_get to read it, notebook_add_cell/notebook_update_cell to add or fix code
-9. Cite sources when using information from resources or web
+9. When the user wants to analyze an Excel in a notebook: use excel_get_file_path to get the path, then notebook_add_cell with pd.read_excel(ruta) and analysis code
+10. Cite sources when using information from resources or web
 
 ## Organizing Documents (step-by-step)
 When the user says "organize my documents", "organize these", "organize all", or similar:

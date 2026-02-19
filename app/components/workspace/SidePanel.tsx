@@ -14,6 +14,9 @@ interface SidePanelProps {
   /** For notebooks: workspace folder path and change handler */
   notebookWorkspacePath?: string;
   onNotebookWorkspacePathChange?: (path: string) => Promise<void>;
+  /** For notebooks: Python venv path and change handler */
+  notebookVenvPath?: string;
+  onNotebookVenvPathChange?: (path: string) => Promise<void>;
 }
 
 const TAB_CONFIG: { id: TabType; label: string; icon: React.ReactNode }[] = [
@@ -30,6 +33,8 @@ export default function SidePanel({
   onClose,
   notebookWorkspacePath,
   onNotebookWorkspacePathChange,
+  notebookVenvPath,
+  onNotebookVenvPathChange,
 }: SidePanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('references');
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -160,6 +165,8 @@ export default function SidePanel({
           <WorkspaceFilesPanel
             workspacePath={notebookWorkspacePath}
             onWorkspacePathChange={onNotebookWorkspacePathChange}
+            venvPath={notebookVenvPath}
+            onVenvPathChange={onNotebookVenvPathChange}
           />
         )}
       </div>

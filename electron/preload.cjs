@@ -210,6 +210,7 @@ const ALLOWED_CHANNELS = {
     'ai:tools:flashcardCreate',
     // AI Tools - Excel
     'ai:tools:excelGet',
+    'ai:tools:excelGetFilePath',
     'ai:tools:excelSetCell',
     'ai:tools:excelSetRange',
     'ai:tools:excelAddRow',
@@ -263,6 +264,11 @@ const ALLOWED_CHANNELS = {
     // Notebook (Python via IPC)
     'notebook:runPython',
     'notebook:checkPython',
+    'notebook:createVenv',
+    'notebook:pipInstall',
+    'notebook:checkVenv',
+    'notebook:pipList',
+    'notebook:pipInstallFromRequirements',
     // Auto-updater
     'updater:check',
     'updater:download',
@@ -873,6 +879,8 @@ const electronHandler = {
       // Excel tools
       excelGet: (resourceId, options) =>
         ipcRenderer.invoke('ai:tools:excelGet', { resourceId, options }),
+      excelGetFilePath: (resourceId) =>
+        ipcRenderer.invoke('ai:tools:excelGetFilePath', { resourceId }),
       excelSetCell: (resourceId, sheetName, cell, value) =>
         ipcRenderer.invoke('ai:tools:excelSetCell', { resourceId, sheetName, cell, value }),
       excelSetRange: (resourceId, sheetName, range, values) =>
@@ -1013,8 +1021,15 @@ const electronHandler = {
         cells: options?.cells,
         targetCellIndex: options?.targetCellIndex,
         cwd: options?.cwd,
+        venvPath: options?.venvPath,
       }),
     checkPython: () => ipcRenderer.invoke('notebook:checkPython'),
+    createVenv: (basePath) => ipcRenderer.invoke('notebook:createVenv', { basePath }),
+    pipInstall: (venvPath, packages) => ipcRenderer.invoke('notebook:pipInstall', { venvPath, packages }),
+    checkVenv: (venvPath) => ipcRenderer.invoke('notebook:checkVenv', { venvPath }),
+    pipList: (venvPath) => ipcRenderer.invoke('notebook:pipList', { venvPath }),
+    pipInstallFromRequirements: (venvPath, requirementsPath) =>
+      ipcRenderer.invoke('notebook:pipInstallFromRequirements', { venvPath, requirementsPath }),
   },
 
   // ============================================

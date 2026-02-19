@@ -31,7 +31,12 @@ const TOOL_HANDLER_MAP = {
   web_search: 'webSearch',
   deep_research: 'deepResearch',
   excel_get: 'excelGet',
+  excel_get_file_path: 'excelGetFilePath',
   excel_set_cell: 'excelSetCell',
+  notebook_get: 'notebookGet',
+  notebook_add_cell: 'notebookAddCell',
+  notebook_update_cell: 'notebookUpdateCell',
+  notebook_delete_cell: 'notebookDeleteCell',
   excel_set_range: 'excelSetRange',
   excel_add_row: 'excelAddRow',
   excel_add_sheet: 'excelAddSheet',
@@ -118,6 +123,26 @@ async function executeToolInMain(toolName, args) {
         break;
       case 'excelGet':
         result = await fn(args.resource_id || args.resourceId, { sheet_name: args.sheet_name, range: args.range });
+        break;
+      case 'excelGetFilePath':
+        result = await fn(args.resource_id || args.resourceId);
+        break;
+      case 'notebookGet':
+        result = await fn(args.resource_id || args.resourceId);
+        break;
+      case 'notebookAddCell':
+        result = await fn(
+          args.resource_id || args.resourceId,
+          args.cell_type || 'code',
+          args.source || '',
+          args.position
+        );
+        break;
+      case 'notebookUpdateCell':
+        result = await fn(args.resource_id || args.resourceId, args.cell_index, args.source || '');
+        break;
+      case 'notebookDeleteCell':
+        result = await fn(args.resource_id || args.resourceId, args.cell_index);
         break;
       case 'excelSetCell':
         result = await fn(args.resource_id || args.resourceId, args.sheet_name, args.cell, args.value);
@@ -221,9 +246,14 @@ function getToolDefsBySubagent() {
       'resource_update',
       'resource_delete',
       'flashcard_create',
+      'notebook_get',
+      'notebook_add_cell',
+      'notebook_update_cell',
+      'notebook_delete_cell',
     ),
     data: pick(
       'excel_get',
+      'excel_get_file_path',
       'excel_set_cell',
       'excel_set_range',
       'excel_add_row',
@@ -499,6 +529,66 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'notebook_get',
+        description: 'Get notebook content (cells, code, outputs). Use resource_id of the current notebook.',
+        parameters: {
+          type: 'object',
+          properties: { resource_id: { type: 'string', description: 'Notebook resource ID' } },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'notebook_add_cell',
+        description: 'Add a code or markdown cell to a notebook. Use for pandas/sklearn analysis. Use position to insert after a cell.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Notebook resource ID' },
+            cell_type: { type: 'string', enum: ['code', 'markdown'], description: 'Cell type' },
+            source: { type: 'string', description: 'Cell content (Python or Markdown)' },
+            position: { type: 'number', description: '0-based index to insert at; omit to append' },
+          },
+          required: ['resource_id', 'cell_type', 'source'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'notebook_update_cell',
+        description: 'Update the source of an existing notebook cell.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Notebook resource ID' },
+            cell_index: { type: 'number', description: '0-based cell index' },
+            source: { type: 'string', description: 'New cell content' },
+          },
+          required: ['resource_id', 'cell_index', 'source'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'notebook_delete_cell',
+        description: 'Delete a cell from a notebook.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Notebook resource ID' },
+            cell_index: { type: 'number', description: '0-based cell index' },
+          },
+          required: ['resource_id', 'cell_index'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'excel_get',
         description: 'Get cells or range from an Excel spreadsheet resource.',
         parameters: {
@@ -508,6 +598,18 @@ function getAllToolDefinitions() {
             sheet_name: { type: 'string', description: 'Sheet name' },
             range: { type: 'string', description: 'Cell range (e.g. A1:B10)' },
           },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'excel_get_file_path',
+        description: 'Get absolute file path of an Excel. Use when generating notebook code with pd.read_excel(path).',
+        parameters: {
+          type: 'object',
+          properties: { resource_id: { type: 'string', description: 'Excel resource ID' } },
           required: ['resource_id'],
         },
       },

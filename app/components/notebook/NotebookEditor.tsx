@@ -16,6 +16,8 @@ interface NotebookEditorProps {
   title?: string;
   /** Working directory for Python execution (notebook workspace folder) */
   workingDirectory?: string;
+  /** Path to Python virtual environment (venv directory) */
+  venvPath?: string;
 }
 
 function getCodeCellIndices(cells: NotebookCell[]): number[] {
@@ -24,7 +26,7 @@ function getCodeCellIndices(cells: NotebookCell[]): number[] {
     .filter((i) => i >= 0);
 }
 
-export default function NotebookEditor({ content, onChange, editable = true, title = 'notebook', workingDirectory }: NotebookEditorProps) {
+export default function NotebookEditor({ content, onChange, editable = true, title = 'notebook', workingDirectory, venvPath }: NotebookEditorProps) {
   const nb = parseNotebookContent(content);
   const { runPython } = usePyodide();
   const [selectedCellIndex, setSelectedCellIndex] = useState(0);
@@ -126,13 +128,14 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
         targetCellIndex,
         currentCellCode: source, // For Pyodide (stateful kernel): run only this cell
         cwd: workingDirectory,
+        venvPath,
       });
       updateCell(index, {
         outputs: result.outputs,
         execution_count: result.success ? 1 : null,
       } as Partial<NotebookCodeCell>);
     },
-    [nb.cells, runPython, updateCell, getCodeUpTo, getCodeCellsUpTo, workingDirectory]
+    [nb.cells, runPython, updateCell, getCodeUpTo, getCodeCellsUpTo, workingDirectory, venvPath]
   );
 
   const handleRunCell = useCallback(() => {
@@ -153,13 +156,14 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
         targetCellIndex: codeCells.length - 1,
         currentCellCode: source,
         cwd: workingDirectory,
+        venvPath,
       });
       updateCell(idx, {
         outputs: result.outputs,
         execution_count: result.success ? 1 : null,
       } as Partial<NotebookCodeCell>);
     }
-  }, [nb.cells, selectedCellIndex, runPython, updateCell, getCodeUpTo, getCodeCellsUpTo, workingDirectory]);
+  }, [nb.cells, selectedCellIndex, runPython, updateCell, getCodeUpTo, getCodeCellsUpTo, workingDirectory, venvPath]);
 
   const handleRunAll = useCallback(async () => {
     const codeIndices = getCodeCellIndices(nb.cells);
@@ -173,13 +177,14 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
         targetCellIndex: codeCells.length - 1,
         currentCellCode: source,
         cwd: workingDirectory,
+        venvPath,
       });
       updateCell(idx, {
         outputs: result.outputs,
         execution_count: result.success ? 1 : null,
       } as Partial<NotebookCodeCell>);
     }
-  }, [nb.cells, runPython, updateCell, getCodeUpTo, getCodeCellsUpTo, workingDirectory]);
+  }, [nb.cells, runPython, updateCell, getCodeUpTo, getCodeCellsUpTo, workingDirectory, venvPath]);
 
   const handleExport = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron) return;

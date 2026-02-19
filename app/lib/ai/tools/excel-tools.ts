@@ -21,6 +21,12 @@ function isElectron(): boolean {
 // Schemas
 // =============================================================================
 
+const ExcelGetFilePathSchema = Type.Object({
+  resource_id: Type.String({
+    description: 'The ID of the Excel resource to get the file path for.',
+  }),
+});
+
 const ExcelGetSchema = Type.Object({
   resource_id: Type.String({
     description: 'The ID of the Excel resource to read.',
@@ -163,6 +169,33 @@ export function createExcelGetTool(): AnyAgentTool {
           sheet_name: readStringParam(args as Record<string, unknown>, 'sheet_name'),
           range: readStringParam(args as Record<string, unknown>, 'range'),
         });
+        return jsonResult(result);
+      } catch (err) {
+        return jsonResult({
+          status: 'error',
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+  };
+}
+
+export function createExcelGetFilePathTool(): AnyAgentTool {
+  return {
+    label: 'Obtener ruta del Excel',
+    name: 'excel_get_file_path',
+    description:
+      'Obtiene la ruta absoluta del archivo Excel en disco. Úsalo para generar código Python que lea el Excel con pd.read_excel(ruta) o openpyxl. Esencial cuando el usuario pide "extrae datos del Excel X y genera análisis con pandas/sklearn" en un notebook.',
+    parameters: ExcelGetFilePathSchema,
+    execute: async (_toolCallId, args) => {
+      try {
+        if (!isElectron()) {
+          return jsonResult({ status: 'error', error: 'Excel tools require Electron.' });
+        }
+        const resourceId = readStringParam(args as Record<string, unknown>, 'resource_id', {
+          required: true,
+        });
+        const result = await window.electron!.ai.tools.excelGetFilePath(resourceId);
         return jsonResult(result);
       } catch (err) {
         return jsonResult({
@@ -367,6 +400,7 @@ export function createExcelExportTool(): AnyAgentTool {
 export function createExcelTools(): AnyAgentTool[] {
   return [
     createExcelGetTool(),
+    createExcelGetFilePathTool(),
     createExcelSetCellTool(),
     createExcelSetRangeTool(),
     createExcelAddRowTool(),

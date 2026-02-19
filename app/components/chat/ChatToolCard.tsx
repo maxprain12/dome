@@ -33,6 +33,9 @@ const TOOL_ICONS: Record<string, typeof Globe> = {
   call_library_agent: FileText,
   call_writer_agent: FileText,
   call_data_agent: Database,
+  notebook_add_cell: FileText,
+  notebook_update_cell: FileText,
+  notebook_delete_cell: FileText,
 };
 
 const TOOL_LABELS: Record<string, string> = {
@@ -47,6 +50,9 @@ const TOOL_LABELS: Record<string, string> = {
   call_library_agent: 'Consultando biblioteca',
   call_writer_agent: 'Creando contenido',
   call_data_agent: 'Procesando datos',
+  notebook_add_cell: 'Añadiendo celda',
+  notebook_update_cell: 'Actualizando celda',
+  notebook_delete_cell: 'Eliminando celda',
 };
 
 function getIconForTool(name: string): typeof Globe {

@@ -41,8 +41,8 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
     library:
       'Delegate to the library subagent to search, read, and organize the user\'s resources. Use when the user asks about their notes, PDFs, projects, or wants to organize their library.',
     writer:
-      'Delegate to the writer subagent to create notes, flashcards, edit or delete resources. Use when the user wants to create content, edit existing resources, or create study materials.',
-    data: "Delegate to the data subagent for Excel spreadsheets. Use when the user works with spreadsheets: read/write cells, add rows, create or export Excel files.",
+      'Delegate to the writer subagent to create notes, flashcards, edit or delete resources, and modify notebooks (add/update/delete cells). Use when the user wants to create content, edit existing resources, add code to a notebook, or create study materials.',
+    data: "Delegate to the data subagent for Excel spreadsheets. Use when the user works with spreadsheets: read/write cells, add rows, create or export Excel files. Use excel_get_file_path when the user wants to analyze Excel data in a notebook (returns path for pd.read_excel).",
   };
 
   const name = `call_${agentName}_agent`;

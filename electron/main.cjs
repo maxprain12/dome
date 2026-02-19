@@ -429,6 +429,7 @@ app
     database.initDatabase();
 
     excelToolsHandler.setWindowManager(windowManager);
+    aiToolsHandler.setWindowManager(windowManager);
 
     // Register all IPC handlers (modularized in electron/ipc/)
     registerAll({

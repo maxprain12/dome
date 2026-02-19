@@ -22,6 +22,8 @@ export interface ChatMessageData {
   citationMap?: Map<number, ParsedCitation>;
   /** Reasoning/chain-of-thought from models (qwen3, etc.) */
   thinking?: string;
+  /** Custom label for streaming placeholder (e.g. "Ejecutando herramientas...") */
+  streamingLabel?: string;
 }
 
 interface ChatMessageProps {
@@ -165,7 +167,7 @@ export default function ChatMessage({
               ) : message.isStreaming ? (
                 <div className="flex items-center gap-2">
                   <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />
-                  <span className="text-[13px] text-[var(--secondary-text)]">Procesando...</span>
+                  <span className="text-[13px] text-[var(--secondary-text)]">{message.streamingLabel || 'Procesando...'}</span>
                 </div>
               ) : null}
 
