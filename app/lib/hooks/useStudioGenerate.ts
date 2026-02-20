@@ -244,7 +244,9 @@ Use resource_list and resource_get to fetch content, then return a JSON object w
 Return ONLY the JSON, no other text.`;
     case 'flashcards':
       return `Create a flashcard deck from the project sources.${sources} ${base}
-Use resource_list and resource_get to fetch content from the project, then use the flashcard_create tool to create a deck with at least 5-10 question-answer pairs. Use a descriptive title based on the content.${resourceHint}`;
+1. Use resource_list and resource_get to fetch content from the project.
+2. Call flashcard_create with: title (descriptive, based on content), project_id, resource_id and source_ids for context, and cards as an array of objects. Each card must have exactly: { question: string, answer: string, difficulty?: "easy"|"medium"|"hard" }. Do NOT add tags or other fields to cards.
+3. Create 5-10 question-answer pairs from the content.${resourceHint}`;
     default:
       return `Generate ${STUDIO_TYPE_TITLES[type] || type} from the project sources.${sources} ${base}
 Return a JSON object with type "${type}". Return ONLY the JSON, no other text.`;
@@ -355,7 +357,7 @@ export function useStudioGenerate(options?: {
         let response = '';
 
         if (useTools && tools && tools.length > 0) {
-          const result = await chatWithTools(messages, tools, { maxIterations: 5 });
+          const result = await chatWithTools(messages, tools, { maxIterations: 5, skipHitl: true });
           response = result.response;
         } else {
           for await (const chunk of chatStream(messages)) {

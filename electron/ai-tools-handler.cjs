@@ -1324,11 +1324,30 @@ async function flashcardCreate(data) {
     const queries = database.getQueries();
     const crypto = require('crypto');
 
-    // Determine project ID
+    // Determine project ID (must exist for FK constraint)
     let projectId = data.project_id;
     if (!projectId) {
       const currentProject = await getCurrentProject();
       projectId = currentProject?.id || 'default';
+    }
+    const projectExists = queries.getProjectById.get(projectId);
+    if (!projectExists) {
+      projectId = 'default';
+      const defaultExists = queries.getProjectById.get('default');
+      if (!defaultExists) {
+        const out = { success: false, error: 'No valid project found. Create a project first.' };
+        traceLog('flashcardCreate', { title: data?.title }, out);
+        return out;
+      }
+    }
+
+    // Validate resource_id exists (FK constraint); use null if invalid
+    let resourceId = data.resource_id || null;
+    if (resourceId) {
+      const resourceExists = queries.getResourceById.get(resourceId);
+      if (!resourceExists) {
+        resourceId = null;
+      }
     }
 
     const now = Date.now();
@@ -1337,7 +1356,7 @@ async function flashcardCreate(data) {
     // Create deck
     queries.createFlashcardDeck.run(
       deckId,
-      data.resource_id || null,
+      resourceId,
       projectId,
       data.title.trim(),
       data.description || null,
@@ -1348,18 +1367,28 @@ async function flashcardCreate(data) {
       now
     );
 
+    // Sanitize card values for SQLite (arrays/objects must be stringified to avoid "Too many parameter values")
+    function sanitizeCardValue(val) {
+      if (val == null || val === '') return null;
+      if (typeof val === 'string') return val;
+      if (Array.isArray(val) || typeof val === 'object') return JSON.stringify(val);
+      return String(val);
+    }
+
     // Bulk create cards in a transaction
     const insertCards = db.transaction((cards) => {
       for (const card of cards) {
         if (!card.question || !card.answer) continue;
         const cardId = crypto.randomUUID();
+        const difficulty = ['easy', 'medium', 'hard'].includes(card.difficulty) ? card.difficulty : 'medium';
+        const tags = sanitizeCardValue(card.tags);
         queries.createFlashcard.run(
           cardId,
           deckId,
-          card.question.trim(),
-          card.answer.trim(),
-          card.difficulty || 'medium',
-          card.tags || null,
+          String(card.question).trim(),
+          String(card.answer).trim(),
+          difficulty,
+          tags,
           null, // metadata
           2.5, // ease_factor
           0,   // interval
@@ -1393,7 +1422,7 @@ async function flashcardCreate(data) {
       null,
       null,
       deckId,
-      data.resource_id || null,
+      resourceId,
       now2,
       now2
     );
@@ -1409,7 +1438,7 @@ async function flashcardCreate(data) {
         id: deckId,
         title: data.title.trim(),
         card_count: allCards.length,
-        resource_id: data.resource_id || null,
+        resource_id: resourceId,
         project_id: projectId,
       },
       studioOutput,

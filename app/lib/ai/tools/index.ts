@@ -361,3 +361,17 @@ export function createManyToolsForContext(
 
 /** @deprecated Use createManyToolsForContext */
 export const createMartinToolsForContext = createManyToolsForContext;
+
+/**
+ * Create tools filtered by a list of tool IDs (for specialized Many agents).
+ * Uses createAllMartinTools and filters by normalized name.
+ */
+export function createToolsForAgent(
+  toolIds: string[],
+  config?: DefaultToolsConfig,
+): AnyAgentTool[] {
+  if (toolIds.length === 0) return [];
+  const idSet = new Set(toolIds.map((id) => id.toLowerCase().replace(/[^a-z0-9_]/g, '_')));
+  const all = createAllMartinTools(config);
+  return all.filter((t) => idSet.has((t.name || '').toLowerCase().replace(/[^a-z0-9_]/g, '_')));
+}

@@ -14,6 +14,7 @@ import SelectionActionBar from './SelectionActionBar';
 import ContextMenu from './ContextMenu';
 import FlashcardDeckList from '@/components/flashcards/FlashcardDeckList';
 import StudioHomeView from '@/components/studio/StudioHomeView';
+import AgentChatView from '@/components/agents/AgentChatView';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
@@ -494,6 +495,14 @@ export default function Home() {
 
   // Render content based on active section
   const renderSectionContent = () => {
+    if (typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('agent:')) {
+      const agentId = homeSidebarSection.replace(/^agent:/, '');
+      return (
+        <div className="h-full min-h-0 flex flex-col overflow-hidden">
+          <AgentChatView agentId={agentId} />
+        </div>
+      );
+    }
     switch (homeSidebarSection) {
       case 'studio':
         return <StudioHomeView />;
@@ -938,11 +947,19 @@ export default function Home() {
     </>
   );
 
+  const isAgentView = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('agent:');
+
   return (
-    <HomeLayout>
-      <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
+    <HomeLayout hidePet={isAgentView}>
+      <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--dome-bg)' }}>
+        {isAgentView ? (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {renderSectionContent()}
+          </div>
+        ) : (
+          <>
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto" style={{ padding: '32px' }}>
+        <div className="flex-1 min-h-0 overflow-y-auto" style={{ padding: '32px' }}>
           <div className="max-w-6xl mx-auto">
             {/* Page header */}
             <div className="page-header">
@@ -1273,6 +1290,8 @@ export default function Home() {
             })()}
             onClose={() => setContextMenu(null)}
           />
+        )}
+          </>
         )}
 
         {/* Delete Confirmation Dialog */}

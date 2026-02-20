@@ -152,9 +152,10 @@ function buildMcpServersObject(servers) {
 /**
  * Get MCP tools from configured servers.
  * @param {object} database - Dome database module (with getQueries())
+ * @param {string[]} [serverIds] - Optional. If provided, only include tools from servers whose name matches (case-insensitive).
  * @returns {Promise<import('@langchain/core/tools').StructuredToolInterface[]>}
  */
-async function getMCPTools(database) {
+async function getMCPTools(database, serverIds) {
   const queries = database?.getQueries?.();
   if (!queries) return [];
 
@@ -163,8 +164,14 @@ async function getMCPTools(database) {
 
   const row = queries.getSetting?.get?.('mcp_servers');
   const raw = row?.value;
-  const servers = parseMcpServersConfig(raw);
+  let servers = parseMcpServersConfig(raw);
   if (servers.length === 0) return [];
+
+  if (serverIds && serverIds.length > 0) {
+    const idSet = new Set(serverIds.map((id) => String(id).trim().toLowerCase()));
+    servers = servers.filter((s) => idSet.has(String(s.name || '').trim().toLowerCase()));
+    if (servers.length === 0) return [];
+  }
 
   const mcpServers = buildMcpServersObject(servers);
   if (Object.keys(mcpServers).length === 0) return [];

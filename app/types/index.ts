@@ -1,3 +1,17 @@
+// Many Agent (specialized AI agent - "hijo de Many")
+export interface ManyAgent {
+  id: string;
+  name: string;
+  description: string;
+  systemInstructions: string;
+  toolIds: string[];
+  mcpServerIds: string[];
+  skillIds: string[];
+  iconIndex: number; // 1-18 for agents/sprite_N.png
+  createdAt: number;
+  updatedAt: number;
+}
+
 // Tipos de recursos
 export type ResourceType = 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook' | 'excel';
 

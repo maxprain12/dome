@@ -10,14 +10,14 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.1-00C853?style=flat)](https://langchain-ai.github.io/langgraphjs/)
 [![License](https://img.shields.io/badge/License-Custom%20Open%20Source-blue.svg)](LICENSE)
 
-**v1.0.0-preview** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently.
+**v1.1.0** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [What's New in v1.0.0-preview](#whats-new-in-v100-preview)
+- [What's New in v1.1.0](#whats-new-in-v110)
 - [Features](#features)
 - [Technology Stack](#technology-stack)
 - [Installation](#installation)
@@ -36,6 +36,7 @@ Dome provides a unified workspace for managing your research and knowledge. It c
 
 - **Organize resources** (notes, PDFs, videos, audios, images, URLs) in projects
 - **Many AI Assistant** — Chat with LangGraph-powered agent (web search, resource search, memory, MCP tools)
+- **Many Agents** — Create specialized agents (hijos de Many) with custom instructions, tools, MCP, and icons
 - **Studio** — Generate mindmaps, quizzes, flashcards, guides, FAQs, timelines from your content
 - **Flashcards** — Spaced repetition (SM-2) with AI-generated decks from your documents
 - **Annotate PDFs** with highlights, comments, and notes
@@ -47,10 +48,17 @@ Dome provides a unified workspace for managing your research and knowledge. It c
 
 ---
 
-## What's New in v1.0.0-preview
+## What's New in v1.1.0
+
+- **Many Agents** — Create custom agents with personalized instructions, tool selection (web, resources, context, studio, excel, etc.), MCP integration, and icons; each agent has its own chat sessions
+- **Studio with Tools** — Mindmaps, quizzes, guides, FAQs, timelines, and flashcards now use AI tools (resource search, semantic search) for richer generation from project content
+- **Agent Chat Store** — Per-agent sessions stored in localStorage; switch between agents and sessions in the Home sidebar
+- **Tool Catalog** — 40+ tools grouped by category (web, memory, resources, context, flashcards, studio, audio, research, graph, notebook, excel)
+
+## What's New in v1.0.0
 
 - **LangGraph** — AI chat with tools runs on LangGraph; persistent sessions (SQLite checkpoints)
-- **Many** — New assistant panel with sessions, quick prompts, resource + web tools
+- **Many** — Assistant panel with sessions, quick prompts, resource + web tools
 - **MCP** — Model Context Protocol support; connect stdio/http servers in Settings → MCP
 - **Studio** — Generate mindmaps, quizzes, guides, FAQs, timelines, tables, flashcards from projects
 - **Flashcards** — SM-2 spaced repetition; AI-generated decks via Many or Studio
@@ -94,6 +102,13 @@ Dome uses **LangGraph** for the chat-with-tools experience and supports multiple
 - **Flashcard creation** — Generate study decks from documents via chat
 - **MCP tools** — Use tools from configured Model Context Protocol servers
 - **Quick prompts** — Summarize, organize, search your resources in one click
+
+**Many Agents (v1.1.0):**
+- **Custom agents** — Create specialized assistants with custom names, descriptions, and system instructions
+- **Tool selection** — Choose which tools each agent can use (web, resources, context, studio, excel, notebook, graph, etc.)
+- **MCP per agent** — Attach MCP servers to specific agents
+- **Sessions per agent** — Each agent maintains its own chat history in the sidebar
+- **Agent onboarding** — Guided flow: name → instructions → tools → MCP → skills → icon
 
 **Other AI Capabilities:**
 - **Semantic Search** — Find resources by meaning (LanceDB)
@@ -381,8 +396,17 @@ From your project content:
 1. Go to **Home** → **Studio** (sidebar)
 2. Select a project
 3. Choose output type: Mindmap, Quiz, Guide, FAQ, Timeline, Table, Flashcards
-4. Click **Generate** — Many will fetch sources and create the output
+4. Click **Generate** — AI uses tools (resource search, semantic search) to fetch sources and create the output
 5. View and edit outputs; flashcards open in study mode
+
+### 5b. Many Agents — Custom Assistants (v1.1.0)
+
+Create specialized AI agents tailored to your workflow:
+
+1. Go to **Home** → click **+ Agente** in the sidebar
+2. Follow the onboarding: name, instructions, tools, MCP servers, skills, icon
+3. Your agent appears in the sidebar; click to chat with it
+4. Each agent has its own sessions; switch between agents anytime
 
 ### 6. Flashcards
 
@@ -470,6 +494,7 @@ dome/
 │   │   │   └── extensions/       # Tiptap extensions
 │   │   ├── flashcards/           # Flashcard decks, study view
 │   │   ├── many/                 # Many AI panel (floating, chat, header)
+│   │   ├── agents/               # Many Agents: onboarding, chat, steps
 │   │   ├── onboarding/           # First-run setup
 │   │   ├── settings/             # Settings panels (AI, MCP, etc.)
 │   │   ├── studio/               # Studio home view (mindmap, quiz, etc.)
@@ -483,7 +508,8 @@ dome/
 │   │   │   └── tools/            # Web, resources, memory, flashcards
 │   │   ├── db/                   # Database clients
 │   │   ├── hooks/                # React hooks
-│   │   ├── store/                # Zustand (useManyStore, etc.)
+│   │   ├── store/                # Zustand (useManyStore, useAgentChatStore, etc.)
+│   │   ├── agents/               # Many Agents API and catalog
 │   │   ├── studio/               # Studio constants and outputs
 │   │   └── utils/                # Utilities
 │   ├── types/                    # TypeScript definitions

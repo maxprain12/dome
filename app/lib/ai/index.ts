@@ -143,6 +143,7 @@ export {
   createAllMartinTools,
   createManyToolsForContext,
   createMartinToolsForContext,
+  createToolsForAgent,
   createToolRegistry,
   
   // Schema helpers

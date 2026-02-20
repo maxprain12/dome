@@ -37,8 +37,8 @@ interface AppState {
   // UI Estado
   sidebarOpen: boolean;
   toggleSidebar: () => void;
-  homeSidebarSection: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio';
-  setHomeSidebarSection: (section: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio') => void;
+  homeSidebarSection: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | `agent:${string}`;
+  setHomeSidebarSection: (section: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | `agent:${string}`) => void;
   homeSidebarCollapsed: boolean;
   toggleHomeSidebar: () => void;
   searchQuery: string;

@@ -523,7 +523,9 @@ declare global {
               parameters?: Record<string, any>;
             };
           }>,
-          threadId?: string
+          threadId?: string,
+          skipHitl?: boolean,
+          mcpServerIds?: string[]
         ) => Promise<{ success: boolean; error?: string }>;
         abortLangGraph: (streamId: string) => Promise<void>;
         resumeLangGraph: (opts: {

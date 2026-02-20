@@ -213,7 +213,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
    * Stream chat using LangGraph agent (alternative to ai:stream for tools)
    * Uses same ai:stream:chunk format for compatibility with existing UI.
    */
-  ipcMain.handle('ai:langgraph:stream', async (event, { provider, messages, model, streamId, tools, threadId }) => {
+  ipcMain.handle('ai:langgraph:stream', async (event, { provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -260,9 +260,12 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
           baseUrl,
           messages,
           toolDefinitions: tools,
+          useDirectTools: (tools && tools.length > 0) || (mcpServerIds && mcpServerIds.length > 0),
+          mcpServerIds: mcpServerIds && mcpServerIds.length > 0 ? mcpServerIds : undefined,
           onChunk,
           signal: controller.signal,
           threadId,
+          skipHitl,
         });
         if (result && typeof result === 'object' && result.__interrupt__) {
           return { success: true, interrupted: true, threadId: result.threadId };

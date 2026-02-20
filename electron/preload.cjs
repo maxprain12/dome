@@ -794,8 +794,8 @@ const electronHandler = {
       ipcRenderer.invoke('ai:stream', { provider, messages, model, streamId, tools }),
 
     // Stream chat using LangGraph agent (tools executed in main process)
-    streamLangGraph: (provider, messages, model, streamId, tools, threadId) =>
-      ipcRenderer.invoke('ai:langgraph:stream', { provider, messages, model, streamId, tools, threadId }),
+    streamLangGraph: (provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds) =>
+      ipcRenderer.invoke('ai:langgraph:stream', { provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds }),
 
     // Abort LangGraph stream (for Stop button in chat)
     abortLangGraph: (streamId) => ipcRenderer.invoke('ai:langgraph:abort', streamId),

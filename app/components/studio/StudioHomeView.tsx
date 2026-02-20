@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Trash2,
   Eye,
@@ -31,6 +31,7 @@ function parseSourceIds(output: StudioOutput): string[] {
 export default function StudioHomeView() {
   const currentProject = useAppStore((s) => s.currentProject);
   const studioOutputs = useAppStore((s) => s.studioOutputs);
+  const activeStudioOutputFromStore = useAppStore((s) => s.activeStudioOutput);
   const setStudioOutputs = useAppStore((s) => s.setStudioOutputs);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
@@ -57,6 +58,18 @@ export default function StudioHomeView() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activeOutput, setActiveOutput] = useState<StudioOutput | null>(null);
   const [pendingGenerateType, setPendingGenerateType] = useState<StudioOutputType | null>(null);
+
+  // Sync from store when opening from external link (e.g. dome://studio/ID/type)
+  useEffect(() => {
+    if (!activeStudioOutputFromStore) {
+      setActiveOutput(null);
+    } else if (
+      !activeOutput ||
+      activeOutput.id !== activeStudioOutputFromStore.id
+    ) {
+      setActiveOutput(activeStudioOutputFromStore);
+    }
+  }, [activeStudioOutputFromStore, activeOutput]);
 
   const handleTileClick = useCallback((type: string) => {
     if (!type) return;

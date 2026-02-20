@@ -22,6 +22,7 @@ const TOOL_HANDLER_MAP = {
   get_recent_resources: 'getRecentResources',
   get_current_project: 'getCurrentProject',
   get_library_overview: 'getLibraryOverview',
+  resource_get_library_overview: 'getLibraryOverview',
   resource_create: 'resourceCreate',
   resource_update: 'resourceUpdate',
   resource_delete: 'resourceDelete',
@@ -42,6 +43,8 @@ const TOOL_HANDLER_MAP = {
   excel_add_sheet: 'excelAddSheet',
   excel_create: 'excelCreate',
   excel_export: 'excelExport',
+  memory_search: 'resourceSemanticSearch',
+  memory_get: 'resourceGet',
 };
 
 function normalizeToolName(name) {
@@ -74,13 +77,19 @@ async function executeToolInMain(toolName, args) {
         result = await fn(args.query || '', { project_id: args.project_id, type: args.type, limit: args.limit });
         break;
       case 'resourceGet':
-        result = await fn(args.resource_id || args.resourceId, { includeContent: args.include_content !== false, maxContentLength: args.max_content_length });
+        result = await fn(args.resource_id || args.resourceId || args.id, {
+          includeContent: args.include_content !== false,
+          maxContentLength: args.max_content_length,
+        });
         break;
       case 'resourceList':
         result = await fn({ project_id: args.project_id, folder_id: args.folder_id, type: args.type, limit: args.limit, sort: args.sort });
         break;
       case 'resourceSemanticSearch':
-        result = await fn(args.query || '', { project_id: args.project_id, limit: args.limit });
+        result = await fn(args.query || '', {
+          project_id: args.project_id || args.projectId,
+          limit: args.limit || args.count || 10,
+        });
         break;
       case 'projectList':
         result = await fn();
@@ -500,23 +509,24 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'flashcard_create',
-        description: 'Create a flashcard deck from Q&A pairs.',
+        description: 'Create a flashcard deck from Q&A pairs. Each card must have only question (string) and answer (string). Optionally difficulty: "easy"|"medium"|"hard". Do not add tags or other fields.',
         parameters: {
           type: 'object',
           properties: {
             title: { type: 'string', description: 'Deck title' },
             description: { type: 'string', description: 'Deck description' },
             project_id: { type: 'string', description: 'Project ID' },
+            resource_id: { type: 'string', description: 'Source resource ID' },
+            source_ids: { type: 'array', items: { type: 'string' }, description: 'Resource IDs used as sources' },
             cards: {
               type: 'array',
-              description: 'Array of { question, answer, difficulty?, tags? }',
+              description: 'Array of { question: string, answer: string, difficulty?: "easy"|"medium"|"hard" } - no other fields',
               items: {
                 type: 'object',
                 properties: {
                   question: { type: 'string' },
                   answer: { type: 'string' },
-                  difficulty: { type: 'string' },
-                  tags: { type: 'string' },
+                  difficulty: { type: 'string', enum: ['easy', 'medium', 'hard'] },
                 },
                 required: ['question', 'answer'],
               },

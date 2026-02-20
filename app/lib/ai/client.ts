@@ -694,6 +694,8 @@ export async function* chatWithToolsStream(
   options?: {
     signal?: AbortSignal;
     threadId?: string;
+    skipHitl?: boolean;
+    mcpServerIds?: string[];
   },
 ): AsyncIterable<import('./types').ChatStreamChunk> {
   if (!isElectron() || !window.electron?.ai?.streamLangGraph) {
@@ -768,6 +770,8 @@ export async function* chatWithToolsStream(
     streamId,
     toolDefinitions,
     options?.threadId,
+    options?.skipHitl,
+    options?.mcpServerIds,
   );
 
   invokePromise.catch((err) => {
@@ -811,6 +815,7 @@ export async function chatWithTools(
     maxIterations?: number; // Deprecated, kept for API compatibility
     signal?: AbortSignal;
     threadId?: string;
+    skipHitl?: boolean;
   },
 ): Promise<{ response: string; toolResults: Array<{ tool: string; result: unknown }>; thinking?: string }> {
   let fullResponse = '';
@@ -820,6 +825,7 @@ export async function chatWithTools(
   for await (const chunk of chatWithToolsStream(messages, tools, {
     signal: options?.signal,
     threadId: options?.threadId,
+    skipHitl: options?.skipHitl,
   })) {
     if (options?.signal?.aborted) break;
     if (chunk.type === 'thinking' && chunk.text) fullThinking += chunk.text;

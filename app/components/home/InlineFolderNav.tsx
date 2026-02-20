@@ -107,14 +107,13 @@ const InlineFolderItem = memo(function InlineFolderItem({
   return (
     <div className="select-none">
       <div
-        className={`group flex items-center gap-1.5 rounded-md mx-2 px-2 py-1 transition-colors cursor-pointer ${isActive
+        className={`folder-nav-item group flex items-center gap-2 rounded-md mx-2 px-2 h-8 min-h-8 transition-colors cursor-pointer ${isActive
             ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-text)] font-medium'
             : 'text-[var(--dome-text-secondary)] hover:bg-[var(--dome-bg-hover)]'
           } ${isDragOver ? 'ring-2 ring-[var(--dome-accent)] bg-[var(--dome-accent-bg)]' : ''}`}
         style={{
           paddingLeft: depth * 12 + 8,
           marginBottom: 1,
-          fontSize: '0.85rem',
         }}
         onClick={() => onFolderSelect(folder.id)}
         onDragOver={handleDragOver}
@@ -126,7 +125,7 @@ const InlineFolderItem = memo(function InlineFolderItem({
       >
         <button
           type="button"
-          className={`flex items-center justify-center w-4 h-4 rounded hover:bg-[var(--dome-bg-tertiary)] transition-colors ${!hasChildren ? 'invisible' : ''
+          className={`flex-shrink-0 flex items-center justify-center w-4 h-4 rounded hover:bg-[var(--dome-bg-tertiary)] transition-colors ${!hasChildren ? 'invisible' : ''
             }`}
           onClick={handleToggleExpand}
           aria-expanded={isExpanded}
@@ -139,18 +138,18 @@ const InlineFolderItem = memo(function InlineFolderItem({
           )}
         </button>
 
-        <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+        <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
           <Folder
             size={14}
             strokeWidth={2}
-            className={`${isActive ? 'text-[var(--dome-accent)]' : 'opacity-70 group-hover:opacity-100'}`}
+            className={`flex-shrink-0 ${isActive ? 'text-[var(--dome-accent)]' : 'opacity-70 group-hover:opacity-100'}`}
             style={{
               fill: isActive || folder.metadata?.color ? (folder.metadata?.color || 'currentColor') : 'none',
               fillOpacity: isActive ? 0.2 : 0,
               color: folder.metadata?.color
             }}
           />
-          <span className="truncate">{folder.title}</span>
+          <span className="text-sm truncate min-w-0">{folder.title}</span>
         </div>
       </div>
 
@@ -284,7 +283,7 @@ export default function InlineFolderNav({
       </div>
 
       <div
-        className={`group flex items-center gap-2 mx-2 px-2 py-1 rounded-md transition-colors cursor-pointer mb-1 ${currentFolderId === null
+        className={`folder-nav-item group flex items-center gap-2 mx-2 px-2 rounded-md transition-colors cursor-pointer mb-1 h-8 min-h-8 ${currentFolderId === null
             ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-text)] font-medium'
             : 'text-[var(--dome-text-secondary)] hover:bg-[var(--dome-bg-hover)]'
           } ${dragOverRoot ? 'ring-2 ring-[var(--dome-accent)]' : ''}`}
@@ -293,10 +292,10 @@ export default function InlineFolderNav({
         onDragLeave={handleRootDragLeave}
         onDrop={handleRootDrop}
       >
-        <div className="w-4 flex justify-center">
+        <div className="w-4 flex-shrink-0 flex justify-center">
           <Hash size={14} className={currentFolderId === null ? 'text-[var(--dome-accent)]' : 'opacity-70'} />
         </div>
-        <span className="text-sm">All Resources</span>
+        <span className="text-sm truncate min-w-0">All Resources</span>
       </div>
 
       <div className="flex flex-col gap-px">

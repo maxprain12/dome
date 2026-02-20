@@ -1,11 +1,17 @@
 import { useLocation } from 'react-router-dom';
 import ManyFloatingTrigger from './ManyFloatingTrigger';
 import { useManyStore } from '@/lib/store/useManyStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 const HIDDEN_ROUTES = ['/settings', '/onboarding'];
 
 export default function ManyFloatingButton() {
   const { pathname } = useLocation();
+  const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
+  const isAgentView =
+    (pathname === '/' || pathname === '/home') &&
+    typeof homeSidebarSection === 'string' &&
+    homeSidebarSection.startsWith('agent:');
   const {
     isOpen,
     toggleOpen,
@@ -15,7 +21,7 @@ export default function ManyFloatingButton() {
     whatsappPendingMessages,
   } = useManyStore();
 
-  const shouldHide = HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
+  const shouldHide = HIDDEN_ROUTES.some((route) => pathname?.startsWith(route)) || isAgentView;
   if (shouldHide) return null;
   if (isOpen) return null;
 

@@ -198,29 +198,44 @@ async function invokeLangGraphAgent(opts) {
     onChunk,
     signal,
     threadId,
+    skipHitl,
   } = opts;
 
   const { createAgent, humanInTheLoopMiddleware } = await import('langchain');
 
   const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
 
-  // Subagents architecture: main agent (supervisor) has only subagent-invocation tools + MCP.
-  const subagentTools = await createSubagentTools(llm, createLangChainToolsFromOpenAIDefinitions);
-  const mcpTools = await getMCPTools(database);
-  const tools = [...subagentTools, ...mcpTools];
+  let tools;
+  const useDirectTools = opts.useDirectTools === true;
+  const mcpServerIds = opts.mcpServerIds;
 
+  if (useDirectTools) {
+    // Specialized agents: use passed tool definitions with direct execution (no subagents) + optional MCP tools
+    const executeFn = (name, args) => executeToolInMain(name, args);
+    const directTools = opts.toolDefinitions?.length
+      ? await createLangChainToolsFromOpenAIDefinitions(opts.toolDefinitions, executeFn)
+      : [];
+    const mcpTools = await getMCPTools(database, mcpServerIds);
+    tools = [...directTools, ...mcpTools];
+  } else {
+    // Subagents architecture: main agent (supervisor) has only subagent-invocation tools + MCP.
+    const subagentTools = await createSubagentTools(llm, createLangChainToolsFromOpenAIDefinitions);
+    const mcpTools = await getMCPTools(database);
+    tools = [...subagentTools, ...mcpTools];
+  }
+
+  const interruptOn = skipHitl || useDirectTools
+    ? { call_writer_agent: false, call_data_agent: false }
+    : { call_writer_agent: true, call_data_agent: true };
   const hitlMiddleware = humanInTheLoopMiddleware({
-    interruptOn: {
-      call_writer_agent: true,
-      call_data_agent: true,
-    },
+    interruptOn,
     descriptionPrefix: 'Acción pendiente de aprobación',
   });
 
   const agent = createAgent({
     model: llm,
     tools,
-    middleware: [hitlMiddleware],
+    middleware: useDirectTools ? [] : [hitlMiddleware],
     checkpointer: getSharedCheckpointer(),
   });
 

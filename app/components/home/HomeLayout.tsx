@@ -6,9 +6,11 @@ interface HomeLayoutProps {
   flashcardDueCount?: number;
   /** Folder tree pane (shown between sidebar and main when in library view) */
   folderPane?: React.ReactNode;
+  /** Hide pet/mascot (e.g. when in agent chat view) */
+  hidePet?: boolean;
 }
 
-export default function HomeLayout({ children, flashcardDueCount, folderPane }: HomeLayoutProps) {
+export default function HomeLayout({ children, flashcardDueCount, folderPane, hidePet }: HomeLayoutProps) {
   return (
     <div
       className="flex min-h-0 overflow-hidden"
@@ -18,7 +20,7 @@ export default function HomeLayout({ children, flashcardDueCount, folderPane }: 
       {folderPane}
       <main className="flex-1 min-w-0 overflow-y-auto overscroll-contain relative">
         {children}
-        <PetPluginSlot />
+        {!hidePet && <PetPluginSlot />}
       </main>
     </div>
   );

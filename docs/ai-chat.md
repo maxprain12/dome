@@ -1,6 +1,6 @@
 # AI/Chat Feature (Martin/Many)
 
-Documentation for Dome's AI chat: unified client, streaming, tools, and UI. The single chat interface is **MartinFloatingButton** (Many). Lives in `app/lib/ai/`, `app/components/martin/MartinFloatingButton.tsx`, `app/components/chat/`, `app/lib/store/useMartinStore.ts`, and `electron/` (main process AI and tools).
+Documentation for Dome's AI chat: unified client, streaming, tools, and UI. The main chat interface is **MartinFloatingButton** (Many). **Many Agents** (v1.1.0) adds specialized agents with custom instructions, tools, and sessions. Lives in `app/lib/ai/`, `app/components/martin/`, `app/components/agents/`, `app/lib/agents/`, `app/lib/store/useMartinStore.ts`, `app/lib/store/useAgentChatStore.ts`, and `electron/` (main process AI and tools).
 
 ---
 
@@ -248,6 +248,14 @@ sequenceDiagram
 - Else: consumes `chatStream(apiMessages, toolDefinitions, signal)` for text-only streaming.
 - Supports abort (AbortController), regenerate (re-send last user message), save-as-note, tool toggles (My resources, Web search), and smart scroll.
 
+### Many Agents (v1.1.0)
+
+- **ManyAgent** (`app/types/index.ts`): id, name, description, systemInstructions, toolIds[], mcpServerIds[], skillIds[], iconIndex, createdAt, updatedAt. Persisted in settings key `many_agents` (JSON array).
+- **API** (`app/lib/agents/api.ts`): getManyAgents, createManyAgent, updateManyAgent, deleteManyAgent, getManyAgentById.
+- **Catalog** (`app/lib/agents/catalog.ts`): MANY_TOOL_CATALOG groups tools by web, memory, resources, context, flashcards, studio, audio, research, graph, notebook, excel.
+- **useAgentChatStore** (`app/lib/store/useAgentChatStore.ts`): per-agent sessions in localStorage (`dome-many-sessions-{agentId}:v1`); max 20 sessions; addMessage, clearMessages, startNewChat, switchSession, deleteSession, updateSessionTitle.
+- **AgentChatView** / **AgentOnboarding**: Home sidebar shows agents; click "+ Agente" to create via wizard; each agent has its own chat with its configured tools and system prompt.
+
 ---
 
 ## IPC channels
@@ -286,6 +294,11 @@ sequenceDiagram
 | `app/lib/ai/tools/resources.ts` | createResourceSearchTool, createResourceGetTool, createResourceListTool, createResourceSemanticSearchTool, createResourceTools |
 | `app/lib/ai/tools/context.ts` | createProjectListTool, createProjectGetTool, createInteractionListTool, createGetRecentResourcesTool, createGetCurrentProjectTool, createContextTools |
 | `app/lib/store/useMartinStore.ts` | Martin state (open, messages, status, context, WhatsApp); actions for chat UI and floating Martin |
+| `app/lib/store/useAgentChatStore.ts` | Per-agent sessions (localStorage); messages, switchSession, startNewChat, deleteSession; used by Many Agents |
+| `app/lib/agents/api.ts` | CRUD for ManyAgent (getManyAgents, createManyAgent, updateManyAgent, deleteManyAgent); persisted in settings.many_agents |
+| `app/lib/agents/catalog.ts` | MANY_TOOL_CATALOG (40+ tools by group: web, memory, resources, context, flashcards, studio, audio, research, graph, notebook, excel) |
+| `app/components/agents/AgentOnboarding.tsx` | Wizard: name → instructions → tools → MCP → skills → icon; creates agent via createManyAgent |
+| `app/components/agents/AgentChatView.tsx` | Chat UI for Many Agent; uses useAgentChatStore, chatWithToolsStream with agent's tools |
 | `app/components/martin/MartinFloatingButton.tsx` | Main chat UI: useMartinStore, chatWithToolsStream/chatStream, handleSend, handleAbort, handleSaveAsNote, tool toggles, ChatMessageGroup |
 | `app/components/chat/ChatMessage.tsx` | Renders ChatMessageData; ChatMessageData type |
 | `app/components/chat/ChatMessageGroup.tsx` | Groups messages by role; groupMessagesByRole |
