@@ -217,6 +217,11 @@ const ALLOWED_CHANNELS = {
     'ai:tools:excelAddSheet',
     'ai:tools:excelCreate',
     'ai:tools:excelExport',
+    // AI Tools - PPT
+    'ai:tools:pptCreate',
+    'ai:tools:pptGetFilePath',
+    'ai:tools:pptGetSlides',
+    'ai:tools:pptExport',
     // Database - Flashcards
     'db:flashcards:createDeck',
     'db:flashcards:getDeck',
@@ -320,6 +325,8 @@ const ALLOWED_CHANNELS = {
     'ollama:status-changed',
     // Studio events
     'studio:outputCreated',
+    // Deep link: open studio output from dome://studio/ID
+    'dome:open-studio-output',
     // Flashcard events
     'flashcard:deckCreated',
     'flashcard:deckUpdated',
@@ -893,6 +900,15 @@ const electronHandler = {
         ipcRenderer.invoke('ai:tools:excelCreate', { projectId, title, options }),
       excelExport: (resourceId, options) =>
         ipcRenderer.invoke('ai:tools:excelExport', { resourceId, options }),
+      // PPT tools
+      pptCreate: (projectId, title, spec, options) =>
+        ipcRenderer.invoke('ai:tools:pptCreate', { projectId, title, spec, script: options?.script, options }),
+      pptGetFilePath: (resourceId) =>
+        ipcRenderer.invoke('ai:tools:pptGetFilePath', { resourceId }),
+      pptGetSlides: (resourceId) =>
+        ipcRenderer.invoke('ai:tools:pptGetSlides', { resourceId }),
+      pptExport: (resourceId, options) =>
+        ipcRenderer.invoke('ai:tools:pptExport', { resourceId, options }),
     },
   },
 

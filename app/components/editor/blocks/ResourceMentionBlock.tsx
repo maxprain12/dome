@@ -3,6 +3,7 @@ import { NodeViewWrapper } from '@tiptap/react';
 import type { ResourceMentionAttributes, ResourceType } from '@/types';
 import { useState, useEffect } from 'react';
 import { FileText, Image as ImageIcon, Video, Music, Link2 } from 'lucide-react';
+import { getResourceTypeLabel } from '@/lib/utils';
 
 interface ResourceMentionBlockProps {
   node: {
@@ -100,7 +101,7 @@ export function ResourceMentionBlock({ node }: ResourceMentionBlockProps) {
             {resource.title}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--secondary-text)' }}>
-            {resource.type}
+            {getResourceTypeLabel(resource.type)}
           </div>
         </div>
       )}

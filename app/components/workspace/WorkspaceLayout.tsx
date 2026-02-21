@@ -167,6 +167,16 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
           return <ImageViewer resource={resource} />;
         case 'excel':
           return <SpreadsheetViewer resource={resource} />;
+        case 'ppt':
+          navigate(`/workspace/ppt?id=${resource.id}`, { replace: true });
+          return (
+            <div className="flex flex-col items-center justify-center h-full p-8">
+              <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
+              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+                Abriendo presentación...
+              </p>
+            </div>
+          );
         case 'document': {
           if (isDocumentPdf(resource)) {
             return <PDFViewer resource={resource} />;
@@ -174,6 +184,21 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
 
           const filename = (resource.original_filename || resource.title || '').toLowerCase();
           const mime = resource.file_mime_type || '';
+          const isPptx = filename.endsWith('.pptx') || filename.endsWith('.ppt') || mime.includes('presentationml') || mime.includes('ms-powerpoint');
+
+          // PPTX / PPT — redirect to PPT workspace
+          if (isPptx) {
+            navigate(`/workspace/ppt?id=${resource.id}`, { replace: true });
+            return (
+              <div className="flex flex-col items-center justify-center h-full p-8">
+                <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
+                <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+                  Abriendo presentación...
+                </p>
+              </div>
+            );
+          }
+
           const isDocx = filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword') || !resource.internal_path;
 
           // DOCX / DOC — redirect to editable workspace (incl. AI-created document without file)

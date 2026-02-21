@@ -1,6 +1,76 @@
 /* eslint-disable no-console */
 const { BrowserWindow } = require('electron');
 
+/**
+ * Open a workspace window for a resource. Reusable from IPC and deep-link handler.
+ * @param {string} resourceId
+ * @param {string} resourceType
+ * @param {Object} deps - { database, windowManager, nativeTheme }
+ * @returns {Promise<{ success: boolean; error?: string; data?: { windowId: string; resourceId: string; title: string } }>}
+ */
+async function openWorkspaceForResource(resourceId, resourceType, { database, windowManager, nativeTheme }) {
+  const queries = database.getQueries();
+  const resource = queries.getResourceById.get(resourceId);
+
+  if (!resource) {
+    return { success: false, error: 'Resource not found' };
+  }
+
+  const windowId = `workspace-${resourceId}`;
+  const existingWindow = windowManager.get(windowId);
+  if (existingWindow) {
+    existingWindow.focus();
+    return {
+      success: true,
+      data: { windowId, resourceId, title: resource.title }
+    };
+  }
+
+  let route;
+  if (resourceType === 'note') {
+    route = `/workspace/note?id=${resourceId}`;
+  } else if (resourceType === 'url') {
+    let metadata = {};
+    try {
+      metadata = resource.metadata ? JSON.parse(resource.metadata) : {};
+    } catch (e) { /* ignore */ }
+    const isYouTube = metadata.url_type === 'youtube' || !!metadata.video_id;
+    route = isYouTube ? `/workspace/youtube?id=${resourceId}` : `/workspace/url?id=${resourceId}`;
+  } else if (resourceType === 'notebook') {
+    route = `/workspace/notebook?id=${resourceId}`;
+  } else if (resourceType === 'ppt') {
+    route = `/workspace/ppt?id=${resourceId}`;
+  } else if (resourceType === 'document') {
+    const filename = (resource.original_filename || resource.title || '').toLowerCase();
+    const mime = resource.file_mime_type || '';
+    const isPptx = filename.endsWith('.pptx') || filename.endsWith('.ppt') || mime.includes('presentationml') || mime.includes('ms-powerpoint');
+    const isDocx = filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword') || !resource.internal_path;
+    route = isPptx ? `/workspace/ppt?id=${resourceId}` : (isDocx ? `/workspace/docx?id=${resourceId}` : `/workspace?id=${resourceId}`);
+  } else {
+    route = `/workspace?id=${resourceId}`;
+  }
+
+  windowManager.create(
+    windowId,
+    {
+      width: 1400,
+      height: 900,
+      minWidth: 900,
+      minHeight: 600,
+      title: `${resource.title} - Dome`,
+      backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f1419' : '#ffffff',
+    },
+    route
+  );
+
+  console.log('[Workspace] Opened workspace for:', resource.title);
+
+  return {
+    success: true,
+    data: { windowId, resourceId, title: resource.title }
+  };
+}
+
 function register({ ipcMain, nativeTheme, windowManager, database }) {
   ipcMain.handle('window:create', (event, { id, route = '/', options = {} }) => {
     // Validar que el sender está autorizado
@@ -162,84 +232,18 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
     }
 
     try {
-      // Validar parámetros
       if (!resourceId || typeof resourceId !== 'string' || resourceId.length > 200) {
         throw new Error('resourceId must be a non-empty string with max 200 characters');
       }
       if (resourceType && (typeof resourceType !== 'string' || resourceType.length > 50)) {
         throw new Error('resourceType must be a string with max 50 characters');
       }
-      // Get resource for the title
-      const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
 
-      if (!resource) {
-        return { success: false, error: 'Resource not found' };
-      }
-
-      // Check if workspace already exists
-      const windowId = `workspace-${resourceId}`;
-      const existingWindow = windowManager.get(windowId);
-      if (existingWindow) {
-        existingWindow.focus();
-        return {
-          success: true,
-          data: {
-            windowId,
-            resourceId,
-            title: resource.title
-          }
-        };
-      }
-
-      // Determine the route based on resource type
-      // Use query parameters instead of dynamic routes for production compatibility
-      // Next.js static export doesn't support dynamic routes like /note/[id]
-      let route;
-      if (resourceType === 'note') {
-        route = `/workspace/note?id=${resourceId}`;
-      } else if (resourceType === 'url') {
-        let metadata = {};
-        try {
-          metadata = resource.metadata ? JSON.parse(resource.metadata) : {};
-        } catch (e) { /* ignore */ }
-        const isYouTube = metadata.url_type === 'youtube' || !!metadata.video_id;
-        route = isYouTube ? `/workspace/youtube?id=${resourceId}` : `/workspace/url?id=${resourceId}`;
-      } else if (resourceType === 'notebook') {
-        route = `/workspace/notebook?id=${resourceId}`;
-      } else if (resourceType === 'document') {
-        const filename = (resource.original_filename || resource.title || '').toLowerCase();
-        const mime = resource.file_mime_type || '';
-        const isDocx = filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword') || !resource.internal_path;
-        route = isDocx ? `/workspace/docx?id=${resourceId}` : `/workspace?id=${resourceId}`;
-      } else {
-        route = `/workspace?id=${resourceId}`;
-      }
-
-      // Create window
-      const window = windowManager.create(
-        windowId,
-        {
-          width: 1400,
-          height: 900,
-          minWidth: 900,
-          minHeight: 600,
-          title: `${resource.title} - Dome`,
-          backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f1419' : '#ffffff',
-        },
-        route
-      );
-
-      console.log(`[Workspace] Opened workspace for: ${resource.title}`);
-
-      return {
-        success: true,
-        data: {
-          windowId,
-          resourceId,
-          title: resource.title
-        }
-      };
+      return await openWorkspaceForResource(resourceId, resourceType || 'note', {
+        database,
+        windowManager,
+        nativeTheme,
+      });
     } catch (error) {
       console.error('[Workspace] Error opening workspace:', error);
       return { success: false, error: error.message };
@@ -282,4 +286,4 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
   });
 }
 
-module.exports = { register };
+module.exports = { register, openWorkspaceForResource };

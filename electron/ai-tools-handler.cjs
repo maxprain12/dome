@@ -46,6 +46,7 @@ const documentExtractor = require('./document-extractor.cjs');
 const docxConverter = require('./docx-converter.cjs');
 const webScraper = require('./web-scraper.cjs');
 const excelToolsHandler = require('./excel-tools-handler.cjs');
+const pptToolsHandler = require('./ppt-tools-handler.cjs');
 
 // Reference to vector database (set by init.cjs)
 let vectorDB = null;
@@ -887,11 +888,31 @@ async function resourceCreate(data) {
       }
     }
 
-    // Determine project ID
+    // Determine project ID and validate it exists
     let projectId = data.project_id;
     if (!projectId) {
       const currentProject = await getCurrentProject();
       projectId = currentProject?.id || 'default';
+    }
+    const projectExists = queries.getProjectById.get(projectId);
+    if (!projectExists) {
+      const projects = queries.getProjects.all();
+      projectId = projects[0]?.id || 'default';
+      const defaultExists = queries.getProjectById.get('default');
+      if (!defaultExists && !projects.length) {
+        return { success: false, error: 'No valid project found. Create a project first.' };
+      }
+    }
+
+    // Validate folder_id exists and is type folder (avoid FOREIGN KEY)
+    let resolvedFolderId = null;
+    if (data.folder_id != null && data.folder_id !== '') {
+      const folder = queries.getResourceById.get(data.folder_id);
+      if (folder && folder.type === 'folder') {
+        resolvedFolderId = data.folder_id;
+      } else {
+        console.warn('[AI Tools] folder_id invalid or not a folder, using root:', data.folder_id);
+      }
     }
 
     const now = Date.now();
@@ -901,7 +922,7 @@ async function resourceCreate(data) {
       try {
         let html = content.trim();
         if (!html.startsWith('<') || !html.includes('>')) {
-          const { marked } = require('marked');
+          const { marked } = await import('marked');
           html = marked.parse(html);
         }
         const buffer = await docxConverter.htmlToDocxBuffer(html);
@@ -933,11 +954,11 @@ async function resourceCreate(data) {
             now
           );
         } else {
-          queries.createResource.run(id, projectId, type, data.title.trim(), content, null, data.folder_id ?? null, data.metadata ? JSON.stringify(data.metadata) : null, now, now);
+          queries.createResource.run(id, projectId, type, data.title.trim(), content, null, resolvedFolderId, data.metadata ? JSON.stringify(data.metadata) : null, now, now);
         }
       } catch (docxErr) {
         console.warn('[AI Tools] DOCX creation failed, falling back to note-style:', docxErr?.message);
-        queries.createResource.run(id, projectId, type, data.title.trim(), content, null, data.folder_id ?? null, data.metadata ? JSON.stringify(data.metadata) : null, now, now);
+        queries.createResource.run(id, projectId, type, data.title.trim(), content, null, resolvedFolderId, data.metadata ? JSON.stringify(data.metadata) : null, now, now);
       }
     } else {
       queries.createResource.run(
@@ -947,7 +968,7 @@ async function resourceCreate(data) {
         data.title.trim(),
         content,
         null, // file_path
-        data.folder_id ?? null, // folder_id
+        resolvedFolderId,
         data.metadata ? JSON.stringify(data.metadata) : null,
         now,
         now
@@ -959,7 +980,7 @@ async function resourceCreate(data) {
       title: data.title.trim(),
       type,
       project_id: projectId,
-      folder_id: data.folder_id || null,
+      folder_id: resolvedFolderId,
       created_at: now,
       updated_at: now,
     };
@@ -1018,7 +1039,7 @@ async function resourceUpdate(resourceId, updates) {
       try {
         let html = String(content).trim();
         if (!html.startsWith('<') || !html.includes('>')) {
-          const { marked } = require('marked');
+          const { marked } = await import('marked');
           html = marked.parse(html);
         }
         const buffer = await docxConverter.htmlToDocxBuffer(html);
@@ -1719,4 +1740,10 @@ module.exports = {
   excelAddSheet: excelToolsHandler.excelAddSheet,
   excelCreate: excelToolsHandler.excelCreate,
   excelExport: excelToolsHandler.excelExport,
+
+  // PPT tools
+  pptCreate: pptToolsHandler.pptCreate,
+  pptGetFilePath: pptToolsHandler.pptGetFilePath,
+  pptExport: pptToolsHandler.pptExport,
+  pptGetSlides: pptToolsHandler.pptGetSlides,
 };

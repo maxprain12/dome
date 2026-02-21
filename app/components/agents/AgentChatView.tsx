@@ -22,9 +22,11 @@ import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import AgentChatInput from './AgentChatInput';
 
 const RESOURCE_LINK_INSTRUCTION = `
-When mentioning a resource (document, note, PDF, video, etc.) that the user can open, format it as: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, document, excel, video, audio, image.
+When mentioning a resource (document, note, PDF, video, etc.) that the user can open, format it as: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, document, excel, ppt, video, audio, image.
 
-When mentioning a Studio output (mindmap, quiz, guide, FAQ, timeline, table, flashcards, audio, video, research), format it as: [Ver: Title](dome://studio/OUTPUT_ID/TYPE).`;
+When mentioning a Studio output (mindmap, quiz, guide, FAQ, timeline, table, flashcards, audio, video, research), format it as: [Ver: Title](dome://studio/OUTPUT_ID/TYPE).
+
+ALWAYS include a dome:// link in your response when you create any element via tools (resource_create, flashcard_create, etc.) so the user can open it. Exception: elements from Studio tile buttons are shown automatically, so no link needed in that context.`;
 
 interface AgentChatViewProps {
   agentId: string;

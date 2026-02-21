@@ -196,7 +196,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
 
         return (
           <a
-            href={href}
+            href={isDomeLink ? '#' : href}
             target={isDomeLink ? undefined : '_blank'}
             rel={isDomeLink ? undefined : 'noopener noreferrer'}
             onClick={handleClick}

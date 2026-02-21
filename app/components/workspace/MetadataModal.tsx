@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { X, Save, FileText, Calendar, HardDrive, Hash, FolderOpen, ExternalLink, Loader2 } from 'lucide-react';
 import { type Resource } from '@/types';
-import { formatDateFull } from '@/lib/utils';
+import { formatDateFull, getResourceTypeLabel } from '@/lib/utils';
 
 interface MetadataModalProps {
   resource: Resource;
@@ -134,8 +134,8 @@ export default function MetadataModal({
               <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
                 Type
               </p>
-              <p className="text-sm font-medium capitalize" style={{ color: 'var(--primary-text)' }}>
-                {resource.type}
+              <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+                {getResourceTypeLabel(resource.type)}
               </p>
             </div>
           </div>

@@ -437,6 +437,65 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       return { success: false, error: error.message };
     }
   });
+
+  // PPT tools
+  ipcMain.handle('ai:tools:pptCreate', async (event, { projectId, title, spec, script, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const opts = { ...(options || {}) };
+      if (script || opts.script) opts.script = script || opts.script;
+      const result = await aiToolsHandler.pptCreate(projectId, title, spec || {}, opts);
+      toolTrace('pptCreate', { title }, result);
+      return result;
+    } catch (error) {
+      toolTrace('pptCreate', { title }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:pptGetFilePath', async (event, { resourceId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.pptGetFilePath(resourceId);
+      toolTrace('pptGetFilePath', { resourceId }, result);
+      return result;
+    } catch (error) {
+      toolTrace('pptGetFilePath', { resourceId }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:pptGetSlides', async (event, { resourceId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.pptGetSlides(resourceId);
+      toolTrace('pptGetSlides', { resourceId }, result);
+      return result;
+    } catch (error) {
+      toolTrace('pptGetSlides', { resourceId }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:pptExport', async (event, { resourceId, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.pptExport(resourceId, options || {});
+      toolTrace('pptExport', { resourceId }, result);
+      return result;
+    } catch (error) {
+      toolTrace('pptExport', { resourceId }, null, error);
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 module.exports = { register };

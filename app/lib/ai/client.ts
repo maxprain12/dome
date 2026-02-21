@@ -744,11 +744,11 @@ export async function* chatWithToolsStream(
         threadId,
         actionRequests: data.actionRequests,
         reviewConfigs: data.reviewConfigs,
-        submitResume: threadId
-          ? (decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => {
-              void window.electron?.ai?.resumeLangGraph?.({ threadId, streamId, decisions });
-            }
-          : undefined,
+        submitResume: (decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => {
+          if (threadId) {
+            void window.electron?.ai?.resumeLangGraph?.({ threadId, streamId, decisions });
+          }
+        },
       });
       // Don't set done - resume will send more chunks; keep listener active
     } else if (data.type === 'error') {
@@ -921,14 +921,17 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
   if (resourceContext) {
     const isNotebook = resourceContext.type === 'notebook';
     const isExcel = resourceContext.type === 'excel';
+    const isPpt = resourceContext.type === 'ppt';
     const isDocument = resourceContext.type === 'document';
     const contentOverride = isNotebook
       ? 'This is a notebook. Use notebook_get to read its structure, cells, and code.'
       : isExcel && toolsEnabled
         ? 'This is an Excel spreadsheet. Use excel_get to read its sheets, cells, and ranges. The preview below is limited; always call excel_get for accurate data.'
-        : isDocument && toolsEnabled
-          ? 'This is a Word document. Use resource_get to read its content. Edit with resource_update (content as HTML or Markdown).'
-          : resourceContext.content;
+        : isPpt && toolsEnabled
+          ? 'This is a PowerPoint presentation. Use ppt_get_slides to read slide content, ppt_create to create new presentations, ppt_export to export.'
+          : isDocument && toolsEnabled
+            ? 'This is a Word document. Use resource_get to read its content. Edit with resource_update (content as HTML or Markdown).'
+            : resourceContext.content;
     prompt += '\n\n' + buildMartinResourceContext({
       type: resourceContext.type,
       summary: resourceContext.summary,
@@ -940,6 +943,9 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
     }
     if (isExcel && toolsEnabled) {
       prompt += '\n\n' + promptTemplates.martin.excelContext;
+    }
+    if ((isPpt || (location === 'home' && resourceContext.type === 'folder')) && toolsEnabled) {
+      prompt += '\n\n' + promptTemplates.martin.pptContext;
     }
     if (isDocument && toolsEnabled) {
       prompt += '\n\n' + promptTemplates.martin.documentContext;

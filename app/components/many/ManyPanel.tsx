@@ -188,7 +188,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
 
   useEffect(() => {
     if (pendingApproval && pendingApprovalRef.current) {
-      pendingApprovalRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      pendingApprovalRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }, [pendingApproval]);
 
@@ -397,7 +397,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
               status: 'running',
             };
             toolCallsData.push(tc);
-            if (['resource_create', 'resource_update', 'resource_delete', 'resource_move_to_folder', 'call_writer_agent', 'call_library_agent', 'notebook_add_cell', 'notebook_update_cell', 'notebook_delete_cell'].includes(chunk.toolCall.name?.toLowerCase?.())) {
+            if (['resource_create', 'resource_update', 'resource_delete', 'resource_move_to_folder', 'call_writer_agent', 'call_library_agent', 'notebook_add_cell', 'notebook_update_cell', 'notebook_delete_cell', 'ppt_create', 'excel_create'].includes(chunk.toolCall.name?.toLowerCase?.())) {
               mutatingToolsUsed = true;
             }
             const toolLabel = STREAMING_LABELS[chunk.toolCall.name || ''] || chunk.toolCall.name?.replace(/_/g, ' ') || 'Ejecutando...';
@@ -412,12 +412,12 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           } else if (chunk.type === 'done') {
             setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
             setPendingApproval(null);
-          } else if (chunk.type === 'interrupt' && chunk.submitResume && chunk.actionRequests && chunk.reviewConfigs) {
+          } else if (chunk.type === 'interrupt' && chunk.actionRequests && chunk.reviewConfigs) {
             setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
             setPendingApproval({
               actionRequests: chunk.actionRequests,
               reviewConfigs: chunk.reviewConfigs,
-              submitResume: chunk.submitResume,
+              submitResume: chunk.submitResume ?? (() => {}),
             });
           } else if (chunk.type === 'error') {
             throw new Error(chunk.error);

@@ -867,6 +867,26 @@ declare global {
             resourceId: string,
             options?: { format?: string; sheet_name?: string }
           ) => Promise<{ success: boolean; data?: string; format?: string; error?: string }>;
+          pptCreate: (
+            projectId: string,
+            title: string,
+            spec?: { title?: string; slides?: Array<Record<string, unknown>> },
+            options?: { folder_id?: string }
+          ) => Promise<{
+            success: boolean;
+            resource?: { id: string; title: string; type: string; project_id: string };
+            error?: string;
+          }>;
+          pptGetFilePath: (
+            resourceId: string
+          ) => Promise<{ success: boolean; file_path?: string; resource_id?: string; title?: string; error?: string }>;
+          pptGetSlides: (
+            resourceId: string
+          ) => Promise<{ success: boolean; slides?: Array<{ index: number; text: string }>; error?: string }>;
+          pptExport: (
+            resourceId: string,
+            options?: Record<string, unknown>
+          ) => Promise<{ success: boolean; data?: string; format?: string; error?: string }>;
         };
       };
 

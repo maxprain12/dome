@@ -42,17 +42,39 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
       'Delegate to the library subagent to search, read, and organize the user\'s resources. Use when the user asks about their notes, PDFs, projects, or wants to organize their library.',
     writer:
       'Delegate to the writer subagent to create notes, flashcards, edit or delete resources, and modify notebooks (add/update/delete cells). Use when the user wants to create content, edit existing resources, add code to a notebook, or create study materials.',
-    data: "Delegate to the data subagent for Excel spreadsheets. Use when the user works with spreadsheets: read/write cells, add rows, create or export Excel files. Use excel_get_file_path when the user wants to analyze Excel data in a notebook (returns path for pd.read_excel).",
+    data: "Delegate to the data subagent for Excel AND PowerPoint. Use when the user works with spreadsheets (read/write cells, export) OR when they want to create a real .pptx presentation. For 'create PPT from folder X', 'presentación con documentos de [carpeta]', or any request for a PowerPoint file—delegate here. Never delegate PPT creation to writer (writer creates notes/documents, not .pptx).",
   };
 
   const name = `call_${agentName}_agent`;
   const description = descriptions[agentName] || `Delegate to the ${agentName} subagent.`;
 
+  const systemPrompts = {
+    data: `You are the data subagent. You handle Excel and PowerPoint.
+For PowerPoint: ALWAYS use ppt_create to create real .pptx files. NEVER use resource_create (writer's tool) for presentations—that creates notes/documents, not PPTs.
+
+PREFER ppt_create with script (PptxGenJS) for rich, themed presentations. Generate full JavaScript code that:
+- Uses: const PptxGenJS = require('pptxgenjs'); const pres = new PptxGenJS();
+- Sets pres.layout = 'LAYOUT_16x9'; pres.title = '...';
+- Adds slides with s.background, s.addText, s.addShape. Use hex colors WITHOUT # (e.g. "1E2761").
+- For bullets: addText([{ text: 'X', options: { bullet: true, breakLine: true } }], { x, y, w, h });
+- MUST end with: pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });
+Choose a palette (Midnight Executive, Forest & Moss, Ocean Gradient, etc.) matching the content.
+
+FALLBACK: If you cannot generate a script, use ppt_create with spec (title, theme, slides array).
+
+PPT from folder: (1) get_library_overview; (2) resource_list with folder_id; (3) resource_get for each doc (include_content: true); (4) build script or spec from content; (5) ppt_create with title, script (or spec), project_id, folder_id. If folder_id causes error, retry without it.`,
+  };
+
   return tool(
     async ({ query }) => {
-      const { HumanMessage } = await import('@langchain/core/messages');
+      const { HumanMessage, SystemMessage } = await import('@langchain/core/messages');
+      const messages = [];
+      if (systemPrompts[agentName]) {
+        messages.push(new SystemMessage(systemPrompts[agentName]));
+      }
+      messages.push(new HumanMessage(query));
       const result = await subagent.invoke(
-        { messages: [new HumanMessage(query)] },
+        { messages },
         { recursionLimit: 100 }
       );
       const lastMsg = result?.messages?.at(-1);

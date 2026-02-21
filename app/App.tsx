@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import ThemeProvider from '@/components/ui/ThemeProvider';
 import ManyFloatingButton from '@/components/many/ManyFloatingButton';
+import { useAppStore } from '@/lib/store/useAppStore';
+import type { StudioOutput } from '@/types';
 import ManyPanel from '@/components/many/ManyPanel';
 import ResizeHandle from '@/components/many/ResizeHandle';
 import PromptModal from '@/components/ui/PromptModal';
@@ -18,6 +20,7 @@ import NotebookWorkspacePage from './pages/NotebookWorkspacePage';
 import URLWorkspacePage from './pages/URLWorkspacePage';
 import YouTubeWorkspacePage from './pages/YouTubeWorkspacePage';
 import DocxWorkspacePage from './pages/DocxWorkspacePage';
+import PptWorkspacePage from './pages/PptWorkspacePage';
 
 const HIDDEN_ROUTES = ['/settings', '/onboarding'];
 const MANY_PANEL_MIN = 320;
@@ -41,7 +44,38 @@ function getStoredWidth(): number {
 
 export default function App() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { isOpen, toggleOpen } = useManyStore();
+  const addStudioOutput = useAppStore((s) => s.addStudioOutput);
+  const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
+  const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
+  const setCurrentProject = useAppStore((s) => s.setCurrentProject);
+
+  // Handle dome://studio/ID deep links (from setWindowOpenHandler, will-navigate, cold start)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron?.on) return;
+    const unsubscribe = window.electron.on('dome:open-studio-output', async (data: { outputId?: string }) => {
+      const outputId = data?.outputId;
+      if (!outputId || !window.electron?.db?.studio?.getById) return;
+      try {
+        const result = await window.electron.db.studio.getById(outputId);
+        if (result?.success && result.data) {
+          const output = result.data as StudioOutput;
+          addStudioOutput(output);
+          setActiveStudioOutput(output);
+          setHomeSidebarSection('studio');
+          const projResult = await window.electron.db.projects.getById(output.project_id);
+          if (projResult?.success && projResult.data) {
+            setCurrentProject(projResult.data);
+          }
+          navigate('/');
+        }
+      } catch (err) {
+        console.error('[App] Failed to open studio output from deep link:', err);
+      }
+    });
+    return () => unsubscribe?.();
+  }, [addStudioOutput, setActiveStudioOutput, setHomeSidebarSection, setCurrentProject, navigate]);
   const shouldHide = HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
   const showPanel = isOpen && !shouldHide;
 
@@ -91,6 +125,7 @@ export default function App() {
               <Route path="/workspace/url" element={<URLWorkspacePage />} />
               <Route path="/workspace/youtube" element={<YouTubeWorkspacePage />} />
               <Route path="/workspace/docx" element={<DocxWorkspacePage />} />
+              <Route path="/workspace/ppt" element={<PptWorkspacePage />} />
             </Routes>
           </div>
 

@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Check,
   FileDown,
+  Presentation,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
@@ -38,8 +39,10 @@ interface WorkspaceHeaderProps {
   onShowMetadata: () => void;
   editableTitle?: EditableTitle;
   savingIndicator?: React.ReactNode;
+  subtitle?: string;
   onExportPdf?: () => void | Promise<void>;
   onExportDocx?: () => void | Promise<void>;
+  onPresentationMode?: () => void;
 }
 
 export default function WorkspaceHeader({
@@ -49,8 +52,10 @@ export default function WorkspaceHeader({
   onShowMetadata,
   editableTitle,
   savingIndicator,
+  subtitle,
   onExportPdf,
   onExportDocx,
+  onPresentationMode,
 }: WorkspaceHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelsOpen, setPanelsOpen] = useState(false);
@@ -137,6 +142,7 @@ export default function WorkspaceHeader({
       case 'note': return <FileEdit {...iconProps} />;
       case 'notebook': return <Notebook {...iconProps} />;
       case 'document': return <File {...iconProps} />;
+      case 'ppt': return <Presentation {...iconProps} />;
       case 'url': return <ExternalLink {...iconProps} />;
       default: return <Folder {...iconProps} />;
     }
@@ -183,13 +189,23 @@ export default function WorkspaceHeader({
               aria-label="Resource title"
             />
           ) : (
-            <h1
-              className="text-sm font-medium truncate max-w-md font-display"
-              style={{ color: 'var(--primary-text)' }}
-              title={resource.title}
-            >
-              {resource.title}
-            </h1>
+            <div className="flex items-baseline gap-2 min-w-0">
+              <h1
+                className="text-sm font-medium truncate max-w-md font-display"
+                style={{ color: 'var(--primary-text)' }}
+                title={resource.title}
+              >
+                {resource.title}
+              </h1>
+              {subtitle && (
+                <span
+                  className="text-xs shrink-0 truncate max-w-[120px]"
+                  style={{ color: 'var(--secondary-text)' }}
+                >
+                  {subtitle}
+                </span>
+              )}
+            </div>
           )}
 
           {savingIndicator}
@@ -279,6 +295,19 @@ export default function WorkspaceHeader({
           )}
         </div>
 
+        {/* Presentation mode (slides only) */}
+        {resource.type === 'ppt' && onPresentationMode && (
+          <button
+            onClick={onPresentationMode}
+            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            style={{ color: 'var(--secondary-text)' }}
+            title="Modo presentación"
+            aria-label="Modo presentación"
+          >
+            <Presentation size={16} />
+          </button>
+        )}
+
         {/* Separator */}
         <div className="w-px h-5" style={{ background: 'var(--border)' }} />
 
@@ -340,7 +369,7 @@ export default function WorkspaceHeader({
                 Resource info
               </button>
 
-              {((resource.type === 'note' && (onExportPdf || onExportDocx)) || (resource.type === 'document' && onExportDocx)) ? (
+              {((resource.type === 'note' && (onExportPdf || onExportDocx)) || (resource.type === 'document' && onExportDocx) || (resource.type === 'ppt' && onExportDocx)) ? (
                 <>
                   <div
                     style={{
@@ -429,6 +458,32 @@ export default function WorkspaceHeader({
                     >
                       <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
                       Exportar a DOCX
+                    </button>
+                  )}
+                  {resource.type === 'ppt' && onExportDocx && (
+                    <button
+                      onClick={async () => {
+                        setMenuOpen(false);
+                        await onExportDocx();
+                      }}
+                      className="dropdown-item"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 12px',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        color: 'var(--primary-text)',
+                        width: '100%',
+                        border: 'none',
+                        textAlign: 'left',
+                      }}
+                      role="menuitem"
+                    >
+                      <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                      Exportar a PPTX
                     </button>
                   )}
                 </>

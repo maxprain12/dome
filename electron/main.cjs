@@ -50,11 +50,21 @@ const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', (_event, commandLine) => {
-    const mcpOauth = require('./mcp-oauth.cjs');
+  app.on('second-instance', async (_event, commandLine) => {
     const url = commandLine.find((arg) => typeof arg === 'string' && arg.startsWith('dome://'));
-    if (url && mcpOauth.handleOAuthCallback(url)) {
-      console.log('[MCP OAuth] Callback received via second-instance');
+    if (url) {
+      if (mcpOauth.handleOAuthCallback(url)) {
+        console.log('[MCP OAuth] Callback received via second-instance');
+      } else {
+        const handled = await handleDomeUrl(url, {
+          database,
+          windowManager,
+          nativeTheme,
+        });
+        if (handled) {
+          console.log('[DeepLink] Handled via second-instance');
+        }
+      }
     }
     const win = windowManager?.get?.('main');
     if (win && !win.isDestroyed()) {
@@ -74,6 +84,7 @@ const ollamaService = require('./ollama-service.cjs');
 const ollamaManager = require('./ollama-manager.cjs');
 const aiToolsHandler = require('./ai-tools-handler.cjs');
 const excelToolsHandler = require('./excel-tools-handler.cjs');
+const pptToolsHandler = require('./ppt-tools-handler.cjs');
 const vectorHandler = require('./vector-handler.cjs');
 const documentExtractor = require('./document-extractor.cjs');
 const docxConverter = require('./docx-converter.cjs');
@@ -84,6 +95,7 @@ const updateService = require('./update-service.cjs');
 const ttsService = require('./tts-service.cjs');
 const notebookPython = require('./notebook-python.cjs');
 const mcpOauth = require('./mcp-oauth.cjs');
+const { handleDomeUrl } = require('./deep-link-handler.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
 
 // IPC handlers (modularized)
@@ -401,23 +413,26 @@ app
       app.setAsDefaultProtocolClient('dome');
     }
 
-    // Handle OAuth callback when user is redirected to dome://...
+    // Handle OAuth callback and deep links when user is redirected to dome://...
     if (process.platform === 'darwin') {
-      app.on('open-url', (event, url) => {
+      app.on('open-url', async (event, url) => {
         event.preventDefault();
         if (mcpOauth.handleOAuthCallback(url)) {
           console.log('[MCP OAuth] Callback received and processed');
+        } else {
+          const handled = await handleDomeUrl(url, {
+            database,
+            windowManager,
+            nativeTheme,
+          });
+          if (handled) {
+            console.log('[DeepLink] Handled via open-url');
+          }
         }
       });
     }
 
-    // Cold start on Windows/Linux: URL may be in argv
-    if (process.platform !== 'darwin') {
-      const coldStartUrl = process.argv.find((arg) => typeof arg === 'string' && arg.startsWith('dome://'));
-      if (coldStartUrl && mcpOauth.handleOAuthCallback(coldStartUrl)) {
-        console.log('[MCP OAuth] Callback received on cold start');
-      }
-    }
+    // Cold start on Windows/Linux: URL may be in argv (handle after database is ready)
 
     setupUserDataFolder();
     // Initialize file storage
@@ -429,6 +444,7 @@ app
     database.initDatabase();
 
     excelToolsHandler.setWindowManager(windowManager);
+    pptToolsHandler.setWindowManager(windowManager);
     aiToolsHandler.setWindowManager(windowManager);
 
     // Register all IPC handlers (modularized in electron/ipc/)
@@ -460,6 +476,30 @@ app
     // IMPORTANTE: Crear ventana PRIMERO para que la UI se muestre inmediatamente
     // La inicializacion de LanceDB puede fallar o bloquearse con modulos nativos
     const mainWindow = await createWindow();
+
+    // Cold start on Windows/Linux: dome:// URL may be in argv - handle after window exists
+    if (process.platform !== 'darwin') {
+      const coldStartUrl = process.argv.find((arg) => typeof arg === 'string' && arg.startsWith('dome://'));
+      if (coldStartUrl) {
+        if (mcpOauth.handleOAuthCallback(coldStartUrl)) {
+          console.log('[MCP OAuth] Callback received on cold start');
+        } else {
+          const handled = await handleDomeUrl(coldStartUrl, {
+            database,
+            windowManager,
+            nativeTheme,
+          });
+          if (handled) {
+            console.log('[DeepLink] Handled on cold start');
+          }
+        }
+      }
+    }
+
+    // Register dome link handler for will-navigate and setWindowOpenHandler
+    windowManager.setDomeLinkHandler((url) =>
+      handleDomeUrl(url, { database, windowManager, nativeTheme })
+    );
 
     // Initialize auto-updater (only in packaged app)
     updateService.init(

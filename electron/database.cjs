@@ -1067,6 +1067,102 @@ function runMigrations(db) {
       `).run(Date.now());
     }
   }
+
+  // Migration 11: Add 'ppt' to resources type constraint
+  let needsPptConstraint = false;
+  try {
+    const testStmt = db.prepare(`
+      INSERT INTO resources (id, project_id, type, title, created_at, updated_at)
+      VALUES ('__test_ppt__', 'default', 'ppt', 'Test', 0, 0)
+    `);
+    testStmt.run();
+    db.exec("DELETE FROM resources WHERE id = '__test_ppt__'");
+    console.log('[DB] PPT type constraint already exists');
+  } catch {
+    needsPptConstraint = true;
+    console.log('[DB] PPT type constraint missing, migration needed');
+  }
+
+  if (needsPptConstraint) {
+    const v = parseInt(db.prepare('SELECT value FROM settings WHERE key = ?').get('schema_version')?.value ?? '0', 10);
+    if (v < 11) {
+      console.log('[DB] Running migration 11: Add ppt type to resources');
+
+      try {
+        const tableInfo = db.prepare('PRAGMA table_info(resources)').all();
+        const existingColumns = new Set(tableInfo.map((col) => col.name));
+
+        db.exec('DROP TABLE IF EXISTS resources_new');
+        db.exec(`
+          CREATE TABLE resources_new (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('note', 'pdf', 'video', 'audio', 'image', 'url', 'document', 'folder', 'notebook', 'excel', 'ppt')),
+            title TEXT NOT NULL,
+            content TEXT,
+            file_path TEXT,
+            internal_path TEXT,
+            file_mime_type TEXT,
+            file_size INTEGER,
+            file_hash TEXT,
+            thumbnail_data TEXT,
+            original_filename TEXT,
+            folder_id TEXT,
+            metadata TEXT,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY (folder_id) REFERENCES resources_new(id) ON DELETE SET NULL
+          )
+        `);
+
+        const baseColumns = ['id', 'project_id', 'type', 'title', 'content', 'file_path', 'metadata', 'created_at', 'updated_at'];
+        const optionalColumns = ['internal_path', 'file_mime_type', 'file_size', 'file_hash', 'thumbnail_data', 'original_filename', 'folder_id'];
+        const columnsToCopy = [...baseColumns];
+        for (const col of optionalColumns) {
+          if (existingColumns.has(col)) columnsToCopy.push(col);
+        }
+        const columnsStr = columnsToCopy.join(', ');
+        db.exec(`INSERT INTO resources_new (${columnsStr}) SELECT ${columnsStr} FROM resources`);
+        db.exec('DROP TABLE resources');
+        db.exec('ALTER TABLE resources_new RENAME TO resources');
+
+        db.exec('CREATE INDEX IF NOT EXISTS idx_resources_project ON resources(project_id)');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(type)');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_resources_file_hash ON resources(file_hash)');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_resources_internal_path ON resources(internal_path)');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_resources_folder ON resources(folder_id)');
+
+        try {
+          db.exec(`CREATE TRIGGER IF NOT EXISTS resources_ai AFTER INSERT ON resources BEGIN
+            INSERT INTO resources_fts(resource_id, title, content)
+            VALUES (new.id, new.title, COALESCE(new.content, ''));
+          END`);
+          db.exec(`CREATE TRIGGER IF NOT EXISTS resources_ad AFTER DELETE ON resources BEGIN
+            DELETE FROM resources_fts WHERE resource_id = old.id;
+          END`);
+          db.exec(`CREATE TRIGGER IF NOT EXISTS resources_au AFTER UPDATE ON resources BEGIN
+            DELETE FROM resources_fts WHERE resource_id = old.id;
+            INSERT INTO resources_fts(resource_id, title, content)
+            VALUES (new.id, new.title, COALESCE(new.content, ''));
+          END`);
+        } catch (triggerError) {
+          console.log('[DB] FTS triggers skipped:', triggerError.message);
+        }
+
+        console.log('[DB] Migration 11 complete - ppt type added');
+      } catch (error) {
+        console.error('[DB] Migration 11 FAILED:', error.message);
+        throw error;
+      }
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '11', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '11', updated_at = excluded.updated_at
+      `).run(Date.now());
+    }
+  }
 }
 
 /**

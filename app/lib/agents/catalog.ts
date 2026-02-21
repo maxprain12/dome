@@ -6,7 +6,7 @@ export interface ToolCatalogEntry {
   id: string;
   label: string;
   description: string;
-  group: 'web' | 'memory' | 'resources' | 'context' | 'flashcards' | 'studio' | 'audio' | 'research' | 'graph' | 'notebook' | 'excel';
+  group: 'web' | 'memory' | 'resources' | 'context' | 'flashcards' | 'studio' | 'audio' | 'research' | 'graph' | 'notebook' | 'excel' | 'ppt';
 }
 
 export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
@@ -60,6 +60,11 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
   { id: 'excel_add_sheet', label: 'Excel Add Sheet', description: 'Añadir hoja', group: 'excel' },
   { id: 'excel_create', label: 'Excel Create', description: 'Crear Excel', group: 'excel' },
   { id: 'excel_export', label: 'Excel Export', description: 'Exportar Excel', group: 'excel' },
+  // PPT
+  { id: 'ppt_create', label: 'PPT Create', description: 'Crear PowerPoint', group: 'ppt' },
+  { id: 'ppt_get_file_path', label: 'PPT File Path', description: 'Ruta del archivo PPT', group: 'ppt' },
+  { id: 'ppt_get_slides', label: 'PPT Get Slides', description: 'Obtener contenido de diapositivas', group: 'ppt' },
+  { id: 'ppt_export', label: 'PPT Export', description: 'Exportar PowerPoint', group: 'ppt' },
 ];
 
 const GROUP_LABELS: Record<ToolCatalogEntry['group'], string> = {
@@ -74,6 +79,7 @@ const GROUP_LABELS: Record<ToolCatalogEntry['group'], string> = {
   graph: 'Grafo',
   notebook: 'Notebook',
   excel: 'Excel',
+  ppt: 'Slides',
 };
 
 export function getToolCatalog() {

@@ -204,6 +204,15 @@ export {
   createExcelTools,
 } from './excel-tools';
 
+// Tools - PPT
+export {
+  createPptCreateTool,
+  createPptGetFilePathTool,
+  createPptGetSlidesTool,
+  createPptExportTool,
+  createPptTools,
+} from './ppt-tools';
+
 // =============================================================================
 // Default Tools
 // =============================================================================
@@ -222,6 +231,7 @@ import { createDeepResearchTools } from './deep-research';
 import { createGraphTools } from './graph-tools';
 import { createNotebookTools } from './notebook-tools';
 import { createExcelTools } from './excel-tools';
+import { createPptTools } from './ppt-tools';
 
 /**
  * Configuration for creating default tools
@@ -299,6 +309,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // Excel tools (read/modify Excel resources)
   tools.push(...createExcelTools());
 
+  // PPT tools (create/read PowerPoint presentations)
+  tools.push(...createPptTools());
+
   return tools;
 }
 
@@ -347,6 +360,9 @@ export function createManyToolsForContext(
 
   // Excel tools (always include - useful when user has spreadsheets)
   tools.push(...createExcelTools());
+
+  // PPT tools (always include - useful when user has presentations or asks to create them)
+  tools.push(...createPptTools());
 
   // Studio, audio, deep research, graph: useful in Home/library context
   if (isHome || isNotebook) {

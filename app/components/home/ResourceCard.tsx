@@ -1,8 +1,8 @@
 
 import { memo } from 'react';
 import type { Resource } from '@/types';
-import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, FolderOpen, Loader2, CheckCircle2, AlertCircle, Notebook, Play, MoreHorizontal } from 'lucide-react';
-import { formatDistanceToNow, formatShortDistance, formatFileSize, extractPlainTextFromTiptap } from '@/lib/utils';
+import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, FolderOpen, Loader2, CheckCircle2, AlertCircle, Notebook, Play, MoreHorizontal, Presentation } from 'lucide-react';
+import { formatDistanceToNow, formatShortDistance, formatFileSize, extractPlainTextFromTiptap, getResourceTypeLabel } from '@/lib/utils';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -97,6 +97,7 @@ export default memo(function ResourceCard({
       case 'image': return <ImageIcon className="w-5 h-5" strokeWidth={1.5} />;
       case 'url': return <Link2 className="w-5 h-5" strokeWidth={1.5} />;
       case 'folder': return <FolderOpen className="w-5 h-5" strokeWidth={1.5} />;
+      case 'ppt': return <Presentation className="w-5 h-5" strokeWidth={1.5} />;
       default: return <File className="w-5 h-5" strokeWidth={1.5} />;
     }
   };
@@ -115,6 +116,7 @@ export default memo(function ResourceCard({
       case 'note': return 'var(--accent)';
       case 'notebook': return 'var(--success)';
       case 'excel': return '#217346';
+      case 'ppt': return '#D24726';
       case 'image': return 'var(--brand-accent)';
       case 'video': return 'var(--info)';
       case 'audio': return 'var(--warning)';
@@ -211,8 +213,8 @@ export default memo(function ResourceCard({
             )}
           </div>
         </div>
-        <div role="gridcell" className="text-xs text-[var(--dome-text-muted)] capitalize truncate">
-          {resource.type}
+        <div role="gridcell" className="text-xs text-[var(--dome-text-muted)] truncate">
+          {getResourceTypeLabel(resource.type)}
         </div>
         <div role="gridcell" className="text-xs text-[var(--dome-text-muted)] truncate tabular-nums">
           {resource.updated_at ? formatDistanceToNow(resource.updated_at) : '—'}
@@ -306,8 +308,8 @@ export default memo(function ResourceCard({
               {searchSnippet || searchOrigin}
             </div>
           ) : (
-            <div className="text-xs text-[var(--dome-text-muted)] truncate capitalize">
-              {resource.type}
+            <div className="text-xs text-[var(--dome-text-muted)] truncate">
+              {getResourceTypeLabel(resource.type)}
             </div>
           )}
         </div>

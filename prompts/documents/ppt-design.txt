@@ -1,0 +1,9 @@
+## PowerPoint Design Guidelines
+When creating presentations with ppt_create, follow these principles:
+- One main idea per slide; avoid clutter
+- Use 5-7 bullets max per content slide; keep each bullet to one line when possible
+- Title slides: clear, concise title; subtitle optional for context
+- Content slides: use layout "content" or "bullet" for lists
+- Blank slides: for custom layouts or emphasis; use sparingly
+- Maintain consistent structure: intro → main points → summary/conclusion
+- Prefer short phrases over full sentences in bullets

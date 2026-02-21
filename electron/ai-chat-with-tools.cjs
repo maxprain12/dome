@@ -43,6 +43,10 @@ const TOOL_HANDLER_MAP = {
   excel_add_sheet: 'excelAddSheet',
   excel_create: 'excelCreate',
   excel_export: 'excelExport',
+  ppt_create: 'pptCreate',
+  ppt_get_file_path: 'pptGetFilePath',
+  ppt_get_slides: 'pptGetSlides',
+  ppt_export: 'pptExport',
   memory_search: 'resourceSemanticSearch',
   memory_get: 'resourceGet',
 };
@@ -175,6 +179,27 @@ async function executeToolInMain(toolName, args) {
       case 'excelExport':
         result = await fn(args.resource_id || args.resourceId, { format: args.format, sheet_name: args.sheet_name });
         break;
+      case 'pptCreate': {
+        const opts = {};
+        if (args.folder_id) opts.folder_id = args.folder_id;
+        if (args.script) opts.script = args.script;
+        result = await fn(
+          args.project_id || args.projectId,
+          args.title,
+          args.spec || {},
+          opts
+        );
+        break;
+      }
+      case 'pptGetFilePath':
+        result = await fn(args.resource_id || args.resourceId);
+        break;
+      case 'pptGetSlides':
+        result = await fn(args.resource_id || args.resourceId);
+        break;
+      case 'pptExport':
+        result = await fn(args.resource_id || args.resourceId, args.options || {});
+        break;
       default:
         result = await fn(args);
     }
@@ -269,6 +294,14 @@ function getToolDefsBySubagent() {
       'excel_add_sheet',
       'excel_create',
       'excel_export',
+      'ppt_create',
+      'ppt_get_file_path',
+      'ppt_get_slides',
+      'ppt_export',
+      'get_library_overview',
+      'resource_list',
+      'resource_get',
+      'get_current_project',
     ),
   };
 }
@@ -721,6 +754,87 @@ function getAllToolDefinitions() {
             format: { type: 'string', description: "'csv' or 'xlsx'" },
             sheet_name: { type: 'string', description: 'Sheet to export' },
           },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ppt_create',
+        description: 'Create a PowerPoint. Use script (PptxGenJS) for rich themed slides, or spec (JSON) for simple slides.',
+        parameters: {
+          type: 'object',
+          properties: {
+            project_id: { type: 'string', description: 'Project ID' },
+            folder_id: { type: 'string', description: 'Folder ID to place the PPT in' },
+            title: { type: 'string', description: 'Resource title' },
+            script: {
+              type: 'string',
+              description: 'PptxGenJS JavaScript code. Must require("pptxgenjs"), add slides, call pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH }). Use for themed, rich layouts.',
+            },
+            spec: {
+              type: 'object',
+              description: 'Presentation spec. Include theme for themed slides.',
+              properties: {
+                title: { type: 'string' },
+                theme: {
+                  type: 'string',
+                  enum: ['midnight_executive', 'forest_moss', 'ocean_gradient', 'sunset_warm', 'slate_minimal', 'emerald_pro'],
+                  description: 'Theme: midnight_executive (business), forest_moss (sustainability), ocean_gradient (tech), sunset_warm (marketing), slate_minimal (academic), emerald_pro (finance)',
+                },
+                slides: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      layout: { type: 'string', enum: ['title', 'content', 'bullet', 'title_only', 'blank'] },
+                      title: { type: 'string' },
+                      subtitle: { type: 'string' },
+                      bullets: { type: 'array', items: { type: 'string' } },
+                      textboxes: { type: 'array' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          required: ['title'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ppt_get_file_path',
+        description: 'Get absolute file path of a PowerPoint resource.',
+        parameters: {
+          type: 'object',
+          properties: { resource_id: { type: 'string', description: 'PPT resource ID' } },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ppt_get_slides',
+        description: 'Get slide content (text) from a PowerPoint presentation.',
+        parameters: {
+          type: 'object',
+          properties: { resource_id: { type: 'string', description: 'PPT resource ID' } },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ppt_export',
+        description: 'Export PowerPoint to base64 (pptx).',
+        parameters: {
+          type: 'object',
+          properties: { resource_id: { type: 'string', description: 'PPT resource ID' } },
           required: ['resource_id'],
         },
       },

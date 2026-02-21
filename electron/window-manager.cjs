@@ -21,6 +21,12 @@ class WindowManager {
     this.authorizedWindows = new Set();
 
     /**
+     * Handler for dome:// deep links (set by main.cjs after init)
+     * @type {((url: string) => Promise<boolean>) | null}
+     */
+    this.domeLinkHandler = null;
+
+    /**
      * Configuración por defecto para ventanas
      */
     this.defaultConfig = {
@@ -154,24 +160,44 @@ class WindowManager {
       this.authorizedWindows.delete(webContentsId);
     });
 
-    // Prevenir navegación no autorizada
+    // Prevenir navegación no autorizada; manejar dome:// internamente
     window.webContents.on('will-navigate', (event, navigationUrl) => {
+      if (navigationUrl.startsWith('dome://') && this.domeLinkHandler) {
+        event.preventDefault();
+        this.domeLinkHandler(navigationUrl).catch((err) =>
+          console.error('[WindowManager] dome:// handler error:', err)
+        );
+        return;
+      }
       const parsedUrl = new URL(navigationUrl);
       const allowedHosts = ['localhost', '127.0.0.1'];
-
       if (!allowedHosts.includes(parsedUrl.hostname)) {
         event.preventDefault();
         console.warn('[WindowManager] Navigation blocked to:', navigationUrl);
       }
     });
 
-    // Prevenir nuevas ventanas - abrir en navegador externo
+    // Prevenir nuevas ventanas; manejar dome:// internamente, externas en shell
     window.webContents.setWindowOpenHandler(({ url }) => {
+      if (url.startsWith('dome://') && this.domeLinkHandler) {
+        this.domeLinkHandler(url).catch((err) =>
+          console.error('[WindowManager] dome:// handler error:', err)
+        );
+        return { action: 'deny' };
+      }
       require('electron').shell.openExternal(url);
       return { action: 'deny' };
     });
 
     return window;
+  }
+
+  /**
+   * Registrar handler para links dome:// (llamado desde main.cjs)
+   * @param {(url: string) => Promise<boolean>} handler
+   */
+  setDomeLinkHandler(handler) {
+    this.domeLinkHandler = handler;
   }
 
   /**

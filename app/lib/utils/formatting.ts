@@ -248,6 +248,24 @@ export function downloadFile(data: Blob | string, filename: string, mimeType?: s
   URL.revokeObjectURL(url);
 }
 
+/** User-friendly label for resource type (e.g. ppt -> Slides) */
+export function getResourceTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    note: 'Note',
+    pdf: 'PDF',
+    video: 'Video',
+    audio: 'Audio',
+    image: 'Image',
+    url: 'URL',
+    document: 'Document',
+    folder: 'Folder',
+    notebook: 'Notebook',
+    excel: 'Excel',
+    ppt: 'Slides',
+  };
+  return labels[type] ?? type;
+}
+
 // Generar color aleatorio
 export function generateRandomColor(): string {
   const colors = [

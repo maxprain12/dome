@@ -20,6 +20,7 @@ const TYPE_DIRECTORIES = {
   audio: 'audio',
   document: 'documents',
   excel: 'documents',
+  ppt: 'documents',
   note: 'notes',
   url: 'urls',
 };

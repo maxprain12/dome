@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { getResourceTypeLabel } from '@/lib/utils';
 import {
   FileText,
   Image as ImageIcon,
@@ -14,6 +15,7 @@ import {
   Search,
   BookOpen,
   Notebook,
+  Presentation,
 } from 'lucide-react';
 
 interface SearchResultsProps {
@@ -56,6 +58,10 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
         return <Music size={16} />;
       case 'url':
         return <Link2 size={16} />;
+      case 'ppt':
+        return <Presentation size={16} />;
+      case 'excel':
+        return <File size={16} />;
       default:
         return <File size={16} />;
     }
@@ -160,7 +166,7 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
                 </div>
                 <div className="result-meta">
                   {getSourceBadge(resource)}
-                  <div className="result-type">{resource.type}</div>
+                  <div className="result-type">{getResourceTypeLabel(resource.type)}</div>
                 </div>
               </button>
             ))}

@@ -203,7 +203,8 @@ html {
   overflow: clip;
 }
 
-#root {
+#root,
+#__next {
   height: 100%;
   overflow: clip;
 }
@@ -843,11 +844,13 @@ a:hover {
    ============================================ */
 
 @keyframes martinPulse {
+
   0%,
   100% {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.6;
     transform: scale(0.95);
@@ -3962,4 +3965,32 @@ a:hover {
 .empty-folder-description {
   font-size: 0.875rem;
   color: var(--secondary-text);
+}
+
+/* ============================================
+   SLIDES PRESENTATION MODE (Fullscreen)
+   ============================================ */
+.slides-presentation-container:fullscreen,
+.slides-presentation-container:-webkit-full-screen {
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slides-presentation-container:fullscreen>*,
+.slides-presentation-container:-webkit-full-screen>* {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* PptViewer: slide rendering container (pptx-preview renders here, one slide shown at a time) */
+.pptx-slide-stage {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Hide scrollbar in PPT thumbnail strip — scroll still works via wheel/trackpad */
+.ppt-thumb-scroll::-webkit-scrollbar {
+  display: none;
 }

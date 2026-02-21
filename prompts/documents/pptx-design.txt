@@ -1,0 +1,222 @@
+# PPTX Design Guidelines — Presentaciones tematizadas
+
+Cuando crees presentaciones con ppt_create, usa estas guías de diseño para lograr presentaciones coherentes y profesionales.
+
+Para presentaciones ricas y tematizadas, usa el parámetro `script` con código PptxGenJS en lugar de `spec`.
+El script debe acabar con: pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });
+
+---
+
+## Paletas temáticas (hex sin #)
+
+| Theme | Primary | Secondary | Accent |
+|-------|---------|-----------|--------|
+| Midnight Executive | 1E2761 | CADCFC | FFFFFF |
+| Forest & Moss | 2C5F2D | 97BC62 | F5F5F5 |
+| Coral Energy | F96167 | F9E795 | 2F3C7E |
+| Warm Terracotta | B85042 | E7E8D1 | A7BEAE |
+| Ocean Gradient | 065A82 | 1C7293 | 21295C |
+| Charcoal Minimal | 36454F | F2F2F2 | 212121 |
+| Teal Trust | 028090 | 00A896 | 02C39A |
+| Berry & Cream | 6D2E46 | A26769 | ECE2D0 |
+| Sage Calm | 84B59F | 69A297 | 50808E |
+| Cherry Bold | 990011 | FCF6F5 | 2F3C7E |
+
+---
+
+## Reglas de diseño
+
+1. **Paleta coherente con el contenido**: Elige colores que encajen con el tema (ej. Ocean Gradient para tech, Forest & Moss para sostenibilidad).
+2. **Dominancia de color**: Un color debe dominar (60-70%), 1-2 tonos de apoyo, uno de acento.
+3. **Contraste oscuro/claro**: Fondos oscuros para portada y cierre; claros para contenido ("sandwich"). O todo oscuro para look premium.
+4. **Motivo visual repetido**: Un elemento distintivo en todas las slides (círculos, bordes, iconos).
+5. **Cada slide con elemento visual**: Imagen, icono, gráfico o shape; evitar slides solo texto.
+6. **Sin bullets planos en blanco**; sin líneas decorativas bajo títulos.
+7. **Estructura**: intro → puntos principales → conclusión.
+
+---
+
+## Tipografías (PptxGenJS)
+
+- Slide title: 36-44pt bold
+- Section header: 20-24pt bold
+- Body: 14-16pt
+- Captions: 10-12pt muted
+
+Parejas: Georgia+Calibri, Arial Black+Arial, Calibri+Calibri Light.
+
+---
+
+## Layouts por slide
+
+- Two-column (texto izquierda, ilustración derecha)
+- Icon + text rows (icono en círculo, header, descripción)
+- Grid 2x2 o 2x3
+- Half-bleed (imagen a un lado, contenido encima)
+- Large stat callouts (números 60-72pt)
+
+---
+
+## PptxGenJS (script)
+
+Colores: hex sin # (ej. "FF0000", no "#FF0000").
+Bullets: usar `bullet: true` en options, nunca "•".
+Multilínea: `breakLine: true` entre items.
+Layout: pres.layout = "LAYOUT_16x9".
+Al final: pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });
+
+---
+
+## Evitar
+
+- Repetir el mismo layout en todas las slides
+- Centrar body text (left-align)
+- Títulos pequeños (mínimo 36pt)
+- Color azul genérico por defecto
+- Slides solo texto sin imágenes/shapes
+- Líneas de acento bajo títulos (marca de IA)
+
+---
+
+## Elementos decorativos con shapes (PptxGenJS)
+
+### Barra de color en borde izquierdo
+```javascript
+slide.addShape(pres.ShapeType.rect, {
+  x: 0, y: 0, w: 0.12, h: '100%',
+  fill: { color: '1E2761' }
+});
+```
+
+### Círculo decorativo esquina superior derecha
+```javascript
+slide.addShape(pres.ShapeType.ellipse, {
+  x: 8.5, y: -0.8, w: 2.5, h: 2.5,
+  fill: { color: 'CADCFC', transparency: 75 }
+});
+```
+
+### Línea separadora horizontal
+```javascript
+slide.addShape(pres.ShapeType.rect, {
+  x: 0.35, y: 1.05, w: 9.3, h: 0.04,
+  fill: { color: '1E2761', transparency: 60 }
+});
+```
+
+### Gradiente simulado con shapes superpuestos
+```javascript
+// Capa oscura de fondo
+slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: '065A82' } });
+// Capa de gradiente simulado (esquina)
+slide.addShape(pres.ShapeType.rect, { x: 5, y: 0, w: 5, h: '100%', fill: { color: '1C7293', transparency: 40 } });
+// Capa highlight
+slide.addShape(pres.ShapeType.ellipse, { x: 7, y: 2, w: 5, h: 5, fill: { color: 'FFFFFF', transparency: 92 } });
+```
+
+---
+
+## Portada profesional (código completo)
+
+```javascript
+const cover = pres.addSlide();
+// Fondo principal oscuro
+cover.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: '1E2761' } });
+// Barra lateral de color
+cover.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: 0.22, h: '100%', fill: { color: 'CADCFC' } });
+// Círculo decorativo translúcido (esquina superior derecha)
+cover.addShape(pres.ShapeType.ellipse, { x: 7.8, y: -1.2, w: 3.5, h: 3.5, fill: { color: 'FFFFFF', transparency: 88 } });
+// Círculo pequeño (esquina inferior izquierda)
+cover.addShape(pres.ShapeType.ellipse, { x: -0.6, y: 5.5, w: 2, h: 2, fill: { color: 'CADCFC', transparency: 70 } });
+// Título grande
+cover.addText('Título de la Presentación', {
+  x: 0.5, y: 2.0, w: 8.8, h: 1.6,
+  fontSize: 44, bold: true, color: 'FFFFFF',
+  fontFace: 'Calibri', align: 'left', valign: 'middle',
+});
+// Subtítulo
+cover.addText('Descripción breve · Autor · Año', {
+  x: 0.5, y: 3.8, w: 8.8, h: 0.5,
+  fontSize: 16, color: 'CADCFC', fontFace: 'Calibri', align: 'left',
+});
+```
+
+---
+
+## Slide de contenido con columna de color (layout asimétrico)
+
+```javascript
+const slide = pres.addSlide();
+// Fondo claro
+slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: 'F7F8FC' } });
+// Columna izquierda de color (25% del ancho)
+slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: 2.5, h: '100%', fill: { color: '1E2761' } });
+// Título en columna de color
+slide.addText('Tema', {
+  x: 0.1, y: 2.5, w: 2.3, h: 2.5,
+  fontSize: 22, bold: true, color: 'CADCFC',
+  fontFace: 'Calibri', align: 'center', valign: 'middle',
+  rotate: 270,
+});
+// Header de slide en zona clara
+slide.addText('Título de la sección', {
+  x: 2.7, y: 0.25, w: 6.8, h: 0.75,
+  fontSize: 28, bold: true, color: '1E2761', fontFace: 'Calibri', align: 'left',
+});
+// Contenido
+slide.addText([
+  { text: 'Primer punto clave del tema', options: { bullet: true, fontSize: 15, color: '2D3748', breakLine: true } },
+  { text: 'Segundo punto con datos de soporte', options: { bullet: true, fontSize: 15, color: '2D3748', breakLine: true } },
+  { text: 'Conclusión o acción', options: { bullet: true, fontSize: 15, color: '2D3748' } },
+], { x: 2.7, y: 1.2, w: 6.8, h: 4.5, valign: 'top', fontFace: 'Calibri', paraSpaceAfter: 8 });
+```
+
+---
+
+## Slide de estadísticas
+
+```javascript
+const stats = pres.addSlide();
+stats.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: '1E2761' } });
+stats.addText('Números clave', {
+  x: 0.4, y: 0.2, w: 9.2, h: 0.7,
+  fontSize: 28, bold: true, color: 'CADCFC', fontFace: 'Calibri', align: 'left',
+});
+const data = [
+  { value: '94%', label: 'Satisfacción', x: 0.4 },
+  { value: '2.4×', label: 'Productividad', x: 3.5 },
+  { value: '$1.2M', label: 'Ahorro anual', x: 6.6 },
+];
+data.forEach(d => {
+  stats.addShape(pres.ShapeType.roundRect, {
+    x: d.x, y: 1.2, w: 2.8, h: 2.6,
+    fill: { color: 'FFFFFF', transparency: 12 },
+    line: { color: 'CADCFC', width: 1 },
+    rectRadius: 0.1,
+  });
+  stats.addText(d.value, {
+    x: d.x + 0.1, y: 1.35, w: 2.6, h: 1.4,
+    fontSize: 56, bold: true, color: 'FFFFFF', align: 'center', fontFace: 'Calibri',
+  });
+  stats.addText(d.label, {
+    x: d.x + 0.1, y: 2.85, w: 2.6, h: 0.6,
+    fontSize: 13, color: 'CADCFC', align: 'center', fontFace: 'Calibri',
+  });
+});
+```
+
+---
+
+## Insertar imágenes (cuando hay URLs disponibles)
+
+```javascript
+// Con URL directa
+slide.addImage({ path: 'https://example.com/image.jpg', x: 5.5, y: 1.0, w: 4.0, h: 3.0 });
+
+// Imagen local (path absoluto)
+slide.addImage({ path: '/absolute/path/to/image.png', x: 0.3, y: 1.5, w: 3.5, h: 2.5 });
+
+// Con ajuste de opacidad (usa una capa encima)
+slide.addImage({ path: 'https://...', x: 0, y: 0, w: '100%', h: '100%' });
+slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: '000000', transparency: 45 } });
+```
