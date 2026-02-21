@@ -87,6 +87,7 @@ const excelToolsHandler = require('./excel-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
 const vectorHandler = require('./vector-handler.cjs');
 const documentExtractor = require('./document-extractor.cjs');
+const documentGenerator = require('./document-generator.cjs');
 const docxConverter = require('./docx-converter.cjs');
 const authManager = require('./auth-manager.cjs');
 const personalityLoader = require('./personality-loader.cjs');
@@ -464,6 +465,7 @@ app
       ttsService,
     vectorHandler,
     documentExtractor,
+    documentGenerator,
     docxConverter,
     authManager,
     personalityLoader,

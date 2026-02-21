@@ -19,7 +19,7 @@ const PptCreateSchema = Type.Object({
   script: Type.Optional(
     Type.String({
       description:
-        'PptxGenJS JavaScript code to generate the presentation. Must use require("pptxgenjs") and pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH }). Alternative to spec for themed, rich slides.',
+        'Python/python-pptx code to generate the presentation. Must use from pptx import Presentation, add slides with add_text/add_bullets, call prs.save(os.environ[\'PPTX_OUTPUT_PATH\']). Populate every slide with real content from source documents. Alternative to spec for themed, rich slides.',
     })
   ),
   project_id: Type.Optional(
@@ -103,7 +103,7 @@ export function createPptCreateTool(): AnyAgentTool {
     label: 'Crear PowerPoint',
     name: 'ppt_create',
     description:
-      'Crea una nueva presentación PowerPoint. Pasa un spec con title y slides (array de { layout, title?, subtitle?, bullets?, textboxes? }). Layouts: title, content, bullet, title_only, blank.',
+      'Crea una nueva presentación PowerPoint. Usa script (Python/python-pptx) para slides ricos o spec con title y slides. Cada slide debe tener contenido real de los documentos fuente.',
     parameters: PptCreateSchema,
     execute: async (_toolCallId, args) => {
       try {

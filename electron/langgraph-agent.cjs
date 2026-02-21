@@ -209,17 +209,38 @@ async function invokeLangGraphAgent(opts) {
   const useDirectTools = opts.useDirectTools === true;
   const mcpServerIds = opts.mcpServerIds;
 
+  // Track real-time emitted tool IDs (useDirectTools path) to avoid duplicates in post-invoke batch
+  const rtEmittedIds = new Set();
+  let rtCallCounter = 0;
+
   if (useDirectTools) {
-    // Specialized agents: use passed tool definitions with direct execution (no subagents) + optional MCP tools
-    const executeFn = (name, args) => executeToolInMain(name, args);
+    // Specialized agents: wrap executeFn to emit real-time tool_call/tool_result events
+    const executeFn = async (name, args) => {
+      const id = `rt_${threadId || 'x'}_${++rtCallCounter}`;
+      rtEmittedIds.add(id);
+      if (onChunk) {
+        onChunk({
+          type: 'tool_call',
+          toolCall: {
+            id,
+            name,
+            arguments: typeof args === 'string' ? args : JSON.stringify(args || {}),
+          },
+        });
+      }
+      const result = await executeToolInMain(name, args);
+      const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
+      if (onChunk) onChunk({ type: 'tool_result', toolCallId: id, result: resultStr });
+      return result;
+    };
     const directTools = opts.toolDefinitions?.length
       ? await createLangChainToolsFromOpenAIDefinitions(opts.toolDefinitions, executeFn)
       : [];
     const mcpTools = await getMCPTools(database, mcpServerIds);
     tools = [...directTools, ...mcpTools];
   } else {
-    // Subagents architecture: main agent (supervisor) has only subagent-invocation tools + MCP.
-    const subagentTools = await createSubagentTools(llm, createLangChainToolsFromOpenAIDefinitions);
+    // Subagents architecture: pass onChunk so subagents emit real-time events for their tools
+    const subagentTools = await createSubagentTools(llm, createLangChainToolsFromOpenAIDefinitions, onChunk);
     const mcpTools = await getMCPTools(database);
     tools = [...subagentTools, ...mcpTools];
   }
@@ -296,30 +317,33 @@ async function invokeLangGraphAgent(opts) {
       // getState can fail if no checkpoint; ignore
     }
 
-    // Emit tool calls and tool results in message order for UI cards
+    // Emit tool calls and tool results in message order for UI cards.
+    // Skip if useDirectTools already emitted them in real-time (to avoid duplicates).
     const resultMessages = result?.messages || [];
-    for (const msg of resultMessages) {
-      if (!msg || typeof msg._getType !== 'function') continue;
-      const msgType = msg._getType();
-      if (msgType === 'ai' && msg.tool_calls?.length) {
-        for (const tc of msg.tool_calls) {
-          if (onChunk) {
-            onChunk({
-              type: 'tool_call',
-              toolCall: {
-                id: tc.id || `call_${threadId || 'x'}_${++callCounter}`,
-                name: tc.name,
-                arguments: typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args || {}),
-              },
-            });
+    if (rtEmittedIds.size === 0) {
+      for (const msg of resultMessages) {
+        if (!msg || typeof msg._getType !== 'function') continue;
+        const msgType = msg._getType();
+        if (msgType === 'ai' && msg.tool_calls?.length) {
+          for (const tc of msg.tool_calls) {
+            if (onChunk) {
+              onChunk({
+                type: 'tool_call',
+                toolCall: {
+                  id: tc.id || `call_${threadId || 'x'}_${++callCounter}`,
+                  name: tc.name,
+                  arguments: typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args || {}),
+                },
+              });
+            }
           }
+        } else if ((msgType === 'tool' || msgType === 'ToolMessage') && msg.tool_call_id != null) {
+          let resultContent = msg.content;
+          if (typeof resultContent !== 'string') {
+            try { resultContent = JSON.stringify(resultContent); } catch { resultContent = String(resultContent); }
+          }
+          if (onChunk) onChunk({ type: 'tool_result', toolCallId: msg.tool_call_id, result: resultContent });
         }
-      } else if ((msgType === 'tool' || msgType === 'ToolMessage') && msg.tool_call_id != null) {
-        let resultContent = msg.content;
-        if (typeof resultContent !== 'string') {
-          try { resultContent = JSON.stringify(resultContent); } catch { resultContent = String(resultContent); }
-        }
-        if (onChunk) onChunk({ type: 'tool_result', toolCallId: msg.tool_call_id, result: resultContent });
       }
     }
 
@@ -397,7 +421,7 @@ async function resumeLangGraphAgent(opts) {
   } = rest;
 
   const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
-  const subagentTools = await createSubagentTools(llm, createLangChainToolsFromOpenAIDefinitions);
+  const subagentTools = await createSubagentTools(llm, createLangChainToolsFromOpenAIDefinitions, onChunk);
   const mcpTools = await getMCPTools(database);
   const tools = [...subagentTools, ...mcpTools];
 

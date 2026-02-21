@@ -28,7 +28,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
   const [slideCount, setSlideCount] = useState(0);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [thumbStripCollapsed, setThumbStripCollapsed] = useState(false);
-  const [thumbnails, setThumbnails] = useState<HTMLElement[]>([]);
+  const [thumbnailUrls, setThumbnailUrls] = useState<string[]>([]);
 
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
@@ -44,8 +44,8 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
     setActiveSlideIndex(0);
   }, []);
 
-  const handleThumbnailsReady = useCallback((elements: HTMLElement[]) => {
-    setThumbnails(elements);
+  const handleThumbnailUrlsReady = useCallback((urls: string[]) => {
+    setThumbnailUrls(urls);
   }, []);
 
   const handleSelectSlide = useCallback((index: number) => {
@@ -236,7 +236,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
                 slideCount={slideCount}
                 activeIndex={activeSlideIndex}
                 onSelect={handleSelectSlide}
-                thumbnailElements={thumbnails}
+                thumbnailImageUrls={thumbnailUrls}
                 collapsed={thumbStripCollapsed}
                 onToggleCollapsed={() => setThumbStripCollapsed((c) => !c)}
               />
@@ -249,7 +249,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
                   resource={resource}
                   activeIndex={activeSlideIndex}
                   onSlidesLoaded={handleSlidesLoaded}
-                  onThumbnailsReady={handleThumbnailsReady}
+                  onThumbnailUrlsReady={handleThumbnailUrlsReady}
                 />
 
                 {/* Navigation pill */}

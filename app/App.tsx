@@ -10,6 +10,7 @@ import PromptModal from '@/components/ui/PromptModal';
 import ToastContainer from '@/components/ui/Toast';
 import AppHeader from '@/components/layout/AppHeader';
 import { useManyStore } from '@/lib/store/useManyStore';
+import { showToast } from '@/lib/store/useToastStore';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -76,6 +77,29 @@ export default function App() {
     });
     return () => unsubscribe?.();
   }, [addStudioOutput, setActiveStudioOutput, setHomeSidebarSection, setCurrentProject, navigate]);
+  // PPT background generation notifications
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron?.on) return;
+    const unsubCreated = window.electron.on(
+      'ppt:created',
+      (data: { resource: { id: string; title: string }; title: string }) => {
+        const name = data?.resource?.title || data?.title || 'Presentación';
+        showToast('success', `✅ "${name}" lista — ya aparece en tu biblioteca`);
+      }
+    );
+    const unsubFailed = window.electron.on(
+      'ppt:creation-failed',
+      (data: { title: string; error?: string }) => {
+        const name = data?.title || 'Presentación';
+        showToast('error', `❌ Error al crear "${name}": ${data?.error || 'Error desconocido'}`);
+      }
+    );
+    return () => {
+      unsubCreated?.();
+      unsubFailed?.();
+    };
+  }, []);
+
   const shouldHide = HIDDEN_ROUTES.some((route) => pathname?.startsWith(route));
   const showPanel = isOpen && !shouldHide;
 

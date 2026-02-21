@@ -100,8 +100,18 @@ def generate_pptx(spec: dict, output_path: str) -> None:
     """Generate PPTX from spec."""
     prs = Presentation()
     slides_data = spec.get("slides", [])
-    theme_name = spec.get("theme")
-    theme_colors = THEMES.get(theme_name, {}) if theme_name else {}
+
+    # theme can be a string name or a dict {"name": "...", "colors": {...}}
+    theme_raw = spec.get("theme")
+    if isinstance(theme_raw, dict):
+        theme_name = theme_raw.get("name", "")
+        # Also accept inline colors from the dict if provided
+        inline_colors = theme_raw.get("colors", {})
+    else:
+        theme_name = theme_raw or ""
+        inline_colors = {}
+
+    theme_colors = THEMES.get(theme_name, inline_colors) or {}
 
     if not slides_data:
         # Add a placeholder title slide if empty
@@ -125,10 +135,15 @@ def generate_pptx(spec: dict, output_path: str) -> None:
     }
 
     for slide_spec in slides_data:
+        if not isinstance(slide_spec, dict):
+            continue
         layout_name = slide_spec.get("layout", "content")
         layout_idx = layout_map.get(layout_name, 1)
-        layout = prs.slide_layouts[layout_idx]
-        slide = prs.slides.add_slide(layout)
+        try:
+            layout = prs.slide_layouts[layout_idx]
+            slide = prs.slides.add_slide(layout)
+        except Exception:
+            continue
         shapes = slide.shapes
 
         if theme_colors:
@@ -149,11 +164,18 @@ def generate_pptx(spec: dict, output_path: str) -> None:
                 shapes.title.text = slide_spec.get("title", "")
                 if theme_colors:
                     _set_text_color(shapes.title, theme_colors.get("title", "#000000"))
-            bullets = slide_spec.get("bullets", [])
+            raw_bullets = slide_spec.get("bullets", [])
+            # Normalize: each bullet can be a string or a dict {"text": "..."}
+            bullets = []
+            for b in raw_bullets:
+                if isinstance(b, dict):
+                    bullets.append(b.get("text", str(b)))
+                else:
+                    bullets.append(str(b))
             if len(shapes.placeholders) > 1:
                 tf = shapes.placeholders[1].text_frame
                 if bullets:
-                    tf.text = bullets[0] if bullets else ""
+                    tf.text = bullets[0]
                     for b in bullets[1:]:
                         p = tf.add_paragraph()
                         p.text = b

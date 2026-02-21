@@ -44,18 +44,18 @@ function getFullPathForResource(resource) {
 }
 
 /**
- * Create a new PPT resource from a JSON spec or PptxGenJS script.
+ * Create a new PPT resource from a JSON spec or Python/python-pptx script.
  * @param {string} projectId - Project ID
  * @param {string} title - Resource title
  * @param {Object} spec - { title, slides: [...] } (used when script is not provided)
- * @param {Object} [options] - { folder_id?, script? } - script: PptxGenJS JavaScript code
+ * @param {Object} [options] - { folder_id?, script? } - script: Python/python-pptx code
  * @returns {Promise<Object>}
  */
 async function pptCreate(projectId, title, spec = {}, options = {}) {
   try {
     let result;
     if (options.script && typeof options.script === 'string') {
-      result = await documentGenerator.generatePptFromScript(options.script);
+      result = await documentGenerator.generatePptFromPythonScript(options.script);
     } else {
       result = await documentGenerator.generatePpt(spec);
     }

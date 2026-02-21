@@ -44,22 +44,14 @@ export default function AnnotationToolbar({
           <button
             key={tool.type}
             onClick={() => onToolSelect(activeTool === tool.type ? null : tool.type)}
-            className="p-2 rounded-md transition-colors"
+            className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors duration-200 cursor-pointer hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{
               background: activeTool === tool.type ? 'var(--bg-secondary)' : 'transparent',
-              color: activeTool === tool.type ? 'var(--accent)' : 'var(--secondary)',
-            }}
-            onMouseEnter={(e) => {
-              if (activeTool !== tool.type) {
-                e.currentTarget.style.background = 'var(--bg-secondary)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (activeTool !== tool.type) {
-                e.currentTarget.style.background = 'transparent';
-              }
+              color: activeTool === tool.type ? 'var(--accent)' : 'var(--secondary-text)',
             }}
             title={tool.label}
+            aria-label={tool.label}
+            aria-pressed={activeTool === tool.type}
           >
             {tool.icon}
           </button>
@@ -75,13 +67,15 @@ export default function AnnotationToolbar({
             <button
               key={c}
               onClick={() => onColorChange(c)}
-              className="w-6 h-6 rounded border-2 transition-all"
+              className="min-w-[44px] min-h-[44px] w-8 h-8 flex items-center justify-center rounded border-2 transition-colors duration-200 cursor-pointer hover:border-[var(--accent)]/70 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{
                 background: c,
                 borderColor: color === c ? 'var(--accent)' : 'var(--border)',
-                transform: color === c ? 'scale(1.1)' : 'scale(1)',
+                borderWidth: color === c ? 3 : 2,
               }}
               title={c}
+              aria-label={`Select color ${c}`}
+              aria-pressed={color === c}
             />
           ))}
         </div>

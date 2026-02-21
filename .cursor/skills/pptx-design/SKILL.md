@@ -1,56 +1,68 @@
 ---
 name: pptx-design
-description: "PowerPoint/PPTX design for Dome. Use when creating ppt_create with script (PptxGenJS) or spec. Palettes, typography, layouts, PptxGenJS tutorial. Script must call pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })."
+description: "PowerPoint/PPTX design for Dome. Use when creating ppt_create with script (Python/python-pptx) or spec. Palettes, typography, layouts. Script must call prs.save(os.environ['PPTX_OUTPUT_PATH'])."
 ---
 
 # PPTX Design Skill
 
-Guías de diseño para presentaciones en Dome. Para slides tematizadas, usa `ppt_create` con `script` (código PptxGenJS).
+Guías de diseño para presentaciones en Dome. Para slides tematizadas, usa `ppt_create` con `script` (código Python / python-pptx).
 
-## PptxGenJS — Requisito obligatorio
+## Python/python-pptx — Requisito obligatorio
 
 El script debe terminar con:
-```javascript
-pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });
+```python
+prs.save(os.environ['PPTX_OUTPUT_PATH'])
 ```
 
-## PptxGenJS — Básico
+## Python — Básico
 
-```javascript
-const PptxGenJS = require('pptxgenjs');
-const pres = new PptxGenJS();
-pres.layout = 'LAYOUT_16x9';
-pres.title = 'Título';
+```python
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
+import os
 
-// Slide
-const s = pres.addSlide();
-s.background = { color: '0D1B2A' };
-s.addText('Título', { x: 0.5, y: 0.5, w: 9, fontSize: 36, bold: true, color: 'FFFFFF' });
+prs = Presentation()
+prs.slide_width = Inches(10)
+prs.slide_height = Inches(5.625)
 
-// Al final (OBLIGATORIO)
-pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });
+def rgb(h):
+    h = h.lstrip('#')
+    return RGBColor(int(h[0:2],16), int(h[2:4],16), int(h[4:6],16))
+
+slide = prs.slides.add_slide(prs.slide_layouts[6])
+slide.background.fill.solid()
+slide.background.fill.fore_color.rgb = rgb('0D1B2A')
+tb = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(9), Inches(1))
+tf = tb.text_frame
+p = tf.paragraphs[0]
+r = p.add_run()
+r.text = 'Título'
+r.font.size = Pt(36)
+r.font.bold = True
+
+# Al final (OBLIGATORIO)
+prs.save(os.environ['PPTX_OUTPUT_PATH'])
 ```
 
 ## Colores
 
 - Hex **sin** "#": `"FF0000"`, `"1E2761"`
-- PptxGenJS no acepta "#" en colores
+- Usar helper `rgb('1E2761')` para RGBColor en python-pptx
 
 ## Bullets
 
-```javascript
-slide.addText([
-  { text: 'Item 1', options: { bullet: true, breakLine: true } },
-  { text: 'Item 2', options: { bullet: true } }
-], { x: 0.5, y: 1, w: 8, h: 3 });
+```python
+add_bullets(slide, ['Item 1', 'Item 2', 'Item 3'], 0.5, 1, 8, 3)
 ```
 
-Nunca usar "•" como carácter; usar `bullet: true`.
+Prepend `"• "` manualmente o usar helper add_bullets del ppt-context.
 
 ## Shapes
 
-```javascript
-slide.addShape(pres.shapes.RECTANGLE, { x: 1, y: 1, w: 3, h: 2, fill: { color: '1E2761' } });
+```python
+slide.shapes.add_shape(1, Inches(1), Inches(1), Inches(3), Inches(2))
+# Rectángulo = 1, Oval = 9
 ```
 
 ## Paletas (hex sin #)
@@ -62,9 +74,26 @@ slide.addShape(pres.shapes.RECTANGLE, { x: 1, y: 1, w: 3, h: 2, fill: { color: '
 | Ocean Gradient | 065A82 | 21295C |
 | Coral Energy | F96167 | 2F3C7E |
 
+## Imágenes desde URL
+
+python-pptx no acepta URLs. Usar helper con urllib:
+
+```python
+from urllib.request import urlopen
+from io import BytesIO
+
+def add_picture_from_url(slide, url, x, y, w, h):
+    data = BytesIO(urlopen(url).read())
+    slide.shapes.add_picture(data, Inches(x), Inches(y), Inches(w), Inches(h))
+
+# Picsum (como en posts): https://picsum.photos/seed/{seed}/{width}/{height}
+add_picture_from_url(slide, 'https://picsum.photos/seed/tech-architecture/400/300', 5.5, 1.0, 4.0, 3.0)
+```
+
 ## Reglas
 
-- Contraste WCAG AA
+- Cada slide con contenido REAL del documento — nunca placeholders ni slides vacías
+- Contraste WCAG AA: fondo oscuro → texto claro (FFFFFF, E0E1DD); fondo claro → texto oscuro (1E2761, 2D3748). Nunca texto oscuro sobre fondo oscuro.
 - Una idea por slide
 - Máx 5-7 bullets
 - Sin líneas bajo títulos

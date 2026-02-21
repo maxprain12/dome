@@ -32,6 +32,39 @@ interface AgentChatViewProps {
   agentId: string;
 }
 
+const THINKING_LABELS = [
+  'Analizando solicitud...',
+  'Buscando información...',
+  'Consultando fuentes...',
+  'Procesando datos...',
+  'Preparando respuesta...',
+  'Trabajando en ello...',
+];
+
+const TOOL_LABELS: Record<string, string> = {
+  ppt_create: 'Creando presentación...',
+  ppt_get_slides: 'Leyendo diapositivas...',
+  ppt_export: 'Exportando presentación...',
+  resource_get: 'Leyendo documento...',
+  resource_list: 'Listando recursos...',
+  resource_search: 'Buscando recursos...',
+  resource_semantic_search: 'Búsqueda semántica...',
+  resource_create: 'Creando recurso...',
+  resource_update: 'Actualizando recurso...',
+  get_library_overview: 'Explorando biblioteca...',
+  web_search: 'Buscando en la web...',
+  web_fetch: 'Leyendo página web...',
+  deep_research: 'Investigando en profundidad...',
+  excel_get: 'Leyendo hoja de cálculo...',
+  excel_create: 'Creando hoja de cálculo...',
+  notebook_get: 'Leyendo notebook...',
+  notebook_add_cell: 'Añadiendo celda...',
+  call_data_agent: 'Agente de datos trabajando...',
+  call_writer_agent: 'Agente escritor trabajando...',
+  call_research_agent: 'Agente de investigación trabajando...',
+  call_library_agent: 'Agente de biblioteca trabajando...',
+};
+
 export default function AgentChatView({ agentId }: AgentChatViewProps) {
   const [agent, setAgent] = useState<ManyAgent | null>(null);
   const [input, setInput] = useState('');
@@ -43,6 +76,7 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
   const [supportsTools, setSupportsTools] = useState(false);
   const [disabledMcpIds, setDisabledMcpIds] = useState<Set<string>>(new Set());
   const [disabledToolIds, setDisabledToolIds] = useState<Set<string>>(new Set());
+  const thinkingLabelIdxRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -141,6 +175,19 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
     return prompt;
   }, [agent]);
 
+  // Rotate the streaming label every 3s while waiting (before any tools appear)
+  useEffect(() => {
+    if (!isLoading) return;
+    const interval = setInterval(() => {
+      setStreamingMessage((prev) => {
+        if (!prev || !prev.isStreaming || (prev.toolCalls && prev.toolCalls.length > 0)) return prev;
+        thinkingLabelIdxRef.current = (thinkingLabelIdxRef.current + 1) % THINKING_LABELS.length;
+        return { ...prev, streamingLabel: THINKING_LABELS[thinkingLabelIdxRef.current] };
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
   const hasLangGraph =
     typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
   const hasMcpForAgent =
@@ -172,6 +219,7 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
     if (!userMessage || isLoading || isSubmittingRef.current || !agent) return;
 
     isSubmittingRef.current = true;
+    thinkingLabelIdxRef.current = 0;
     setInput('');
     setIsLoading(true);
     setStatus('thinking');
@@ -243,12 +291,15 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
               status: 'running',
             };
             toolCallsData.push(tc);
+            const friendlyLabel =
+              TOOL_LABELS[chunk.toolCall.name] ??
+              `${chunk.toolCall.name?.replace(/_/g, ' ')}...`;
             setStreamingMessage((prev) =>
               prev
                 ? {
                     ...prev,
                     toolCalls: [...toolCallsData],
-                    streamingLabel: `${chunk.toolCall.name?.replace(/_/g, ' ')}...`,
+                    streamingLabel: friendlyLabel,
                   }
                 : null
             );

@@ -762,7 +762,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'ppt_create',
-        description: 'Create a PowerPoint. Use script (PptxGenJS) for rich themed slides, or spec (JSON) for simple slides.',
+        description: 'Create a PowerPoint. Use script (Python/python-pptx) for rich themed slides, or spec (JSON) for simple slides. Script must populate every slide with real content from source documents.',
         parameters: {
           type: 'object',
           properties: {
@@ -771,7 +771,7 @@ function getAllToolDefinitions() {
             title: { type: 'string', description: 'Resource title' },
             script: {
               type: 'string',
-              description: 'PptxGenJS JavaScript code. Must require("pptxgenjs"), add slides, call pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH }). Use for themed, rich layouts.',
+              description: 'Python/python-pptx code. Must use from pptx import Presentation, add slides with add_text/add_bullets, call prs.save(os.environ[\'PPTX_OUTPUT_PATH\']). Populate every slide with real content from source documents. Use for themed, rich layouts.',
             },
             spec: {
               type: 'object',

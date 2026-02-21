@@ -3067,6 +3067,13 @@ a:hover {
   border-radius: var(--radius-md);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--bg-tertiary);
+  }
+}
+
 .skeleton-item {
   height: 52px;
   margin-bottom: 8px;

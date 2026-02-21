@@ -52,6 +52,7 @@ function registerAll(deps) {
     ttsService,
     vectorHandler,
     documentExtractor,
+    documentGenerator,
     docxConverter,
     authManager,
     personalityLoader,
@@ -74,7 +75,7 @@ function registerAll(deps) {
   tagsHandlers.register({ ipcMain, windowManager, database, validateSender });
   graphHandlers.register({ ipcMain, windowManager, database, validateSender });
   vectorHandlers.register({ ipcMain, windowManager, database, ollamaService, initModule, fileStorage, documentExtractor });
-  resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, docxConverter, initModule, ollamaService });
+  resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService });
   storageHandlers.register({ ipcMain, windowManager, database, fileStorage });
   filesHandlers.register({ ipcMain, app, windowManager, sanitizePath });
   migrationHandlers.register({ ipcMain, fs, windowManager, database, fileStorage, thumbnail });

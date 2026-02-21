@@ -9,7 +9,7 @@ function generateId() {
   return crypto.randomUUID();
 }
 
-function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, docxConverter, initModule, ollamaService }) {
+function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService }) {
   const indexerDeps = initModule && ollamaService ? { database, initModule, ollamaService } : null;
   /**
    * Import a file: copy to internal storage and create resource
@@ -364,6 +364,43 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       return { success: false, error: 'File not found' };
     } catch (error) {
       console.error('[Resource] Error reading file:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Extract one image per slide from a PPTX resource (LibreOffice + pdf2image).
+   */
+  ipcMain.handle('resource:extractPptImages', async (event, resourceId) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    if (!documentGenerator) {
+      return { success: false, error: 'Document generator not available' };
+    }
+
+    try {
+      const queries = database.getQueries();
+      const resource = queries.getResourceById.get(resourceId);
+
+      if (!resource) {
+        return { success: false, error: 'Resource not found' };
+      }
+
+      if (!resource.internal_path) {
+        return { success: false, error: 'No internal file path' };
+      }
+
+      const fullPath = fileStorage.getFullPath(resource.internal_path);
+      if (!fs.existsSync(fullPath)) {
+        return { success: false, error: 'File not found on disk' };
+      }
+
+      const result = await documentGenerator.extractPptImages(fullPath);
+      return result;
+    } catch (error) {
+      console.error('[Resource] Error extracting PPT images:', error);
       return { success: false, error: error.message };
     }
   });

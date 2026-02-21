@@ -15,21 +15,25 @@ interface SlideThumbnailStripProps {
   slideCount: number;
   activeIndex: number;
   onSelect: (index: number) => void;
-  /** Cloned HTMLElement[] from PptViewer, one per slide. Used for real previews. */
+  /** Cloned HTMLElement[] from PptViewer (legacy pptx-preview). */
   thumbnailElements?: HTMLElement[];
+  /** Data URLs for each slide (from Python image extraction). */
+  thumbnailImageUrls?: string[];
   collapsed?: boolean;
   onToggleCollapsed?: () => void;
 }
 
-// One thumbnail cell — appends the real slide element (scaled) or shows a placeholder
+// One thumbnail cell — shows image URL or mounted element, or placeholder
 function ThumbnailCell({
   index,
   isActive,
   element,
+  imageUrl,
 }: {
   index: number;
   isActive: boolean;
   element?: HTMLElement;
+  imageUrl?: string;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
 
@@ -43,6 +47,56 @@ function ThumbnailCell({
   }, [element]);
 
   const thumbScale = THUMB_W / SLIDE_W;
+
+  // Image-based thumbnail (from Python extraction)
+  if (imageUrl) {
+    return (
+      <div
+        style={{
+          width: THUMB_W,
+          height: THUMB_H,
+          overflow: 'hidden',
+          position: 'relative',
+          background: '#fff',
+          flexShrink: 0,
+        }}
+      >
+        <img
+          src={imageUrl}
+          alt={`Slide ${index + 1}`}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            display: 'block',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 3,
+            right: 4,
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(3px)',
+            borderRadius: 3,
+            padding: '1px 5px',
+            zIndex: 2,
+          }}
+        >
+          <span
+            style={{
+              color: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.6)',
+              fontSize: 9,
+              fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {index + 1}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   if (element) {
     return (
@@ -158,6 +212,7 @@ function SlideThumbnailStripComponent({
   activeIndex,
   onSelect,
   thumbnailElements,
+  thumbnailImageUrls,
   collapsed = false,
   onToggleCollapsed,
 }: SlideThumbnailStripProps) {
@@ -312,6 +367,7 @@ function SlideThumbnailStripComponent({
                     index={i}
                     isActive={isActive}
                     element={thumbnailElements?.[i]}
+                    imageUrl={thumbnailImageUrls?.[i]}
                   />
                 </div>
               )}

@@ -446,9 +446,34 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const opts = { ...(options || {}) };
       if (script || opts.script) opts.script = script || opts.script;
-      const result = await aiToolsHandler.pptCreate(projectId, title, spec || {}, opts);
-      toolTrace('pptCreate', { title }, result);
-      return result;
+      const displayTitle = title || 'Sin título';
+
+      // Fire-and-forget: run in background, return immediately so the agent can move on
+      aiToolsHandler.pptCreate(projectId, title, spec || {}, opts).then((result) => {
+        toolTrace('pptCreate', { title }, result);
+        if (result.success && result.resource) {
+          // resource:created is already broadcast inside pptCreate; add the PPT-specific notification
+          windowManager.broadcast('ppt:created', { resource: result.resource, title: displayTitle });
+        } else {
+          windowManager.broadcast('ppt:creation-failed', {
+            title: displayTitle,
+            error: result.error || 'Error desconocido',
+          });
+        }
+      }).catch((error) => {
+        toolTrace('pptCreate', { title }, null, error);
+        windowManager.broadcast('ppt:creation-failed', {
+          title: displayTitle,
+          error: error.message || 'Error desconocido',
+        });
+      });
+
+      return {
+        success: true,
+        status: 'generating',
+        title: displayTitle,
+        message: `La presentación "${displayTitle}" se está creando en segundo plano. Puedes seguir trabajando — recibirás una notificación cuando esté lista.`,
+      };
     } catch (error) {
       toolTrace('pptCreate', { title }, null, error);
       return { success: false, error: error.message };

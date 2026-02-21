@@ -394,6 +394,11 @@ declare global {
           filename?: string;
           error?: string;
         }>;
+        extractPptImages: (resourceId: string) => Promise<{
+          success: boolean;
+          slides?: Array<{ index: number; image_base64: string }>;
+          error?: string;
+        }>;
         writeExcelContent: (resourceId: string, data: string) => Promise<{
           success: boolean;
           error?: string;

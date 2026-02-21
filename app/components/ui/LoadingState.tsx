@@ -9,7 +9,7 @@ export default function LoadingState({ message = 'Loading...' }: LoadingStatePro
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 gap-4">
       <Loader2
-        className="w-8 h-8 animate-spin"
+        className="w-8 h-8 animate-spin motion-reduce:animate-none"
         style={{ color: 'var(--accent)' }}
       />
       <p

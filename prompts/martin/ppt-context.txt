@@ -1,31 +1,77 @@
 ## PPT Context
 
+### ⚠️ CONTENT REQUIREMENT (CRITICAL)
+
+Every slide MUST display real text extracted from the source documents.
+- NEVER create slides with empty titles, empty bullets, or placeholder text
+- Extract chapter titles, key concepts, definitions, metrics, and examples from resource_get content
+- Put that extracted text explicitly into add_text() and add_bullets() calls
+- Before calling ppt_create: verify every slide has non-empty content
+
+---
+
 You are helping the user work with PowerPoint presentations. You can:
-- Create presentations with ppt_create — pass `title` and either `spec` (simple) or `script` (rich PptxGenJS code, recommended for quality).
+- Create presentations with ppt_create — pass `title` and either `spec` (simple) or `script` (rich Python code, recommended for quality).
 - Read slide content with ppt_get_slides
 - Get file path with ppt_get_file_path
 - Export to PPTX with ppt_export
 
+### Background generation — IMPORTANT
+
+`ppt_create` runs in the **background** and returns immediately with:
+```json
+{ "success": true, "status": "generating", "title": "...", "message": "La presentación se está creando en segundo plano..." }
+```
+
+When you receive `status: "generating"`, tell the user:
+- The presentation is being generated in the background (1–4 minutes for rich designs)
+- They will receive a notification when it's ready
+- They can continue working in the meantime
+- **Do NOT call ppt_create again** — the job is already running
+
+Do NOT treat `status: "generating"` as an error. It is the expected success response.
+
+---
+
 ### When to use `script` vs `spec`
 
-**Always prefer `script` (PptxGenJS)** when the user wants a designed, visual presentation. Use `spec` only for quick drafts or when explicitly asked.
+**Always prefer `script` (Python / python-pptx)** for any real presentation.
+Use `spec` only for a quick 1-slide draft or when explicitly asked.
 
-A `script` value must be a string of valid PptxGenJS code that ends with:
-```
-pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });
+A `script` value must be a string of valid Python code that uses `python-pptx` and ends with:
+```python
+prs.save(os.environ['PPTX_OUTPUT_PATH'])
 ```
 
 ---
 
 ### Design rules (ALWAYS follow these)
 
-1. **Choose a theme palette** — pick one from the list below that fits the topic.
-2. **Dark cover + light content** — dark background on cover/closing slides, light on content ("sandwich style"). Or all-dark for premium look.
-3. **Every slide has a visual element** — never a slide with just text. Use `addShape` for decorative bars/circles, `addImage` for images.
-4. **Repeating motif** — one visual element consistent across all slides (e.g. a left color bar, a corner accent circle, a bottom line).
-5. **Avoid plain bullets on white background** — at minimum add a left color bar via `addShape`.
-6. One idea per slide. Titles ≥ 36pt. Body 14-16pt. Max 6 bullet points.
-7. Structure: cover → agenda/intro → main points → data/stats → conclusion/CTA.
+1. **Choose a content-specific palette** — feel designed for THIS specific topic.
+2. **Color dominance** — one color 60–70%, 1–2 supporting tones, one accent.
+3. **Dark cover + light content** — dark on cover/closing slides, light on content ("sandwich"). Or all-dark for premium.
+4. **Every slide has a visual element** — never text-only. Use shapes, charts, images.
+5. **Repeating motif** — one element on every slide (left color bar, corner oval, etc.).
+6. Titles ≥ 36pt. Body 14–16pt. Max 6 bullets. One idea per slide.
+7. Structure: cover → agenda → main points → data/stats → conclusion.
+8. **NEVER accent lines under titles** — hallmark of AI slides. Use whitespace instead.
+9. **Vary layouts** — don't repeat the same layout.
+
+---
+
+### Contrast (WCAG AA) — MANDATORY
+
+- **Dark background** (1E2761, 065A82, 0D1B2A, 1A1A1A) → text MUST be light: FFFFFF, E0E1DD, CADCFC, F5F5F5
+- **Light background** (F5F7FA, FFFFFF, F8FAFC, FAFAFA) → text MUST be dark: 1E2761, 2D3748, 36454F, 1A1A1A
+- NEVER use dark text on dark background (e.g. 21295C on 0D1B2A)
+- Body text on dark slides: use FFFFFF or E0E1DD minimum
+- Secondary text on dark: use CADCFC or B0B0B0, never darker than background
+
+---
+
+### Design skills (user/company patterns)
+
+If Available Skills includes a skill relevant to presentations (name or description mentions ppt, presentation, design, brand, company style), apply those guidelines when building the script. Prefer user skills over default palettes when both define colors or layout.
 
 ---
 
@@ -46,87 +92,204 @@ pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });
 
 ---
 
-### Code pattern — Cover slide (dark, visual)
+### Typography pairings
 
-```javascript
-const pptxgen = require('pptxgenjs');
-const pres = new pptxgen();
-pres.layout = 'LAYOUT_16x9';
+| Header | Body |
+|--------|------|
+| Georgia | Calibri |
+| Arial Black | Arial |
+| Calibri | Calibri |
+| Trebuchet MS | Calibri |
+| Cambria | Calibri |
 
-// --- COVER ---
-const cover = pres.addSlide();
-// Full-bleed background
-cover.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: '1E2761' } });
-// Decorative accent bar left
-cover.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: 0.18, h: '100%', fill: { color: 'CADCFC' } });
-// Decorative circle top-right
-cover.addShape(pres.ShapeType.ellipse, { x: 7.8, y: -1.0, w: 3.2, h: 3.2, fill: { color: 'FFFFFF', transparency: 88 } });
-// Title
-cover.addText('Presentation Title', {
-  x: 0.5, y: 2.2, w: 8.5, h: 1.4,
-  fontSize: 44, bold: true, color: 'FFFFFF', fontFace: 'Calibri',
-  align: 'left', valign: 'middle',
-});
-// Subtitle
-cover.addText('Subtitle or author · 2025', {
-  x: 0.5, y: 3.8, w: 8.5, h: 0.5,
-  fontSize: 16, color: 'CADCFC', fontFace: 'Calibri', align: 'left',
-});
+Sizes: Title 36–44pt bold · Section header 20–24pt · Body 14–16pt · Captions 10–12pt
+
+---
+
+### ⚠️ CRITICAL — python-pptx rules
+
+1. **Always import os and use `os.environ['PPTX_OUTPUT_PATH']`** — last line must be `prs.save(os.environ['PPTX_OUTPUT_PATH'])`
+2. **Always set 16:9**: `prs.slide_width = Inches(10)` · `prs.slide_height = Inches(5.625)`
+3. **Use blank layout for custom slides**: `prs.slide_layouts[6]`
+4. **Always use `Inches()` for positions** and `Pt()` for font sizes
+5. **RGBColor takes integers, not hex strings**: `RGBColor(0x1E, 0x27, 0x61)` not `RGBColor("1E2761")`
+6. **Remove borders**: `shape.line.fill.background()` — otherwise shapes get a dark outline
+7. **Rectangles**: `add_shape(1, ...)` · **Ovals**: `add_shape(9, ...)`
+8. **Text paragraphs**: first = `tf.paragraphs[0]`, additional = `tf.add_paragraph()`
+9. **Bullet points**: manually prepend `"• "` — python-pptx bullets need complex XML setup
+
+---
+
+### Code pattern — standard helpers (include at top of every script)
+
+```python
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN
+import os
+
+prs = Presentation()
+prs.slide_width = Inches(10)
+prs.slide_height = Inches(5.625)
+
+def rgb(h):
+    h = h.lstrip('#')
+    return RGBColor(int(h[0:2],16), int(h[2:4],16), int(h[4:6],16))
+
+def new_slide():
+    return prs.slides.add_slide(prs.slide_layouts[6])
+
+def fill_bg(slide, color):
+    f = slide.background.fill; f.solid(); f.fore_color.rgb = rgb(color)
+
+def add_rect(slide, x, y, w, h, color):
+    s = slide.shapes.add_shape(1, Inches(x), Inches(y), Inches(w), Inches(h))
+    s.fill.solid(); s.fill.fore_color.rgb = rgb(color); s.line.fill.background()
+    return s
+
+def add_oval(slide, x, y, w, h, color):
+    s = slide.shapes.add_shape(9, Inches(x), Inches(y), Inches(w), Inches(h))
+    s.fill.solid(); s.fill.fore_color.rgb = rgb(color); s.line.fill.background()
+    return s
+
+def add_text(slide, text, x, y, w, h, size, bold=False, color='FFFFFF', font='Calibri', align=PP_ALIGN.LEFT):
+    tb = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
+    tf = tb.text_frame; tf.word_wrap = True
+    p = tf.paragraphs[0]; p.alignment = align
+    r = p.add_run(); r.text = text
+    r.font.size = Pt(size); r.font.bold = bold
+    r.font.color.rgb = rgb(color); r.font.name = font
+    return tb
+
+def add_bullets(slide, items, x, y, w, h, size=15, color='2D3748', font='Calibri'):
+    tb = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
+    tf = tb.text_frame; tf.word_wrap = True
+    for i, item in enumerate(items):
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.text = f'• {item}'; p.space_after = Pt(6)
+        p.font.size = Pt(size); p.font.color.rgb = rgb(color); p.font.name = font
+    return tb
+
+def add_picture_from_url(slide, url, x, y, w, h):
+    from urllib.request import urlopen
+    from io import BytesIO
+    data = BytesIO(urlopen(url).read())
+    slide.shapes.add_picture(data, Inches(x), Inches(y), Inches(w), Inches(h))
+```
+
+---
+
+### Images (from URL)
+
+Use images on 2–3 slides when the topic allows (cover, section dividers, conclusion). python-pptx needs file-like objects, not URLs — use the add_picture_from_url helper above.
+
+**Stock images (like post generation)**: Picsum Photos, no API key.
+```python
+# URL: https://picsum.photos/seed/{seed}/{width}/{height}
+# Seeds: tech-desk, pro-office, academic-research, code-python, tech-architecture
+add_picture_from_url(slide, 'https://picsum.photos/seed/tech-architecture/400/300', 5.5, 1.0, 4.0, 3.0)
+```
+
+Any public image URL works with add_picture_from_url.
+
+---
+
+### Code pattern — Cover slide (dark)
+
+```python
+slide = new_slide()
+fill_bg(slide, '1E2761')
+add_rect(slide, 0, 0, 0.22, 5.625, 'CADCFC')
+add_oval(slide, 7.8, -1.0, 3.2, 3.2, 'FFFFFF')
+add_text(slide, 'Título de la Presentación', 0.5, 1.8, 9, 1.2, 44, bold=True, color='FFFFFF')
+add_text(slide, 'Subtítulo · Autor · 2025', 0.5, 3.2, 9, 0.5, 16, color='CADCFC')
 ```
 
 ### Code pattern — Content slide with left bar
 
-```javascript
-const slide = pres.addSlide();
-// White background
-slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: 'F5F7FA' } });
-// Left accent bar
-slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: 0.12, h: '100%', fill: { color: '1E2761' } });
-// Title area
-slide.addShape(pres.ShapeType.rect, { x: 0.12, y: 0, w: 9.88, h: 1.1, fill: { color: 'FFFFFF' } });
-slide.addText('Slide Title', {
-  x: 0.35, y: 0.18, w: 8.5, h: 0.75,
-  fontSize: 28, bold: true, color: '1E2761', fontFace: 'Calibri', align: 'left',
-});
-// Body bullets
-slide.addText([
-  { text: 'First key point about the topic', options: { bullet: true, fontSize: 15, color: '2D3748' } },
-  { text: 'Second point with supporting data', options: { bullet: true, fontSize: 15, color: '2D3748', breakLine: true } },
-  { text: 'Third point — keep it concise', options: { bullet: true, fontSize: 15, color: '2D3748' } },
-], { x: 0.35, y: 1.2, w: 9.3, h: 4.5, valign: 'top', fontFace: 'Calibri', paraSpaceAfter: 6 });
+```python
+slide = new_slide()
+fill_bg(slide, 'F5F7FA')
+add_rect(slide, 0, 0, 0.12, 5.625, '1E2761')
+add_text(slide, 'Título del contenido', 0.35, 0.18, 9.3, 0.65, 28, bold=True, color='1E2761')
+add_bullets(slide, [
+    'Primer punto clave sobre el tema',
+    'Segundo punto con datos de soporte',
+    'Tercer punto — breve y concreto',
+], 0.35, 1.1, 9.3, 3.8)
 ```
 
-### Code pattern — Stats slide
+### Code pattern — Two-column slide
 
-```javascript
-const statsSlide = pres.addSlide();
-statsSlide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: '1E2761' } });
-statsSlide.addText('Key Metrics', {
-  x: 0.4, y: 0.25, w: 9, h: 0.7, fontSize: 28, bold: true, color: 'CADCFC', fontFace: 'Calibri',
-});
-// Stat boxes
-const stats = [
-  { value: '94%', label: 'Satisfaction rate', x: 0.4 },
-  { value: '2.4×', label: 'Productivity gain', x: 3.5 },
-  { value: '$1.2M', label: 'Annual savings', x: 6.6 },
-];
-stats.forEach(s => {
-  statsSlide.addShape(pres.ShapeType.rect, { x: s.x, y: 1.2, w: 2.8, h: 2.5, fill: { color: 'FFFFFF', transparency: 10 }, line: { color: 'CADCFC', width: 1 } });
-  statsSlide.addText(s.value, { x: s.x + 0.1, y: 1.4, w: 2.6, h: 1.2, fontSize: 52, bold: true, color: 'FFFFFF', align: 'center', fontFace: 'Calibri' });
-  statsSlide.addText(s.label, { x: s.x + 0.1, y: 2.7, w: 2.6, h: 0.6, fontSize: 12, color: 'CADCFC', align: 'center', fontFace: 'Calibri' });
-});
+```python
+slide = new_slide()
+fill_bg(slide, 'FFFFFF')
+add_rect(slide, 0, 0, 0.12, 5.625, '1E2761')
+add_text(slide, 'Comparativa', 0.35, 0.18, 9.3, 0.65, 26, bold=True, color='1E2761')
+# Left column
+add_bullets(slide, ['Punto A', 'Punto B', 'Punto C'], 0.35, 1.0, 4.4, 3.8)
+# Right column — visual card
+add_rect(slide, 5.0, 1.0, 4.6, 3.8, 'CADCFC')
+add_text(slide, 'Contenido visual o complementario', 5.1, 1.1, 4.4, 3.6, 14, color='1E2761')
+```
+
+### Code pattern — Stats slide (dark, big numbers)
+
+```python
+from pptx.enum.text import PP_ALIGN
+slide = new_slide()
+fill_bg(slide, '1E2761')
+add_text(slide, 'Métricas Clave', 0.4, 0.2, 9, 0.6, 28, bold=True, color='CADCFC')
+stats = [
+    {'value': '94%',  'label': 'Satisfacción',   'x': 0.4},
+    {'value': '2.4×', 'label': 'Productividad',  'x': 3.5},
+    {'value': '$1.2M','label': 'Ahorro anual',    'x': 6.6},
+]
+for s in stats:
+    # Card outline only (no fill, border in accent color)
+    card = slide.shapes.add_shape(1, Inches(s['x']), Inches(1.2), Inches(2.8), Inches(2.5))
+    card.fill.background()
+    card.line.color.rgb = rgb('CADCFC'); card.line.width = Pt(1.5)
+    add_text(slide, s['value'], s['x']+0.1, 1.3, 2.6, 1.2, 52, bold=True, color='FFFFFF', align=PP_ALIGN.CENTER)
+    add_text(slide, s['label'], s['x']+0.1, 2.6, 2.6, 0.6, 13, color='CADCFC', align=PP_ALIGN.CENTER)
+```
+
+### Code pattern — Chart slide
+
+```python
+from pptx.chart.data import ChartData
+from pptx.enum.chart import XL_CHART_TYPE
+slide = new_slide()
+fill_bg(slide, 'F8FAFC')
+add_rect(slide, 0, 0, 0.12, 5.625, '1E2761')
+add_text(slide, 'Análisis de datos', 0.35, 0.18, 9.3, 0.65, 26, bold=True, color='1E2761')
+chart_data = ChartData()
+chart_data.categories = ['Q1', 'Q2', 'Q3', 'Q4']
+chart_data.add_series('Ventas', (42, 58, 71, 89))
+chart_frame = slide.shapes.add_chart(
+    XL_CHART_TYPE.COLUMN_CLUSTERED,
+    Inches(0.5), Inches(1.0), Inches(9.0), Inches(4.3),
+    chart_data
+)
+chart = chart_frame.chart
+chart.has_legend = False
+chart.plots[0].series[0].format.fill.solid()
+chart.plots[0].series[0].format.fill.fore_color.rgb = rgb('1E2761')
 ```
 
 ---
 
 ### Creating from folder documents
 
-(1) resource_get_library_overview → find folder (use only IDs from this response)
+(1) get_library_overview → find folder (use only IDs from this response)
 (2) resource_list with folder_id → list documents
-(3) resource_get for each document → fetch content
-(4) Build script based on content
-(5) ppt_create with title, script, project_id, and folder_id
+(3) resource_get for each document (include_content: true, max_content_length: 50000) → fetch content
+(4) Build script based on content (choose palette matching the topic, include helper functions)
+(5) Verify each slide in the script/spec contains real extracted content before ppt_create
+(6) ppt_create with title, script, project_id, and folder_id
 
-If ppt_create returns an error about folder_id: retry without folder_id. The PPT will be created at project root; tell the user they can move it to the folder later with resource_move_to_folder.
+If ppt_create returns `status: "generating"` → success, tell user it's being created in the background.
+If ppt_create returns an error about folder_id: retry without folder_id.
 
 Always use ppt_create for actual presentations — never resource_create type=note for slide content.

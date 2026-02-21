@@ -19,9 +19,10 @@ const { executeToolInMain, getToolDefsBySubagent } = aiChatWithTools;
  * @param {Object} llm - LangChain chat model
  * @param {Function} executeFn - (toolName, args) => result
  * @param {Function} createLangChainTools - (defs, executeFn) => Promise<LangChain tools[]>
+ * @param {Function|null} onChunk - optional chunk emitter for real-time tool events
  * @returns {Promise<import('@langchain/core/tools').StructuredTool>}
  */
-async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTools) {
+async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTools, onChunk) {
   const { tool } = await import('@langchain/core/tools');
   const zodMod = await import('zod');
   const z = zodMod.z ?? zodMod.default ?? zodMod;
@@ -32,7 +33,27 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
     throw new Error(`No tool definitions for subagent: ${agentName}`);
   }
 
-  const subagentTools = await createLangChainTools(toolDefs, executeFn);
+  // Wrap executeFn to emit real-time tool_call / tool_result events
+  let rtCounter = 0;
+  const wrappedExecuteFn = onChunk
+    ? async (name, args) => {
+        const id = `sub_${agentName}_${name}_${++rtCounter}_${Date.now()}`;
+        onChunk({
+          type: 'tool_call',
+          toolCall: {
+            id,
+            name,
+            arguments: typeof args === 'string' ? args : JSON.stringify(args || {}),
+          },
+        });
+        const result = await executeFn(name, args);
+        const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
+        onChunk({ type: 'tool_result', toolCallId: id, result: resultStr });
+        return result;
+      }
+    : executeFn;
+
+  const subagentTools = await createLangChainTools(toolDefs, wrappedExecuteFn);
   const subagent = createAgent({ model: llm, tools: subagentTools });
 
   const descriptions = {
@@ -52,17 +73,24 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
     data: `You are the data subagent. You handle Excel and PowerPoint.
 For PowerPoint: ALWAYS use ppt_create to create real .pptx files. NEVER use resource_create (writer's tool) for presentations—that creates notes/documents, not PPTs.
 
-PREFER ppt_create with script (PptxGenJS) for rich, themed presentations. Generate full JavaScript code that:
-- Uses: const PptxGenJS = require('pptxgenjs'); const pres = new PptxGenJS();
-- Sets pres.layout = 'LAYOUT_16x9'; pres.title = '...';
-- Adds slides with s.background, s.addText, s.addShape. Use hex colors WITHOUT # (e.g. "1E2761").
-- For bullets: addText([{ text: 'X', options: { bullet: true, breakLine: true } }], { x, y, w, h });
-- MUST end with: pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });
+⚠️ CONTENT REQUIREMENT (CRITICAL): Every slide MUST display real text extracted from the source documents.
+- NEVER create slides with empty titles, empty bullets, or placeholder text (e.g. "Título del contenido", "Point 1")
+- Extract chapter titles, key concepts, definitions, metrics, and examples from resource_get content
+- Put that extracted text explicitly into add_text() and add_bullets() calls in the script
+- Before calling ppt_create: verify every slide has non-empty content
+
+Contrast: dark bg → light text (FFFFFF, E0E1DD); light bg → dark text (1E2761, 2D3748). Never dark-on-dark.
+
+PREFER ppt_create with script (Python / python-pptx) for rich, themed presentations. Generate full Python code that:
+- Uses: from pptx import Presentation; from pptx.util import Inches, Pt; prs = Presentation()
+- Sets prs.slide_width = Inches(10); prs.slide_height = Inches(5.625)
+- Uses add_text(), add_bullets(), fill_bg(), add_rect() helpers. Hex colors WITHOUT # (e.g. "1E2761")
+- MUST end with: prs.save(os.environ['PPTX_OUTPUT_PATH'])
 Choose a palette (Midnight Executive, Forest & Moss, Ocean Gradient, etc.) matching the content.
 
-FALLBACK: If you cannot generate a script, use ppt_create with spec (title, theme, slides array).
+FALLBACK: If you cannot generate a script, use ppt_create with spec (title, theme, slides array with real bullets).
 
-PPT from folder: (1) get_library_overview; (2) resource_list with folder_id; (3) resource_get for each doc (include_content: true); (4) build script or spec from content; (5) ppt_create with title, script (or spec), project_id, folder_id. If folder_id causes error, retry without it.`,
+PPT from folder: (1) get_library_overview; (2) resource_list with folder_id; (3) resource_get for each doc (include_content: true, max_content_length: 50000); (4) build script or spec from content—put REAL extracted text into every slide; (5) verify each slide has non-empty content; (6) ppt_create with title, script (or spec), project_id, folder_id. If folder_id causes error, retry without it.`,
   };
 
   return tool(
@@ -102,15 +130,16 @@ PPT from folder: (1) get_library_overview; (2) resource_list with folder_id; (3)
  * Create all subagent-invocation tools for the main supervisor.
  * @param {Object} llm - LangChain chat model
  * @param {Function} createLangChainTools - (defs, executeFn) => Promise<tools[]>
+ * @param {Function|null} onChunk - optional chunk emitter for real-time tool events
  * @returns {Promise<Array>} LangChain tools the main agent can call
  */
-async function createSubagentTools(llm, createLangChainTools) {
+async function createSubagentTools(llm, createLangChainTools, onChunk) {
   const executeFn = (name, args) => executeToolInMain(name, args);
   const agents = ['research', 'library', 'writer', 'data'];
   const tools = [];
   for (const name of agents) {
     try {
-      const t = await createSubagentAsTool(name, llm, executeFn, createLangChainTools);
+      const t = await createSubagentAsTool(name, llm, executeFn, createLangChainTools, onChunk);
       tools.push(t);
     } catch (err) {
       console.warn(`[Subagents] Failed to create ${name} subagent:`, err?.message);

@@ -29,7 +29,7 @@ function ZoomControlsComponent({
       <button
         onClick={onZoomOut}
         disabled={isMinZoom}
-        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-tertiary)]"
+        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-tertiary)]"
         style={{
           color: 'var(--secondary-text)',
         }}
@@ -51,7 +51,7 @@ function ZoomControlsComponent({
       <button
         onClick={onZoomIn}
         disabled={isMaxZoom}
-        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-tertiary)]"
+        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-tertiary)]"
         style={{
           color: 'var(--secondary-text)',
         }}
@@ -63,7 +63,7 @@ function ZoomControlsComponent({
 
       <button
         onClick={onReset}
-        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 hover:bg-[var(--bg-tertiary)]"
+        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 hover:bg-[var(--bg-tertiary)]"
         style={{
           color: 'var(--secondary-text)',
         }}

@@ -98,6 +98,7 @@ const ALLOWED_CHANNELS = {
     'resource:getFilePath',
     'resource:readFile',
     'resource:readDocumentContent',
+    'resource:extractPptImages',
     'resource:writeExcelContent',
     'resource:saveDocxFromHtml',
     'resource:export',
@@ -331,6 +332,9 @@ const ALLOWED_CHANNELS = {
     'flashcard:deckCreated',
     'flashcard:deckUpdated',
     'flashcard:deckDeleted',
+    // PPT background generation events
+    'ppt:created',
+    'ppt:creation-failed',
   ],
 };
 
@@ -670,6 +674,10 @@ const electronHandler = {
     // Read document content as raw Base64 for renderer-side parsing (DOCX, XLSX, CSV)
     readDocumentContent: (resourceId) =>
       ipcRenderer.invoke('resource:readDocumentContent', resourceId),
+
+    // Extract one image per slide from PPTX (LibreOffice + pdf2image)
+    extractPptImages: (resourceId) =>
+      ipcRenderer.invoke('resource:extractPptImages', resourceId),
 
     writeExcelContent: (resourceId, data) =>
       ipcRenderer.invoke('resource:writeExcelContent', { resourceId, data }),
