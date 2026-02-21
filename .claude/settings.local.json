@@ -9,7 +9,9 @@
       "Bash(git restore:*)",
       "Bash(xargs:*)",
       "Bash(node -e:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(wc:*)",
+      "Bash(python3:*)"
     ]
   }
 }

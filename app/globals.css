@@ -3997,6 +3997,22 @@ a:hover {
   overflow: hidden;
 }
 
+/* Hide pptx-preview's built-in navigation arrows and pagination counter.
+   Dome provides its own navigation UI. */
+.pptx-preview-wrapper-next,
+.pptx-preview-wrapper-pagination {
+  display: none !important;
+}
+
+/* Default text color for slide content that has no explicit color in the
+   PPTX XML (theme-inherited). Updated per-presentation from the PPTX
+   theme's lt1 (Light 1) value. Falls back to white for the common
+   dark-background design. pptx-preview's inline style="color:…" (higher
+   specificity) still overrides this for explicitly colored text. */
+.pptx-preview-slide-wrapper {
+  color: var(--ppt-text-default, #ffffff);
+}
+
 /* Hide scrollbar in PPT thumbnail strip — scroll still works via wheel/trackpad */
 .ppt-thumb-scroll::-webkit-scrollbar {
   display: none;

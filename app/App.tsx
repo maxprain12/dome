@@ -22,6 +22,7 @@ import URLWorkspacePage from './pages/URLWorkspacePage';
 import YouTubeWorkspacePage from './pages/YouTubeWorkspacePage';
 import DocxWorkspacePage from './pages/DocxWorkspacePage';
 import PptWorkspacePage from './pages/PptWorkspacePage';
+import PptCapturePage from './pages/PptCapturePage';
 
 const HIDDEN_ROUTES = ['/settings', '/onboarding'];
 const MANY_PANEL_MIN = 320;
@@ -46,6 +47,11 @@ function getStoredWidth(): number {
 export default function App() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+
+  // Hidden capture route — render only the bare slide container, no app UI.
+  if (pathname === '/ppt-capture') {
+    return <PptCapturePage />;
+  }
   const { isOpen, toggleOpen } = useManyStore();
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);

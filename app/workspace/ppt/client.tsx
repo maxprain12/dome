@@ -28,7 +28,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
   const [slideCount, setSlideCount] = useState(0);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
   const [thumbStripCollapsed, setThumbStripCollapsed] = useState(false);
-  const [thumbnailUrls, setThumbnailUrls] = useState<string[]>([]);
+  const [thumbnailElements, setThumbnailElements] = useState<HTMLElement[]>([]);
 
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
@@ -44,8 +44,8 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
     setActiveSlideIndex(0);
   }, []);
 
-  const handleThumbnailUrlsReady = useCallback((urls: string[]) => {
-    setThumbnailUrls(urls);
+  const handleThumbnailElementsReady = useCallback((elements: HTMLElement[]) => {
+    setThumbnailElements(elements);
   }, []);
 
   const handleSelectSlide = useCallback((index: number) => {
@@ -181,7 +181,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
 
   if (loading) {
     return (
-      <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111118' }}>
+      <div className="flex flex-1 min-h-0 w-full items-center justify-center" style={{ backgroundColor: '#111118' }}>
         <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Loading presentation...</div>
       </div>
     );
@@ -189,7 +189,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
 
   if (error || !resource) {
     return (
-      <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, backgroundColor: 'var(--bg)' }}>
+      <div className="flex flex-1 min-h-0 w-full flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--bg)' }}>
         <div style={{ color: 'var(--error)' }}>{error || 'Presentation not found'}</div>
       </div>
     );
@@ -197,13 +197,9 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
 
   return (
     <div
-      className="flex flex-col"
+      className="flex flex-col min-h-0 w-full"
       style={{
-        position: 'fixed',
-        top: 'var(--app-header-total)',
-        left: 0,
-        right: 0,
-        bottom: 0,
+        flex: 1,
         backgroundColor: 'var(--bg)',
         overflow: 'hidden',
       }}
@@ -236,7 +232,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
                 slideCount={slideCount}
                 activeIndex={activeSlideIndex}
                 onSelect={handleSelectSlide}
-                thumbnailImageUrls={thumbnailUrls}
+                thumbnailElements={thumbnailElements}
                 collapsed={thumbStripCollapsed}
                 onToggleCollapsed={() => setThumbStripCollapsed((c) => !c)}
               />
@@ -249,7 +245,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
                   resource={resource}
                   activeIndex={activeSlideIndex}
                   onSlidesLoaded={handleSlidesLoaded}
-                  onThumbnailUrlsReady={handleThumbnailUrlsReady}
+                  onThumbnailElementsReady={handleThumbnailElementsReady}
                 />
 
                 {/* Navigation pill */}

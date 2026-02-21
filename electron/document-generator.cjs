@@ -14,6 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { app } = require('electron');
+const pptSlideExtractor = require('./ppt-slide-extractor.cjs');
 
 const PYTHON_EXEC_TIMEOUT_MS = 3 * 60 * 1000; // 3 min for Python spec-based generation
 
@@ -42,9 +43,6 @@ function getExtractPptScriptPath() {
   return path.join(__dirname, '..', 'scripts', 'document-generator', 'extract_ppt.py');
 }
 
-function getExtractPptImagesScriptPath() {
-  return path.join(__dirname, '..', 'scripts', 'document-generator', 'extract_ppt_images.py');
-}
 
 function getRequirementsPath() {
   return path.join(__dirname, '..', 'scripts', 'document-generator', 'requirements.txt');
@@ -535,50 +533,17 @@ async function extractPptSlides(pptxPath) {
 }
 
 /**
- * Extract one image per slide from a PPTX file (uses LibreOffice + pdf2image).
+ * Extract one PNG image per slide from a PPTX file.
+ *
+ * Uses an Electron-native hidden BrowserWindow with the bundled pptx-preview
+ * library. No external tools (LibreOffice, poppler) are required — everything
+ * runs inside the Electron/Chromium sandbox.
+ *
  * @param {string} pptxPath
  * @returns {Promise<{ success: boolean; slides?: Array<{ index: number; image_base64: string }>; error?: string }>}
  */
 async function extractPptImages(pptxPath) {
-  const scriptPath = getExtractPptImagesScriptPath();
-  if (!fs.existsSync(scriptPath)) return { success: false, error: 'extract_ppt_images.py not found' };
-  if (!fs.existsSync(pptxPath)) return { success: false, error: 'PPTX file not found' };
-
-  const venvOk = await ensureVenv();
-  if (!venvOk.success) return { success: false, error: venvOk.error };
-
-  const pythonInfo = await findPython();
-  if (!pythonInfo) return { success: false, error: 'Python not found for image extraction' };
-
-  return new Promise((resolve) => {
-    const proc = spawn(pythonInfo.path, [...(pythonInfo.runArgs || []), scriptPath, pptxPath], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env },
-    });
-
-    let stdout = '';
-    let stderr = '';
-    const timer = setTimeout(() => { proc.kill('SIGTERM'); resolve({ success: false, error: 'La extracción de imágenes ha tardado demasiado. Intente de nuevo.' }); }, 60000);
-
-    proc.stdout?.on('data', (c) => { stdout += c.toString(); });
-    proc.stderr?.on('data', (c) => { stderr += c.toString(); });
-
-    proc.on('close', (code) => {
-      clearTimeout(timer);
-      try {
-        const result = JSON.parse(stdout.trim() || '{}');
-        if (code !== 0 || !result.success) {
-          resolve({ success: false, error: result.error || stderr || stdout || `Exit code ${code}` });
-        } else {
-          resolve({ success: true, slides: result.slides || [] });
-        }
-      } catch {
-        resolve({ success: false, error: stderr || stdout || 'Failed to parse output' });
-      }
-    });
-
-    proc.on('error', (err) => { clearTimeout(timer); resolve({ success: false, error: err.message || 'Failed to spawn Python' }); });
-  });
+  return pptSlideExtractor.extractPptSlideImages(pptxPath);
 }
 
 // ---------------------------------------------------------------------------
