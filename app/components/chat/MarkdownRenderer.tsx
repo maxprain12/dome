@@ -11,6 +11,17 @@ import { useAppStore } from '@/lib/store/useAppStore';
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
+ * Preprocess content: convert [text](resource://ID) to dome://resource/ID/document
+ * resource:// is wrong; dome:// is the only supported protocol
+ */
+function preprocessResourceProtocol(content: string): string {
+  return content.replace(
+    /\[([^\]]*)\]\(\s*resource:\/\/([^/)\s?#]+)\s*\)/g,
+    (_, label, id) => `[${label}](dome://resource/${id}/document)`
+  );
+}
+
+/**
  * Preprocess content: convert [text](/resource/ID) or [text](/resource/ID/TYPE) to dome:// format
  * so they open workspace via handleClick instead of navigating.
  */
@@ -227,12 +238,20 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
                 }
               }
               if (!resolvedId) {
-                const r = await window.electron.db.resources.searchForMention(resolveSlug);
+                const altSlug = resolveSlug.replace(/^Ver:\s*/i, '').trim();
+                const searchSlug = altSlug || resolveSlug;
+                const r = await window.electron.db.resources.searchForMention(searchSlug);
                 const results = r?.success && Array.isArray(r.data) ? r.data : [];
-                const match = results.find(
-                  (x: { title?: string }) =>
-                    (x.title ?? '').toLowerCase() === resolveSlug.toLowerCase()
-                ) ?? results[0];
+                const match =
+                  results.find(
+                    (x: { title?: string }) =>
+                      (x.title ?? '').toLowerCase() === searchSlug.toLowerCase()
+                  ) ??
+                  results.find(
+                    (x: { title?: string }) =>
+                      (x.title ?? '').toLowerCase() === resolveSlug.toLowerCase()
+                  ) ??
+                  results[0];
                 if (match) {
                   resolvedId = (match as { id: string }).id;
                   resolvedType = (match as { type?: string }).type || 'note';
@@ -422,7 +441,10 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
   }, [hasCitations, citationMap, onClickCitation, navigate, addStudioOutput, setActiveStudioOutput, setHomeSidebarSection, setCurrentProject]);
 
   const processedContent = useMemo(
-    () => preprocessWikilinks(preprocessResourceLinks(content)),
+    () =>
+      preprocessWikilinks(
+        preprocessResourceLinks(preprocessResourceProtocol(content))
+      ),
     [content]
   );
 
