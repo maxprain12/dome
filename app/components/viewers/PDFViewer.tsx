@@ -1,26 +1,26 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, Maximize2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import type { Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
-import { loadPDFDocument, getPDFPage } from '@/lib/pdf/pdf-loader';
+import { loadPDFDocument, getPDFPage, getPDFOutline, type OutlineItem } from '@/lib/pdf/pdf-loader';
 import type { PDFAnnotation, AnnotationType } from '@/lib/pdf/annotation-utils';
 import { parseAnnotationFromDB, serializeAnnotationForDB } from '@/lib/pdf/annotation-utils';
+import { usePDFViewerStore } from '@/lib/store/usePDFViewerStore';
 import PDFPage from './pdf/PDFPage';
 import AnnotationLayer from './pdf/AnnotationLayer';
-import AnnotationToolbar from './pdf/AnnotationToolbar';
+import PDFPageInput from './pdf/PDFPageInput';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import PDFViewerSkeleton from './pdf/PDFViewerSkeleton';
 import ErrorState from '@/components/ui/ErrorState';
-import ZoomControls from './shared/ZoomControls';
 
 interface PDFViewerProps {
   resource: Resource;
+  initialPage?: number;
 }
 
 type ZoomMode = 'fit-width' | 'fit-page' | 'custom';
 
-function PDFViewerComponent({ resource }: PDFViewerProps) {
+function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [pages, setPages] = useState<PDFPageProxy[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -34,9 +34,12 @@ function PDFViewerComponent({ resource }: PDFViewerProps) {
   const [color, setColor] = useState('#ffeb3b');
   const [strokeWidth, setStrokeWidth] = useState(2);
   const [isOpeningExternal, setIsOpeningExternal] = useState(false);
+  const [outline, setOutline] = useState<OutlineItem[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const pageInputRef = useRef<HTMLInputElement>(null);
+  const setPdfState = usePDFViewerStore((s) => s.setPdfState);
 
-  const { annotations: dbAnnotations, addInteraction } = useInteractions(resource.id);
+  const { annotations: dbAnnotations, addInteraction, updateInteraction, deleteInteraction } = useInteractions(resource.id);
 
   // Load PDF document
   useEffect(() => {
@@ -74,6 +77,15 @@ function PDFViewerComponent({ resource }: PDFViewerProps) {
           }
           const loadedPages = await Promise.all(pagePromises);
           setPages(loadedPages);
+
+          const toc = await getPDFOutline(doc);
+          setOutline(toc);
+
+          if (initialPage != null && initialPage >= 1 && initialPage <= numPages) {
+            setCurrentPage(initialPage);
+          } else if (initialPage != null && initialPage > numPages) {
+            setCurrentPage(numPages);
+          }
         } else {
           setError(result.error || 'Failed to load PDF');
         }
@@ -86,7 +98,7 @@ function PDFViewerComponent({ resource }: PDFViewerProps) {
     }
 
     loadPDF();
-  }, [resource.id]);
+  }, [resource.id, initialPage]);
 
   // Parse annotations from database
   useEffect(() => {
@@ -206,6 +218,13 @@ function PDFViewerComponent({ resource }: PDFViewerProps) {
           e.preventDefault();
           handleResetZoom();
           break;
+        case 'g':
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            pageInputRef.current?.focus();
+            pageInputRef.current?.select();
+          }
+          break;
       }
     };
 
@@ -213,7 +232,6 @@ function PDFViewerComponent({ resource }: PDFViewerProps) {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [
     pdfDocument,
-    currentPage,
     handlePreviousPage,
     handleNextPage,
     handleZoomIn,
@@ -271,6 +289,84 @@ function PDFViewerComponent({ resource }: PDFViewerProps) {
     [addInteraction, resource]
   );
 
+  const handleAddNote = useCallback(
+    async (pageIndex: number) => {
+      const annotation: Omit<PDFAnnotation, 'id'> = {
+        type: 'note',
+        pageIndex,
+        coordinates: { x: 0, y: 0, width: 0, height: 0 },
+        style: { color },
+        content: '',
+      };
+      await handleAnnotationCreate(annotation);
+    },
+    [handleAnnotationCreate, color]
+  );
+
+  const handleUpdateNote = useCallback(
+    async (id: string, content: string) => {
+      const ann = annotations.find((a) => a.id === id);
+      if (!ann) return;
+      const updated: PDFAnnotation = { ...ann, content };
+      const serialized = serializeAnnotationForDB(updated);
+      await updateInteraction(id, serialized.content, serialized.position_data, serialized.metadata);
+    },
+    [annotations, updateInteraction]
+  );
+
+  const handleDeleteNote = useCallback(
+    async (id: string) => {
+      await deleteInteraction(id);
+      if (typeof window !== 'undefined' && window.electron?.vector?.annotations?.delete) {
+        window.electron.vector.annotations.delete(id).catch(() => {});
+      }
+    },
+    [deleteInteraction]
+  );
+
+  // Register PDF state for workspace side panel (PDF tab)
+  useEffect(() => {
+    if (!isLoading && pages.length > 0 && pdfDocument) {
+      setPdfState({
+        currentPage,
+        totalPages: pdfDocument.numPages,
+        outline,
+        pages,
+        annotations,
+        zoom,
+        activeTool,
+        color,
+        onPageChange: setCurrentPage,
+        onZoomIn: handleZoomIn,
+        onZoomOut: handleZoomOut,
+        onResetZoom: handleResetZoom,
+        onAddNote: handleAddNote,
+        onUpdateNote: handleUpdateNote,
+        onDeleteNote: handleDeleteNote,
+        onToolSelect: setActiveTool,
+        onColorChange: setColor,
+      });
+    }
+    return () => setPdfState(null);
+  }, [
+    isLoading,
+    pages,
+    pdfDocument,
+    currentPage,
+    outline,
+    annotations,
+    zoom,
+    activeTool,
+    color,
+    setPdfState,
+    handleZoomIn,
+    handleZoomOut,
+    handleResetZoom,
+    handleAddNote,
+    handleUpdateNote,
+    handleDeleteNote,
+  ]);
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
@@ -295,97 +391,51 @@ function PDFViewerComponent({ resource }: PDFViewerProps) {
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--bg-secondary)' }}>
-      {/* Main Toolbar */}
+      {/* Minimal toolbar: page nav + open */}
       <div
-        className="flex items-center justify-between px-4 py-2 border-b"
+        className="flex items-center justify-between px-3 py-1.5 border-b shrink-0"
         style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
       >
-        <div className="flex items-center gap-2">
-          {/* Page Navigation */}
+        <div className="flex items-center gap-1">
           <button
             onClick={handlePreviousPage}
             disabled={currentPage <= 1}
-            className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            className="p-1.5 rounded disabled:opacity-40"
             style={{ color: 'var(--secondary-text)' }}
-            title="Previous page (Page Up)"
-            aria-label="Previous page"
+            title="Página anterior"
+            aria-label="Página anterior"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
           </button>
-
-          <span
-            className="text-sm font-medium min-w-[100px] text-center"
-            style={{ color: 'var(--primary-text)' }}
-          >
-            {pdfDocument ? `${currentPage} / ${pdfDocument.numPages}` : '0 / 0'}
-          </span>
-
+          <PDFPageInput
+            currentPage={currentPage}
+            totalPages={pdfDocument?.numPages ?? 0}
+            onPageChange={setCurrentPage}
+            inputRef={pageInputRef}
+          />
           <button
             onClick={handleNextPage}
             disabled={!pdfDocument || currentPage >= pdfDocument.numPages}
-            className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            className="p-1.5 rounded disabled:opacity-40"
             style={{ color: 'var(--secondary-text)' }}
-            title="Next page (Page Down)"
-            aria-label="Next page"
+            title="Página siguiente"
+            aria-label="Página siguiente"
           >
-            <ChevronRight size={18} />
-          </button>
-
-          <div className="w-px h-5 mx-2" style={{ background: 'var(--border)' }} />
-
-          {/* Zoom Controls */}
-          <ZoomControls
-            zoom={zoom}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            onReset={handleResetZoom}
-            minZoom={0.5}
-            maxZoom={3.0}
-          />
-
-          <div className="w-px h-5 mx-2" style={{ background: 'var(--border)' }} />
-
-          <button
-            onClick={handleFitToPage}
-            className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors duration-200 cursor-pointer hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--secondary-text)' }}
-            title="Fit to page"
-            aria-label="Fit to page"
-          >
-            <Maximize2 size={18} />
+            <ChevronRight size={16} />
           </button>
         </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleOpenExternal}
-            className="flex items-center gap-1.5 px-3 py-1.5 min-h-[44px] text-sm rounded-md transition-colors duration-200 cursor-pointer hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--secondary-text)' }}
-            aria-label="Open in external application"
-            title="Open in external viewer"
-          >
-            <ExternalLink size={16} />
-            Open
-          </button>
-
-          {/* Keyboard Shortcuts Hint */}
-          <span className="text-xs ml-2" style={{ color: 'var(--tertiary-text)' }}>
-            PgUp/PgDn: Navigate • +/-: Zoom • 0: Reset • Home/End: First/Last
-          </span>
-        </div>
+        <button
+          onClick={handleOpenExternal}
+          className="p-1.5 rounded text-sm"
+          style={{ color: 'var(--secondary-text)' }}
+          aria-label="Abrir externo"
+          title="Abrir en visor externo"
+        >
+          <ExternalLink size={16} />
+        </button>
       </div>
 
-      {/* Annotation Toolbar */}
-      <AnnotationToolbar
-        activeTool={activeTool}
-        onToolSelect={setActiveTool}
-        color={color}
-        onColorChange={setColor}
-        strokeWidth={strokeWidth}
-        onStrokeWidthChange={setStrokeWidth}
-      />
-
-      {/* PDF Container */}
+      {/* PDF content */}
       <div ref={containerRef} className="flex-1 overflow-auto">
         {isLoading ? (
           <PDFViewerSkeleton />

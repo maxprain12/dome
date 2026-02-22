@@ -142,14 +142,14 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
         <div className="space-y-3">
           {documentItems.map((item, idx) => (
             <div key={idx} className="space-y-1.5">
-              {item.metadata?.title && (
+              {item.metadata?.title != null && (
                 <p className="text-xs font-medium text-[var(--primary-text)]">
-                  {(item.metadata.title as string)}
+                  {String(item.metadata.title)}
                 </p>
               )}
               {item.content && (
                 <div className="text-xs prose prose-sm max-w-none text-[var(--secondary-text)]">
-                  <MarkdownRenderer content={item.content} />
+                  <MarkdownRenderer content={typeof item.content === 'string' ? item.content : ''} />
                 </div>
               )}
             </div>

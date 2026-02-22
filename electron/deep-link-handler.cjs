@@ -23,13 +23,25 @@ async function handleDomeUrl(url, deps) {
     return mcpOauth.handleOAuthCallback(url);
   }
 
-  // dome://resource/ID/TYPE - open workspace
-  const resourceMatch = url.match(/^dome:\/\/resource\/([^/]+)(?:\/([^/]+))?/);
+  // dome://resource/ID/TYPE or dome://resource/ID/TYPE?page=N - open workspace
+  const resourceMatch = url.match(/^dome:\/\/resource\/([^/]+)(?:\/([^?#]+))?(?:\?([^#]*))?/);
   if (resourceMatch) {
     const resourceId = resourceMatch[1];
-    const resourceType = resourceMatch[2] || 'note';
+    let resourceType = resourceMatch[2] || 'note';
+    const queryString = resourceMatch[3] || '';
+    let options = {};
+    if (queryString) {
+      const params = new URLSearchParams(queryString);
+      const pageVal = params.get('page');
+      if (pageVal) {
+        const page = parseInt(pageVal, 10);
+        if (!Number.isNaN(page) && page >= 1) {
+          options = { page };
+        }
+      }
+    }
     try {
-      const result = await openWorkspaceForResource(resourceId, resourceType, deps);
+      const result = await openWorkspaceForResource(resourceId, resourceType, options, deps);
       if (result.success) {
         console.log('[DeepLink] Opened resource:', resourceId);
         return true;

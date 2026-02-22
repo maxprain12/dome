@@ -217,7 +217,13 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
                 <button
                   key={interaction.id}
                   className="result-item interaction content-visibility-auto cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-                  onClick={() => onSelect({ id: interaction.resource_id, title: interaction.resource_title })}
+                  onClick={() => onSelect({
+                    id: interaction.resource_id,
+                    title: interaction.resource_title,
+                    type: interaction.resource_type || 'pdf',
+                    pageIndex: positionData?.pageIndex,
+                    interactionId: interaction.id,
+                  })}
                   aria-label={`Open ${interaction.resource_title} - ${badgeLabel}`}
                 >
                   <div className="result-icon" data-type={interaction.type}>

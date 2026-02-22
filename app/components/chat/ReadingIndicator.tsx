@@ -6,11 +6,12 @@
 
 interface ReadingIndicatorProps {
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export default function ReadingIndicator({ className = '' }: ReadingIndicatorProps) {
+export default function ReadingIndicator({ className = '', style }: ReadingIndicatorProps) {
   return (
-    <div className={`inline-flex items-center gap-1 ${className}`}>
+    <div className={`inline-flex items-center gap-1 ${className}`} style={style}>
       <span 
         className="w-2 h-2 rounded-full bg-current animate-bounce"
         style={{ animationDelay: '0ms', animationDuration: '600ms' }}

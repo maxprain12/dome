@@ -213,6 +213,12 @@ export {
   createPptTools,
 } from './ppt-tools';
 
+// Tools - PDF Annotations
+export {
+  createPdfAnnotationCreateTool,
+  createPdfAnnotationTools,
+} from './pdf-annotation-tools';
+
 // =============================================================================
 // Default Tools
 // =============================================================================
@@ -232,6 +238,7 @@ import { createGraphTools } from './graph-tools';
 import { createNotebookTools } from './notebook-tools';
 import { createExcelTools } from './excel-tools';
 import { createPptTools } from './ppt-tools';
+import { createPdfAnnotationTools } from './pdf-annotation-tools';
 
 /**
  * Configuration for creating default tools
@@ -312,6 +319,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // PPT tools (create/read PowerPoint presentations)
   tools.push(...createPptTools());
 
+  // PDF annotation tools (create notes in PDFs)
+  tools.push(...createPdfAnnotationTools());
+
   return tools;
 }
 
@@ -363,6 +373,12 @@ export function createManyToolsForContext(
 
   // PPT tools (always include - useful when user has presentations or asks to create them)
   tools.push(...createPptTools());
+
+  // PDF annotation tools: useful in Home or when viewing workspace (PDF)
+  const isWorkspace = pathname?.includes('/workspace');
+  if (isHome || isWorkspace || isNotebook) {
+    tools.push(...createPdfAnnotationTools());
+  }
 
   // Studio, audio, deep research, graph: useful in Home/library context
   if (isHome || isNotebook) {

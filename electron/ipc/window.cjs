@@ -5,10 +5,12 @@ const { BrowserWindow } = require('electron');
  * Open a workspace window for a resource. Reusable from IPC and deep-link handler.
  * @param {string} resourceId
  * @param {string} resourceType
+ * @param {Object} options - { page?: number } for PDF initial page (1-based)
  * @param {Object} deps - { database, windowManager, nativeTheme }
  * @returns {Promise<{ success: boolean; error?: string; data?: { windowId: string; resourceId: string; title: string } }>}
  */
-async function openWorkspaceForResource(resourceId, resourceType, { database, windowManager, nativeTheme }) {
+async function openWorkspaceForResource(resourceId, resourceType, options = {}, { database, windowManager, nativeTheme }) {
+  const { page } = options;
   const queries = database.getQueries();
   const resource = queries.getResourceById.get(resourceId);
 
@@ -18,8 +20,20 @@ async function openWorkspaceForResource(resourceId, resourceType, { database, wi
 
   const windowId = `workspace-${resourceId}`;
   const existingWindow = windowManager.get(windowId);
-  if (existingWindow) {
+  if (existingWindow && !existingWindow.isDestroyed()) {
     existingWindow.focus();
+    // If we have a page param for PDF/document, reload the window with the new URL so it navigates to that page
+    const isPdfOrDoc = resourceType === 'pdf' || resourceType === 'document';
+    if (page != null && isPdfOrDoc) {
+      try {
+        const currentUrl = existingWindow.webContents.getURL();
+        const url = new URL(currentUrl);
+        url.searchParams.set('page', String(page));
+        existingWindow.webContents.loadURL(url.toString());
+      } catch (err) {
+        console.warn('[Workspace] Failed to navigate to page:', err);
+      }
+    }
     return {
       success: true,
       data: { windowId, resourceId, title: resource.title }
@@ -45,9 +59,10 @@ async function openWorkspaceForResource(resourceId, resourceType, { database, wi
     const mime = resource.file_mime_type || '';
     const isPptx = filename.endsWith('.pptx') || filename.endsWith('.ppt') || mime.includes('presentationml') || mime.includes('ms-powerpoint');
     const isDocx = filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword') || !resource.internal_path;
-    route = isPptx ? `/workspace/ppt?id=${resourceId}` : (isDocx ? `/workspace/docx?id=${resourceId}` : `/workspace?id=${resourceId}`);
+    const base = isPptx ? `/workspace/ppt?id=${resourceId}` : (isDocx ? `/workspace/docx?id=${resourceId}` : `/workspace?id=${resourceId}`);
+    route = page && !isPptx && !isDocx ? `${base}&page=${page}` : base;
   } else {
-    route = `/workspace?id=${resourceId}`;
+    route = (resourceType === 'pdf' && page) ? `/workspace?id=${resourceId}&page=${page}` : `/workspace?id=${resourceId}`;
   }
 
   windowManager.create(
@@ -225,8 +240,8 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
     }
   });
 
-  // Open workspace window for a resource
-  ipcMain.handle('window:open-workspace', async (event, { resourceId, resourceType }) => {
+  // Open workspace window for a resource (options: { page?: number } for PDF navigation)
+  ipcMain.handle('window:open-workspace', async (event, { resourceId, resourceType, page }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -238,8 +253,11 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
       if (resourceType && (typeof resourceType !== 'string' || resourceType.length > 50)) {
         throw new Error('resourceType must be a string with max 50 characters');
       }
+      if (page != null && (typeof page !== 'number' || page < 1 || !Number.isInteger(page))) {
+        throw new Error('page must be a positive integer when provided');
+      }
 
-      return await openWorkspaceForResource(resourceId, resourceType || 'note', {
+      return await openWorkspaceForResource(resourceId, resourceType || 'note', { page }, {
         database,
         windowManager,
         nativeTheme,

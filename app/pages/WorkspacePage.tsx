@@ -3,8 +3,10 @@ import WorkspaceClient from '@/workspace/[[...params]]/client';
 
 export default function WorkspacePage() {
   const [searchParams] = useSearchParams();
-  // Read resource ID from query parameter
   const resourceId = searchParams.get('id') || '';
+  const pageParam = searchParams.get('page');
+  const parsedPage = pageParam ? parseInt(pageParam, 10) : undefined;
+  const initialPage = parsedPage != null && !Number.isNaN(parsedPage) && parsedPage >= 1 ? parsedPage : undefined;
 
   if (!resourceId) {
     return (
@@ -14,5 +16,5 @@ export default function WorkspacePage() {
     );
   }
 
-  return <WorkspaceClient resourceId={resourceId} />;
+  return <WorkspaceClient resourceId={resourceId} initialPage={initialPage} />;
 }

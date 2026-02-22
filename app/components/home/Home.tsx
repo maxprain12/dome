@@ -173,10 +173,11 @@ export default function Home() {
     }
 
     // For all resources (pdf, video, audio, image, document, note, url)
-    // Open in a workspace window
+    // Open in a workspace window (page: 1-based for PDF navigation from highlights)
     if (typeof window !== 'undefined' && window.electron?.workspace) {
       try {
-        const result = await window.electron.workspace.open(resource.id, resource.type);
+        const page = resource.pageIndex != null ? resource.pageIndex + 1 : undefined;
+        const result = await window.electron.workspace.open(resource.id, resource.type || 'note', { page });
         if (!result.success) {
           console.error('Failed to open workspace:', result.error);
         }

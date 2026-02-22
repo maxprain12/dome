@@ -646,9 +646,9 @@ const electronHandler = {
   // WORKSPACE API
   // ============================================
   workspace: {
-    // Open a workspace window for a resource
-    open: (resourceId, resourceType) =>
-      ipcRenderer.invoke('window:open-workspace', { resourceId, resourceType }),
+    // Open a workspace window for a resource (options: { page?: number } for PDF)
+    open: (resourceId, resourceType, options) =>
+      ipcRenderer.invoke('window:open-workspace', { resourceId, resourceType, ...options }),
   },
 
   // ============================================

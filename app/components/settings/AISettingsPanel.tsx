@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
-import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Gift } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {

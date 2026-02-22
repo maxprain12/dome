@@ -15,6 +15,7 @@ import {
   providerSupportsTools,
   toOpenAIToolDefinitions,
   type AIProviderType,
+  type AnyAgentTool,
 } from '@/lib/ai';
 import { buildManyFloatingPrompt, buildMartinSupervisorPrompt, prompts } from '@/lib/prompts/loader';
 import { showToast } from '@/lib/store/useToastStore';
@@ -352,7 +353,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         const folderHint = (pathname === '/' || pathname === '/home') && currentFolderId
           ? `\n\nThe user is viewing folder ID: ${currentFolderId}. When delegating to library or writer agents, include folder_id: "${currentFolderId}" for listing/creating resources in that folder.`
           : '';
-        const tools = []; // Subagents architecture: main agent uses subagent-invocation tools (built in main process)
+        const tools: AnyAgentTool[] = []; // Subagents architecture: main agent uses subagent-invocation tools (built in main process)
         const toolsMessages = [
           { role: 'system', content: supervisorPrompt + (skillsBlock || '') + toolHint + folderHint },
           ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
@@ -710,9 +711,9 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
               {pendingApproval.actionRequests.map((req, i) => (
                 <div key={i} className="text-[11px]">
                   <span className="font-medium text-[var(--primary-text)]">{req.name}</span>
-                  {req.args?.query && (
+                  {req.args?.query != null && req.args?.query !== '' ? (
                     <p className="mt-0.5 line-clamp-2 text-[var(--secondary-text)]">{String(req.args.query)}</p>
-                  )}
+                  ) : null}
                 </div>
               ))}
             </div>

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown } from 'lucide-react';
+import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown, FileText } from 'lucide-react';
 import WorkspaceFilesPanel from './WorkspaceFilesPanel';
+import PDFTab from './PDFTab';
 import { type Resource } from '@/types';
 import { useManyStore } from '@/lib/store/useManyStore';
 
-type TabType = 'references' | 'backlinks' | 'search' | 'workspace';
+type TabType = 'references' | 'backlinks' | 'search' | 'workspace' | 'pdf';
 
 interface SidePanelProps {
   resourceId: string;
@@ -24,6 +25,7 @@ const TAB_CONFIG: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: 'backlinks', label: 'Backlinks', icon: <MessageSquare size={14} /> },
   { id: 'search', label: 'Search', icon: <Search size={14} /> },
   { id: 'workspace', label: 'Workspace', icon: <FolderOpen size={14} /> },
+  { id: 'pdf', label: 'PDF', icon: <FileText size={14} /> },
 ];
 
 export default function SidePanel({
@@ -42,7 +44,23 @@ export default function SidePanel({
   const { setContext } = useManyStore();
 
   const isNotebook = resource?.type === 'notebook';
-  const tabs = isNotebook ? TAB_CONFIG : TAB_CONFIG.filter((t) => t.id !== 'workspace');
+  const isPdf =
+    resource?.type === 'pdf' ||
+    (resource?.type === 'document' &&
+      ((resource?.original_filename || resource?.title || '').toLowerCase().endsWith('.pdf') ||
+        resource?.file_mime_type === 'application/pdf'));
+  const tabs = TAB_CONFIG.filter((t) => {
+    if (t.id === 'workspace') return isNotebook;
+    if (t.id === 'pdf') return isPdf;
+    return true;
+  });
+
+  // When switching to PDF resource, select PDF tab if current tab is no longer available
+  useEffect(() => {
+    if (isPdf && !tabs.some((t) => t.id === activeTab)) {
+      setActiveTab('pdf');
+    }
+  }, [isPdf, activeTab, tabs]);
 
   // Actualizar el contexto de Many cuando se abre un recurso
   useEffect(() => {
@@ -169,6 +187,7 @@ export default function SidePanel({
             onVenvPathChange={onNotebookVenvPathChange}
           />
         )}
+        {activeTab === 'pdf' && isPdf && <PDFTab />}
       </div>
     </div>
   );

@@ -44,8 +44,16 @@ export default function AnnotationLayer({
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Filter annotations for this page
-  const pageAnnotations = annotations.filter((a) => a.pageIndex === pageIndex);
+  // Filter annotations for this page; skip page-level notes (no canvas position)
+  const pageAnnotations = annotations.filter((a) => {
+    if (a.pageIndex !== pageIndex) return false;
+    if (a.type === 'note') {
+      const w = a.coordinates.width ?? 0;
+      const h = a.coordinates.height ?? 0;
+      if (w === 0 && h === 0) return false; // Page-level note, not rendered on canvas
+    }
+    return true;
+  });
 
   // Setup canvas
   useEffect(() => {

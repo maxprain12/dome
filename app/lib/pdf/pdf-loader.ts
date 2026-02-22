@@ -76,6 +76,92 @@ export async function getPDFPage(
   return await document.getPage(pageNumber);
 }
 
+export interface OutlineItem {
+  title: string;
+  pageNumber?: number;
+  items?: OutlineItem[];
+}
+
+/**
+ * Resolve page number from outline item dest.
+ * Handles: string (named dest), array [ref, 'XYZ', ...], ref as object or integer.
+ */
+async function resolveDestPage(
+  document: pdfjsLib.PDFDocumentProxy,
+  dest: string | Array<unknown> | null
+): Promise<number | undefined> {
+  if (!dest) return undefined;
+  try {
+    let explicitDest: Array<unknown> | null;
+    if (typeof dest === 'string') {
+      explicitDest = await document.getDestination(dest);
+    } else if (Array.isArray(dest)) {
+      explicitDest = dest;
+    } else {
+      return undefined;
+    }
+    if (!explicitDest || explicitDest.length === 0) return undefined;
+
+    const ref = explicitDest[0];
+    if (ref != null && typeof ref === 'object') {
+      const index = await document.getPageIndex(ref as Parameters<typeof document.getPageIndex>[0]);
+      return index + 1; // 1-based
+    }
+    if (typeof ref === 'number' && Number.isInteger(ref)) {
+      return ref + 1; // 0-based to 1-based
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Extract table of contents from PDF document.
+ * Returns a tree of outline items with resolved page numbers.
+ */
+export async function getPDFOutline(
+  document: pdfjsLib.PDFDocumentProxy
+): Promise<OutlineItem[]> {
+  try {
+    const rawOutline = await document.getOutline();
+    if (!rawOutline || rawOutline.length === 0) return [];
+
+    async function processItem(item: (typeof rawOutline)[0]): Promise<OutlineItem> {
+      let pageNumber: number | undefined;
+      if (item.dest) {
+        pageNumber = await resolveDestPage(document, item.dest);
+      }
+
+      const children: OutlineItem[] = [];
+      if (item.items && item.items.length > 0) {
+        for (const child of item.items) {
+          children.push(await processItem(child));
+        }
+      }
+
+      // If parent has no pageNumber, use first child's page for navigation
+      if (pageNumber == null && children.length > 0) {
+        pageNumber = children[0]?.pageNumber;
+      }
+
+      return {
+        title: item.title || 'Untitled',
+        pageNumber,
+        items: children.length > 0 ? children : undefined,
+      };
+    }
+
+    const result: OutlineItem[] = [];
+    for (const item of rawOutline) {
+      result.push(await processItem(item));
+    }
+    return result;
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Render PDF page to canvas
  * Note: This function is deprecated in favor of direct rendering in PDFPage component

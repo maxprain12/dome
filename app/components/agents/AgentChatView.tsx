@@ -24,9 +24,11 @@ import AgentChatInput from './AgentChatInput';
 const RESOURCE_LINK_INSTRUCTION = `
 When mentioning a resource (document, note, PDF, video, etc.) that the user can open, format it as: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, document, excel, ppt, video, audio, image.
 
+For PDFs, when a specific page is relevant (e.g. after pdf_annotation_create, or when referencing a page), use: [Ver: Title p. N](dome://resource/RESOURCE_ID/pdf?page=N).
+
 When mentioning a Studio output (mindmap, quiz, guide, FAQ, timeline, table, flashcards, audio, video, research), format it as: [Ver: Title](dome://studio/OUTPUT_ID/TYPE).
 
-ALWAYS include a dome:// link in your response when you create any element via tools (resource_create, flashcard_create, etc.) so the user can open it. Exception: elements from Studio tile buttons are shown automatically, so no link needed in that context.`;
+ALWAYS include a dome:// link in your response when you create any element via tools (resource_create, flashcard_create, pdf_annotation_create, etc.) so the user can open it. Exception: elements from Studio tile buttons are shown automatically, so no link needed in that context.`;
 
 interface AgentChatViewProps {
   agentId: string;
@@ -63,6 +65,7 @@ const TOOL_LABELS: Record<string, string> = {
   call_writer_agent: 'Agente escritor trabajando...',
   call_research_agent: 'Agente de investigación trabajando...',
   call_library_agent: 'Agente de biblioteca trabajando...',
+  pdf_annotation_create: 'Creando anotación en PDF...',
 };
 
 export default function AgentChatView({ agentId }: AgentChatViewProps) {
@@ -156,7 +159,9 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
           const skills = Array.isArray(parsed)
             ? parsed.filter(
                 (s: { id?: string; enabled?: boolean }) =>
-                  agent.skillIds!.includes(s.id) && s.enabled !== false
+                  typeof s.id === 'string' &&
+                  agent.skillIds!.includes(s.id) &&
+                  s.enabled !== false
               )
             : [];
           if (skills.length > 0) {

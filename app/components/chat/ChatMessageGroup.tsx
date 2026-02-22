@@ -15,6 +15,8 @@ interface ChatMessageGroupProps {
   onSaveAsNote?: (content: string) => void;
   /** Custom avatar for assistant (e.g. agent sprite). When set, overrides ManyAvatar */
   assistantAvatarSrc?: string;
+  /** Whether to show avatar. Default true */
+  showAvatar?: boolean;
   className?: string;
 }
 
@@ -23,6 +25,7 @@ export default memo(function ChatMessageGroup({
   onRegenerate,
   onSaveAsNote,
   assistantAvatarSrc,
+  showAvatar = true,
   className = '',
 }: ChatMessageGroupProps) {
   const firstMessage = messages[0];
@@ -41,7 +44,7 @@ export default memo(function ChatMessageGroup({
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''} ${className}`}>
       {/* Avatar - only for first message in group */}
-      <div className="flex-shrink-0 w-8">
+      <div className={`flex-shrink-0 ${showAvatar ? 'w-8' : 'w-0 overflow-hidden'}`}>
         {isAssistant ? (
           assistantAvatarSrc ? (
             <img

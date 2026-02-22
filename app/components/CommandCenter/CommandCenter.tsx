@@ -455,20 +455,24 @@ export function CommandCenter({
         setUrlInput('https://');
     }, []);
 
-    // Derive available types from search results for filter chips
+    // Derive available types from search results for filter chips (resources + interactions)
     const availableTypes = React.useMemo(() => {
-        if (!searchResults?.resources) return [];
-        const types = new Set(searchResults.resources.map((r: any) => r.type));
+        const types = new Set<string>();
+        searchResults?.resources?.forEach((r: any) => r.type && types.add(r.type));
+        searchResults?.interactions?.forEach((i: any) => i.resource_type && types.add(i.resource_type));
         return Array.from(types).sort();
     }, [searchResults]);
 
-    // Filter results by selected types
+    // Filter results by selected types (resources and interactions)
     const filteredResults = React.useMemo(() => {
         if (!searchResults) return null;
         if (filterTypes.length === 0) return searchResults;
         return {
             ...searchResults,
             resources: searchResults.resources.filter((r: any) => filterTypes.includes(r.type)),
+            interactions: searchResults.interactions.filter(
+                (i: any) => i.resource_type && filterTypes.includes(i.resource_type)
+            ),
         };
     }, [searchResults, filterTypes]);
 

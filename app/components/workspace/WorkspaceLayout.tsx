@@ -21,9 +21,10 @@ const SpreadsheetViewer = lazy(() => import('../viewers/SpreadsheetViewer'));
 
 interface WorkspaceLayoutProps {
   resourceId: string;
+  initialPage?: number;
 }
 
-export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
+export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLayoutProps) {
   const navigate = useNavigate();
   const [resource, setResource] = useState<Resource | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -158,7 +159,7 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
     const ViewerComponent = () => {
       switch (resource.type) {
         case 'pdf':
-          return <PDFViewer resource={resource} />;
+          return <PDFViewer resource={resource} initialPage={initialPage} />;
         case 'video':
           return <VideoPlayer resource={resource} />;
         case 'audio':
@@ -179,7 +180,7 @@ export default function WorkspaceLayout({ resourceId }: WorkspaceLayoutProps) {
           );
         case 'document': {
           if (isDocumentPdf(resource)) {
-            return <PDFViewer resource={resource} />;
+            return <PDFViewer resource={resource} initialPage={initialPage} />;
           }
 
           const filename = (resource.original_filename || resource.title || '').toLowerCase();

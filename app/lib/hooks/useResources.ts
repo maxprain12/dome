@@ -1,7 +1,8 @@
 
 import { useState, useEffect, useCallback, useMemo, useTransition } from 'react';
+import type { ResourceType } from '@/types';
 
-export type ResourceType = 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook' | 'excel';
+export type { ResourceType };
 
 export interface Resource {
     id: string;

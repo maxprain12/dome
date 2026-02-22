@@ -361,7 +361,11 @@ declare global {
 
       // Workspace API
       workspace: {
-        open: (resourceId: string, resourceType: string) => Promise<{
+        open: (
+          resourceId: string,
+          resourceType: string,
+          options?: { page?: number }
+        ) => Promise<{
           success: boolean;
           data?: { windowId: string; resourceId: string; title: string };
           error?: string;

@@ -1293,7 +1293,7 @@ function getQueries() {
 
     // Search (standalone FTS tables)
     searchInteractions: db.prepare(`
-      SELECT i.*, r.title as resource_title FROM resource_interactions i
+      SELECT i.*, r.title as resource_title, r.type as resource_type FROM resource_interactions i
       JOIN interactions_fts fts ON i.id = fts.interaction_id
       JOIN resources r ON i.resource_id = r.id
       WHERE interactions_fts MATCH ?

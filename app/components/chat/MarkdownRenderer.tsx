@@ -148,22 +148,32 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           typeof href === 'string' && href.startsWith('dome://studio/');
 
         const resourceMatch =
-          typeof href === 'string' &&
-          isDomeResource &&
-          href.match(/^dome:\/\/resource\/([^/]+)(?:\/([^/]+))?/);
+          typeof href === 'string' && isDomeResource
+            ? href.match(/^dome:\/\/resource\/([^/]+)(?:\/([^?#]+))?(?:\?([^#]*))?/)
+            : null;
         const resourceId = resourceMatch?.[1];
-        const resourceType = (resourceMatch?.[2] as string) || 'note';
+        let resourceType = (resourceMatch?.[2] as string) || 'note';
+        const queryString = resourceMatch?.[3] ?? '';
+        let page: number | undefined;
+        if (queryString) {
+          const params = new URLSearchParams(queryString);
+          const pageVal = params.get('page');
+          if (pageVal) {
+            const p = parseInt(pageVal, 10);
+            if (!Number.isNaN(p) && p >= 1) page = p;
+          }
+        }
 
         const studioMatch =
-          typeof href === 'string' &&
-          isDomeStudio &&
-          href.match(/^dome:\/\/studio\/([^/]+)(?:\/([^/]+))?/);
+          typeof href === 'string' && isDomeStudio
+            ? href.match(/^dome:\/\/studio\/([^/]+)(?:\/([^/]+))?/)
+            : null;
         const studioOutputId = studioMatch?.[1];
 
         const handleClick = async (e: React.MouseEvent) => {
           if (isDomeResource && resourceId && typeof window !== 'undefined' && window.electron?.workspace?.open) {
             e.preventDefault();
-            window.electron.workspace.open(resourceId, resourceType);
+            window.electron.workspace.open(resourceId, resourceType, page != null ? { page } : undefined);
             return;
           }
           if (
