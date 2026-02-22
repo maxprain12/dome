@@ -113,6 +113,7 @@ export function CommandCenter({
         setSearchResults,
         commandCenterOpen,
         setCommandCenterOpen,
+        setCommandCenterExpanded,
         commandCenterUrlModeRequest,
         setCommandCenterUrlModeRequest,
         setHomeSidebarSection,
@@ -288,6 +289,11 @@ export function CommandCenter({
     const handleBlur = useCallback(() => {
         setIsFocused(false);
     }, []);
+
+    // Sync isExpanded to store so Home can hide duplicate search results when dropdown is open
+    useEffect(() => {
+        setCommandCenterExpanded(isExpanded || isFocused);
+    }, [isExpanded, isFocused, setCommandCenterExpanded]);
 
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         if (urlMode) {
@@ -481,7 +487,7 @@ export function CommandCenter({
                 {/* Glassmorphism container */}
                 <div className="command-center-container">
                     {/* Search input or URL input based on mode */}
-                    <div className="command-center-input-wrapper">
+                    <div className="command-center-input-wrapper" data-tour="search">
                         <div className="command-center-icon">
                             {urlMode ? (
                                 detectedUrlType === 'youtube' ? (

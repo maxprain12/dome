@@ -132,6 +132,34 @@ function PDFViewerComponent({ resource }: PDFViewerProps) {
     return () => observer.disconnect();
   }, [zoomMode, currentPage, pages]);
 
+  const handleZoomIn = useCallback(() => {
+    setZoomMode('custom');
+    setZoom((prev) => Math.min(prev * 1.25, 3.0));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoomMode('custom');
+    setZoom((prev) => Math.max(prev / 1.25, 0.5));
+  }, []);
+
+  const handleResetZoom = useCallback(() => {
+    setZoomMode('fit-width');
+  }, []);
+
+  const handleFitToPage = useCallback(() => {
+    setZoomMode('fit-page');
+  }, []);
+
+  const handlePreviousPage = useCallback(() => {
+    setCurrentPage((prev) => Math.max(1, prev - 1));
+  }, []);
+
+  const handleNextPage = useCallback(() => {
+    if (pdfDocument) {
+      setCurrentPage((prev) => Math.min(pdfDocument.numPages, prev + 1));
+    }
+  }, [pdfDocument]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -192,34 +220,6 @@ function PDFViewerComponent({ resource }: PDFViewerProps) {
     handleZoomOut,
     handleResetZoom,
   ]);
-
-  const handleZoomIn = useCallback(() => {
-    setZoomMode('custom');
-    setZoom((prev) => Math.min(prev * 1.25, 3.0));
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    setZoomMode('custom');
-    setZoom((prev) => Math.max(prev / 1.25, 0.5));
-  }, []);
-
-  const handleResetZoom = useCallback(() => {
-    setZoomMode('fit-width');
-  }, []);
-
-  const handleFitToPage = useCallback(() => {
-    setZoomMode('fit-page');
-  }, []);
-
-  const handlePreviousPage = useCallback(() => {
-    setCurrentPage((prev) => Math.max(1, prev - 1));
-  }, []);
-
-  const handleNextPage = useCallback(() => {
-    if (pdfDocument) {
-      setCurrentPage((prev) => Math.min(pdfDocument.numPages, prev + 1));
-    }
-  }, [pdfDocument]);
 
   const handleOpenExternal = useCallback(async () => {
     if (filePath && window.electron) {

@@ -840,6 +840,71 @@ a:hover {
 }
 
 /* ============================================
+   DOME TOUR (driver.js) - Popover styling
+   ============================================ */
+
+.dome-tour-popover.driver-popover {
+  background-color: var(--bg) !important;
+  color: var(--primary-text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-lg) !important;
+}
+
+.dome-tour-popover .driver-popover-title {
+  color: var(--primary-text) !important;
+}
+
+.dome-tour-popover .driver-popover-description {
+  color: var(--secondary-text) !important;
+}
+
+.dome-tour-popover .driver-popover-progress-text {
+  color: var(--secondary-text) !important;
+}
+
+.dome-tour-popover .driver-popover-footer button {
+  background-color: var(--bg-secondary) !important;
+  color: var(--primary-text) !important;
+  border-color: var(--border) !important;
+}
+
+.dome-tour-popover .driver-popover-footer button:hover,
+.dome-tour-popover .driver-popover-footer button:focus {
+  background-color: var(--bg-hover) !important;
+}
+
+.dome-tour-popover .driver-popover-navigation-btns button:last-child {
+  background-color: var(--accent) !important;
+  color: var(--base-text) !important;
+  border-color: var(--accent) !important;
+}
+
+.dome-tour-popover .driver-popover-navigation-btns button:last-child:hover,
+.dome-tour-popover .driver-popover-navigation-btns button:last-child:focus {
+  background-color: var(--accent-hover) !important;
+}
+
+.dome-tour-popover .driver-popover-arrow {
+  border-color: var(--bg) !important;
+}
+
+.dome-tour-popover .driver-popover-arrow-side-left {
+  border-left-color: var(--bg) !important;
+}
+
+.dome-tour-popover .driver-popover-arrow-side-right {
+  border-right-color: var(--bg) !important;
+}
+
+.dome-tour-popover .driver-popover-arrow-side-top {
+  border-top-color: var(--bg) !important;
+}
+
+.dome-tour-popover .driver-popover-arrow-side-bottom {
+  border-bottom-color: var(--bg) !important;
+}
+
+/* ============================================
    MARTIN FLOATING CHAT - Keyframes & Utilities
    ============================================ */
 

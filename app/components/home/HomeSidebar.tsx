@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Home, Search, Tag, Settings, HelpCircle, WalletCards, Sparkles, Bot, CirclePlus } from 'lucide-react';
+import { Home, Tag, Settings, HelpCircle, WalletCards, Sparkles, Bot, CirclePlus } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { getManyAgents } from '@/lib/agents/api';
 import type { ManyAgent } from '@/types';
 import AgentOnboarding from '@/components/agents/AgentOnboarding';
+import { startDomeTour } from '@/lib/tour/domeTour';
 
 type SidebarSection = 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents';
 
@@ -51,7 +52,6 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
 
   const navItems: NavItem[] = [
     { id: 'library', label: 'Library', icon: <Home className="w-5 h-5" strokeWidth={1.5} /> },
-    { id: 'recent', label: 'Recent', icon: <Search className="w-5 h-5" strokeWidth={1.5} /> },
     { id: 'studio', label: 'Studio', icon: <Sparkles className="w-5 h-5" strokeWidth={1.5} /> },
     { id: 'flashcards', label: 'Flashcards', icon: <WalletCards className="w-5 h-5" strokeWidth={1.5} /> },
     { id: 'tags', label: 'Tags', icon: <Tag className="w-5 h-5" strokeWidth={1.5} /> },
@@ -95,6 +95,7 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
           return (
             <button
               key={item.id}
+              data-tour={item.id}
               onClick={() => setSection(item.id)}
               className="group relative flex items-center justify-center rounded-xl transition-all duration-200"
               style={{
@@ -128,6 +129,7 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
           style={{ borderColor: 'var(--dome-border, rgba(0,0,0,0.12))' }}
         >
           <button
+            data-tour="agents"
             onClick={() => setSection('agents')}
             className="group relative flex items-center justify-center rounded-xl transition-all duration-200 shrink-0 hover:bg-[var(--dome-bg)]"
             style={{
@@ -210,8 +212,10 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
           <Settings className="w-5 h-5" strokeWidth={1.5} />
         </button>
         <button
+          onClick={() => startDomeTour()}
           className="flex items-center justify-center w-9 h-9 rounded-xl text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)] hover:text-[var(--dome-text)] transition-all"
           title="Help & Resources"
+          aria-label="Ayuda y tour de la aplicación"
         >
           <HelpCircle className="w-5 h-5" strokeWidth={1.5} />
         </button>

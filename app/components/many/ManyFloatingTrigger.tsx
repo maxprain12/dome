@@ -18,6 +18,7 @@ export default memo(function ManyFloatingTrigger({
   return (
     <button
       type="button"
+      data-tour="many"
       onClick={onClick}
       className="many-floating-trigger fixed bottom-6 right-6 z-[9999] flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border-2 border-[var(--border)] bg-[var(--bg-secondary)] shadow-[0_4px_20px_rgba(0,0,0,0.15)] transition-shadow duration-200 hover:shadow-[0_6px_24px_rgba(0,0,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
       aria-label="Abrir chat con Many"

@@ -1,13 +1,12 @@
 'use client';
 
 import { useLocation } from 'react-router-dom';
-import { Search, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import WindowControls from '@/components/ui/WindowControls';
 
 const SECTION_TITLES: Record<string, string> = {
   library: 'Home',
-  recent: 'Search',
   studio: 'Studio',
   flashcards: 'Flashcards',
   tags: 'Tags',
@@ -30,8 +29,6 @@ const ROUTE_TITLES: Record<string, string> = {
 export default function AppHeader() {
   const location = useLocation();
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
-  const setCommandCenterOpen = useAppStore((s) => s.setCommandCenterOpen);
-
   const isHome = location.pathname === '/';
   const title = isHome
     ? SECTION_TITLES[homeSidebarSection] ?? 'Home'
@@ -69,19 +66,9 @@ export default function AppHeader() {
         className="flex items-center gap-1 pr-2 shrink-0 relative"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
-        {isHome && (
-          <button
-            type="button"
-            onClick={() => setCommandCenterOpen(true)}
-            className="flex items-center justify-center rounded transition-colors min-w-[44px] min-h-[44px] w-11 h-11 border-none cursor-pointer hover:bg-[var(--dome-bg)] hover:text-[var(--dome-text)] text-[var(--dome-text-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-            aria-label="Search"
-            title="Search (Cmd+K)"
-          >
-            <Search className="w-4 h-4" strokeWidth={2} />
-          </button>
-        )}
         <button
           type="button"
+          data-tour="settings"
           onClick={() => {
             if (typeof window !== 'undefined' && window.electron?.openSettings) {
               window.electron.openSettings();

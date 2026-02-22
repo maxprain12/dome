@@ -47,6 +47,9 @@ interface AppState {
   setSearchResults: (data: { resources: any[]; interactions: any[]; studioOutputs?: any[] } | null) => void;
   commandCenterOpen: boolean;
   setCommandCenterOpen: (open: boolean) => void;
+  /** When true, Command Center dropdown is expanded (typing/searching) */
+  commandCenterExpanded: boolean;
+  setCommandCenterExpanded: (expanded: boolean) => void;
   /** When true, next open will start in URL mode */
   commandCenterUrlModeRequest: boolean;
   setCommandCenterUrlModeRequest: (v: boolean) => void;
@@ -163,6 +166,8 @@ export const useAppStore = create<AppState>((set) => ({
   setSearchResults: (data) => set({ searchResults: data }),
   commandCenterOpen: false,
   setCommandCenterOpen: (open) => set({ commandCenterOpen: open }),
+  commandCenterExpanded: false,
+  setCommandCenterExpanded: (expanded) => set({ commandCenterExpanded: expanded }),
   commandCenterUrlModeRequest: false,
   setCommandCenterUrlModeRequest: (v) => set({ commandCenterUrlModeRequest: v }),
   viewMode: 'grid',

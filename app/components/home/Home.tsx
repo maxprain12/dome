@@ -54,6 +54,7 @@ export default function Home() {
   const { name } = useUserStore();
   const searchQuery = useAppStore((s) => s.searchQuery);
   const searchResults = useAppStore((s) => s.searchResults);
+  const commandCenterExpanded = useAppStore((s) => s.commandCenterExpanded);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
   const setCurrentFolderIdInStore = useAppStore((s) => s.setCurrentFolderId);
@@ -154,6 +155,8 @@ export default function Home() {
 
   // Search mode: when there is a query and we have results (or explicit empty) from CommandCenter
   const isSearchMode = Boolean(searchQuery && searchResults !== null);
+  // When Command Center dropdown is open, hide main content results to avoid duplicate/overlapping display
+  const hideMainSearchResults = commandCenterExpanded && isSearchMode;
   const rawSearchResources = searchResults?.resources ?? [];
   const resourcesToShow = isSearchMode
     ? rawSearchResources.filter((r: Resource) => r.type !== 'folder')
@@ -822,15 +825,21 @@ export default function Home() {
           {/* Resources Grid/List */}
           <section className="mb-6" aria-label="Resources">
             <h2 className="section-header">
-              {isSearchMode
-                ? `Coincidencias para "${searchQuery}"`
-                : currentFolderId
-                  ? 'Contents'
-                  : homeSidebarSection === 'recent' ? 'Recientes' : 'Recent Resources'}
+              {hideMainSearchResults
+                ? 'Recent Resources'
+                : isSearchMode
+                  ? `Coincidencias para "${searchQuery}"`
+                  : currentFolderId
+                    ? 'Contents'
+                    : homeSidebarSection === 'recent' ? 'Recientes' : 'Recent Resources'}
             </h2>
           </section>
 
-          {!isSearchMode && isLoading ? (
+          {hideMainSearchResults ? (
+            <p className="text-sm py-8" style={{ color: 'var(--dome-text-secondary)' }}>
+              Los resultados aparecen en el buscador. Cierra la búsqueda para verlos aquí.
+            </p>
+          ) : !isSearchMode && isLoading ? (
             <div className={viewMode === 'grid' ? 'resources-grid' : 'resources-list'}>
               {Array.from({ length: viewMode === 'grid' ? 8 : 6 }).map((_, i) => (
                 <div
@@ -842,7 +851,7 @@ export default function Home() {
             </div>
           ) : null}
 
-          {!isSearchMode && error ? (
+          {!hideMainSearchResults && !isSearchMode && error ? (
             <div className="error-container">
               <p className="error-message">Error al cargar los recursos</p>
               <button
@@ -854,7 +863,7 @@ export default function Home() {
             </div>
           ) : null}
 
-          {isSearchMode && resourcesToShow.length === 0 ? (
+          {!hideMainSearchResults && isSearchMode && resourcesToShow.length === 0 ? (
             <div className="no-matches-container">
               <p className="no-matches-text">
                 No hay coincidencias para &quot;{searchQuery}&quot;
@@ -862,7 +871,7 @@ export default function Home() {
             </div>
           ) : null}
 
-          {!isSearchMode && !isLoading && !error && nonFolderResources.length === 0 && folders.length === 0 ? (
+          {!hideMainSearchResults && !isSearchMode && !isLoading && !error && nonFolderResources.length === 0 && folders.length === 0 ? (
             <div className="empty-folder-state">
               <FolderOpen className="empty-folder-icon" aria-hidden="true" />
               <p className="empty-folder-title">
@@ -876,7 +885,7 @@ export default function Home() {
             </div>
           ) : null}
 
-          {((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) ? (
+          {!hideMainSearchResults && ((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) ? (
             <div
               className={viewMode === 'list' ? 'resources-list-wrapper' : undefined}
               onClick={(e) => {
