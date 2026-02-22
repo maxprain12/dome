@@ -1,4 +1,3 @@
-
 import { useMemo, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -7,6 +6,36 @@ import type { Components } from 'react-markdown';
 import CitationBadge from './CitationBadge';
 import type { ParsedCitation } from '@/lib/utils/citations';
 import { useAppStore } from '@/lib/store/useAppStore';
+
+/** UUID v4 pattern for resource IDs */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Preprocess content: convert [text](/resource/ID) or [text](/resource/ID/TYPE) to dome:// format
+ * so they open workspace via handleClick instead of navigating.
+ */
+function preprocessResourceLinks(content: string): string {
+  return content.replace(
+    /\[([^\]]*)\]\(\s*\/resource\/([^/)\s]+)(?:\/([^)\s?#]+))?(?:\?([^#)]*))?\)/g,
+    (_, label, id, type, query) => {
+      const t = (type || 'note').trim();
+      const q = query ? `?${query}` : '';
+      return `[${label}](dome://resource/${id}/${t}${q})`;
+    }
+  );
+}
+
+/**
+ * Preprocess content: convert wikilinks [[title]] or [[id]] to dome://resolve/slug
+ * so they render as clickable links that open resources in-app.
+ */
+function preprocessWikilinks(content: string): string {
+  return content.replace(/\[\[([^\]]+)\]\]/g, (_, slug) => {
+    const trimmed = slug.trim();
+    if (!trimmed) return `[[${slug}]]`;
+    return `[Ver: ${trimmed}](dome://resolve/${encodeURIComponent(trimmed)})`;
+  });
+}
 
 interface MarkdownRendererProps {
   content: string;
@@ -140,12 +169,15 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         </em>
       ),
 
-      // Links - dome://resource/ID/TYPE opens workspace; dome://studio/ID/TYPE opens studio output; external links open in new tab
+      // Links - dome://resource/ID/TYPE opens workspace; dome://studio/ID/TYPE opens studio output;
+      // dome://resolve/SLUG resolves wikilinks [[slug]] by title or ID; external links open in new tab
       a: ({ href, children }) => {
         const isDomeResource =
           typeof href === 'string' && href.startsWith('dome://resource/');
         const isDomeStudio =
           typeof href === 'string' && href.startsWith('dome://studio/');
+        const isDomeResolve =
+          typeof href === 'string' && href.startsWith('dome://resolve/');
 
         const resourceMatch =
           typeof href === 'string' && isDomeResource
@@ -170,10 +202,48 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
             : null;
         const studioOutputId = studioMatch?.[1];
 
+        const resolveMatch =
+          typeof href === 'string' && isDomeResolve
+            ? href.match(/^dome:\/\/resolve\/(.+)$/)
+            : null;
+        const resolveSlug = resolveMatch?.[1] ? decodeURIComponent(resolveMatch[1]) : null;
+
         const handleClick = async (e: React.MouseEvent) => {
           if (isDomeResource && resourceId && typeof window !== 'undefined' && window.electron?.workspace?.open) {
             e.preventDefault();
             window.electron.workspace.open(resourceId, resourceType, page != null ? { page } : undefined);
+            return;
+          }
+          if (isDomeResolve && resolveSlug && typeof window !== 'undefined' && window.electron?.db?.resources) {
+            e.preventDefault();
+            try {
+              let resolvedId: string | null = null;
+              let resolvedType = 'note';
+              if (UUID_REGEX.test(resolveSlug)) {
+                const r = await window.electron.db.resources.getById(resolveSlug);
+                if (r?.success && r.data) {
+                  resolvedId = (r.data as { id: string }).id;
+                  resolvedType = (r.data as { type?: string }).type || 'note';
+                }
+              }
+              if (!resolvedId) {
+                const r = await window.electron.db.resources.searchForMention(resolveSlug);
+                const results = r?.success && Array.isArray(r.data) ? r.data : [];
+                const match = results.find(
+                  (x: { title?: string }) =>
+                    (x.title ?? '').toLowerCase() === resolveSlug.toLowerCase()
+                ) ?? results[0];
+                if (match) {
+                  resolvedId = (match as { id: string }).id;
+                  resolvedType = (match as { type?: string }).type || 'note';
+                }
+              }
+              if (resolvedId && window.electron.workspace?.open) {
+                await window.electron.workspace.open(resolvedId, resolvedType);
+              }
+            } catch (err) {
+              console.error('[MarkdownRenderer] Failed to resolve wikilink:', err);
+            }
             return;
           }
           if (
@@ -202,7 +272,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           }
         };
 
-        const isDomeLink = isDomeResource || isDomeStudio;
+        const isDomeLink = isDomeResource || isDomeStudio || isDomeResolve;
 
         return (
           <a
@@ -351,9 +421,14 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
     return baseComponents;
   }, [hasCitations, citationMap, onClickCitation, navigate, addStudioOutput, setActiveStudioOutput, setHomeSidebarSection, setCurrentProject]);
 
+  const processedContent = useMemo(
+    () => preprocessWikilinks(preprocessResourceLinks(content)),
+    [content]
+  );
+
   return (
     <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-      {content}
+      {processedContent}
     </ReactMarkdown>
   );
 }

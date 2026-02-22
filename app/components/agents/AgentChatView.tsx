@@ -22,7 +22,9 @@ import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import AgentChatInput from './AgentChatInput';
 
 const RESOURCE_LINK_INSTRUCTION = `
-When mentioning a resource (document, note, PDF, video, etc.) that the user can open, format it as: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, document, excel, ppt, video, audio, image.
+When mentioning a resource (document, note, PDF, video, etc.) that the user can open, ALWAYS use this format: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, document, excel, ppt, video, audio, image.
+
+NEVER use [[Title]] wikilinks or file:// or raw URLs for internal resources—they open in the browser instead of in Dome. NEVER use /resource/ID as the link URL—always use dome://resource/ID/TYPE. If the user asks for "enlace", "link", or "abrir", use: [Abrir](dome://resource/RESOURCE_ID/TYPE).
 
 For PDFs, when a specific page is relevant (e.g. after pdf_annotation_create, or when referencing a page), use: [Ver: Title p. N](dome://resource/RESOURCE_ID/pdf?page=N).
 
