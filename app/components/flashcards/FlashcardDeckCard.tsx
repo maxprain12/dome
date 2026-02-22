@@ -54,7 +54,7 @@ export default function FlashcardDeckCard({ deck, onStudy, onEdit, onDelete }: F
 
   return (
     <div
-      className="group relative rounded-xl p-5 transition-all duration-200 cursor-pointer hover:shadow-md content-visibility-auto"
+      className="group relative rounded-xl p-5 transition-all duration-200 cursor-pointer hover:shadow-md content-visibility-auto min-w-0 overflow-hidden"
       style={{
         background: 'var(--bg-secondary)',
         border: '1px solid var(--border)',
@@ -62,8 +62,8 @@ export default function FlashcardDeckCard({ deck, onStudy, onEdit, onDelete }: F
       onClick={() => onStudy(deck.id)}
     >
       {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           <div
             className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
             style={{
@@ -78,6 +78,7 @@ export default function FlashcardDeckCard({ deck, onStudy, onEdit, onDelete }: F
             <h3
               className="text-sm font-semibold truncate"
               style={{ color: 'var(--primary-text)' }}
+              title={deck.title}
             >
               {deck.title}
             </h3>
@@ -85,6 +86,7 @@ export default function FlashcardDeckCard({ deck, onStudy, onEdit, onDelete }: F
               <p
                 className="text-xs truncate mt-0.5"
                 style={{ color: 'var(--secondary-text)' }}
+                title={deck.description}
               >
                 {deck.description}
               </p>

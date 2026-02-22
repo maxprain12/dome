@@ -15,6 +15,7 @@ import ContextMenu from './ContextMenu';
 import FlashcardDeckList from '@/components/flashcards/FlashcardDeckList';
 import StudioHomeView from '@/components/studio/StudioHomeView';
 import AgentChatView from '@/components/agents/AgentChatView';
+import AgentManagementView from '@/components/agents/AgentManagementView';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
@@ -54,6 +55,7 @@ export default function Home() {
   const searchQuery = useAppStore((s) => s.searchQuery);
   const searchResults = useAppStore((s) => s.searchResults);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
+  const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
   const setCurrentFolderIdInStore = useAppStore((s) => s.setCurrentFolderId);
 
   // Resource fetching and filtering
@@ -509,6 +511,13 @@ export default function Home() {
 
       case 'flashcards':
         return <FlashcardDeckList />;
+
+      case 'agents':
+        return (
+          <div className="h-full min-h-0 flex flex-col overflow-hidden">
+            <AgentManagementView onAgentSelect={(id) => setHomeSidebarSection(`agent:${id}`)} />
+          </div>
+        );
 
       case 'chat':
         return (

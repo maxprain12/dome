@@ -78,3 +78,57 @@ export async function getManyAgentById(id: string): Promise<ManyAgent | null> {
   const agents = await getAll();
   return agents.find((a) => a.id === id) ?? null;
 }
+
+/** Serialize one or more agents to JSON for export */
+export function exportAgentsConfig(agents: ManyAgent[]): string {
+  return JSON.stringify(agents, null, 2);
+}
+
+/** Validate and parse imported agent config. Returns validated agents with new IDs. */
+export function parseAgentsConfig(json: string): { success: true; data: ManyAgent[] } | { success: false; error: string } {
+  try {
+    const parsed = JSON.parse(json) as unknown;
+    const arr = Array.isArray(parsed) ? parsed : [parsed];
+    const now = Date.now();
+    const agents: ManyAgent[] = [];
+    for (let i = 0; i < arr.length; i++) {
+      const raw = arr[i] as Record<string, unknown>;
+      if (!raw || typeof raw !== 'object') continue;
+      const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+      if (!name) {
+        return { success: false, error: `Agente ${i + 1}: falta el nombre` };
+      }
+      agents.push({
+        id: generateId(),
+        name,
+        description: typeof raw.description === 'string' ? raw.description : '',
+        systemInstructions: typeof raw.systemInstructions === 'string' ? raw.systemInstructions : '',
+        toolIds: Array.isArray(raw.toolIds) ? (raw.toolIds as string[]) : [],
+        mcpServerIds: Array.isArray(raw.mcpServerIds) ? (raw.mcpServerIds as string[]) : [],
+        skillIds: Array.isArray(raw.skillIds) ? (raw.skillIds as string[]) : [],
+        iconIndex: typeof raw.iconIndex === 'number' && raw.iconIndex >= 1 && raw.iconIndex <= 18 ? raw.iconIndex : 1,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    if (agents.length === 0) {
+      return { success: false, error: 'No se encontraron agentes válidos en el archivo' };
+    }
+    return { success: true, data: agents };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'JSON inválido' };
+  }
+}
+
+/** Import agents from JSON and persist them */
+export async function importAgentsConfig(json: string): Promise<{ success: boolean; data?: ManyAgent[]; error?: string }> {
+  const parsed = parseAgentsConfig(json);
+  if (!parsed.success) return parsed;
+  const agents = await getAll();
+  for (const agent of parsed.data) {
+    agents.push(agent);
+  }
+  const saved = await saveAll(agents);
+  if (!saved.success) return { success: false, error: saved.error };
+  return { success: true, data: parsed.data };
+}

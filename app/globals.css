@@ -930,6 +930,8 @@ a:hover {
   align-items: center;
   justify-content: center;
   padding: 32px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .flashcard-front {

@@ -23,6 +23,12 @@ export default function AgentNameStep({
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
 
+  // Sync when parent passes new initial values (e.g. edit mode)
+  useEffect(() => {
+    setName(initialName);
+    setDescription(initialDescription);
+  }, [initialName, initialDescription]);
+
   useEffect(() => {
     onChange({ name, description });
     onValidationChange(name.trim().length > 0);

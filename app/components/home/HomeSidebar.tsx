@@ -7,7 +7,7 @@ import { getManyAgents } from '@/lib/agents/api';
 import type { ManyAgent } from '@/types';
 import AgentOnboarding from '@/components/agents/AgentOnboarding';
 
-type SidebarSection = 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio';
+type SidebarSection = 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents';
 
 interface NavItem {
   id: SidebarSection;
@@ -32,6 +32,12 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
 
   useEffect(() => {
     loadAgents();
+  }, [loadAgents]);
+
+  useEffect(() => {
+    const handler = () => loadAgents();
+    window.addEventListener('dome:agents-changed', handler);
+    return () => window.removeEventListener('dome:agents-changed', handler);
   }, [loadAgents]);
 
   const handleAgentComplete = useCallback(
@@ -121,13 +127,28 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
           className="w-full mt-2 pt-2 border-t flex flex-col items-center gap-2"
           style={{ borderColor: 'var(--dome-border, rgba(0,0,0,0.12))' }}
         >
-          <div
-            className="flex items-center justify-center shrink-0"
+          <button
+            onClick={() => setSection('agents')}
+            className="group relative flex items-center justify-center rounded-xl transition-all duration-200 shrink-0 hover:bg-[var(--dome-bg)]"
+            style={{
+              width: '42px',
+              height: '42px',
+              color: activeSection === 'agents' ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+              background: activeSection === 'agents' ? 'var(--dome-accent-bg)' : 'transparent',
+            }}
             title="Agentes"
-            style={{ width: '42px', height: '42px', color: 'var(--dome-text-muted)' }}
+            aria-label="Listado de agentes"
           >
-            <Bot className="w-5 h-5" strokeWidth={1.5} />
-          </div>
+            <div className="relative z-10 transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
+              <Bot className="w-5 h-5" strokeWidth={1.5} />
+            </div>
+            {activeSection === 'agents' && (
+              <div
+                className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-[var(--dome-accent)]"
+                style={{ opacity: 0.8 }}
+              />
+            )}
+          </button>
           <button
             onClick={() => setShowAgentOnboarding(true)}
             className="group relative flex items-center justify-center rounded-xl transition-all duration-200 shrink-0 hover:bg-[var(--dome-bg)]"

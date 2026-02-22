@@ -16,6 +16,11 @@ export default function AgentInstructionsStep({
 }: AgentInstructionsStepProps) {
   const [instructions, setInstructions] = useState(initialInstructions);
 
+  // Sync when parent passes new initial values (e.g. edit mode)
+  useEffect(() => {
+    setInstructions(initialInstructions);
+  }, [initialInstructions]);
+
   useEffect(() => {
     onChange(instructions);
   }, [instructions, onChange]);

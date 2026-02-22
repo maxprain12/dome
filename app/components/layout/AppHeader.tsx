@@ -13,6 +13,7 @@ const SECTION_TITLES: Record<string, string> = {
   tags: 'Tags',
   chat: 'Many Chat',
   projects: 'Projects',
+  agents: 'Agentes',
 };
 
 const ROUTE_TITLES: Record<string, string> = {
