@@ -2,6 +2,20 @@
 
 const TOOL_TRACE = process.env.NODE_ENV === 'development' || process.env.DEBUG_AI_TOOLS === '1';
 
+function toolNameFromChannel(channel) {
+  const prefix = 'ai:tools:';
+  return channel.startsWith(prefix) ? channel.slice(prefix.length) : channel;
+}
+
+function broadcastToolAnalytics(windowManager, channel, success) {
+  if (windowManager && typeof windowManager.broadcast === 'function') {
+    windowManager.broadcast('analytics:event', {
+      event: 'ai_tool_invoked',
+      properties: { tool_name: toolNameFromChannel(channel), success },
+    });
+  }
+}
+
 function toolTrace(channel, params, result, err) {
   if (!TOOL_TRACE) return;
   const sanitize = (obj, maxLen = 120) => {
@@ -38,9 +52,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.resourceSearch(query, options || {});
       toolTrace('resourceSearch', { query, options }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceSearch', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('resourceSearch', { query, options }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceSearch', false);
       console.error('[AI Tools] resourceSearch error:', error);
       return { success: false, error: error.message };
     }
@@ -57,9 +73,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.resourceGet(resourceId, options || {});
       toolTrace('resourceGet', { resourceId, options }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceGet', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('resourceGet', { resourceId, options }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceGet', false);
       console.error('[AI Tools] resourceGet error:', error);
       return { success: false, error: error.message };
     }
@@ -76,9 +94,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.resourceList(options || {});
       toolTrace('resourceList', { options }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceList', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('resourceList', { options }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceList', false);
       console.error('[AI Tools] resourceList error:', error);
       return { success: false, error: error.message };
     }
@@ -95,9 +115,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.resourceSemanticSearch(query, options || {});
       toolTrace('resourceSemanticSearch', { query, options }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceSemanticSearch', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('resourceSemanticSearch', { query, options }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceSemanticSearch', false);
       console.error('[AI Tools] resourceSemanticSearch error:', error);
       return { success: false, error: error.message };
     }
@@ -114,9 +136,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.projectList();
       toolTrace('projectList', {}, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:projectList', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('projectList', {}, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:projectList', false);
       console.error('[AI Tools] projectList error:', error);
       return { success: false, error: error.message };
     }
@@ -133,9 +157,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.projectGet(projectId);
       toolTrace('projectGet', { projectId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:projectGet', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('projectGet', { projectId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:projectGet', false);
       console.error('[AI Tools] projectGet error:', error);
       return { success: false, error: error.message };
     }
@@ -152,9 +178,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.interactionList(resourceId, options || {});
       toolTrace('interactionList', { resourceId, options }, { success: true, count: result?.length ?? 0 });
+      broadcastToolAnalytics(windowManager, 'ai:tools:interactionList', true);
       return result;
     } catch (error) {
       toolTrace('interactionList', { resourceId, options }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:interactionList', false);
       console.error('[AI Tools] interactionList error:', error);
       return { success: false, error: error.message };
     }
@@ -171,9 +199,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const resources = await aiToolsHandler.getRecentResources(limit || 5);
       toolTrace('getRecentResources', { limit }, { success: true, count: resources?.length ?? 0 });
+      broadcastToolAnalytics(windowManager, 'ai:tools:getRecentResources', true);
       return { success: true, resources };
     } catch (error) {
       toolTrace('getRecentResources', { limit }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getRecentResources', false);
       console.error('[AI Tools] getRecentResources error:', error);
       return { success: false, error: error.message };
     }
@@ -190,9 +220,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const project = await aiToolsHandler.getCurrentProject();
       toolTrace('getCurrentProject', {}, { success: true, hasProject: !!project });
+      broadcastToolAnalytics(windowManager, 'ai:tools:getCurrentProject', true);
       return { success: true, project };
     } catch (error) {
       toolTrace('getCurrentProject', {}, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getCurrentProject', false);
       console.error('[AI Tools] getCurrentProject error:', error);
       return { success: false, error: error.message };
     }
@@ -206,9 +238,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.getLibraryOverview(options || {});
       toolTrace('getLibraryOverview', { options }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getLibraryOverview', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('getLibraryOverview', { options }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getLibraryOverview', false);
       console.error('[AI Tools] getLibraryOverview error:', error);
       return { success: false, error: error.message };
     }
@@ -223,12 +257,14 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.resourceCreate(data);
       toolTrace('resourceCreate', { type: data?.type, title: data?.title }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceCreate', result?.success !== false);
       if (result.success && result.resource) {
         windowManager.broadcast('resource:created', result.resource);
       }
       return result;
     } catch (error) {
       toolTrace('resourceCreate', { type: data?.type }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceCreate', false);
       console.error('[AI Tools] resourceCreate error:', error);
       return { success: false, error: error.message };
     }
@@ -242,6 +278,7 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.resourceUpdate(resourceId, updates);
       toolTrace('resourceUpdate', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceUpdate', result?.success !== false);
       if (result.success && result.resource) {
         const r = result.resource;
         const broadcastUpdates = {
@@ -255,6 +292,7 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       return result;
     } catch (error) {
       toolTrace('resourceUpdate', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceUpdate', false);
       console.error('[AI Tools] resourceUpdate error:', error);
       return { success: false, error: error.message };
     }
@@ -269,6 +307,7 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.flashcardCreate(data);
       toolTrace('flashcardCreate', { title: data?.title, cardsCount: data?.cards?.length }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:flashcardCreate', result?.success !== false);
       if (result.success && result.deck) {
         windowManager.broadcast('flashcard:deckCreated', result.deck);
       }
@@ -278,6 +317,7 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       return result;
     } catch (error) {
       toolTrace('flashcardCreate', { title: data?.title }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:flashcardCreate', false);
       console.error('[AI Tools] flashcardCreate error:', error);
       return { success: false, error: error.message };
     }
@@ -291,12 +331,14 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.resourceDelete(resourceId);
       toolTrace('resourceDelete', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceDelete', result?.success !== false);
       if (result.success && result.deleted) {
         windowManager.broadcast('resource:deleted', { id: resourceId });
       }
       return result;
     } catch (error) {
       toolTrace('resourceDelete', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceDelete', false);
       console.error('[AI Tools] resourceDelete error:', error);
       return { success: false, error: error.message };
     }
@@ -310,6 +352,7 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.resourceMoveToFolder(resourceId, folderId);
       toolTrace('resourceMoveToFolder', { resourceId, folderId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceMoveToFolder', result?.success !== false);
       if (result.success) {
         const now = Date.now();
         windowManager.broadcast('resource:updated', {
@@ -320,6 +363,7 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       return result;
     } catch (error) {
       toolTrace('resourceMoveToFolder', { resourceId, folderId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceMoveToFolder', false);
       console.error('[AI Tools] resourceMoveToFolder error:', error);
       return { success: false, error: error.message };
     }
@@ -333,9 +377,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.excelGet(resourceId, options || {});
       toolTrace('excelGet', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelGet', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('excelGet', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelGet', false);
       return { success: false, error: error.message };
     }
   });
@@ -347,9 +393,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.excelGetFilePath(resourceId);
       toolTrace('excelGetFilePath', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelGetFilePath', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('excelGetFilePath', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelGetFilePath', false);
       return { success: false, error: error.message };
     }
   });
@@ -361,9 +409,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.excelSetCell(resourceId, sheetName, cell, value);
       toolTrace('excelSetCell', { resourceId, cell }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelSetCell', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('excelSetCell', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelSetCell', false);
       return { success: false, error: error.message };
     }
   });
@@ -375,9 +425,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.excelSetRange(resourceId, sheetName, range, values);
       toolTrace('excelSetRange', { resourceId, range }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelSetRange', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('excelSetRange', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelSetRange', false);
       return { success: false, error: error.message };
     }
   });
@@ -389,9 +441,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.excelAddRow(resourceId, sheetName, values, afterRow);
       toolTrace('excelAddRow', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelAddRow', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('excelAddRow', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelAddRow', false);
       return { success: false, error: error.message };
     }
   });
@@ -403,9 +457,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.excelAddSheet(resourceId, sheetName, data);
       toolTrace('excelAddSheet', { resourceId, sheetName }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelAddSheet', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('excelAddSheet', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelAddSheet', false);
       return { success: false, error: error.message };
     }
   });
@@ -417,9 +473,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.excelCreate(projectId, title, options || {});
       toolTrace('excelCreate', { title }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelCreate', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('excelCreate', { title }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelCreate', false);
       return { success: false, error: error.message };
     }
   });
@@ -431,9 +489,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.excelExport(resourceId, options || {});
       toolTrace('excelExport', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelExport', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('excelExport', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:excelExport', false);
       return { success: false, error: error.message };
     }
   });
@@ -451,6 +511,7 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       // Fire-and-forget: run in background, return immediately so the agent can move on
       aiToolsHandler.pptCreate(projectId, title, spec || {}, opts).then((result) => {
         toolTrace('pptCreate', { title }, result);
+        broadcastToolAnalytics(windowManager, 'ai:tools:pptCreate', result?.success !== false);
         if (result.success && result.resource) {
           // resource:created is already broadcast inside pptCreate; add the PPT-specific notification
           windowManager.broadcast('ppt:created', { resource: result.resource, title: displayTitle });
@@ -462,6 +523,7 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
         }
       }).catch((error) => {
         toolTrace('pptCreate', { title }, null, error);
+        broadcastToolAnalytics(windowManager, 'ai:tools:pptCreate', false);
         windowManager.broadcast('ppt:creation-failed', {
           title: displayTitle,
           error: error.message || 'Error desconocido',
@@ -487,9 +549,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.pptGetFilePath(resourceId);
       toolTrace('pptGetFilePath', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pptGetFilePath', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('pptGetFilePath', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pptGetFilePath', false);
       return { success: false, error: error.message };
     }
   });
@@ -501,9 +565,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.pptGetSlides(resourceId);
       toolTrace('pptGetSlides', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pptGetSlides', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('pptGetSlides', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pptGetSlides', false);
       return { success: false, error: error.message };
     }
   });
@@ -515,9 +581,11 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     try {
       const result = await aiToolsHandler.pptExport(resourceId, options || {});
       toolTrace('pptExport', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pptExport', result?.success !== false);
       return result;
     } catch (error) {
       toolTrace('pptExport', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pptExport', false);
       return { success: false, error: error.message };
     }
   });

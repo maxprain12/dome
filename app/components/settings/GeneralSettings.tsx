@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { validateEmail, validateName } from '@/lib/utils/validation';
+import { getAnalyticsEnabled, setAnalyticsEnabled } from '@/lib/settings';
+import { initPostHog, shutdownPostHog, isPostHogConfigured } from '@/lib/analytics/posthog';
 
 export default function GeneralSettings() {
   const { name, email, updateUserProfile, loadUserProfile } = useUserStore();
@@ -9,6 +11,8 @@ export default function GeneralSettings() {
   const [localEmail, setLocalEmail] = useState(email);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
   const [isSaved, setIsSaved] = useState(false);
+  const [analyticsEnabled, setAnalyticsEnabledState] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
   // Load user profile on mount
   useEffect(() => {
@@ -20,6 +24,14 @@ export default function GeneralSettings() {
     setLocalName(name);
     setLocalEmail(email);
   }, [name, email]);
+
+  // Load analytics preference
+  useEffect(() => {
+    getAnalyticsEnabled().then((enabled) => {
+      setAnalyticsEnabledState(enabled);
+      setAnalyticsLoading(false);
+    });
+  }, []);
 
   const handleSave = () => {
     const newErrors: { name?: string; email?: string } = {};
@@ -47,6 +59,18 @@ export default function GeneralSettings() {
 
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
+  };
+
+  const handleAnalyticsToggle = async (enabled: boolean) => {
+    setAnalyticsLoading(true);
+    await setAnalyticsEnabled(enabled);
+    setAnalyticsEnabledState(enabled);
+    if (enabled && isPostHogConfigured()) {
+      await initPostHog(true);
+    } else if (!enabled) {
+      shutdownPostHog();
+    }
+    setAnalyticsLoading(false);
   };
 
   return (
@@ -126,6 +150,32 @@ export default function GeneralSettings() {
               <span className="text-sm animate-in fade-in" style={{ color: 'var(--success)' }}>Saved successfully</span>
             ) : null}
           </div>
+        </div>
+      </section>
+
+      {/* Analytics / Privacy */}
+      <section className="max-w-md">
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
+          Privacidad
+        </h3>
+        <div className="flex items-start gap-4">
+          <label className="flex items-center gap-3 cursor-pointer flex-1">
+            <input
+              type="checkbox"
+              checked={analyticsEnabled}
+              onChange={(e) => handleAnalyticsToggle(e.target.checked)}
+              disabled={analyticsLoading || !isPostHogConfigured()}
+              className="rounded border-gray-300"
+            />
+            <div>
+              <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+                Compartir datos de uso anónimos para mejorar Dome
+              </span>
+              <p className="text-xs mt-0.5 opacity-80" style={{ color: 'var(--secondary-text)' }}>
+                Ayuda a entender cómo se usa la app, qué funciones son más populares y qué errores ocurren. Los datos son anónimos.
+              </p>
+            </div>
+          </label>
         </div>
       </section>
     </div>

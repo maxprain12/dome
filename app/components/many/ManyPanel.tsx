@@ -25,6 +25,8 @@ import ReadingIndicator from '@/components/chat/ReadingIndicator';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { db } from '@/lib/db/client';
+import { capturePostHog } from '@/lib/analytics/posthog';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 
 const WEB_TOOLS = [createWebSearchTool(), createWebFetchTool()];
 
@@ -248,6 +250,8 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     let fullResponse = '';
     let toolCallsData: ToolCallData[] = [];
     let fullThinking = '';
+    let chatSuccess = true;
+    let providerForAnalytics: string | null = null;
 
     try {
       const config = await getAIConfig();
@@ -330,6 +334,12 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       }
 
       const useToolsForThisRequest = useToolsStream && (isSummarizeRequest(userMessage) ? !contentInjected : true);
+      providerForAnalytics = config.provider;
+      capturePostHog(ANALYTICS_EVENTS.AI_CHAT_STARTED, {
+        provider: config.provider,
+        has_tools: useToolsForThisRequest,
+      });
+
       const apiMessages = [
         { role: 'system', content: systemPrompt },
         ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
@@ -456,6 +466,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
       }
     } catch (err) {
+      chatSuccess = false;
       if (err instanceof Error && err.name === 'AbortError') {
         if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
       } else {
@@ -465,6 +476,13 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         showToast('error', `Many: ${msg}`);
       }
     } finally {
+      if (providerForAnalytics) {
+        capturePostHog(ANALYTICS_EVENTS.AI_CHAT_COMPLETED, {
+          success: chatSuccess,
+          provider: providerForAnalytics,
+          message_count: messages.length + (fullResponse ? 1 : 0),
+        });
+      }
       isSubmittingRef.current = false;
       setIsLoading(false);
       setStatus('idle');

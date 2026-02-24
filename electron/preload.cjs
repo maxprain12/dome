@@ -335,6 +335,8 @@ const ALLOWED_CHANNELS = {
     // PPT background generation events
     'ppt:created',
     'ppt:creation-failed',
+    // Analytics (from main process)
+    'analytics:event',
   ],
 };
 

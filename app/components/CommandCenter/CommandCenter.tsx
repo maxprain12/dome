@@ -18,6 +18,8 @@ import { SearchResults } from './SearchResults';
 import { SearchFilterChips } from './SearchFilterChips';
 import { DropZone } from './DropZone';
 import { hybridSearch } from '@/lib/search/hybrid-search';
+import { capturePostHog } from '@/lib/analytics/posthog';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 
 interface CommandCenterProps {
     onResourceSelect?: (resource: any) => void;
@@ -261,6 +263,11 @@ export function CommandCenter({
                         (ftsResult as any).success && (ftsResult as any).data?.studioOutputs
                             ? (ftsResult as any).data.studioOutputs
                             : [];
+
+                    capturePostHog(ANALYTICS_EVENTS.SEARCH_PERFORMED, {
+                        query_length: query.length,
+                        has_results: resources.length > 0 || interactions.length > 0,
+                    });
 
                     startTransition(() => setSearchResults({ resources, interactions, studioOutputs }));
                 }

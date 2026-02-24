@@ -549,8 +549,31 @@ app.on('before-quit', async () => {
 // Error handling
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught exception:', error);
+  if (windowManager && typeof windowManager.broadcast === 'function') {
+    const err = error instanceof Error ? error : new Error(String(error));
+    windowManager.broadcast('analytics:event', {
+      event: 'main_process_exception',
+      properties: {
+        type: 'uncaughtException',
+        message: err.message,
+        stack: err.stack,
+      },
+    });
+  }
 });
 
 process.on('unhandledRejection', (reason) => {
   console.error('❌ Unhandled rejection:', reason);
+  if (windowManager && typeof windowManager.broadcast === 'function') {
+    const message = reason instanceof Error ? reason.message : String(reason);
+    const stack = reason instanceof Error ? reason.stack : undefined;
+    windowManager.broadcast('analytics:event', {
+      event: 'main_process_exception',
+      properties: {
+        type: 'unhandledRejection',
+        message,
+        stack,
+      },
+    });
+  }
 });

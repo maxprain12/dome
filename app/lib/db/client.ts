@@ -7,6 +7,8 @@
  */
 
 import { generateId } from '../utils';
+import { capturePostHog } from '../analytics/posthog';
+import { ANALYTICS_EVENTS } from '../analytics/events';
 
 // Type definitions
 export interface Project {
@@ -98,7 +100,11 @@ class DatabaseClient {
       updated_at: now,
     };
 
-    return this.db.projects.create(project);
+    const result = await this.db.projects.create(project);
+    if (result.success) {
+      capturePostHog(ANALYTICS_EVENTS.PROJECT_CREATED, {});
+    }
+    return result;
   }
 
   async getProjects(): Promise<DBResponse<Project[]>> {

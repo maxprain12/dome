@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { Project, Resource, Source, Tag, AppPreferences, CitationStyle, StudioOutput, GraphViewState } from '@/types';
 import { getAppPreferences, saveAppPreferences, setTheme as saveTheme, setCitationStyle } from '../settings';
+import { capturePostHog } from '../analytics/posthog';
+import { ANALYTICS_EVENTS } from '../analytics/events';
 
 interface AppState {
   // Proyectos
@@ -105,7 +107,12 @@ export const useAppStore = create<AppState>((set) => ({
   projects: [],
   currentProject: null,
   setProjects: (projects) => set({ projects }),
-  setCurrentProject: (project) => set({ currentProject: project }),
+  setCurrentProject: (project) => {
+    set({ currentProject: project });
+    if (project?.id) {
+      capturePostHog(ANALYTICS_EVENTS.PROJECT_SWITCHED, { project_id: project.id });
+    }
+  },
   addProject: (project) => set((state) => ({ projects: [...state.projects, project] })),
   updateProject: (id, updates) =>
     set((state) => ({

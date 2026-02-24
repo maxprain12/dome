@@ -148,6 +148,20 @@ export async function setCitationStyle(style: CitationStyle): Promise<void> {
 }
 
 // ===========================
+// Analytics (PostHog)
+// ===========================
+
+export async function getAnalyticsEnabled(): Promise<boolean> {
+  if (!db.isAvailable()) return false;
+  const result = await db.getSetting('analytics_enabled');
+  return result.data === 'true';
+}
+
+export async function setAnalyticsEnabled(enabled: boolean): Promise<void> {
+  await db.setSetting('analytics_enabled', enabled ? 'true' : 'false');
+}
+
+// ===========================
 // AI Configuration Functions
 // ===========================
 

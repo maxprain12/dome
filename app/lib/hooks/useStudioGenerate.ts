@@ -18,6 +18,8 @@ import {
 import { getStudioPrompt } from '@/lib/prompts/loader';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
+import { capturePostHog } from '@/lib/analytics/posthog';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import type { StudioOutputType, StudioOutput } from '@/types';
 
 const STUDIO_TYPE_TITLES: Record<string, string> = {
@@ -371,6 +373,7 @@ export function useStudioGenerate(options?: {
 
         // Flashcards: tool creates deck + studio_output; broadcast adds to list
         if (isFlashcards) {
+          capturePostHog(ANALYTICS_EVENTS.STUDIO_GENERATED, { type: 'flashcards' });
           showToast('success', 'Mazo creado. Abierto en Studio.');
           return true;
         }
@@ -422,6 +425,7 @@ export function useStudioGenerate(options?: {
         };
         addStudioOutput(output as StudioOutput);
         setActiveStudioOutput(output as StudioOutput);
+        capturePostHog(ANALYTICS_EVENTS.STUDIO_GENERATED, { type });
         showToast('success', `${STUDIO_TYPE_TITLES[type] || type} generated.`);
         return true;
       } catch (err) {

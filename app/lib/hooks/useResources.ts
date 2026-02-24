@@ -1,6 +1,7 @@
-
 import { useState, useEffect, useCallback, useMemo, useTransition } from 'react';
 import type { ResourceType } from '@/types';
+import { capturePostHog } from '@/lib/analytics/posthog';
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 
 export type { ResourceType };
 
@@ -258,6 +259,7 @@ export function useResources(filter?: ResourceFilter) {
 
                 const result = await window.electron.db.resources.create(newResource);
                 if (result.success) {
+                    capturePostHog(ANALYTICS_EVENTS.RESOURCE_CREATED, { type: resource.type });
                     // El listener actualiza; fetchResources como respaldo
                     fetchResources();
                     return newResource;
@@ -292,9 +294,13 @@ export function useResources(filter?: ResourceFilter) {
             const result = await window.electron.resource.import(filePath, projectId, type, title);
 
             if (result.success && result.data) {
+                const imported = result.data as Resource;
+                capturePostHog(ANALYTICS_EVENTS.RESOURCE_IMPORTED, {
+                    type: imported.type,
+                    project_id: projectId,
+                });
                 // El listener actualiza; fetchResources como respaldo
                 fetchResources();
-                const imported = result.data as Resource;
                 return { success: true, resource: imported };
             }
 

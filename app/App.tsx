@@ -8,9 +8,11 @@ import ManyPanel from '@/components/many/ManyPanel';
 import ResizeHandle from '@/components/many/ResizeHandle';
 import PromptModal from '@/components/ui/PromptModal';
 import ToastContainer from '@/components/ui/Toast';
+import UpdateAlertBanner from '@/components/ui/UpdateAlertBanner';
 import AppHeader from '@/components/layout/AppHeader';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { showToast } from '@/lib/store/useToastStore';
+import AnalyticsProvider from '@/components/analytics/AnalyticsProvider';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -132,6 +134,7 @@ export default function App() {
 
   return (
     <ThemeProvider>
+      <AnalyticsProvider>
       <div
         className="flex flex-col"
         style={{ height: '100vh', minHeight: 0 }}
@@ -139,38 +142,41 @@ export default function App() {
         <AppHeader />
 
         <div
-          className="flex flex-1 min-h-0 overflow-hidden"
+          className="flex flex-col flex-1 min-h-0 overflow-hidden"
           style={{ paddingTop: 'var(--app-header-total)' }}
         >
-          <div
-            className="flex-1 min-w-0 overflow-auto"
-            style={{ paddingTop: 0 }}
-          >
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/workspace" element={<WorkspacePage />} />
-              <Route path="/workspace/note" element={<NoteWorkspacePage />} />
-              <Route path="/workspace/notebook" element={<NotebookWorkspacePage />} />
-              <Route path="/workspace/url" element={<URLWorkspacePage />} />
-              <Route path="/workspace/youtube" element={<YouTubeWorkspacePage />} />
-              <Route path="/workspace/docx" element={<DocxWorkspacePage />} />
-              <Route path="/workspace/ppt" element={<PptWorkspacePage />} />
-            </Routes>
-          </div>
+          <UpdateAlertBanner />
+          <div className="flex flex-1 min-h-0 overflow-hidden">
+            <div
+              className="flex-1 min-w-0 overflow-auto"
+              style={{ paddingTop: 0 }}
+            >
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/workspace" element={<WorkspacePage />} />
+                <Route path="/workspace/note" element={<NoteWorkspacePage />} />
+                <Route path="/workspace/notebook" element={<NotebookWorkspacePage />} />
+                <Route path="/workspace/url" element={<URLWorkspacePage />} />
+                <Route path="/workspace/youtube" element={<YouTubeWorkspacePage />} />
+                <Route path="/workspace/docx" element={<DocxWorkspacePage />} />
+                <Route path="/workspace/ppt" element={<PptWorkspacePage />} />
+              </Routes>
+            </div>
 
-          {showPanel && (
-            <>
-              <ResizeHandle
-                onResize={handleResize}
-                onResizeEnd={handleResizeEnd}
-              />
-              <ManyPanel
-                width={panelWidth}
-                onClose={toggleOpen}
-              />
-            </>
-          )}
+            {showPanel && (
+              <>
+                <ResizeHandle
+                  onResize={handleResize}
+                  onResizeEnd={handleResizeEnd}
+                />
+                <ManyPanel
+                  width={panelWidth}
+                  onClose={toggleOpen}
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -182,6 +188,7 @@ export default function App() {
 
       {/* Sistema de notificaciones toast */}
       <ToastContainer />
+      </AnalyticsProvider>
     </ThemeProvider>
   );
 }
