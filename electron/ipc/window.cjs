@@ -269,21 +269,28 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
   });
 
   // Open settings window
-  ipcMain.handle('window:open-settings', (event) => {
+  // Optional: { section: 'calendar' | 'ai' | ... } to open directly to that section
+  ipcMain.handle('window:open-settings', (event, options) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
+
+    const section = options?.section;
+    const route = section ? `/settings?section=${encodeURIComponent(section)}` : '/settings';
 
     try {
       // Check if settings window already exists
       const existingWindow = windowManager.get('settings');
       if (existingWindow) {
         existingWindow.focus();
+        if (section) {
+          existingWindow.webContents.send('settings:navigate-to-section', section);
+        }
         return { success: true, windowId: 'settings' };
       }
 
       // Create new settings window
-      const settingsWindow = windowManager.create(
+      windowManager.create(
         'settings',
         {
           width: 900,
@@ -293,7 +300,7 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
           backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f1419' : '#ffffff',
           title: 'Settings - Dome',
         },
-        '/settings'
+        route
       );
 
       return { success: true, windowId: 'settings' };

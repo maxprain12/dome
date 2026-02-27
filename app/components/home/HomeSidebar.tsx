@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Home, Tag, Settings, HelpCircle, WalletCards, Sparkles, Bot, CirclePlus } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Home, Tag, Settings, HelpCircle, WalletCards, Sparkles, Bot, CirclePlus, Calendar } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { getManyAgents } from '@/lib/agents/api';
 import type { ManyAgent } from '@/types';
@@ -21,8 +22,11 @@ interface HomeSidebarProps {
 }
 
 export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const activeSection = useAppStore((s) => s.homeSidebarSection);
   const setSection = useAppStore((s) => s.setHomeSidebarSection);
+  const isCalendar = location.pathname === '/calendar';
   const [agents, setAgents] = useState<ManyAgent[]>([]);
   const [showAgentOnboarding, setShowAgentOnboarding] = useState(false);
 
@@ -90,13 +94,74 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
         className="flex-1 flex flex-col gap-2 items-center w-full"
         style={{ padding: '0 10px' }}
       >
-        {navItems.map((item) => {
-          const isActive = activeSection === item.id;
+        {/* Home (Library) - primero */}
+        {navItems.filter((i) => i.id === 'library').map((item) => {
+          const isActive = !isCalendar && activeSection === item.id;
           return (
             <button
               key={item.id}
               data-tour={item.id}
-              onClick={() => setSection(item.id)}
+              onClick={() => {
+                if (isCalendar) navigate('/');
+                setSection(item.id);
+              }}
+              className="group relative flex items-center justify-center rounded-xl transition-all duration-200"
+              style={{
+                width: '42px',
+                height: '42px',
+                background: isActive ? 'var(--dome-accent-bg)' : 'transparent',
+                color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+              }}
+              aria-current={isActive ? 'page' : undefined}
+              aria-label={item.label}
+              title={item.label}
+            >
+              <div className="relative z-10 transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
+                {item.icon}
+              </div>
+              {isActive && (
+                <div
+                  className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-[var(--dome-accent)]"
+                  style={{ opacity: 0.8 }}
+                />
+              )}
+            </button>
+          );
+        })}
+        {/* Calendario - debajo de Home */}
+        <button
+          onClick={() => navigate('/calendar')}
+          className="group relative flex items-center justify-center rounded-xl transition-all duration-200"
+          style={{
+            width: '42px',
+            height: '42px',
+            background: isCalendar ? 'var(--dome-accent-bg)' : 'transparent',
+            color: isCalendar ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+          }}
+          aria-current={isCalendar ? 'page' : undefined}
+          aria-label="Calendario"
+          title="Calendario"
+        >
+          <div className="relative z-10 transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
+            <Calendar className="w-5 h-5" strokeWidth={1.5} />
+          </div>
+          {isCalendar && (
+            <div
+              className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-[var(--dome-accent)]"
+              style={{ opacity: 0.8 }}
+            />
+          )}
+        </button>
+        {navItems.filter((i) => i.id !== 'library').map((item) => {
+          const isActive = !isCalendar && activeSection === item.id;
+          return (
+            <button
+              key={item.id}
+              data-tour={item.id}
+              onClick={() => {
+                if (isCalendar) navigate('/');
+                setSection(item.id);
+              }}
               className="group relative flex items-center justify-center rounded-xl transition-all duration-200"
               style={{
                 width: '42px',
@@ -130,13 +195,16 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
         >
           <button
             data-tour="agents"
-            onClick={() => setSection('agents')}
+            onClick={() => {
+              if (isCalendar) navigate('/');
+              setSection('agents');
+            }}
             className="group relative flex items-center justify-center rounded-xl transition-all duration-200 shrink-0 hover:bg-[var(--dome-bg)]"
             style={{
               width: '42px',
               height: '42px',
-              color: activeSection === 'agents' ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-              background: activeSection === 'agents' ? 'var(--dome-accent-bg)' : 'transparent',
+              color: !isCalendar && activeSection === 'agents' ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+              background: !isCalendar && activeSection === 'agents' ? 'var(--dome-accent-bg)' : 'transparent',
             }}
             title="Agentes"
             aria-label="Listado de agentes"
@@ -144,7 +212,7 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
             <div className="relative z-10 transition-transform duration-200 group-hover:scale-105 group-active:scale-95">
               <Bot className="w-5 h-5" strokeWidth={1.5} />
             </div>
-            {activeSection === 'agents' && (
+            {!isCalendar && activeSection === 'agents' && (
               <div
                 className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-[var(--dome-accent)]"
                 style={{ opacity: 0.8 }}
@@ -170,11 +238,14 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
             <div className="flex flex-col gap-1 max-h-32 overflow-y-auto w-full">
               {agents.map((agent) => {
                 const sectionId = `agent:${agent.id}` as const;
-                const isActive = activeSection === sectionId;
+                const isActive = !isCalendar && activeSection === sectionId;
                 return (
                   <button
                     key={agent.id}
-                    onClick={() => setSection(sectionId)}
+                    onClick={() => {
+                      if (isCalendar) navigate('/');
+                      setSection(sectionId);
+                    }}
                     className="group flex items-center gap-2 rounded-xl px-2 py-1.5 transition-all"
                     style={{
                       background: isActive ? 'var(--dome-accent-bg)' : 'transparent',

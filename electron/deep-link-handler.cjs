@@ -3,8 +3,10 @@
  * Deep link handler for dome:// URLs
  * Handles dome://resource/ID/TYPE and dome://studio/ID/TYPE
  * OAuth dome://mcp-auth/... is delegated to mcpOauth
+ * OAuth dome://calendar-oauth/... is delegated to googleCalendarOAuth
  */
 const mcpOauth = require('./mcp-oauth.cjs');
+const googleCalendarOAuth = require('./google-calendar-service.cjs');
 const { openWorkspaceForResource } = require('./ipc/window.cjs');
 
 /**
@@ -21,6 +23,11 @@ async function handleDomeUrl(url, deps) {
   // OAuth callback - delegate to MCP OAuth
   if (url.startsWith('dome://mcp-auth/')) {
     return mcpOauth.handleOAuthCallback(url);
+  }
+
+  // Google Calendar OAuth callback
+  if (url.startsWith('dome://calendar-oauth/')) {
+    return googleCalendarOAuth.handleOAuthCallback(url);
   }
 
   // dome://resource/ID/TYPE or dome://resource/ID/TYPE?page=N - open workspace

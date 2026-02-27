@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import SettingsLayout from '@/components/settings/SettingsLayout';
 import GeneralSettings from '@/components/settings/GeneralSettings';
 import AppearanceSettings from '@/components/settings/AppearanceSettings';
@@ -14,8 +15,30 @@ import { useAppStore } from '@/lib/store/useAppStore';
 type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced';
 
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState<SettingsSection>('general');
+  const [searchParams] = useSearchParams();
+  const sectionParam = searchParams.get('section') as SettingsSection | null;
+  const [activeSection, setActiveSection] = useState<SettingsSection>(
+    sectionParam && ['general', 'appearance', 'ai', 'whatsapp', 'mcp', 'skills', 'plugins', 'advanced'].includes(sectionParam)
+      ? sectionParam
+      : 'general'
+  );
   const { loadUserProfile } = useUserStore();
+
+  useEffect(() => {
+    if (sectionParam && ['general', 'appearance', 'ai', 'whatsapp', 'mcp', 'skills', 'plugins', 'advanced'].includes(sectionParam)) {
+      setActiveSection(sectionParam);
+    }
+  }, [sectionParam]);
+
+  // Listen for navigate-to-section when settings window is focused from another context
+  useEffect(() => {
+    const unsub = window.electron?.on?.('settings:navigate-to-section', (section: string) => {
+      if (['general', 'appearance', 'ai', 'whatsapp', 'mcp', 'skills', 'plugins', 'advanced'].includes(section)) {
+        setActiveSection(section as SettingsSection);
+      }
+    });
+    return () => unsub?.();
+  }, []);
   const { loadPreferences } = useAppStore();
 
   useEffect(() => {

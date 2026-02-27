@@ -1176,6 +1176,139 @@ function runMigrations(db) {
       `).run(Date.now());
     }
   }
+
+  // Migration 12: Add calendar tables
+  // Also run if schema_version was incorrectly set or tables have wrong schema (e.g. from failed partial migration)
+  const calendarSchemaValid = (() => {
+    try {
+      db.prepare('SELECT 1 FROM calendar_accounts LIMIT 1').get();
+      const cols = db.prepare('PRAGMA table_info(calendar_calendars)').all();
+      const hasAccountId = cols.some((c) => c.name === 'account_id');
+      return hasAccountId;
+    } catch {
+      return false;
+    }
+  })();
+
+  if (version < 12 || !calendarSchemaValid) {
+    console.log('[DB] Running migration 12: Add calendar tables');
+
+    try {
+      // Drop existing tables if schema may be inconsistent (e.g. from failed partial migration)
+      db.exec('DROP TABLE IF EXISTS calendar_notifications');
+      db.exec('DROP TABLE IF EXISTS calendar_event_links');
+      db.exec('DROP TABLE IF EXISTS calendar_events');
+      db.exec('DROP TABLE IF EXISTS calendar_calendars');
+      db.exec('DROP TABLE IF EXISTS calendar_accounts');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS calendar_accounts (
+          id TEXT PRIMARY KEY,
+          provider TEXT NOT NULL CHECK(provider IN ('google', 'local')),
+          account_email TEXT NOT NULL,
+          credentials TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'disconnected', 'error')),
+          last_sync_at INTEGER,
+          sync_token TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_calendar_accounts_provider ON calendar_accounts(provider)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS calendar_calendars (
+          id TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL,
+          remote_id TEXT NOT NULL,
+          title TEXT NOT NULL,
+          color TEXT,
+          is_selected INTEGER DEFAULT 1,
+          is_default INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (account_id) REFERENCES calendar_accounts(id) ON DELETE CASCADE,
+          UNIQUE(account_id, remote_id)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_calendar_calendars_account ON calendar_calendars(account_id)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS calendar_events (
+          id TEXT PRIMARY KEY,
+          calendar_id TEXT NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          location TEXT,
+          start_at INTEGER NOT NULL,
+          end_at INTEGER NOT NULL,
+          timezone TEXT,
+          all_day INTEGER DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'confirmed' CHECK(status IN ('confirmed', 'tentative', 'cancelled')),
+          reminders TEXT,
+          metadata TEXT,
+          source TEXT DEFAULT 'local' CHECK(source IN ('local', 'google', 'manual')),
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (calendar_id) REFERENCES calendar_calendars(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_calendar_events_calendar ON calendar_events(calendar_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_calendar_events_start ON calendar_events(start_at)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_calendar_events_range ON calendar_events(start_at, end_at)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS calendar_event_links (
+          id TEXT PRIMARY KEY,
+          event_id TEXT NOT NULL,
+          provider TEXT NOT NULL,
+          remote_event_id TEXT NOT NULL,
+          remote_calendar_id TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (event_id) REFERENCES calendar_events(id) ON DELETE CASCADE,
+          UNIQUE(provider, remote_event_id)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_calendar_event_links_event ON calendar_event_links(event_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_calendar_event_links_remote ON calendar_event_links(provider, remote_event_id)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS calendar_notifications (
+          id TEXT PRIMARY KEY,
+          event_id TEXT NOT NULL,
+          notify_at INTEGER NOT NULL,
+          notified_at INTEGER,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (event_id) REFERENCES calendar_events(id) ON DELETE CASCADE,
+          UNIQUE(event_id, notify_at)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_calendar_notifications_event ON calendar_notifications(event_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_calendar_notifications_pending ON calendar_notifications(notify_at, notified_at)');
+
+      const now = Date.now();
+      db.prepare(`
+        INSERT OR IGNORE INTO calendar_accounts (id, provider, account_email, credentials, status, created_at, updated_at)
+        VALUES ('local', 'local', '', '{}', 'active', ?, ?)
+      `).run(now, now);
+      db.prepare(`
+        INSERT OR IGNORE INTO calendar_calendars (id, account_id, remote_id, title, is_selected, is_default, created_at, updated_at)
+        VALUES ('local-default', 'local', 'local', 'Local', 1, 1, ?, ?)
+      `).run(now, now);
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '12', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '12', updated_at = excluded.updated_at
+      `).run(Date.now());
+
+      console.log('[DB] Migration 12 complete - calendar tables added');
+    } catch (error) {
+      console.error('[DB] Migration 12 error:', error.message);
+      throw error;
+    }
+  }
 }
 
 /**
@@ -1442,6 +1575,90 @@ function getQueries() {
     getAllPageIndexedIds: db.prepare('SELECT resource_id FROM resource_page_index'),
     getPageIndexStats: db.prepare(`
       SELECT COUNT(*) as total_indexed, MAX(indexed_at) as last_indexed_at FROM resource_page_index
+    `),
+
+    // Calendar - Accounts
+    createCalendarAccount: db.prepare(`
+      INSERT INTO calendar_accounts (id, provider, account_email, credentials, status, last_sync_at, sync_token, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getCalendarAccountById: db.prepare('SELECT * FROM calendar_accounts WHERE id = ?'),
+    getCalendarAccountsByProvider: db.prepare('SELECT * FROM calendar_accounts WHERE provider = ? ORDER BY created_at DESC'),
+    getAllCalendarAccounts: db.prepare('SELECT * FROM calendar_accounts ORDER BY created_at DESC'),
+    updateCalendarAccount: db.prepare(`
+      UPDATE calendar_accounts SET account_email = ?, credentials = ?, status = ?, last_sync_at = ?, sync_token = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deleteCalendarAccount: db.prepare('DELETE FROM calendar_accounts WHERE id = ?'),
+
+    // Calendar - Calendars
+    createCalendarCalendar: db.prepare(`
+      INSERT INTO calendar_calendars (id, account_id, remote_id, title, color, is_selected, is_default, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getCalendarCalendarById: db.prepare('SELECT * FROM calendar_calendars WHERE id = ?'),
+    getCalendarCalendarsByAccount: db.prepare('SELECT * FROM calendar_calendars WHERE account_id = ? ORDER BY is_default DESC, title ASC'),
+    getSelectedCalendarCalendars: db.prepare('SELECT * FROM calendar_calendars WHERE is_selected = 1 ORDER BY is_default DESC'),
+    getDefaultCalendar: db.prepare('SELECT * FROM calendar_calendars WHERE is_default = 1 LIMIT 1'),
+    updateCalendarCalendar: db.prepare(`
+      UPDATE calendar_calendars SET title = ?, color = ?, is_selected = ?, is_default = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deleteCalendarCalendar: db.prepare('DELETE FROM calendar_calendars WHERE id = ?'),
+
+    // Calendar - Events
+    createCalendarEvent: db.prepare(`
+      INSERT INTO calendar_events (id, calendar_id, title, description, location, start_at, end_at, timezone, all_day, status, reminders, metadata, source, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getCalendarEventById: db.prepare('SELECT * FROM calendar_events WHERE id = ?'),
+    getCalendarEventsByRange: db.prepare(`
+      SELECT e.*, c.title as calendar_title, c.color as calendar_color
+      FROM calendar_events e
+      JOIN calendar_calendars c ON e.calendar_id = c.id
+      WHERE c.is_selected = 1 AND e.status != 'cancelled'
+        AND e.start_at < ? AND e.end_at > ?
+      ORDER BY e.start_at ASC
+    `),
+    getUpcomingCalendarEvents: db.prepare(`
+      SELECT e.*, c.title as calendar_title, c.color as calendar_color
+      FROM calendar_events e
+      JOIN calendar_calendars c ON e.calendar_id = c.id
+      WHERE c.is_selected = 1 AND e.status != 'cancelled'
+        AND e.start_at >= ? AND e.start_at <= ?
+      ORDER BY e.start_at ASC
+      LIMIT ?
+    `),
+    updateCalendarEvent: db.prepare(`
+      UPDATE calendar_events SET title = ?, description = ?, location = ?, start_at = ?, end_at = ?, timezone = ?, all_day = ?, status = ?, reminders = ?, metadata = ?, source = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deleteCalendarEvent: db.prepare('DELETE FROM calendar_events WHERE id = ?'),
+
+    // Calendar - Event Links (local <-> remote)
+    createCalendarEventLink: db.prepare(`
+      INSERT INTO calendar_event_links (id, event_id, provider, remote_event_id, remote_calendar_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    getCalendarEventLinkByEvent: db.prepare('SELECT * FROM calendar_event_links WHERE event_id = ?'),
+    getCalendarEventLinkByRemote: db.prepare('SELECT * FROM calendar_event_links WHERE provider = ? AND remote_event_id = ?'),
+    deleteCalendarEventLinksByEvent: db.prepare('DELETE FROM calendar_event_links WHERE event_id = ?'),
+
+    // Calendar - Notifications
+    createCalendarNotification: db.prepare(`
+      INSERT INTO calendar_notifications (id, event_id, notify_at, notified_at, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `),
+    getPendingCalendarNotifications: db.prepare(`
+      SELECT n.*, e.title, e.start_at, e.calendar_id
+      FROM calendar_notifications n
+      JOIN calendar_events e ON n.event_id = e.id
+      WHERE n.notify_at <= ? AND n.notified_at IS NULL
+      ORDER BY n.notify_at ASC
+      LIMIT ?
+    `),
+    markCalendarNotificationNotified: db.prepare(`
+      UPDATE calendar_notifications SET notified_at = ? WHERE id = ?
     `),
   };
 

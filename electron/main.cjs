@@ -96,6 +96,7 @@ const notebookPython = require('./notebook-python.cjs');
 const pageIndexService = require('./pageindex-service.cjs');
 const mcpOauth = require('./mcp-oauth.cjs');
 const { handleDomeUrl } = require('./deep-link-handler.cjs');
+const calendarNotificationService = require('./calendar-notification-service.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
 
 // IPC handlers (modularized)
@@ -506,6 +507,9 @@ app
       (status) => windowManager.broadcast('updater:status', status)
     );
 
+    // Initialize calendar notification service (upcoming events broadcast)
+    calendarNotificationService.init(windowManager);
+
     // Initialize the app in background (SQLite settings, filesystem)
     initModule.initializeApp().catch(err => {
       console.error('❌ Background initialization failed:', err);
@@ -544,6 +548,7 @@ app
 // Cleanup before quit
 app.on('before-quit', async () => {
   console.log('👋 Cerrando Dome...');
+  calendarNotificationService.stop();
   pageIndexService.stop();
   await ollamaManager.cleanup();
   database.closeDB();

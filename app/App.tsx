@@ -25,6 +25,8 @@ import YouTubeWorkspacePage from './pages/YouTubeWorkspacePage';
 import DocxWorkspacePage from './pages/DocxWorkspacePage';
 import PptWorkspacePage from './pages/PptWorkspacePage';
 import PptCapturePage from './pages/PptCapturePage';
+import CalendarPage from './pages/CalendarPage';
+import HomeLayout from './components/home/HomeLayout';
 
 const HIDDEN_ROUTES = ['/settings', '/onboarding'];
 const MANY_PANEL_MIN = 320;
@@ -161,6 +163,7 @@ export default function App() {
                 <Route path="/workspace/youtube" element={<YouTubeWorkspacePage />} />
                 <Route path="/workspace/docx" element={<DocxWorkspacePage />} />
                 <Route path="/workspace/ppt" element={<PptWorkspacePage />} />
+                <Route path="/calendar" element={<HomeLayout><CalendarPage /></HomeLayout>} />
               </Routes>
             </div>
 

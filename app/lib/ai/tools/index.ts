@@ -219,6 +219,15 @@ export {
   createPdfAnnotationTools,
 } from './pdf-annotation-tools';
 
+// Tools - Calendar
+export {
+  createCalendarCreateTool,
+  createCalendarUpdateTool,
+  createCalendarDeleteTool,
+  createCalendarListTool,
+  createCalendarTools,
+} from './calendar-tools';
+
 // =============================================================================
 // Default Tools
 // =============================================================================
@@ -239,6 +248,7 @@ import { createNotebookTools } from './notebook-tools';
 import { createExcelTools } from './excel-tools';
 import { createPptTools } from './ppt-tools';
 import { createPdfAnnotationTools } from './pdf-annotation-tools';
+import { createCalendarTools } from './calendar-tools';
 
 /**
  * Configuration for creating default tools
@@ -322,6 +332,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // PDF annotation tools (create notes in PDFs)
   tools.push(...createPdfAnnotationTools());
 
+  // Calendar tools (create, update, delete, list events)
+  tools.push(...createCalendarTools());
+
   return tools;
 }
 
@@ -379,6 +392,9 @@ export function createManyToolsForContext(
   if (isHome || isWorkspace || isNotebook) {
     tools.push(...createPdfAnnotationTools());
   }
+
+  // Calendar tools: useful in Home or when user asks about schedule
+  tools.push(...createCalendarTools());
 
   // Studio, audio, deep research, graph: useful in Home/library context
   if (isHome || isNotebook) {

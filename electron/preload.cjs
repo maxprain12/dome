@@ -266,6 +266,16 @@ const ALLOWED_CHANNELS = {
     'mcp:testServer',
     'mcp:startOAuthFlow',
     'mcp:getOAuthProviders',
+    // Calendar
+    'calendar:connectGoogle',
+    'calendar:getGoogleAccounts',
+    'calendar:listCalendars',
+    'calendar:listEvents',
+    'calendar:createEvent',
+    'calendar:updateEvent',
+    'calendar:deleteEvent',
+    'calendar:syncNow',
+    'calendar:getUpcoming',
     // Plugins
     'plugin:list',
     'plugin:install-from-folder',
@@ -316,6 +326,15 @@ const ALLOWED_CHANNELS = {
     'ppt:creation-failed',
     // Analytics (from main process)
     'analytics:event',
+    // Settings (navigate to section when window already open)
+    'settings:navigate-to-section',
+    // Calendar events
+    'calendar:eventCreated',
+    'calendar:eventUpdated',
+    'calendar:eventDeleted',
+    'calendar:eventsUpdated',
+    'calendar:syncStatus',
+    'calendar:upcoming',
   ],
 };
 
@@ -384,7 +403,7 @@ const electronHandler = {
   // ============================================
   // USER SETTINGS
   // ============================================
-  openSettings: () => ipcRenderer.invoke('window:open-settings'),
+  openSettings: (options) => ipcRenderer.invoke('window:open-settings', options),
 
   // ============================================
   // IPC COMMUNICATION
@@ -482,6 +501,46 @@ const electronHandler = {
   sync: {
     export: () => ipcRenderer.invoke('sync:export'),
     import: () => ipcRenderer.invoke('sync:import'),
+  },
+
+  // ============================================
+  // CALENDAR API
+  // ============================================
+  calendar: {
+    connectGoogle: () => ipcRenderer.invoke('calendar:connectGoogle'),
+    getGoogleAccounts: () => ipcRenderer.invoke('calendar:getGoogleAccounts'),
+    listCalendars: (accountId) => ipcRenderer.invoke('calendar:listCalendars', accountId),
+    listEvents: (params) => ipcRenderer.invoke('calendar:listEvents', params),
+    createEvent: (data) => ipcRenderer.invoke('calendar:createEvent', data),
+    updateEvent: (eventId, updates) => ipcRenderer.invoke('calendar:updateEvent', eventId, updates),
+    deleteEvent: (eventId) => ipcRenderer.invoke('calendar:deleteEvent', eventId),
+    syncNow: () => ipcRenderer.invoke('calendar:syncNow'),
+    getUpcoming: (params) => ipcRenderer.invoke('calendar:getUpcoming', params),
+    onUpcoming: (callback) => {
+      const subscription = (event, data) => callback(data);
+      ipcRenderer.on('calendar:upcoming', subscription);
+      return () => ipcRenderer.removeListener('calendar:upcoming', subscription);
+    },
+    onEventCreated: (callback) => {
+      const subscription = (event, data) => callback(data);
+      ipcRenderer.on('calendar:eventCreated', subscription);
+      return () => ipcRenderer.removeListener('calendar:eventCreated', subscription);
+    },
+    onEventUpdated: (callback) => {
+      const subscription = (event, data) => callback(data);
+      ipcRenderer.on('calendar:eventUpdated', subscription);
+      return () => ipcRenderer.removeListener('calendar:eventUpdated', subscription);
+    },
+    onEventDeleted: (callback) => {
+      const subscription = (event, data) => callback(data);
+      ipcRenderer.on('calendar:eventDeleted', subscription);
+      return () => ipcRenderer.removeListener('calendar:eventDeleted', subscription);
+    },
+    onSyncStatus: (callback) => {
+      const subscription = (event, data) => callback(data);
+      ipcRenderer.on('calendar:syncStatus', subscription);
+      return () => ipcRenderer.removeListener('calendar:syncStatus', subscription);
+    },
   },
 
   // ============================================

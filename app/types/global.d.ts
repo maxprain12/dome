@@ -215,7 +215,7 @@ declare global {
       onThemeChanged: (callback: ThemeChangeCallback) => RemoveListenerFn;
 
       // User Settings
-      openSettings: () => Promise<{ success: boolean; windowId?: string; error?: string }>;
+      openSettings: (options?: { section?: string }) => Promise<{ success: boolean; windowId?: string; error?: string }>;
 
       // IPC Communication
       invoke: (channel: string, ...args: any[]) => Promise<any>;
@@ -256,6 +256,24 @@ declare global {
       sync: {
         export: () => Promise<{ success?: boolean; path?: string; cancelled?: boolean; error?: string }>;
         import: () => Promise<{ success?: boolean; restartRequired?: boolean; cancelled?: boolean; error?: string }>;
+      };
+
+      // Calendar API
+      calendar: {
+        connectGoogle: () => Promise<{ success: boolean; accountId?: string; error?: string }>;
+        getGoogleAccounts: () => Promise<{ success: boolean; accounts?: { id: string; account_email: string; status: string }[]; error?: string }>;
+        listCalendars: (accountId?: string | null) => Promise<{ success: boolean; calendars?: any[]; error?: string }>;
+        listEvents: (params: { startMs: number; endMs: number; calendarIds?: string[] }) => Promise<{ success: boolean; events?: any[]; error?: string }>;
+        createEvent: (data: any) => Promise<{ success: boolean; event?: any; error?: string }>;
+        updateEvent: (eventId: string, updates: any) => Promise<{ success: boolean; event?: any; error?: string }>;
+        deleteEvent: (eventId: string) => Promise<{ success: boolean; deleted?: boolean; error?: string }>;
+        syncNow: () => Promise<{ success: boolean; synced?: boolean; message?: string; error?: string }>;
+        getUpcoming: (params?: { windowMinutes?: number; limit?: number }) => Promise<{ success: boolean; events?: any[]; error?: string }>;
+        onUpcoming: (callback: (data: any) => void) => RemoveListenerFn;
+        onEventCreated: (callback: (data: any) => void) => RemoveListenerFn;
+        onEventUpdated: (callback: (data: any) => void) => RemoveListenerFn;
+        onEventDeleted: (callback: (data: any) => void) => RemoveListenerFn;
+        onSyncStatus: (callback: (data: any) => void) => RemoveListenerFn;
       };
 
       // MCP API

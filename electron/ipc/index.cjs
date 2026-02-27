@@ -30,6 +30,7 @@ const syncHandlers = require('./sync.cjs');
 const pluginsHandlers = require('./plugins.cjs');
 const mcpHandlers = require('./mcp.cjs');
 const pageIndexHandlers = require('./pageindex.cjs');
+const calendarHandlers = require('./calendar.cjs');
 
 /**
  * Register all IPC handlers
@@ -95,6 +96,7 @@ function registerAll(deps) {
   pluginsHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });
   mcpHandlers.register({ ipcMain, windowManager, database, validateSender });
   pageIndexHandlers.register({ ipcMain, windowManager, database, fileStorage, pageIndexService, validateSender });
+  calendarHandlers.register({ ipcMain, windowManager, validateSender });
 
   console.log('[IPC] All handlers registered successfully');
 }
