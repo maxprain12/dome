@@ -48,9 +48,6 @@ const webScraper = require('./web-scraper.cjs');
 const excelToolsHandler = require('./excel-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
 
-// Reference to vector database (set by init.cjs)
-let vectorDB = null;
-
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
 
@@ -63,21 +60,6 @@ function setWindowManager(wm) {
 }
 
 /**
- * Set vector database reference
- * @param {Object} db - LanceDB connection
- */
-function setVectorDB(db) {
-  vectorDB = db;
-}
-
-/**
- * Get vector database reference
- * @returns {Object|null}
- */
-function getVectorDB() {
-  return vectorDB;
-}
-
 // =============================================================================
 // Resource Tools
 // =============================================================================
@@ -493,7 +475,8 @@ function buildFolderPath(folderId, folderMap) {
 }
 
 /**
- * Semantic search using embeddings and vector database
+ * Reasoning-based search using PageIndex (replaces embedding-based semantic search).
+ * Falls back to FTS if PageIndex service is unavailable or no documents are indexed.
  * @param {string} query - Search query
  * @param {Object} options - Search options
  * @param {string} [options.project_id] - Filter by project
@@ -502,90 +485,92 @@ function buildFolderPath(folderId, folderMap) {
  */
 async function resourceSemanticSearch(query, options = {}) {
   try {
-    if (!vectorDB) {
-      // Fall back to FTS if vector DB not available
-      console.log('[AI Tools] Vector DB not available, falling back to FTS');
-      return resourceSearch(query, options);
-    }
-
     const limit = Math.min(options.limit || 10, 50);
-
-    // Generate embedding for the query
-    // This requires Ollama or another embedding provider
-    const ollamaService = require('./ollama.cjs');
-    const isAvailable = await ollamaService.checkAvailability();
-
-    if (!isAvailable) {
-      console.log('[AI Tools] Ollama not available for embeddings, falling back to FTS');
-      return resourceSearch(query, options);
-    }
-
-    // Generate query embedding
-    const embeddingResult = await ollamaService.generateEmbedding(query);
-    if (!embeddingResult || !embeddingResult.embedding) {
-      console.log('[AI Tools] Failed to generate embedding, falling back to FTS');
-      return resourceSearch(query, options);
-    }
-
-    // Search in vector database
-    const tables = await vectorDB.tableNames();
-    
-    if (!tables.includes('resources')) {
-      console.log('[AI Tools] Resources table not found in vector DB, falling back to FTS');
-      return resourceSearch(query, options);
-    }
-
-    const resourcesTable = await vectorDB.openTable('resources');
-    let searchResults = await resourcesTable
-      .search(embeddingResult.embedding)
-      .limit(limit)
-      .toArray();
-
-    // Filter by project if specified
-    if (options.project_id) {
-      searchResults = searchResults.filter(r => r.project_id === options.project_id);
-    }
-
-    // Get full resource data from SQLite for each result
     const queries = database.getQueries();
-    const results = searchResults
-      .map(r => {
-        const resource = queries.getResourceById.get(r.resource_id || r.id);
-        if (!resource) return null;
-        
-        let metadata = null;
-        try {
-          metadata = resource.metadata ? JSON.parse(resource.metadata) : null;
-        } catch {
-          metadata = null;
-        }
 
-        return {
-          id: resource.id,
-          title: resource.title,
-          type: resource.type,
-          project_id: resource.project_id,
-          similarity: r._distance ? 1 - r._distance : r.score,
-          snippet: resource.content ? resource.content.substring(0, 200) + '...' : '',
-          created_at: resource.created_at,
-          updated_at: resource.updated_at,
-          metadata: metadata,
-        };
-      })
-      .filter(r => r !== null);
+    // Collect indexed trees (optionally filtered by project)
+    let indexedRows = queries.getAllPageIndexedIds.all();
+
+    if (options.project_id) {
+      const db = database.getDB ? database.getDB() : null;
+      if (db) {
+        const projectIds = db.prepare(`
+          SELECT resource_id FROM resource_page_index
+          WHERE resource_id IN (
+            SELECT id FROM resources WHERE project_id = ?
+          )
+        `).all(options.project_id);
+        indexedRows = projectIds;
+      }
+    }
+
+    if (indexedRows.length === 0) {
+      console.log('[AI Tools] No PageIndex-indexed documents found, falling back to FTS');
+      return resourceSearch(query, options);
+    }
+
+    // Fetch full tree data
+    const trees = indexedRows
+      .map(row => queries.getPageIndex.get(row.resource_id))
+      .filter(Boolean)
+      .map(t => ({ resource_id: t.resource_id, tree_json: t.tree_json }));
+
+    const pageIndexService = require('./pageindex-service.cjs');
+
+    if (!pageIndexService.isRunning()) {
+      console.log('[AI Tools] PageIndex service not running, attempting start...');
+      try {
+        await pageIndexService.start(database);
+      } catch (startErr) {
+        console.warn('[AI Tools] PageIndex service start failed, falling back to FTS:', startErr.message);
+        return resourceSearch(query, options);
+      }
+    }
+
+    const searchResult = await pageIndexService.search(query, trees, limit);
+
+    if (!searchResult.success || !searchResult.results) {
+      console.log('[AI Tools] PageIndex search failed, falling back to FTS');
+      return resourceSearch(query, options);
+    }
+
+    const results = searchResult.results.map(r => {
+      const resource = queries.getResourceById.get(r.resource_id);
+      if (!resource) return null;
+
+      let metadata = null;
+      try {
+        metadata = resource.metadata ? JSON.parse(resource.metadata) : null;
+      } catch {
+        metadata = null;
+      }
+
+      return {
+        id: resource.id,
+        title: resource.title,
+        type: resource.type,
+        project_id: resource.project_id,
+        similarity: r.score,
+        snippet: r.text || (resource.content ? resource.content.substring(0, 200) + '...' : ''),
+        pages: r.pages,
+        node_title: r.node_title,
+        created_at: resource.created_at,
+        updated_at: resource.updated_at,
+        metadata,
+      };
+    }).filter(Boolean);
 
     return {
       success: true,
-      query: query,
-      method: 'semantic',
+      query,
+      method: 'pageindex',
       count: results.length,
-      results: results,
+      results,
     };
+
   } catch (error) {
-    console.error('[AI Tools] resourceSemanticSearch error:', error);
-    
-    // Fall back to FTS on error
-    console.log('[AI Tools] Falling back to FTS due to error');
+    console.error('[AI Tools] resourceSemanticSearch (PageIndex) error:', error);
+    console.log('[AI Tools] Falling back to FTS');
     return resourceSearch(query, options);
   }
 }
@@ -1685,10 +1670,6 @@ function deepResearch(args) {
 // =============================================================================
 
 module.exports = {
-  // Vector DB management
-  setVectorDB,
-  getVectorDB,
-
   // Window manager (for broadcast when tools modify resources in main)
   setWindowManager,
 

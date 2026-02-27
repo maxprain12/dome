@@ -15,7 +15,6 @@ const filesHandlers = require('./files.cjs');
 const migrationHandlers = require('./migration.cjs');
 const webHandlers = require('./web.cjs');
 const ollamaHandlers = require('./ollama.cjs');
-const vectorHandlers = require('./vector.cjs');
 const whatsappHandlers = require('./whatsapp.cjs');
 const authHandlers = require('./auth.cjs');
 const personalityHandlers = require('./personality.cjs');
@@ -30,6 +29,7 @@ const updaterHandlers = require('./updater.cjs');
 const syncHandlers = require('./sync.cjs');
 const pluginsHandlers = require('./plugins.cjs');
 const mcpHandlers = require('./mcp.cjs');
+const pageIndexHandlers = require('./pageindex.cjs');
 
 /**
  * Register all IPC handlers
@@ -50,13 +50,13 @@ function registerAll(deps) {
     aiToolsHandler,
     aiCloudService,
     ttsService,
-    vectorHandler,
     documentExtractor,
     documentGenerator,
     docxConverter,
     authManager,
     personalityLoader,
     notebookPython,
+    pageIndexService,
     validateSender,
     sanitizePath,
     validateUrl,
@@ -74,7 +74,6 @@ function registerAll(deps) {
   linksHandlers.register({ ipcMain, windowManager, database, validateSender });
   tagsHandlers.register({ ipcMain, windowManager, database, validateSender });
   graphHandlers.register({ ipcMain, windowManager, database, validateSender });
-  vectorHandlers.register({ ipcMain, windowManager, database, ollamaService, initModule, fileStorage, documentExtractor });
   resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService });
   storageHandlers.register({ ipcMain, windowManager, database, fileStorage });
   filesHandlers.register({ ipcMain, app, windowManager, sanitizePath });
@@ -95,6 +94,7 @@ function registerAll(deps) {
   syncHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender, sanitizePath });
   pluginsHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });
   mcpHandlers.register({ ipcMain, windowManager, database, validateSender });
+  pageIndexHandlers.register({ ipcMain, windowManager, database, fileStorage, pageIndexService, validateSender });
 
   console.log('[IPC] All handlers registered successfully');
 }

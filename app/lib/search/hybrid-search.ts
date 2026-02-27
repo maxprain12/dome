@@ -1,8 +1,8 @@
 /**
- * Hybrid Search - Merges results from Vector DB and Knowledge Graph
+ * Hybrid Search - Merges results from PageIndex and Knowledge Graph
  *
  * Strategy:
- * - Vector DB (LanceDB): Semantic similarity search (70% weight)
+ * - PageIndex (reasoning-based RAG): Semantic relevance search (70% weight)
  * - Knowledge Graph (SQLite): Relationship-based search (30% weight)
  * - Merge and rank results using weighted scoring
  */
@@ -17,11 +17,11 @@ interface SearchResult {
 }
 
 interface HybridSearchOptions {
-  vectorWeight?: number;  // Default: 0.7
+  vectorWeight?: number;  // Default: 0.7 (PageIndex weight)
   graphWeight?: number;   // Default: 0.3
   maxResults?: number;    // Default: 50
   includeBacklinks?: boolean; // Include backlinks in graph search
-  semanticThreshold?: number; // Minimum similarity score for vector results
+  semanticThreshold?: number; // Minimum similarity score for PageIndex results
 }
 
 /**
@@ -124,26 +124,28 @@ export async function hybridSearch(
     semanticThreshold: options.semanticThreshold ?? 0.3,
   };
 
-  // 1. Vector search (semantic similarity)
+  // 1. PageIndex search (reasoning-based, replaces vector similarity)
   let vectorResults: SearchResult[] = [];
   try {
-    const vectorResponse = await window.electron.vector.search(query, {
-      limit: opts.maxResults,
-      threshold: opts.semanticThreshold,
+    const pageIndexResponse = await window.electron.invoke('pageindex:search', {
+      query,
+      topK: opts.maxResults,
     });
 
-    if (vectorResponse.success && vectorResponse.data) {
-      vectorResults = vectorResponse.data.map((result: any) => ({
-        id: result.resource_id || result.id,
-        title: result.metadata?.title || 'Untitled',
-        type: result.metadata?.resource_type || 'unknown',
-        score: result.score || result._distance ? 1 - result._distance : 0,
-        source: 'vector' as const,
-        metadata: result.metadata,
-      }));
+    if (pageIndexResponse.success && pageIndexResponse.results) {
+      vectorResults = pageIndexResponse.results
+        .filter((r: any) => (r.score || 0) >= opts.semanticThreshold)
+        .map((result: any) => ({
+          id: result.resource_id,
+          title: result.title || 'Untitled',
+          type: result.type || 'pdf',
+          score: result.score || 0,
+          source: 'vector' as const,
+          metadata: { pages: result.pages, node_title: result.node_title, text: result.text },
+        }));
     }
   } catch (error) {
-    console.warn('[HybridSearch] Vector search failed:', error);
+    console.warn('[HybridSearch] PageIndex search failed:', error);
     // Continue with other search methods
   }
 

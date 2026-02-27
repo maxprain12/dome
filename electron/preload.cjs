@@ -144,24 +144,7 @@ const ALLOWED_CHANNELS = {
     'ollama:manager:status',
     'ollama:manager:download',
     'ollama:manager:versions',
-    // Vector Database - Annotations
-    'vector:annotations:index',
-    'vector:annotations:search',
-    'vector:annotations:delete',
-    'vector:search:generic',
-    'vector:semanticSearch',
-    'vector:resources:index',
-    'vector:resources:addEmbeddings',
-    'vector:resources:stats',
-    'vector:resources:reindexAll',
-    'vector:resources:repair',
-    'vector:status',
-    // General Vector Database
-    'vector:add',
-    'vector:search',
-    'vector:delete',
-    'vector:resource:delete',
-    'vector:count',
+    // Vector Database channels removed (LanceDB replaced by PageIndex)
     // WhatsApp
     'whatsapp:status',
     'whatsapp:start',
@@ -255,18 +238,14 @@ const ALLOWED_CHANNELS = {
     'ollama:generate-embedding',
     'ollama:generate-summary',
     'ollama:chat',
-    // Vector Database - Annotations
-    'vector:annotations:index',
-    'vector:annotations:search',
-    'vector:annotations:delete',
-    'vector:search:generic',
-    'vector:semanticSearch',
-    'vector:resources:index',
-    'vector:resources:addEmbeddings',
-    'vector:resources:stats',
-    'vector:resources:reindexAll',
-    'vector:resources:repair',
-    'vector:status',
+    // Vector channels removed (LanceDB replaced by PageIndex)
+    // PageIndex - Reasoning-based RAG (replaces vector embeddings)
+    'pageindex:start',
+    'pageindex:status',
+    'pageindex:index',
+    'pageindex:search',
+    'pageindex:delete',
+    'pageindex:reindex',
     // Notebook (Python via IPC)
     'notebook:runPython',
     'notebook:checkPython',

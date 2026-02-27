@@ -122,25 +122,7 @@ export function createPdfAnnotationCreateTool(): AnyAgentTool {
           });
         }
 
-        // Index in LanceDB for searchability
-        if (result.data && window.electron?.vector?.annotations?.index) {
-          window.electron.vector.annotations
-            .index({
-              annotationId: result.data.id,
-              resourceId,
-              text: content.trim(),
-              metadata: {
-                annotation_type: 'note',
-                page_index: page - 1,
-                resource_type: 'pdf',
-                title: resource.title,
-                project_id: resource.project_id,
-              },
-            })
-            .catch((err: unknown) => {
-              console.error('[pdf_annotation_create] Vector index error:', err);
-            });
-        }
+        // Annotations are stored in SQLite with FTS5 full-text search
 
         return jsonResult({
           status: 'success',

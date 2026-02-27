@@ -1,20 +1,18 @@
 /* eslint-disable no-console */
 /**
  * Initialization Module - Main Process
- * Handles all initialization logic for SQLite, LanceDB, filesystem, and settings
+ * Handles initialization logic for SQLite, filesystem, and settings.
+ * Vector database (LanceDB) has been replaced by PageIndex (reasoning-based RAG).
  */
 
 const path = require('path');
 const fs = require('fs');
 const { app } = require('electron');
-const { Schema, Field, Utf8, Int32, Float32, Float64, FixedSizeList, Struct } = require('apache-arrow');
 const database = require('./database.cjs');
 
-let vectorDB = null;
 let isInitialized = false;
 let isInitializing = false;
 let initializationPromise = null;
-let vectorDBAvailable = false;
 
 /**
  * Initialize SQLite database
@@ -118,288 +116,15 @@ function createAvatarsDirectory() {
   }
 }
 
-/**
- * Initialize LanceDB vector database
- * Returns true if successful, false if failed (non-blocking)
- * @returns {Promise<boolean>}
- */
-async function initVectorDB() {
-  try {
-    console.log('🔮 Inicializando base de datos vectorial...');
+// LanceDB / embedding functions removed — PageIndex (reasoning-based RAG) handles document search.
+// No-op stubs kept for backward compatibility with any code that calls these.
 
-    // Try to load vectordb module - this can fail with native module issues
-    let vectordb;
-    try {
-      // In production (packaged), native modules are unpacked from asar
-      // We need to help Node.js find them
-      if (app.isPackaged) {
-        const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules');
-        console.log('[VectorDB] Looking for native modules in:', unpackedPath);
-
-        // Add unpacked path to module paths
-        if (!require('module').globalPaths.includes(unpackedPath)) {
-          require('module').globalPaths.push(unpackedPath);
-        }
-      }
-
-      vectordb = require('vectordb');
-      console.log('[VectorDB] Module loaded successfully');
-    } catch (loadError) {
-      console.warn('⚠️ No se pudo cargar el módulo vectordb:', loadError.message);
-      if (app.isPackaged) {
-        console.warn('⚠️ Possible native module issue in production build');
-        console.warn('⚠️ Check that vectordb was properly unpacked from asar');
-      }
-      console.warn('⚠️ La búsqueda semántica estará deshabilitada');
-      vectorDBAvailable = false;
-      return false;
-    }
-
-    const userDataPath = app.getPath('userData');
-    const vectorDBPath = path.join(userDataPath, 'dome-vector');
-
-    // Ensure directory exists
-    if (!fs.existsSync(vectorDBPath)) {
-      fs.mkdirSync(vectorDBPath, { recursive: true });
-    }
-
-    console.log('[VectorDB] Connecting to:', vectorDBPath);
-    vectorDB = await vectordb.connect(vectorDBPath);
-    vectorDBAvailable = true;
-    console.log('✅ Base de datos vectorial inicializada correctamente');
-    return true;
-  } catch (error) {
-    console.error('❌ Error al inicializar base de datos vectorial:', error.message);
-    console.error('[VectorDB] Stack:', error.stack);
-    console.warn('⚠️ La búsqueda semántica estará deshabilitada');
-    vectorDBAvailable = false;
-    return false;
-  }
-}
-
-/**
- * Build Arrow schema for resource_embeddings table.
- * Uses Utf8 for all strings (never Dictionary) to avoid "two different dictionaries
- * with the same Id" when serializing to LanceDB.
- * @param {number} embeddingDimension - Dimension of embedding vectors (1024 for Ollama mxbai-embed-large)
- * @returns {import('apache-arrow').Schema}
- */
-function buildResourceEmbeddingsSchema(embeddingDimension) {
-  return new Schema([
-    new Field('id', new Utf8()),
-    new Field('resource_id', new Utf8()),
-    new Field('chunk_index', new Int32()),
-    new Field('text', new Utf8()),
-    new Field('vector', new FixedSizeList(embeddingDimension, new Field('item', new Float32()))),
-    new Field('metadata', new Struct([
-      new Field('resource_type', new Utf8()),
-      new Field('title', new Utf8()),
-      new Field('project_id', new Utf8()),
-      new Field('created_at', new Float64()),
-    ])),
-  ]);
-}
-
-/**
- * Create resource embeddings table
- * Uses 1024 dimensions by default (Ollama mxbai-embed-large)
- * Returns null if vectorDB is not available
- * @param {number} embeddingDimension - Dimension of embedding vectors
- * @param {boolean} forceRecreate - If true, drop existing table and recreate
- */
-async function createResourceEmbeddingsTable(embeddingDimension = 1024, forceRecreate = false) {
-  if (!vectorDB || !vectorDBAvailable) {
-    console.log('⚠️ Saltando creación de resource_embeddings (vectorDB no disponible)');
-    return null;
-  }
-
-  try {
-    const tables = await vectorDB.tableNames();
-    const tableExists = tables.includes('resource_embeddings');
-
-    if (tableExists && !forceRecreate) {
-      console.log('✓ Tabla resource_embeddings ya existe');
-      return await vectorDB.openTable('resource_embeddings');
-    }
-
-    // If table exists and we need to recreate, drop it first
-    if (tableExists && forceRecreate) {
-      try {
-        await vectorDB.dropTable('resource_embeddings');
-        console.log('🗑️ Tabla resource_embeddings eliminada para recreación');
-      } catch (dropError) {
-        console.warn('⚠️ No se pudo eliminar la tabla existente:', dropError.message);
-      }
-    }
-
-    // Create table with sample data using explicit schema
-    const sampleData = [{
-      id: 'sample',
-      resource_id: 'sample',
-      chunk_index: 0,
-      text: 'Sample text for initialization',
-      vector: new Array(embeddingDimension).fill(0),
-      metadata: {
-        resource_type: 'note',
-        title: 'Sample',
-        project_id: 'sample',
-        created_at: Date.now(),
-      },
-    }];
-
-    const table = await vectorDB.createTable({
-      name: 'resource_embeddings',
-      data: sampleData,
-      schema: buildResourceEmbeddingsSchema(embeddingDimension),
-    });
-
-    // Delete sample data
-    await table.delete('id = "sample"');
-
-    console.log(`✅ Tabla resource_embeddings creada con dimensión ${embeddingDimension}`);
-    return table;
-  } catch (error) {
-    console.error('❌ Error al crear tabla de embeddings:', error.message);
-    return null;
-  }
-}
-
-/**
- * Create source embeddings table
- * Returns null if vectorDB is not available
- */
-async function createSourceEmbeddingsTable() {
-  if (!vectorDB || !vectorDBAvailable) {
-    console.log('⚠️ Saltando creación de source_embeddings (vectorDB no disponible)');
-    return null;
-  }
-
-  try {
-    const tables = await vectorDB.tableNames();
-    if (tables.includes('source_embeddings')) {
-      console.log('✓ Tabla source_embeddings ya existe');
-      return await vectorDB.openTable('source_embeddings');
-    }
-
-    const sampleData = [{
-      id: 'sample',
-      source_id: 'sample',
-      chunk_index: 0,
-      text: 'Sample source text',
-      vector: new Array(1536).fill(0),
-      metadata: {
-        source_type: 'article',
-        title: 'Sample',
-        authors: 'Sample',
-        year: 2024,
-        created_at: Date.now(),
-      },
-    }];
-
-    const table = await vectorDB.createTable('source_embeddings', sampleData);
-    await table.delete('id = "sample"');
-
-    console.log('✅ Tabla source_embeddings creada');
-    return table;
-  } catch (error) {
-    console.error('❌ Error al crear tabla de fuentes:', error.message);
-    return null;
-  }
-}
-
-/**
- * Build Arrow schema for annotation_embeddings table.
- * Uses Utf8 for all strings (never Dictionary) to avoid "two different dictionaries
- * with the same Id" when serializing to LanceDB.
- * @param {number} embeddingDimension - Dimension of embedding vectors
- * @returns {import('apache-arrow').Schema}
- */
-function buildAnnotationEmbeddingsSchema(embeddingDimension) {
-  return new Schema([
-    new Field('id', new Utf8()),
-    new Field('resource_id', new Utf8()),
-    new Field('annotation_id', new Utf8()),
-    new Field('chunk_index', new Int32()),
-    new Field('text', new Utf8()),
-    new Field('vector', new FixedSizeList(embeddingDimension, new Field('item', new Float32()))),
-    new Field('metadata', new Struct([
-      new Field('annotation_type', new Utf8()),
-      new Field('page_index', new Int32()),
-      new Field('created_at', new Float64()),
-      new Field('resource_type', new Utf8()),
-      new Field('title', new Utf8()),
-      new Field('project_id', new Utf8()),
-    ])),
-  ]);
-}
-
-/**
- * Create annotation embeddings table
- * Uses 1024 dimensions by default (Ollama bge-m3), but can be overridden
- * Returns null if vectorDB is not available
- * @param {number} embeddingDimension - Dimension of embedding vectors
- * @param {boolean} forceRecreate - If true, drop existing table and recreate
- */
-async function createAnnotationEmbeddingsTable(embeddingDimension = 1024, forceRecreate = false) {
-  if (!vectorDB || !vectorDBAvailable) {
-    console.log('⚠️ Saltando creación de annotation_embeddings (vectorDB no disponible)');
-    return null;
-  }
-
-  try {
-    const tables = await vectorDB.tableNames();
-    const tableExists = tables.includes('annotation_embeddings');
-    
-    if (tableExists && !forceRecreate) {
-      console.log('✓ Tabla annotation_embeddings ya existe');
-      return await vectorDB.openTable('annotation_embeddings');
-    }
-
-    // If table exists and we need to recreate, drop it first
-    if (tableExists && forceRecreate) {
-      try {
-        await vectorDB.dropTable('annotation_embeddings');
-        console.log('🗑️ Tabla annotation_embeddings eliminada para recreación');
-      } catch (dropError) {
-        console.warn('⚠️ No se pudo eliminar la tabla existente:', dropError.message);
-        // Continue anyway - createTable might handle it
-      }
-    }
-
-    // Create table with sample data using the correct embedding dimension
-    const sampleData = [{
-      id: 'sample',
-      resource_id: 'sample',
-      annotation_id: 'sample',
-      chunk_index: 0,
-      text: 'Sample annotation text',
-      vector: new Array(embeddingDimension).fill(0),
-      metadata: {
-        annotation_type: 'highlight',
-        page_index: 0,
-        created_at: Date.now(),
-        resource_type: 'pdf',
-        title: 'Sample',
-        project_id: 'sample',
-      },
-    }];
-
-    const table = await vectorDB.createTable({
-      name: 'annotation_embeddings',
-      data: sampleData,
-      schema: buildAnnotationEmbeddingsSchema(embeddingDimension),
-    });
-
-    // Delete sample data
-    await table.delete('id = "sample"');
-
-    console.log(`✅ Tabla annotation_embeddings creada con dimensión ${embeddingDimension}`);
-    return table;
-  } catch (error) {
-    console.error('❌ Error al crear tabla de embeddings de anotaciones:', error.message);
-    return null;
-  }
-}
+/** @deprecated No-op. LanceDB removed. */
+async function createResourceEmbeddingsTable() { return null; }
+/** @deprecated No-op. LanceDB removed. */
+async function createSourceEmbeddingsTable() { return null; }
+/** @deprecated No-op. LanceDB removed. */
+async function createAnnotationEmbeddingsTable() { return null; }
 
 /**
  * Check onboarding status
@@ -514,36 +239,10 @@ async function doInitialize(startTime) {
     createAvatarsDirectory();
     console.log('[Init] Step 4 completed in', Date.now() - startTime, 'ms');
 
-    // 5. Initialize vector database (optional - app works without it)
-    // Use a timeout to prevent blocking if vectordb hangs
-    console.log('[Init] Step 5: Vector database (optional)...');
-    try {
-      const vectorInitialized = await withTimeout(initVectorDB(), 10000, 'VectorDB initialization');
-      if (vectorInitialized) {
-        // Create tables with timeout
-        await withTimeout(
-          Promise.all([
-            createResourceEmbeddingsTable(),
-            createSourceEmbeddingsTable(),
-            createAnnotationEmbeddingsTable(),
-          ]),
-          15000,
-          'VectorDB tables creation'
-        );
-      } else {
-        console.warn('[Init] ⚠️ Vector database skipped - semantic search will be disabled');
-      }
-    } catch (vectorError) {
-      console.warn('[Init] ⚠️ Vector database initialization failed:', vectorError.message);
-      console.warn('[Init] ⚠️ Continuing without semantic search');
-      vectorDBAvailable = false;
-    }
-    console.log('[Init] Step 5 completed in', Date.now() - startTime, 'ms');
-
-    // 6. Check onboarding status
-    console.log('[Init] Step 6: Onboarding status...');
+    // 5. Check onboarding status
+    console.log('[Init] Step 5: Onboarding status...');
     const needsOnboarding = checkOnboardingStatus();
-    console.log('[Init] Step 6 completed in', Date.now() - startTime, 'ms');
+    console.log('[Init] Step 5 completed in', Date.now() - startTime, 'ms');
 
     isInitialized = true;
     console.log('[Init] ✅ Dome inicializado correctamente en', Date.now() - startTime, 'ms');
@@ -564,28 +263,19 @@ async function doInitialize(startTime) {
   }
 }
 
-/**
- * Get vector database instance
- */
-function getVectorDB() {
-  return vectorDB;
-}
-
-function getVectorDBPath() {
-  try {
-    return path.join(app.getPath('userData'), 'dome-vector');
-  } catch {
-    return null;
-  }
-}
+/** @deprecated No-op. LanceDB removed. */
+function getVectorDB() { return null; }
+/** @deprecated No-op. LanceDB removed. */
+function getVectorDBPath() { return null; }
 
 module.exports = {
   initializeApp,
   checkOnboardingStatus,
+  isInitialized: () => isInitialized,
+  // Kept as no-ops for backward compatibility (LanceDB removed)
   getVectorDB,
   getVectorDBPath,
-  isInitialized: () => isInitialized,
-  isVectorDBAvailable: () => vectorDBAvailable,
+  isVectorDBAvailable: () => false,
   createAnnotationEmbeddingsTable,
   createResourceEmbeddingsTable,
 };

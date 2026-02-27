@@ -12,7 +12,6 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
-// Must run before any require that loads vectordb (e.g. vector-handler)
 // In packaged app, native modules live in app.asar.unpacked
 if (app.isPackaged) {
   const mod = require('module');
@@ -85,7 +84,6 @@ const ollamaManager = require('./ollama-manager.cjs');
 const aiToolsHandler = require('./ai-tools-handler.cjs');
 const excelToolsHandler = require('./excel-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
-const vectorHandler = require('./vector-handler.cjs');
 const documentExtractor = require('./document-extractor.cjs');
 const documentGenerator = require('./document-generator.cjs');
 const docxConverter = require('./docx-converter.cjs');
@@ -95,6 +93,7 @@ const aiCloudService = require('./ai-cloud-service.cjs');
 const updateService = require('./update-service.cjs');
 const ttsService = require('./tts-service.cjs');
 const notebookPython = require('./notebook-python.cjs');
+const pageIndexService = require('./pageindex-service.cjs');
 const mcpOauth = require('./mcp-oauth.cjs');
 const { handleDomeUrl } = require('./deep-link-handler.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
@@ -438,8 +437,6 @@ app
     setupUserDataFolder();
     // Initialize file storage
     fileStorage.initStorage();
-    // Initialize vector handler
-    vectorHandler.initialize(app.getPath('userData')).catch(console.error);
     // Database initialization is now handled by initModule
     // but we still need to ensure it's ready
     database.initDatabase();
@@ -463,13 +460,13 @@ app
       aiToolsHandler,
       aiCloudService,
       ttsService,
-    vectorHandler,
     documentExtractor,
     documentGenerator,
     docxConverter,
     authManager,
     personalityLoader,
     notebookPython,
+    pageIndexService,
     validateSender,
       sanitizePath,
       validateUrl,
@@ -509,11 +506,16 @@ app
       (status) => windowManager.broadcast('updater:status', status)
     );
 
-    // Initialize the app in background (SQLite settings, LanceDB, filesystem)
-    // No bloquea la UI - si falla, la app sigue funcionando sin busqueda vectorial
+    // Initialize the app in background (SQLite settings, filesystem)
     initModule.initializeApp().catch(err => {
       console.error('❌ Background initialization failed:', err);
-      console.warn('⚠️ Vector search will be disabled');
+    });
+
+    // Start PageIndex Python service in background (non-blocking)
+    // If it fails the app continues working without PageIndex RAG
+    pageIndexService.start(database).catch(err => {
+      console.warn('⚠️ PageIndex service failed to start:', err.message);
+      console.warn('⚠️ Reasoning-based RAG will be unavailable. Make sure Python 3.8+ is installed.');
     });
 
     // Schedule orphan file cleanup after app is ready (non-blocking)
@@ -542,6 +544,7 @@ app
 // Cleanup before quit
 app.on('before-quit', async () => {
   console.log('👋 Cerrando Dome...');
+  pageIndexService.stop();
   await ollamaManager.cleanup();
   database.closeDB();
 });

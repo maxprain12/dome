@@ -257,33 +257,8 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
 
       // Index annotation in LanceDB if interaction was created successfully
       if (interaction && typeof window !== 'undefined' && window.electron) {
-        try {
-          const resourceResult = await window.electron.db.resources.getById(resource.id);
-          const resourceData = resourceResult.success ? resourceResult.data : null;
-
-          const textToIndex = annotation.type === 'highlight'
-            ? (annotation.selectedText || '')
-            : (annotation.content || '');
-
-          if (textToIndex.trim()) {
-            window.electron.vector.annotations.index({
-              annotationId: interaction.id,
-              resourceId: resource.id,
-              text: textToIndex,
-              metadata: {
-                annotation_type: annotation.type,
-                page_index: annotation.pageIndex,
-                resource_type: 'pdf',
-                title: resourceData?.title || resource.title,
-                project_id: resourceData?.project_id || resource.project_id,
-              },
-            }).catch((error) => {
-              console.error('Error indexing annotation:', error);
-            });
-          }
-        } catch (error) {
-          console.error('Error preparing annotation for indexing:', error);
-        }
+        // Annotations are stored in SQLite with FTS5 full-text search
+        // No additional vector indexing needed
       }
     },
     [addInteraction, resource]
@@ -317,9 +292,6 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   const handleDeleteNote = useCallback(
     async (id: string) => {
       await deleteInteraction(id);
-      if (typeof window !== 'undefined' && window.electron?.vector?.annotations?.delete) {
-        window.electron.vector.annotations.delete(id).catch(() => {});
-      }
     },
     [deleteInteraction]
   );

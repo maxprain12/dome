@@ -10,7 +10,8 @@ function generateId() {
 }
 
 function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService }) {
-  const indexerDeps = initModule && ollamaService ? { database, initModule, ollamaService } : null;
+  const pageIndexService = require('../pageindex-service.cjs');
+  const indexerDeps = { database, fileStorage, pageIndexService, initModule, ollamaService };
   /**
    * Import a file: copy to internal storage and create resource
    */

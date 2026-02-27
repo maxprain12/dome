@@ -270,6 +270,19 @@ function initDatabase() {
     END
   `);
 
+  // PageIndex - hierarchical document tree index (replaces LanceDB embeddings)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS resource_page_index (
+      resource_id TEXT PRIMARY KEY,
+      tree_json TEXT NOT NULL,
+      indexed_at INTEGER NOT NULL,
+      model_used TEXT,
+      FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.exec('CREATE INDEX IF NOT EXISTS idx_resource_page_index_resource ON resource_page_index(resource_id)');
+
   // Populate FTS tables with existing data (important for external content FTS tables)
   populateFTSTables(db);
 
@@ -1411,6 +1424,25 @@ function getQueries() {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getSessionsByDeck: db.prepare('SELECT * FROM flashcard_sessions WHERE deck_id = ? ORDER BY started_at DESC LIMIT ?'),
+
+    // PageIndex - hierarchical document tree index (reasoning-based RAG)
+    upsertPageIndex: db.prepare(`
+      INSERT INTO resource_page_index (resource_id, tree_json, indexed_at, model_used)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(resource_id) DO UPDATE SET
+        tree_json = excluded.tree_json,
+        indexed_at = excluded.indexed_at,
+        model_used = excluded.model_used
+    `),
+    getPageIndex: db.prepare('SELECT * FROM resource_page_index WHERE resource_id = ?'),
+    getPageIndexByIds: db.prepare(`
+      SELECT * FROM resource_page_index WHERE resource_id IN (SELECT value FROM json_each(?))
+    `),
+    deletePageIndex: db.prepare('DELETE FROM resource_page_index WHERE resource_id = ?'),
+    getAllPageIndexedIds: db.prepare('SELECT resource_id FROM resource_page_index'),
+    getPageIndexStats: db.prepare(`
+      SELECT COUNT(*) as total_indexed, MAX(indexed_at) as last_indexed_at FROM resource_page_index
+    `),
   };
 
   return _queries;
