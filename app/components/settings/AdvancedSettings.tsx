@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Download, RefreshCw, RotateCw } from 'lucide-react';
+import { Download, RefreshCw, RotateCw, FileStack } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { CitationStyle } from '@/types';
 
@@ -27,6 +27,8 @@ export default function AdvancedSettings() {
   const { citationStyle, autoSave, autoBackup, updateCitationStyle, updatePreferences } = useAppStore();
   const [updaterState, setUpdaterState] = useState<UpdaterState>({ status: 'idle' });
   const [appVersion, setAppVersion] = useState<string>('');
+  const [notesMigrationStatus, setNotesMigrationStatus] = useState<{ pendingMigrations: number; notes: { id: string; title: string }[] } | null>(null);
+  const [notesMigrating, setNotesMigrating] = useState(false);
 
   useEffect(() => {
     window.electron?.getAppVersion?.().then((v) => setAppVersion(v || '0.1.0'));
@@ -37,6 +39,18 @@ export default function AdvancedSettings() {
     const unsub = window.electron.updater.onStatus((s) => setUpdaterState(s as UpdaterState));
     return unsub;
   }, []);
+
+  useEffect(() => {
+    async function loadNotesMigrationStatus() {
+      try {
+        const r = await window.electron?.migration?.getNotesMigrationStatus?.();
+        if (r?.success && r.data) setNotesMigrationStatus(r.data);
+      } catch {
+        // ignore
+      }
+    }
+    loadNotesMigrationStatus();
+  }, [notesMigrating]);
 
   const handleCheckUpdate = async () => {
     setUpdaterState((s) => ({ ...s, status: 'checking' }));
@@ -73,6 +87,19 @@ export default function AdvancedSettings() {
 
   const handleCitationStyleChange = (style: CitationStyle) => {
     updateCitationStyle(style);
+  };
+
+  const handleMigrateNotes = async () => {
+    setNotesMigrating(true);
+    try {
+      const r = await window.electron?.migration?.migrateNotesToDomain?.();
+      if (r?.success) {
+        const status = await window.electron?.migration?.getNotesMigrationStatus?.();
+        if (status?.success && status.data) setNotesMigrationStatus(status.data);
+      }
+    } finally {
+      setNotesMigrating(false);
+    }
   };
 
   return (
@@ -236,6 +263,37 @@ export default function AdvancedSettings() {
           </button>
         </div>
       </section>
+
+      {/* Notes Migration (legacy resources -> notes domain) */}
+      {typeof window !== 'undefined' && window.electron?.migration?.getNotesMigrationStatus && (
+        <section>
+          <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
+            Notes Migration
+          </h3>
+          <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
+            Migrate legacy notes from the old storage to the new notes domain. This enables the tree view, history, and backlinks.
+          </p>
+          {notesMigrationStatus && notesMigrationStatus.pendingMigrations > 0 ? (
+            <div className="space-y-3">
+              <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
+                {notesMigrationStatus.pendingMigrations} legacy note(s) pending
+              </p>
+              <button
+                onClick={handleMigrateNotes}
+                disabled={notesMigrating}
+                className="btn btn-primary flex items-center gap-2"
+              >
+                <FileStack className="w-4 h-4" />
+                {notesMigrating ? 'Migrating...' : 'Migrate notes'}
+              </button>
+            </div>
+          ) : notesMigrationStatus?.pendingMigrations === 0 ? (
+            <p className="text-sm" style={{ color: 'var(--success)' }}>
+              All notes are migrated.
+            </p>
+          ) : null}
+        </section>
+      )}
 
       {/* Citation Style */}
       <section>

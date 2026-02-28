@@ -11,6 +11,7 @@ import martinNotebookContext from '../../../prompts/martin/notebook-context.txt?
 import martinExcelContext from '../../../prompts/martin/excel-context.txt?raw';
 import martinPptContext from '../../../prompts/martin/ppt-context.txt?raw';
 import martinDocumentContext from '../../../prompts/martin/document-context.txt?raw';
+import martinNoteContext from '../../../prompts/martin/note-context.txt?raw';
 import martinFloatingBase from '../../../prompts/martin/floating-base.txt?raw';
 import martinSupervisor from '../../../prompts/martin/supervisor.txt?raw';
 import editorSystem from '../../../prompts/editor/system.txt?raw';
@@ -32,6 +33,7 @@ const manyPromptSet = {
   excelContext: martinExcelContext,
   pptContext: martinPptContext,
   documentContext: martinDocumentContext,
+  noteContext: martinNoteContext,
   floatingBase: martinFloatingBase,
   supervisor: martinSupervisor,
 };

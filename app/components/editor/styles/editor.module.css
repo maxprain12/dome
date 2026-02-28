@@ -1,0 +1,63 @@
+.editor {
+    height: 100%;
+    padding: var(--space-2) 0 var(--space-1) 0;
+    margin: var(--space-12) auto;
+    font-family: var(--font-sans);
+    color: var(--primary-text);
+
+    @media print {
+        padding: 0;
+        margin: 0;
+    }
+}
+
+.titleWrapper {
+    margin-bottom: 0;
+}
+
+.titleWrapper :global(.ProseMirror) {
+    padding-bottom: 0;
+    color: var(--primary-text);
+}
+
+.titleWrapper :global(.ProseMirror h1) {
+    margin-bottom: 0;
+    margin-top: 0;
+    line-height: 1.2;
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--primary-text);
+}
+
+.pageWrapper {
+    margin-top: -0.2em;
+}
+
+.pageWrapper :global(.ProseMirror) {
+    padding-top: 0;
+    color: var(--secondary-text);
+}
+
+.pageWrapper :global(.ProseMirror > *:first-child) {
+    margin-top: 0;
+}
+
+.pageWrapper :global(.ProseMirror p) {
+    margin-top: 0.2em;
+    margin-bottom: 0.2em;
+}
+
+.pageWrapper :global(.ProseMirror > * + *) {
+    margin-top: 0.35em;
+}
+
+.pageWrapper :global(.ProseMirror hr) {
+    margin-top: 0.35em;
+    margin-bottom: 0.35em;
+}
+
+.pageWrapper :global(.ProseMirror .react-renderer) {
+    margin-top: 0.2em;
+    margin-bottom: 0.2em;
+}
+

@@ -1,3 +1,4 @@
+@import './components/editor/styles/index.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -1133,16 +1134,24 @@ a:hover {
   right: 0;
 }
 
+/* Docmost-style editor layout */
 .ProseMirror {
   outline: none;
   min-height: 200px;
-  padding: 96px 96px 96px 96px;
+  padding: 1.5rem 3rem 20vh 3rem;
   color: var(--primary-text);
   max-width: 900px;
   margin: 0 auto;
   font-size: 16px;
-  line-height: 1.65;
+  line-height: 1.7;
   letter-spacing: -0.01em;
+}
+
+@media (max-width: 640px) {
+  .ProseMirror {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
 }
 
 .ProseMirror>*+* {
@@ -1373,7 +1382,9 @@ a:hover {
   margin: 16px 0;
 }
 
-.resource-mention {
+/* Mention (Docmost parity) */
+.resource-mention,
+.node-mention {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1386,8 +1397,27 @@ a:hover {
   font-weight: 500;
 }
 
-.resource-mention:hover {
+.resource-mention:hover,
+.node-mention:hover {
   background-color: rgba(55, 53, 47, 0.12);
+}
+
+.node-mention.ProseMirror-selectednode {
+  outline: none;
+}
+
+/* Status badge (Docmost parity) */
+.node-status {
+  margin-right: 2px;
+}
+
+.node-status.ProseMirror-selectednode {
+  outline: none;
+}
+
+.node-status.ProseMirror-selectednode .status-badge {
+  box-shadow: 0 0 0 2px var(--accent);
+  border-radius: 3px;
 }
 
 .file-block {

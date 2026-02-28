@@ -9,12 +9,20 @@ export default defineConfig({
   base: '/',
 
   // Resolve aliases (match Next.js @/ pattern)
+  // NOTE: Array form required so specific aliases match before general ones.
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './app'),
-      // Stub bun:sqlite for renderer process (same as Next.js webpack config)
-      'bun:sqlite': path.resolve(__dirname, './app/lib/db/__stubs__/bun-sqlite.ts'),
-    },
+    alias: [
+      // More specific @excalidraw sub-paths first, before the general package alias
+      { find: '@excalidraw/excalidraw/index.css', replacement: path.resolve(__dirname, './app/lib/stubs/excalidraw.css') },
+      { find: '@excalidraw/excalidraw/types', replacement: path.resolve(__dirname, './app/lib/stubs/excalidraw-stub.tsx') },
+      { find: '@excalidraw/excalidraw', replacement: path.resolve(__dirname, './app/lib/stubs/excalidraw-stub.tsx') },
+      // Stub bun:sqlite for renderer process
+      { find: 'bun:sqlite', replacement: path.resolve(__dirname, './app/lib/db/__stubs__/bun-sqlite.ts') },
+      // Resolve @docmost/editor-ext from copied local source
+      { find: '@docmost/editor-ext', replacement: path.resolve(__dirname, './app/lib/editor-ext/index.ts') },
+      // Root alias last (most general)
+      { find: '@', replacement: path.resolve(__dirname, './app') },
+    ],
   },
 
   // Build configuration

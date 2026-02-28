@@ -21,6 +21,15 @@ if (app.isPackaged) {
   }
 }
 
+// Fix PATH on macOS/Linux when launched from Finder (GUI apps don't inherit shell PATH)
+if (process.platform !== 'win32') {
+  try {
+    require('fix-path')();
+  } catch (e) {
+    console.warn('[Main] fix-path failed:', e?.message);
+  }
+}
+
 // Register custom protocol scheme as privileged before app is ready
 // This allows the app:// protocol to work like https:// with full privileges
 // dome:// for OAuth callbacks (MCP backlinks)

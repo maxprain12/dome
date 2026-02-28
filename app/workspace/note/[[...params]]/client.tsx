@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Save, Check, Loader2 } from 'lucide-react';
-import NotionEditor from '@/components/editor/NotionEditor';
+import { FullEditor } from '@/components/editor/full-editor';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import SidePanel from '@/components/workspace/SidePanel';
 import SourcesPanel from '@/components/workspace/SourcesPanel';
@@ -10,49 +10,25 @@ import StudioPanel from '@/components/workspace/StudioPanel';
 import GraphPanel from '@/components/workspace/GraphPanel';
 import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import MetadataModal from '@/components/workspace/MetadataModal';
+import ExportModal from '@/components/export/ExportModal';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { looksLikeHtml, htmlToMarkdown } from '@/lib/utils/markdown';
-import { contentToPrintHtml, contentToHtmlBody } from '@/lib/utils/note-to-html';
+import { contentToPrintHtml } from '@/lib/utils/note-to-html';
 import { type Resource } from '@/types';
 
-/**
- * Detect if content is legacy Tiptap JSON (for lazy migration to Markdown).
- */
-function isJsonContent(content: string): boolean {
-  if (!content) return false;
-  const t = content.trim();
-  return t.startsWith('{') && t.includes('"type"') && t.includes('"doc"');
-}
-
-/**
- * Content type for editor: 'markdown' (default) or 'json' for legacy notes.
- */
-function detectContentType(content: string): 'markdown' | 'json' {
-  if (isJsonContent(content)) return 'json';
-  return 'markdown';
-}
-
-/**
- * Content to pass to editor. JSON passed as-is for lazy migration.
- * Legacy HTML converted to Markdown. Otherwise pass Markdown as-is.
- */
-function detectContentForEditor(content: string): string {
-  if (!content) return '';
-  if (isJsonContent(content)) return content;
-  if (looksLikeHtml(content)) return htmlToMarkdown(content);
-  return content;
-}
 
 interface NoteWorkspaceClientProps {
   resourceId: string;
+  onTitleChange?: (title: string) => void;
+  onUnsavedChange?: (hasUnsaved: boolean) => void;
 }
 
-export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientProps) {
+export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsavedChange }: NoteWorkspaceClientProps) {
   const [resource, setResource] = useState<Resource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
   const graphPanelOpen = useAppStore((s) => s.graphPanelOpen);
@@ -67,6 +43,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
   const lastSavedContentRef = useRef<string>('');
   const savedFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dataSourceRef = useRef<'notes' | 'resources'>('resources');
 
   // Prevent ProseMirror scrollIntoView from scrolling the outer container
   useEffect(() => {
@@ -80,22 +57,67 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     return () => el.removeEventListener('scroll', preventScroll);
   }, []);
 
-  // Load resource
+  // Load resource - dual-read: try notes (new domain) first, then resources (legacy)
   useEffect(() => {
     async function loadResource() {
-      if (!window.electron?.db?.resources) {
+      if (!window.electron?.db) {
         setError('Database not available');
         setLoading(false);
         return;
       }
 
       try {
-        const result = await window.electron.db.resources.getById(resourceId);
-        if (result?.success && result.data) {
-          setResource(result.data);
-          setTitle(result.data.title || '');
-          setContent(result.data.content || '');
-          lastSavedContentRef.current = result.data.content || '';
+        let data: { id: string; title: string; content?: string; project_id?: string } | null = null;
+        let source: 'notes' | 'resources' = 'resources';
+
+        if (window.electron.db.notes) {
+          const noteResult = await window.electron.db.notes.getByIdOrSlug(resourceId);
+          if (noteResult?.success && noteResult.data) {
+            const n = noteResult.data as any;
+            data = {
+              id: n.id,
+              title: n.title || '',
+              content: n.content_json || n.text_content || '',
+              project_id: n.project_id,
+            };
+            source = 'notes';
+            dataSourceRef.current = 'notes';
+          }
+        }
+
+        if (!data && window.electron.db.resources) {
+          const resResult = await window.electron.db.resources.getById(resourceId);
+          if (resResult?.success && resResult.data) {
+            const r = resResult.data as any;
+            data = {
+              id: r.id,
+              title: r.title || '',
+              content: r.content || '',
+              project_id: r.project_id,
+            };
+            source = 'resources';
+            dataSourceRef.current = 'resources';
+          }
+        }
+
+        if (data) {
+          // Expose project ID globally for upload actions
+          (window as any).__domeCurrentProjectId = data.project_id || 'default';
+
+          setResource({
+            ...data,
+            id: data.id,
+            project_id: data.project_id || 'default',
+            type: 'note',
+            created_at: 0,
+            updated_at: 0,
+            _source: source,
+          } as Resource & { _source?: 'notes' | 'resources' });
+          setTitle(data.title || '');
+          setContent(data.content || '');
+          lastSavedContentRef.current = data.content || '';
+          onTitleChange?.(data.title || 'Untitled');
+          onUnsavedChange?.(false);
         } else {
           setError('Note not found');
         }
@@ -108,6 +130,21 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     }
 
     loadResource();
+  }, [resourceId, onTitleChange]);
+
+  // Listen for note:updated (e.g. restore from history) to refresh content
+  useEffect(() => {
+    if (!window.electron?.on) return;
+    const unsub = window.electron.on('note:updated', (payload: { id: string; updates?: Partial<{ title: string; content_json: string; text_content: string }> }) => {
+      if (payload.id !== resourceId) return;
+      const updates = payload.updates;
+      if (updates?.title !== undefined) setTitle(updates.title);
+      if (updates?.content_json !== undefined) {
+        setContent(updates.content_json);
+        lastSavedContentRef.current = updates.content_json;
+      }
+    });
+    return () => { unsub(); };
   }, [resourceId]);
 
   // Set selected sources to current resource when opening (for Studio generation)
@@ -119,20 +156,37 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
 
   // Auto-save or manual save content
   const saveContent = useCallback(async (newContent: string, isManual = false) => {
-    if (!window.electron?.db?.resources || !resource) return;
+    if (!resource) return;
     if (newContent === lastSavedContentRef.current) return;
+
+    const fromNotes = dataSourceRef.current === 'notes';
+    if (fromNotes) {
+      if (!window.electron?.db?.notes) return;
+    } else {
+      if (!window.electron?.db?.resources) return;
+    }
 
     setIsSaving(true);
     setLastSavedAt(null);
     try {
-      await window.electron.db.resources.update({
-        id: resourceId,
-        title: resource.title,
-        content: newContent,
-        updated_at: Date.now(),
-      });
+      if (fromNotes) {
+        const textContent = newContent.replace(/<[^>]*>/g, ' ').replace(/#{1,6}\s?/g, '').slice(0, 50000);
+        await window.electron.db.notes.update({
+          id: resourceId,
+          content_json: newContent,
+          text_content: textContent,
+        });
+      } else {
+        await window.electron.db.resources.update({
+          id: resourceId,
+          title: resource.title,
+          content: newContent,
+          updated_at: Date.now(),
+        });
+      }
       lastSavedContentRef.current = newContent;
       setLastSavedAt(Date.now());
+      onUnsavedChange?.(false);
       if (savedFeedbackTimeoutRef.current) clearTimeout(savedFeedbackTimeoutRef.current);
       savedFeedbackTimeoutRef.current = setTimeout(() => setLastSavedAt(null), 2500);
     } catch (err) {
@@ -140,7 +194,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     } finally {
       setIsSaving(false);
     }
-  }, [resourceId, resource]);
+  }, [resourceId, resource, onUnsavedChange]);
 
   // Manual save - triggers immediately with current content
   const handleManualSave = useCallback(() => {
@@ -151,52 +205,52 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     saveContent(content, true);
   }, [content, saveContent]);
 
-  // Debounced save on content change — editor emits Markdown string
-  const handleContentChange = useCallback((markdownFromEditor: string) => {
-    setContent(markdownFromEditor);
+  // Debounced save on content change — editor emits Tiptap JSON object
+  const handleContentChange = useCallback((jsonFromEditor: any) => {
+    const serialized = typeof jsonFromEditor === 'string'
+      ? jsonFromEditor
+      : JSON.stringify(jsonFromEditor);
+    setContent(serialized);
+    onUnsavedChange?.(serialized !== lastSavedContentRef.current);
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
     saveTimeoutRef.current = setTimeout(() => {
-      saveContent(markdownFromEditor);
+      saveContent(serialized);
     }, 1000);
-  }, [saveContent]);
+  }, [saveContent, onUnsavedChange]);
 
   // Save title
   const handleTitleBlur = useCallback(async () => {
-    if (!window.electron?.db?.resources || !resource) return;
+    if (!resource) return;
     if (title === resource.title) return;
 
+    const fromNotes = dataSourceRef.current === 'notes';
     try {
-      await window.electron.db.resources.update({
-        id: resourceId,
-        title,
-        content: resource.content || null,
-        updated_at: Date.now(),
-      });
+      if (fromNotes && window.electron?.db?.notes) {
+        await window.electron.db.notes.update({ id: resourceId, title });
+      } else if (window.electron?.db?.resources) {
+        await window.electron.db.resources.update({
+          id: resourceId,
+          title,
+          content: resource.content || null,
+          updated_at: Date.now(),
+        });
+      }
       setResource({ ...resource, title });
+      onTitleChange?.(title);
     } catch (err) {
       console.error('Error saving title:', err);
     }
-  }, [resourceId, resource, title]);
+  }, [resourceId, resource, title, onTitleChange]);
 
   // Export note to PDF
   const handleExportPdf = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron?.note) return;
     const html = contentToPrintHtml(content, title);
     const result = await window.electron.note.exportToPdf({ html, title });
-    if (result.success && result.path) {
-      await window.electron.openPath(result.path);
-    }
-  }, [content, title]);
-
-  // Export note to DOCX
-  const handleExportDocx = useCallback(async () => {
-    if (typeof window === 'undefined' || !window.electron?.note) return;
-    const html = contentToHtmlBody(content);
-    const result = await window.electron.note.exportToDocx({ html, title });
     if (result.success && result.path) {
       await window.electron.openPath(result.path);
     }
@@ -268,7 +322,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
         onToggleSidePanel={() => setIsPanelOpen(!isPanelOpen)}
         onShowMetadata={() => setShowMetadata(true)}
         onExportPdf={handleExportPdf}
-        onExportDocx={handleExportDocx}
+        onExport={() => setShowExportModal(true)}
         editableTitle={{
           value: title,
           onChange: setTitle,
@@ -317,13 +371,39 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
 
         {/* Editor area */}
         <div className="flex-1 relative min-h-0" style={{ overflow: 'clip' }}>
-          <div className="h-full overflow-auto p-6">
-            <div className="note-editor-with-guides w-full">
-              <NotionEditor
-                content={detectContentForEditor(content)}
-                contentType={detectContentType(content)}
-                onChange={handleContentChange}
-                placeholder="Escribe '/' para comandos..."
+          <div className="h-full overflow-auto">
+            <div className="w-full">
+              <FullEditor
+                noteId={resourceId}
+                title={title}
+                content={(() => {
+                  const c = content;
+                  if (!c) return null;
+                  try { return JSON.parse(c); } catch { return c; }
+                })()}
+                editable={true}
+                onTitleChange={async (newTitle) => {
+                  setTitle(newTitle);
+                  onTitleChange?.(newTitle);
+                  if (!resource) return;
+                  const fromNotes = dataSourceRef.current === 'notes';
+                  try {
+                    if (fromNotes && window.electron?.db?.notes) {
+                      await window.electron.db.notes.update({ id: resourceId, title: newTitle });
+                    } else if (window.electron?.db?.resources) {
+                      await window.electron.db.resources.update({
+                        id: resourceId,
+                        title: newTitle,
+                        content: resource.content || null,
+                        updated_at: Date.now(),
+                      });
+                    }
+                    setResource({ ...resource, title: newTitle });
+                  } catch (err) {
+                    console.error('Error saving title:', err);
+                  }
+                }}
+                onContentChange={handleContentChange}
               />
             </div>
           </div>
@@ -355,6 +435,19 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
           <GraphPanel resource={resource} />
         )}
       </div>
+
+      {/* Export Modal */}
+      {showExportModal && (
+        <ExportModal
+          open={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          noteId={resourceId}
+          title={title}
+          content={content}
+          isNoteFromNewDomain={dataSourceRef.current === 'notes'}
+          onExportPdf={handleExportPdf}
+        />
+      )}
 
       {/* Metadata Modal */}
       <MetadataModal

@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
+const crypto = require('crypto');
 const resourceIndexer = require('../resource-indexer.cjs');
+const notesService = require('../notes-service.cjs');
 
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
   const pageIndexService = require('../pageindex-service.cjs');
@@ -644,6 +646,375 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: true, data: resources };
     } catch (error) {
       console.error('[DB] Error getting root resources:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // ============================================
+  // Notes (Docmost-style domain)
+  // ============================================
+
+  ipcMain.handle('db:notes:create', (event, note) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const id = note.id || crypto.randomUUID();
+      const slugId = note.slug_id || notesService.generateSlugId();
+      const now = Date.now();
+      const projectId = note.project_id || 'default';
+      const parentNoteId = note.parent_note_id ?? null;
+
+      const position = note.position || notesService.nextPosition(queries, projectId, parentNoteId);
+
+      queries.createNote.run(
+        id,
+        slugId,
+        projectId,
+        parentNoteId,
+        note.title || 'Untitled',
+        note.icon ?? null,
+        note.content_json ?? null,
+        note.text_content ?? null,
+        position,
+        now,
+        now,
+        null,
+        null
+      );
+
+      const created = queries.getNoteById.get(id);
+      windowManager.broadcast('note:created', created);
+      return { success: true, data: created };
+    } catch (error) {
+      console.error('[DB] Error creating note:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:getById', (event, id) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const note = queries.getNoteById.get(id);
+      return { success: true, data: note || null };
+    } catch (error) {
+      console.error('[DB] Error getting note:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:getByIdOrSlug', (event, idOrSlug) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const note = queries.getNoteByIdOrSlug.get(idOrSlug, idOrSlug);
+      return { success: true, data: note || null };
+    } catch (error) {
+      console.error('[DB] Error getting note:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:update', (event, note) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const current = queries.getNoteById.get(note.id);
+      if (!current) {
+        return { success: false, error: 'Note not found' };
+      }
+
+      const merged = {
+        title: note.title !== undefined ? note.title : current.title,
+        icon: note.icon !== undefined ? note.icon : current.icon,
+        content_json: note.content_json !== undefined ? note.content_json : current.content_json,
+        text_content: note.text_content !== undefined ? note.text_content : current.text_content,
+        position: note.position !== undefined ? note.position : current.position,
+        parent_note_id: note.parent_note_id !== undefined ? note.parent_note_id : current.parent_note_id,
+        updated_at: Date.now(),
+        last_updated_by: note.last_updated_by ?? current.last_updated_by,
+        contributor_ids: note.contributor_ids ?? current.contributor_ids,
+      };
+
+      // Save snapshot to history when content or title changed
+      const contentChanged = merged.content_json !== current.content_json || merged.title !== current.title;
+      if (contentChanged && (current.content_json || current.title)) {
+        const historyId = crypto.randomUUID();
+        queries.createNoteHistory.run(
+          historyId,
+          note.id,
+          current.slug_id,
+          current.title,
+          current.icon,
+          current.content_json,
+          current.text_content,
+          current.last_updated_by,
+          current.contributor_ids ? JSON.stringify(current.contributor_ids) : null,
+          Date.now()
+        );
+      }
+
+      queries.updateNote.run(
+        merged.title,
+        merged.icon,
+        merged.content_json,
+        merged.text_content,
+        merged.position,
+        merged.parent_note_id,
+        merged.updated_at,
+        merged.last_updated_by,
+        merged.contributor_ids ? JSON.stringify(merged.contributor_ids) : null,
+        note.id
+      );
+
+      const updated = { ...current, ...merged };
+      windowManager.broadcast('note:updated', { id: note.id, updates: updated });
+
+      // Update note_links from mentions in content (markdown @[label](id) or JSON)
+      if (merged.content_json) {
+        queries.deleteNoteLinksBySource.run(note.id);
+        const mentionIds = extractMentionIdsFromContent(merged.content_json);
+        for (const targetId of mentionIds) {
+          if (targetId && targetId !== note.id) {
+            const targetNote = queries.getNoteById.get(targetId);
+            if (targetNote) {
+              const linkId = crypto.randomUUID();
+              queries.createNoteLink.run(linkId, note.id, targetId, 'mention', Date.now());
+            }
+          }
+        }
+      }
+
+      return { success: true, data: updated };
+    } catch (error) {
+      console.error('[DB] Error updating note:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  function extractMentionIdsFromContent(content) {
+    const ids = new Set();
+    if (typeof content === 'string') {
+      const re = /@\[[^\]]*\]\(([^)\s]+)\)/g;
+      let m;
+      while ((m = re.exec(content)) !== null) ids.add(m[1]);
+    } else if (content && typeof content === 'object') {
+      const str = JSON.stringify(content);
+      const re = /"resourceId"\s*:\s*"([^"]+)"/g;
+      let m;
+      while ((m = re.exec(str)) !== null) ids.add(m[1]);
+    }
+    return Array.from(ids);
+  }
+
+  ipcMain.handle('db:notes:remove', (event, noteId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const now = Date.now();
+      queries.softDeleteNote.run(now, now, noteId);
+      windowManager.broadcast('note:removed', { id: noteId });
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error removing note:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:restore', (event, noteId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const now = Date.now();
+      queries.restoreNote.run(now, noteId);
+      const restored = queries.getNoteById.get(noteId);
+      windowManager.broadcast('note:restored', restored);
+      return { success: true, data: restored };
+    } catch (error) {
+      console.error('[DB] Error restoring note:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:getRoot', (event, projectId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const notes = queries.getRootNotes.all(projectId || 'default');
+      return { success: true, data: notes };
+    } catch (error) {
+      console.error('[DB] Error getting root notes:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:getByProject', (event, projectId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const notes = queries.getNotesByProject.all(projectId || 'default');
+      return { success: true, data: notes };
+    } catch (error) {
+      console.error('[DB] Error getting notes by project:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:getChildren', (event, parentNoteId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const notes = queries.getChildNotes.all(parentNoteId);
+      return { success: true, data: notes };
+    } catch (error) {
+      console.error('[DB] Error getting child notes:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:getDeleted', (event, projectId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const notes = queries.getDeletedNotes.all(projectId || 'default');
+      return { success: true, data: notes };
+    } catch (error) {
+      console.error('[DB] Error getting deleted notes:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:search', (event, { query, projectId }) => {
+    try {
+      validateSender(event, windowManager);
+      if (typeof query !== 'string' || query.length > 500) {
+        return { success: false, error: 'Invalid query' };
+      }
+      const queries = database.getQueries();
+      const sanitized = query.split(/\s+/).filter(t => t.length).map(t => `"${t}"`).join(' ');
+      const notes = sanitized ? queries.searchNotes.all(sanitized, projectId || 'default') : [];
+      return { success: true, data: notes };
+    } catch (error) {
+      console.error('[DB] Error searching notes:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:getBacklinks', (event, noteId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const links = queries.getNoteBacklinks.all(noteId);
+      return { success: true, data: links };
+    } catch (error) {
+      console.error('[DB] Error getting note backlinks:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:getHistory', (event, noteId, limit = 50) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const history = queries.getNoteHistory.all(noteId, limit);
+      return { success: true, data: history };
+    } catch (error) {
+      console.error('[DB] Error getting note history:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:restoreFromHistory', (event, historyId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const snapshot = queries.getNoteHistoryById.get(historyId);
+      if (!snapshot) return { success: false, error: 'History snapshot not found' };
+      const note = queries.getNoteById.get(snapshot.note_id);
+      if (!note) return { success: false, error: 'Note not found' };
+      const now = Date.now();
+      queries.updateNote.run(
+        snapshot.title,
+        snapshot.icon,
+        snapshot.content_json,
+        snapshot.text_content,
+        note.position,
+        note.parent_note_id,
+        now,
+        note.last_updated_by,
+        note.contributor_ids ? JSON.stringify(note.contributor_ids) : null,
+        note.id
+      );
+      // Recompute note_links from restored content (mentions may have changed)
+      if (snapshot.content_json) {
+        queries.deleteNoteLinksBySource.run(note.id);
+        const mentionIds = extractMentionIdsFromContent(snapshot.content_json);
+        for (const targetId of mentionIds) {
+          if (targetId && targetId !== note.id) {
+            const targetNote = queries.getNoteById.get(targetId);
+            if (targetNote) {
+              const linkId = crypto.randomUUID();
+              queries.createNoteLink.run(linkId, note.id, targetId, 'mention', Date.now());
+            }
+          }
+        }
+      }
+      const updated = queries.getNoteById.get(note.id);
+      windowManager.broadcast('note:updated', { id: note.id, updates: updated });
+      return { success: true, data: updated };
+    } catch (error) {
+      console.error('[DB] Error restoring from history:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:move', (event, { noteId, parentNoteId, index }) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const note = queries.getNoteById.get(noteId);
+      if (!note) return { success: false, error: 'Note not found' };
+      const projectId = note.project_id || 'default';
+      const newParent = parentNoteId !== undefined ? parentNoteId : note.parent_note_id;
+      const { position, parentNoteId: resolvedParent } = notesService.computeMovePosition(
+        queries, noteId, newParent, typeof index === 'number' ? index : undefined, projectId
+      );
+      const now = Date.now();
+      queries.moveNotePosition.run(position, resolvedParent, now, noteId);
+      const updated = queries.getNoteById.get(noteId);
+      windowManager.broadcast('note:updated', { id: noteId, updates: updated });
+      return { success: true, data: updated };
+    } catch (error) {
+      console.error('[DB] Error moving note:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:getBreadcrumbs', (event, noteId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const breadcrumbs = notesService.getBreadcrumbs(queries, noteId);
+      return { success: true, data: breadcrumbs };
+    } catch (error) {
+      console.error('[DB] Error getting note breadcrumbs:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:notes:duplicate', (event, { noteId, projectId, parentNoteId }) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const note = queries.getNoteById.get(noteId);
+      if (!note) return { success: false, error: 'Note not found' };
+      const projId = projectId || note.project_id || 'default';
+      const newNote = notesService.duplicateNote(queries, noteId, projId, parentNoteId ?? null);
+      if (!newNote) return { success: false, error: 'Failed to duplicate' };
+      windowManager.broadcast('note:created', newNote);
+      return { success: true, data: newNote };
+    } catch (error) {
+      console.error('[DB] Error duplicating note:', error);
       return { success: false, error: error.message };
     }
   });

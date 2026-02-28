@@ -296,6 +296,15 @@ declare global {
 
       // Database API
       db: {
+        notes: {
+          getByIdOrSlug: (idOrSlug: string) => Promise<DBResponse<import("@/types").Note>>;
+          update: (data: { id: string; title?: string; content_json?: string | null; text_content?: string | null; updated_at?: number; parent_note_id?: string | null; position?: string }) => Promise<DBResponse<import("@/types").Note>>;
+          search: (query: string, projectId: string) => Promise<DBResponse<import("@/types").Note[]>>;
+          getChildren: (noteId: string) => Promise<DBResponse<import("@/types").Note[]>>;
+          getByProject: (projectId: string) => Promise<DBResponse<import("@/types").Note[]>>;
+          delete: (id: string) => Promise<DBResponse<void>>;
+          create: (data: { id?: string; project_id: string; title: string; parent_note_id?: string | null; icon?: string | null; content_json?: string | null; position?: string }) => Promise<DBResponse<import("@/types").Note>>;
+        };
         projects: {
           create: (project: any) => Promise<DBResponse<Project>>;
           getAll: () => Promise<DBResponse<Project[]>>;
@@ -466,6 +475,10 @@ declare global {
       migration: {
         migrateResources: () => Promise<DBResponse<MigrationResult>>;
         getStatus: () => Promise<DBResponse<MigrationStatus>>;
+        migrateNotesToDomain: () => Promise<DBResponse<MigrationResult>>;
+        getNotesMigrationStatus: () => Promise<
+          DBResponse<{ pendingMigrations: number; notes: { id: string; title: string }[] }>
+        >;
       };
 
       // Web Scraping API
@@ -1151,3 +1164,10 @@ declare global {
     };
   }
 }
+
+// CSS Modules
+declare module '*.module.css' {
+  const classes: Record<string, string>;
+  export default classes;
+}
+

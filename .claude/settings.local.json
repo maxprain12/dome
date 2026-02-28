@@ -11,7 +11,10 @@
       "Bash(node -e:*)",
       "Bash(grep:*)",
       "Bash(wc:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(bun install)",
+      "Bash(bunx tsc --noEmit)",
+      "Bash(bun -e \"process.stdin.resume\\(\\); let d=''''; process.stdin.on\\(''data'',c=>d+=c\\); process.stdin.on\\(''end'',\\(\\)=>{const p=JSON.parse\\(d\\); const deps={...p.dependencies,...p.devDependencies}; const toCheck=[''react-i18next'',''i18next'',''@mantine/form'',''@tiptap/extension-youtube'',''@excalidraw/excalidraw'',''react-drawio'',''react-clear-modal'']; toCheck.forEach\\(k=>console.log\\(k+'':'', deps[k]||''NOT INSTALLED''\\)\\);}\\);\")"
     ]
   }
 }

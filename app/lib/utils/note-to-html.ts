@@ -4,60 +4,10 @@
  */
 
 import { generateHTML } from '@tiptap/core';
-import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
-import Image from '@tiptap/extension-image';
-import TaskList from '@tiptap/extension-task-list';
-import TaskItem from '@tiptap/extension-task-item';
-import Highlight from '@tiptap/extension-highlight';
-import Underline from '@tiptap/extension-underline';
-import { Table } from '@tiptap/extension-table';
-import { TableRow } from '@tiptap/extension-table-row';
-import { TableCell } from '@tiptap/extension-table-cell';
-import { TableHeader } from '@tiptap/extension-table-header';
-import Typography from '@tiptap/extension-typography';
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-import { createLowlight } from 'lowlight';
-import javascript from 'highlight.js/lib/languages/javascript';
-import typescript from 'highlight.js/lib/languages/typescript';
-import { CalloutExtension } from '@/components/editor/extensions/Callout';
-import { ToggleExtension } from '@/components/editor/extensions/Toggle';
-import { DividerExtension } from '@/components/editor/extensions/Divider';
-import { MermaidExtension } from '@/components/editor/extensions/Mermaid';
-import { PDFEmbedExtension } from '@/components/editor/extensions/PDFEmbed';
-import { VideoEmbedExtension } from '@/components/editor/extensions/VideoEmbed';
-import { AudioEmbedExtension } from '@/components/editor/extensions/AudioEmbed';
-import { ResourceMentionExtension } from '@/components/editor/extensions/ResourceMention';
-import { FileBlockExtension } from '@/components/editor/extensions/FileBlock';
+import { mainExtensions } from '@/components/editor/extensions/extensions';
 import { looksLikeHtml, markdownToHtml } from './markdown';
 
-const lowlight = createLowlight();
-lowlight.register({ typescript, javascript });
-
-const PRINT_EXTENSIONS = [
-  StarterKit.configure({ codeBlock: false, dropcursor: false, gapcursor: false }),
-  Typography,
-  Underline,
-  Table.configure({ resizable: false }),
-  TableRow,
-  TableHeader,
-  TableCell,
-  TaskList,
-  TaskItem.configure({ nested: true }),
-  Highlight.configure({ multicolor: true }),
-  Link.configure({ HTMLAttributes: { class: 'text-primary-600 underline' } }),
-  Image.configure({ HTMLAttributes: { class: 'max-w-full h-auto rounded-lg' } }),
-  CodeBlockLowlight.configure({ lowlight }),
-  CalloutExtension,
-  ToggleExtension,
-  DividerExtension,
-  MermaidExtension,
-  PDFEmbedExtension,
-  VideoEmbedExtension,
-  AudioEmbedExtension,
-  ResourceMentionExtension,
-  FileBlockExtension,
-];
+const PRINT_EXTENSIONS = mainExtensions;
 
 function isJsonContent(content: string): boolean {
   if (!content?.trim()) return false;

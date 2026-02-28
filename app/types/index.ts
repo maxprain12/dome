@@ -1,3 +1,10 @@
+// Persistence contracts (collab-ready) - see contracts.ts
+export type {
+  NotePersistencePayload,
+  NoteHistorySnapshot,
+  NoteLinkPayload,
+} from './contracts';
+
 // Many Agent (specialized AI agent - "hijo de Many")
 export interface ManyAgent {
   id: string;
@@ -69,6 +76,24 @@ export interface ResourceMetadata {
   /** Notebook workspace folder path - used as cwd for Python execution */
   notebook_workspace_path?: string;
   [key: string]: any;
+}
+
+// Notes (Docmost-style domain)
+export interface Note {
+  id: string;
+  slug_id: string;
+  project_id: string;
+  parent_note_id?: string | null;
+  title: string;
+  icon?: string | null;
+  content_json?: string | null;
+  text_content?: string | null;
+  position: string;
+  created_at: number;
+  updated_at: number;
+  deleted_at?: number | null;
+  last_updated_by?: string | null;
+  contributor_ids?: string | null;
 }
 
 // Tipos de proyectos

@@ -923,6 +923,7 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
     const isExcel = resourceContext.type === 'excel';
     const isPpt = resourceContext.type === 'ppt';
     const isDocument = resourceContext.type === 'document';
+    const isNote = resourceContext.type === 'note';
     const contentOverride = isNotebook
       ? 'This is a notebook. Use notebook_get to read its structure, cells, and code.'
       : isExcel && toolsEnabled
@@ -931,7 +932,9 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
           ? 'This is a PowerPoint presentation. Use ppt_get_slides to read slide content, ppt_create to create new presentations, ppt_export to export.'
           : isDocument && toolsEnabled
             ? 'This is a Word document. Use resource_get to read its content. Edit with resource_update (content as HTML or Markdown).'
-            : resourceContext.content;
+            : isNote && toolsEnabled
+              ? 'This is a note. Use resource_get to read its content. Edit with resource_update (content as Markdown GFM or HTML).'
+              : resourceContext.content;
     prompt += '\n\n' + buildMartinResourceContext({
       type: resourceContext.type,
       summary: resourceContext.summary,
@@ -949,6 +952,9 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
     }
     if (isDocument && toolsEnabled) {
       prompt += '\n\n' + promptTemplates.martin.documentContext;
+    }
+    if (isNote && toolsEnabled) {
+      prompt += '\n\n' + promptTemplates.martin.noteContext;
     }
   }
 

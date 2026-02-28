@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Save, Check, Loader2 } from 'lucide-react';
-import NotionEditor from '@/components/editor/NotionEditor';
+import PageEditor from '@/components/editor/page-editor';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import SidePanel from '@/components/workspace/SidePanel';
 import SourcesPanel from '@/components/workspace/SourcesPanel';
@@ -377,11 +377,11 @@ export default function DocxWorkspaceClient({ resourceId }: DocxWorkspaceClientP
         <div className="flex-1 relative min-h-0" style={{ overflow: 'clip' }}>
           <div className="h-full overflow-auto p-6">
             <div className="note-editor-with-guides w-full">
-              <NotionEditor
+              <PageEditor
+                noteId={resourceId}
+                editable={true}
                 content={contentForEditor(content)}
-                contentType="markdown"
-                onChange={handleContentChange}
-                placeholder="Escribe '/' para comandos..."
+                onContentChange={(json) => handleContentChange(JSON.stringify(json))}
               />
             </div>
           </div>

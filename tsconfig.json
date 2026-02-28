@@ -29,6 +29,9 @@
       ],
       "@/lib/*": [
         "./app/lib/*"
+      ],
+      "@docmost/editor-ext": [
+        "./app/lib/editor-ext/index.ts"
       ]
     },
     "plugins": [
@@ -52,6 +55,7 @@
   "include": [
     "app/**/*.ts",
     "app/**/*.tsx",
+
     ".next/types/**/*.ts",
     "out/types/**/*.ts"
   ],

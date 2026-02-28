@@ -42,6 +42,7 @@ interface WorkspaceHeaderProps {
   subtitle?: string;
   onExportPdf?: () => void | Promise<void>;
   onExportDocx?: () => void | Promise<void>;
+  onExport?: () => void;
   onPresentationMode?: () => void;
 }
 
@@ -55,6 +56,7 @@ export default function WorkspaceHeader({
   subtitle,
   onExportPdf,
   onExportDocx,
+  onExport,
   onPresentationMode,
 }: WorkspaceHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -369,7 +371,7 @@ export default function WorkspaceHeader({
                 Resource info
               </button>
 
-              {((resource.type === 'note' && (onExportPdf || onExportDocx)) || (resource.type === 'document' && onExportDocx) || (resource.type === 'ppt' && onExportDocx)) ? (
+              {((resource.type === 'note' && (onExportPdf || onExportDocx || onExport)) || (resource.type === 'document' && onExportDocx) || (resource.type === 'ppt' && onExportDocx)) ? (
                 <>
                   <div
                     style={{
@@ -378,6 +380,32 @@ export default function WorkspaceHeader({
                       margin: '4px 0',
                     }}
                   />
+                  {resource.type === 'note' && onExport && (
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onExport();
+                      }}
+                      className="dropdown-item"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 12px',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        color: 'var(--primary-text)',
+                        width: '100%',
+                        border: 'none',
+                        textAlign: 'left',
+                      }}
+                      role="menuitem"
+                    >
+                      <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                      Export
+                    </button>
+                  )}
                   {resource.type === 'note' && (onExportPdf || onExportDocx) && (
                     <>
                       {onExportPdf && (

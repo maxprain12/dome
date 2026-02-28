@@ -1,2 +1,3 @@
-export { default as Editor } from './Editor';
-export { default as NotionEditor } from './NotionEditor';
+export { FullEditor } from './full-editor';
+export { TitleEditor } from './title-editor';
+export { default as PageEditor } from './page-editor';

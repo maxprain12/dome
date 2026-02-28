@@ -93,12 +93,38 @@ function getTurndown(): TurndownService {
     },
   });
   // Resource mention: <span data-type="resource-mention" data-resource-id="x" data-title="y">
+  _turndown.addRule('status', {
+    filter: (node) => node.nodeName === 'SPAN' && node.getAttribute('data-type') === 'status',
+    replacement: (_content, node) => {
+      const text = (node as HTMLElement).textContent || 'Status';
+      return `\`[${text}]\``;
+    },
+  });
   _turndown.addRule('resourceMention', {
     filter: (node) => node.nodeName === 'SPAN' && node.getAttribute('data-type') === 'resource-mention',
     replacement: (_content, node) => {
       const rid = node.getAttribute('data-resource-id') || '';
       const label = node.textContent || node.getAttribute('data-title') || 'Resource';
       return `@[${label}](${rid})`;
+    },
+  });
+  // Task list: <li data-type="taskItem"> with checkbox
+  _turndown.addRule('taskListItem', {
+    filter: (node) =>
+      node.nodeName === 'LI' &&
+      node.getAttribute('data-type') === 'taskItem' &&
+      node.parentElement?.getAttribute('data-type') === 'taskList',
+    replacement: (content, node) => {
+      const checkbox = node.querySelector(
+        'input[type="checkbox"]'
+      ) as HTMLInputElement | null;
+      const checked = checkbox?.checked ?? node.getAttribute('data-checked') === 'true';
+      const prefix = `- ${checked ? '[x]' : '[ ]'} `;
+      const inner = content
+        .replace(/^\n+/, '')
+        .replace(/\n+$/, '\n')
+        .replace(/\n/gm, '\n  ');
+      return prefix + inner + (node.nextSibling && !/\n$/.test(inner) ? '\n' : '');
     },
   });
   return _turndown;
@@ -211,6 +237,20 @@ function preprocessCustomBlocks(md: string): string {
     return `<span data-type="resource-mention" data-resource-id="${rid}" data-title="${(label || '').replace(/"/g, '&quot;')}">${label || 'Resource'}</span>`;
   });
   return out;
+}
+
+/**
+ * Convert string content to HTML for the editor. Use when content may come from AI (e.g. resource_update)
+ * as Markdown or plain text. HTML is returned as-is. Markdown and plain text are converted to HTML.
+ */
+export function stringToEditorHtml(str: string): string {
+  if (!str || typeof str !== 'string') return '';
+  if (looksLikeHtml(str)) return str;
+  try {
+    return markdownToHtml(str) !== str ? markdownToHtml(str) : (marked.parse(str) as string);
+  } catch {
+    return str;
+  }
 }
 
 /**
