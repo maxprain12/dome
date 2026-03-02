@@ -57,6 +57,7 @@
     "@tiptap/extension-floating-menu": "^3.17.1",
     "@tiptap/extension-gapcursor": "^3.17.1",
     "@tiptap/extension-highlight": "^3.17.1",
+    "@tiptap/extension-history": "^3.20.0",
     "@tiptap/extension-image": "^3.17.1",
     "@tiptap/extension-link": "^3.17.1",
     "@tiptap/extension-mention": "^3.17.1",
@@ -79,6 +80,7 @@
     "@tiptap/pm": "^3.19.0",
     "@tiptap/react": "^3.17.1",
     "@tiptap/starter-kit": "^3.17.1",
+    "@tiptap/suggestion": "^3.20.0",
     "@types/katex": "^0.16.7",
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
     "@xterm/addon-fit": "^0.11.0",
@@ -142,7 +144,6 @@
     "zod": "^4.3.6",
     "zustand": "^4.5.0"
   },
-  "optionalDependencies": {},
   "devDependencies": {
     "@electron/rebuild": "^3.6.3",
     "@types/better-sqlite3": "^7.6.0",
