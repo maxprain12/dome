@@ -273,6 +273,7 @@ export function ColumnsMenu({ editor, shouldHide }: EditorMenuProps) {
           onChange={setIsCountOpen}
           withArrow
           zIndex={1200}
+          withinPortal={false}
         >
           <Popover.Target>
             <Button

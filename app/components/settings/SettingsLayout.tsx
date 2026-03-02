@@ -1,7 +1,7 @@
 
-import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2, Wand2 } from 'lucide-react';
+import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2, Wand2, Database } from 'lucide-react';
 
-type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced';
+type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced' | 'indexing';
 
 interface SettingsLayoutProps {
   activeSection: SettingsSection;
@@ -55,6 +55,11 @@ const sidebarItems: SidebarItem[] = [
     id: 'advanced',
     label: 'Advanced',
     icon: <SettingsIcon className="w-4 h-4" />,
+  },
+  {
+    id: 'indexing',
+    label: 'Indexación',
+    icon: <Database className="w-4 h-4" />,
   },
 ];
 

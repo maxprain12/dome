@@ -197,6 +197,7 @@ export interface AISettings {
   // Para Ollama:
   ollama_base_url?: string;
   ollama_model?: string;
+  ollama_api_key?: string;
   ollama_embedding_model?: string;
   ollama_temperature?: number;
   ollama_top_p?: number;

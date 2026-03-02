@@ -57,7 +57,6 @@ function registerAll(deps) {
     authManager,
     personalityLoader,
     notebookPython,
-    pageIndexService,
     validateSender,
     sanitizePath,
     validateUrl,
@@ -95,7 +94,7 @@ function registerAll(deps) {
   syncHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender, sanitizePath });
   pluginsHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });
   mcpHandlers.register({ ipcMain, windowManager, database, validateSender });
-  pageIndexHandlers.register({ ipcMain, windowManager, database, fileStorage, pageIndexService, validateSender });
+  pageIndexHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender });
   calendarHandlers.register({ ipcMain, windowManager, validateSender });
 
   console.log('[IPC] All handlers registered successfully');

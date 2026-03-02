@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
 import {
   Info,
   PanelRightClose,
@@ -216,6 +217,9 @@ export default function WorkspaceHeader({
 
       {/* Right section */}
       <div className="flex items-center gap-2 app-region-no-drag">
+        {/* AI index status badge */}
+        <IndexStatusBadge resourceId={resource.id} resourceType={resource.type} />
+
         {/* Panels selector dropdown */}
         <div ref={panelsRef} className="relative">
           <button

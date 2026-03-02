@@ -31,7 +31,7 @@
         "./app/lib/*"
       ],
       "@docmost/editor-ext": [
-        "./app/lib/editor-ext/index.ts"
+        "./app/lib/dome-editor/index.ts"
       ]
     },
     "plugins": [

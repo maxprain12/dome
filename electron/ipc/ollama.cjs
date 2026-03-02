@@ -10,8 +10,10 @@ function register({ ipcMain, windowManager, database, ollamaService, ollamaManag
 
     try {
       const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
+      const apiKeyResult = database.getQueries().getSetting.get('ollama_api_key');
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
-      const isAvailable = await ollamaService.checkAvailability(baseUrl);
+      const apiKey = apiKeyResult?.value || '';
+      const isAvailable = await ollamaService.checkAvailability(baseUrl, apiKey);
       return { success: true, available: isAvailable };
     } catch (error) {
       console.error('[Ollama] Error checking availability:', error);
@@ -29,8 +31,10 @@ function register({ ipcMain, windowManager, database, ollamaService, ollamaManag
 
     try {
       const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
+      const apiKeyResult = database.getQueries().getSetting.get('ollama_api_key');
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
-      const models = await ollamaService.listModels(baseUrl);
+      const apiKey = apiKeyResult?.value || '';
+      const models = await ollamaService.listModels(baseUrl, apiKey);
       return { success: true, models };
     } catch (error) {
       console.error('[Ollama] Error listing models:', error);
@@ -59,11 +63,13 @@ function register({ ipcMain, windowManager, database, ollamaService, ollamaManag
       }
       const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
       const embeddingModelResult = database.getQueries().getSetting.get('ollama_embedding_model');
+      const apiKeyResult = database.getQueries().getSetting.get('ollama_api_key');
 
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const model = embeddingModelResult?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
+      const apiKey = apiKeyResult?.value || '';
 
-      const embedding = await ollamaService.generateEmbedding(text, model, baseUrl);
+      const embedding = await ollamaService.generateEmbedding(text, model, baseUrl, apiKey);
       return { success: true, embedding };
     } catch (error) {
       console.error('[Ollama] Error generating embedding:', error);
@@ -92,11 +98,13 @@ function register({ ipcMain, windowManager, database, ollamaService, ollamaManag
       }
       const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
       const modelResult = database.getQueries().getSetting.get('ollama_model');
+      const apiKeyResult = database.getQueries().getSetting.get('ollama_api_key');
 
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const model = modelResult?.value || ollamaService.DEFAULT_MODEL;
+      const apiKey = apiKeyResult?.value || '';
 
-      const summary = await ollamaService.generateSummary(text, model, baseUrl);
+      const summary = await ollamaService.generateSummary(text, model, baseUrl, apiKey);
       return { success: true, summary };
     } catch (error) {
       console.error('[Ollama] Error generating summary:', error);
@@ -145,9 +153,11 @@ function register({ ipcMain, windowManager, database, ollamaService, ollamaManag
       const queries = database.getQueries();
       const baseUrlResult = queries.getSetting.get('ollama_base_url');
       const modelResult = queries.getSetting.get('ollama_model');
+      const apiKeyResult = queries.getSetting.get('ollama_api_key');
 
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const chatModel = model || modelResult?.value || ollamaService.DEFAULT_MODEL;
+      const apiKey = apiKeyResult?.value || '';
 
       console.log(`[Ollama] Chat config - Base URL: ${baseUrl}, Model from param: ${model}, Model from DB: ${modelResult?.value}, Using: ${chatModel}`);
 
@@ -160,7 +170,7 @@ function register({ ipcMain, windowManager, database, ollamaService, ollamaManag
           content: m.content
         }));
 
-      const response = await ollamaService.chat(ollamaMessages, chatModel, baseUrl);
+      const response = await ollamaService.chat(ollamaMessages, chatModel, baseUrl, apiKey);
 
       return { success: true, content: response };
     } catch (error) {

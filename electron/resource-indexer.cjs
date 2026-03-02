@@ -2,16 +2,17 @@
 /**
  * Resource Indexer - Main Process
  *
- * LanceDB/embedding-based indexing has been removed and replaced by PageIndex
- * (reasoning-based RAG via a Python FastAPI service).
+ * Schedules and coordinates document indexing using the native JS DocIndexer.
+ * No Python dependency — uses pdfjs-dist and the configured AI provider directly.
  *
- * Full-text search continues to work via SQLite FTS5 triggers (automatic).
- * PDF indexing is triggered via IPC channel pageindex:index.
+ * Full-text search continues via SQLite FTS5 triggers (automatic).
  *
- * This module is kept as a stub so that existing callers (resources IPC handler,
- * etc.) do not crash. The `scheduleIndexing` function is now a no-op for all
- * resource types except PDFs, where it triggers PageIndex indexing.
+ * Supported types:
+ *   pdf  → extracts text with pdfjs-dist, summarizes chunks with LLM
+ *   note → parses markdown headers, builds section tree (no LLM needed)
  */
+
+const docIndexer = require('./doc-indexer.cjs');
 
 const pending = new Map();
 let debounceTimer = null;
@@ -19,17 +20,54 @@ const DEBOUNCE_MS = 2000;
 
 /**
  * Check if a resource type should be indexed.
- * Only PDFs are indexed by PageIndex; other types use SQLite FTS5.
  */
 function shouldIndex(resource) {
   if (!resource || !resource.type) return false;
-  return resource.type === 'pdf';
+  return resource.type === 'pdf' || resource.type === 'note';
 }
 
 /**
- * Schedule PageIndex indexing for a PDF resource with debounce.
- * @param {string} resourceId
- * @param {{ database: Object, fileStorage: Object, pageIndexService: Object }} deps
+ * Convert a Tiptap JSON document to plain markdown.
+ * @param {string|object} content
+ * @returns {string}
+ */
+function tiptapToMarkdown(content) {
+  if (!content) return '';
+  let doc;
+  try {
+    doc = typeof content === 'string' ? JSON.parse(content) : content;
+  } catch {
+    return typeof content === 'string' ? content : '';
+  }
+  if (!doc || doc.type !== 'doc') {
+    return typeof content === 'string' ? content : '';
+  }
+
+  function nodeToMd(node) {
+    if (!node) return '';
+    const children = () => (node.content || []).map(nodeToMd).join('');
+    switch (node.type) {
+      case 'doc':          return (node.content || []).map(nodeToMd).join('\n\n');
+      case 'heading':      return '#'.repeat(node.attrs?.level || 1) + ' ' + children();
+      case 'paragraph':    return children() || '';
+      case 'text':         return node.text || '';
+      case 'hardBreak':    return '\n';
+      case 'bulletList':   return (node.content || []).map(n => '- ' + nodeToMd(n)).join('\n');
+      case 'orderedList':  return (node.content || []).map((n, i) => `${i + 1}. ` + nodeToMd(n)).join('\n');
+      case 'listItem':     return (node.content || []).map(nodeToMd).join('');
+      case 'blockquote':   return (node.content || []).map(n => '> ' + nodeToMd(n)).join('\n');
+      case 'codeBlock':    return '```\n' + children() + '\n```';
+      case 'horizontalRule': return '---';
+      default:             return children();
+    }
+  }
+
+  return nodeToMd(doc);
+}
+
+/**
+ * Schedule indexing for a resource with debounce.
+ * deps must include: { database, fileStorage, windowManager }
  */
 function scheduleIndexing(resourceId, deps) {
   if (!resourceId || !deps) return;
@@ -38,13 +76,15 @@ function scheduleIndexing(resourceId, deps) {
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
     const ids = Array.from(pending.keys());
+    // Snapshot deps from the last entry (they're the same object in practice)
+    const lastDeps = pending.get(ids[ids.length - 1]);
     pending.clear();
 
     setImmediate(() => {
       (async () => {
         for (const id of ids) {
           try {
-            await indexResource(id, deps);
+            await indexResource(id, lastDeps);
           } catch (err) {
             console.error(`[Indexer] Error indexing ${id}:`, err.message);
           }
@@ -55,48 +95,60 @@ function scheduleIndexing(resourceId, deps) {
 }
 
 /**
- * Index a single PDF resource using PageIndex.
- * No-op for non-PDF types.
+ * Index a single resource using native DocIndexer.
  */
 async function indexResource(resourceId, deps) {
   try {
-    const { database, fileStorage, pageIndexService } = deps || {};
-    if (!database || !fileStorage) return;
+    const { database, fileStorage, windowManager } = deps || {};
+    if (!database) return;
 
     const queries = database.getQueries();
     if (!queries) return;
 
     const resource = queries.getResourceById?.get(resourceId);
-    if (!resource || resource.type !== 'pdf') return;
+    if (!resource || !shouldIndex(resource)) return;
 
-    const internalPath = resource.internal_path;
-    if (!internalPath) return;
-
-    const fs = require('fs');
-    const fullPath = fileStorage.getFullPath(internalPath);
-    if (!fullPath || !fs.existsSync(fullPath)) {
-      console.warn(`[Indexer] PDF file not found for resource ${resourceId}`);
+    // Skip if already processing
+    if (docIndexer.isProcessing(resourceId)) {
+      console.log(`[Indexer] Already processing ${resourceId}, skipping`);
       return;
     }
 
-    if (!pageIndexService) {
-      console.warn('[Indexer] PageIndex service not provided, skipping indexing');
-      return;
+    const settingRow = queries.getSetting?.get('ai_model');
+    const modelUsed = settingRow?.value || 'unknown';
+    const indexerDeps = { database, windowManager, title: resource.title || '' };
+
+    let result;
+
+    if (resource.type === 'pdf') {
+      if (!fileStorage) return;
+      const internalPath = resource.internal_path;
+      if (!internalPath) return;
+      const fs = require('fs');
+      const fullPath = fileStorage.getFullPath(internalPath);
+      if (!fullPath || !fs.existsSync(fullPath)) {
+        console.warn(`[Indexer] PDF file not found for resource ${resourceId}`);
+        return;
+      }
+      console.log(`[Indexer] Starting PDF indexing for ${resourceId}`);
+      result = await docIndexer.indexPDF(resourceId, fullPath, indexerDeps);
+
+    } else if (resource.type === 'note') {
+      const rawContent = resource.content;
+      if (!rawContent) return;
+      const markdown = tiptapToMarkdown(rawContent);
+      if (!markdown.trim()) return;
+      console.log(`[Indexer] Starting note indexing for ${resourceId}`);
+      result = await docIndexer.indexMarkdown(resourceId, markdown, resource.title || '', indexerDeps);
     }
 
-    if (!pageIndexService.isRunning()) {
-      console.warn('[Indexer] PageIndex service not running, skipping indexing for', resourceId);
-      return;
-    }
-
-    const result = await pageIndexService.indexPDF(resourceId, fullPath);
-    if (result.success && result.tree_json) {
-      const settingRow = queries.getSetting?.get('ai_model');
-      const modelUsed = settingRow?.value || 'unknown';
+    if (result?.success && result.tree_json) {
       queries.upsertPageIndex.run(resourceId, result.tree_json, Date.now(), modelUsed);
-      console.log(`[Indexer] PageIndex tree saved for resource ${resourceId}`);
-    } else {
-      console.warn(`[Indexer] PageIndex indexing failed for ${resourceId}:`, result.error);
+      // Clear transient status row (tree is now in resource_page_index with status=done)
+      queries.deletePageIndexStatus?.run(resourceId);
+      console.log(`[Indexer] Tree saved for ${resource.type} resource ${resourceId}`);
+    } else if (result) {
+      console.warn(`[Indexer] Indexing failed for ${resourceId}:`, result.error);
     }
   } catch (err) {
     console.error('[Indexer] indexResource error:', err.message);
@@ -104,7 +156,7 @@ async function indexResource(resourceId, deps) {
 }
 
 /**
- * Delete PageIndex tree for a resource (call when resource is deleted).
+ * Delete index for a resource (call when resource is deleted).
  */
 async function deleteEmbeddings(resourceId, deps) {
   try {
@@ -112,15 +164,16 @@ async function deleteEmbeddings(resourceId, deps) {
     const { database } = deps;
     if (!database) return;
     const queries = database.getQueries();
-    if (!queries?.deletePageIndex) return;
-    queries.deletePageIndex.run(resourceId);
-    console.log(`[Indexer] PageIndex tree deleted for resource ${resourceId}`);
+    if (!queries) return;
+    queries.deletePageIndex?.run(resourceId);
+    queries.deletePageIndexStatus?.run(resourceId);
+    console.log(`[Indexer] Index deleted for resource ${resourceId}`);
   } catch (err) {
     console.warn('[Indexer] deleteEmbeddings error:', err.message);
   }
 }
 
-/** @returns {boolean} */
+/** @returns {string} */
 function extractIndexableText() { return ''; }
 
 module.exports = {
@@ -128,4 +181,5 @@ module.exports = {
   scheduleIndexing,
   deleteEmbeddings,
   extractIndexableText,
+  tiptapToMarkdown,
 };

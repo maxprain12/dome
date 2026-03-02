@@ -6,14 +6,16 @@
  */
 async function getEmbedding(database, ollamaService, text) {
   const queries = database.getQueries();
-  const isOllamaAvailable = await ollamaService.checkAvailability();
+  const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
+  const ollamaApiKey = queries.getSetting.get('ollama_api_key');
+  const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
+  const apiKey = ollamaApiKey?.value || '';
+  const isOllamaAvailable = await ollamaService.checkAvailability(baseUrl, apiKey);
 
   if (isOllamaAvailable) {
-    const ollamaBaseUrl = queries.getSetting.get('ollama_base_url');
     const ollamaEmbeddingModel = queries.getSetting.get('ollama_embedding_model');
-    const baseUrl = ollamaBaseUrl?.value || ollamaService.DEFAULT_BASE_URL;
     const embeddingModel = ollamaEmbeddingModel?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
-    const embedding = await ollamaService.generateEmbedding(text, embeddingModel, baseUrl);
+    const embedding = await ollamaService.generateEmbedding(text, embeddingModel, baseUrl, apiKey);
     return { embedding, dimension: embedding?.length || 1024 };
   }
 
@@ -89,8 +91,8 @@ function register({ ipcMain, windowManager, database, ollamaService, initModule 
         const result = await getEmbedding(database, ollamaService, text);
         embedding = result.embedding;
         embeddingDimension = result.dimension;
-        if (embedding && !(await ollamaService.checkAvailability())) {
-          console.log('[Vector] Using cloud embeddings (Ollama unavailable)');
+        if (embedding) {
+          console.log('[Vector] Generated embedding successfully');
         }
       } catch (error) {
         console.error('[Vector] Error generating embedding:', error);

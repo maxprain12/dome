@@ -9,23 +9,24 @@ import MCPSettingsPanel from '@/components/settings/MCPSettingsPanel';
 import SkillsSettingsPanel from '@/components/settings/SkillsSettingsPanel';
 import AdvancedSettings from '@/components/settings/AdvancedSettings';
 import PluginsSettings from '@/components/settings/PluginsSettings';
+import IndexingSettings from '@/components/settings/IndexingSettings';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 
-type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced';
+type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced' | 'indexing';
 
 export default function SettingsPage() {
   const [searchParams] = useSearchParams();
   const sectionParam = searchParams.get('section') as SettingsSection | null;
   const [activeSection, setActiveSection] = useState<SettingsSection>(
-    sectionParam && ['general', 'appearance', 'ai', 'whatsapp', 'mcp', 'skills', 'plugins', 'advanced'].includes(sectionParam)
+    sectionParam && ['general', 'appearance', 'ai', 'whatsapp', 'mcp', 'skills', 'plugins', 'advanced', 'indexing'].includes(sectionParam)
       ? sectionParam
       : 'general'
   );
   const { loadUserProfile } = useUserStore();
 
   useEffect(() => {
-    if (sectionParam && ['general', 'appearance', 'ai', 'whatsapp', 'mcp', 'skills', 'plugins', 'advanced'].includes(sectionParam)) {
+    if (sectionParam && ['general', 'appearance', 'ai', 'whatsapp', 'mcp', 'skills', 'plugins', 'advanced', 'indexing'].includes(sectionParam)) {
       setActiveSection(sectionParam);
     }
   }, [sectionParam]);
@@ -33,7 +34,7 @@ export default function SettingsPage() {
   // Listen for navigate-to-section when settings window is focused from another context
   useEffect(() => {
     const unsub = window.electron?.on?.('settings:navigate-to-section', (section: string) => {
-      if (['general', 'appearance', 'ai', 'whatsapp', 'mcp', 'skills', 'plugins', 'advanced'].includes(section)) {
+      if (['general', 'appearance', 'ai', 'whatsapp', 'mcp', 'skills', 'plugins', 'advanced', 'indexing'].includes(section)) {
         setActiveSection(section as SettingsSection);
       }
     });
@@ -65,6 +66,8 @@ export default function SettingsPage() {
         return <PluginsSettings />;
       case 'advanced':
         return <AdvancedSettings />;
+      case 'indexing':
+        return <IndexingSettings />;
       default:
         return <GeneralSettings />;
     }

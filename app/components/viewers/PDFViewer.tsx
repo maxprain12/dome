@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import IndexStatusBadge from './shared/IndexStatusBadge';
 import type { Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
 import { loadPDFDocument, getPDFPage, getPDFOutline, type OutlineItem } from '@/lib/pdf/pdf-loader';
@@ -396,15 +397,18 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
             <ChevronRight size={16} />
           </button>
         </div>
-        <button
-          onClick={handleOpenExternal}
-          className="p-1.5 rounded text-sm"
-          style={{ color: 'var(--secondary-text)' }}
-          aria-label="Abrir externo"
-          title="Abrir en visor externo"
-        >
-          <ExternalLink size={16} />
-        </button>
+        <div className="flex items-center gap-2">
+          <IndexStatusBadge resourceId={resource.id} resourceType="pdf" />
+          <button
+            onClick={handleOpenExternal}
+            className="p-1.5 rounded text-sm"
+            style={{ color: 'var(--secondary-text)' }}
+            aria-label="Abrir externo"
+            title="Abrir en visor externo"
+          >
+            <ExternalLink size={16} />
+          </button>
+        </div>
       </div>
 
       {/* PDF content */}

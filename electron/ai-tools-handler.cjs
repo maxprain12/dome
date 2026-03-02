@@ -220,8 +220,68 @@ async function resourceGet(resourceId, options = {}) {
       metadata: metadata,
     };
 
-    // Include content with length limit
-    if (includeContent && resource.content) {
+    // --- PDFs: always use PageIndex tree as primary source ---
+    // PageIndex gives structured sections (title + summary per chunk of pages).
+    // The AI can navigate the document section by section via resource_semantic_search,
+    // instead of receiving a truncated raw dump with no structure.
+    if (includeContent && resource.type === 'pdf') {
+      try {
+        const q = database.getQueries();
+        const indexed = q.getPageIndex?.get(resourceId);
+        if (indexed?.tree_json) {
+          const docIndexer = require('./doc-indexer.cjs');
+          const tree = JSON.parse(indexed.tree_json);
+          const nodes = docIndexer.flattenTree(tree);
+
+          const sections = nodes
+            .filter(n => n.summary && n.summary.trim().length > 5)
+            .map(n => {
+              const start = n.start_index ?? 0;
+              const end = n.end_index ?? start;
+              const pageRange = `págs. ${start + 1}–${end + 1}`;
+              return `## ${n.title || 'Sección'} (${pageRange})\n${n.summary}`;
+            });
+
+          if (sections.length > 0) {
+            result.content =
+              `[Documento indexado: ${sections.length} sección(es) — usa resource_semantic_search para buscar contenido específico]\n\n` +
+              sections.join('\n\n');
+            result.content_source = 'pageindex';
+            result.content_truncated = false;
+            result.indexed_sections = sections.length;
+          }
+        }
+      } catch (e) {
+        console.warn('[AI Tools] PageIndex read failed for', resourceId, e.message);
+      }
+
+      // Fallback: raw text extraction (only if PageIndex tree doesn't exist yet)
+      if (!result.content) {
+        const fs = require('fs');
+        let fullPath = null;
+        if (resource.internal_path) {
+          fullPath = fileStorage.getFullPath(resource.internal_path);
+        } else if (resource.file_path && fs.existsSync(resource.file_path)) {
+          fullPath = resource.file_path;
+        }
+        if (fullPath && fs.existsSync(fullPath)) {
+          try {
+            const extracted = await documentExtractor.extractTextFromPDF(fullPath, maxLen);
+            if (extracted && extracted.trim()) {
+              result.content = extracted;
+              result.content_source = 'raw_extraction';
+              result.content_truncated = extracted.length >= maxLen;
+              result.indexing_note = 'El documento aún no está indexado por PageIndex. El contenido puede estar truncado. Vuelve a intentarlo cuando el índice esté listo (estado: Listo para IA).';
+            }
+          } catch (e) {
+            console.warn('[AI Tools] PDF raw extraction failed for', resourceId, e.message);
+          }
+        }
+      }
+    }
+
+    // --- Notes and other types with stored content ---
+    if (includeContent && !result.content && resource.content) {
       if (resource.content.length > maxLen) {
         result.content = resource.content.substring(0, maxLen);
         result.content_truncated = true;
@@ -229,32 +289,6 @@ async function resourceGet(resourceId, options = {}) {
       } else {
         result.content = resource.content;
         result.content_truncated = false;
-      }
-    }
-
-    // For PDFs without content: extract text on-demand
-    if (includeContent && !result.content) {
-      const isPdf = resource.type === 'pdf' || (resource.type === 'document' && (resource.file_mime_type || '').includes('pdf'));
-      const ext = (resource.original_filename || resource.title || '').toLowerCase();
-      if (isPdf || ext.endsWith('.pdf')) {
-        const fs = require('fs');
-        let fullPath = null;
-        if (resource.internal_path) {
-          fullPath = fileStorage.getFullPath(resource.internal_path);
-        } else if (resource.file_path && fs.existsSync(resource.file_path)) {
-          fullPath = resource.file_path; // Legacy external path
-        }
-        if (fullPath && fs.existsSync(fullPath)) {
-          try {
-            const extracted = await documentExtractor.extractTextFromPDF(fullPath, maxLen);
-            if (extracted && extracted.trim()) {
-              result.content = extracted;
-              result.content_truncated = extracted.length >= maxLen;
-            }
-          } catch (e) {
-            console.warn('[AI Tools] PDF extraction failed for', resourceId, e.message);
-          }
-        }
       }
     }
 
@@ -515,19 +549,8 @@ async function resourceSemanticSearch(query, options = {}) {
       .filter(Boolean)
       .map(t => ({ resource_id: t.resource_id, tree_json: t.tree_json }));
 
-    const pageIndexService = require('./pageindex-service.cjs');
-
-    if (!pageIndexService.isRunning()) {
-      console.log('[AI Tools] PageIndex service not running, attempting start...');
-      try {
-        await pageIndexService.start(database);
-      } catch (startErr) {
-        console.warn('[AI Tools] PageIndex service start failed, falling back to FTS:', startErr.message);
-        return resourceSearch(query, options);
-      }
-    }
-
-    const searchResult = await pageIndexService.search(query, trees, limit);
+    const docIndexer = require('./doc-indexer.cjs');
+    const searchResult = await docIndexer.search(query, trees, limit, database);
 
     if (!searchResult.success || !searchResult.results) {
       console.log('[AI Tools] PageIndex search failed, falling back to FTS');
@@ -545,15 +568,25 @@ async function resourceSemanticSearch(query, options = {}) {
         metadata = null;
       }
 
+      const pageRange = r.pages && r.pages.length > 0
+        ? `págs. ${r.pages[0] + 1}–${r.pages[r.pages.length - 1] + 1}`
+        : '';
+
       return {
         id: resource.id,
         title: resource.title,
         type: resource.type,
         project_id: resource.project_id,
         similarity: r.score,
-        snippet: r.text || (resource.content ? resource.content.substring(0, 200) + '...' : ''),
+        // Full section summary — not truncated, this is the indexed content
+        snippet: r.text || '',
         pages: r.pages,
+        page_range: pageRange,
         node_title: r.node_title,
+        // Hint so the AI knows how to go deeper into this section
+        search_hint: r.text
+          ? `Para más detalle sobre "${r.node_title}" (${pageRange}), busca con una consulta más específica sobre ese subtema.`
+          : null,
         created_at: resource.created_at,
         updated_at: resource.updated_at,
         metadata,
@@ -566,6 +599,9 @@ async function resourceSemanticSearch(query, options = {}) {
       method: 'pageindex',
       count: results.length,
       results,
+      navigation_note: results.length > 0
+        ? 'Resultados de PageIndex: cada resultado es una sección del documento. Para profundizar en un tema concreto, usa resource_semantic_search con una consulta más específica.'
+        : null,
     };
 
   } catch (error) {
@@ -1666,6 +1702,17 @@ function deepResearch(args) {
 }
 
 // =============================================================================
+// Memory / Personality Tools
+// =============================================================================
+
+async function rememberFact(key, value) {
+  const personalityLoader = require('./personality-loader.cjs');
+  personalityLoader.updateLongTermMemory(key, value);
+  personalityLoader.addMemoryEntry(`**${key}**: ${value}`);
+  return { success: true, message: `Remembered: ${key}` };
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -1727,4 +1774,7 @@ module.exports = {
   pptGetFilePath: pptToolsHandler.pptGetFilePath,
   pptExport: pptToolsHandler.pptExport,
   pptGetSlides: pptToolsHandler.pptGetSlides,
+
+  // Memory tools
+  rememberFact,
 };

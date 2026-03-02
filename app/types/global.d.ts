@@ -1161,6 +1161,16 @@ declare global {
         pipList: (venvPath: string) => Promise<{ success: boolean; stdout?: string; stderr?: string; error?: string }>;
         pipInstallFromRequirements: (venvPath: string, requirementsPath: string) => Promise<{ success: boolean; stdout?: string; stderr?: string; error?: string }>;
       };
+
+      // Personality / Memory API
+      personality: {
+        getPrompt: (params?: Record<string, unknown>) => Promise<{ success: boolean; data?: string; error?: string }>;
+        readFile: (filename: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+        writeFile: (filename: string, content: string) => Promise<{ success: boolean; error?: string }>;
+        addMemory: (entry: string) => Promise<{ success: boolean; error?: string }>;
+        listFiles: () => Promise<{ success: boolean; data?: string[]; error?: string }>;
+        rememberFact: (key: string, value: string) => Promise<{ success: boolean; error?: string }>;
+      };
     };
   }
 }

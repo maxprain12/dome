@@ -206,6 +206,8 @@ function addMemoryEntry(entry) {
   const time = new Date().toISOString().split('T')[1].split('.')[0];
   const memoryPath = path.join(getMartinDir(), 'memory', `${today}.md`);
 
+  fs.mkdirSync(path.dirname(memoryPath), { recursive: true });
+
   let content = '';
   if (fs.existsSync(memoryPath)) {
     content = fs.readFileSync(memoryPath, 'utf8');

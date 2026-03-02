@@ -2,7 +2,7 @@ import type { BubbleMenuProps } from "@tiptap/react/menus";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { isNodeSelection, useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
-import { FC, useEffect, useRef, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   IconBold,
   IconChevronDown,
@@ -51,10 +51,16 @@ export const EditorBubbleMenu: FC<EditorBubbleMenuProps> = (props) => {
   const isGenerativeAiEnabled = workspace?.settings?.ai?.generative === true;
   const [, setDraftCommentId] = useAtom(draftCommentIdAtom);
   const showCommentPopupRef = useRef(showCommentPopup);
+  const shouldHideRef = useRef(!!shouldHide);
 
   useEffect(() => {
     showCommentPopupRef.current = showCommentPopup;
   }, [showCommentPopup]);
+
+  useEffect(() => {
+    shouldHideRef.current = !!shouldHide;
+  }, [shouldHide]);
+
 
   const editorState = useEditorState({
     editor: props.editor,
@@ -120,53 +126,59 @@ export const EditorBubbleMenu: FC<EditorBubbleMenuProps> = (props) => {
     icon: IconMessage,
   };
 
+  // Stable shouldShow — reads from refs and parameters, never from component state
+  const shouldShow = useCallback(({ state, editor }: { state: any; editor: any }) => {
+    const { selection } = state;
+    const { empty } = selection;
+    // Only block when selection CROSSES a table boundary (not when fully inside a cell)
+    const hasTableInRange = !empty && !editor.isActive("table")
+      ? (() => {
+          let hasTable = false;
+          state.doc.nodesBetween(selection.from, selection.to, (node: any) => {
+            if (node.type.name === "table") {
+              hasTable = true;
+              return false;
+            }
+          });
+          return hasTable;
+        })()
+      : false;
+
+    const blocked =
+      !editor.isEditable ||
+      editor.isActive("image") ||
+      editor.isActive("video") ||
+      editor.isActive("callout") ||
+      editor.isActive("columns") ||
+      empty ||
+      isNodeSelection(selection) ||
+      isCellSelection(selection) ||
+      showCommentPopupRef?.current ||
+      hasTableInRange;
+
+    return blocked ? false : isTextSelected(editor);
+  }, []); // stable: reads from refs and shouldShow params, not component state
+
+  // Stable onHide — setters from useState are always stable references
+  const handleHide = useCallback(() => {
+    setIsNodeSelectorOpen(false);
+    setIsTextAlignmentOpen(false);
+    setIsLinkSelectorOpen(false);
+    setIsColorSelectorOpen(false);
+    setIsAiPopoverOpen(false);
+  }, []);
+
+  // Stable options — handleHide is stable (useCallback []) so this never changes
+  const bubbleMenuOptions = useMemo(() => ({
+    placement: "top" as const,
+    offset: 8,
+    onHide: handleHide,
+  }), [handleHide]);
+
   const bubbleMenuProps: EditorBubbleMenuProps = {
     ...bubbleProps,
-    shouldShow: ({ state, editor }) => {
-      const { selection } = state;
-      const { empty } = selection;
-
-      if (
-        shouldHide ||
-        !editor.isEditable ||
-        editor.isActive("image") ||
-        editor.isActive("video") ||
-        editor.isActive("table") ||
-        editor.isActive("callout") ||
-        editor.isActive("columns") ||
-        editor.isActive("link") ||
-        empty ||
-        isNodeSelection(selection) ||
-        isCellSelection(selection) ||
-        showCommentPopupRef?.current
-      ) {
-        return false;
-      }
-
-      if (!empty) {
-        let hasTable = false;
-        state.doc.nodesBetween(selection.from, selection.to, (node) => {
-          if (node.type.name === "table") {
-            hasTable = true;
-            return false;
-          }
-        });
-        if (hasTable) return false;
-      }
-
-      return isTextSelected(editor);
-    },
-    options: {
-      placement: "top",
-      offset: 8,
-      onHide: () => {
-        setIsNodeSelectorOpen(false);
-        setIsTextAlignmentOpen(false);
-        setIsLinkSelectorOpen(false);
-        setIsColorSelectorOpen(false);
-        setIsAiPopoverOpen(false);
-      },
-    },
+    shouldShow,
+    options: bubbleMenuOptions,
   };
 
   const [isNodeSelectorOpen, setIsNodeSelectorOpen] = useState(false);
@@ -247,6 +259,7 @@ export const EditorBubbleMenu: FC<EditorBubbleMenuProps> = (props) => {
                 aria-label={t(item.name)}
                 className={clsx({ [classes.active]: item.isActive() })}
                 style={{ border: "none" }}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={item.command}
               >
                 <item.icon style={{ width: rem(16) }} stroke={2} />
@@ -284,6 +297,7 @@ export const EditorBubbleMenu: FC<EditorBubbleMenuProps> = (props) => {
             radius="6px"
             aria-label={t(commentItem.name)}
             style={{ border: "none" }}
+            onMouseDown={(e) => e.preventDefault()}
             onClick={commentItem.command}
           >
             <IconMessage size={16} stroke={2} />

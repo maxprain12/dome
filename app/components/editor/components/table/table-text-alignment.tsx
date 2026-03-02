@@ -84,6 +84,7 @@ export const TableTextAlignment: FC<TableTextAlignmentProps> = ({ editor }) => {
       position="bottom"
       withArrow
       zIndex={1200}
+      withinPortal={false}
       transitionProps={{ transition: "pop" }}
     >
       <Popover.Target>

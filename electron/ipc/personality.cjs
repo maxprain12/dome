@@ -55,6 +55,20 @@ function register({ ipcMain, windowManager, personalityLoader }) {
 
     return { success: true, data: personalityLoader.listContextFiles() };
   });
+
+  ipcMain.handle('personality:remember-fact', (event, { key, value }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      personalityLoader.updateLongTermMemory(key, value);
+      personalityLoader.addMemoryEntry(`**${key}**: ${value}`);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 module.exports = { register };

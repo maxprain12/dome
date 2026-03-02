@@ -283,6 +283,30 @@ function initDatabase() {
 
   db.exec('CREATE INDEX IF NOT EXISTS idx_resource_page_index_resource ON resource_page_index(resource_id)');
 
+  // Migration: add status tracking columns if they don't exist yet
+  try {
+    db.exec(`ALTER TABLE resource_page_index ADD COLUMN status TEXT DEFAULT 'done'`);
+  } catch { /* column already exists */ }
+  try {
+    db.exec(`ALTER TABLE resource_page_index ADD COLUMN progress INTEGER DEFAULT 100`);
+  } catch { /* column already exists */ }
+  try {
+    db.exec(`ALTER TABLE resource_page_index ADD COLUMN error_message TEXT`);
+  } catch { /* column already exists */ }
+
+  // Separate lightweight status table for resources currently processing
+  // (allows tracking state even before a tree_json is available)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS resource_index_status (
+      resource_id TEXT PRIMARY KEY,
+      status TEXT NOT NULL DEFAULT 'pending',
+      progress INTEGER DEFAULT 0,
+      error_message TEXT,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+    )
+  `);
+
   // Populate FTS tables with existing data (important for external content FTS tables)
   populateFTSTables(db);
 
@@ -1731,24 +1755,41 @@ function getQueries() {
     `),
     getSessionsByDeck: db.prepare('SELECT * FROM flashcard_sessions WHERE deck_id = ? ORDER BY started_at DESC LIMIT ?'),
 
-    // PageIndex - hierarchical document tree index (reasoning-based RAG)
+    // PageIndex - hierarchical document tree index (reasoning-based RAG, native JS)
     upsertPageIndex: db.prepare(`
-      INSERT INTO resource_page_index (resource_id, tree_json, indexed_at, model_used)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO resource_page_index (resource_id, tree_json, indexed_at, model_used, status, progress)
+      VALUES (?, ?, ?, ?, 'done', 100)
       ON CONFLICT(resource_id) DO UPDATE SET
         tree_json = excluded.tree_json,
         indexed_at = excluded.indexed_at,
-        model_used = excluded.model_used
+        model_used = excluded.model_used,
+        status = 'done',
+        progress = 100,
+        error_message = NULL
     `),
     getPageIndex: db.prepare('SELECT * FROM resource_page_index WHERE resource_id = ?'),
     getPageIndexByIds: db.prepare(`
       SELECT * FROM resource_page_index WHERE resource_id IN (SELECT value FROM json_each(?))
     `),
     deletePageIndex: db.prepare('DELETE FROM resource_page_index WHERE resource_id = ?'),
-    getAllPageIndexedIds: db.prepare('SELECT resource_id FROM resource_page_index'),
+    getAllPageIndexedIds: db.prepare(`SELECT resource_id FROM resource_page_index WHERE status = 'done'`),
     getPageIndexStats: db.prepare(`
-      SELECT COUNT(*) as total_indexed, MAX(indexed_at) as last_indexed_at FROM resource_page_index
+      SELECT COUNT(*) as total_indexed, MAX(indexed_at) as last_indexed_at
+      FROM resource_page_index WHERE status = 'done'
     `),
+
+    // Index status tracking (lightweight, for in-progress and error states)
+    setPageIndexStatus: db.prepare(`
+      INSERT INTO resource_index_status (resource_id, status, progress, error_message, updated_at)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(resource_id) DO UPDATE SET
+        status = excluded.status,
+        progress = excluded.progress,
+        error_message = excluded.error_message,
+        updated_at = excluded.updated_at
+    `),
+    getPageIndexStatus: db.prepare('SELECT * FROM resource_index_status WHERE resource_id = ?'),
+    deletePageIndexStatus: db.prepare('DELETE FROM resource_index_status WHERE resource_id = ?'),
 
     // Calendar - Accounts
     createCalendarAccount: db.prepare(`

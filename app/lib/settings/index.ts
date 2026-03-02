@@ -173,6 +173,7 @@ export async function getAIConfig(): Promise<AISettings> {
   const baseUrlResult = await db.getSetting('ai_base_url');
   const ollamaBaseUrlResult = await db.getSetting('ollama_base_url');
   const ollamaModelResult = await db.getSetting('ollama_model');
+  const ollamaApiKeyResult = await db.getSetting('ollama_api_key');
   const ollamaEmbeddingModelResult = await db.getSetting('ollama_embedding_model');
   const ollamaTemperatureResult = await db.getSetting('ollama_temperature');
   const ollamaTopPResult = await db.getSetting('ollama_top_p');
@@ -193,6 +194,7 @@ export async function getAIConfig(): Promise<AISettings> {
     base_url: baseUrlResult.data || undefined,
     ollama_base_url: ollamaBaseUrlResult.data || undefined,
     ollama_model: ollamaModelResult.data || undefined,
+    ollama_api_key: ollamaApiKeyResult.data || undefined,
     ollama_embedding_model: ollamaEmbeddingModelResult.data || undefined,
     ollama_temperature: ollamaTemperatureResult.data ? parseFloat(ollamaTemperatureResult.data) : undefined,
     ollama_top_p: ollamaTopPResult.data ? parseFloat(ollamaTopPResult.data) : undefined,
@@ -228,6 +230,10 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
 
   if (config.ollama_model !== undefined) {
     await db.setSetting('ollama_model', config.ollama_model);
+  }
+
+  if (config.ollama_api_key !== undefined) {
+    await db.setSetting('ollama_api_key', config.ollama_api_key);
   }
 
   if (config.ollama_embedding_model !== undefined) {

@@ -84,6 +84,8 @@ export default function StatusView(props: NodeViewProps) {
         withArrow
         shadow="md"
         trapFocus
+        zIndex={1200}
+        withinPortal={false}
       >
         <Popover.Target>
           <span

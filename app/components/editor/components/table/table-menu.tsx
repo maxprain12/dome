@@ -1,6 +1,7 @@
 import { posToDOMRect, findParentNode } from "@tiptap/react";
 import { Node as PMNode } from "@tiptap/pm/model";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
+import { useRef } from "react";
 import type {
   EditorMenuProps,
   ShouldShowProps,
@@ -18,27 +19,29 @@ import {
   IconTrashX,
 } from "@tabler/icons-react";
 import { BubbleMenu } from "@tiptap/react/menus";
-import { isCellSelection, isTextSelected } from "@docmost/editor-ext";
+import { isCellSelection } from "@docmost/editor-ext";
 import { useTranslation } from "react-i18next";
 import classes from "../common/toolbar-menu.module.css";
 
 export const TableMenu = React.memo(
   ({ editor, shouldHide }: EditorMenuProps): JSX.Element => {
     const { t } = useTranslation();
+    const shouldHideRef = useRef(!!shouldHide);
+
+    useEffect(() => {
+      shouldHideRef.current = !!shouldHide;
+    }, [shouldHide]);
+
     const shouldShow = useCallback(
       ({ state }: ShouldShowProps) => {
-        if (shouldHide) {
-          return false;
-        }
-
-        if (!state) {
-          return false;
-        }
-
-        if (isTextSelected(editor)) return false;
-        return editor.isActive("table") && !isCellSelection(state.selection);
+        if (!state) return false;
+        const { selection } = state;
+        // Hide when text is selected (bubble menu handles that) or multi-cell selection
+        if (!selection.empty) return false;
+        if (isCellSelection(selection)) return false;
+        return editor.isActive("table");
       },
-      [editor, shouldHide]
+      [editor]
     );
 
     const getReferencedVirtualElement = useCallback(() => {
@@ -105,7 +108,8 @@ export const TableMenu = React.memo(
         resizeDelay={0}
         getReferencedVirtualElement={getReferencedVirtualElement}
         ref={(element) => {
-          if (element) element.style.zIndex = "950";
+          if (!element) return;
+          element.style.zIndex = "1100";
         }}
         options={{
           placement: "top",
@@ -127,6 +131,7 @@ export const TableMenu = React.memo(
         <div className={classes.toolbar}>
           <Tooltip position="top" label={t("Add left column")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={addColumnLeft}
               variant="subtle"
               size="lg"
@@ -138,6 +143,7 @@ export const TableMenu = React.memo(
 
           <Tooltip position="top" label={t("Add right column")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={addColumnRight}
               variant="subtle"
               size="lg"
@@ -149,6 +155,7 @@ export const TableMenu = React.memo(
 
           <Tooltip position="top" label={t("Delete column")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={deleteColumn}
               variant="subtle"
               size="lg"
@@ -162,6 +169,7 @@ export const TableMenu = React.memo(
 
           <Tooltip position="top" label={t("Add row above")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={addRowAbove}
               variant="subtle"
               size="lg"
@@ -173,6 +181,7 @@ export const TableMenu = React.memo(
 
           <Tooltip position="top" label={t("Add row below")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={addRowBelow}
               variant="subtle"
               size="lg"
@@ -184,6 +193,7 @@ export const TableMenu = React.memo(
 
           <Tooltip position="top" label={t("Delete row")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={deleteRow}
               variant="subtle"
               size="lg"
@@ -197,6 +207,7 @@ export const TableMenu = React.memo(
 
           <Tooltip position="top" label={t("Toggle header row")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={toggleHeaderRow}
               variant="subtle"
               size="lg"
@@ -208,6 +219,7 @@ export const TableMenu = React.memo(
 
           <Tooltip position="top" label={t("Toggle header column")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={toggleHeaderColumn}
               variant="subtle"
               size="lg"
@@ -221,6 +233,7 @@ export const TableMenu = React.memo(
 
           <Tooltip position="top" label={t("Delete table")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={deleteTable}
               variant="subtle"
               size="lg"

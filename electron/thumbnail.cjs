@@ -427,6 +427,9 @@ async function generatePdfThumbnail(filePath) {
     pdfjsLoadAttempted = true;
     try {
       pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+      if (pdfjsLib.VerbosityLevel) {
+        pdfjsLib.GlobalWorkerOptions.verbosity = pdfjsLib.VerbosityLevel.ERRORS;
+      }
       console.log('[Thumbnail] pdfjs-dist loaded successfully (ESM dynamic import)');
     } catch (error) {
       console.warn('[Thumbnail] pdfjs-dist not available, PDF thumbnails will use SVG placeholders:', error.message);

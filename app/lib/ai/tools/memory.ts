@@ -456,6 +456,46 @@ export function createMemoryGetStub(): AnyAgentTool {
 }
 
 // =============================================================================
+// Remember Fact Tool
+// =============================================================================
+
+const RememberFactSchema = Type.Object({
+  key: Type.String({
+    description: 'Short label for the memory (e.g. "user_name", "preferred_language", "research_topic").',
+  }),
+  value: Type.String({
+    description: 'The fact to remember.',
+  }),
+});
+
+/**
+ * Create a tool that saves important facts about the user to long-term memory.
+ */
+export function createRememberFactTool(): AnyAgentTool {
+  return {
+    label: 'Remember Fact',
+    name: 'remember_fact',
+    description: 'Save an important fact about the user to long-term memory. Use proactively when you learn the user\'s name, preferences, work style, or key topics.',
+    parameters: RememberFactSchema,
+    execute: async (_toolCallId, args) => {
+      try {
+        if (!isElectron()) {
+          return jsonResult({ status: 'error', error: 'Not in Electron environment' });
+        }
+        const params = args as Record<string, unknown>;
+        const key = typeof params.key === 'string' ? params.key : '';
+        const value = typeof params.value === 'string' ? params.value : '';
+        await window.electron.personality.rememberFact(key, value);
+        return jsonResult({ status: 'success', message: `Remembered: ${key}` });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return jsonResult({ status: 'error', error: message });
+      }
+    },
+  };
+}
+
+// =============================================================================
 // Smart factory that uses IPC if available, otherwise stubs
 // =============================================================================
 
@@ -468,9 +508,10 @@ export function createMemoryTools(): AnyAgentTool[] {
     return [
       createMemorySearchWithIPC(),
       createMemoryGetWithIPC(),
+      createRememberFactTool(),
     ];
   }
-  
+
   // Outside Electron, return stubs
   return [
     createMemorySearchStub(),

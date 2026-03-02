@@ -107,6 +107,7 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
       topP: topP ? parseFloat(topP) : 0.9,
       numPredict: numPredict ? parseInt(numPredict, 10) : 4000,
       think: useThink,
+      ...(apiKey ? { headers: { 'Authorization': `Bearer ${apiKey}` } } : {}),
     });
   }
   if (provider === 'openai') {
@@ -242,7 +243,23 @@ async function invokeLangGraphAgent(opts) {
     // Subagents architecture: pass onChunk so subagents emit real-time events for their tools
     const subagentTools = await createSubagentTools(llm, createLangChainToolsFromOpenAIDefinitions, onChunk);
     const mcpTools = await getMCPTools(database);
-    tools = [...subagentTools, ...mcpTools];
+    const rememberFactDef = [{
+      type: 'function',
+      function: {
+        name: 'remember_fact',
+        description: 'Save an important fact about the user to long-term memory. Use this when you learn something relevant: name, preferences, work topics, communication style, goals.',
+        parameters: {
+          type: 'object',
+          properties: {
+            key: { type: 'string', description: 'Short label for the memory (e.g. "user_name", "preferred_language", "research_topic")' },
+            value: { type: 'string', description: 'The fact to remember' },
+          },
+          required: ['key', 'value'],
+        },
+      },
+    }];
+    const memoryTools = await createLangChainToolsFromOpenAIDefinitions(rememberFactDef, executeToolInMain);
+    tools = [...subagentTools, ...mcpTools, ...memoryTools];
   }
 
   const interruptOn = skipHitl || useDirectTools

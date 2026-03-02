@@ -114,8 +114,10 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
           const tempResult = queries.getSetting.get('ollama_temperature');
           const topPResult = queries.getSetting.get('ollama_top_p');
           const numPredictResult = queries.getSetting.get('ollama_num_predict');
+          const ollamaApiKeyResult = queries.getSetting.get('ollama_api_key');
           const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
           const chatModel = model || modelResult?.value || ollamaService.DEFAULT_MODEL;
+          const ollamaApiKey = ollamaApiKeyResult?.value || '';
 
           // Ollama supports system, user, assistant roles - include system for context (e.g. resource content)
           const ollamaMessages = messages.map((m) => ({
@@ -135,6 +137,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
             num_predict: numPredictResult?.value ? parseInt(numPredictResult.value, 10) : 4000,
             think: true,
             tools: tools && tools.length > 0 ? tools : undefined,
+            apiKey: ollamaApiKey || undefined,
           };
 
           await ollamaService.chatStream(ollamaMessages, chatModel, baseUrl, onChunk, opts);

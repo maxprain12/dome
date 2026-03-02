@@ -1,243 +1,245 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Database, Wrench, Search, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Loader2, CheckCircle2, AlertCircle, BookOpen, RefreshCw } from 'lucide-react';
 
-interface VectorStatus {
-  available: boolean;
-  path: string | null;
+interface PageIndexStatus {
+  success: boolean;
+  indexed_documents: number;
+  total_indexable: number;
+  unindexed: number;
+  last_indexed_at: number | null;
 }
 
-interface VectorStats {
-  success: boolean;
-  chunks: number;
-  resourcesIndexed: number;
-  tableNames: string[];
-  lastError: string | null;
+interface IndexProgress {
+  current: number;
+  total: number;
+  resourceId?: string;
+  title?: string;
+  status: 'starting' | 'indexing' | 'done' | 'error' | 'skipped' | 'finished';
+  indexed?: number;
+  failed?: number;
 }
 
 export default function IndexingSettings() {
-  const [status, setStatus] = useState<VectorStatus | null>(null);
-  const [stats, setStats] = useState<VectorStats | null>(null);
-  const [reindexing, setReindexing] = useState(false);
-  const [repairing, setRepairing] = useState(false);
+  const [pageIndexStatus, setPageIndexStatus] = useState<PageIndexStatus | null>(null);
+  const [indexingMissing, setIndexingMissing] = useState(false);
+  const [reindexingAll, setReindexingAll] = useState(false);
+  const [indexProgress, setIndexProgress] = useState<IndexProgress | null>(null);
+  const [indexResult, setIndexResult] = useState<{ indexed: number; failed: number; total: number } | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [verifyResult, setVerifyResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const progressCleanupRef = useRef<(() => void) | null>(null);
 
-  const loadStatus = useCallback(async () => {
+  const loadPageIndexStatus = useCallback(async () => {
     try {
-      const s = await window.electron?.vector?.status?.();
-      setStatus(s ?? null);
-    } catch (e) {
-      setStatus({ available: false, path: null });
-    }
-  }, []);
-
-  const loadStats = useCallback(async () => {
-    try {
-      const s = await window.electron?.vector?.resources?.stats?.();
-      setStats(s ?? null);
-    } catch (e) {
-      setStats(null);
+      const s = await window.electron?.invoke?.('pageindex:status');
+      setPageIndexStatus(s ?? null);
+    } catch {
+      setPageIndexStatus(null);
     }
   }, []);
 
   useEffect(() => {
-    loadStatus();
-    loadStats();
+    loadPageIndexStatus();
     const interval = setInterval(() => {
-      loadStats();
+      if (!indexingMissing) loadPageIndexStatus();
     }, 5000);
     return () => clearInterval(interval);
-  }, [loadStatus, loadStats]);
+  }, [loadPageIndexStatus, indexingMissing]);
+
+  const handleIndexMissing = async () => {
+    setIndexingMissing(true);
+    setIndexProgress(null);
+    setIndexResult(null);
+    setLastError(null);
+
+    if (progressCleanupRef.current) progressCleanupRef.current();
+    const cleanup = window.electron?.on?.('pageindex:progress', (data: IndexProgress) => {
+      setIndexProgress(data);
+      if (data.status === 'finished') {
+        setIndexResult({ indexed: data.indexed ?? 0, failed: data.failed ?? 0, total: data.total });
+        setIndexingMissing(false);
+        loadPageIndexStatus();
+        if (progressCleanupRef.current) {
+          progressCleanupRef.current();
+          progressCleanupRef.current = null;
+        }
+      }
+    });
+    progressCleanupRef.current = cleanup ?? null;
+
+    try {
+      const result = await window.electron?.invoke?.('pageindex:index-missing');
+      if (!result?.success) {
+        setLastError(result?.error || 'Error al indexar');
+        setIndexingMissing(false);
+      }
+    } catch (e) {
+      setLastError(e instanceof Error ? e.message : String(e));
+      setIndexingMissing(false);
+    } finally {
+      if (progressCleanupRef.current) {
+        progressCleanupRef.current();
+        progressCleanupRef.current = null;
+      }
+    }
+  };
 
   const handleReindexAll = async () => {
-    setReindexing(true);
+    setReindexingAll(true);
+    setIndexProgress(null);
+    setIndexResult(null);
     setLastError(null);
-    setVerifyResult(null);
+
     try {
-      const result = await window.electron?.vector?.resources?.reindexAll?.();
+      const result = await window.electron?.invoke?.('pageindex:reindex');
       if (result?.success) {
-        await loadStats();
+        setIndexResult({ indexed: result.indexed ?? 0, failed: result.failed ?? 0, total: result.total ?? 0 });
+        loadPageIndexStatus();
       } else {
-        setLastError(result?.error || 'Reindex failed');
+        setLastError(result?.error || 'Error al reindexar');
       }
     } catch (e) {
       setLastError(e instanceof Error ? e.message : String(e));
     } finally {
-      setReindexing(false);
+      setReindexingAll(false);
     }
   };
 
-  const handleRepair = async () => {
-    setRepairing(true);
-    setLastError(null);
-    setVerifyResult(null);
-    try {
-      const result = await window.electron?.vector?.resources?.repair?.();
-      if (result?.success) {
-        await loadStatus();
-        await loadStats();
-      } else {
-        setLastError(result?.error || 'Repair failed');
-      }
-    } catch (e) {
-      setLastError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setRepairing(false);
-    }
-  };
+  const progressPercent = indexProgress && indexProgress.total > 0
+    ? Math.round((indexProgress.current / indexProgress.total) * 100)
+    : 0;
 
-  const handleVerify = async () => {
-    setVerifyResult(null);
-    try {
-      const result = await window.electron?.vector?.search?.('test query', { limit: 3 });
-      if (result?.success !== false) {
-        setVerifyResult({ ok: true, message: 'Búsqueda de prueba exitosa' });
-      } else {
-        setVerifyResult({ ok: false, message: result?.error || 'Error en la búsqueda' });
-      }
-    } catch (e) {
-      setVerifyResult({ ok: false, message: e instanceof Error ? e.message : String(e) });
-    }
-  };
-
-  const isAvailable = status?.available ?? false;
-  const dbPath = status?.path ?? '';
+  const lastIndexedDate = pageIndexStatus?.last_indexed_at
+    ? new Date(pageIndexStatus.last_indexed_at).toLocaleString()
+    : null;
 
   return (
     <div className="space-y-12 animate-in fade-in duration-500">
       <div>
         <h2 className="text-xl font-display font-semibold mb-1" style={{ color: 'var(--primary-text)' }}>
-          Indexación vectorial
+          Indexación de documentos
         </h2>
         <p className="text-sm opacity-80" style={{ color: 'var(--secondary-text)' }}>
-          Estado de la base de datos vectorial (LanceDB) y herramientas de indexación
+          Gestiona el índice de documentos para búsqueda e IA
         </p>
       </div>
 
-      {/* Estado de conexión */}
-      <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
-          Estado
-        </h3>
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)', borderWidth: 1 }}>
-            {isAvailable ? (
-              <CheckCircle2 size={24} style={{ color: 'var(--success)' }} />
-            ) : (
-              <AlertCircle size={24} style={{ color: 'var(--error)' }} />
-            )}
-            <div>
-              <p className="font-medium text-sm" style={{ color: 'var(--primary-text)' }}>
-                {isAvailable ? 'LanceDB conectado' : 'LanceDB no disponible'}
+      {/* Stats */}
+      {pageIndexStatus?.success && (
+        <section>
+          <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
+            Estado
+          </h3>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              <p className="text-2xl font-semibold" style={{ color: 'var(--accent)' }}>
+                {pageIndexStatus.total_indexable}
               </p>
-              {dbPath && (
-                <p className="text-xs mt-1 font-mono opacity-70" style={{ color: 'var(--secondary-text)' }}>
-                  {dbPath}
-                </p>
-              )}
+              <p className="text-xs mt-1" style={{ color: 'var(--secondary-text)' }}>Documentos totales</p>
+            </div>
+            <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              <p className="text-2xl font-semibold" style={{ color: '#22c55e' }}>
+                {pageIndexStatus.indexed_documents}
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--secondary-text)' }}>Indexados</p>
+            </div>
+            <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              <p className="text-2xl font-semibold" style={{ color: pageIndexStatus.unindexed > 0 ? '#f59e0b' : '#22c55e' }}>
+                {pageIndexStatus.unindexed}
+              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--secondary-text)' }}>Pendientes</p>
             </div>
           </div>
-
-          {stats?.success && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)', borderWidth: 1 }}>
-                <p className="text-2xl font-semibold" style={{ color: 'var(--accent)' }}>{stats.chunks}</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--secondary-text)' }}>Chunks indexados</p>
-              </div>
-              <div className="p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)', borderWidth: 1 }}>
-                <p className="text-2xl font-semibold" style={{ color: 'var(--accent)' }}>{stats.resourcesIndexed}</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--secondary-text)' }}>Recursos (aprox.)</p>
-              </div>
-            </div>
+          {lastIndexedDate && (
+            <p className="text-xs mt-3" style={{ color: 'var(--tertiary-text)' }}>
+              Última indexación: {lastIndexedDate}
+            </p>
           )}
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* Acciones */}
+      {/* Acción */}
       <section>
         <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
           Acciones
         </h3>
         <div className="space-y-4">
           <div className="flex flex-wrap gap-3">
+            {/* Indexar pendientes */}
+            {pageIndexStatus?.unindexed === 0 && !indexingMissing && !indexResult ? (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--secondary-text)' }}>
+                <CheckCircle2 size={16} style={{ color: '#22c55e' }} />
+                Todos los documentos están indexados
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleIndexMissing}
+                disabled={indexingMissing || reindexingAll}
+                className="btn btn-primary flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              >
+                {indexingMissing
+                  ? <Loader2 size={16} className="animate-spin" />
+                  : <BookOpen size={16} />}
+                {indexingMissing
+                  ? 'Indexando…'
+                  : `Indexar ${pageIndexStatus?.unindexed ?? ''} pendientes`}
+              </button>
+            )}
+
+            {/* Reindexar todo */}
             <button
               type="button"
               onClick={handleReindexAll}
-              disabled={reindexing || !isAvailable}
+              disabled={indexingMissing || reindexingAll}
               className="btn btn-secondary flex items-center gap-2 disabled:opacity-50 cursor-pointer"
             >
-              {reindexing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-              Re-indexar todo
-            </button>
-            <button
-              type="button"
-              onClick={handleRepair}
-              disabled={repairing || !isAvailable}
-              className="btn btn-secondary flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-            >
-              {repairing ? <Loader2 size={16} className="animate-spin" /> : <Wrench size={16} />}
-              Reparar tabla
-            </button>
-            <button
-              type="button"
-              onClick={handleVerify}
-              disabled={!isAvailable}
-              className="btn btn-secondary flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-            >
-              <Search size={16} />
-              Verificar índices
+              {reindexingAll
+                ? <Loader2 size={16} className="animate-spin" />
+                : <RefreshCw size={16} />}
+              {reindexingAll ? 'Reindexando…' : 'Reindexar todos'}
             </button>
           </div>
 
-          {verifyResult && (
-            <div
-              className={`p-4 rounded-lg flex items-center gap-2 ${verifyResult.ok ? '' : ''}`}
-              style={{
-                backgroundColor: verifyResult.ok ? 'var(--success)' + '15' : 'var(--error)' + '15',
-                borderColor: verifyResult.ok ? 'var(--success)' : 'var(--error)',
-                borderWidth: 1,
-              }}
-            >
-              {verifyResult.ok ? <CheckCircle2 size={20} style={{ color: 'var(--success)' }} /> : <AlertCircle size={20} style={{ color: 'var(--error)' }} />}
-              <span style={{ color: 'var(--primary-text)' }}>{verifyResult.message}</span>
+          {/* Barra de progreso */}
+          {indexingMissing && indexProgress && indexProgress.total > 0 && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs" style={{ color: 'var(--secondary-text)' }}>
+                <span className="truncate max-w-xs">
+                  {indexProgress.status === 'indexing' && indexProgress.title
+                    ? `Indexando: ${indexProgress.title}`
+                    : 'Preparando…'}
+                </span>
+                <span>{indexProgress.current} / {indexProgress.total}</span>
+              </div>
+              <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-tertiary)' }}>
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{ width: `${progressPercent}%`, backgroundColor: 'var(--accent)' }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Resultado */}
+          {indexResult && !indexingMissing && (
+            <div className="p-4 rounded-lg flex items-center gap-2"
+              style={{ backgroundColor: '#22c55e18', border: '1px solid #22c55e' }}>
+              <CheckCircle2 size={18} style={{ color: '#22c55e' }} />
+              <span className="text-sm" style={{ color: 'var(--primary-text)' }}>
+                {indexResult.indexed} {indexResult.indexed === 1 ? 'documento indexado' : 'documentos indexados'} correctamente
+                {indexResult.failed > 0 && `, ${indexResult.failed} con errores`}
+              </span>
             </div>
           )}
 
           {lastError && (
-            <div className="p-4 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'var(--error)' + '15', borderColor: 'var(--error)', borderWidth: 1 }}>
-              <AlertCircle size={20} style={{ color: 'var(--error)' }} />
-              <span style={{ color: 'var(--error)' }}>{lastError}</span>
+            <div className="p-4 rounded-lg flex items-center gap-2" style={{ backgroundColor: 'var(--error)18', border: '1px solid var(--error)' }}>
+              <AlertCircle size={18} style={{ color: 'var(--error)' }} />
+              <span className="text-sm" style={{ color: 'var(--error)' }}>{lastError}</span>
             </div>
           )}
-        </div>
-      </section>
-
-      {/* Cómo conectar */}
-      <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
-          Conectar a la base de datos
-        </h3>
-        <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
-          Para inspeccionar la base de datos vectorial, cierra Dome y usa uno de estos métodos:
-        </p>
-        <div className="space-y-3 text-sm font-mono p-4 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', borderColor: 'var(--border)', borderWidth: 1 }}>
-          <p style={{ color: 'var(--secondary-text)' }}>// Node.js</p>
-          <pre className="overflow-x-auto text-xs whitespace-pre-wrap" style={{ color: 'var(--primary-text)' }}>
-            {`const lancedb = require('vectordb');
-const db = await lancedb.connect('${dbPath || '~/Library/Application Support/Dome/dome-vector'}');
-const tables = await db.tableNames();
-const table = await db.openTable('resource_embeddings');
-const count = await table.countRows();`}
-          </pre>
-          <p className="pt-2" style={{ color: 'var(--secondary-text)' }}>// Python</p>
-          <pre className="overflow-x-auto text-xs whitespace-pre-wrap" style={{ color: 'var(--primary-text)' }}>
-            {`import lancedb
-db = lancedb.connect("${dbPath || '~/Library/Application Support/Dome/dome-vector'}")
-table = db.open_table("resource_embeddings")
-df = table.to_pandas()`}
-          </pre>
         </div>
       </section>
     </div>

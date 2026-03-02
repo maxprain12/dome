@@ -10,14 +10,14 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.1-00C853?style=flat)](https://langchain-ai.github.io/langgraphjs/)
 [![License](https://img.shields.io/badge/License-Custom%20Open%20Source-blue.svg)](LICENSE)
 
-**v1.1.0** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently.
+**v1.4.1** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently.
 
 ---
 
 ## Table of Contents
 
 - [Overview](#overview)
-- [What's New in v1.1.0](#whats-new-in-v110)
+- [What's New](#whats-new)
 - [Features](#features)
 - [Technology Stack](#technology-stack)
 - [Installation](#installation)
@@ -34,28 +34,60 @@
 
 Dome provides a unified workspace for managing your research and knowledge. It combines powerful AI capabilities with an intuitive interface, allowing you to:
 
-- **Organize resources** (notes, PDFs, videos, audios, images, URLs) in projects
+- **Organize resources** (notes, PDFs, videos, audios, images, URLs, PowerPoints) in projects
 - **Many AI Assistant** — Chat with LangGraph-powered agent (web search, resource search, memory, MCP tools)
-- **Many Agents** — Create specialized agents (hijos de Many) with custom instructions, tools, MCP, and icons
+- **Many Agents** — Create specialized agents with custom instructions, tools, MCP, and icons
 - **Studio** — Generate mindmaps, quizzes, flashcards, guides, FAQs, timelines from your content
 - **Flashcards** — Spaced repetition (SM-2) with AI-generated decks from your documents
+- **Calendar** — Event management with Google Calendar sync and AI-driven event tools
 - **Annotate PDFs** with highlights, comments, and notes
 - **Notion-style editor** for rich documents
+- **PageIndex** — Reasoning-based AI indexing so every resource is ready for semantic search
 - **Manage academic sources** and generate citations
 - **MCP Integration** — Connect Model Context Protocol servers for extended AI capabilities
+- **Guided tours** — Built-in onboarding tours powered by driver.js
 - **Web scraping** for offline access
 - **WhatsApp** connection for mobile integration
 
 ---
 
-## What's New in v1.1.0
+## What's New
 
-- **Many Agents** — Create custom agents with personalized instructions, tool selection (web, resources, context, studio, excel, etc.), MCP integration, and icons; each agent has its own chat sessions
-- **Studio with Tools** — Mindmaps, quizzes, guides, FAQs, timelines, and flashcards now use AI tools (resource search, semantic search) for richer generation from project content
-- **Agent Chat Store** — Per-agent sessions stored in localStorage; switch between agents and sessions in the Home sidebar
-- **Tool Catalog** — 40+ tools grouped by category (web, memory, resources, context, flashcards, studio, audio, research, graph, notebook, excel)
+### v1.4.1 — PageIndex, Calendar & Dome Editor
 
-## What's New in v1.0.0
+- **PageIndex** — Replaced LanceDB with a reasoning-based document indexing engine. Resources are parsed, chunked, and indexed without embeddings; AI search uses direct reasoning over structured text nodes. Each resource shows an **"Listo para IA"** status badge in the workspace header once indexed.
+- **Calendar** — Full calendar view with day/week event management, event creation modal (all-day or timed), and **Google Calendar sync**. AI agents get calendar tools (`create_event`, `update_event`, `delete_event`) so Many can schedule directly from chat.
+- **Calendar Settings** — New settings panel to connect and manage Google Calendar accounts.
+- **Indexing Settings** — New settings panel to configure the PageIndex service (provider, model, re-index triggers).
+- **AI status in header** — The "Listo para IA" badge moved from the editor body to the workspace header bar, next to the Paneles button.
+- **Dome Editor** — All Tiptap extensions rewritten as Dome-owned MIT code in `app/lib/dome-editor/`. No longer depends on Docmost's AGPL source.
+
+### v1.4.0 — Analytics
+
+- **PostHog analytics** — Opt-in usage analytics (feature usage, AI tool tracking, error reporting). Toggle in **Settings → Privacy**.
+
+### v1.3.0 — Agent Management & Guided Tours
+
+- **Agent Management** — Edit existing Many Agents (instructions, tools, MCP, icon), import/export agent configurations as JSON.
+- **Guided tours** — driver.js-powered onboarding tours highlight key UI areas on first launch.
+- **Resource linking** — Improved markdown rendering and cross-resource link resolution.
+- **PDF viewer** — Streamlined zoom/navigation controls and better scroll handling.
+
+### v1.2.0 — PowerPoint Support
+
+- **PowerPoint viewer** — Full `.pptx` rendering with slide-by-slide navigation via `pptx-preview`. No LibreOffice dependency.
+- **Presentation mode** — Full-screen slide presentation from within Dome.
+- **PPT export** — Export presentations to PPTX from the editor.
+- **Electron-native slide capture** — Hidden BrowserWindow renders slides for thumbnail generation without external dependencies.
+
+### v1.1.0 — Many Agents & Studio Tools
+
+- **Many Agents** — Create custom agents with personalized instructions, tool selection, MCP integration, and icons; each agent has its own chat sessions.
+- **Studio with Tools** — Mindmaps, quizzes, guides, FAQs, timelines, and flashcards now use AI tools (resource search, semantic search) for richer generation from project content.
+- **Agent Chat Store** — Per-agent sessions stored in localStorage; switch between agents and sessions in the Home sidebar.
+- **Tool Catalog** — 40+ tools grouped by category (web, memory, resources, context, flashcards, studio, audio, research, graph, notebook, excel, calendar).
+
+### v1.0.0
 
 - **LangGraph** — AI chat with tools runs on LangGraph; persistent sessions (SQLite checkpoints)
 - **Many** — Assistant panel with sessions, quick prompts, resource + web tools
@@ -76,6 +108,7 @@ Centralized management for all your resources:
 |---------------|-------------|
 | **Notes** | Rich text documents with the Notion-style editor |
 | **PDFs** | Academic papers and documents with annotation support |
+| **PowerPoints** | `.pptx` files with slide viewer and presentation mode |
 | **Videos** | YouTube videos with thumbnail extraction and metadata |
 | **Audios** | Audio files with transcription capabilities |
 | **Images** | Visual resources with thumbnail generation |
@@ -100,20 +133,43 @@ Dome uses **LangGraph** for the chat-with-tools experience and supports multiple
 - **Built-in tools**: Web search, web fetch, resource search, semantic search, project context
 - **Memory tools** — Save and recall information across sessions
 - **Flashcard creation** — Generate study decks from documents via chat
+- **Calendar tools** — Create, update, and delete calendar events from chat
 - **MCP tools** — Use tools from configured Model Context Protocol servers
 - **Quick prompts** — Summarize, organize, search your resources in one click
 
-**Many Agents (v1.1.0):**
+**Many Agents (v1.1.0+):**
 - **Custom agents** — Create specialized assistants with custom names, descriptions, and system instructions
-- **Tool selection** — Choose which tools each agent can use (web, resources, context, studio, excel, notebook, graph, etc.)
+- **Tool selection** — Choose which tools each agent can use (web, resources, context, studio, excel, notebook, graph, calendar, etc.)
 - **MCP per agent** — Attach MCP servers to specific agents
 - **Sessions per agent** — Each agent maintains its own chat history in the sidebar
 - **Agent onboarding** — Guided flow: name → instructions → tools → MCP → skills → icon
+- **Import / Export** — Share agent configurations as JSON
 
 **Other AI Capabilities:**
-- **Semantic Search** — Find resources by meaning (LanceDB)
+- **Semantic Search** — Find resources by meaning (PageIndex reasoning engine)
 - **Auto-Transcription** — Convert audio/video to text
 - **Document Summarization** — Quick summaries of long documents
+
+### PageIndex — AI-Ready Documents
+
+Resources are indexed using a **reasoning-based** approach (no embeddings required):
+
+- Documents are parsed into structured text nodes and stored in SQLite
+- Each resource shows a status badge: **Listo para IA** (indexed), processing, or error
+- The badge appears in the workspace header next to the Paneles button
+- Configure the indexing provider and model in **Settings → Indexing**
+- Re-index individual resources or the entire project from settings
+- Replaces the previous LanceDB embedding pipeline — lighter and more accurate on long documents
+
+### Calendar
+
+Full event management integrated with your research workflow:
+
+- **Calendar view** — Month/day grid with event indicators
+- **Event management** — Create, edit, and delete events with all-day or timed options
+- **Google Calendar sync** — Connect your Google account in Settings → Calendar
+- **AI calendar tools** — Ask Many to schedule meetings, set reminders, or manage events conversationally
+- **Notifications** — Event reminders via desktop notifications
 
 ### MCP (Model Context Protocol)
 
@@ -123,7 +179,7 @@ Extend Many's capabilities with external MCP servers:
 - **stdio** — Run local commands (e.g. `npx`, `uvx`) with optional args and env
 - **http** — Connect to remote MCP servers via URL
 - **Test connection** — Verify servers before using in chat
-- Tools from MCP servers are automatically available to Many
+- Tools from MCP servers are automatically available to Many and individual agents
 
 ### Studio
 
@@ -139,7 +195,7 @@ Generate study materials and visualizations from your project sources:
 | **Table** | Structured data tables |
 | **Flashcards** | AI-generated decks (SM-2 spaced repetition) |
 
-Use **Studio** in the home sidebar to select a project and generate outputs. Many can also create flashcards directly from chat.
+Studio uses AI tools (resource search, PageIndex) to fetch sources before generating, so outputs are grounded in your actual project content.
 
 ### Flashcards
 
@@ -150,6 +206,16 @@ Study with spaced repetition:
 - **Study sessions** with swipe gestures (known/unknown)
 - **Stats** — Cards due, retention, progress per deck
 - **Integration** — Decks appear in Studio and link to resources
+
+### PowerPoint Viewer
+
+Full-featured presentation support:
+
+- **Slide viewer** — Rendered via `pptx-preview`, no external dependencies
+- **Slide navigation** — Previous/next with keyboard shortcuts
+- **Presentation mode** — Full-screen view from the workspace header
+- **Export** — Export to PPTX from the workspace
+- **Thumbnail generation** — Electron-native slide capture using a hidden BrowserWindow
 
 ### PDF Viewer with Annotations
 
@@ -164,7 +230,7 @@ Full-featured PDF viewer with comprehensive annotation tools:
 
 ### Notion-Style Editor
 
-Powerful rich text editor built with Tiptap (ProseMirror):
+Powerful rich text editor built with Tiptap (ProseMirror), using Dome's own extension library (`dome-editor`):
 
 **Block Types:**
 - Headings (H1-H6)
@@ -174,7 +240,8 @@ Powerful rich text editor built with Tiptap (ProseMirror):
 - Callout blocks with icons
 - Toggle blocks (collapsible content)
 - Code blocks with syntax highlighting
-- Tables with row/column controls
+- Tables with drag-and-drop row/column reordering
+- Multi-column layouts (2–5 columns)
 - Dividers (line, dots, space)
 
 **Special Blocks:**
@@ -187,7 +254,15 @@ Powerful rich text editor built with Tiptap (ProseMirror):
 - Slash commands (/) for quick block insertion
 - Bubble menu for text formatting
 - Drag handles for block reordering
+- Search & replace
+- Comment marks for inline annotations
 - Typography improvements (smart quotes, etc.)
+
+### Guided Tours
+
+- **driver.js** powered step-by-step tours on first launch
+- Covers key areas: sidebar, Many panel, Studio, settings
+- Can be re-triggered from the Help menu
 
 ### YouTube Integration
 
@@ -219,11 +294,7 @@ Playwright-powered web content extraction:
 Comprehensive source management for academic work:
 
 **Source Types:**
-- Articles
-- Books
-- Websites
-- Videos
-- Podcasts
+- Articles, Books, Websites, Videos, Podcasts
 
 **Citation Features:**
 - Multiple citation styles (APA, MLA, Chicago, Harvard, Vancouver, IEEE)
@@ -233,12 +304,16 @@ Comprehensive source management for academic work:
 
 ### Settings & Customization
 
-- **General** — Profile, auto-save, backup preferences
-- **Appearance** — Light, dark, and system theme modes
-- **AI Configuration** — Providers, API keys, models, embedding models
-- **MCP** — Configure Model Context Protocol servers (stdio/http)
-- **Plugins** — Extensibility and integrations
-- **WhatsApp** — Connection management
+| Panel | Description |
+|-------|-------------|
+| **General** | Profile, auto-save, backup preferences |
+| **Appearance** | Light, dark, and system theme modes |
+| **AI Configuration** | Providers, API keys, models |
+| **Indexing** | PageIndex provider/model, re-index controls |
+| **Calendar** | Google Calendar account connection and sync |
+| **MCP** | Configure Model Context Protocol servers (stdio/http) |
+| **Privacy** | PostHog analytics opt-in/out toggle |
+| **WhatsApp** | Connection management |
 
 ---
 
@@ -250,15 +325,18 @@ Comprehensive source management for academic work:
 | Desktop Framework | [Electron 32](https://www.electronjs.org/) |
 | Frontend | [Vite 7](https://vitejs.dev/) + [React 18](https://reactjs.org/) |
 | UI Styling | [Tailwind CSS](https://tailwindcss.com/) |
-| Rich Text Editor | [Tiptap](https://tiptap.dev/) (ProseMirror) |
+| Rich Text Editor | [Tiptap](https://tiptap.dev/) (ProseMirror) + Dome Editor (MIT) |
 | AI Agent | [LangGraph](https://langchain-ai.github.io/langgraphjs/) + [LangChain](https://js.langchain.com/) |
 | MCP | [@langchain/mcp-adapters](https://js.langchain.com/docs/integrations/tools/mcp) |
 | Relational Database | SQLite ([better-sqlite3](https://github.com/WiseLibs/better-sqlite3)) |
-| Vector Database | [LanceDB](https://lancedb.com/) |
+| AI Document Index | PageIndex (reasoning-based, SQLite-backed) |
 | State Management | [Zustand](https://github.com/pmndrs/zustand) |
 | Language | [TypeScript](https://www.typescriptlang.org/) (strict mode) |
 | Web Automation | [Playwright](https://playwright.dev/) |
 | PDF Rendering | [PDF.js](https://mozilla.github.io/pdf.js/) |
+| PowerPoint Rendering | [pptx-preview](https://github.com/mesmerize-dev/pptx-preview) |
+| Guided Tours | [driver.js](https://driverjs.com/) |
+| Analytics | [PostHog](https://posthog.com/) (opt-in) |
 
 ---
 
@@ -325,7 +403,7 @@ bun run electron:build   # Build desktop application
 bun run test:db          # Test database connection
 bun run clean            # Clean build artifacts
 bun run rebuild:natives  # Rebuild native modules (better-sqlite3, sharp, etc.)
-bun run verify:natives  # Verify native modules
+bun run verify:natives   # Verify native modules
 ```
 
 ---
@@ -336,14 +414,14 @@ bun run verify:natives  # Verify native modules
 
 When you first launch Dome:
 
-1. **Complete the onboarding** with your profile information
+1. **Complete the onboarding** — a guided tour walks you through the main features
 2. **Configure AI** (optional but recommended):
    - Go to **Settings** (gear icon) → **AI Configuration**
    - Select your AI provider (OpenAI, Anthropic, Google, Ollama)
-   - For **Ollama** (local, sin API key): [guía de instalación](docs/guia-instalacion-ollama.md)
-   - For cloud providers: Enter your API key and choose models for chat and embeddings
-
-3. **Configure MCP** (optional): Add MCP servers in Settings → MCP for extended AI tools
+   - For **Ollama** (local, no API key): [installation guide](docs/guia-instalacion-ollama.md)
+   - For cloud providers: Enter your API key and choose your chat model
+3. **Configure Indexing** (optional): Go to **Settings → Indexing** to set the provider and model for PageIndex
+4. **Configure MCP** (optional): Add MCP servers in Settings → MCP for extended AI tools
 
 ### 2. Creating Projects
 
@@ -368,17 +446,30 @@ Add different types of content to your projects:
 - Or click **+ New Resource** → **Import PDF**
 - View with annotations in the PDF viewer
 
+**PowerPoints:**
+- Drag and drop `.pptx` files
+- Navigate slides with arrow keys or the slide strip
+- Use **Presentation mode** (button in the header) for full-screen viewing
+
 **URLs:**
 - Click **+ New Resource** → **URL**
 - Enter the web address
 - Content will be automatically scraped
 
 **Media (Videos/Audio/Images):**
-- Drag and drop files
-- Or use **+ New Resource** → select type
+- Drag and drop files or use **+ New Resource** → select type
 - YouTube URLs are automatically detected
 
-### 4. Using the AI Assistant (Many)
+### 4. AI Indexing — "Listo para IA"
+
+Every resource is indexed for AI search in the background:
+
+1. When you open a resource, the **header bar** shows the indexing status badge (next to "Paneles")
+2. States: **Indexing…** (spinner) → **Listo para IA** (green, ready) → **Error** (retry button)
+3. Once indexed, Many can search that resource with full semantic accuracy
+4. Re-index from **Settings → Indexing** if content changes
+
+### 5. Using the AI Assistant (Many)
 
 The LangGraph-powered assistant helps with research:
 
@@ -387,28 +478,41 @@ The LangGraph-powered assistant helps with research:
 3. Enable **My resources** and **Web search** for tool use
 4. Use quick prompts: "Summarize my current resource", "Search my resources"
 5. Create flashcards: "Generate flashcards from this document"
-6. Sessions persist across app restarts
+6. Manage calendar: "Schedule a meeting tomorrow at 3pm"
+7. Sessions persist across app restarts
 
-### 5. Studio — Generate Study Materials
+### 6. Studio — Generate Study Materials
 
 From your project content:
 
 1. Go to **Home** → **Studio** (sidebar)
 2. Select a project
 3. Choose output type: Mindmap, Quiz, Guide, FAQ, Timeline, Table, Flashcards
-4. Click **Generate** — AI uses tools (resource search, semantic search) to fetch sources and create the output
+4. Click **Generate** — AI uses PageIndex and resource tools to ground the output in your actual content
 5. View and edit outputs; flashcards open in study mode
 
-### 5b. Many Agents — Custom Assistants (v1.1.0)
+### 7. Many Agents — Custom Assistants
 
 Create specialized AI agents tailored to your workflow:
 
 1. Go to **Home** → click **+ Agente** in the sidebar
-2. Follow the onboarding: name, instructions, tools, MCP servers, skills, icon
+2. Follow the onboarding: name → instructions → tools → MCP servers → skills → icon
 3. Your agent appears in the sidebar; click to chat with it
 4. Each agent has its own sessions; switch between agents anytime
+5. **Edit** an agent from the agent settings to update any property
+6. **Export** agents as JSON to share with others; **import** from the agents list
 
-### 6. Flashcards
+### 8. Calendar
+
+Manage your schedule alongside your research:
+
+1. Click **Calendar** in the app header
+2. Navigate days with the calendar grid; click a day to create an event
+3. Fill in the event modal (title, date, time, all-day toggle)
+4. **Sync Google Calendar**: Go to **Settings → Calendar** and connect your account
+5. Ask Many: "What do I have scheduled this week?" or "Add a meeting on Friday at 2pm"
+
+### 9. Flashcards
 
 Study with spaced repetition:
 
@@ -417,7 +521,7 @@ Study with spaced repetition:
 3. Use swipe (← known / → unknown) or buttons during study
 4. Track progress and due cards per deck
 
-### 7. Annotating PDFs
+### 10. Annotating PDFs
 
 The PDF viewer provides comprehensive annotation:
 
@@ -427,16 +531,16 @@ The PDF viewer provides comprehensive annotation:
 4. Add comments by clicking the comment icon
 5. View all annotations in the side panel
 
-### 8. Semantic Search
+### 11. Semantic Search
 
 Find resources by meaning:
 
 1. Click the **Search** icon or press `Cmd/Ctrl + K`
 2. Enter your query in natural language
-3. Results are ranked by semantic similarity
+3. Results are ranked by relevance (PageIndex reasoning)
 4. Filter by type, project, or tags
 
-### 9. Managing Sources
+### 12. Managing Sources
 
 For academic work:
 
@@ -446,7 +550,7 @@ For academic work:
 4. Link sources to resources
 5. Generate citations with your preferred style
 
-### 10. Using the Editor
+### 13. Using the Editor
 
 The Notion-style editor supports:
 
@@ -455,6 +559,7 @@ The Notion-style editor supports:
 - `Cmd/Ctrl + I` - Italic
 - `Cmd/Ctrl + U` - Underline
 - `Cmd/Ctrl + K` - Insert link
+- `Cmd/Ctrl + H` - Search & Replace
 - `/` - Open block menu
 
 **Block Commands:**
@@ -466,11 +571,13 @@ The Notion-style editor supports:
 - `/callout` - Callout block
 - `/toggle` - Collapsible section
 - `/code` - Code block
+- `/columns` - Multi-column layout (2–5 columns)
+- `/table` - Table with drag-and-drop rows/columns
 - `/divider` - Horizontal line
-- `/pdf` - Embed PDF
+- `/pdf` - Embed PDF page
 - `/file` - Attach file
 
-### 11. WhatsApp Connection
+### 14. WhatsApp Connection
 
 To connect WhatsApp:
 
@@ -487,31 +594,34 @@ To connect WhatsApp:
 dome/
 ├── app/                          # React Application (Renderer Process)
 │   ├── components/               # React Components
+│   │   ├── calendar/             # Calendar grid and event modal
 │   │   ├── chat/                 # AI Chat (messages, tool cards)
 │   │   ├── CommandCenter/        # Search and command palette
 │   │   ├── editor/               # Notion-style editor
 │   │   │   ├── blocks/           # Custom block components
-│   │   │   └── extensions/       # Tiptap extensions
+│   │   │   └── extensions/       # Tiptap extension wiring
 │   │   ├── flashcards/           # Flashcard decks, study view
 │   │   ├── many/                 # Many AI panel (floating, chat, header)
-│   │   ├── agents/               # Many Agents: onboarding, chat, steps
+│   │   ├── agents/               # Many Agents: onboarding, editing, management
 │   │   ├── onboarding/           # First-run setup
-│   │   ├── settings/             # Settings panels (AI, MCP, etc.)
+│   │   ├── settings/             # Settings panels (AI, Indexing, Calendar, MCP…)
 │   │   ├── studio/               # Studio home view (mindmap, quiz, etc.)
-│   │   ├── user/                 # User profile components
-│   │   ├── viewers/              # Resource viewers (PDF, Video, etc.)
-│   │   └── workspace/            # Workspace layout
+│   │   ├── viewers/              # Resource viewers (PDF, Video, PPT…)
+│   │   │   └── shared/           # Shared viewer components (IndexStatusBadge)
+│   │   └── workspace/            # Workspace layout and header
 │   ├── lib/                      # Business Logic
 │   │   ├── ai/                   # AI Client, LangChain adapter, Tools
 │   │   │   ├── catalogs/         # Model catalogs by provider
 │   │   │   ├── providers/        # Provider implementations
-│   │   │   └── tools/            # Web, resources, memory, flashcards
-│   │   ├── db/                   # Database clients
+│   │   │   └── tools/            # Web, resources, memory, flashcards, calendar
+│   │   ├── db/                   # Database clients (SQLite, PageIndex)
+│   │   ├── dome-editor/          # Dome's own Tiptap extension library (MIT)
 │   │   ├── hooks/                # React hooks
-│   │   ├── store/                # Zustand (useManyStore, useAgentChatStore, etc.)
+│   │   ├── store/                # Zustand (useManyStore, useAgentChatStore, useCalendarStore…)
 │   │   ├── agents/               # Many Agents API and catalog
 │   │   ├── studio/               # Studio constants and outputs
 │   │   └── utils/                # Utilities
+│   ├── pages/                    # Route pages (Calendar, Settings, PPT…)
 │   ├── types/                    # TypeScript definitions
 │   └── workspace/                # Workspace routes
 ├── electron/                     # Electron Main Process
@@ -522,15 +632,20 @@ dome/
 │   ├── ai-cloud-service.cjs      # Cloud AI providers
 │   ├── ai-tools-handler.cjs      # AI tools (resources, flashcard create)
 │   ├── langgraph-agent.cjs       # LangGraph agent (chat with tools)
+│   ├── doc-indexer.cjs           # PageIndex document indexer
+│   ├── resource-indexer.cjs      # Resource indexing orchestrator
+│   ├── calendar-service.cjs      # Calendar CRUD + Google sync
+│   ├── calendar-notification-service.cjs  # Desktop event reminders
 │   ├── mcp-client.cjs            # MCP server connections
 │   ├── ollama-service.cjs        # Ollama integration
+│   ├── ppt-slide-extractor.cjs   # Electron-native PPT slide capture
 │   ├── youtube-service.cjs       # YouTube utilities
 │   ├── web-scraper.cjs           # Playwright scraper
 │   ├── thumbnail.cjs             # Image thumbnail generation
 │   ├── window-manager.cjs        # Window management
 │   ├── security.cjs              # Security utilities
 │   └── whatsapp/                 # WhatsApp integration
-├── prompts/                       # System prompts (Many, tools)
+├── prompts/                      # System prompts (Many, tools)
 ├── public/                       # Static assets
 ├── assets/                       # Application assets
 ├── scripts/                      # Build and utility scripts
@@ -554,14 +669,13 @@ Configure AI in **Settings** → **AI Configuration**:
 Provider: openai
 API Key: sk-...
 Model: gpt-4o (or gpt-4, gpt-3.5-turbo)
-Embedding Model: text-embedding-3-small
 ```
 
 **Anthropic:**
 ```
 Provider: anthropic
 API Key: sk-ant-...
-Model: claude-3-5-sonnet-latest (or claude-3-opus)
+Model: claude-sonnet-4-6 (or claude-opus-4-6)
 ```
 
 **Google:**
@@ -575,11 +689,20 @@ Model: gemini-1.5-pro (or gemini-1.5-flash)
 ```
 Provider: ollama
 Base URL: http://localhost:11434
-Model: glm-5:cloud (or llama3.2, mistral, etc.)
-Embedding Model: mxbai-embed-large:latest
+Model: llama3.2 (or mistral, qwen, etc.)
 ```
+> Para OCR en PDFs escaneados, usa un modelo con soporte de visión: `llava`, `moondream2`, `minicpm-v`, `glm4v`.
 
 📖 **[Guía completa de instalación con Ollama](docs/guia-instalacion-ollama.md)** – Instalación paso a paso, configuración recomendada y solución de problemas.
+
+### PageIndex (AI Indexing)
+
+Configure in **Settings** → **Indexing**:
+
+- **Provider** — Select which AI provider processes documents (defaults to your main AI provider)
+- **Model** — Choose the model used for document parsing and indexing
+- **Re-index all** — Trigger a full re-index of all project resources
+- Indexing runs automatically in the background when resources are added or updated
 
 ### MCP Servers
 
@@ -616,8 +739,7 @@ Configure in **Settings** → **MCP**:
 **Directory Structure:**
 ```
 dome/
-├── dome.db          # SQLite database
-├── dome-vector/         # LanceDB vector database
+├── dome.db              # SQLite database (resources, agents, calendar, index)
 ├── dome-files/          # Stored files (PDFs, images, etc.)
 │   ├── pdfs/
 │   ├── images/
@@ -699,11 +821,14 @@ Dome is built with these amazing open-source projects:
 - [LangGraph](https://langchain-ai.github.io/langgraphjs/) - AI agent framework
 - [LangChain](https://js.langchain.com/) - LLM orchestration and tools
 - [Tiptap](https://tiptap.dev/) - Headless editor framework
-- [LanceDB](https://lancedb.com/) - Vector database
+- [LanceDB](https://lancedb.com/) - Vector database (used in earlier versions)
 - [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS
 - [Zustand](https://github.com/pmndrs/zustand) - State management
 - [Playwright](https://playwright.dev/) - Browser automation
 - [PDF.js](https://mozilla.github.io/pdf.js/) - PDF rendering
+- [pptx-preview](https://github.com/mesmerize-dev/pptx-preview) - PowerPoint rendering
+- [driver.js](https://driverjs.com/) - Guided tours
+- [PostHog](https://posthog.com/) - Product analytics
 - [Lucide](https://lucide.dev/) - Icon library
 - [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) - SQLite bindings
 

@@ -488,7 +488,9 @@ async function askMartin(from, question) {
 
     // 2. Fallback a Ollama con tools si está disponible
     if (ollamaService) {
-      const isAvailable = await ollamaService.checkAvailability();
+      const ollamaBaseUrl = queries.getSetting.get('ollama_base_url')?.value || ollamaService.DEFAULT_BASE_URL;
+      const ollamaApiKey = queries.getSetting.get('ollama_api_key')?.value || '';
+      const isAvailable = await ollamaService.checkAvailability(ollamaBaseUrl, ollamaApiKey);
       if (isAvailable) {
         console.log(`[WhatsApp Handler] Using Ollama with tools`);
 

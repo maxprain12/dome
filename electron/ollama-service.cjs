@@ -29,7 +29,8 @@ function makeRequest(url, options = {}) {
       method: options.method || 'GET',
       headers: {
         'Content-Type': 'application/json',
-        ...options.headers
+        ...(options.apiKey ? { 'Authorization': `Bearer ${options.apiKey}` } : {}),
+        ...options.headers,
       }
     };
 
@@ -69,9 +70,9 @@ function makeRequest(url, options = {}) {
  * @param {string} baseUrl - Ollama base URL
  * @returns {Promise<boolean>} True if available
  */
-async function checkAvailability(baseUrl = DEFAULT_BASE_URL) {
+async function checkAvailability(baseUrl = DEFAULT_BASE_URL, apiKey = '') {
   try {
-    const response = await makeRequest(`${baseUrl}/api/tags`);
+    const response = await makeRequest(`${baseUrl}/api/tags`, { apiKey });
     return response && Array.isArray(response.models);
   } catch (error) {
     console.error('[OllamaService] Ollama not available:', error.message);
@@ -90,7 +91,7 @@ async function checkAvailability(baseUrl = DEFAULT_BASE_URL) {
 // ~4 chars per token → 512 * 4 = 2048. Use 2000 to stay safe.
 const EMBEDDING_MAX_CHARS = 2000;
 
-async function generateEmbedding(text, model = DEFAULT_EMBEDDING_MODEL, baseUrl = DEFAULT_BASE_URL) {
+async function generateEmbedding(text, model = DEFAULT_EMBEDDING_MODEL, baseUrl = DEFAULT_BASE_URL, apiKey = '') {
   try {
     if (!text || text.trim().length === 0) {
       throw new Error('Text cannot be empty');
@@ -104,6 +105,7 @@ async function generateEmbedding(text, model = DEFAULT_EMBEDDING_MODEL, baseUrl 
 
     const response = await makeRequest(`${baseUrl}/api/embeddings`, {
       method: 'POST',
+      apiKey,
       body: {
         model,
         prompt: truncated
@@ -129,7 +131,7 @@ async function generateEmbedding(text, model = DEFAULT_EMBEDDING_MODEL, baseUrl 
  * @param {string} baseUrl - Ollama base URL
  * @returns {Promise<string>} Summary text
  */
-async function generateSummary(text, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL) {
+async function generateSummary(text, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL, apiKey = '') {
   try {
     if (!text || text.trim().length === 0) {
       throw new Error('Text cannot be empty');
@@ -157,6 +159,7 @@ Resumen:`;
 
     const response = await makeRequest(`${baseUrl}/api/generate`, {
       method: 'POST',
+      apiKey,
       body: {
         model,
         prompt,
@@ -207,12 +210,12 @@ Resumen:`;
  * @param {string} baseUrl - Ollama base URL
  * @returns {Promise<number[][]>} Array of embedding vectors
  */
-async function generateEmbeddings(texts, model = DEFAULT_EMBEDDING_MODEL, baseUrl = DEFAULT_BASE_URL) {
+async function generateEmbeddings(texts, model = DEFAULT_EMBEDDING_MODEL, baseUrl = DEFAULT_BASE_URL, apiKey = '') {
   const embeddings = [];
 
   for (const text of texts) {
     try {
-      const embedding = await generateEmbedding(text, model, baseUrl);
+      const embedding = await generateEmbedding(text, model, baseUrl, apiKey);
       embeddings.push(embedding);
     } catch (error) {
       console.error(`[OllamaService] Error embedding text:`, error);
@@ -229,9 +232,9 @@ async function generateEmbeddings(texts, model = DEFAULT_EMBEDDING_MODEL, baseUr
  * @param {string} baseUrl - Ollama base URL
  * @returns {Promise<Array<{name: string, size: number, modified_at: string}>>} Array of available models
  */
-async function listModels(baseUrl = DEFAULT_BASE_URL) {
+async function listModels(baseUrl = DEFAULT_BASE_URL, apiKey = '') {
   try {
-    const response = await makeRequest(`${baseUrl}/api/tags`);
+    const response = await makeRequest(`${baseUrl}/api/tags`, { apiKey });
 
     if (response && Array.isArray(response.models)) {
       return response.models.map((model) => ({
@@ -255,7 +258,7 @@ async function listModels(baseUrl = DEFAULT_BASE_URL) {
  * @param {string} baseUrl - Ollama base URL
  * @returns {Promise<string>} Response content
  */
-async function chat(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL) {
+async function chat(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL, apiKey = '') {
   try {
     if (!messages || messages.length === 0) {
       throw new Error('Messages cannot be empty');
@@ -266,6 +269,7 @@ async function chat(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL)
     // Non-streaming for now to simplify IPC
     const response = await makeRequest(`${baseUrl}/api/chat`, {
       method: 'POST',
+      apiKey,
       body: {
         model,
         messages,
@@ -358,6 +362,7 @@ function chatStream(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL,
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(postData),
+        ...(opts.apiKey ? { 'Authorization': `Bearer ${opts.apiKey}` } : {}),
       },
     };
 

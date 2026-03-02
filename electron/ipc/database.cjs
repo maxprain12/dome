@@ -4,8 +4,7 @@ const resourceIndexer = require('../resource-indexer.cjs');
 const notesService = require('../notes-service.cjs');
 
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
-  const pageIndexService = require('../pageindex-service.cjs');
-  const indexerDeps = { database, fileStorage, pageIndexService, initModule, ollamaService };
+  const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
   // Projects
   ipcMain.handle('db:projects:create', (event, project) => {
     try {

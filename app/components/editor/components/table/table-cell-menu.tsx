@@ -1,4 +1,5 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
+import { useRef } from "react";
 import type {
   EditorMenuProps,
   ShouldShowProps,
@@ -21,19 +22,17 @@ import classes from "../common/toolbar-menu.module.css";
 export const TableCellMenu = React.memo(
   ({ editor, appendTo, shouldHide }: EditorMenuProps): JSX.Element => {
     const { t } = useTranslation();
+    const shouldHideRef = useRef(!!shouldHide);
+
+    useEffect(() => {
+      shouldHideRef.current = !!shouldHide;
+    }, [shouldHide]);
+
     const shouldShow = useCallback(
-      ({ view, state, from }: ShouldShowProps) => {
-        if (shouldHide) {
-          return false;
-        }
-
-        if (!state) {
-          return false;
-        }
-
-        return isCellSelection(state.selection);
+      ({ state }: ShouldShowProps) => {
+        return !!state && isCellSelection(state.selection);
       },
-      [shouldHide]
+      []
     );
 
     const mergeCells = useCallback(() => {
@@ -62,10 +61,11 @@ export const TableCellMenu = React.memo(
         pluginKey="table-cell-menu"
         updateDelay={0}
         appendTo={() => {
-          return appendTo?.current;
+          return appendTo?.current ?? (editor.options.element as HTMLElement);
         }}
         ref={(element) => {
-          if (element) element.style.zIndex = "950";
+          if (!element) return;
+          element.style.zIndex = "1100";
         }}
         options={{
           offset: {
@@ -82,6 +82,7 @@ export const TableCellMenu = React.memo(
 
           <Tooltip position="top" label={t("Merge cells")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={mergeCells}
               variant="subtle"
               size="lg"
@@ -93,6 +94,7 @@ export const TableCellMenu = React.memo(
 
           <Tooltip position="top" label={t("Split cell")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={splitCell}
               variant="subtle"
               size="lg"
@@ -106,6 +108,7 @@ export const TableCellMenu = React.memo(
 
           <Tooltip position="top" label={t("Delete column")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={deleteColumn}
               variant="subtle"
               size="lg"
@@ -117,6 +120,7 @@ export const TableCellMenu = React.memo(
 
           <Tooltip position="top" label={t("Delete row")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={deleteRow}
               variant="subtle"
               size="lg"
@@ -130,6 +134,7 @@ export const TableCellMenu = React.memo(
 
           <Tooltip position="top" label={t("Toggle header cell")}>
             <ActionIcon
+              onMouseDown={(e) => e.preventDefault()}
               onClick={toggleHeaderCell}
               variant="subtle"
               size="lg"

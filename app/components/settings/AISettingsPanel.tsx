@@ -6,7 +6,6 @@ import type { AISettings } from '@/types';
 import {
   PROVIDERS,
   getDefaultModelId,
-  getDefaultEmbeddingModelId,
   formatContextWindow,
   type AIProviderType,
   type ModelDefinition,
@@ -24,11 +23,11 @@ export default function AISettingsPanel() {
   const [provider, setProvider] = useState<AIProviderType>('openai');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gpt-5.2');
-  const [embeddingModel, setEmbeddingModel] = useState('text-embedding-3-small');
   const [customModel, setCustomModel] = useState(false);
   const [ollamaBaseURL, setOllamaBaseURL] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3.2');
-  const [ollamaEmbeddingModel, setOllamaEmbeddingModel] = useState('mxbai-embed-large');
+  const [ollamaApiKey, setOllamaApiKey] = useState('');
+  const [showOllamaApiKey, setShowOllamaApiKey] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -45,8 +44,6 @@ export default function AISettingsPanel() {
     return PROVIDERS[provider]?.models || [];
   }, [provider]);
 
-  const currentProviderEmbeddingModels = PROVIDERS[provider]?.embeddingModels || [];
-
   // Load existing configuration
   useEffect(() => {
     const loadConfig = async () => {
@@ -59,11 +56,9 @@ export default function AISettingsPanel() {
         
         // Set model with defaults based on provider
         const defaultModel = getDefaultModelId(loadedProvider as AIProviderType);
-        const defaultEmbeddingModel = getDefaultEmbeddingModelId(loadedProvider as AIProviderType);
-        
+
         setModel(config.model || defaultModel);
-        setEmbeddingModel(config.embedding_model || defaultEmbeddingModel);
-        
+
         // Check if model is in presets, if not enable custom
         const providerModels = PROVIDERS[loadedProvider as AIProviderType]?.models || [];
         if (config.model && !providerModels.find(m => m.id === config.model)) {
@@ -72,7 +67,7 @@ export default function AISettingsPanel() {
         
         setOllamaBaseURL(config.ollama_base_url || 'http://localhost:11434');
         setOllamaModel(config.ollama_model || 'llama3.2');
-        setOllamaEmbeddingModel(config.ollama_embedding_model || 'mxbai-embed-large');
+        setOllamaApiKey(config.ollama_api_key || '');
       }
     };
     loadConfig();
@@ -128,10 +123,7 @@ export default function AISettingsPanel() {
     
     // Set default models for the new provider
     const defaultModel = getDefaultModelId(newProvider);
-    const defaultEmbeddingModel = getDefaultEmbeddingModelId(newProvider);
-    
     setModel(defaultModel);
-    setEmbeddingModel(defaultEmbeddingModel);
   };
 
   const handleSave = async () => {
@@ -145,25 +137,22 @@ export default function AISettingsPanel() {
       case 'openai':
         config.api_key = apiKey;
         config.model = model;
-        config.embedding_model = embeddingModel;
         break;
 
       case 'anthropic':
         config.api_key = apiKey;
         config.model = model;
-        config.embedding_model = embeddingModel;
         break;
 
       case 'google':
         config.api_key = apiKey;
         config.model = model;
-        config.embedding_model = embeddingModel;
         break;
 
       case 'ollama':
         config.ollama_base_url = ollamaBaseURL;
         config.ollama_model = ollamaModel;
-        config.ollama_embedding_model = ollamaEmbeddingModel;
+        config.ollama_api_key = ollamaApiKey;
         break;
     }
 
@@ -389,34 +378,6 @@ export default function AISettingsPanel() {
               )}
             </div>
 
-            {/* Embedding Model for providers that support it */}
-            {PROVIDERS[provider]?.supportsEmbeddings && currentProviderEmbeddingModels.length > 0 && (
-              <div className="group">
-                <label className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
-                  Embedding Model
-                </label>
-                <ModelSelector
-                  models={currentProviderEmbeddingModels.map((em) => ({
-                    id: em.id,
-                    name: em.name,
-                    description: em.dimensions ? `${em.dimensions} dimensiones` : undefined,
-                    recommended: em.recommended,
-                    reasoning: false,
-                    input: ['text'],
-                    contextWindow: em.dimensions || 0,
-                    maxTokens: 0,
-                  }))}
-                  selectedModelId={embeddingModel}
-                  onChange={setEmbeddingModel}
-                  showBadges={true}
-                  showDescription={false}
-                  showContextWindow={false}
-                  searchable={false}
-                  providerType="embedding"
-                  placeholder="Selecciona modelo de embeddings..."
-                />
-              </div>
-            )}
           </>
         )}
 
@@ -467,6 +428,35 @@ export default function AISettingsPanel() {
                 placeholder="http://localhost:11434"
                 className="input"
               />
+              <p className="mt-1 text-xs" style={{ color: 'var(--tertiary-text)' }}>
+                Para Ollama Cloud usa <code className="font-mono">https://api.ollama.com</code>
+              </p>
+            </div>
+
+            {/* Ollama API Key (optional, required for cloud) */}
+            <div className="group">
+              <label htmlFor="ai-ollama-api-key" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
+                API Key <span className="font-normal opacity-60">(opcional — requerida para Ollama Cloud)</span>
+              </label>
+              <div className="relative">
+                <input
+                  id="ai-ollama-api-key"
+                  type={showOllamaApiKey ? 'text' : 'password'}
+                  value={ollamaApiKey}
+                  onChange={(e) => setOllamaApiKey(e.target.value)}
+                  placeholder="ollama_..."
+                  className="input pr-10"
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOllamaApiKey(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity"
+                  aria-label={showOllamaApiKey ? 'Ocultar API key' : 'Mostrar API key'}
+                >
+                  {showOllamaApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             {/* Ollama Model Selector */}
@@ -520,45 +510,11 @@ export default function AISettingsPanel() {
               )}
             </div>
 
-            {/* Ollama Embedding Model Selector */}
-            <div className="group">
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium opacity-80" style={{ color: 'var(--primary-text)' }}>
-                  Embedding Model
-                </label>
-              </div>
-
-{ollamaModels.length > 0 ? (
-                <ModelSelector
-                  models={ollamaModels.map((m) => ({
-                    id: m.name,
-                    name: m.name,
-                    description: undefined,
-                    reasoning: false,
-                    input: ['text'],
-                    contextWindow: 0,
-                    maxTokens: 0,
-                  }))}
-                  selectedModelId={ollamaEmbeddingModel}
-                  onChange={setOllamaEmbeddingModel}
-                  searchable={true}
-                  showBadges={false}
-                  showDescription={false}
-                  showContextWindow={false}
-                  placeholder="Selecciona modelo de embeddings..."
-                  disabled={loadingModels}
-                  providerType="embedding"
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={ollamaEmbeddingModel}
-                  onChange={(e) => setOllamaEmbeddingModel(e.target.value)}
-                  placeholder="mxbai-embed-large"
-                  aria-label="Ollama embedding model name"
-                  className="input"
-                />
-              )}
+            {/* OCR notice */}
+            <div className="rounded-lg p-3 text-xs" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)' }}>
+              <span className="font-medium" style={{ color: 'var(--primary-text)' }}>OCR en PDFs escaneados:</span>{' '}
+              para indexar PDFs basados en imágenes, el modelo de chat debe soportar visión.
+              Modelos compatibles: <code className="font-mono">llava</code>, <code className="font-mono">moondream2</code>, <code className="font-mono">minicpm-v</code>, <code className="font-mono">glm4v</code>, etc.
             </div>
 
           </div>

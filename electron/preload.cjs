@@ -191,6 +191,7 @@ const ALLOWED_CHANNELS = {
     'personality:write-file',
     'personality:add-memory',
     'personality:list-files',
+    'personality:remember-fact',
     // AI Cloud (OpenAI, Anthropic, Google)
     'ai:chat',
     'ai:stream',
@@ -267,10 +268,12 @@ const ALLOWED_CHANNELS = {
     // PageIndex - Reasoning-based RAG (replaces vector embeddings)
     'pageindex:start',
     'pageindex:status',
+    'pageindex:resource-status',
     'pageindex:index',
     'pageindex:search',
     'pageindex:delete',
     'pageindex:reindex',
+    'pageindex:index-missing',
     // Notebook (Python via IPC)
     'notebook:runPython',
     'notebook:checkPython',
@@ -335,6 +338,8 @@ const ALLOWED_CHANNELS = {
     'whatsapp:disconnected',
     // AI Cloud streaming
     'ai:stream:chunk',
+    // PageIndex (native JS) — live indexing progress
+    'pageindex:progress',
     // Audio events
     'audio:generation-progress',
     // Auto-updater events
@@ -1238,6 +1243,9 @@ const electronHandler = {
 
     // List context files
     listFiles: () => ipcRenderer.invoke('personality:list-files'),
+
+    // Remember a fact about the user in long-term memory
+    rememberFact: (key, value) => ipcRenderer.invoke('personality:remember-fact', { key, value }),
   },
 };
 

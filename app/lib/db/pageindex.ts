@@ -37,6 +37,34 @@ export interface PageIndexStatus {
   error?: string;
 }
 
+export type IndexingStatus = 'none' | 'pending' | 'processing' | 'done' | 'error';
+
+export interface ResourceIndexStatus {
+  success: boolean;
+  resourceId?: string;
+  status: IndexingStatus;
+  progress: number;
+  step?: string;
+  error?: string | null;
+  indexed_at?: number;
+  model_used?: string;
+}
+
+/**
+ * Get the indexing status for a specific resource.
+ * Returns live state while processing, persisted state when done.
+ */
+export async function getResourceIndexStatus(resourceId: string): Promise<ResourceIndexStatus> {
+  if (typeof window === 'undefined' || !window.electron) {
+    return { success: false, status: 'none', progress: 0 };
+  }
+  try {
+    return await window.electron.invoke('pageindex:resource-status', { resourceId });
+  } catch (error) {
+    return { success: false, status: 'none', progress: 0, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 /**
  * Get PageIndex service status.
  */

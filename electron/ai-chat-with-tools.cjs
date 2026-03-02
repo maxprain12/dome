@@ -49,6 +49,7 @@ const TOOL_HANDLER_MAP = {
   ppt_export: 'pptExport',
   memory_search: 'resourceSemanticSearch',
   memory_get: 'resourceGet',
+  remember_fact: 'rememberFact',
 };
 
 function normalizeToolName(name) {
@@ -200,6 +201,9 @@ async function executeToolInMain(toolName, args) {
       case 'pptExport':
         result = await fn(args.resource_id || args.resourceId, args.options || {});
         break;
+      case 'rememberFact':
+        result = await fn(args.key || '', args.value || '');
+        break;
       default:
         result = await fn(args);
     }
@@ -227,7 +231,10 @@ async function chatWithToolsInMain(provider, messages, toolDefinitions, options 
   if (!queries) throw new Error('Database required for chatWithToolsInMain');
 
   const langgraphAgent = require('./langgraph-agent.cjs');
-  const apiKey = provider === 'ollama' ? undefined : queries.getSetting?.get?.('ai_api_key')?.value;
+  const apiKey =
+    provider === 'ollama'
+      ? (queries.getSetting?.get?.('ollama_api_key')?.value || undefined)
+      : queries.getSetting?.get?.('ai_api_key')?.value;
   const model =
     provider === 'ollama'
       ? (queries.getSetting?.get?.('ollama_model')?.value || 'llama3.2')

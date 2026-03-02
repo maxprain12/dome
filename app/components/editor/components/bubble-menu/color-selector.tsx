@@ -157,7 +157,13 @@ export const ColorSelector: FC<ColorSelectorProps> = ({
   );
 
   return (
-    <Popover width={220} opened={isOpen} withArrow zIndex={1200}>
+    <Popover
+      width={220}
+      opened={isOpen}
+      withArrow
+      zIndex={1200}
+      withinPortal={false}
+    >
       <Popover.Target>
         <Tooltip label={t("Text color")} withArrow>
           <Button

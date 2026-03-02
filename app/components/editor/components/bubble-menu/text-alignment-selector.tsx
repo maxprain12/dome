@@ -82,7 +82,7 @@ export const TextAlignmentSelector: FC<TextAlignmentProps> = ({
   const activeItem = items.filter((item) => item.isActive()).pop() ?? items[0];
 
   return (
-    <Popover opened={isOpen} withArrow zIndex={1200}>
+    <Popover opened={isOpen} withArrow zIndex={1200} withinPortal={false}>
       <Popover.Target>
         <Tooltip label={t("Text align")} withArrow withinPortal={false} disabled={isOpen}>
           <Button

@@ -102,7 +102,6 @@ const aiCloudService = require('./ai-cloud-service.cjs');
 const updateService = require('./update-service.cjs');
 const ttsService = require('./tts-service.cjs');
 const notebookPython = require('./notebook-python.cjs');
-const pageIndexService = require('./pageindex-service.cjs');
 const mcpOauth = require('./mcp-oauth.cjs');
 const { handleDomeUrl } = require('./deep-link-handler.cjs');
 const calendarNotificationService = require('./calendar-notification-service.cjs');
@@ -476,7 +475,6 @@ app
     authManager,
     personalityLoader,
     notebookPython,
-    pageIndexService,
     validateSender,
       sanitizePath,
       validateUrl,
@@ -524,12 +522,7 @@ app
       console.error('❌ Background initialization failed:', err);
     });
 
-    // Start PageIndex Python service in background (non-blocking)
-    // If it fails the app continues working without PageIndex RAG
-    pageIndexService.start(database).catch(err => {
-      console.warn('⚠️ PageIndex service failed to start:', err.message);
-      console.warn('⚠️ Reasoning-based RAG will be unavailable. Make sure Python 3.8+ is installed.');
-    });
+    // Native JS doc-indexer needs no startup — available immediately
 
     // Schedule orphan file cleanup after app is ready (non-blocking)
     setTimeout(() => {
@@ -558,7 +551,7 @@ app
 app.on('before-quit', async () => {
   console.log('👋 Cerrando Dome...');
   calendarNotificationService.stop();
-  pageIndexService.stop();
+  // doc-indexer is native JS, no subprocess to stop
   await ollamaManager.cleanup();
   database.closeDB();
 });

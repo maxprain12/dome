@@ -18,8 +18,8 @@ export default defineConfig({
       { find: '@excalidraw/excalidraw', replacement: path.resolve(__dirname, './app/lib/stubs/excalidraw-stub.tsx') },
       // Stub bun:sqlite for renderer process
       { find: 'bun:sqlite', replacement: path.resolve(__dirname, './app/lib/db/__stubs__/bun-sqlite.ts') },
-      // Resolve @docmost/editor-ext from copied local source
-      { find: '@docmost/editor-ext', replacement: path.resolve(__dirname, './app/lib/editor-ext/index.ts') },
+      // Resolve @docmost/editor-ext → Dome's own editor library
+      { find: '@docmost/editor-ext', replacement: path.resolve(__dirname, './app/lib/dome-editor/index.ts') },
       // Root alias last (most general)
       { find: '@', replacement: path.resolve(__dirname, './app') },
     ],

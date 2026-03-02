@@ -33,6 +33,7 @@ export const LinkSelector: FC<LinkSelectorProps> = ({
       offset={{ mainAxis: 35, crossAxis: 0 }}
       withArrow
       zIndex={1200}
+      withinPortal={false}
     >
       <Popover.Target>
         <Tooltip label={t("Add link")} withArrow>

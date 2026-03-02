@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useEffect,
   useRef,
+  memo,
 } from "react";
 import {
   EditorContent,
@@ -29,7 +30,6 @@ import SearchAndReplaceDialog from "@/components/editor/components/search-and-re
 import ColumnsMenu from "@/components/editor/components/columns/columns-menu";
 import { useEditorScroll } from "@/components/editor/hooks/use-editor-scroll";
 import { stringToEditorHtml } from "@/lib/utils/markdown";
-import { isCellSelection, isTextSelected } from "@docmost/editor-ext";
 
 interface PageEditorProps {
   noteId: string;
@@ -38,18 +38,7 @@ interface PageEditorProps {
   onContentChange?: (json: any) => void;
 }
 
-type ActiveMenuType =
-  | "none"
-  | "text"
-  | "table"
-  | "tableCell"
-  | "image"
-  | "video"
-  | "callout"
-  | "columns"
-  | "link";
-
-export default function PageEditor({
+function PageEditor({
   noteId,
   editable,
   content,
@@ -59,6 +48,9 @@ export default function PageEditor({
   const editorRef = useRef(null);
   const menuContainerRef = useRef(null);
   const [, setEditor] = useAtom(pageEditorAtom);
+  // Keep onContentChange ref always up-to-date without triggering editor recreation
+  const onContentChangeRef = useRef(onContentChange);
+  onContentChangeRef.current = onContentChange;
 
   useEffect(() => {
     isComponentMounted.current = true;
@@ -119,6 +111,11 @@ export default function PageEditor({
       onCreate({ editor }) {
         if (editor) {
           // @ts-ignore
+          if (!editor.storage.__debugEditorId) {
+            // @ts-ignore
+            editor.storage.__debugEditorId = `${noteId}-${Date.now()}`;
+          }
+          // @ts-ignore
           setEditor(editor);
           // @ts-ignore
           editor.storage.pageId = noteId;
@@ -130,7 +127,7 @@ export default function PageEditor({
       onUpdate({ editor }) {
         if (editor.isEmpty) return;
         const editorJson = editor.getJSON();
-        onContentChange?.(editorJson);
+        onContentChangeRef.current?.(editorJson);
       },
     },
     [noteId, editable],
@@ -157,7 +154,7 @@ export default function PageEditor({
         } else {
           parsedContent = content;
         }
-        editor.commands.setContent(parsedContent, false as any);
+        editor.commands.setContent(parsedContent as any, false as any);
       } else {
         editor.commands.setContent('', false as any);
       }
@@ -170,97 +167,32 @@ export default function PageEditor({
       return ctx.editor?.isEditable ?? false;
     },
   });
+  const editorIsReady = Boolean(editor && editor.isInitialized);
 
-  const activeMenuType = useEditorState({
-    editor,
-    selector: (ctx): ActiveMenuType => {
-      if (!ctx.editor || !ctx.editor.isEditable) {
-        return "none";
-      }
 
-      const { selection } = ctx.editor.state;
-
-      if (isCellSelection(selection)) {
-        return "tableCell";
-      }
-
-      if (ctx.editor.isActive("image") && ctx.editor.getAttributes("image").src) {
-        return "image";
-      }
-
-      if (ctx.editor.isActive("video") && ctx.editor.getAttributes("video").src) {
-        return "video";
-      }
-
-      if (ctx.editor.isActive("table")) {
-        return "table";
-      }
-
-      if (ctx.editor.isActive("callout") && !isTextSelected(ctx.editor)) {
-        return "callout";
-      }
-
-      if (ctx.editor.isActive("columns") && !isTextSelected(ctx.editor)) {
-        return "columns";
-      }
-
-      if (ctx.editor.isActive("link")) {
-        return "link";
-      }
-
-      if (isTextSelected(ctx.editor)) {
-        return "text";
-      }
-
-      return "none";
-    },
-  });
 
   return (
     <div className="editor-container" style={{ position: "relative" }}>
-      <div ref={menuContainerRef} style={{ position: "relative", zIndex: 999 }}>
+      <div ref={menuContainerRef} style={{ position: "relative" }}>
         <EditorContent editor={editor} />
 
         {editor && (
           <SearchAndReplaceDialog editor={editor} editable={editable} />
         )}
 
-        {editor && editorIsEditable && (
+        {editor && editorIsEditable && editorIsReady && (
           <div>
-            <EditorBubbleMenu
-              editor={editor}
-              shouldHide={activeMenuType !== "text"}
-            />
-            <TableMenu
-              editor={editor}
-              shouldHide={activeMenuType !== "table"}
-            />
+            <EditorBubbleMenu editor={editor} />
+            <TableMenu editor={editor} />
             <TableCellMenu
               editor={editor}
               appendTo={menuContainerRef}
-              shouldHide={activeMenuType !== "tableCell"}
             />
-            <ImageMenu
-              editor={editor}
-              shouldHide={activeMenuType !== "image"}
-            />
-            <VideoMenu
-              editor={editor}
-              shouldHide={activeMenuType !== "video"}
-            />
-            <CalloutMenu
-              editor={editor}
-              shouldHide={activeMenuType !== "callout"}
-            />
-            <ColumnsMenu
-              editor={editor}
-              shouldHide={activeMenuType !== "columns"}
-            />
-            <LinkMenu
-              editor={editor}
-              appendTo={menuContainerRef}
-              shouldHide={activeMenuType !== "link"}
-            />
+            <ImageMenu editor={editor} />
+            <VideoMenu editor={editor} />
+            <CalloutMenu editor={editor} />
+            <ColumnsMenu editor={editor} />
+            <LinkMenu editor={editor} appendTo={menuContainerRef} />
           </div>
         )}
       </div>
@@ -271,3 +203,10 @@ export default function PageEditor({
     </div>
   );
 }
+
+// Only re-render when noteId or editable change.
+// content prop is only used for initial load (useEffect dep = [noteId]),
+// and onContentChange is handled via ref, so both are safe to ignore here.
+export default memo(PageEditor, (prev, next) =>
+  prev.noteId === next.noteId && prev.editable === next.editable
+);

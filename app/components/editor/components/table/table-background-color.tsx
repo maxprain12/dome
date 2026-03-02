@@ -91,6 +91,7 @@ export const TableBackgroundColor: FC<TableBackgroundColorProps> = ({
       onChange={setOpened}
       withArrow
       zIndex={1200}
+      withinPortal={false}
       transitionProps={{ transition: "pop" }}
     >
       <Popover.Target>

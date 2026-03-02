@@ -17,6 +17,7 @@ import {
   type AIProviderType,
   type AnyAgentTool,
 } from '@/lib/ai';
+import { createRememberFactTool } from '@/lib/ai/tools/memory';
 import { buildManyFloatingPrompt, buildMartinSupervisorPrompt, prompts } from '@/lib/prompts/loader';
 import { showToast } from '@/lib/store/useToastStore';
 import ManyAvatar from './ManyAvatar';
@@ -98,6 +99,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [userMemory, setUserMemory] = useState<string>('');
   const [toolsEnabled, setToolsEnabled] = useState(true);
   const [resourceToolsEnabled, setResourceToolsEnabled] = useState(true);
   const [mcpEnabled, setMcpEnabledState] = useState(true);
@@ -153,6 +155,21 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     loadMcpEnabled();
   }, []);
 
+  useEffect(() => {
+    const loadMemory = async () => {
+      if (!window.electron?.personality?.readFile) return;
+      const [memRes, userRes] = await Promise.all([
+        window.electron.personality.readFile('MEMORY.md'),
+        window.electron.personality.readFile('USER.md'),
+      ]);
+      const parts: string[] = [];
+      if (memRes?.data?.trim()) parts.push(memRes.data.trim());
+      if (userRes?.data?.trim()) parts.push(userRes.data.trim());
+      setUserMemory(parts.join('\n\n'));
+    };
+    loadMemory();
+  }, []);
+
   const setMcpEnabled = useCallback(async (value: boolean) => {
     setMcpEnabledState(value);
     if (db.isAvailable()) {
@@ -161,13 +178,14 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
   }, []);
 
   const activeTools = useMemo(() => {
-    const tools = [];
+    const tools: AnyAgentTool[] = [];
     if (toolsEnabled) {
       tools.push(...WEB_TOOLS);
     }
     if (resourceToolsEnabled) {
       tools.push(...createManyToolsForContext(pathname || '/'));
     }
+    tools.push(createRememberFactTool());
     return tools;
   }, [toolsEnabled, resourceToolsEnabled, pathname]);
 
@@ -207,7 +225,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     }
     const context = getContextFromPath(pathname || '/');
     const now = new Date();
-    return buildManyFloatingPrompt({
+    let prompt = buildManyFloatingPrompt({
       location: context.location,
       description: context.description,
       date: now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
@@ -215,7 +233,11 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       resourceTitle: currentResourceTitle || undefined,
       whatsappConnected,
     });
-  }, [pathname, currentResourceTitle, petPromptOverride, whatsappConnected]);
+    if (userMemory) {
+      prompt += `\n\n## What I know about you\n${userMemory}`;
+    }
+    return prompt;
+  }, [pathname, currentResourceTitle, petPromptOverride, whatsappConnected, userMemory]);
 
   const isSummarizeRequest = (msg: string) => {
     const lower = msg.toLowerCase();
@@ -364,8 +386,9 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           ? `\n\nThe user is viewing folder ID: ${currentFolderId}. When delegating to library or writer agents, include folder_id: "${currentFolderId}" for listing/creating resources in that folder.`
           : '';
         const tools: AnyAgentTool[] = []; // Subagents architecture: main agent uses subagent-invocation tools (built in main process)
+        const memoryBlock = userMemory ? `\n\n## What I know about you\n${userMemory}` : '';
         const toolsMessages = [
-          { role: 'system', content: supervisorPrompt + (skillsBlock || '') + toolHint + folderHint },
+          { role: 'system', content: supervisorPrompt + memoryBlock + (skillsBlock || '') + toolHint + folderHint },
           ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
           { role: 'user', content: userMessage },
         ];
