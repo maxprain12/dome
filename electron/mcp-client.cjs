@@ -123,14 +123,14 @@ function buildMcpServersObject(servers) {
   for (const s of servers) {
     const key = String(s.name).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_') || `server_${Date.now()}`;
     if (s.type === 'stdio') {
+      // Always merge process.env so the spawned MCP process inherits the full environment
+      // (including the PATH enriched by fix-path on macOS GUI apps). Custom env vars override.
       const entry = {
         transport: 'stdio',
         command: s.command,
         args: sanitizeArgs(s.args),
+        env: { ...process.env, ...(s.env || {}) },
       };
-      if (s.env && typeof s.env === 'object' && Object.keys(s.env).length > 0) {
-        entry.env = { ...process.env, ...s.env };
-      }
       out[key] = entry;
     } else if (s.type === 'http' && s.url) {
       const entry = { transport: 'http', url: s.url };

@@ -27,6 +27,8 @@ function makeRequest(url, options = {}) {
       port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
       path: urlObj.pathname + urlObj.search,
       method: options.method || 'GET',
+      // Allow self-signed certs for local reverse proxies (e.g. mkcert, self-signed)
+      rejectUnauthorized: false,
       headers: {
         'Content-Type': 'application/json',
         ...(options.apiKey ? { 'Authorization': `Bearer ${options.apiKey}` } : {}),
@@ -359,6 +361,7 @@ function chatStream(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL,
       port: urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
       path: urlObj.pathname,
       method: 'POST',
+      rejectUnauthorized: false,
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(postData),

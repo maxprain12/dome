@@ -17,6 +17,7 @@ const TOOL_HANDLER_MAP = {
   resource_get: 'resourceGet',
   resource_list: 'resourceList',
   resource_semantic_search: 'resourceSemanticSearch',
+  get_document_structure: 'getDocumentStructure',
   project_list: 'projectList',
   project_get: 'projectGet',
   get_recent_resources: 'getRecentResources',
@@ -50,6 +51,12 @@ const TOOL_HANDLER_MAP = {
   memory_search: 'resourceSemanticSearch',
   memory_get: 'resourceGet',
   remember_fact: 'rememberFact',
+  // Calendar tools
+  calendar_list_events: 'calendarListEvents',
+  calendar_get_upcoming: 'calendarGetUpcoming',
+  calendar_create_event: 'calendarCreateEvent',
+  calendar_update_event: 'calendarUpdateEvent',
+  calendar_delete_event: 'calendarDeleteEvent',
 };
 
 function normalizeToolName(name) {
@@ -204,6 +211,24 @@ async function executeToolInMain(toolName, args) {
       case 'rememberFact':
         result = await fn(args.key || '', args.value || '');
         break;
+      case 'getDocumentStructure':
+        result = await fn({ resource_id: args.resource_id || args.resourceId });
+        break;
+      case 'calendarListEvents':
+        result = await fn({ start_at: args.start_at, end_at: args.end_at, calendar_ids: args.calendar_ids });
+        break;
+      case 'calendarGetUpcoming':
+        result = await fn({ window_minutes: args.window_minutes, limit: args.limit });
+        break;
+      case 'calendarCreateEvent':
+        result = await fn(args);
+        break;
+      case 'calendarUpdateEvent':
+        result = await fn(args);
+        break;
+      case 'calendarDeleteEvent':
+        result = await fn({ event_id: args.event_id });
+        break;
       default:
         result = await fn(args);
     }
@@ -275,12 +300,18 @@ function getToolDefsBySubagent() {
       'resource_get',
       'resource_list',
       'resource_semantic_search',
+      'get_document_structure',
       'project_list',
       'project_get',
       'get_recent_resources',
       'get_current_project',
       'get_library_overview',
       'resource_move_to_folder',
+      'calendar_list_events',
+      'calendar_get_upcoming',
+      'calendar_create_event',
+      'calendar_update_event',
+      'calendar_delete_event',
     ),
     writer: pick(
       'resource_create',
@@ -308,6 +339,7 @@ function getToolDefsBySubagent() {
       'get_library_overview',
       'resource_list',
       'resource_get',
+      'get_document_structure',
       'get_current_project',
     ),
   };
@@ -430,6 +462,111 @@ function getAllToolDefinitions() {
             limit: { type: 'number', description: 'Max results' },
           },
           required: ['query'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_document_structure',
+        description: 'Get the hierarchical outline/table of contents of a PDF or note. Use when the user asks what topics a document covers, wants a section overview, or you need to navigate the document hierarchically before searching specific content.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'ID of the resource to get the structure of' },
+          },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'calendar_list_events',
+        description: 'List calendar events within a date range. Use to answer "what do I have scheduled between X and Y?" or to look up existing events.',
+        parameters: {
+          type: 'object',
+          properties: {
+            start_at: { type: 'string', description: 'Start of range as ISO 8601 string (e.g. "2026-03-15T00:00:00"). Defaults to now.' },
+            end_at: { type: 'string', description: 'End of range as ISO 8601 string. Defaults to 7 days from start.' },
+            calendar_ids: { type: 'array', items: { type: 'string' }, description: 'Filter by specific calendar IDs. Omit for all calendars.' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'calendar_get_upcoming',
+        description: "Get the next upcoming events starting from now. Use for 'what do I have today?', 'what's next on my schedule?', or similar.",
+        parameters: {
+          type: 'object',
+          properties: {
+            window_minutes: { type: 'number', description: 'Look-ahead window in minutes. Default: 60. Use 1440 for today, 10080 for a week.' },
+            limit: { type: 'number', description: 'Max events to return. Default: 10.' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'calendar_create_event',
+        description: 'Create a new calendar event.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Event title (required)' },
+            description: { type: 'string', description: 'Optional description or notes' },
+            location: { type: 'string', description: 'Optional location' },
+            start_at: { type: 'string', description: 'Start time as ISO 8601 string, e.g. "2026-03-15T14:00:00" (required)' },
+            end_at: { type: 'string', description: 'End time as ISO 8601 string (required)' },
+            all_day: { type: 'boolean', description: 'True for all-day events' },
+            reminders: {
+              type: 'array',
+              items: { type: 'object', properties: { minutes: { type: 'number' } }, required: ['minutes'] },
+              description: 'Reminder alerts, e.g. [{"minutes": 15}]',
+            },
+          },
+          required: ['title', 'start_at', 'end_at'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'calendar_update_event',
+        description: 'Update an existing calendar event. Only include fields that should change. Use calendar_list_events first if you need the event_id.',
+        parameters: {
+          type: 'object',
+          properties: {
+            event_id: { type: 'string', description: 'ID of the event to update (required)' },
+            title: { type: 'string', description: 'New title' },
+            description: { type: 'string', description: 'New description' },
+            location: { type: 'string', description: 'New location' },
+            start_at: { type: 'string', description: 'New start time as ISO 8601 string' },
+            end_at: { type: 'string', description: 'New end time as ISO 8601 string' },
+            all_day: { type: 'boolean' },
+            reminders: {
+              type: 'array',
+              items: { type: 'object', properties: { minutes: { type: 'number' } }, required: ['minutes'] },
+            },
+          },
+          required: ['event_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'calendar_delete_event',
+        description: 'Permanently delete a calendar event. Ask for confirmation before calling unless the user explicitly said to delete.',
+        parameters: {
+          type: 'object',
+          properties: {
+            event_id: { type: 'string', description: 'ID of the event to delete' },
+          },
+          required: ['event_id'],
         },
       },
     },

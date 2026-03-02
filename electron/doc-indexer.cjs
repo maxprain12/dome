@@ -515,24 +515,29 @@ async function indexPDF(resourceId, pdfPath, deps) {
 
           const snippet = chunkText.slice(0, 3000);
           const prompt =
-            `Eres un asistente de resumen. Dado el siguiente texto extraído por OCR (páginas ${startPage + 1} a ${endPage + 1}), devuelve SOLO un objeto JSON:\n` +
-            `{"title": "<título breve>", "summary": "<resumen en 1-3 oraciones>"}\n\n` +
+            `Eres un asistente de análisis de documentos académicos. Dado el siguiente texto extraído por OCR ` +
+            `(páginas ${startPage + 1}–${endPage + 1}), devuelve SOLO JSON:\n` +
+            `{"title":"<título descriptivo ≤80 chars>","summary":"<resumen de 2-4 oraciones con ` +
+            `conceptos clave, argumentos y conclusiones>","keywords":["<kw1>","<kw2>","<kw3>"]}\n\n` +
             `Texto OCR:\n${snippet}\n\nResponde SOLO con el JSON.`;
 
           let title = `Páginas ${startPage + 1}–${endPage + 1}`;
           let summary = '';
+          let keywords = [];
           try {
             const raw = await callLLM(prompt, database);
             const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
             const parsed = JSON.parse(cleaned);
             if (parsed.title) title = String(parsed.title).slice(0, 200);
             if (parsed.summary) summary = String(parsed.summary).slice(0, 1000);
+            if (Array.isArray(parsed.keywords)) keywords = parsed.keywords.slice(0, 5).map(String);
           } catch { /* use defaults */ }
 
           ocrNodes.push({
             title,
             node_id: nextNodeId(),
             summary: summary || snippet.slice(0, 300),
+            keywords,
             start_index: startPage,
             end_index: endPage,
             nodes: [],
@@ -614,12 +619,15 @@ async function indexPDF(resourceId, pdfPath, deps) {
 
     const snippet = chunk.text.slice(0, 3000);
     const prompt =
-      `Eres un asistente de resumen de documentos. Dado el siguiente fragmento (páginas ${chunk.startPage + 1} a ${chunk.endPage + 1}), devuelve SOLO un objeto JSON:\n` +
-      `{"title": "<título breve de la sección>", "summary": "<resumen en 1-3 oraciones>"}\n\n` +
+      `Eres un asistente de análisis de documentos académicos. Dado el siguiente fragmento ` +
+      `(páginas ${chunk.startPage + 1}–${chunk.endPage + 1}), devuelve SOLO JSON:\n` +
+      `{"title":"<título descriptivo ≤80 chars>","summary":"<resumen de 2-4 oraciones con ` +
+      `conceptos clave, argumentos y conclusiones>","keywords":["<kw1>","<kw2>","<kw3>"]}\n\n` +
       `Fragmento:\n${snippet}\n\nResponde SOLO con el JSON.`;
 
     let title = `Páginas ${chunk.startPage + 1}–${chunk.endPage + 1}`;
     let summary = '';
+    let keywords = [];
 
     try {
       const raw = await callLLM(prompt, database);
@@ -627,21 +635,49 @@ async function indexPDF(resourceId, pdfPath, deps) {
       const parsed = JSON.parse(cleaned);
       if (parsed.title) title = String(parsed.title).slice(0, 200);
       if (parsed.summary) summary = String(parsed.summary).slice(0, 1000);
+      if (Array.isArray(parsed.keywords)) keywords = parsed.keywords.slice(0, 5).map(String);
     } catch { /* use fallback title/summary */ }
 
     nodes.push({
       title,
       node_id: nextNodeId(),
       summary: summary || snippet.slice(0, 300),
+      keywords,
       start_index: chunk.startPage,
       end_index: chunk.endPage,
       nodes: [],
     });
   }
 
-  setState(resourceId, 'processing', 97, 'Guardando índice…', windowManager, database);
+  // Hierarchical structure pass: group flat nodes into a 2-level chapter hierarchy
+  let finalTree = nodes;
+  if (nodes.length > 2) {
+    setState(resourceId, 'processing', 97, 'Organizando estructura jerárquica…', windowManager, database);
+    const sectionList = nodes.map((n, i) =>
+      `${i}. [${n.title}] p.${n.start_index + 1}–${n.end_index + 1}: ${n.summary.slice(0, 120)}`
+    ).join('\n');
 
-  const treeJson = JSON.stringify(nodes, null, 0);
+    const structurePrompt =
+      `El siguiente es el índice plano de un documento PDF.\n` +
+      `Agrupa las secciones en capítulos con máx. 2 niveles de profundidad. ` +
+      `Conserva todos los node_id originales. Devuelve SOLO un JSON array con la misma ` +
+      `estructura de nodos pero con subnodos en el campo "nodes":\n` +
+      `[{"title":"<capítulo>","node_id":"<id>","summary":"<sum>","start_index":<n>,"end_index":<n>,"nodes":[...]}]\n\n` +
+      `Secciones:\n${sectionList}\n\nResponde SOLO con el JSON array.`;
+
+    try {
+      const raw = await callLLM(structurePrompt, database);
+      const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+      const hierarchicalTree = JSON.parse(cleaned);
+      if (Array.isArray(hierarchicalTree) && hierarchicalTree.length > 0) {
+        finalTree = hierarchicalTree;
+      }
+    } catch { /* fallback to flat tree */ }
+  }
+
+  setState(resourceId, 'processing', 99, 'Guardando índice…', windowManager, database);
+
+  const treeJson = JSON.stringify(finalTree, null, 0);
 
   setState(resourceId, 'done', 100, 'Listo para IA', windowManager, database);
   return { success: true, tree_json: treeJson };
@@ -873,6 +909,30 @@ function isProcessing(resourceId) {
 }
 
 // ---------------------------------------------------------------------------
+// Outline formatter
+// ---------------------------------------------------------------------------
+
+/**
+ * Format a hierarchical tree as a readable outline string.
+ * @param {Array} tree
+ * @param {number} [depth]
+ * @returns {string}
+ */
+function formatTreeAsOutline(tree, depth = 0) {
+  if (!Array.isArray(tree)) return '';
+  return tree.map(node => {
+    const indent = '  '.repeat(depth);
+    const range = node.start_index != null
+      ? ` (p.${node.start_index + 1}–${node.end_index + 1})` : '';
+    const line = `${indent}• ${node.title}${range}`;
+    const keywords = node.keywords?.length ? ` [${node.keywords.slice(0, 3).join(', ')}]` : '';
+    const sub = node.nodes?.length
+      ? '\n' + formatTreeAsOutline(node.nodes, depth + 1) : '';
+    return line + keywords + sub;
+  }).join('\n');
+}
+
+// ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
@@ -883,4 +943,5 @@ module.exports = {
   getState,
   isProcessing,
   flattenTree,
+  formatTreeAsOutline,
 };

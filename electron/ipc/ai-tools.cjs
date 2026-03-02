@@ -589,6 +589,92 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       return { success: false, error: error.message };
     }
   });
+
+  // ─── Calendar tools ───────────────────────────────────────────────────────
+
+  ipcMain.handle('ai:tools:calendarListEvents', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const result = await aiToolsHandler.calendarListEvents(args || {});
+      toolTrace('calendarListEvents', args, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarListEvents', result?.success !== false);
+      return result;
+    } catch (error) {
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarListEvents', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:calendarGetUpcoming', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const result = await aiToolsHandler.calendarGetUpcoming(args || {});
+      toolTrace('calendarGetUpcoming', args, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarGetUpcoming', result?.success !== false);
+      return result;
+    } catch (error) {
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarGetUpcoming', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:calendarCreateEvent', async (event, data) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const result = await aiToolsHandler.calendarCreateEvent(data || {});
+      toolTrace('calendarCreateEvent', data, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarCreateEvent', result?.success !== false);
+      return result;
+    } catch (error) {
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarCreateEvent', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:calendarUpdateEvent', async (event, data) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const result = await aiToolsHandler.calendarUpdateEvent(data || {});
+      toolTrace('calendarUpdateEvent', data, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarUpdateEvent', result?.success !== false);
+      return result;
+    } catch (error) {
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarUpdateEvent', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:calendarDeleteEvent', async (event, data) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const result = await aiToolsHandler.calendarDeleteEvent(data || {});
+      toolTrace('calendarDeleteEvent', data, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarDeleteEvent', result?.success !== false);
+      return result;
+    } catch (error) {
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarDeleteEvent', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Get hierarchical outline/table of contents for an indexed document
+   */
+  ipcMain.handle('ai:tools:getDocumentStructure', async (event, { resource_id }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.getDocumentStructure({ resource_id });
+      toolTrace('getDocumentStructure', { resource_id }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getDocumentStructure', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('getDocumentStructure', { resource_id }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getDocumentStructure', false);
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 module.exports = { register };

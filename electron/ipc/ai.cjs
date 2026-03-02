@@ -240,6 +240,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       if (provider === 'ollama') {
         baseUrl = queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434';
         chatModel = model || queries.getSetting.get('ollama_model')?.value || 'llama3.2';
+        apiKey = queries.getSetting.get('ollama_api_key')?.value || undefined;
       } else {
         apiKey = queries.getSetting.get('ai_api_key')?.value;
         if (!apiKey) throw new Error(`API key not configured for ${provider}`);
@@ -321,6 +322,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       if (provider === 'ollama') {
         baseUrl = queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434';
         chatModel = modelArg || queries.getSetting.get('ollama_model')?.value || 'llama3.2';
+        apiKey = queries.getSetting.get('ollama_api_key')?.value || undefined;
       } else {
         apiKey = queries.getSetting.get('ai_api_key')?.value;
         if (!apiKey) throw new Error(`API key not configured for ${provider}`);
@@ -434,9 +436,9 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
           const baseUrlResult = queries.getSetting.get('ollama_base_url');
           const baseUrl = baseUrlResult?.value || 'http://localhost:11434';
           const urlObj = new URL(`${baseUrl}/api/tags`);
-          const http = require('http');
+          const transport = urlObj.protocol === 'https:' ? require('https') : require('http');
           const available = await new Promise((resolve) => {
-            const req = http.get(urlObj.href, { timeout: 5000 }, (res) => {
+            const req = transport.get(urlObj.href, { timeout: 5000, rejectUnauthorized: false }, (res) => {
               resolve(res.statusCode === 200);
             });
             req.on('error', () => resolve(false));

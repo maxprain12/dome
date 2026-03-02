@@ -218,6 +218,14 @@ const ALLOWED_CHANNELS = {
     'ai:tools:resourceMoveToFolder',
     // AI Tools - Flashcards
     'ai:tools:flashcardCreate',
+    // AI Tools - Document Structure
+    'ai:tools:getDocumentStructure',
+    // AI Tools - Calendar
+    'ai:tools:calendarListEvents',
+    'ai:tools:calendarGetUpcoming',
+    'ai:tools:calendarCreateEvent',
+    'ai:tools:calendarUpdateEvent',
+    'ai:tools:calendarDeleteEvent',
     // AI Tools - Excel
     'ai:tools:excelGet',
     'ai:tools:excelGetFilePath',
@@ -1105,38 +1113,6 @@ const electronHandler = {
         ipcRenderer.on('ollama:status-changed', (event, status) => callback(status));
         return () => ipcRenderer.removeAllListeners('ollama:status-changed');
       },
-    },
-  },
-
-  // ============================================
-  // VECTOR DATABASE API
-  // ============================================
-  vector: {
-    // General methods
-    add: (items) => ipcRenderer.invoke('vector:add', items),
-    search: (query, options) => ipcRenderer.invoke('vector:search:generic', query, options),
-    delete: (filter) => ipcRenderer.invoke('vector:delete', filter),
-    deleteResource: (resourceId) => ipcRenderer.invoke('vector:resource:delete', resourceId),
-    count: () => ipcRenderer.invoke('vector:count'),
-    status: () => ipcRenderer.invoke('vector:status'),
-
-    resources: {
-      index: (payload) => ipcRenderer.invoke('vector:resources:index', payload),
-      addEmbeddings: (embeddings) => ipcRenderer.invoke('vector:resources:addEmbeddings', embeddings),
-      stats: () => ipcRenderer.invoke('vector:resources:stats'),
-      reindexAll: () => ipcRenderer.invoke('vector:resources:reindexAll'),
-      repair: () => ipcRenderer.invoke('vector:resources:repair'),
-    },
-
-    annotations: {
-      // Index annotation in LanceDB
-      index: (annotationData) => ipcRenderer.invoke('vector:annotations:index', annotationData),
-
-      // Search annotations
-      search: (queryData) => ipcRenderer.invoke('vector:annotations:search', queryData),
-
-      // Delete annotation from LanceDB
-      delete: (annotationId) => ipcRenderer.invoke('vector:annotations:delete', annotationId),
     },
   },
 

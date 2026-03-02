@@ -47,6 +47,7 @@ const docxConverter = require('./docx-converter.cjs');
 const webScraper = require('./web-scraper.cjs');
 const excelToolsHandler = require('./excel-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
+const calendarService = require('./calendar-service.cjs');
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -1713,6 +1714,138 @@ async function rememberFact(key, value) {
 }
 
 // =============================================================================
+// Document Structure Tool
+// =============================================================================
+
+/**
+ * Get the hierarchical outline/table of contents of an indexed PDF or note.
+ * @param {Object} params
+ * @param {string} params.resource_id
+ * @returns {Promise<Object>}
+ */
+async function getDocumentStructure({ resource_id } = {}) {
+  try {
+    if (!resource_id) return { success: false, error: 'resource_id is required' };
+
+    const q = database.getQueries();
+    const resource = q.getResourceById?.get(resource_id);
+    const indexed = q.getPageIndex?.get(resource_id);
+
+    if (!indexed?.tree_json) {
+      return {
+        success: false,
+        error: 'Document not indexed yet. Trigger indexing or use resource_get for content.',
+      };
+    }
+
+    const docIndexer = require('./doc-indexer.cjs');
+    const tree = JSON.parse(indexed.tree_json);
+    const outline = docIndexer.formatTreeAsOutline(tree);
+    const sections = docIndexer.flattenTree(tree).length;
+
+    return {
+      success: true,
+      resource_id,
+      title: resource?.title || resource_id,
+      sections,
+      outline,
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// =============================================================================
+// Calendar Tools
+// =============================================================================
+
+/**
+ * List calendar events within a date range.
+ * @param {Object} params
+ * @param {string} [params.start_at] - ISO 8601 string or ms timestamp. Defaults to now.
+ * @param {string} [params.end_at]   - ISO 8601 string or ms timestamp. Defaults to 7 days from start.
+ * @param {string[]} [params.calendar_ids]
+ */
+async function calendarListEvents({ start_at, end_at, calendar_ids } = {}) {
+  try {
+    const toMs = (v) => (typeof v === 'string' ? new Date(v).getTime() : v);
+    const startMs = start_at ? toMs(start_at) : Date.now();
+    const endMs = end_at ? toMs(end_at) : startMs + 7 * 24 * 60 * 60 * 1000;
+    if (isNaN(startMs) || isNaN(endMs)) {
+      return { success: false, error: 'Invalid date format for start_at or end_at' };
+    }
+    return await calendarService.listEvents(startMs, endMs, { calendarIds: calendar_ids || undefined });
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Get upcoming events starting from now.
+ * @param {Object} params
+ * @param {number} [params.window_minutes] - Default 60
+ * @param {number} [params.limit]          - Default 10
+ */
+async function calendarGetUpcoming({ window_minutes, limit } = {}) {
+  try {
+    return await calendarService.getUpcomingEvents(window_minutes ?? 60, limit ?? 10);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Create a new calendar event.
+ * @param {Object} data - Event fields: title, description, location, start_at, end_at, all_day, reminders
+ */
+async function calendarCreateEvent(data = {}) {
+  try {
+    const result = await calendarService.createEvent(data);
+    if (result.success && result.event && windowManagerRef) {
+      windowManagerRef.broadcast('calendar:eventCreated', result.event);
+    }
+    return result;
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Update an existing calendar event.
+ * @param {Object} params - event_id (required) + any fields to update
+ */
+async function calendarUpdateEvent({ event_id, ...updates } = {}) {
+  try {
+    if (!event_id) return { success: false, error: 'event_id is required' };
+    const result = await calendarService.updateEvent(event_id, updates);
+    if (result.success && result.event && windowManagerRef) {
+      windowManagerRef.broadcast('calendar:eventUpdated', result.event);
+    }
+    return result;
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Delete a calendar event.
+ * @param {Object} params
+ * @param {string} params.event_id
+ */
+async function calendarDeleteEvent({ event_id } = {}) {
+  try {
+    if (!event_id) return { success: false, error: 'event_id is required' };
+    const result = await calendarService.deleteEvent(event_id);
+    if (result.success && windowManagerRef) {
+      windowManagerRef.broadcast('calendar:eventDeleted', { id: event_id });
+    }
+    return result;
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -1726,6 +1859,7 @@ module.exports = {
   resourceGet,
   resourceList,
   resourceSemanticSearch,
+  getDocumentStructure,
   getLibraryOverview,
 
   // Resource tools (write)
@@ -1777,4 +1911,11 @@ module.exports = {
 
   // Memory tools
   rememberFact,
+
+  // Calendar tools
+  calendarListEvents,
+  calendarGetUpcoming,
+  calendarCreateEvent,
+  calendarUpdateEvent,
+  calendarDeleteEvent,
 };

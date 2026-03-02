@@ -1436,6 +1436,124 @@ function runMigrations(db) {
       throw error;
     }
   }
+
+  // Migration 14: Schema cleanup — drop dead tables, fix FKs, remove unused columns
+  if (version < 14) {
+    console.log('[DB] Running migration 14: Schema cleanup');
+
+    try {
+      db.exec('PRAGMA foreign_keys = OFF');
+
+      // Drop tables that are defined but never used in code
+      db.exec('DROP TABLE IF EXISTS citations');
+      db.exec('DROP TABLE IF EXISTS martin_memory');
+      db.exec('DROP TABLE IF EXISTS resources_new');
+
+      // Remove unused columns (SQLite 3.35+ supports DROP COLUMN)
+      try { db.exec('ALTER TABLE resource_links DROP COLUMN weight'); } catch { /* already gone */ }
+      try { db.exec('ALTER TABLE flashcard_decks DROP COLUMN studio_output_id'); } catch { /* already gone */ }
+
+      // Fix FK: sources.resource_id SET NULL → CASCADE
+      // Orphaned sources (resource_id = NULL from prior deletions) are intentionally excluded
+      db.exec(`
+        CREATE TABLE sources_new (
+          id TEXT PRIMARY KEY,
+          resource_id TEXT REFERENCES resources(id) ON DELETE CASCADE,
+          type TEXT NOT NULL DEFAULT 'article',
+          title TEXT NOT NULL,
+          authors TEXT,
+          year INTEGER,
+          doi TEXT,
+          url TEXT,
+          publisher TEXT,
+          journal TEXT,
+          volume TEXT,
+          issue TEXT,
+          pages TEXT,
+          isbn TEXT,
+          metadata TEXT,
+          created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+          updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+        )
+      `);
+      db.exec(`
+        INSERT INTO sources_new
+        SELECT id, resource_id, type, title, authors, year, doi, url, publisher, journal,
+               volume, issue, pages, isbn, metadata, created_at, updated_at
+        FROM sources WHERE resource_id IS NOT NULL
+      `);
+      db.exec('DROP TABLE sources');
+      db.exec('ALTER TABLE sources_new RENAME TO sources');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_sources_resource ON sources(resource_id)');
+
+      // Fix FK: flashcard_decks.resource_id SET NULL → CASCADE
+      // All decks are migrated (standalone decks with resource_id=NULL are preserved)
+      db.exec(`
+        CREATE TABLE flashcard_decks_new (
+          id TEXT PRIMARY KEY,
+          resource_id TEXT REFERENCES resources(id) ON DELETE CASCADE,
+          project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          description TEXT,
+          card_count INTEGER NOT NULL DEFAULT 0,
+          tags TEXT,
+          settings TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec(`
+        INSERT INTO flashcard_decks_new
+        SELECT id, resource_id, project_id, title, description, card_count, tags, settings, created_at, updated_at
+        FROM flashcard_decks
+      `);
+      db.exec('DROP TABLE flashcard_decks');
+      db.exec('ALTER TABLE flashcard_decks_new RENAME TO flashcard_decks');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_flashcard_decks_project ON flashcard_decks(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_flashcard_decks_resource ON flashcard_decks(resource_id)');
+
+      // Fix FK: whatsapp_messages SET NULL → CASCADE
+      db.exec(`
+        CREATE TABLE whatsapp_messages_new (
+          id TEXT PRIMARY KEY,
+          session_id TEXT REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
+          resource_id TEXT REFERENCES resources(id) ON DELETE CASCADE,
+          from_number TEXT,
+          to_number TEXT,
+          content TEXT,
+          processed INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL
+        )
+      `);
+      db.exec(`
+        INSERT INTO whatsapp_messages_new (id, session_id, resource_id, from_number, content, processed, created_at)
+        SELECT id, session_id, resource_id, from_number, content, processed, created_at
+        FROM whatsapp_messages
+      `);
+      db.exec('DROP TABLE whatsapp_messages');
+      db.exec('ALTER TABLE whatsapp_messages_new RENAME TO whatsapp_messages');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_session ON whatsapp_messages(session_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_from ON whatsapp_messages(from_number)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_processed ON whatsapp_messages(processed)');
+
+      // Orphan cleanup: tags with no associated resources
+      db.exec(`DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM resource_tags)`);
+
+      db.exec('PRAGMA foreign_keys = ON');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '14', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '14', updated_at = excluded.updated_at
+      `).run(Date.now());
+
+      console.log('[DB] Migration 14 complete - schema cleanup done');
+    } catch (error) {
+      db.exec('PRAGMA foreign_keys = ON');
+      console.error('[DB] Migration 14 error:', error.message);
+      // Non-fatal: log but don't throw so app still starts
+    }
+  }
 }
 
 /**
