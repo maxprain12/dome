@@ -210,6 +210,7 @@ export {
   createPptGetFilePathTool,
   createPptGetSlidesTool,
   createPptExportTool,
+  createPptGetSlideImagesTool,
   createPptTools,
 } from './ppt-tools';
 

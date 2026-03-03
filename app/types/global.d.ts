@@ -929,6 +929,9 @@ declare global {
             resourceId: string,
             options?: Record<string, unknown>
           ) => Promise<{ success: boolean; data?: string; format?: string; error?: string }>;
+          pptGetSlideImages: (
+            resourceId: string
+          ) => Promise<{ success: boolean; slides?: Array<{ index: number; image_base64: string }>; error?: string }>;
         };
       };
 

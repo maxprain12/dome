@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
 
+const documentGenerator = require('../document-generator.cjs');
+
 const TOOL_TRACE = process.env.NODE_ENV === 'development' || process.env.DEBUG_AI_TOOLS === '1';
 
 function toolNameFromChannel(channel) {
@@ -508,6 +510,22 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       if (script || opts.script) opts.script = script || opts.script;
       const displayTitle = title || 'Sin título';
 
+      if (opts.sync) {
+        // Synchronous mode: await result immediately (for QA loop — Many can inspect slides right after)
+        const result = await aiToolsHandler.pptCreate(projectId, title, spec || {}, opts);
+        toolTrace('pptCreate', { title, sync: true }, result);
+        broadcastToolAnalytics(windowManager, 'ai:tools:pptCreate', result?.success !== false);
+        if (result.success && result.resource) {
+          windowManager.broadcast('ppt:created', { resource: result.resource, title: displayTitle });
+        } else {
+          windowManager.broadcast('ppt:creation-failed', {
+            title: displayTitle,
+            error: result.error || 'Error desconocido',
+          });
+        }
+        return result;
+      }
+
       // Fire-and-forget: run in background, return immediately so the agent can move on
       aiToolsHandler.pptCreate(projectId, title, spec || {}, opts).then((result) => {
         toolTrace('pptCreate', { title }, result);
@@ -586,6 +604,26 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     } catch (error) {
       toolTrace('pptExport', { resourceId }, null, error);
       broadcastToolAnalytics(windowManager, 'ai:tools:pptExport', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:pptGetSlideImages', async (event, { resourceId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const pathResult = await aiToolsHandler.pptGetFilePath(resourceId);
+      if (!pathResult.success || !pathResult.file_path) {
+        return { success: false, error: pathResult.error || 'Failed to get file path' };
+      }
+      const result = await documentGenerator.extractPptImages(pathResult.file_path);
+      toolTrace('pptGetSlideImages', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pptGetSlideImages', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('pptGetSlideImages', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pptGetSlideImages', false);
       return { success: false, error: error.message };
     }
   });

@@ -245,6 +245,7 @@ const ALLOWED_CHANNELS = {
     'ai:tools:pptGetFilePath',
     'ai:tools:pptGetSlides',
     'ai:tools:pptExport',
+    'ai:tools:pptGetSlideImages',
     // Database - Flashcards
     'db:flashcards:createDeck',
     'db:flashcards:getDeck',
@@ -1037,6 +1038,8 @@ const electronHandler = {
         ipcRenderer.invoke('ai:tools:pptGetSlides', { resourceId }),
       pptExport: (resourceId, options) =>
         ipcRenderer.invoke('ai:tools:pptExport', { resourceId, options }),
+      pptGetSlideImages: (resourceId) =>
+        ipcRenderer.invoke('ai:tools:pptGetSlideImages', { resourceId }),
     },
   },
 
