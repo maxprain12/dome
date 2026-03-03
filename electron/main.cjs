@@ -21,10 +21,17 @@ if (app.isPackaged) {
   }
 }
 
-// Fix PATH on macOS/Linux when launched from Finder (GUI apps don't inherit shell PATH)
+// Fix PATH on macOS/Linux when launched from Finder (GUI apps don't inherit shell PATH).
+// fix-path v4+ is ESM-only, so we replicate its logic inline using execSync.
 if (process.platform !== 'win32') {
   try {
-    require('fix-path')();
+    const { execSync } = require('child_process');
+    const shell = process.env.SHELL || '/bin/zsh';
+    const shellPath = execSync(`${shell} -l -c 'echo $PATH'`, {
+      timeout: 3000,
+      encoding: 'utf8',
+    }).trim();
+    if (shellPath) process.env.PATH = shellPath;
   } catch (e) {
     console.warn('[Main] fix-path failed:', e?.message);
   }

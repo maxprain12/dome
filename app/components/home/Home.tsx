@@ -21,6 +21,7 @@ import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useR
 import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
 import { showPrompt } from '@/lib/store/usePromptStore';
 import FolderColorPicker from './FolderColorPicker';
+import TagBrowser from './TagBrowser';
 
 /** Paleta para nuevo folder modal (swatch rápido) */
 const DEFAULT_FOLDER_COLORS = ['#596037', '#7b76d0', '#22c55e', '#3b82f6', '#6b7280'];
@@ -557,19 +558,7 @@ export default function Home() {
         return renderLibraryContent();
 
       case 'tags':
-        return (
-          <div className="dashboard-empty-state">
-            <div className="dashboard-icon-wrapper">
-              <TagsIcon className="dashboard-icon" />
-            </div>
-            <h3 className="dashboard-title">
-              Etiquetas
-            </h3>
-            <p className="dashboard-description">
-              Navega tus recursos por etiquetas. Proximamente.
-            </p>
-          </div>
-        );
+        return <TagBrowser />;
 
       case 'library':
       default:

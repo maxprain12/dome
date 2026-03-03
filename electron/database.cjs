@@ -169,7 +169,6 @@ function initDatabase() {
       source_id TEXT NOT NULL,
       target_id TEXT NOT NULL,
       link_type TEXT NOT NULL DEFAULT 'related',
-      weight REAL DEFAULT 1.0,
       metadata TEXT,
       created_at INTEGER NOT NULL,
       FOREIGN KEY (source_id) REFERENCES resources(id) ON DELETE CASCADE,
@@ -1667,8 +1666,8 @@ function getQueries() {
 
     // Resource Links
     createLink: db.prepare(`
-      INSERT INTO resource_links (id, source_id, target_id, link_type, weight, metadata, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO resource_links (id, source_id, target_id, link_type, metadata, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
     `),
     getLinksBySource: db.prepare('SELECT * FROM resource_links WHERE source_id = ?'),
     getLinksByTarget: db.prepare('SELECT * FROM resource_links WHERE target_id = ?'),
@@ -1750,6 +1749,19 @@ function getQueries() {
       JOIN resource_tags rt ON t.id = rt.tag_id
       WHERE rt.resource_id = ?
       ORDER BY t.name
+    `),
+    getAllTagsWithCount: db.prepare(`
+      SELECT t.*, COUNT(rt.resource_id) as resource_count
+      FROM tags t
+      LEFT JOIN resource_tags rt ON t.id = rt.tag_id
+      GROUP BY t.id
+      ORDER BY resource_count DESC, t.name ASC
+    `),
+    getResourcesByTag: db.prepare(`
+      SELECT r.* FROM resources r
+      JOIN resource_tags rt ON r.id = rt.resource_id
+      WHERE rt.tag_id = ?
+      ORDER BY r.updated_at DESC
     `),
 
     // Search (standalone FTS tables)

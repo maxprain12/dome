@@ -89,6 +89,8 @@ const ALLOWED_CHANNELS = {
     'db:interactions:create',
     'db:interactions:getByResource',
     'db:tags:getByResource',
+    'db:tags:getAll',
+    'db:tags:getResources',
     'db:interactions:getByType',
     'db:interactions:update',
     'db:interactions:delete',
@@ -220,6 +222,9 @@ const ALLOWED_CHANNELS = {
     'ai:tools:flashcardCreate',
     // AI Tools - Document Structure
     'ai:tools:getDocumentStructure',
+    // AI Tools - Graph / Linking
+    'ai:tools:linkResources',
+    'ai:tools:getRelatedResources',
     // AI Tools - Calendar
     'ai:tools:calendarListEvents',
     'ai:tools:calendarGetUpcoming',
@@ -678,6 +683,8 @@ const electronHandler = {
     // Tags
     tags: {
       getByResource: (resourceId) => ipcRenderer.invoke('db:tags:getByResource', resourceId),
+      getAll: () => ipcRenderer.invoke('db:tags:getAll'),
+      getResources: (tagId) => ipcRenderer.invoke('db:tags:getResources', tagId),
     },
 
     // Resource Links (graph relationships)

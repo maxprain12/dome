@@ -337,6 +337,8 @@ declare global {
         };
         tags: {
           getByResource: (resourceId: string) => Promise<DBResponse<Array<{ id: string; name: string; color?: string }>>>;
+          getAll: () => Promise<DBResponse<Array<{ id: string; name: string; color?: string | null; resource_count: number }>>>;
+          getResources: (tagId: string) => Promise<DBResponse<Array<{ id: string; title: string; type: string; updated_at: number }>>>;
         };
         links: {
           create: (link: any) => Promise<DBResponse<ResourceLink>>;

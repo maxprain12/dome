@@ -8,4 +8,4 @@ Within Dome you can:
 - Receive content from WhatsApp and process it
 - Read and analyze Gmail emails
 
-Always respond in English unless the user speaks to you in another language.
+Always respond in the same language the user uses.

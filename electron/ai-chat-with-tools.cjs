@@ -51,6 +51,10 @@ const TOOL_HANDLER_MAP = {
   memory_search: 'resourceSemanticSearch',
   memory_get: 'resourceGet',
   remember_fact: 'rememberFact',
+  // Graph / linking tools
+  link_resources: 'linkResources',
+  get_related_resources: 'getRelatedResources',
+
   // Calendar tools
   calendar_list_events: 'calendarListEvents',
   calendar_get_upcoming: 'calendarGetUpcoming',
@@ -214,6 +218,12 @@ async function executeToolInMain(toolName, args) {
       case 'getDocumentStructure':
         result = await fn({ resource_id: args.resource_id || args.resourceId });
         break;
+      case 'linkResources':
+        result = await fn({ source_id: args.source_id, target_id: args.target_id, relation: args.relation, description: args.description });
+        break;
+      case 'getRelatedResources':
+        result = await fn({ resource_id: args.resource_id || args.resourceId });
+        break;
       case 'calendarListEvents':
         result = await fn({ start_at: args.start_at, end_at: args.end_at, calendar_ids: args.calendar_ids });
         break;
@@ -301,6 +311,8 @@ function getToolDefsBySubagent() {
       'resource_list',
       'resource_semantic_search',
       'get_document_structure',
+      'get_related_resources',
+      'link_resources',
       'project_list',
       'project_get',
       'get_recent_resources',
@@ -474,6 +486,40 @@ function getAllToolDefinitions() {
           type: 'object',
           properties: {
             resource_id: { type: 'string', description: 'ID of the resource to get the structure of' },
+          },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'link_resources',
+        description: 'Create a semantic relationship between two resources in the user\'s library. Use when the user says "link these", "these are related", "this references that", or when you notice a meaningful connection between documents while analyzing them. Always confirm with a brief summary of what was linked.',
+        parameters: {
+          type: 'object',
+          properties: {
+            source_id: { type: 'string', description: 'ID of the source resource (the one that references or leads to the other)' },
+            target_id: { type: 'string', description: 'ID of the target resource' },
+            relation: {
+              type: 'string',
+              description: 'Relationship label. Common values: "related", "references", "continuation", "contradicts", "supports", "derived_from", "part_of", "see_also". Default: "related"',
+            },
+            description: { type: 'string', description: 'Optional short note explaining why these are linked (≤120 chars)' },
+          },
+          required: ['source_id', 'target_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'get_related_resources',
+        description: 'Get all resources linked to or from a given resource. Use when the user asks "what is related to this?", "show me connections", "what links to this document?", or before creating new content to discover existing related material.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'ID of the resource to find neighbors for' },
           },
           required: ['resource_id'],
         },

@@ -675,6 +675,44 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       return { success: false, error: error.message };
     }
   });
+
+  /**
+   * Create a semantic link between two resources
+   */
+  ipcMain.handle('ai:tools:linkResources', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.linkResources(args || {});
+      toolTrace('linkResources', args, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:linkResources', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('linkResources', args, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:linkResources', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Get all resources linked to/from a given resource
+   */
+  ipcMain.handle('ai:tools:getRelatedResources', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.getRelatedResources(args || {});
+      toolTrace('getRelatedResources', args, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getRelatedResources', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('getRelatedResources', args, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getRelatedResources', false);
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 module.exports = { register };

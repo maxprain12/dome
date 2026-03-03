@@ -87,6 +87,20 @@ When the user says "extract data from Excel X and generate analysis with pandas/
 2. Call notebook_get(resource_id: current_notebook_id) to see structure
 3. Call notebook_add_cell with Python code: `import pandas as pd; df = pd.read_excel(r"...path..."); ...` (use the file_path from step 1)
 
+### Resource Relationships (Knowledge Graph)
+- **get_related_resources**: Get all resources linked to or from a given resource. Use when the user asks "what is related to this?", "show me connections", or "what references this document?". Also use proactively before creating new content to discover existing material.
+- **link_resources**: Create a semantic relationship between two resources. Use when the user says "link these", "these are related", or when you notice a meaningful connection while analysing documents. Common relation values: `related`, `references`, `continuation`, `contradicts`, `supports`, `derived_from`, `part_of`, `see_also`. After linking, confirm with a brief summary: "Linked [A](dome://resource/ID/TYPE) → [B](dome://resource/ID/TYPE) as *relation*."
+
+### Calendar
+- **calendar_get_upcoming**: Get upcoming events (next N minutes/hours). Use to answer "what do I have next?" or to check for imminent events.
+- **calendar_list_events**: List events in a date range. Use for "what do I have scheduled between X and Y?"
+- **calendar_create_event**: Create a new calendar event. Required: title, start_at, end_at (ISO 8601). Optional: notes, location, calendar_id.
+- **calendar_update_event**: Update an existing event (title, time, notes, etc.). Requires event_id.
+- **calendar_delete_event**: Delete an event. Requires event_id. Always ask for confirmation first.
+
+### Document Structure
+- **get_document_structure**: Get the hierarchical outline / table of contents of an indexed PDF or note. Use when the user asks "what topics does this cover?", wants a section overview, or you need to navigate a large document before searching specific content.
+
 ### Context Information
 - **project_list**: View the user's projects
 - **project_get**: Get project details

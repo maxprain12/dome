@@ -1756,6 +1756,105 @@ async function getDocumentStructure({ resource_id } = {}) {
 }
 
 // =============================================================================
+// Graph / Resource Linking Tools
+// =============================================================================
+
+/**
+ * Create a semantic link between two resources.
+ * Writes to resource_links and creates a graph_edge between their nodes.
+ * @param {Object} params
+ * @param {string} params.source_id - ID of the source resource
+ * @param {string} params.target_id - ID of the target resource
+ * @param {string} [params.relation]   - Relationship label (default: 'related')
+ * @param {string} [params.description] - Optional note about the relationship
+ */
+async function linkResources({ source_id, target_id, relation = 'related', description = '' } = {}) {
+  try {
+    if (!source_id || !target_id) return { success: false, error: 'source_id and target_id are required' };
+    if (source_id === target_id) return { success: false, error: 'Cannot link a resource to itself' };
+
+    const q = database.getQueries();
+    const source = q.getResourceById?.get(source_id);
+    const target = q.getResourceById?.get(target_id);
+    if (!source) return { success: false, error: `Resource ${source_id} not found` };
+    if (!target) return { success: false, error: `Resource ${target_id} not found` };
+
+    const now = Date.now();
+    const linkId = `link-${source_id.slice(-8)}-${target_id.slice(-8)}-${now}`;
+
+    try {
+      q.createLink?.run(linkId, source_id, target_id, relation, description || null, now);
+    } catch (e) {
+      if (!e.message?.includes('UNIQUE')) throw e;
+      // Already linked — update the graph edge anyway
+    }
+
+    // Mirror in the knowledge graph
+    const edgeId = `edge-${source_id.slice(-8)}-${target_id.slice(-8)}-${now}`;
+    try {
+      q.createGraphEdge?.run(edgeId, `node-${source_id}`, `node-${target_id}`, relation, 1.0, description || null, now, now);
+    } catch { /* non-fatal if graph nodes missing */ }
+
+    return {
+      success: true,
+      source: { id: source_id, title: source.title, type: source.type },
+      target: { id: target_id, title: target.title, type: target.type },
+      relation,
+      message: `"${source.title}" → "${target.title}" (${relation})`,
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Get all resources linked to or from a given resource.
+ * Combines resource_links (both directions) and graph_edges.
+ * @param {Object} params
+ * @param {string} params.resource_id - Resource to query neighbors for
+ */
+async function getRelatedResources({ resource_id } = {}) {
+  try {
+    if (!resource_id) return { success: false, error: 'resource_id is required' };
+
+    const q = database.getQueries();
+    const resource = q.getResourceById?.get(resource_id);
+    if (!resource) return { success: false, error: `Resource ${resource_id} not found` };
+
+    const seen = new Set([resource_id]);
+    const related = [];
+
+    const addResource = (rid, relation, direction) => {
+      if (seen.has(rid)) return;
+      seen.add(rid);
+      const r = q.getResourceById?.get(rid);
+      if (r) related.push({ id: r.id, title: r.title, type: r.type, relation, direction });
+    };
+
+    for (const lnk of q.getLinksBySource?.all(resource_id) || []) addResource(lnk.target_id, lnk.link_type, 'outgoing');
+    for (const lnk of q.getLinksByTarget?.all(resource_id) || []) addResource(lnk.source_id, lnk.link_type, 'incoming');
+
+    // Also pull graph neighbors
+    try {
+      const nodeId = `node-${resource_id}`;
+      for (const n of q.getNodeNeighbors?.all(nodeId, nodeId, nodeId) || []) {
+        if (n.resource_id) addResource(n.resource_id, n.relation, 'graph');
+      }
+    } catch { /* graph neighbors non-critical */ }
+
+    return {
+      success: true,
+      resource_id,
+      resource_title: resource.title,
+      related_count: related.length,
+      related,
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// =============================================================================
 // Calendar Tools
 // =============================================================================
 
@@ -1911,6 +2010,10 @@ module.exports = {
 
   // Memory tools
   rememberFact,
+
+  // Graph / linking tools
+  linkResources,
+  getRelatedResources,
 
   // Calendar tools
   calendarListEvents,

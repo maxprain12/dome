@@ -9,7 +9,6 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         link.source_id,
         link.target_id,
         link.link_type,
-        link.weight || 1.0,
         link.metadata ? JSON.stringify(link.metadata) : null,
         link.created_at
       );
