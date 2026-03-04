@@ -187,6 +187,10 @@ const ALLOWED_CHANNELS = {
     'auth:profiles:delete',
     'auth:resolve',
     'auth:validate',
+    // Dome provider OAuth
+    'domeauth:startOAuthFlow',
+    'domeauth:getSession',
+    'domeauth:disconnect',
     // Personality Loader
     'personality:get-prompt',
     'personality:read-file',
@@ -202,6 +206,9 @@ const ALLOWED_CHANNELS = {
     'ai:langgraph:resume',
     'ai:embeddings',
     'ai:testConnection',
+    // Agent Team orchestration
+    'ai:team:stream',
+    'ai:team:abort',
     // AI Tools (for Many agent)
     'ai:tools:resourceSearch',
     'ai:tools:resourceGet',
@@ -600,6 +607,15 @@ const electronHandler = {
     testServer: (server) => ipcRenderer.invoke('mcp:testServer', server),
     startOAuthFlow: (providerId) => ipcRenderer.invoke('mcp:startOAuthFlow', providerId),
     getOAuthProviders: () => ipcRenderer.invoke('mcp:getOAuthProviders'),
+  },
+
+  // ============================================
+  // DOME PROVIDER OAUTH API
+  // ============================================
+  domeAuth: {
+    startOAuthFlow: () => ipcRenderer.invoke('domeauth:startOAuthFlow'),
+    getSession: () => ipcRenderer.invoke('domeauth:getSession'),
+    disconnect: () => ipcRenderer.invoke('domeauth:disconnect'),
   },
 
   // ============================================

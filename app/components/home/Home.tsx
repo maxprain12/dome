@@ -16,6 +16,9 @@ import FlashcardDeckList from '@/components/flashcards/FlashcardDeckList';
 import StudioHomeView from '@/components/studio/StudioHomeView';
 import AgentChatView from '@/components/agents/AgentChatView';
 import AgentManagementView from '@/components/agents/AgentManagementView';
+import MarketplaceView from '@/components/marketplace/MarketplaceView';
+import AgentTeamView from '@/components/agent-team/AgentTeamView';
+import AgentTeamChat from '@/components/agent-team/AgentTeamChat';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
@@ -510,6 +513,14 @@ export default function Home() {
         </div>
       );
     }
+    if (typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('team:')) {
+      const teamId = homeSidebarSection.replace(/^team:/, '');
+      return (
+        <div className="h-full min-h-0 flex flex-col overflow-hidden">
+          <AgentTeamChat teamId={teamId} />
+        </div>
+      );
+    }
     switch (homeSidebarSection) {
       case 'studio':
         return <StudioHomeView />;
@@ -521,6 +532,20 @@ export default function Home() {
         return (
           <div className="h-full min-h-0 flex flex-col overflow-hidden">
             <AgentManagementView onAgentSelect={(id) => setHomeSidebarSection(`agent:${id}`)} />
+          </div>
+        );
+
+      case 'marketplace':
+        return (
+          <div className="h-full min-h-0 flex flex-col overflow-hidden">
+            <MarketplaceView />
+          </div>
+        );
+
+      case 'agent-teams':
+        return (
+          <div className="h-full min-h-0 flex flex-col overflow-hidden">
+            <AgentTeamView />
           </div>
         );
 
@@ -956,349 +981,356 @@ export default function Home() {
   );
 
   const isAgentView = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('agent:');
+  const isTeamView = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('team:');
+  const isFullscreenView =
+    isAgentView ||
+    isTeamView ||
+    homeSidebarSection === 'agents' ||
+    homeSidebarSection === 'marketplace' ||
+    homeSidebarSection === 'agent-teams';
 
   return (
-    <HomeLayout hidePet={isAgentView}>
+    <HomeLayout hidePet={isFullscreenView}>
       <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--dome-bg)' }}>
-        {isAgentView ? (
+        {isFullscreenView ? (
           <div className="flex-1 min-h-0 overflow-hidden">
             {renderSectionContent()}
           </div>
         ) : (
           <>
-        {/* Content Area */}
-        <div className="flex-1 min-h-0 overflow-y-auto" style={{ padding: '32px' }}>
-          <div className="max-w-6xl mx-auto">
-            {/* Page header */}
-            <div className="page-header">
-              <h1 className="page-title">
-                {homeSidebarSection === 'library'
-                  ? 'Recent Resources'
-                  : homeSidebarSection === 'studio'
-                    ? 'Studio'
-                    : homeSidebarSection === 'flashcards'
-                      ? 'Flashcards'
-                      : homeSidebarSection === 'recent'
-                        ? 'Recent Resources'
-                        : homeSidebarSection === 'tags'
-                          ? 'Tags'
-                          : homeSidebarSection === 'chat'
-                            ? 'Many Chat'
-                            : homeSidebarSection === 'projects'
-                              ? 'Projects'
-                              : 'Recent Resources'}
-              </h1>
-              <p className="page-subtitle">
-                {homeSidebarSection === 'library' || homeSidebarSection === 'recent'
-                  ? 'Your recently updated files and links'
-                  : homeSidebarSection === 'studio'
-                    ? 'Genera materiales de estudio con IA desde tus recursos'
-                    : homeSidebarSection === 'flashcards'
-                      ? 'Review your flashcard decks'
-                      : homeSidebarSection === 'tags'
-                        ? 'Browse resources by tag'
-                        : homeSidebarSection === 'chat'
-                          ? 'Chat with Many about your resources'
-                          : homeSidebarSection === 'projects'
-                            ? 'Organize resources by project'
-                            : 'Your recently updated files and links'}
-              </p>
+            {/* Content Area */}
+            <div className="flex-1 min-h-0 overflow-y-auto" style={{ padding: '32px' }}>
+              <div className="max-w-6xl mx-auto">
+                {/* Page header */}
+                <div className="page-header">
+                  <h1 className="page-title">
+                    {homeSidebarSection === 'library'
+                      ? 'Recent Resources'
+                      : homeSidebarSection === 'studio'
+                        ? 'Studio'
+                        : homeSidebarSection === 'flashcards'
+                          ? 'Flashcards'
+                          : homeSidebarSection === 'recent'
+                            ? 'Recent Resources'
+                            : homeSidebarSection === 'tags'
+                              ? 'Tags'
+                              : homeSidebarSection === 'chat'
+                                ? 'Many Chat'
+                                : homeSidebarSection === 'projects'
+                                  ? 'Projects'
+                                  : 'Recent Resources'}
+                  </h1>
+                  <p className="page-subtitle">
+                    {homeSidebarSection === 'library' || homeSidebarSection === 'recent'
+                      ? 'Your recently updated files and links'
+                      : homeSidebarSection === 'studio'
+                        ? 'Genera materiales de estudio con IA desde tus recursos'
+                        : homeSidebarSection === 'flashcards'
+                          ? 'Review your flashcard decks'
+                          : homeSidebarSection === 'tags'
+                            ? 'Browse resources by tag'
+                            : homeSidebarSection === 'chat'
+                              ? 'Chat with Many about your resources'
+                              : homeSidebarSection === 'projects'
+                                ? 'Organize resources by project'
+                                : 'Your recently updated files and links'}
+                  </p>
+                </div>
+
+                {/* Section Content */}
+                {renderSectionContent()}
+              </div>
             </div>
 
-            {/* Section Content */}
-            {renderSectionContent()}
-          </div>
-        </div>
-
-        {/* Import Progress Indicator */}
-        {importProgress.status !== 'idle' ? (
-          <div className="import-progress-card">
-            <div className="flex items-center gap-3">
-              {importProgress.status === 'importing' ? (
-                <>
-                  <div className="relative">
-                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+            {/* Import Progress Indicator */}
+            {importProgress.status !== 'idle' ? (
+              <div className="import-progress-card">
+                <div className="flex items-center gap-3">
+                  {importProgress.status === 'importing' ? (
+                    <>
+                      <div className="relative">
+                        <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+                          Importing files ({importProgress.current}/{importProgress.total})
+                        </div>
+                        <div className="text-xs truncate" style={{ color: 'var(--dome-text-secondary)' }}>
+                          {importProgress.currentFile}
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+                  {importProgress.status === 'complete' ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--success)' }} />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+                          Import complete!
+                        </div>
+                        <div className="text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
+                          {importProgress.total} file(s) imported successfully
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+                  {importProgress.status === 'error' ? (
+                    <>
+                      <AlertCircle className="w-5 h-5" style={{ color: 'var(--warning)' }} />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+                          Import completed with errors
+                        </div>
+                        <div className="text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
+                          {importProgress.error}
+                        </div>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+                {importProgress.status === 'importing' ? (
+                  <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
+                    <div
+                      className="h-full transition-all duration-300 rounded-full"
+                      style={{
+                        width: `${(importProgress.current / importProgress.total) * 100}%`,
+                        background: 'var(--dome-accent)',
+                      }}
+                    />
                   </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-                      Importing files ({importProgress.current}/{importProgress.total})
-                    </div>
-                    <div className="text-xs truncate" style={{ color: 'var(--dome-text-secondary)' }}>
-                      {importProgress.currentFile}
-                    </div>
-                  </div>
-                </>
-              ) : null}
-              {importProgress.status === 'complete' ? (
-                <>
-                  <CheckCircle2 className="w-5 h-5" style={{ color: 'var(--success)' }} />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-                      Import complete!
-                    </div>
-                    <div className="text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
-                      {importProgress.total} file(s) imported successfully
-                    </div>
-                  </div>
-                </>
-              ) : null}
-              {importProgress.status === 'error' ? (
-                <>
-                  <AlertCircle className="w-5 h-5" style={{ color: 'var(--warning)' }} />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-                      Import completed with errors
-                    </div>
-                    <div className="text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
-                      {importProgress.error}
-                    </div>
-                  </div>
-                </>
-              ) : null}
-            </div>
-            {importProgress.status === 'importing' ? (
-              <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
-                <div
-                  className="h-full transition-all duration-300 rounded-full"
-                  style={{
-                    width: `${(importProgress.current / importProgress.total) * 100}%`,
-                    background: 'var(--dome-accent)',
-                  }}
-                />
+                ) : null}
               </div>
             ) : null}
-          </div>
-        ) : null}
 
-        {/* New Folder Modal */}
-        {showNewFolderModal ? (
-          <div
-            className="modal-overlay"
-            onClick={() => setShowNewFolderModal(false)}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-folder-title"
-          >
-            <div
-              className="modal-content max-w-md animate-modal"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="modal-header">
-                <h3 id="new-folder-title" className="text-lg font-semibold font-display" style={{ color: 'var(--dome-text)' }}>
-                  Create New Folder
-                </h3>
-              </div>
-              <div className="modal-body">
-                <label htmlFor="new-folder-name" className="sr-only">Folder name</label>
-                <input
-                  id="new-folder-name"
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  placeholder="Folder name..."
-                  className="input mb-4"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateFolder();
-                    if (e.key === 'Escape') setShowNewFolderModal(false);
-                  }}
-                />
-                <div className="mb-4">
-                  <label className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text-secondary)' }}>
-                    Folder color
-                  </label>
-                  <div
-                    className="flex flex-wrap gap-2"
-                    role="group"
-                    aria-label="Select folder color"
-                  >
-                    {DEFAULT_FOLDER_COLORS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setNewFolderColor(color)}
-                        className="w-8 h-8 rounded-lg border-2 transition-all focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
-                        style={{
-                          backgroundColor: color,
-                          borderColor: newFolderColor === color ? 'var(--dome-accent)' : 'var(--border)',
-                          transform: newFolderColor === color ? 'scale(1.1)' : 'scale(1)',
-                        }}
-                        aria-label={`Select color ${color}`}
-                        title={color}
-                      />
-                    ))}
+            {/* New Folder Modal */}
+            {showNewFolderModal ? (
+              <div
+                className="modal-overlay"
+                onClick={() => setShowNewFolderModal(false)}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="new-folder-title"
+              >
+                <div
+                  className="modal-content max-w-md animate-modal"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="modal-header">
+                    <h3 id="new-folder-title" className="text-lg font-semibold font-display" style={{ color: 'var(--dome-text)' }}>
+                      Create New Folder
+                    </h3>
+                  </div>
+                  <div className="modal-body">
+                    <label htmlFor="new-folder-name" className="sr-only">Folder name</label>
+                    <input
+                      id="new-folder-name"
+                      type="text"
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      placeholder="Folder name..."
+                      className="input mb-4"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleCreateFolder();
+                        if (e.key === 'Escape') setShowNewFolderModal(false);
+                      }}
+                    />
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text-secondary)' }}>
+                        Folder color
+                      </label>
+                      <div
+                        className="flex flex-wrap gap-2"
+                        role="group"
+                        aria-label="Select folder color"
+                      >
+                        {DEFAULT_FOLDER_COLORS.map((color) => (
+                          <button
+                            key={color}
+                            type="button"
+                            onClick={() => setNewFolderColor(color)}
+                            className="w-8 h-8 rounded-lg border-2 transition-all focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+                            style={{
+                              backgroundColor: color,
+                              borderColor: newFolderColor === color ? 'var(--dome-accent)' : 'var(--border)',
+                              transform: newFolderColor === color ? 'scale(1.1)' : 'scale(1)',
+                            }}
+                            aria-label={`Select color ${color}`}
+                            title={color}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="modal-footer">
+                    <button onClick={() => setShowNewFolderModal(false)} className="btn btn-ghost">
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreateFolder}
+                      disabled={!newFolderName.trim()}
+                      className="btn btn-primary"
+                    >
+                      <Plus size={16} className="inline mr-1" />
+                      Create Folder
+                    </button>
                   </div>
                 </div>
               </div>
-              <div className="modal-footer">
-                <button onClick={() => setShowNewFolderModal(false)} className="btn btn-ghost">
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateFolder}
-                  disabled={!newFolderName.trim()}
-                  className="btn btn-primary"
+            ) : null}
+
+            {/* Move to Folder Modal */}
+            {showMoveModal && (resourceToMove || moveTargetIds.length > 0) ? (
+              <div
+                className="modal-overlay"
+                onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="move-resource-title"
+              >
+                <div
+                  className="modal-content max-w-md animate-modal"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <Plus size={16} className="inline mr-1" />
-                  Create Folder
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Move to Folder Modal */}
-        {showMoveModal && (resourceToMove || moveTargetIds.length > 0) ? (
-          <div
-            className="modal-overlay"
-            onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="move-resource-title"
-          >
-            <div
-              className="modal-content max-w-md animate-modal"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="modal-header">
-                <h3 id="move-resource-title" className="text-lg font-semibold font-display" style={{ color: 'var(--dome-text)' }}>
-                  {moveTargetIds.length > 1
-                    ? `Move ${moveTargetIds.length} items`
-                    : `Move "${resourceToMove?.title ?? 'item'}"`}
-                </h3>
-                <button
-                  onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
-                  className="btn btn-ghost p-1.5 rounded-md"
-                  aria-label="Close"
-                >
-                  <X size={20} style={{ color: 'var(--dome-text-secondary)' }} />
-                </button>
-              </div>
-
-              <div className="modal-body max-h-80 overflow-y-auto">
-                {moveTargetIds.length > 0 && (
-                  <button
-                    onClick={() => handleMoveToFolder(null)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors mb-2 hover:bg-[var(--dome-accent-bg)]"
-                  >
-                    <HomeIcon className="w-5 h-5" style={{ color: 'var(--dome-accent)' }} />
-                    <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-                      Move to Root
-                    </span>
-                  </button>
-                )}
-
-
-                {allFolders.length === 0 ? (
-                  <p className="text-sm text-center py-4" style={{ color: 'var(--dome-text-secondary)' }}>
-                    No folders yet. Create a folder first.
-                  </p>
-                ) : (
-                  <div className="space-y-1">
-                    {allFolders
-                      .filter(folder => !moveTargetIds.includes(folder.id))
-                      .map((folder) => (
-                        <button
-                          key={folder.id}
-                          onClick={() => handleMoveToFolder(folder.id)}
-                          disabled={moveTargetIds.length === 1 && folder.id === resourceToMove?.folder_id}
-                          className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--dome-accent-bg)]"
-                        >
-                          <div
-                            className="w-8 h-8 rounded-md flex items-center justify-center shrink-0"
-                            style={{ backgroundColor: folder.metadata?.color ?? 'var(--dome-accent)' }}
-                          >
-                            <FolderOpen className="w-4 h-4 text-white" />
-                          </div>
-                          <span className="text-sm" style={{ color: 'var(--dome-text)' }}>
-                            {folder.title}
-                          </span>
-                          {moveTargetIds.length === 1 && folder.id === resourceToMove?.folder_id ? (
-                            <span className="ml-auto text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
-                              (current)
-                            </span>
-                          ) : null}
-                        </button>
-                      ))}
+                  <div className="modal-header">
+                    <h3 id="move-resource-title" className="text-lg font-semibold font-display" style={{ color: 'var(--dome-text)' }}>
+                      {moveTargetIds.length > 1
+                        ? `Move ${moveTargetIds.length} items`
+                        : `Move "${resourceToMove?.title ?? 'item'}"`}
+                    </h3>
+                    <button
+                      onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
+                      className="btn btn-ghost p-1.5 rounded-md"
+                      aria-label="Close"
+                    >
+                      <X size={20} style={{ color: 'var(--dome-text-secondary)' }} />
+                    </button>
                   </div>
-                )}
+
+                  <div className="modal-body max-h-80 overflow-y-auto">
+                    {moveTargetIds.length > 0 && (
+                      <button
+                        onClick={() => handleMoveToFolder(null)}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors mb-2 hover:bg-[var(--dome-accent-bg)]"
+                      >
+                        <HomeIcon className="w-5 h-5" style={{ color: 'var(--dome-accent)' }} />
+                        <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+                          Move to Root
+                        </span>
+                      </button>
+                    )}
+
+
+                    {allFolders.length === 0 ? (
+                      <p className="text-sm text-center py-4" style={{ color: 'var(--dome-text-secondary)' }}>
+                        No folders yet. Create a folder first.
+                      </p>
+                    ) : (
+                      <div className="space-y-1">
+                        {allFolders
+                          .filter(folder => !moveTargetIds.includes(folder.id))
+                          .map((folder) => (
+                            <button
+                              key={folder.id}
+                              onClick={() => handleMoveToFolder(folder.id)}
+                              disabled={moveTargetIds.length === 1 && folder.id === resourceToMove?.folder_id}
+                              className="w-full flex items-center gap-3 p-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--dome-accent-bg)]"
+                            >
+                              <div
+                                className="w-8 h-8 rounded-md flex items-center justify-center shrink-0"
+                                style={{ backgroundColor: folder.metadata?.color ?? 'var(--dome-accent)' }}
+                              >
+                                <FolderOpen className="w-4 h-4 text-white" />
+                              </div>
+                              <span className="text-sm" style={{ color: 'var(--dome-text)' }}>
+                                {folder.title}
+                              </span>
+                              {moveTargetIds.length === 1 && folder.id === resourceToMove?.folder_id ? (
+                                <span className="ml-auto text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
+                                  (current)
+                                </span>
+                              ) : null}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="modal-footer">
+                    <button
+                      onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
+                      className="btn btn-ghost"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               </div>
+            ) : null}
 
-              <div className="modal-footer">
-                <button
-                  onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
-                  className="btn btn-ghost"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
+            {/* Context Menu */}
+            {contextMenu && (
+              <ContextMenu
+                x={contextMenu.x}
+                y={contextMenu.y}
+                items={(() => {
+                  const r = contextMenu.resource;
+                  const items = [];
 
-        {/* Context Menu */}
-        {contextMenu && (
-          <ContextMenu
-            x={contextMenu.x}
-            y={contextMenu.y}
-            items={(() => {
-              const r = contextMenu.resource;
-              const items = [];
+                  // Open action — all types
+                  items.push({
+                    id: 'open',
+                    label: r.type === 'folder' ? 'Open folder' : 'Open',
+                    icon: <ExternalLink size={14} />,
+                    onClick: () => r.type === 'folder' ? setCurrentFolderId(r.id) : handleResourceSelect(r),
+                  });
 
-              // Open action — all types
-              items.push({
-                id: 'open',
-                label: r.type === 'folder' ? 'Open folder' : 'Open',
-                icon: <ExternalLink size={14} />,
-                onClick: () => r.type === 'folder' ? setCurrentFolderId(r.id) : handleResourceSelect(r),
-              });
+                  // URL-specific: Open in Browser
+                  if (r.type === 'url' && r.metadata?.url) {
+                    items.push({
+                      id: 'open-browser',
+                      label: 'Open in Browser',
+                      icon: <Globe size={14} />,
+                      onClick: () => {
+                        if (window.electron) {
+                          window.electron.invoke('open-external-url', r.metadata?.url);
+                        }
+                      },
+                    });
+                  }
 
-              // URL-specific: Open in Browser
-              if (r.type === 'url' && r.metadata?.url) {
-                items.push({
-                  id: 'open-browser',
-                  label: 'Open in Browser',
-                  icon: <Globe size={14} />,
-                  onClick: () => {
-                    if (window.electron) {
-                      window.electron.invoke('open-external-url', r.metadata?.url);
-                    }
-                  },
-                });
-              }
+                  // Rename — all types
+                  items.push({
+                    id: 'rename',
+                    label: 'Rename',
+                    icon: <Pencil size={14} />,
+                    onClick: () => handleResourceRename(r),
+                  });
 
-              // Rename — all types
-              items.push({
-                id: 'rename',
-                label: 'Rename',
-                icon: <Pencil size={14} />,
-                onClick: () => handleResourceRename(r),
-              });
+                  // Move to folder — non-folder types
+                  if (r.type !== 'folder') {
+                    items.push({
+                      id: 'move',
+                      label: 'Move to folder',
+                      icon: <FolderInput size={14} />,
+                      onClick: () => handleMoveToFolderRequest(r),
+                    });
+                  }
 
-              // Move to folder — non-folder types
-              if (r.type !== 'folder') {
-                items.push({
-                  id: 'move',
-                  label: 'Move to folder',
-                  icon: <FolderInput size={14} />,
-                  onClick: () => handleMoveToFolderRequest(r),
-                });
-              }
+                  // Delete — all types
+                  items.push({
+                    id: 'delete',
+                    label: 'Delete',
+                    icon: <Trash2 size={14} />,
+                    onClick: () => handleDeleteResource(r),
+                    danger: true,
+                  });
 
-              // Delete — all types
-              items.push({
-                id: 'delete',
-                label: 'Delete',
-                icon: <Trash2 size={14} />,
-                onClick: () => handleDeleteResource(r),
-                danger: true,
-              });
-
-              return items;
-            })()}
-            onClose={() => setContextMenu(null)}
-          />
-        )}
+                  return items;
+                })()}
+                onClose={() => setContextMenu(null)}
+              />
+            )}
           </>
         )}
 

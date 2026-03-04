@@ -31,6 +31,8 @@ const pluginsHandlers = require('./plugins.cjs');
 const mcpHandlers = require('./mcp.cjs');
 const pageIndexHandlers = require('./pageindex.cjs');
 const calendarHandlers = require('./calendar.cjs');
+const domeAuthHandlers = require('./dome-auth.cjs');
+const agentTeamHandlers = require('./agent-team.cjs');
 
 /**
  * Register all IPC handlers
@@ -96,6 +98,8 @@ function registerAll(deps) {
   mcpHandlers.register({ ipcMain, windowManager, database, validateSender });
   pageIndexHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender });
   calendarHandlers.register({ ipcMain, windowManager, validateSender });
+  domeAuthHandlers.register({ ipcMain, windowManager, database });
+  agentTeamHandlers.register({ ipcMain, windowManager, database, aiCloudService, ollamaService });
 
   console.log('[IPC] All handlers registered successfully');
 }

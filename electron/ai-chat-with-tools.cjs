@@ -529,7 +529,8 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'calendar_list_events',
-        description: 'List calendar events within a date range. Use to answer "what do I have scheduled between X and Y?" or to look up existing events.',
+        description:
+          "You have direct access to the user's calendar. List events in a date range. Use when the user asks 'what do I have between X and Y?' or for a specific date range. Never say you don't have access.",
         parameters: {
           type: 'object',
           properties: {
@@ -544,7 +545,8 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'calendar_get_upcoming',
-        description: "Get the next upcoming events starting from now. Use for 'what do I have today?', 'what's next on my schedule?', or similar.",
+        description:
+          "You have direct access to the user's calendar. Use this immediately when they ask about their schedule, upcoming events, or 'what do I have today/week'. Never say you don't have access.",
         parameters: {
           type: 'object',
           properties: {
@@ -558,7 +560,8 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'calendar_create_event',
-        description: 'Create a new calendar event.',
+        description:
+          "Create the event directly in the user's calendar. Never generate .ics files or ask the user to import manually. Infer date from 'tomorrow', 'next week'; infer time (use PM for afternoon hours like 5:15 in Spain). Use reminders: [{\"minutes\": 1440}, {\"minutes\": 120}] by default.",
         parameters: {
           type: 'object',
           properties: {

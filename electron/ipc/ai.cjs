@@ -35,6 +35,7 @@ const langgraphAgent = require('../langgraph-agent.cjs');
 
 /** Abort controllers by streamId for ai:langgraph:stream (enables renderer to stop stream) */
 const langGraphAbortControllers = new Map();
+const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
 
 function register({ ipcMain, windowManager, database, aiCloudService, ollamaService }) {
   /**
@@ -48,14 +49,43 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
 
     try {
       // Validate inputs
-      if (!provider || !['openai', 'anthropic', 'google'].includes(provider)) {
-        throw new Error('Invalid provider. Must be openai, anthropic, or google');
+      if (!provider || !['openai', 'anthropic', 'google', 'dome'].includes(provider)) {
+        throw new Error('Invalid provider. Must be openai, anthropic, google, or dome');
       }
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');
       }
       if (messages.length > 100) {
         throw new Error('Too many messages. Maximum 100');
+      }
+
+      if (provider === 'dome') {
+        const queries = database.getQueries();
+        const session = queries.getActiveDomeProviderSession.get(Date.now());
+        if (!session?.access_token) {
+          throw new Error('Dome provider is not connected. Open Settings > AI > Dome and connect your account.');
+        }
+
+        const response = await fetch(`${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            model: model || 'dome/auto',
+            messages,
+          }),
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Dome provider request failed (${response.status}): ${text}`);
+        }
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content;
+        if (!content) throw new Error('Dome provider returned empty response');
+        return { success: true, content };
       }
 
       // Get API key from settings
@@ -95,14 +125,47 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
 
     try {
       // Validate inputs
-      if (!provider || !['openai', 'anthropic', 'google', 'ollama'].includes(provider)) {
-        throw new Error('Invalid provider. Must be openai, anthropic, google, or ollama');
+      if (!provider || !['openai', 'anthropic', 'google', 'dome', 'ollama'].includes(provider)) {
+        throw new Error('Invalid provider. Must be openai, anthropic, google, dome, or ollama');
       }
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');
       }
       if (!streamId) {
         throw new Error('streamId is required for streaming');
+      }
+
+      if (provider === 'dome') {
+        const queries = database.getQueries();
+        const session = queries.getActiveDomeProviderSession.get(Date.now());
+        if (!session?.access_token) {
+          throw new Error('Dome provider is not connected. Open Settings > AI > Dome and connect your account.');
+        }
+
+        const response = await fetch(`${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            model: model || 'dome/auto',
+            messages,
+          }),
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          throw new Error(`Dome provider request failed (${response.status}): ${text}`);
+        }
+
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content || '';
+        if (event.sender && !event.sender.isDestroyed()) {
+          event.sender.send('ai:stream:chunk', { streamId, type: 'text', text: content });
+          event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
+        }
+        return { success: true, content };
       }
 
       // ollama: stream locally without API key
@@ -455,9 +518,28 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         }
       }
 
-      // Cloud providers: openai, anthropic, google
+      // Cloud providers: openai, anthropic, google, dome
       const modelResult = queries.getSetting.get('ai_model');
       const model = modelResult?.value;
+
+      if (provider === 'dome') {
+        const session = queries.getActiveDomeProviderSession.get(Date.now());
+        if (!session?.access_token) {
+          return { success: false, error: 'Dome provider no conectado. Ve a Settings > AI > Dome.' };
+        }
+        try {
+          const quotaResponse = await fetch(`${DOME_PROVIDER_URL}/api/v1/me/quota`, {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (!quotaResponse.ok) {
+            const text = await quotaResponse.text();
+            return { success: false, error: `Dome provider no disponible: ${text}` };
+          }
+          return { success: true, provider: 'dome', model: model || 'dome/auto' };
+        } catch (err) {
+          return { success: false, error: `Error conectando Dome provider: ${err.message}` };
+        }
+      }
 
       const apiKeyResult = queries.getSetting.get('ai_api_key');
       const apiKey = apiKeyResult?.value;

@@ -142,18 +142,20 @@ export default function ChatMessage({
         {(message.content || message.isStreaming) && (
           <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} w-full`}>
             <div
-              className={`relative inline-block px-4 py-2.5 max-w-[85%] ${isUser
-                ? 'rounded-2xl rounded-tr-md'
-                : 'rounded-2xl rounded-tl-md'
+              className={`relative inline-block px-4 py-2.5 max-w-[85%] text-[14px] leading-relaxed ${isUser
+                ? 'bg-[var(--dome-surface)] text-[var(--dome-text)]'
+                : 'bg-transparent text-[var(--dome-text)]'
                 }`}
               style={{
-                backgroundColor: isUser ? 'var(--accent)' : 'var(--bg-secondary)',
-                color: isUser ? 'white' : 'var(--primary-text)',
+                border: isUser ? '1px solid var(--dome-border)' : 'none',
+                borderRadius: isUser ? '8px 8px 0px 8px' : '0px 8px 8px 8px',
+                borderLeft: !isUser ? '2px solid var(--dome-border)' : 'none',
+                paddingLeft: !isUser ? '1rem' : '1rem',
               }}
             >
               {/* Message text */}
               {message.content ? (
-                <div className="text-sm break-words" style={{ overflowWrap: 'anywhere' }}>
+                <div className="break-words" style={{ overflowWrap: 'anywhere' }}>
                   {isUser ? (
                     <span className="whitespace-pre-wrap">{message.content}</span>
                   ) : (

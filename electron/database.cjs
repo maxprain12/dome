@@ -147,6 +147,18 @@ function initDatabase() {
     )
   `);
 
+  // Dome provider OAuth session storage (desktop linking)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS dome_provider_sessions (
+      user_id TEXT PRIMARY KEY,
+      access_token TEXT NOT NULL,
+      refresh_token TEXT,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
   // Resource Interactions table (notes, annotations, chat messages per resource)
   db.exec(`
     CREATE TABLE IF NOT EXISTS resource_interactions (
@@ -1649,6 +1661,22 @@ function getQueries() {
       VALUES (?, ?, ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
     `),
+    upsertDomeProviderSession: db.prepare(`
+      INSERT INTO dome_provider_sessions (user_id, access_token, refresh_token, expires_at, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        access_token = excluded.access_token,
+        refresh_token = excluded.refresh_token,
+        expires_at = excluded.expires_at,
+        updated_at = excluded.updated_at
+    `),
+    getActiveDomeProviderSession: db.prepare(`
+      SELECT * FROM dome_provider_sessions
+      WHERE expires_at > ?
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `),
+    clearDomeProviderSessions: db.prepare('DELETE FROM dome_provider_sessions'),
 
     // Resource Interactions
     createInteraction: db.prepare(`
