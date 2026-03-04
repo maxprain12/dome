@@ -17,8 +17,8 @@ import StudioHomeView from '@/components/studio/StudioHomeView';
 import AgentChatView from '@/components/agents/AgentChatView';
 import AgentManagementView from '@/components/agents/AgentManagementView';
 import MarketplaceView from '@/components/marketplace/MarketplaceView';
-import AgentTeamView from '@/components/agent-team/AgentTeamView';
-import AgentTeamChat from '@/components/agent-team/AgentTeamChat';
+import WorkflowView from '@/components/canvas/WorkflowView';
+import CanvasWorkflow from '@/components/canvas/CanvasWorkflow';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
@@ -517,7 +517,7 @@ export default function Home() {
       const teamId = homeSidebarSection.replace(/^team:/, '');
       return (
         <div className="h-full min-h-0 flex flex-col overflow-hidden">
-          <AgentTeamChat teamId={teamId} />
+          <CanvasWorkflow teamId={teamId} onBack={() => setHomeSidebarSection('agent-teams')} />
         </div>
       );
     }
@@ -545,7 +545,7 @@ export default function Home() {
       case 'agent-teams':
         return (
           <div className="h-full min-h-0 flex flex-col overflow-hidden">
-            <AgentTeamView />
+            <WorkflowView />
           </div>
         );
 

@@ -155,6 +155,65 @@ export const MARKETPLACE_CATALOG: MarketplaceAgent[] = [
   },
 ];
 
+export interface MarketplaceWorkflow {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  author: string;
+  tags: string[];
+  featured: boolean;
+  downloads: number;
+  nodeCount: number;
+}
+
+export const MARKETPLACE_WORKFLOWS: MarketplaceWorkflow[] = [
+  {
+    id: 'wf-market-research-pipeline',
+    name: 'Research Pipeline',
+    description: 'Analiza documentos con un agente investigador y genera un resumen estructurado.',
+    icon: '🔬',
+    author: 'Dome Team',
+    tags: ['research', 'productivity'],
+    featured: true,
+    downloads: 1203,
+    nodeCount: 4,
+  },
+  {
+    id: 'wf-market-content-review',
+    name: 'Content Review Chain',
+    description: 'Dos agentes en cadena: uno genera contenido y otro lo revisa y mejora.',
+    icon: '✍️',
+    author: 'Dome Team',
+    tags: ['writing', 'content'],
+    featured: true,
+    downloads: 987,
+    nodeCount: 4,
+  },
+  {
+    id: 'wf-market-multi-doc',
+    name: 'Multi-Document Analysis',
+    description: 'Combina información de múltiples documentos con un agente analista.',
+    icon: '📊',
+    author: 'Dome Team',
+    tags: ['research', 'data'],
+    featured: true,
+    downloads: 756,
+    nodeCount: 5,
+  },
+  {
+    id: 'wf-market-translate',
+    name: 'Translate & Summarize',
+    description: 'Traduce un texto y luego genera un resumen ejecutivo.',
+    icon: '🌐',
+    author: 'Dome Team',
+    tags: ['language', 'productivity'],
+    featured: false,
+    downloads: 543,
+    nodeCount: 4,
+  },
+];
+
 export const MARKETPLACE_TAGS = [
   'all',
   'research',
@@ -166,6 +225,7 @@ export const MARKETPLACE_TAGS = [
   'content',
   'language',
   'marketing',
+  'workflows',
 ] as const;
 
 export type MarketplaceTag = (typeof MARKETPLACE_TAGS)[number];

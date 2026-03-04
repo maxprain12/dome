@@ -1,0 +1,171 @@
+import type { WorkflowTemplate } from './types';
+
+export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
+  {
+    id: 'wf-research-pipeline',
+    name: 'Research Pipeline',
+    description: 'Analiza documentos con un agente investigador y genera un resumen estructurado.',
+    icon: '🔬',
+    author: 'Dome Team',
+    tags: ['research', 'productivity'],
+    featured: true,
+    nodes: [
+      {
+        id: 'doc-1',
+        type: 'documentInput',
+        position: { x: 50, y: 150 },
+        data: { label: 'Documento fuente', resourceId: '', resourceTitle: 'Seleccionar documento...', resourceType: '' },
+      },
+      {
+        id: 'text-1',
+        type: 'textInput',
+        position: { x: 50, y: 350 },
+        data: { label: 'Instrucciones', text: 'Resume los puntos clave y genera conclusiones.' },
+      },
+      {
+        id: 'agent-1',
+        type: 'agentNode',
+        position: { x: 400, y: 200 },
+        data: { label: 'Investigador IA', agentId: '', agentName: 'Research Agent', agentIcon: 1, status: 'idle', output: '' },
+      },
+      {
+        id: 'output-1',
+        type: 'outputNode',
+        position: { x: 750, y: 200 },
+        data: { label: 'Resumen', content: '', status: 'idle' },
+      },
+    ],
+    edges: [
+      { id: 'e-doc-agent', source: 'doc-1', target: 'agent-1', animated: true },
+      { id: 'e-text-agent', source: 'text-1', target: 'agent-1', animated: true },
+      { id: 'e-agent-out', source: 'agent-1', target: 'output-1', animated: true },
+    ],
+  },
+  {
+    id: 'wf-content-review',
+    name: 'Content Review Chain',
+    description: 'Dos agentes en cadena: uno genera contenido y otro lo revisa y mejora.',
+    icon: '✍️',
+    author: 'Dome Team',
+    tags: ['writing', 'content'],
+    featured: true,
+    nodes: [
+      {
+        id: 'text-1',
+        type: 'textInput',
+        position: { x: 50, y: 200 },
+        data: { label: 'Tema', text: '' },
+      },
+      {
+        id: 'agent-writer',
+        type: 'agentNode',
+        position: { x: 350, y: 120 },
+        data: { label: 'Escritor', agentId: '', agentName: 'Writer Agent', agentIcon: 3, status: 'idle', output: '' },
+      },
+      {
+        id: 'agent-reviewer',
+        type: 'agentNode',
+        position: { x: 650, y: 120 },
+        data: { label: 'Revisor', agentId: '', agentName: 'Reviewer Agent', agentIcon: 5, status: 'idle', output: '' },
+      },
+      {
+        id: 'output-1',
+        type: 'outputNode',
+        position: { x: 950, y: 200 },
+        data: { label: 'Resultado final', content: '', status: 'idle' },
+      },
+    ],
+    edges: [
+      { id: 'e-text-writer', source: 'text-1', target: 'agent-writer', animated: true },
+      { id: 'e-writer-reviewer', source: 'agent-writer', target: 'agent-reviewer', animated: true },
+      { id: 'e-reviewer-out', source: 'agent-reviewer', target: 'output-1', animated: true },
+    ],
+  },
+  {
+    id: 'wf-multi-doc-analysis',
+    name: 'Multi-Document Analysis',
+    description: 'Combina información de múltiples documentos con un agente analista.',
+    icon: '📊',
+    author: 'Dome Team',
+    tags: ['research', 'data'],
+    featured: true,
+    nodes: [
+      {
+        id: 'doc-1',
+        type: 'documentInput',
+        position: { x: 50, y: 80 },
+        data: { label: 'Documento 1', resourceId: '', resourceTitle: 'Seleccionar...', resourceType: '' },
+      },
+      {
+        id: 'doc-2',
+        type: 'documentInput',
+        position: { x: 50, y: 250 },
+        data: { label: 'Documento 2', resourceId: '', resourceTitle: 'Seleccionar...', resourceType: '' },
+      },
+      {
+        id: 'doc-3',
+        type: 'documentInput',
+        position: { x: 50, y: 420 },
+        data: { label: 'Documento 3', resourceId: '', resourceTitle: 'Seleccionar...', resourceType: '' },
+      },
+      {
+        id: 'agent-1',
+        type: 'agentNode',
+        position: { x: 400, y: 200 },
+        data: { label: 'Analista', agentId: '', agentName: 'Analyst Agent', agentIcon: 7, status: 'idle', output: '' },
+      },
+      {
+        id: 'output-1',
+        type: 'outputNode',
+        position: { x: 750, y: 200 },
+        data: { label: 'Análisis', content: '', status: 'idle' },
+      },
+    ],
+    edges: [
+      { id: 'e-d1-agent', source: 'doc-1', target: 'agent-1', animated: true },
+      { id: 'e-d2-agent', source: 'doc-2', target: 'agent-1', animated: true },
+      { id: 'e-d3-agent', source: 'doc-3', target: 'agent-1', animated: true },
+      { id: 'e-agent-out', source: 'agent-1', target: 'output-1', animated: true },
+    ],
+  },
+  {
+    id: 'wf-translate-summarize',
+    name: 'Translate & Summarize',
+    description: 'Traduce un texto y luego genera un resumen ejecutivo.',
+    icon: '🌐',
+    author: 'Dome Team',
+    tags: ['language', 'productivity'],
+    featured: false,
+    nodes: [
+      {
+        id: 'text-1',
+        type: 'textInput',
+        position: { x: 50, y: 200 },
+        data: { label: 'Texto original', text: '' },
+      },
+      {
+        id: 'agent-translator',
+        type: 'agentNode',
+        position: { x: 350, y: 120 },
+        data: { label: 'Traductor', agentId: '', agentName: 'Translator', agentIcon: 9, status: 'idle', output: '' },
+      },
+      {
+        id: 'agent-summarizer',
+        type: 'agentNode',
+        position: { x: 650, y: 120 },
+        data: { label: 'Resumidor', agentId: '', agentName: 'Summarizer', agentIcon: 2, status: 'idle', output: '' },
+      },
+      {
+        id: 'output-1',
+        type: 'outputNode',
+        position: { x: 950, y: 200 },
+        data: { label: 'Resumen traducido', content: '', status: 'idle' },
+      },
+    ],
+    edges: [
+      { id: 'e-text-trans', source: 'text-1', target: 'agent-translator', animated: true },
+      { id: 'e-trans-sum', source: 'agent-translator', target: 'agent-summarizer', animated: true },
+      { id: 'e-sum-out', source: 'agent-summarizer', target: 'output-1', animated: true },
+    ],
+  },
+];

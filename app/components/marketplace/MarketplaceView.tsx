@@ -8,10 +8,11 @@ import {
   getInstalledMarketplaceAgentIds,
   installMarketplaceAgent,
 } from '@/lib/marketplace/api';
-import { MARKETPLACE_TAGS, type MarketplaceTag } from '@/lib/marketplace/catalog';
+import { MARKETPLACE_TAGS, MARKETPLACE_WORKFLOWS, type MarketplaceTag } from '@/lib/marketplace/catalog';
 import { showToast } from '@/lib/store/useToastStore';
 import MarketplaceAgentCard from './MarketplaceAgentCard';
 import MarketplaceAgentDetail from './MarketplaceAgentDetail';
+import { Workflow } from 'lucide-react';
 
 const TAG_LABELS: Record<string, string> = {
   all: 'Todos',
@@ -24,6 +25,7 @@ const TAG_LABELS: Record<string, string> = {
   content: 'Contenido',
   language: 'Idiomas',
   marketing: 'Marketing',
+  workflows: 'Workflows',
 };
 
 export default function MarketplaceView() {
@@ -176,6 +178,64 @@ export default function MarketplaceView() {
                       onInstall={handleInstall}
                       onViewDetail={setSelectedAgent}
                     />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Workflow Templates */}
+            {(activeTag === 'all' || activeTag === 'workflows') && MARKETPLACE_WORKFLOWS.length > 0 && (
+              <section className="mb-8">
+                <h2
+                  className="text-xs font-semibold uppercase tracking-wider mb-4"
+                  style={{ color: 'var(--dome-text-muted)' }}
+                >
+                  🔄 Workflow Templates
+                </h2>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {MARKETPLACE_WORKFLOWS.map((wf) => (
+                    <div
+                      key={wf.id}
+                      className="p-4 rounded-xl border transition-all hover:shadow-md cursor-pointer"
+                      style={{
+                        background: 'var(--dome-surface)',
+                        borderColor: 'var(--dome-border)',
+                      }}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-2xl">{wf.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm truncate" style={{ color: 'var(--dome-text)' }}>
+                            {wf.name}
+                          </h4>
+                          <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                            {wf.author} · {wf.nodeCount} nodos
+                          </span>
+                        </div>
+                        {wf.featured && (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--dome-accent-bg)', color: 'var(--dome-accent)' }}>
+                            Dome
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs leading-relaxed mb-2" style={{ color: 'var(--dome-text-secondary)' }}>
+                        {wf.description}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {wf.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-[10px] px-2 py-0.5 rounded-full"
+                            style={{ background: 'var(--dome-accent-bg)', color: 'var(--dome-accent)' }}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                        <span className="ml-auto text-[10px] flex items-center gap-1" style={{ color: 'var(--dome-text-muted)' }}>
+                          <Workflow size={10} /> {wf.downloads}
+                        </span>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </section>
