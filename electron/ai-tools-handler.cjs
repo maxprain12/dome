@@ -47,6 +47,7 @@ const docxConverter = require('./docx-converter.cjs');
 const webScraper = require('./web-scraper.cjs');
 const excelToolsHandler = require('./excel-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
+const calendarService = require('./calendar-service.cjs');
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -1713,6 +1714,237 @@ async function rememberFact(key, value) {
 }
 
 // =============================================================================
+// Document Structure Tool
+// =============================================================================
+
+/**
+ * Get the hierarchical outline/table of contents of an indexed PDF or note.
+ * @param {Object} params
+ * @param {string} params.resource_id
+ * @returns {Promise<Object>}
+ */
+async function getDocumentStructure({ resource_id } = {}) {
+  try {
+    if (!resource_id) return { success: false, error: 'resource_id is required' };
+
+    const q = database.getQueries();
+    const resource = q.getResourceById?.get(resource_id);
+    const indexed = q.getPageIndex?.get(resource_id);
+
+    if (!indexed?.tree_json) {
+      return {
+        success: false,
+        error: 'Document not indexed yet. Trigger indexing or use resource_get for content.',
+      };
+    }
+
+    const docIndexer = require('./doc-indexer.cjs');
+    const tree = JSON.parse(indexed.tree_json);
+    const outline = docIndexer.formatTreeAsOutline(tree);
+    const sections = docIndexer.flattenTree(tree).length;
+
+    return {
+      success: true,
+      resource_id,
+      title: resource?.title || resource_id,
+      sections,
+      outline,
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// =============================================================================
+// Graph / Resource Linking Tools
+// =============================================================================
+
+/**
+ * Create a semantic link between two resources.
+ * Writes to resource_links and creates a graph_edge between their nodes.
+ * @param {Object} params
+ * @param {string} params.source_id - ID of the source resource
+ * @param {string} params.target_id - ID of the target resource
+ * @param {string} [params.relation]   - Relationship label (default: 'related')
+ * @param {string} [params.description] - Optional note about the relationship
+ */
+async function linkResources({ source_id, target_id, relation = 'related', description = '' } = {}) {
+  try {
+    if (!source_id || !target_id) return { success: false, error: 'source_id and target_id are required' };
+    if (source_id === target_id) return { success: false, error: 'Cannot link a resource to itself' };
+
+    const q = database.getQueries();
+    const source = q.getResourceById?.get(source_id);
+    const target = q.getResourceById?.get(target_id);
+    if (!source) return { success: false, error: `Resource ${source_id} not found` };
+    if (!target) return { success: false, error: `Resource ${target_id} not found` };
+
+    const now = Date.now();
+    const linkId = `link-${source_id.slice(-8)}-${target_id.slice(-8)}-${now}`;
+
+    try {
+      q.createLink?.run(linkId, source_id, target_id, relation, description || null, now);
+    } catch (e) {
+      if (!e.message?.includes('UNIQUE')) throw e;
+      // Already linked — update the graph edge anyway
+    }
+
+    // Mirror in the knowledge graph
+    const edgeId = `edge-${source_id.slice(-8)}-${target_id.slice(-8)}-${now}`;
+    try {
+      q.createGraphEdge?.run(edgeId, `node-${source_id}`, `node-${target_id}`, relation, 1.0, description || null, now, now);
+    } catch { /* non-fatal if graph nodes missing */ }
+
+    return {
+      success: true,
+      source: { id: source_id, title: source.title, type: source.type },
+      target: { id: target_id, title: target.title, type: target.type },
+      relation,
+      message: `"${source.title}" → "${target.title}" (${relation})`,
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Get all resources linked to or from a given resource.
+ * Combines resource_links (both directions) and graph_edges.
+ * @param {Object} params
+ * @param {string} params.resource_id - Resource to query neighbors for
+ */
+async function getRelatedResources({ resource_id } = {}) {
+  try {
+    if (!resource_id) return { success: false, error: 'resource_id is required' };
+
+    const q = database.getQueries();
+    const resource = q.getResourceById?.get(resource_id);
+    if (!resource) return { success: false, error: `Resource ${resource_id} not found` };
+
+    const seen = new Set([resource_id]);
+    const related = [];
+
+    const addResource = (rid, relation, direction) => {
+      if (seen.has(rid)) return;
+      seen.add(rid);
+      const r = q.getResourceById?.get(rid);
+      if (r) related.push({ id: r.id, title: r.title, type: r.type, relation, direction });
+    };
+
+    for (const lnk of q.getLinksBySource?.all(resource_id) || []) addResource(lnk.target_id, lnk.link_type, 'outgoing');
+    for (const lnk of q.getLinksByTarget?.all(resource_id) || []) addResource(lnk.source_id, lnk.link_type, 'incoming');
+
+    // Also pull graph neighbors
+    try {
+      const nodeId = `node-${resource_id}`;
+      for (const n of q.getNodeNeighbors?.all(nodeId, nodeId, nodeId) || []) {
+        if (n.resource_id) addResource(n.resource_id, n.relation, 'graph');
+      }
+    } catch { /* graph neighbors non-critical */ }
+
+    return {
+      success: true,
+      resource_id,
+      resource_title: resource.title,
+      related_count: related.length,
+      related,
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// =============================================================================
+// Calendar Tools
+// =============================================================================
+
+/**
+ * List calendar events within a date range.
+ * @param {Object} params
+ * @param {string} [params.start_at] - ISO 8601 string or ms timestamp. Defaults to now.
+ * @param {string} [params.end_at]   - ISO 8601 string or ms timestamp. Defaults to 7 days from start.
+ * @param {string[]} [params.calendar_ids]
+ */
+async function calendarListEvents({ start_at, end_at, calendar_ids } = {}) {
+  try {
+    const toMs = (v) => (typeof v === 'string' ? new Date(v).getTime() : v);
+    const startMs = start_at ? toMs(start_at) : Date.now();
+    const endMs = end_at ? toMs(end_at) : startMs + 7 * 24 * 60 * 60 * 1000;
+    if (isNaN(startMs) || isNaN(endMs)) {
+      return { success: false, error: 'Invalid date format for start_at or end_at' };
+    }
+    return await calendarService.listEvents(startMs, endMs, { calendarIds: calendar_ids || undefined });
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Get upcoming events starting from now.
+ * @param {Object} params
+ * @param {number} [params.window_minutes] - Default 60
+ * @param {number} [params.limit]          - Default 10
+ */
+async function calendarGetUpcoming({ window_minutes, limit } = {}) {
+  try {
+    return await calendarService.getUpcomingEvents(window_minutes ?? 60, limit ?? 10);
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Create a new calendar event.
+ * @param {Object} data - Event fields: title, description, location, start_at, end_at, all_day, reminders
+ */
+async function calendarCreateEvent(data = {}) {
+  try {
+    const result = await calendarService.createEvent(data);
+    if (result.success && result.event && windowManagerRef) {
+      windowManagerRef.broadcast('calendar:eventCreated', result.event);
+    }
+    return result;
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Update an existing calendar event.
+ * @param {Object} params - event_id (required) + any fields to update
+ */
+async function calendarUpdateEvent({ event_id, ...updates } = {}) {
+  try {
+    if (!event_id) return { success: false, error: 'event_id is required' };
+    const result = await calendarService.updateEvent(event_id, updates);
+    if (result.success && result.event && windowManagerRef) {
+      windowManagerRef.broadcast('calendar:eventUpdated', result.event);
+    }
+    return result;
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Delete a calendar event.
+ * @param {Object} params
+ * @param {string} params.event_id
+ */
+async function calendarDeleteEvent({ event_id } = {}) {
+  try {
+    if (!event_id) return { success: false, error: 'event_id is required' };
+    const result = await calendarService.deleteEvent(event_id);
+    if (result.success && windowManagerRef) {
+      windowManagerRef.broadcast('calendar:eventDeleted', { id: event_id });
+    }
+    return result;
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -1726,6 +1958,7 @@ module.exports = {
   resourceGet,
   resourceList,
   resourceSemanticSearch,
+  getDocumentStructure,
   getLibraryOverview,
 
   // Resource tools (write)
@@ -1777,4 +2010,15 @@ module.exports = {
 
   // Memory tools
   rememberFact,
+
+  // Graph / linking tools
+  linkResources,
+  getRelatedResources,
+
+  // Calendar tools
+  calendarListEvents,
+  calendarGetUpcoming,
+  calendarCreateEvent,
+  calendarUpdateEvent,
+  calendarDeleteEvent,
 };

@@ -5,7 +5,7 @@
  */
 
 import { Type } from '@sinclair/typebox';
-import type { AnyAgentTool } from './types';
+import type { AnyAgentTool, ToolResultContent } from './types';
 import { jsonResult, readStringParam } from './common';
 
 function isElectron(): boolean {
@@ -19,7 +19,17 @@ const PptCreateSchema = Type.Object({
   script: Type.Optional(
     Type.String({
       description:
-        'Python/python-pptx code to generate the presentation. Must use from pptx import Presentation, add slides with add_text/add_bullets, call prs.save(os.environ[\'PPTX_OUTPUT_PATH\']). Populate every slide with real content from source documents. Alternative to spec for themed, rich slides.',
+        'Code to generate the presentation. Two runtimes supported:\n' +
+        '• Python (python-pptx): use `from pptx import Presentation`, build slides, call `prs.save(os.environ["PPTX_OUTPUT_PATH"])`.\n' +
+        '• PptxGenJS (Node.js): use `const PptxGenJS = require("pptxgenjs")`, build slides, call `await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })`. Auto-detected by presence of require("pptxgenjs") or new pptxgen().\n' +
+        'Populate every slide with real content. Use sync=true when you want to QA the result visually right after creation.',
+    })
+  ),
+  sync: Type.Optional(
+    Type.Boolean({
+      description:
+        'If true, wait for the PPT to finish generating before returning (blocks until done). ' +
+        'Use this when you plan to call ppt_get_slide_images immediately after to do visual QA.',
     })
   ),
   project_id: Type.Optional(
@@ -103,7 +113,9 @@ export function createPptCreateTool(): AnyAgentTool {
     label: 'Crear PowerPoint',
     name: 'ppt_create',
     description:
-      'Crea una nueva presentación PowerPoint. Usa script (Python/python-pptx) para slides ricos o spec con title y slides. Cada slide debe tener contenido real de los documentos fuente.',
+      'Crea una nueva presentación PowerPoint. Acepta script Python (python-pptx) o PptxGenJS (Node.js) para slides ricos, o spec con title y slides. ' +
+      'Usa sync=true si quieres hacer QA visual inmediato con ppt_get_slide_images después de crear. ' +
+      'Cada slide debe tener contenido real de los documentos fuente.',
     parameters: PptCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -116,11 +128,13 @@ export function createPptCreateTool(): AnyAgentTool {
         const script = typeof params.script === 'string' ? params.script : undefined;
         const projectId = readStringParam(params, 'project_id');
         const folderId = readStringParam(params, 'folder_id');
+        const sync = typeof params.sync === 'boolean' ? params.sync : false;
         const currentProject = await window.electron!.ai.tools.getCurrentProject();
-        const resolvedProjectId = projectId || currentProject?.id || 'default';
+        const resolvedProjectId = projectId || currentProject?.project?.id || 'default';
         const options: Record<string, unknown> = {};
         if (folderId) options.folder_id = folderId;
         if (script) options.script = script;
+        if (sync) options.sync = true;
         const result = await window.electron!.ai.tools.pptCreate(
           resolvedProjectId,
           title,
@@ -217,11 +231,74 @@ export function createPptGetSlidesTool(): AnyAgentTool {
   };
 }
 
+const PptGetSlideImagesSchema = Type.Object({
+  resource_id: Type.String({
+    description: 'ID del recurso PPT del que obtener imágenes de diapositivas.',
+  }),
+});
+
+export function createPptGetSlideImagesTool(): AnyAgentTool {
+  return {
+    label: 'Ver slides del PPT',
+    name: 'ppt_get_slide_images',
+    description:
+      'Obtiene imágenes PNG de cada diapositiva de un PowerPoint existente. ' +
+      'Úsalo después de ppt_create (con sync=true) para QA visual: analiza si hay texto cortado, ' +
+      'overlapping de elementos, mal contraste, o problemas de espaciado. ' +
+      'Si detectas problemas, crea una versión corregida con ppt_create.',
+    parameters: PptGetSlideImagesSchema,
+    execute: async (_toolCallId, args) => {
+      try {
+        if (!isElectron()) {
+          return jsonResult({ status: 'error', error: 'PPT tools require Electron.' });
+        }
+        const resourceId = readStringParam(args as Record<string, unknown>, 'resource_id', {
+          required: true,
+        });
+        const result = await window.electron!.ai.tools.pptGetSlideImages(resourceId);
+        if (!result.success || !result.slides?.length) {
+          return jsonResult({
+            status: 'error',
+            error: result.error || 'No se pudieron obtener imágenes de las diapositivas',
+          });
+        }
+        const content: ToolResultContent[] = [
+          {
+            type: 'text',
+            text: `Presentación con ${result.slides.length} diapositiva(s). Analiza cada imagen para detectar problemas visuales (texto cortado, overlapping, contraste, espaciado).`,
+          },
+        ];
+        for (const slide of result.slides as Array<{ index: number; image_base64: string }>) {
+          content.push({
+            type: 'text',
+            text: `--- Slide ${slide.index + 1} ---`,
+          });
+          content.push({
+            type: 'image',
+            data: slide.image_base64,
+            mimeType: 'image/png',
+          });
+        }
+        return {
+          content,
+          details: { resource_id: resourceId, slide_count: result.slides.length },
+        };
+      } catch (err) {
+        return jsonResult({
+          status: 'error',
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    },
+  };
+}
+
 export function createPptTools(): AnyAgentTool[] {
   return [
     createPptCreateTool(),
     createPptGetFilePathTool(),
     createPptGetSlidesTool(),
     createPptExportTool(),
+    createPptGetSlideImagesTool(),
   ];
 }

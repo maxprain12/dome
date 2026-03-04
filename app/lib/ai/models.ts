@@ -67,6 +67,7 @@ export type AIProviderType =
   | 'openai' 
   | 'anthropic' 
   | 'google' 
+  | 'dome'
   | 'ollama'
   | 'copilot'
   | 'deepseek'
@@ -303,6 +304,22 @@ export const GOOGLE_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
   },
 ];
 
+export const DOME_MODELS: ModelDefinition[] = [
+  {
+    id: 'dome/auto',
+    name: 'Dome Auto',
+    reasoning: true,
+    input: ['text', 'image'],
+    contextWindow: 200000,
+    maxTokens: 32000,
+    recommended: true,
+    description: 'Selección automática de modelo según tu plan y cuota',
+    api: 'openai-completions',
+    cost: FREE_COST,
+    compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+  },
+];
+
 // =============================================================================
 // Provider Definitions
 // =============================================================================
@@ -349,6 +366,19 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     apiKeyPlaceholder: 'AIza...',
     docsUrl: 'https://aistudio.google.com',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+  },
+  dome: {
+    id: 'dome',
+    name: 'Dome',
+    description: 'Provider administrado por suscripción',
+    icon: 'dome',
+    models: DOME_MODELS,
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    apiKeyPlaceholder: 'Conecta tu cuenta de Dome',
+    docsUrl: 'https://dome.so',
+    baseUrl: 'https://provider.dome.so',
   },
   ollama: {
     id: 'ollama',
@@ -491,6 +521,7 @@ export function getDefaultModelId(providerId: AIProviderType): string {
     case 'openai': return 'gpt-5.2';
     case 'anthropic': return 'claude-sonnet-4-5';
     case 'google': return 'gemini-3-flash-preview';
+    case 'dome': return 'dome/auto';
     case 'ollama': return 'llama3.2';
     case 'copilot': return 'gpt-4o';
     case 'deepseek': return 'deepseek-chat';
@@ -573,6 +604,7 @@ export function getModelApiType(model: ModelDefinition, providerId: AIProviderTy
     case 'anthropic':
       return 'anthropic-messages';
     case 'google':
+    case 'dome':
       return 'google-generative-ai';
     case 'ollama':
       return 'ollama';

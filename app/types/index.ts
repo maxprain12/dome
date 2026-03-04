@@ -19,6 +19,38 @@ export interface ManyAgent {
   updatedAt: number;
 }
 
+// Marketplace Agent — community/team-curated agent with authorship
+export interface MarketplaceAgent {
+  id: string;
+  name: string;
+  description: string;
+  longDescription?: string;
+  systemInstructions: string;
+  toolIds: string[];
+  mcpServerIds: string[];
+  skillIds: string[];
+  iconIndex: number;
+  author: string;
+  authorAvatarUrl?: string;
+  version: string;
+  tags: string[];
+  featured: boolean;
+  downloads: number;
+  createdAt: number;
+}
+
+// Agent Team — supervisor-coordinated team of specialized agents
+export interface AgentTeam {
+  id: string;
+  name: string;
+  description: string;
+  supervisorInstructions: string;
+  memberAgentIds: string[];
+  iconIndex: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 // Tipos de recursos
 export type ResourceType = 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook' | 'excel' | 'ppt';
 
@@ -178,6 +210,7 @@ export type AIProviderType =
   | 'openai'
   | 'anthropic'
   | 'google'
+  | 'dome'
   | 'ollama'
   | 'synthetic'
   | 'venice'

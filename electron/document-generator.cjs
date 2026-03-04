@@ -39,6 +39,11 @@ function getRunPptScriptPath() {
   return path.join(__dirname, '..', 'scripts', 'document-generator', 'run_ppt_script.py');
 }
 
+/** Node.js/PptxGenJS script runner */
+function getRunPptScriptNodePath() {
+  return path.join(__dirname, '..', 'scripts', 'document-generator', 'run_ppt_script_node.cjs');
+}
+
 function getExtractPptScriptPath() {
   return path.join(__dirname, '..', 'scripts', 'document-generator', 'extract_ppt.py');
 }
@@ -75,6 +80,27 @@ function getStandalonePythonUrl() {
     return `${base}/cpython-${ver}+${rel}-x86_64-pc-windows-msvc-install_only.tar.gz`;
   }
   return `${base}/cpython-${ver}+${rel}-x86_64-unknown-linux-gnu-install_only.tar.gz`;
+}
+
+// ---------------------------------------------------------------------------
+// Node.js discovery (for PptxGenJS runner)
+// ---------------------------------------------------------------------------
+
+/**
+ * Find a system Node.js executable for running PptxGenJS scripts.
+ * Checks PPTXGEN_NODE env var first, then tries 'node' in PATH.
+ * @returns {Promise<string|null>}
+ */
+async function findNodeExec() {
+  if (process.env.PPTXGEN_NODE) return process.env.PPTXGEN_NODE;
+  const candidates = process.platform === 'win32' ? ['node', 'node.exe'] : ['node'];
+  for (const cmd of candidates) {
+    try {
+      const result = await runCommand(cmd, ['--version'], 3000);
+      if (result.code === 0) return cmd;
+    } catch { /* try next */ }
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -481,6 +507,97 @@ async function generatePptFromPythonScript(scriptCode) {
   });
 }
 
+/**
+ * Generate PPTX from a PptxGenJS (Node.js) script.
+ *
+ * The script is executed via AsyncFunction in a sandboxed child process.
+ * It must produce a .pptx file at process.env.PPTX_OUTPUT_PATH:
+ *   const pptx = new PptxGenJS(); ... await pptx.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });
+ *
+ * Requires system `node` in PATH (or PPTXGEN_NODE env var pointing to a Node binary).
+ *
+ * @param {string} scriptCode - PptxGenJS script code
+ * @returns {Promise<{ success: boolean; buffer?: Buffer; error?: string }>}
+ */
+async function generatePptFromNodeScript(scriptCode) {
+  const runnerPath = getRunPptScriptNodePath();
+  if (!fs.existsSync(runnerPath)) {
+    return { success: false, error: 'run_ppt_script_node.cjs not found' };
+  }
+
+  const nodeExec = await findNodeExec();
+  if (!nodeExec) {
+    return { success: false, error: 'Node.js not found. Install Node.js or set PPTXGEN_NODE env var.' };
+  }
+
+  const outputPath = path.join(os.tmpdir(), `dome_ppt_${Date.now()}_${Math.random().toString(36).slice(2)}.pptx`);
+  const appRoot = path.join(__dirname, '..');
+
+  const sandboxEnv = {
+    ...process.env,
+    NODE_PATH: path.join(appRoot, 'node_modules'),
+    PPTX_OUTPUT_PATH: outputPath,
+  };
+
+  return new Promise((resolve) => {
+    const proc = spawn(nodeExec, [runnerPath, outputPath], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: sandboxEnv,
+      cwd: appRoot,
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+
+    const finish = (success, errMsg) => {
+      if (settled) return;
+      settled = true;
+      try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch {}
+      if (!success) resolve({ success: false, error: errMsg });
+    };
+
+    proc.stdin.write(scriptCode, 'utf8', (err) => {
+      if (err) { finish(false, err.message); return; }
+      proc.stdin.end();
+    });
+
+    proc.stdout?.on('data', (c) => { stdout += c.toString(); });
+    proc.stderr?.on('data', (c) => { stderr += c.toString(); });
+
+    proc.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      try {
+        let resultData = {};
+        try { resultData = JSON.parse(stdout.trim() || '{}'); } catch {}
+
+        if (code !== 0 || !resultData.success) {
+          try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch {}
+          resolve({ success: false, error: resultData.error || stderr || stdout || `Exit code ${code}` });
+          return;
+        }
+
+        if (!fs.existsSync(outputPath)) {
+          resolve({ success: false, error: 'Script completed but output file was not created' });
+          return;
+        }
+
+        const buffer = fs.readFileSync(outputPath);
+        fs.unlinkSync(outputPath);
+        resolve({ success: true, buffer });
+      } catch (e) {
+        try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch {}
+        resolve({ success: false, error: e.message || 'Failed to read generated file' });
+      }
+    });
+
+    proc.on('error', (err) => {
+      finish(false, err.message || 'Failed to spawn Node.js runner');
+    });
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Extraction
 // ---------------------------------------------------------------------------
@@ -563,6 +680,7 @@ async function checkAvailable() {
 module.exports = {
   generatePpt,
   generatePptFromPythonScript,
+  generatePptFromNodeScript,
   extractPptSlides,
   extractPptImages,
   ensureVenv,

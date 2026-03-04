@@ -149,29 +149,38 @@ export default function AgentManagementView({ onAgentSelect }: AgentManagementVi
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
       {/* Header */}
       <div
-        className="flex items-center justify-between px-4 py-4 border-b shrink-0"
-        style={{ borderColor: 'var(--border)' }}
+        className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between px-6 py-5 gap-4"
+        style={{ borderBottom: '1px solid var(--dome-border)' }}
       >
-        <div>
-          <h2 className="text-xl font-semibold" style={{ color: 'var(--primary-text)' }}>
-            Agentes
-          </h2>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--secondary-text)' }}>
-            {agents.length} agente{agents.length !== 1 ? 's' : ''} configurado{agents.length !== 1 ? 's' : ''}
-          </p>
+        <div className="flex items-center gap-3 shrink-0">
+          <div
+            className="w-9 h-9 flex items-center justify-center rounded-xl"
+            style={{ background: 'var(--dome-accent-bg)' }}
+          >
+            <Bot className="w-5 h-5" style={{ color: 'var(--dome-accent, #6366f1)' }} />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold" style={{ color: 'var(--dome-text)' }}>
+              Agent Hub
+            </h1>
+            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+              {agents.length} agente{agents.length !== 1 ? 's' : ''} configurado{agents.length !== 1 ? 's' : ''}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={handleExport}
             disabled={agents.length === 0}
-            className="btn btn-secondary flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center w-9 h-9 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
+            title="Exportar"
           >
-            <Download className="w-4 h-4" />
-            Exportar
+            <Download className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
           </button>
           <input
             ref={fileInputRef}
@@ -184,15 +193,19 @@ export default function AgentManagementView({ onAgentSelect }: AgentManagementVi
             type="button"
             onClick={handleImportClick}
             disabled={importing}
-            className="btn btn-secondary flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center w-9 h-9 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
+            title="Importar"
           >
-            {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-            Importar
+            {importing ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} /> : <Upload className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />}
           </button>
           <button
             type="button"
             onClick={() => setShowNewAgent(true)}
-            className="btn btn-primary flex items-center gap-2 text-sm"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
+            style={{
+              background: 'var(--dome-accent, #6366f1)',
+              color: 'white',
+            }}
           >
             <Plus className="w-4 h-4" />
             Nuevo agente
@@ -204,94 +217,119 @@ export default function AgentManagementView({ onAgentSelect }: AgentManagementVi
       <div className="flex-1 min-h-0 overflow-y-auto p-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
           </div>
         ) : agents.length === 0 ? (
-          <div className="text-center py-20">
+          <div className="flex flex-col items-center justify-center h-full py-20 gap-5 text-center">
             <div
-              className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center"
-              style={{ background: 'rgba(123, 118, 208, 0.08)' }}
+              className="w-16 h-16 flex items-center justify-center rounded-2xl"
+              style={{ background: 'var(--dome-surface)' }}
             >
-              <Bot className="w-10 h-10" style={{ color: 'var(--accent)' }} />
+              <Bot className="w-8 h-8" style={{ color: 'var(--dome-text-muted)' }} />
             </div>
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--primary-text)' }}>
-              No hay agentes todavía
-            </h3>
-            <p className="text-sm mb-6 max-w-sm mx-auto" style={{ color: 'var(--secondary-text)' }}>
-              Crea agentes especializados con instrucciones, herramientas y MCP personalizados.
-            </p>
+            <div>
+              <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--dome-text)' }}>
+                No hay agentes todavía
+              </h2>
+              <p className="text-sm max-w-sm mx-auto" style={{ color: 'var(--dome-text-muted)' }}>
+                Crea agentes especializados con instrucciones, herramientas y conexiones personalizadas.
+              </p>
+            </div>
             <button
-              type="button"
               onClick={() => setShowNewAgent(true)}
-              className="btn btn-primary inline-flex items-center gap-2"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all mt-2"
+              style={{ background: 'var(--dome-accent, #6366f1)', color: 'white' }}
             >
               <Plus className="w-4 h-4" />
-              Crear primer agente
+              Crear mi primer agente
             </button>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="flex flex-col gap-3">
             {agents.map((agent) => (
               <div
                 key={agent.id}
-                className="group flex items-center gap-4 p-4 rounded-xl transition-all border"
+                className="group flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-xl transition-all cursor-pointer"
+                onClick={() => onAgentSelect?.(agent.id)}
                 style={{
-                  background: 'var(--bg-secondary)',
-                  borderColor: 'var(--border)',
+                  background: 'var(--dome-surface)',
+                  border: '1px solid var(--dome-border)',
                 }}
               >
-                <img
-                  src={`/agents/sprite_${agent.iconIndex}.png`}
-                  alt=""
-                  className="w-12 h-12 shrink-0 object-contain rounded-lg"
-                />
+                {/* Icon */}
+                <div
+                  className="w-12 h-12 shrink-0 rounded-xl overflow-hidden"
+                  style={{ background: 'var(--dome-accent-bg)' }}
+                >
+                  <img
+                    src={`/agents/sprite_${agent.iconIndex}.png`}
+                    alt={agent.name}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
                 <div className="flex-1 min-w-0">
                   <h3
                     className="text-sm font-semibold truncate"
-                    style={{ color: 'var(--primary-text)' }}
+                    style={{ color: 'var(--dome-text)' }}
                   >
                     {agent.name}
                   </h3>
                   {agent.description && (
                     <p
                       className="text-xs truncate mt-0.5"
-                      style={{ color: 'var(--secondary-text)' }}
+                      style={{ color: 'var(--dome-text-muted)' }}
                     >
                       {agent.description}
                     </p>
                   )}
                 </div>
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     type="button"
-                    onClick={() => onAgentSelect?.(agent.id)}
-                    className="text-sm font-medium px-3 py-1.5 rounded-lg"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAgentSelect?.(agent.id);
+                    }}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
                     style={{
-                      background: 'var(--accent-bg)',
-                      color: 'var(--accent)',
+                      background: 'var(--dome-accent-bg)',
+                      color: 'var(--dome-accent)',
                     }}
                   >
                     Chatear
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleEdit(agent)}
-                    className="p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
-                    style={{ color: 'var(--secondary-text)' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEdit(agent);
+                    }}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+                    style={{
+                      color: 'var(--dome-text-muted)',
+                      background: 'var(--dome-bg)',
+                    }}
                     title="Editar"
                     aria-label="Editar agente"
                   >
-                    <Pencil className="w-4 h-4" />
+                    <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(agent)}
-                    className="p-2 rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
-                    style={{ color: 'var(--error, #ef4444)' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(agent);
+                    }}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg transition-all"
+                    style={{
+                      color: 'var(--dome-text-muted)',
+                      background: 'var(--dome-bg)',
+                    }}
                     title="Eliminar"
                     aria-label="Eliminar agente"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>

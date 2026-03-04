@@ -284,6 +284,13 @@ declare global {
         getOAuthProviders: () => Promise<string[]>;
       };
 
+      // Dome Provider OAuth API
+      domeAuth: {
+        startOAuthFlow: () => Promise<{ success: boolean; connected?: boolean; error?: string }>;
+        getSession: () => Promise<{ success: boolean; connected: boolean; userId?: string; error?: string }>;
+        disconnect: () => Promise<{ success: boolean; error?: string }>;
+      };
+
       // Plugins API
       plugins: {
         list: () => Promise<{ success: boolean; data?: any[] }>;
@@ -337,6 +344,8 @@ declare global {
         };
         tags: {
           getByResource: (resourceId: string) => Promise<DBResponse<Array<{ id: string; name: string; color?: string }>>>;
+          getAll: () => Promise<DBResponse<Array<{ id: string; name: string; color?: string | null; resource_count: number }>>>;
+          getResources: (tagId: string) => Promise<DBResponse<Array<{ id: string; title: string; type: string; updated_at: number }>>>;
         };
         links: {
           create: (link: any) => Promise<DBResponse<ResourceLink>>;
@@ -524,7 +533,7 @@ declare global {
       // AI Cloud API (OpenAI, Anthropic, Google)
       ai: {
         chat: (
-          provider: 'openai' | 'anthropic' | 'google',
+          provider: 'openai' | 'anthropic' | 'google' | 'dome',
           messages: Array<{ role: string; content: string }>,
           model?: string
         ) => Promise<{
@@ -533,7 +542,7 @@ declare global {
           error?: string;
         }>;
         stream: (
-          provider: 'openai' | 'anthropic' | 'google' | 'ollama',
+          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'ollama',
           messages: Array<{ role: string; content: string }>,
           model: string | undefined,
           streamId: string,
@@ -577,7 +586,7 @@ declare global {
         }) => Promise<{ success: boolean; interrupted?: boolean; threadId?: string; error?: string }>;
         onStreamChunk: (callback: (data: {
           streamId: string;
-          type: 'text' | 'thinking' | 'tool_call' | 'tool_result' | 'done' | 'error' | 'interrupt';
+          type?: 'text' | 'thinking' | 'tool_call' | 'tool_result' | 'done' | 'error' | 'interrupt';
           text?: string;
           error?: string;
           toolCall?: {
@@ -589,6 +598,10 @@ declare global {
           result?: string;
           actionRequests?: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
           reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
+          // Agent Team fields
+          chunk?: string;
+          done?: boolean;
+          agentName?: string | null;
         }) => void) => RemoveListenerFn;
         embeddings: (
           provider: 'openai' | 'google' | 'anthropic',
@@ -927,6 +940,9 @@ declare global {
             resourceId: string,
             options?: Record<string, unknown>
           ) => Promise<{ success: boolean; data?: string; format?: string; error?: string }>;
+          pptGetSlideImages: (
+            resourceId: string
+          ) => Promise<{ success: boolean; slides?: Array<{ index: number; image_base64: string }>; error?: string }>;
         };
       };
 

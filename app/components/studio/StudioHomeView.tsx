@@ -159,11 +159,10 @@ export default function StudioHomeView() {
                     handleTileClick(tile.type);
                   }
                 }}
-                className={`flex flex-col items-start gap-2 p-4 rounded-xl text-left transition-colors duration-200 relative border focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2 focus-visible:outline-none ${
-                  tile.comingSoon || isGenerating
+                className={`flex flex-col items-start gap-2 p-4 rounded-xl text-left transition-colors duration-200 relative border focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2 focus-visible:outline-none ${tile.comingSoon || isGenerating
                     ? 'bg-[var(--dome-surface)] border-[var(--dome-border)] cursor-default'
                     : 'bg-[var(--dome-surface)] border-[var(--dome-border)] cursor-pointer hover:border-[var(--dome-accent)] hover:bg-[var(--dome-accent-bg)]'
-                }`}
+                  }`}
                 style={{
                   opacity: tile.comingSoon ? 0.6 : isGenerating ? 0.8 : 1,
                 }}

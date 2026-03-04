@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
 
+const documentGenerator = require('../document-generator.cjs');
+
 const TOOL_TRACE = process.env.NODE_ENV === 'development' || process.env.DEBUG_AI_TOOLS === '1';
 
 function toolNameFromChannel(channel) {
@@ -508,6 +510,22 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       if (script || opts.script) opts.script = script || opts.script;
       const displayTitle = title || 'Sin título';
 
+      if (opts.sync) {
+        // Synchronous mode: await result immediately (for QA loop — Many can inspect slides right after)
+        const result = await aiToolsHandler.pptCreate(projectId, title, spec || {}, opts);
+        toolTrace('pptCreate', { title, sync: true }, result);
+        broadcastToolAnalytics(windowManager, 'ai:tools:pptCreate', result?.success !== false);
+        if (result.success && result.resource) {
+          windowManager.broadcast('ppt:created', { resource: result.resource, title: displayTitle });
+        } else {
+          windowManager.broadcast('ppt:creation-failed', {
+            title: displayTitle,
+            error: result.error || 'Error desconocido',
+          });
+        }
+        return result;
+      }
+
       // Fire-and-forget: run in background, return immediately so the agent can move on
       aiToolsHandler.pptCreate(projectId, title, spec || {}, opts).then((result) => {
         toolTrace('pptCreate', { title }, result);
@@ -586,6 +604,150 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     } catch (error) {
       toolTrace('pptExport', { resourceId }, null, error);
       broadcastToolAnalytics(windowManager, 'ai:tools:pptExport', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:pptGetSlideImages', async (event, { resourceId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const pathResult = await aiToolsHandler.pptGetFilePath(resourceId);
+      if (!pathResult.success || !pathResult.file_path) {
+        return { success: false, error: pathResult.error || 'Failed to get file path' };
+      }
+      const result = await documentGenerator.extractPptImages(pathResult.file_path);
+      toolTrace('pptGetSlideImages', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pptGetSlideImages', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('pptGetSlideImages', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pptGetSlideImages', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // ─── Calendar tools ───────────────────────────────────────────────────────
+
+  ipcMain.handle('ai:tools:calendarListEvents', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const result = await aiToolsHandler.calendarListEvents(args || {});
+      toolTrace('calendarListEvents', args, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarListEvents', result?.success !== false);
+      return result;
+    } catch (error) {
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarListEvents', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:calendarGetUpcoming', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const result = await aiToolsHandler.calendarGetUpcoming(args || {});
+      toolTrace('calendarGetUpcoming', args, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarGetUpcoming', result?.success !== false);
+      return result;
+    } catch (error) {
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarGetUpcoming', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:calendarCreateEvent', async (event, data) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const result = await aiToolsHandler.calendarCreateEvent(data || {});
+      toolTrace('calendarCreateEvent', data, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarCreateEvent', result?.success !== false);
+      return result;
+    } catch (error) {
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarCreateEvent', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:calendarUpdateEvent', async (event, data) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const result = await aiToolsHandler.calendarUpdateEvent(data || {});
+      toolTrace('calendarUpdateEvent', data, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarUpdateEvent', result?.success !== false);
+      return result;
+    } catch (error) {
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarUpdateEvent', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:calendarDeleteEvent', async (event, data) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const result = await aiToolsHandler.calendarDeleteEvent(data || {});
+      toolTrace('calendarDeleteEvent', data, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarDeleteEvent', result?.success !== false);
+      return result;
+    } catch (error) {
+      broadcastToolAnalytics(windowManager, 'ai:tools:calendarDeleteEvent', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Get hierarchical outline/table of contents for an indexed document
+   */
+  ipcMain.handle('ai:tools:getDocumentStructure', async (event, { resource_id }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.getDocumentStructure({ resource_id });
+      toolTrace('getDocumentStructure', { resource_id }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getDocumentStructure', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('getDocumentStructure', { resource_id }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getDocumentStructure', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Create a semantic link between two resources
+   */
+  ipcMain.handle('ai:tools:linkResources', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.linkResources(args || {});
+      toolTrace('linkResources', args, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:linkResources', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('linkResources', args, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:linkResources', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Get all resources linked to/from a given resource
+   */
+  ipcMain.handle('ai:tools:getRelatedResources', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.getRelatedResources(args || {});
+      toolTrace('getRelatedResources', args, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getRelatedResources', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('getRelatedResources', args, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:getRelatedResources', false);
       return { success: false, error: error.message };
     }
   });

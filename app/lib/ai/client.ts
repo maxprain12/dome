@@ -309,6 +309,78 @@ export async function chatWithGemini(
   return result.content;
 }
 
+export async function chatWithDome(
+  messages: Array<{ role: string; content: string }>,
+  model: string = 'dome/auto',
+): Promise<string> {
+  if (!isElectron()) {
+    throw new Error('AI chat requires Electron environment');
+  }
+
+  const result = await window.electron.ai.chat('dome', messages, model);
+  if (!result.success || !result.content) {
+    throw new Error(result.error || 'Dome provider chat failed');
+  }
+  return result.content;
+}
+
+export async function* streamDome(
+  messages: Array<{ role: string; content: string }>,
+  model: string = 'dome/auto',
+  tools?: ToolDefinition[],
+): AsyncIterable<ChatStreamChunk> {
+  if (!isElectron()) {
+    throw new Error('AI streaming requires Electron environment');
+  }
+
+  const streamId = generateStreamId();
+  const chunks: ChatStreamChunk[] = [];
+  let done = false;
+  let error: Error | null = null;
+  let resolveWait: (() => void) | null = null;
+
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
+    if (data.streamId !== streamId) return;
+
+    if (data.type === 'text' && data.text) {
+      chunks.push({ type: 'text', text: data.text });
+    } else if (data.type === 'tool_call' && data.toolCall) {
+      chunks.push({
+        type: 'tool_call',
+        toolCall: {
+          id: data.toolCall.id,
+          name: data.toolCall.name,
+          arguments: data.toolCall.arguments,
+        },
+      });
+    } else if (data.type === 'done') {
+      chunks.push({ type: 'done' });
+      done = true;
+    } else if (data.type === 'error') {
+      error = new Error(data.error || 'Stream error');
+      done = true;
+    }
+
+    if (resolveWait) resolveWait();
+  });
+
+  window.electron.ai.stream('dome', messages, model, streamId, tools);
+
+  try {
+    while (!done || chunks.length > 0) {
+      if (chunks.length > 0) {
+        yield chunks.shift()!;
+      } else if (!done) {
+        await new Promise<void>((resolve) => { resolveWait = resolve; });
+        resolveWait = null;
+      }
+    }
+    if (error) throw error;
+  } finally {
+    unsubscribe();
+  }
+}
+
 export async function* streamGemini(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
@@ -601,6 +673,9 @@ export async function chat(
         config.model || getDefaultModelId('google'),
       );
 
+    case 'dome':
+      return chatWithDome(messages, config.model || getDefaultModelId('dome'));
+
     case 'ollama':
       throw new Error('Ollama chat must be handled from the main process via IPC');
 
@@ -650,6 +725,14 @@ export async function* chatStream(
         config.model || getDefaultModelId('google'),
         tools,
         signal,
+      );
+      break;
+
+    case 'dome':
+      yield* streamDome(
+        messages,
+        config.model || getDefaultModelId('dome'),
+        tools,
       );
       break;
 
@@ -706,6 +789,14 @@ export async function* chatWithToolsStream(
   if (!config) throw new Error('AI not configured.');
 
   const provider = config.provider as string;
+  if (provider === 'dome') {
+    // Architecture-first fallback: Dome proxy streaming without LangGraph runtime.
+    // Tool orchestration remains in phase 2.
+    const toolDefinitions = toOpenAIToolDefinitions(tools);
+    yield* streamDome(messages, config.model || getDefaultModelId('dome'), toolDefinitions);
+    return;
+  }
+
   const model = provider === 'ollama'
     ? (config.ollamaModel || getDefaultModelId('ollama' as AIProviderType))
     : (config.model || getDefaultModelId(provider as AIProviderType));

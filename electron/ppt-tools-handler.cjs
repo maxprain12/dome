@@ -55,7 +55,10 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
   try {
     let result;
     if (options.script && typeof options.script === 'string') {
-      result = await documentGenerator.generatePptFromPythonScript(options.script);
+      const isJsScript = /require\(['"]pptxgenjs['"]\)|new pptxgen\(|pptxGenJs/i.test(options.script);
+      result = isJsScript
+        ? await documentGenerator.generatePptFromNodeScript(options.script)
+        : await documentGenerator.generatePptFromPythonScript(options.script);
     } else {
       result = await documentGenerator.generatePpt(spec);
     }

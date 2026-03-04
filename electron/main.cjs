@@ -21,12 +21,44 @@ if (app.isPackaged) {
   }
 }
 
-// Fix PATH on macOS/Linux when launched from Finder (GUI apps don't inherit shell PATH)
+// Fix PATH on macOS/Linux when launched from Finder (GUI apps don't inherit shell PATH).
+// fix-path v4+ is ESM-only, so we replicate its logic inline using execSync.
 if (process.platform !== 'win32') {
   try {
-    require('fix-path')();
+    const { execSync } = require('child_process');
+    const shell = process.env.SHELL || '/bin/zsh';
+    const shellPath = execSync(`${shell} -l -c 'echo $PATH'`, {
+      timeout: 3000,
+      encoding: 'utf8',
+    }).trim();
+    if (shellPath) process.env.PATH = shellPath;
   } catch (e) {
     console.warn('[Main] fix-path failed:', e?.message);
+  }
+  // Supplement with common binary dirs that fix-path may miss (e.g. Apple Silicon Homebrew,
+  // NVM, Volta, Pyenv) so that MCP stdio processes can find node/npx/uvx/python/etc.
+  try {
+    const os = require('os');
+    const home = os.homedir();
+    const extraPaths = [
+      '/opt/homebrew/bin',   // Homebrew on Apple Silicon
+      '/opt/homebrew/sbin',
+      '/usr/local/bin',      // Homebrew on Intel / system tools
+      '/usr/local/sbin',
+      `${home}/.nvm/current/bin`,       // NVM symlink
+      `${home}/.volta/bin`,             // Volta
+      `${home}/.pyenv/shims`,           // Pyenv
+      `${home}/.pyenv/bin`,
+      `${home}/.local/bin`,             // pip install --user
+      `${home}/.cargo/bin`,             // Rust/Cargo
+    ];
+    const currentParts = (process.env.PATH || '').split(':');
+    for (const p of extraPaths) {
+      if (!currentParts.includes(p)) currentParts.push(p);
+    }
+    process.env.PATH = currentParts.join(':');
+  } catch (e) {
+    console.warn('[Main] PATH augmentation failed:', e?.message);
   }
 }
 
@@ -543,6 +575,13 @@ app
       } catch (error) {
         console.error('[App] Auto-cleanup failed:', error);
       }
+
+      // DB-level orphan cleanup
+      try {
+        database.getDB().prepare(
+          `DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM resource_tags)`
+        ).run();
+      } catch (e) { /* non-fatal */ }
     }, 30000); // 30 seconds delay to let app stabilize
   })
   .catch(console.error);

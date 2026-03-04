@@ -10,7 +10,7 @@ import {
   type AIProviderType,
   type ModelDefinition,
 } from '@/lib/ai/models';
-import { AI_PROVIDER_OPTIONS } from '@/lib/ai/provider-options';
+import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import ModelSelector from './ModelSelector';
 
 interface OllamaModel {
@@ -32,6 +32,8 @@ export default function AISettingsPanel() {
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [domeConnected, setDomeConnected] = useState(false);
+  const [domeConnecting, setDomeConnecting] = useState(false);
 
   // Ollama-specific state
   const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null);
@@ -50,7 +52,10 @@ export default function AISettingsPanel() {
       const config = await getAIConfig();
       if (config) {
         // Handle legacy 'local' provider by converting to 'ollama'
-        const loadedProvider = (config.provider as string) === 'local' ? 'ollama' : config.provider;
+        const loadedProviderBase = (config.provider as string) === 'local' ? 'ollama' : config.provider;
+        const loadedProvider = loadedProviderBase === 'dome' && !DOME_PROVIDER_ENABLED
+          ? 'openai'
+          : loadedProviderBase;
         setProvider(loadedProvider as AIProviderType);
         setApiKey(config.api_key || '');
         
@@ -71,6 +76,19 @@ export default function AISettingsPanel() {
       }
     };
     loadConfig();
+  }, []);
+
+  useEffect(() => {
+    const loadDomeSession = async () => {
+      if (!window.electron?.domeAuth) return;
+      try {
+        const session = await window.electron.domeAuth.getSession();
+        setDomeConnected(session.success && session.connected === true);
+      } catch {
+        setDomeConnected(false);
+      }
+    };
+    void loadDomeSession();
   }, []);
 
   // Check Ollama availability when provider changes or URL changes
@@ -149,6 +167,10 @@ export default function AISettingsPanel() {
         config.model = model;
         break;
 
+      case 'dome':
+        config.model = 'dome/auto';
+        break;
+
       case 'ollama':
         config.ollama_base_url = ollamaBaseURL;
         config.ollama_model = ollamaModel;
@@ -193,6 +215,43 @@ export default function AISettingsPanel() {
       setTestResult({ success: false, message: error instanceof Error ? error.message : 'Unknown error' });
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleConnectDome = async () => {
+    if (!window.electron?.domeAuth) {
+      setTestResult({ success: false, message: 'Dome OAuth no disponible en esta versión.' });
+      return;
+    }
+    setDomeConnecting(true);
+    setTestResult(null);
+    try {
+      const result = await window.electron.domeAuth.startOAuthFlow();
+      if (result.success) {
+        setDomeConnected(true);
+        setModel('dome/auto');
+        await saveAIConfig({ provider: 'dome', model: 'dome/auto' });
+        setTestResult({ success: true, message: 'Cuenta de Dome conectada correctamente.' });
+      } else {
+        setDomeConnected(false);
+        setTestResult({ success: false, message: result.error || 'No se pudo conectar con Dome.' });
+      }
+    } catch (error) {
+      setDomeConnected(false);
+      setTestResult({ success: false, message: error instanceof Error ? error.message : 'Error desconocido' });
+    } finally {
+      setDomeConnecting(false);
+    }
+  };
+
+  const handleDisconnectDome = async () => {
+    if (!window.electron?.domeAuth) return;
+    try {
+      await window.electron.domeAuth.disconnect();
+      setDomeConnected(false);
+      setTestResult({ success: true, message: 'Cuenta de Dome desconectada.' });
+    } catch (error) {
+      setTestResult({ success: false, message: error instanceof Error ? error.message : 'No se pudo desconectar.' });
     }
   };
 
@@ -251,9 +310,12 @@ export default function AISettingsPanel() {
               <button
                 key={option.value}
                 type="button"
-                onClick={() => handleProviderChange(option.value)}
+                onClick={() => !option.disabled && handleProviderChange(option.value)}
+                disabled={option.disabled}
                 className={`px-4 py-3 rounded-lg text-left transition-all relative cursor-pointer ${
                   isSelected ? 'bg-blue-500/10' : 'hover:bg-black/5 dark:hover:bg-white/5'
+                } ${
+                  option.disabled ? 'opacity-60 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent' : ''
                 }`}
                 style={{
                   color: isSelected ? 'var(--accent)' : 'var(--primary-text)',
@@ -517,6 +579,43 @@ export default function AISettingsPanel() {
               Modelos compatibles: <code className="font-mono">llava</code>, <code className="font-mono">moondream2</code>, <code className="font-mono">minicpm-v</code>, <code className="font-mono">glm4v</code>, etc.
             </div>
 
+          </div>
+        )}
+
+        {provider === 'dome' && (
+          <div className="space-y-4">
+            <div className="rounded-lg p-4 border" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
+              <p className="text-sm mb-2" style={{ color: 'var(--primary-text)' }}>
+                Conecta tu cuenta de Dome para activar el provider administrado y el modelo automático <code className="font-mono">dome/auto</code>.
+              </p>
+              <p className="text-xs opacity-70" style={{ color: 'var(--secondary-text)' }}>
+                El plan y la cuota de tokens se gestionan en la web de Dome Provider.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleConnectDome}
+                disabled={domeConnecting}
+                className="px-5 py-2.5 rounded-full text-sm font-medium text-white disabled:opacity-50"
+                style={{ backgroundColor: 'var(--accent)' }}
+              >
+                {domeConnecting ? 'Conectando...' : domeConnected ? 'Reconectar' : 'Conectar con Dome'}
+              </button>
+              {domeConnected && (
+                <button
+                  type="button"
+                  onClick={handleDisconnectDome}
+                  className="px-5 py-2.5 rounded-full text-sm font-medium"
+                  style={{ border: '1px solid var(--border)', color: 'var(--primary-text)' }}
+                >
+                  Desconectar
+                </button>
+              )}
+            </div>
+            <div className="text-xs" style={{ color: domeConnected ? 'var(--success, #22c55e)' : 'var(--secondary-text)' }}>
+              Estado: {domeConnected ? 'Conectado' : 'No conectado'}
+            </div>
           </div>
         )}
 

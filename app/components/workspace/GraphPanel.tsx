@@ -1,13 +1,23 @@
 import { useState, useEffect, useMemo, useCallback, useRef, useTransition } from 'react';
-import { X, Loader2, AlertCircle, RefreshCw, GitBranch } from 'lucide-react';
+import { X, Loader2, AlertCircle, RefreshCw, GitBranch, Link2, ExternalLink } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import GraphViewer from '@/components/graph/GraphViewer';
 import GraphToolbar from '@/components/graph/GraphToolbar';
 import { generateGraph } from '@/lib/graph';
 import type { Resource, GraphViewState, GraphLayoutType, GraphFilterOptions } from '@/types';
+import type { Node } from 'reactflow';
 
 interface GraphPanelProps {
   resource: Resource;
+}
+
+interface SelectedNodeInfo {
+  id: string;
+  label: string;
+  type: string;
+  resourceType?: string;
+  resourceId?: string;
+  isFocus?: boolean;
 }
 
 export default function GraphPanel({ resource }: GraphPanelProps) {
@@ -23,11 +33,11 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
   const [layout, setLayout] = useState<GraphLayoutType>('force');
   const [filters, setFilters] = useState<GraphFilterOptions>({});
   const [depth, setDepth] = useState(3);
+  const [selectedNode, setSelectedNode] = useState<SelectedNodeInfo | null>(null);
+  const [linkingStatus, setLinkingStatus] = useState<'idle' | 'linking' | 'done' | 'error'>('idle');
 
-  // Track whether we've generated for the current panel open session
   const hasGeneratedRef = useRef(false);
 
-  // Generate graph function
   const generateKnowledgeGraph = useCallback(async () => {
     const projectId = currentProject?.id || resource?.project_id;
     if (!projectId || !resource?.id) {
@@ -39,8 +49,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
       setIsGenerating(true);
       setLoading(true);
       setError(null);
-
-      console.log('Generating graph for resource:', resource.id);
+      setSelectedNode(null);
 
       const graphData = await generateGraph({
         projectId,
@@ -63,142 +72,6 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
     }
   }, [currentProject?.id, resource?.id, resource?.project_id, depth, filters.minWeight]);
 
-  // Demo graph for fallback
-  const createDemoGraph = (): GraphViewState => ({
-    nodes: [
-      {
-        id: resource.id,
-        data: {
-          id: resource.id,
-          label: resource.title,
-          type: 'resource',
-          resourceId: resource.id,
-          resourceType: resource.type,
-        },
-        position: { x: 0, y: 0 },
-        type: 'custom',
-      },
-      {
-        id: 'concept-1',
-        data: {
-          id: 'concept-1',
-          label: 'Machine Learning',
-          type: 'concept',
-        },
-        position: { x: 200, y: -100 },
-        type: 'custom',
-      },
-      {
-        id: 'concept-2',
-        data: {
-          id: 'concept-2',
-          label: 'Neural Networks',
-          type: 'concept',
-        },
-        position: { x: 200, y: 100 },
-        type: 'custom',
-      },
-      {
-        id: 'person-1',
-        data: {
-          id: 'person-1',
-          label: 'Alan Turing',
-          type: 'person',
-        },
-        position: { x: -200, y: -100 },
-        type: 'custom',
-      },
-      {
-        id: 'location-1',
-        data: {
-          id: 'location-1',
-          label: 'Stanford University',
-          type: 'location',
-        },
-        position: { x: -200, y: 100 },
-        type: 'custom',
-      },
-    ],
-    edges: [
-      {
-        id: 'e1',
-        source: resource.id,
-        target: 'concept-1',
-        label: 'mentions',
-        data: {
-          id: 'e1',
-          source: resource.id,
-          target: 'concept-1',
-          label: 'mentions',
-          relation: 'mentions',
-          weight: 0.8,
-        },
-      },
-      {
-        id: 'e2',
-        source: resource.id,
-        target: 'concept-2',
-        label: 'discusses',
-        data: {
-          id: 'e2',
-          source: resource.id,
-          target: 'concept-2',
-          label: 'discusses',
-          relation: 'discusses',
-          weight: 0.6,
-        },
-      },
-      {
-        id: 'e3',
-        source: resource.id,
-        target: 'person-1',
-        label: 'references',
-        data: {
-          id: 'e3',
-          source: resource.id,
-          target: 'person-1',
-          label: 'references',
-          relation: 'references',
-          weight: 0.9,
-        },
-      },
-      {
-        id: 'e4',
-        source: resource.id,
-        target: 'location-1',
-        label: 'mentions',
-        data: {
-          id: 'e4',
-          source: resource.id,
-          target: 'location-1',
-          label: 'mentions',
-          relation: 'mentions',
-          weight: 0.5,
-        },
-      },
-      {
-        id: 'e5',
-        source: 'concept-1',
-        target: 'concept-2',
-        label: 'related',
-        data: {
-          id: 'e5',
-          source: 'concept-1',
-          target: 'concept-2',
-          label: 'related',
-          relation: 'related',
-          weight: 0.7,
-        },
-      },
-    ],
-    focusNodeId: resource.id,
-    depth: 3,
-    strategies: ['demo'],
-    layout: 'force',
-    filters: {},
-  });
-
-  // Auto-generate graph when panel opens
   useEffect(() => {
     if (graphPanelOpen && !graphState && !isGenerating && !hasGeneratedRef.current) {
       hasGeneratedRef.current = true;
@@ -209,23 +82,19 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
     }
   }, [graphPanelOpen, graphState, isGenerating, generateKnowledgeGraph]);
 
-  // Regenerate when depth changes
   useEffect(() => {
     if (graphState && graphPanelOpen) {
       generateKnowledgeGraph();
     }
-    // Only trigger on depth changes, not on graphState/graphPanelOpen changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depth]);
 
-  // Filter graph state based on filters
   const filteredGraphState = useMemo(() => {
     if (!graphState) return null;
 
     let filteredNodes = graphState.nodes;
     let filteredEdges = graphState.edges;
 
-    // Filter by search query
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase();
       const matchingNodeIds = new Set(
@@ -239,7 +108,6 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
       );
     }
 
-    // Filter by node types
     if (filters.nodeTypes && filters.nodeTypes.length > 0) {
       filteredNodes = filteredNodes.filter(n =>
         filters.nodeTypes!.includes(n.data.type)
@@ -250,14 +118,12 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
       );
     }
 
-    // Filter by relation types
     if (filters.relationTypes && filters.relationTypes.length > 0) {
       filteredEdges = filteredEdges.filter(e =>
         filters.relationTypes!.includes(e.data?.relation || e.label || '')
       );
     }
 
-    // Filter by minimum weight
     if (filters.minWeight !== undefined && filters.minWeight > 0) {
       filteredEdges = filteredEdges.filter(
         e => (e.data?.weight || 0.5) >= filters.minWeight!
@@ -273,13 +139,25 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
     };
   }, [graphState, filters, layout]);
 
-  // Handle node click
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
 
-  const handleNodeClick = async (nodeId: string, node?: { data?: { resourceId?: string; metadata?: { isStudioOutput?: boolean } } }) => {
+  const handleNodeClick = async (nodeId: string, node?: Node) => {
     const data = node?.data;
 
-    // Studio output node (study material) - nodeId is "studio-{outputId}"
+    // Show selected node info
+    if (data) {
+      const isFocus = data.metadata?.isFocus;
+      setSelectedNode({
+        id: nodeId,
+        label: data.label ?? nodeId,
+        type: data.type ?? 'resource',
+        resourceType: data.resourceType,
+        resourceId: data.resourceId ?? nodeId,
+        isFocus,
+      });
+    }
+
+    // Studio output node
     if (data?.metadata?.isStudioOutput) {
       const outputId = nodeId.startsWith('studio-') ? nodeId.slice(7) : (data.resourceId ?? nodeId);
       try {
@@ -294,33 +172,45 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
       return;
     }
 
-    // Resource node
-    const resourceId = data?.resourceId ?? nodeId;
-    const resourceType = (data as any)?.resourceType ?? 'note';
-    if (typeof window !== 'undefined' && window.electron?.workspace) {
-      try {
-        await window.electron.workspace.open(resourceId, resourceType);
-      } catch (err) {
-        console.error('Failed to open resource:', err);
-      }
+    // Resource node — open on double-click logic is handled by graph, single click shows info
+  };
+
+  const handleOpenSelectedResource = async () => {
+    if (!selectedNode?.resourceId) return;
+    const resourceType = (selectedNode as any)?.resourceType ?? 'note';
+    try {
+      await window.electron.workspace.open(selectedNode.resourceId, resourceType);
+    } catch (err) {
+      console.error('Failed to open resource:', err);
     }
   };
 
-  // Handle node hover
-  const handleNodeHover = (nodeId: string | null) => {
-    // TODO: Show tooltip with resource preview
-    if (nodeId) {
-      console.log('Hovering node:', nodeId);
+  const handleLinkSelectedToCurrentResource = async () => {
+    if (!selectedNode?.resourceId || selectedNode.isFocus) return;
+    setLinkingStatus('linking');
+    try {
+      const linkId = `link-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      await window.electron.db.links.create({
+        id: linkId,
+        source_id: resource.id,
+        target_id: selectedNode.resourceId,
+        link_type: 'related',
+        weight: 0.8,
+        created_at: Date.now(),
+      });
+      setLinkingStatus('done');
+      setTimeout(() => setLinkingStatus('idle'), 2000);
+    } catch (err) {
+      console.error('Failed to create link:', err);
+      setLinkingStatus('error');
+      setTimeout(() => setLinkingStatus('idle'), 2000);
     }
   };
 
-  // Handle export PNG
-  const handleExportPNG = () => {
-    console.log('Export PNG - TODO: Implement with React Flow getViewport');
-    // TODO: Use React Flow's getViewport and toBlob
+  const handleNodeHover = (_nodeId: string | null) => {
+    // Tooltip is handled inside GraphViewer
   };
 
-  // Handle export JSON
   const handleExportJSON = () => {
     if (!graphState) return;
     const data = JSON.stringify(graphState, null, 2);
@@ -333,6 +223,33 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportPNG = () => {
+    // Capture the react-flow SVG as a PNG using browser Canvas API
+    const rfEl = document.querySelector('.react-flow__viewport') as SVGElement | null;
+    if (!rfEl) { handleExportJSON(); return; }
+    const svgData = new XMLSerializer().serializeToString(rfEl);
+    const canvas = document.createElement('canvas');
+    canvas.width = rfEl.clientWidth || 1200;
+    canvas.height = rfEl.clientHeight || 800;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { handleExportJSON(); return; }
+    const img = new Image();
+    const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `knowledge-graph-${resource.id}.png`;
+      a.click();
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); handleExportJSON(); };
+    img.src = url;
   };
 
   if (!graphPanelOpen) return null;
@@ -349,21 +266,21 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between px-6 py-4 border-b border-[var(--border)] shrink-0"
-        style={{ background: 'var(--bg-secondary)' }}
+        className="flex items-center justify-between px-4 py-3 border-b shrink-0"
+        style={{ background: 'var(--bg-secondary)', borderColor: 'var(--border)' }}
       >
-        <div className="flex items-center gap-2.5 flex-1">
-          <GitBranch size={18} style={{ color: 'var(--secondary-text)' }} />
-          <div>
-            <h2 className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
-              Graph
-              <span className="text-xs font-normal ml-2" style={{ color: 'var(--tertiary-text)' }}>
-                {graphState?.nodes.length || 0} · {graphState?.edges.length || 0}
-              </span>
-            </h2>
-          </div>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <GitBranch size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+          <span className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
+            Knowledge Graph
+          </span>
+          {graphState && (
+            <span className="text-xs ml-1 shrink-0" style={{ color: 'var(--tertiary-text)' }}>
+              {graphState.nodes.length} nodes · {graphState.edges.length} edges
+            </span>
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={generateKnowledgeGraph}
             disabled={isGenerating}
@@ -371,16 +288,15 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
             style={{ color: 'var(--secondary-text)' }}
             title="Regenerate graph"
           >
-            <RefreshCw size={16} className={isGenerating ? 'animate-spin' : ''} />
+            <RefreshCw size={15} className={isGenerating ? 'animate-spin' : ''} />
           </button>
           <button
             onClick={toggleGraphPanel}
-            className="p-2 min-h-[44px] min-w-[44px] rounded-lg transition-colors hover:bg-[var(--bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 flex items-center justify-center"
+            className="p-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{ color: 'var(--secondary-text)' }}
-            title="Close graph panel"
             aria-label="Close graph panel"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
       </div>
@@ -401,7 +317,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
         {error && !loading && (
           <div className="flex-1 flex items-center justify-center">
             <div className="flex flex-col items-center gap-4 max-w-sm text-center px-6">
-              <AlertCircle size={48} style={{ color: 'var(--error)' }} />
+              <AlertCircle size={40} style={{ color: 'var(--error)' }} />
               <div>
                 <p className="text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
                   {error}
@@ -409,10 +325,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
                 <button
                   onClick={generateKnowledgeGraph}
                   className="text-sm px-4 py-2 rounded-lg transition-colors"
-                  style={{
-                    background: 'var(--accent)',
-                    color: 'white',
-                  }}
+                  style={{ background: 'var(--accent)', color: 'white' }}
                 >
                   Try Again
                 </button>
@@ -435,6 +348,8 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
               onExportPNG={handleExportPNG}
               onExportJSON={handleExportJSON}
             />
+
+            {/* Graph canvas */}
             <div className="flex-1 overflow-hidden">
               <GraphViewer
                 graphState={filteredGraphState}
@@ -442,6 +357,61 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
                 onNodeHover={handleNodeHover}
               />
             </div>
+
+            {/* Selected node info bar */}
+            {selectedNode && !selectedNode.isFocus && (
+              <div
+                className="border-t px-4 py-3 flex items-center gap-3 shrink-0"
+                style={{
+                  borderColor: 'var(--border)',
+                  background: 'var(--bg-secondary)',
+                }}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
+                    {selectedNode.label}
+                  </p>
+                  <p className="text-xs capitalize mt-0.5" style={{ color: 'var(--tertiary-text)' }}>
+                    {selectedNode.resourceType ?? selectedNode.type}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={handleLinkSelectedToCurrentResource}
+                    disabled={linkingStatus === 'linking'}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg transition-colors font-medium focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                    style={{
+                      background: linkingStatus === 'done'
+                        ? 'var(--success, #10b981)'
+                        : linkingStatus === 'error'
+                        ? 'var(--error, #ef4444)'
+                        : 'var(--accent)',
+                      color: 'white',
+                      opacity: linkingStatus === 'linking' ? 0.7 : 1,
+                    }}
+                    title="Link this resource to the current document"
+                  >
+                    <Link2 size={12} />
+                    {linkingStatus === 'done' ? 'Linked!' : linkingStatus === 'error' ? 'Error' : 'Link'}
+                  </button>
+                  <button
+                    onClick={handleOpenSelectedResource}
+                    className="p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                    style={{ color: 'var(--secondary-text)' }}
+                    title="Open this resource"
+                  >
+                    <ExternalLink size={14} />
+                  </button>
+                  <button
+                    onClick={() => setSelectedNode(null)}
+                    className="p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)]"
+                    style={{ color: 'var(--tertiary-text)' }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -459,10 +429,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
                 <button
                   onClick={generateKnowledgeGraph}
                   className="text-sm px-4 py-2 rounded-lg transition-colors"
-                  style={{
-                    background: 'var(--accent)',
-                    color: 'white',
-                  }}
+                  style={{ background: 'var(--accent)', color: 'white' }}
                 >
                   Generate Graph
                 </button>

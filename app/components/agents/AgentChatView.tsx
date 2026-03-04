@@ -162,11 +162,11 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
           const parsed = JSON.parse(skillsResult.data || '[]');
           const skills = Array.isArray(parsed)
             ? parsed.filter(
-                (s: { id?: string; enabled?: boolean }) =>
-                  typeof s.id === 'string' &&
-                  agent.skillIds!.includes(s.id) &&
-                  s.enabled !== false
-              )
+              (s: { id?: string; enabled?: boolean }) =>
+                typeof s.id === 'string' &&
+                agent.skillIds!.includes(s.id) &&
+                s.enabled !== false
+            )
             : [];
           if (skills.length > 0) {
             prompt += '\n\n## Skills\n';
@@ -306,10 +306,10 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
             setStreamingMessage((prev) =>
               prev
                 ? {
-                    ...prev,
-                    toolCalls: [...toolCallsData],
-                    streamingLabel: friendlyLabel,
-                  }
+                  ...prev,
+                  toolCalls: [...toolCallsData],
+                  streamingLabel: friendlyLabel,
+                }
                 : null
             );
           } else if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
@@ -429,33 +429,39 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
   const agentAvatarSrc = agent ? `/agents/sprite_${agent.iconIndex}.png` : undefined;
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
       {/* Fixed Header */}
       <header
-        className="flex items-center justify-between px-4 py-3 border-b shrink-0"
-        style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg)' }}
+        className="shrink-0 flex items-center justify-between px-5 py-3"
+        style={{ borderBottom: '1px solid var(--dome-border)', background: 'var(--dome-surface)' }}
       >
         <div className="flex items-center gap-3">
-          <img
-            src={`/agents/sprite_${agent.iconIndex}.png`}
-            alt=""
-            className="w-8 h-8 object-contain rounded-lg"
-          />
+          <div
+            className="w-8 h-8 rounded-xl overflow-hidden shrink-0"
+            style={{ background: 'var(--dome-accent-bg)' }}
+          >
+            <img
+              src={`/agents/sprite_${agent.iconIndex}.png`}
+              alt={agent.name}
+              className="w-full h-full object-contain"
+            />
+          </div>
           <div>
-            <h1 className="text-base font-semibold" style={{ color: 'var(--primary-text)' }}>
+            <div className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
               {agent.name}
-            </h1>
-            <p className="text-xs" style={{ color: 'var(--secondary-text)' }}>
+            </div>
+            <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
               {providerInfo}
-            </p>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleClear}
-            className="text-xs px-2 py-1 rounded hover:bg-[var(--bg-hover)]"
-            style={{ color: 'var(--secondary-text)' }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all"
+            style={{ color: 'var(--dome-text-muted)', background: 'var(--dome-bg)' }}
+            title="Vaciar chat"
           >
             Vaciar chat
           </button>
@@ -465,24 +471,28 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
       {/* Scrollable messages area - fixed in middle */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-4 space-y-5"
+        className="flex-1 overflow-y-auto overscroll-contain px-5 py-5 flex flex-col gap-5"
       >
         {chatMessages.length === 0 && !streamingMessage ? (
-          <div className="py-16 text-center">
-            <img
-              src={`/agents/sprite_${agent.iconIndex}.png`}
-              alt=""
-              className="w-16 h-16 mx-auto mb-4 object-contain opacity-80"
-            />
-            <p className="text-[15px] font-medium" style={{ color: 'var(--primary-text)' }}>
-              {agent.name}
-            </p>
-            <p
-              className="mx-auto mt-1 max-w-md text-[13px]"
-              style={{ color: 'var(--tertiary-text)' }}
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
+            <div
+              className="w-14 h-14 rounded-2xl overflow-hidden"
+              style={{ background: 'var(--dome-accent-bg)' }}
             >
-              {agent.description || 'Chatea con tu agente especializado.'}
-            </p>
+              <img
+                src={`/agents/sprite_${agent.iconIndex}.png`}
+                alt=""
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
+                {agent.name}
+              </h2>
+              <p className="text-sm mt-1 max-w-md" style={{ color: 'var(--dome-text-muted)' }}>
+                {agent.description || 'Chatea con tu agente especializado.'}
+              </p>
+            </div>
           </div>
         ) : (
           <>

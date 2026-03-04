@@ -8,10 +8,13 @@ const HIDDEN_ROUTES = ['/settings', '/onboarding'];
 export default function ManyFloatingButton() {
   const { pathname } = useLocation();
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
-  const isAgentView =
+  const isChatView =
     (pathname === '/' || pathname === '/home') &&
     typeof homeSidebarSection === 'string' &&
-    homeSidebarSection.startsWith('agent:');
+    (homeSidebarSection.startsWith('agent:') ||
+      homeSidebarSection.startsWith('team:') ||
+      homeSidebarSection === 'agents' ||
+      homeSidebarSection === 'agent-teams');
   const {
     isOpen,
     toggleOpen,
@@ -21,7 +24,7 @@ export default function ManyFloatingButton() {
     whatsappPendingMessages,
   } = useManyStore();
 
-  const shouldHide = HIDDEN_ROUTES.some((route) => pathname?.startsWith(route)) || isAgentView;
+  const shouldHide = HIDDEN_ROUTES.some((route) => pathname?.startsWith(route)) || isChatView;
   if (shouldHide) return null;
   if (isOpen) return null;
 

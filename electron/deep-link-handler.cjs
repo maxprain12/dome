@@ -6,6 +6,7 @@
  * OAuth dome://calendar-oauth/... is delegated to googleCalendarOAuth
  */
 const mcpOauth = require('./mcp-oauth.cjs');
+const domeOauth = require('./dome-oauth.cjs');
 const googleCalendarOAuth = require('./google-calendar-service.cjs');
 const { openWorkspaceForResource } = require('./ipc/window.cjs');
 
@@ -23,6 +24,11 @@ async function handleDomeUrl(url, deps) {
   // OAuth callback - delegate to MCP OAuth
   if (url.startsWith('dome://mcp-auth/')) {
     return mcpOauth.handleOAuthCallback(url);
+  }
+
+  // Dome provider OAuth callback
+  if (url.startsWith('dome://dome-auth/')) {
+    return domeOauth.handleOAuthCallback(url, deps.database);
   }
 
   // Google Calendar OAuth callback

@@ -89,6 +89,8 @@ const ALLOWED_CHANNELS = {
     'db:interactions:create',
     'db:interactions:getByResource',
     'db:tags:getByResource',
+    'db:tags:getAll',
+    'db:tags:getResources',
     'db:interactions:getByType',
     'db:interactions:update',
     'db:interactions:delete',
@@ -185,6 +187,10 @@ const ALLOWED_CHANNELS = {
     'auth:profiles:delete',
     'auth:resolve',
     'auth:validate',
+    // Dome provider OAuth
+    'domeauth:startOAuthFlow',
+    'domeauth:getSession',
+    'domeauth:disconnect',
     // Personality Loader
     'personality:get-prompt',
     'personality:read-file',
@@ -200,6 +206,9 @@ const ALLOWED_CHANNELS = {
     'ai:langgraph:resume',
     'ai:embeddings',
     'ai:testConnection',
+    // Agent Team orchestration
+    'ai:team:stream',
+    'ai:team:abort',
     // AI Tools (for Many agent)
     'ai:tools:resourceSearch',
     'ai:tools:resourceGet',
@@ -218,6 +227,17 @@ const ALLOWED_CHANNELS = {
     'ai:tools:resourceMoveToFolder',
     // AI Tools - Flashcards
     'ai:tools:flashcardCreate',
+    // AI Tools - Document Structure
+    'ai:tools:getDocumentStructure',
+    // AI Tools - Graph / Linking
+    'ai:tools:linkResources',
+    'ai:tools:getRelatedResources',
+    // AI Tools - Calendar
+    'ai:tools:calendarListEvents',
+    'ai:tools:calendarGetUpcoming',
+    'ai:tools:calendarCreateEvent',
+    'ai:tools:calendarUpdateEvent',
+    'ai:tools:calendarDeleteEvent',
     // AI Tools - Excel
     'ai:tools:excelGet',
     'ai:tools:excelGetFilePath',
@@ -232,6 +252,7 @@ const ALLOWED_CHANNELS = {
     'ai:tools:pptGetFilePath',
     'ai:tools:pptGetSlides',
     'ai:tools:pptExport',
+    'ai:tools:pptGetSlideImages',
     // Database - Flashcards
     'db:flashcards:createDeck',
     'db:flashcards:getDeck',
@@ -589,6 +610,15 @@ const electronHandler = {
   },
 
   // ============================================
+  // DOME PROVIDER OAUTH API
+  // ============================================
+  domeAuth: {
+    startOAuthFlow: () => ipcRenderer.invoke('domeauth:startOAuthFlow'),
+    getSession: () => ipcRenderer.invoke('domeauth:getSession'),
+    disconnect: () => ipcRenderer.invoke('domeauth:disconnect'),
+  },
+
+  // ============================================
   // PLUGINS API
   // ============================================
   plugins: {
@@ -670,6 +700,8 @@ const electronHandler = {
     // Tags
     tags: {
       getByResource: (resourceId) => ipcRenderer.invoke('db:tags:getByResource', resourceId),
+      getAll: () => ipcRenderer.invoke('db:tags:getAll'),
+      getResources: (tagId) => ipcRenderer.invoke('db:tags:getResources', tagId),
     },
 
     // Resource Links (graph relationships)
@@ -1022,6 +1054,8 @@ const electronHandler = {
         ipcRenderer.invoke('ai:tools:pptGetSlides', { resourceId }),
       pptExport: (resourceId, options) =>
         ipcRenderer.invoke('ai:tools:pptExport', { resourceId, options }),
+      pptGetSlideImages: (resourceId) =>
+        ipcRenderer.invoke('ai:tools:pptGetSlideImages', { resourceId }),
     },
   },
 
@@ -1105,38 +1139,6 @@ const electronHandler = {
         ipcRenderer.on('ollama:status-changed', (event, status) => callback(status));
         return () => ipcRenderer.removeAllListeners('ollama:status-changed');
       },
-    },
-  },
-
-  // ============================================
-  // VECTOR DATABASE API
-  // ============================================
-  vector: {
-    // General methods
-    add: (items) => ipcRenderer.invoke('vector:add', items),
-    search: (query, options) => ipcRenderer.invoke('vector:search:generic', query, options),
-    delete: (filter) => ipcRenderer.invoke('vector:delete', filter),
-    deleteResource: (resourceId) => ipcRenderer.invoke('vector:resource:delete', resourceId),
-    count: () => ipcRenderer.invoke('vector:count'),
-    status: () => ipcRenderer.invoke('vector:status'),
-
-    resources: {
-      index: (payload) => ipcRenderer.invoke('vector:resources:index', payload),
-      addEmbeddings: (embeddings) => ipcRenderer.invoke('vector:resources:addEmbeddings', embeddings),
-      stats: () => ipcRenderer.invoke('vector:resources:stats'),
-      reindexAll: () => ipcRenderer.invoke('vector:resources:reindexAll'),
-      repair: () => ipcRenderer.invoke('vector:resources:repair'),
-    },
-
-    annotations: {
-      // Index annotation in LanceDB
-      index: (annotationData) => ipcRenderer.invoke('vector:annotations:index', annotationData),
-
-      // Search annotations
-      search: (queryData) => ipcRenderer.invoke('vector:annotations:search', queryData),
-
-      // Delete annotation from LanceDB
-      delete: (annotationId) => ipcRenderer.invoke('vector:annotations:delete', annotationId),
     },
   },
 

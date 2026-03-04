@@ -176,6 +176,10 @@ export function looksLikeMarkdown(text: string): boolean {
   if (/^[\s]*>\s/m.test(t)) return true;
   // Horizontal rule: --- or *** or ___ (at line start)
   if (/(^|\n)[\s]*(-{3,}|\*{3,}|_{3,})[\s]*($|\n)/.test(t)) return true;
+  // Inline links: [text](url)
+  if (/\[.+?\]\(.+?\)/.test(t)) return true;
+  // Images: ![alt](url)
+  if (/!\[.*?\]\(.+?\)/.test(t)) return true;
   return false;
 }
 
@@ -259,7 +263,7 @@ export function stringToEditorHtml(str: string): string {
  */
 export function markdownToHtml(content: string): string {
   if (!content || typeof content !== 'string') return content || '';
-  if (!looksLikeMarkdown(content) && !/:::|\@\[/.test(content)) return content;
+  if (looksLikeHtml(content)) return content;
 
   try {
     const preprocessed = preprocessCustomBlocks(content);
