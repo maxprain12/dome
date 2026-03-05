@@ -270,42 +270,8 @@ async function generateGraphFromSemantics(
       if (!nodes.has(id)) {
         nodes.set(id, createResourceNode(resource, depth === 0));
       }
-
-      // Find semantically similar resources
-      // TODO: This requires vector search IPC endpoint
-      // For now, skip if depth > 1 to avoid too many calls
-      if (depth > 1) continue;
-
-      try {
-        const similarResult = await window.electron.invoke('vector:semanticSearch', {
-          resourceId: id,
-          limit: 5,
-          minScore: minWeight,
-        });
-
-        if (similarResult && Array.isArray(similarResult)) {
-          for (const similar of similarResult) {
-            const similarId = similar.resource_id || similar.id;
-            const score = similar.score || similar.similarity || 0.5;
-
-            if (score < minWeight) continue;
-
-            const edgeId = `semantic-${id}-${similarId}`;
-            if (!edges.has(edgeId)) {
-              edges.set(edgeId, createEdge(edgeId, id, similarId, 'similar', score));
-            }
-
-            // Queue for traversal (but only if high similarity)
-            if (depth < maxDepth && score > 0.8) {
-              queue.push({ id: similarId, depth: depth + 1 });
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Semantic search not available:', err);
-      }
     } catch (err) {
-      console.error(`Error processing semantic search for ${id}:`, err);
+      console.error(`Error processing resource ${id}:`, err);
     }
   }
 

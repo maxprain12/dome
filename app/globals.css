@@ -34,6 +34,13 @@
     content-visibility: auto;
     contain-intrinsic-size: auto 100px;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .content-visibility-auto {
+      content-visibility: visible;
+      contain-intrinsic-size: none;
+    }
+  }
 }
 
 /* ============================================
@@ -3944,6 +3951,7 @@ a:hover {
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.25rem;
   content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
 }
 
 .resources-list-wrapper {
@@ -3957,6 +3965,15 @@ a:hover {
   flex-direction: column;
   gap: 0.5rem;
   content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resources-grid,
+  .resources-list {
+    content-visibility: visible;
+    contain-intrinsic-size: none;
+  }
 }
 
 .list-header-btn {
@@ -4005,7 +4022,7 @@ a:hover {
       var(--bg-hover) 50%,
       var(--bg-tertiary) 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 2s infinite;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
 }
@@ -4017,9 +4034,17 @@ a:hover {
       var(--bg-hover) 50%,
       var(--bg-tertiary) 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 2s infinite;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resource-card-skeleton,
+  .resource-card-list-skeleton {
+    animation: none;
+    background: var(--bg-tertiary);
+  }
 }
 
 .error-container {

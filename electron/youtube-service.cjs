@@ -92,17 +92,14 @@ async function downloadThumbnail(videoId) {
   for (const quality of qualities) {
     try {
       const url = getThumbnailUrl(videoId, quality);
-      console.log(`[YouTubeService] Trying thumbnail: ${url}`);
       const buffer = await downloadFile(url);
       
       // Check if it's a valid image (not the default "video unavailable" image)
       // The default image is usually very small (< 5KB)
       if (buffer.length > 5000) {
-        console.log(`[YouTubeService] Successfully downloaded thumbnail (${quality})`);
         return buffer;
       }
-    } catch (error) {
-      console.log(`[YouTubeService] Failed to download ${quality}:`, error.message);
+    } catch {
       // Try next quality
     }
   }
@@ -136,9 +133,6 @@ async function saveThumbnail(thumbnailBuffer, videoId) {
   // Save file (only if doesn't exist)
   if (!fs.existsSync(fullPath)) {
     fs.writeFileSync(fullPath, thumbnailBuffer);
-    console.log(`[YouTubeService] Saved thumbnail: ${internalPath}`);
-  } else {
-    console.log(`[YouTubeService] Thumbnail already exists: ${internalPath}`);
   }
   
   return {
@@ -165,8 +159,6 @@ async function getYouTubeThumbnail(url) {
         thumbnail: null
       };
     }
-    
-    console.log(`[YouTubeService] Processing YouTube video: ${videoId}`);
     
     // Download thumbnail
     const thumbnailBuffer = await downloadThumbnail(videoId);

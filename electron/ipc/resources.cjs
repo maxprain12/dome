@@ -60,9 +60,6 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       if (type === 'video') {
         try {
           metadata = await thumbnail.extractVideoMetadata(fullPath);
-          if (metadata) {
-            console.log(`[Resource] Video metadata: ${metadata.duration}s, ${metadata.width}x${metadata.height}, ${metadata.codec}`);
-          }
         } catch (metadataError) {
           console.warn('[Resource] Video metadata extraction failed:', metadataError.message);
         }
@@ -82,9 +79,6 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       if (isPdf && !contentText) {
         try {
           contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
-          if (contentText) {
-            console.log(`[Resource] PDF text extracted: ${contentText.length} chars`);
-          }
         } catch (extractError) {
           console.warn('[Resource] PDF text extraction failed:', extractError.message);
         }
@@ -122,8 +116,6 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       if (indexerDeps && resource && resourceIndexer.shouldIndex(resource)) {
         resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
       }
-
-      console.log(`[Resource] Imported: ${resourceTitle} (${importResult.internalPath})`);
 
       return {
         success: true,

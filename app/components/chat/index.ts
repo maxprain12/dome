@@ -11,5 +11,3 @@ export { default as ChatMessageGroup, groupMessagesByRole } from './ChatMessageG
 export { default as MarkdownRenderer } from './MarkdownRenderer';
 export { default as CitationBadge } from './CitationBadge';
 export { default as SourceReference } from './SourceReference';
-export { default as SuggestedQuestions } from './SuggestedQuestions';
-export { default as MessageActions } from './MessageActions';

@@ -355,29 +355,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       validateSender(event, windowManager);
       const queries = database.getQueries();
 
-      // Debug: log value details for email to diagnose truncation issue
-      if (key === 'user_email') {
-        console.log(`[DB] Setting user_email:`);
-        console.log(`[DB]   - Raw value: "${value}"`);
-        console.log(`[DB]   - Length: ${value?.length}`);
-        console.log(`[DB]   - Type: ${typeof value}`);
-        console.log(`[DB]   - Char codes: ${value?.split('').map(c => c.charCodeAt(0)).join(',')}`);
-      } else {
-        console.log(`[DB] Setting ${key} = ${value} (type: ${typeof value})`);
-      }
-
       queries.setSetting.run(key, value, Date.now());
-
-      // Verify it was saved
-      const saved = queries.getSetting.get(key);
-      if (key === 'user_email') {
-        console.log(`[DB] Verified saved user_email:`);
-        console.log(`[DB]   - Saved value: "${saved?.value}"`);
-        console.log(`[DB]   - Saved length: ${saved?.value?.length}`);
-      } else {
-        console.log(`[DB] Verified saved ${key} = ${saved?.value}`);
-      }
-
       return { success: true };
     } catch (error) {
       console.error('[DB] Error setting setting:', error);
@@ -398,7 +376,6 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       if (embeddingModel) queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
       if (baseURL) queries.setSetting.run('ai_base_url', baseURL, Date.now());
 
-      console.log('[DB] AI settings saved successfully');
       return { success: true };
     } catch (error) {
       console.error('[DB] Error saving AI settings:', error);

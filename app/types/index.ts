@@ -15,6 +15,8 @@ export interface ManyAgent {
   mcpServerIds: string[];
   skillIds: string[];
   iconIndex: number; // 1-18 for agents/sprite_N.png
+  /** Set when installed from marketplace; used to sync uninstall state */
+  marketplaceId?: string;
   createdAt: number;
   updatedAt: number;
 }

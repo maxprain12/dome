@@ -103,8 +103,6 @@ async function generateEmbedding(text, model = DEFAULT_EMBEDDING_MODEL, baseUrl 
       ? text.substring(0, EMBEDDING_MAX_CHARS) + '...'
       : text;
 
-    console.log(`[OllamaService] Generating embedding with model: ${model}${text.length > EMBEDDING_MAX_CHARS ? ` (truncated from ${text.length} chars)` : ''}`);
-
     const response = await makeRequest(`${baseUrl}/api/embeddings`, {
       method: 'POST',
       apiKey,
@@ -115,7 +113,6 @@ async function generateEmbedding(text, model = DEFAULT_EMBEDDING_MODEL, baseUrl 
     });
 
     if (response.embedding && Array.isArray(response.embedding)) {
-      console.log(`[OllamaService] Generated embedding (${response.embedding.length} dimensions)`);
       return response.embedding;
     }
 
@@ -142,8 +139,6 @@ async function generateSummary(text, model = DEFAULT_MODEL, baseUrl = DEFAULT_BA
     // Truncate text if too long (Ollama has token limits)
     const maxLength = 8000; // Approximate token limit
     const truncatedText = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
-
-    console.log(`[OllamaService] Generating summary with model: ${model}`);
 
     const prompt = `Genera un resumen detallado y estructurado del siguiente contenido. El resumen debe capturar el valor real del artículo: qué aporta, qué concluye y a quién va dirigido.
 
@@ -190,7 +185,6 @@ Resumen:`;
     if (summaryText && typeof summaryText === 'string') {
       const summary = summaryText.trim();
       if (summary) {
-        console.log(`[OllamaService] Generated summary (${summary.length} chars)`);
         return summary;
       }
     }
@@ -266,8 +260,6 @@ async function chat(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL,
       throw new Error('Messages cannot be empty');
     }
 
-    console.log(`[OllamaService] Chatting with model: ${model}`);
-
     // Non-streaming for now to simplify IPC
     const response = await makeRequest(`${baseUrl}/api/chat`, {
       method: 'POST',
@@ -334,7 +326,6 @@ function chatStream(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL,
     }
 
     const ollamaTools = opts.tools ? convertToolsToOllama(opts.tools) : undefined;
-    console.log(`[OllamaService] Chat streaming with model: ${model}, tools: ${ollamaTools ? ollamaTools.length : 0}`);
 
     const urlObj = new URL(`${baseUrl}/api/chat`);
     const protocol = urlObj.protocol === 'https:' ? https : http;

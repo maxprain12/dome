@@ -73,8 +73,13 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   ipcMain.handle('select-folder', async (event) => {
     try {
       validateSender(event, windowManager);
-      const win = BrowserWindow.fromWebContents(event.sender) || windowManager.get('main');
+      let win =
+        BrowserWindow.fromWebContents(event.sender) ||
+        (windowManager.getFocused && windowManager.getFocused()) ||
+        windowManager.get('main');
       if (!win || win.isDestroyed()) return undefined;
+      if (win.isMinimized()) win.restore();
+      win.focus();
 
       const result = await dialog.showOpenDialog(win, {
         properties: ['openDirectory'],

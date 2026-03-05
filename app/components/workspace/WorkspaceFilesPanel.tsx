@@ -68,23 +68,33 @@ export default function WorkspaceFilesPanel({
   }, [loadEntries]);
 
   const handleSelectFolder = useCallback(async () => {
-    if (!window.electron?.selectFolder) return;
+    const electron = typeof window !== 'undefined' ? window.electron : undefined;
+    if (!electron?.selectFolder) {
+      setError('Selecciona carpeta solo disponible en la app de escritorio (Electron).');
+      return;
+    }
 
-    const path = await window.electron.selectFolder();
-    if (path) {
-      await onWorkspacePathChange(path);
-      setError(null);
-      setLoading(true);
-      try {
-        const result = await window.electron.file.listDirectory(path);
-        if (result?.success && result.data) {
-          setEntries(result.data);
+    setError(null);
+    try {
+      const path = await electron.selectFolder();
+      if (path) {
+        await onWorkspacePathChange(path);
+        setLoading(true);
+        try {
+          const result = await electron.file?.listDirectory?.(path);
+          if (result?.success && result.data) {
+            setEntries(result.data);
+          }
+        } catch {
+          setEntries([]);
+        } finally {
+          setLoading(false);
         }
-      } catch {
-        setEntries([]);
-      } finally {
-        setLoading(false);
       }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al seleccionar carpeta';
+      setError(msg);
+      console.error('[WorkspaceFilesPanel] handleSelectFolder error:', err);
     }
   }, [onWorkspacePathChange]);
 
@@ -268,6 +278,11 @@ export default function WorkspaceFilesPanel({
             <FolderOpen size={18} />
             Seleccionar carpeta
           </button>
+          {error && (
+            <p className="mt-3 text-xs max-w-[220px]" style={{ color: 'var(--error)' }}>
+              {error}
+            </p>
+          )}
           {useElectron && onVenvPathChange && (
             <div className="mt-6 pt-6 border-t w-full max-w-[240px]" style={{ borderColor: 'var(--border)' }}>
               <p className="text-xs font-medium mb-2" style={{ color: 'var(--secondary-text)' }}>

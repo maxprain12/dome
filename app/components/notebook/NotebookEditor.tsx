@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { Play, SkipForward, FastForward, Download, Upload, X, Code2, FileText, GripVertical, Trash2 } from 'lucide-react';
+import { useCallback, useState, useEffect } from 'react';
+import { Play, SkipForward, FastForward, Download, Upload, X, Code2, FileText, GripVertical, Trash2, Terminal } from 'lucide-react';
 import CodeCell from './CodeCell';
 import MarkdownCell from './MarkdownCell';
 import { usePyodide } from '@/lib/notebook/PyodideProvider';
@@ -26,12 +26,20 @@ function getCodeCellIndices(cells: NotebookCell[]): number[] {
     .filter((i) => i >= 0);
 }
 
+const useIPCKernel = typeof window !== 'undefined' && !!window.electron?.notebook;
+
 export default function NotebookEditor({ content, onChange, editable = true, title = 'notebook', workingDirectory, venvPath }: NotebookEditorProps) {
   const nb = parseNotebookContent(content);
   const { runPython } = usePyodide();
   const [selectedCellIndex, setSelectedCellIndex] = useState(0);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const [pythonInfo, setPythonInfo] = useState<{ available: boolean; version?: string; path?: string } | null>(null);
   const prefersReducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (!useIPCKernel || !window.electron?.notebook?.checkPython) return;
+    window.electron.notebook.checkPython().then(setPythonInfo);
+  }, []);
 
   const updateCell = useCallback(
     (index: number, updates: Partial<NotebookCell>) => {
@@ -335,6 +343,30 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
           <Upload size={14} />
           Import
         </button>
+        {useIPCKernel && pythonInfo && (
+          <>
+            <span className="w-px h-6 bg-[var(--border)] self-stretch" aria-hidden />
+            <div
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs"
+              style={{
+                background: pythonInfo.available ? 'var(--bg-tertiary)' : 'var(--error-bg)',
+                color: pythonInfo.available ? 'var(--secondary-text)' : 'var(--error)',
+                border: '1px solid var(--border)',
+              }}
+              title={pythonInfo.path || 'Python no encontrado'}
+            >
+              <Terminal size={12} />
+              {pythonInfo.available ? (
+                <span>
+                  Python {pythonInfo.version}
+                  {venvPath ? ' (venv)' : ''}
+                </span>
+              ) : (
+                <span>Python no disponible</span>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Cells */}

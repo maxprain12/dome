@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { Play, Loader2, Info } from 'lucide-react';
 import { usePyodide } from '@/lib/notebook/PyodideProvider';
-import { useTextareaAutoResize } from '@/lib/hooks/useTextareaAutoResize';
+import CodeCellEditor from './CodeCellEditor';
 import type { NotebookCodeCell, NotebookOutput } from '@/types';
 
 interface CodeCellProps {
@@ -33,7 +33,6 @@ export default function CodeCell({
 }: CodeCellProps) {
   const [isRunning, setIsRunning] = useState(false);
   const { runPython, isLoaded, isLoading, loadError, ensureLoaded } = usePyodide();
-  const textareaRef = useTextareaAutoResize(sourceToString(cell.source));
 
   const doRun = useCallback(async () => {
     const code = sourceToString(cell.source).trim();
@@ -203,25 +202,13 @@ export default function CodeCell({
             [{executionCount}]
           </span>
         )}
-        <textarea
-          ref={textareaRef}
+        <CodeCellEditor
           value={sourceToString(cell.source)}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.shiftKey || e.ctrlKey || e.metaKey)) {
-              e.preventDefault();
-              handleRun();
-            }
-            externalKeyDown?.(e);
-          }}
-          disabled={!editable}
-          className="flex-1 min-h-[80px] p-2 font-mono text-sm min-w-0 border-0 rounded focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:ring-offset-2 transition-shadow duration-150"
-          style={{
-            background: 'var(--bg)',
-            color: 'var(--primary-text)',
-            fieldSizing: 'content',
-          } as React.CSSProperties}
+          onChange={onChange}
+          onRun={handleRun}
+          editable={editable}
           placeholder="# Escribe código Python... (Shift+Enter to run)"
+          className="flex-1"
         />
       </div>
 

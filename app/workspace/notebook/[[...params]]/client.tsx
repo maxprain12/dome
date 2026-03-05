@@ -179,12 +179,15 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
   const handleWorkspacePathChange = useCallback(
     async (path: string) => {
       if (!resource) return;
-      await handleSaveMetadata({
-        metadata: {
-          ...(resource.metadata || {}),
-          notebook_workspace_path: path,
-        },
-      });
+      const meta = resource.metadata;
+      const base: Record<string, unknown> = {};
+      if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+        const m = meta as Record<string, unknown>;
+        if (Object.prototype.hasOwnProperty.call(m, 'notebook_workspace_path')) base.notebook_workspace_path = m.notebook_workspace_path;
+        if (Object.prototype.hasOwnProperty.call(m, 'notebook_venv_path')) base.notebook_venv_path = m.notebook_venv_path;
+      }
+      base.notebook_workspace_path = path;
+      await handleSaveMetadata({ metadata: base });
     },
     [resource, handleSaveMetadata]
   );
@@ -192,12 +195,15 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
   const handleVenvPathChange = useCallback(
     async (path: string) => {
       if (!resource) return;
-      await handleSaveMetadata({
-        metadata: {
-          ...(resource.metadata || {}),
-          notebook_venv_path: path || undefined,
-        },
-      });
+      const meta = resource.metadata;
+      const base: Record<string, unknown> = {};
+      if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+        const m = meta as Record<string, unknown>;
+        if (Object.prototype.hasOwnProperty.call(m, 'notebook_workspace_path')) base.notebook_workspace_path = m.notebook_workspace_path;
+        if (Object.prototype.hasOwnProperty.call(m, 'notebook_venv_path')) base.notebook_venv_path = m.notebook_venv_path;
+      }
+      base.notebook_venv_path = path || undefined;
+      await handleSaveMetadata({ metadata: base });
     },
     [resource, handleSaveMetadata]
   );
@@ -238,6 +244,9 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
         resource={resource}
         sidePanelOpen={isPanelOpen}
         onToggleSidePanel={() => setIsPanelOpen(!isPanelOpen)}
+        onOpenWorkspacePanel={() => setIsPanelOpen(true)}
+        notebookWorkspacePath={notebookWorkspacePath}
+        notebookVenvPath={notebookVenvPath}
         onShowMetadata={() => setShowMetadata(true)}
         editableTitle={{
           value: title,

@@ -29,7 +29,7 @@ import LinkMenu from "@/components/editor/components/link/link-menu";
 import SearchAndReplaceDialog from "@/components/editor/components/search-and-replace/search-and-replace-dialog";
 import ColumnsMenu from "@/components/editor/components/columns/columns-menu";
 import { useEditorScroll } from "@/components/editor/hooks/use-editor-scroll";
-import { stringToEditorHtml } from "@/lib/utils/markdown";
+import { looksLikeHtml, stringToEditorHtml } from "@/lib/utils/markdown";
 
 interface PageEditorProps {
   noteId: string;
@@ -140,21 +140,36 @@ function PageEditor({
       editor.storage.pageId = noteId;
       if (content) {
         let parsedContent: unknown;
+        let useMarkdown = false;
         if (typeof content === 'string') {
           try {
             parsedContent = JSON.parse(content);
             if (parsedContent && typeof parsedContent === 'object' && (parsedContent as { type?: string }).type === 'doc') {
-              // Valid Tiptap JSON
+              // Valid Tiptap JSON - use as-is
             } else {
-              parsedContent = stringToEditorHtml(content);
+              if (looksLikeHtml(content)) {
+                parsedContent = stringToEditorHtml(content);
+              } else {
+                useMarkdown = true;
+                parsedContent = content;
+              }
             }
           } catch {
-            parsedContent = stringToEditorHtml(content);
+            if (looksLikeHtml(content)) {
+              parsedContent = stringToEditorHtml(content);
+            } else {
+              useMarkdown = true;
+              parsedContent = content;
+            }
           }
         } else {
           parsedContent = content;
         }
-        editor.commands.setContent(parsedContent as any, false as any);
+        if (useMarkdown) {
+          editor.commands.setContent(parsedContent as string, { contentType: 'markdown', emitUpdate: false } as any);
+        } else {
+          editor.commands.setContent(parsedContent as any, false as any);
+        }
       } else {
         editor.commands.setContent('', false as any);
       }

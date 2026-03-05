@@ -98,8 +98,17 @@ export default function TagBrowser() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 size={24} className="animate-spin" style={{ color: 'var(--accent)' }} />
+      <div className="h-full overflow-y-auto px-6 py-4 min-h-[300px] animate-in fade-in duration-150 motion-reduce:animate-none">
+        <div className="flex flex-wrap gap-2.5">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-9 rounded-xl resource-card-skeleton"
+              style={{ width: 60 + (i % 4) * 30 }}
+              aria-hidden="true"
+            />
+          ))}
+        </div>
       </div>
     );
   }
@@ -130,8 +139,14 @@ export default function TagBrowser() {
 
         <div className="flex-1 overflow-y-auto px-6 pb-6">
           {loadingResources ? (
-            <div className="flex items-center justify-center h-32">
-              <Loader2 size={20} className="animate-spin" style={{ color: 'var(--accent)' }} />
+            <div className="space-y-2 animate-in fade-in duration-150 motion-reduce:animate-none">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="resource-card-list-skeleton rounded-xl h-[56px]"
+                  aria-hidden="true"
+                />
+              ))}
             </div>
           ) : tagResources.length === 0 ? (
             <div className="text-center py-12">
@@ -187,7 +202,7 @@ export default function TagBrowser() {
   }
 
   return (
-    <div className="h-full overflow-y-auto px-6 py-4">
+    <div className="h-full overflow-y-auto px-6 py-4 animate-in fade-in duration-150 motion-reduce:animate-none">
       <div className="flex flex-wrap gap-2.5">
         {tags.map((tag) => {
           const color = tagColor(tag.name, tag.color);

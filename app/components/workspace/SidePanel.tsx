@@ -39,7 +39,9 @@ export default function SidePanel({
   notebookVenvPath,
   onNotebookVenvPathChange,
 }: SidePanelProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('references');
+  const [activeTab, setActiveTab] = useState<TabType>(() =>
+    resource?.type === 'notebook' ? 'workspace' : 'references'
+  );
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { setContext } = useManyStore();
@@ -65,6 +67,13 @@ export default function SidePanel({
       setActiveTab('pdf');
     }
   }, [isPdf, activeTab, tabs]);
+
+  // When opening panel for a notebook, default to Workspace tab
+  useEffect(() => {
+    if (isOpen && isNotebook && tabs.some((t) => t.id === 'workspace')) {
+      setActiveTab('workspace');
+    }
+  }, [isOpen, isNotebook, tabs]);
 
   // Actualizar el contexto de Many cuando se abre un recurso
   useEffect(() => {

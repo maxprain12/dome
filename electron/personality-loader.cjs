@@ -139,7 +139,6 @@ function ensureDefaultFiles() {
     const filePath = path.join(martinDir, file.name);
     if (!fs.existsSync(filePath)) {
       fs.writeFileSync(filePath, file.content, 'utf8');
-      console.log(`[Personality] Created ${file.name}`);
     }
   }
 
@@ -177,7 +176,6 @@ function writeContextFile(filename, content) {
   try {
     const filePath = path.join(getMartinDir(), filename);
     fs.writeFileSync(filePath, content, 'utf8');
-    console.log(`[Personality] Updated ${filename}`);
   } catch (error) {
     console.error(`[Personality] Error writing ${filename}:`, error.message);
   }

@@ -1153,6 +1153,7 @@ const electronHandler = {
         targetCellIndex: options?.targetCellIndex,
         cwd: options?.cwd,
         venvPath: options?.venvPath,
+        timeoutMs: options?.timeoutMs,
       }),
     checkPython: () => ipcRenderer.invoke('notebook:checkPython'),
     createVenv: (basePath) => ipcRenderer.invoke('notebook:createVenv', { basePath }),

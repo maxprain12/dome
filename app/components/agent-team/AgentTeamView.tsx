@@ -70,10 +70,10 @@ export default function AgentTeamView() {
           </div>
           <div>
             <h1 className="text-lg font-bold" style={{ color: 'var(--dome-text)' }}>
-              Agent Teams
+              Workflows
             </h1>
             <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              Equipos de agentes orquestados
+              Workflows de agentes orquestados
             </p>
           </div>
         </div>
@@ -86,7 +86,7 @@ export default function AgentTeamView() {
           }}
         >
           <PlusCircle className="w-4 h-4" />
-          Nuevo equipo
+          Nuevo workflow
         </button>
       </div>
 
@@ -102,10 +102,10 @@ export default function AgentTeamView() {
             </div>
             <div>
               <h2 className="text-base font-semibold mb-1" style={{ color: 'var(--dome-text)' }}>
-                Sin equipos todavía
+                Sin workflows todavía
               </h2>
               <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                Crea un equipo para orquestar varios agentes colaborando en una misma tarea.
+                Crea un workflow para orquestar varios agentes colaborando en una misma tarea.
               </p>
             </div>
             <button
@@ -114,7 +114,7 @@ export default function AgentTeamView() {
               style={{ background: 'var(--dome-accent, #6366f1)', color: 'white' }}
             >
               <PlusCircle className="w-4 h-4" />
-              Crear mi primer equipo
+              Crear mi primer workflow
             </button>
           </div>
         ) : (
@@ -204,7 +204,7 @@ export default function AgentTeamView() {
                         color: 'var(--dome-text-muted)',
                         background: 'var(--dome-bg)',
                       }}
-                      title="Eliminar equipo"
+                      title="Eliminar workflow"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -240,7 +240,7 @@ export default function AgentTeamView() {
       {deleteTarget && (
         <ConfirmDialog
           isOpen={!!deleteTarget}
-          title="Eliminar equipo"
+          title="Eliminar workflow"
           message={`¿Eliminar "${deleteTarget.name}"? Esta acción no se puede deshacer.`}
           confirmLabel="Eliminar"
           variant="danger"

@@ -1153,7 +1153,7 @@ declare global {
 
       // Notebook API (Python via IPC - Electron only)
       notebook: {
-        runPython: (code: string, options?: { cells?: string[]; targetCellIndex?: number; currentCellCode?: string; cwd?: string; venvPath?: string }) => Promise<{
+        runPython: (code: string, options?: { cells?: string[]; targetCellIndex?: number; currentCellCode?: string; cwd?: string; venvPath?: string; timeoutMs?: number }) => Promise<{
           success: boolean;
           outputs: Array<{
             output_type: 'stream' | 'execute_result' | 'display_data' | 'error';

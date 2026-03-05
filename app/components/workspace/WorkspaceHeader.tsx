@@ -45,6 +45,12 @@ interface WorkspaceHeaderProps {
   onExportDocx?: () => void | Promise<void>;
   onExport?: () => void;
   onPresentationMode?: () => void;
+  /** For notebooks: opens panel with Workspace tab focused */
+  onOpenWorkspacePanel?: () => void;
+  /** For notebooks: workspace folder path (for status display) */
+  notebookWorkspacePath?: string;
+  /** For notebooks: Python venv path (for status display) */
+  notebookVenvPath?: string;
 }
 
 export default function WorkspaceHeader({
@@ -59,6 +65,9 @@ export default function WorkspaceHeader({
   onExportDocx,
   onExport,
   onPresentationMode,
+  onOpenWorkspacePanel,
+  notebookWorkspacePath,
+  notebookVenvPath,
 }: WorkspaceHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelsOpen, setPanelsOpen] = useState(false);
@@ -213,6 +222,29 @@ export default function WorkspaceHeader({
 
           {savingIndicator}
         </div>
+
+        {/* Notebook: workspace/venv status and quick access */}
+        {resource.type === 'notebook' && onOpenWorkspacePanel && (
+          <button
+            type="button"
+            onClick={onOpenWorkspacePanel}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            style={{
+              color: notebookWorkspacePath || notebookVenvPath ? 'var(--primary-text)' : 'var(--secondary-text)',
+              border: '1px solid var(--border)',
+            }}
+            title="Configurar carpeta de trabajo y entorno Python"
+          >
+            <FolderOpen size={14} />
+            {notebookWorkspacePath || notebookVenvPath ? (
+              <span className="truncate max-w-[140px]">
+                {notebookWorkspacePath ? 'Carpeta configurada' : notebookVenvPath ? 'Venv configurado' : 'Configurar'}
+              </span>
+            ) : (
+              <span>Configurar workspace</span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Right section */}

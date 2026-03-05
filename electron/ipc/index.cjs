@@ -101,7 +101,6 @@ function registerAll(deps) {
   domeAuthHandlers.register({ ipcMain, windowManager, database });
   agentTeamHandlers.register({ ipcMain, windowManager, database, aiCloudService, ollamaService });
 
-  console.log('[IPC] All handlers registered successfully');
 }
 
 module.exports = { registerAll };

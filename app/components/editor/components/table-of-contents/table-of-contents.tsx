@@ -131,7 +131,7 @@ export const TableOfContents: FC<TableOfContentsProps> = (props) => {
         });
       };
     } catch (err) {
-      console.log(err);
+      console.error('[TableOfContents]', err);
     }
   }, [headingDOMNodes, props.editor]);
 

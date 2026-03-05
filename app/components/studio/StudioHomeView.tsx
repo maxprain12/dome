@@ -148,7 +148,35 @@ export default function StudioHomeView() {
       />
 
       <div className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto min-h-[480px]">
+          {loadingOutputs ? (
+            <>
+              {/* Tiles skeleton */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="resource-card-skeleton rounded-xl min-h-[100px]"
+                    aria-hidden="true"
+                  />
+                ))}
+              </div>
+              {/* Outputs list skeleton */}
+              <section>
+                <div className="h-4 w-32 rounded resource-card-skeleton mb-3" aria-hidden="true" />
+                <div className="flex flex-col gap-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="resource-card-list-skeleton rounded-lg h-[60px]"
+                      aria-hidden="true"
+                    />
+                  ))}
+                </div>
+              </section>
+            </>
+          ) : (
+            <div className="animate-in fade-in duration-150 motion-reduce:animate-none">
           {/* Tiles grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
             {STUDIO_TILES.map((tile) => (
@@ -205,14 +233,7 @@ export default function StudioHomeView() {
             <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--dome-text)' }}>
               Materiales generados
             </h3>
-            {loadingOutputs ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--dome-accent)' }} />
-                <span className="text-sm ml-2" style={{ color: 'var(--dome-text-secondary)' }}>
-                  Cargando...
-                </span>
-              </div>
-            ) : studioOutputs.length === 0 ? (
+            {studioOutputs.length === 0 ? (
               <div
                 className="rounded-xl p-8 text-center"
                 style={{
@@ -288,6 +309,8 @@ export default function StudioHomeView() {
               </div>
             )}
           </section>
+            </div>
+          )}
         </div>
       </div>
     </div>

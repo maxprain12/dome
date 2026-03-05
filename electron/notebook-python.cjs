@@ -10,7 +10,7 @@ const path = require('path');
 const os = require('os');
 
 const MAX_CODE_LENGTH = 256 * 1024; // 256KB
-const EXEC_TIMEOUT_MS = 60 * 1000; // 60 seconds
+const DEFAULT_EXEC_TIMEOUT_MS = 60 * 1000; // 60 seconds
 
 /** @type {{ path: string; runArgs: string[] }|null} Cached Python command */
 let cachedPython = null;
@@ -288,7 +288,7 @@ function getDefaultCwd() {
 /**
  * Run Python code and return NotebookOutput-compatible result
  * @param {string} code - Python source code
- * @param {{ cells?: string[]; targetCellIndex?: number; cwd?: string; venvPath?: string }} options
+ * @param {{ cells?: string[]; targetCellIndex?: number; cwd?: string; venvPath?: string; timeoutMs?: number }} options
  * @returns {Promise<{ success: boolean; outputs: object[]; error?: string }>}
  */
 async function runPythonCode(code, options = {}) {
@@ -358,6 +358,23 @@ async function runPythonCode(code, options = {}) {
   const cwd = options.cwd && fs.existsSync(options.cwd)
     ? options.cwd
     : getDefaultCwd();
+
+  if (options.cwd && !fs.existsSync(options.cwd)) {
+    return {
+      success: false,
+      outputs: [{
+        output_type: 'error',
+        ename: 'FileNotFoundError',
+        evalue: `Working directory does not exist: ${options.cwd}`,
+        traceback: [],
+      }],
+      error: 'Working directory not found',
+    };
+  }
+
+  const timeoutMs = typeof options.timeoutMs === 'number' && options.timeoutMs > 0
+    ? options.timeoutMs
+    : DEFAULT_EXEC_TIMEOUT_MS;
 
   const runArgs = [...(pythonInfo.runArgs || []), scriptPath];
   return new Promise((resolve) => {
@@ -434,8 +451,8 @@ async function runPythonCode(code, options = {}) {
 
     const timer = setTimeout(() => {
       proc.kill('SIGTERM');
-      finish(false, 'Execution timed out (60s)');
-    }, EXEC_TIMEOUT_MS);
+      finish(false, `Execution timed out (${Math.round(timeoutMs / 1000)}s)`);
+    }, timeoutMs);
 
     proc.stdout?.on('data', (chunk) => { stdout += chunk.toString(); });
     proc.stderr?.on('data', (chunk) => { stderr += chunk.toString(); });

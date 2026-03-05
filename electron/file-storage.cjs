@@ -136,9 +136,6 @@ async function importFile(filePath, type) {
   // Copy file (only if doesn't exist - deduplication)
   if (!fs.existsSync(fullPath)) {
     fs.copyFileSync(filePath, fullPath);
-    console.log(`[FileStorage] Imported: ${originalName} -> ${internalPath}`);
-  } else {
-    console.log(`[FileStorage] File already exists (dedup): ${internalPath}`);
   }
 
   return {
@@ -170,9 +167,6 @@ async function importFromBuffer(buffer, filename, type) {
   // Write file (only if doesn't exist - deduplication)
   if (!fs.existsSync(fullPath)) {
     fs.writeFileSync(fullPath, buffer);
-    console.log(`[FileStorage] Saved from buffer: ${filename} -> ${internalPath}`);
-  } else {
-    console.log(`[FileStorage] File already exists (dedup): ${internalPath}`);
   }
 
   return {
@@ -242,7 +236,6 @@ function overwriteFile(internalPath, buffer) {
   const fullPath = getFullPath(internalPath);
   ensureDir(path.dirname(fullPath));
   fs.writeFileSync(fullPath, buffer);
-  console.log('[FileStorage] Overwrote:', internalPath);
 }
 
 /**
@@ -255,7 +248,6 @@ function deleteFile(internalPath) {
   const fullPath = getFullPath(internalPath);
   if (fs.existsSync(fullPath)) {
     fs.unlinkSync(fullPath);
-    console.log(`[FileStorage] Deleted: ${internalPath}`);
     return true;
   }
   return false;
@@ -279,7 +271,6 @@ function exportFile(internalPath, destinationPath) {
 
   // Copy file
   fs.copyFileSync(fullPath, destinationPath);
-  console.log(`[FileStorage] Exported: ${internalPath} -> ${destinationPath}`);
   return true;
 }
 
@@ -346,7 +337,6 @@ function cleanupOrphanedFiles(validInternalPaths, currentAvatarPath = null) {
             fs.unlinkSync(fullPath);
             deleted++;
             freedBytes += stats.size;
-            console.log(`[FileStorage] Cleaned up orphaned: ${internalPath}`);
           } catch (error) {
             console.error(`[FileStorage] Error deleting ${internalPath}:`, error.message);
           }
@@ -370,7 +360,6 @@ function cleanupOrphanedFiles(validInternalPaths, currentAvatarPath = null) {
           fs.unlinkSync(fullPath);
           deleted++;
           freedBytes += stats.size;
-          console.log(`[FileStorage] Cleaned up orphaned avatar: ${relativePath}`);
         } catch (error) {
           console.error(`[FileStorage] Error deleting avatar ${relativePath}:`, error.message);
         }
@@ -392,8 +381,6 @@ function initStorage() {
   Object.values(TYPE_DIRECTORIES).forEach((typeDir) => {
     ensureDir(path.join(storageDir, typeDir));
   });
-
-  console.log('[FileStorage] Storage initialized at:', storageDir);
 }
 
 module.exports = {

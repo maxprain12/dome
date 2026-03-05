@@ -20,7 +20,6 @@ function init(window, broadcast) {
 
   // Skip updates in development
   if (process.env.NODE_ENV === 'development' || !require('electron').app.isPackaged) {
-    console.log('[Updater] Skipping - development or unpackaged');
     return;
   }
 
@@ -28,12 +27,10 @@ function init(window, broadcast) {
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('checking-for-update', () => {
-    console.log('[Updater] Checking for updates...');
     broadcastUpdateStatus({ status: 'checking' });
   });
 
   autoUpdater.on('update-available', (info) => {
-    console.log('[Updater] Update available:', info.version);
     broadcastUpdateStatus({
       status: 'available',
       version: info.version,
@@ -42,7 +39,6 @@ function init(window, broadcast) {
   });
 
   autoUpdater.on('update-not-available', (info) => {
-    console.log('[Updater] No update available. Current:', info?.version || 'unknown');
     broadcastUpdateStatus({ status: 'not-available', version: info?.version });
   });
 
@@ -57,7 +53,6 @@ function init(window, broadcast) {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    console.log('[Updater] Update downloaded:', info.version);
     broadcastUpdateStatus({
       status: 'downloaded',
       version: info.version,

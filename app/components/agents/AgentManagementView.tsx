@@ -3,10 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Bot, Pencil, Trash2, Plus, Loader2, Download, Upload } from 'lucide-react';
 import { getManyAgents, deleteManyAgent, exportAgentsConfig, importAgentsConfig } from '@/lib/agents/api';
+import { uninstallMarketplaceAgent } from '@/lib/marketplace/api';
 import type { ManyAgent } from '@/types';
 import { showToast } from '@/lib/store/useToastStore';
 import AgentOnboarding from './AgentOnboarding';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import TabLayout from '@/components/home/TabLayout';
 
 interface AgentManagementViewProps {
   onAgentSelect?: (agentId: string) => void;
@@ -69,6 +71,9 @@ export default function AgentManagementView({ onAgentSelect }: AgentManagementVi
 
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
+    if (deleteTarget.marketplaceId) {
+      await uninstallMarketplaceAgent(deleteTarget.marketplaceId);
+    }
     const result = await deleteManyAgent(deleteTarget.id);
     if (result.success) {
       setAgents((prev) => prev.filter((a) => a.id !== deleteTarget.id));
@@ -148,78 +153,71 @@ export default function AgentManagementView({ onAgentSelect }: AgentManagementVi
     );
   }
 
-  return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-      {/* Header */}
-      <div
-        className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between px-6 py-5 gap-4"
-        style={{ borderBottom: '1px solid var(--dome-border)' }}
+  const actionsEl = (
+    <div className="flex items-center gap-2 shrink-0">
+      <button
+        type="button"
+        onClick={handleExport}
+        disabled={agents.length === 0}
+        className="flex items-center justify-center w-9 h-9 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
+        title="Exportar"
       >
-        <div className="flex items-center gap-3 shrink-0">
-          <div
-            className="w-9 h-9 flex items-center justify-center rounded-xl"
-            style={{ background: 'var(--dome-accent-bg)' }}
-          >
-            <Bot className="w-5 h-5" style={{ color: 'var(--dome-accent, #6366f1)' }} />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold" style={{ color: 'var(--dome-text)' }}>
-              Agent Hub
-            </h1>
-            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              {agents.length} agente{agents.length !== 1 ? 's' : ''} configurado{agents.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-        </div>
+        <Download className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+      </button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={handleImportFile}
+      />
+      <button
+        type="button"
+        onClick={handleImportClick}
+        disabled={importing}
+        className="flex items-center justify-center w-9 h-9 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
+        title="Importar"
+      >
+        {importing ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} /> : <Upload className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />}
+      </button>
+      <button
+        type="button"
+        onClick={() => setShowNewAgent(true)}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
+        style={{
+          background: 'var(--dome-accent, #6366f1)',
+          color: 'white',
+        }}
+      >
+        <Plus className="w-4 h-4" />
+        Nuevo agente
+      </button>
+    </div>
+  );
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={agents.length === 0}
-            className="flex items-center justify-center w-9 h-9 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
-            title="Exportar"
-          >
-            <Download className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            className="hidden"
-            onChange={handleImportFile}
-          />
-          <button
-            type="button"
-            onClick={handleImportClick}
-            disabled={importing}
-            className="flex items-center justify-center w-9 h-9 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
-            title="Importar"
-          >
-            {importing ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} /> : <Upload className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />}
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowNewAgent(true)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all"
-            style={{
-              background: 'var(--dome-accent, #6366f1)',
-              color: 'white',
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            Nuevo agente
-          </button>
-        </div>
-      </div>
+  const skeletonEl = (
+    <div className="flex flex-col gap-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div
+          key={i}
+          className="resource-card-list-skeleton rounded-xl h-[80px]"
+          aria-hidden="true"
+        />
+      ))}
+    </div>
+  );
 
-      {/* Content */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
-          </div>
-        ) : agents.length === 0 ? (
+  return (
+    <>
+      <TabLayout
+        icon={<Bot className="w-5 h-5" />}
+        title="Agent Hub"
+        description={`${agents.length} agente${agents.length !== 1 ? 's' : ''} configurado${agents.length !== 1 ? 's' : ''}`}
+        actions={actionsEl}
+        loading={isLoading}
+        skeleton={skeletonEl}
+      >
+        {agents.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full py-20 gap-5 text-center">
             <div
               className="w-16 h-16 flex items-center justify-center rounded-2xl"
@@ -245,7 +243,7 @@ export default function AgentManagementView({ onAgentSelect }: AgentManagementVi
             </button>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 animate-in fade-in duration-150 motion-reduce:animate-none">
             {agents.map((agent) => (
               <div
                 key={agent.id}
@@ -336,7 +334,7 @@ export default function AgentManagementView({ onAgentSelect }: AgentManagementVi
             ))}
           </div>
         )}
-      </div>
+      </TabLayout>
 
       <ConfirmDialog
         isOpen={!!deleteTarget}
@@ -352,6 +350,6 @@ export default function AgentManagementView({ onAgentSelect }: AgentManagementVi
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
-    </div>
+    </>
   );
 }

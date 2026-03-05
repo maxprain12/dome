@@ -10,33 +10,9 @@
  * when the AI model requests tool execution.
  */
 
-const TOOL_TRACE = process.env.NODE_ENV === 'development' || process.env.DEBUG_AI_TOOLS === '1';
-
 function traceLog(fn, params, result, err) {
-  if (!TOOL_TRACE) return;
-  const sanitize = (obj, maxLen = 80) => {
-    if (obj == null) return obj;
-    if (typeof obj === 'string') return obj.length > maxLen ? obj.slice(0, maxLen) + '...' : obj;
-    if (Array.isArray(obj)) return obj.length;
-    if (typeof obj === 'object') {
-      const out = {};
-      for (const [k, v] of Object.entries(obj)) {
-        if (['content', 'snippet', 'embedding', 'thumbnail_data'].includes(k)) continue;
-        out[k] = sanitize(v, 60);
-      }
-      return out;
-    }
-    return obj;
-  };
   if (err) {
-    console.log(`[AI:Tools:Handler] ${fn} ERROR`, { params: sanitize(params), error: err.message });
-  } else {
-    const summary = result?.success === false
-      ? { success: false, error: result.error }
-      : (typeof result === 'object' && result !== null && !Array.isArray(result))
-        ? sanitize(result)
-        : { success: true, count: result?.count ?? result?.resources?.length ?? result?.results?.length ?? (result?.resource ? 1 : null) ?? result?.interactions?.length ?? '?' };
-    console.log(`[AI:Tools:Handler] ${fn}`, { params: sanitize(params), result: summary });
+    console.error(`[AI:Tools:Handler] ${fn} ERROR:`, err.message);
   }
 }
 
@@ -540,7 +516,6 @@ async function resourceSemanticSearch(query, options = {}) {
     }
 
     if (indexedRows.length === 0) {
-      console.log('[AI Tools] No PageIndex-indexed documents found, falling back to FTS');
       return resourceSearch(query, options);
     }
 
@@ -554,7 +529,6 @@ async function resourceSemanticSearch(query, options = {}) {
     const searchResult = await docIndexer.search(query, trees, limit, database);
 
     if (!searchResult.success || !searchResult.results) {
-      console.log('[AI Tools] PageIndex search failed, falling back to FTS');
       return resourceSearch(query, options);
     }
 
@@ -607,7 +581,6 @@ async function resourceSemanticSearch(query, options = {}) {
 
   } catch (error) {
     console.error('[AI Tools] resourceSemanticSearch (PageIndex) error:', error);
-    console.log('[AI Tools] Falling back to FTS');
     return resourceSearch(query, options);
   }
 }

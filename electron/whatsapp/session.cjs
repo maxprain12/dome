@@ -51,7 +51,6 @@ async function loadBaileys() {
     DisconnectReason = baileys.DisconnectReason;
     fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
     makeCacheableSignalKeyStore = baileys.makeCacheableSignalKeyStore;
-    console.log('[WhatsApp] Baileys loaded successfully');
     return true;
   } catch (error) {
     console.error('[WhatsApp] Failed to load Baileys:', error.message);
@@ -122,7 +121,6 @@ async function connect(options = {}) {
       if (qr) {
         _qrCode = qr;
         _connectionState = 'pending';
-        console.log('[WhatsApp] QR code generated');
         if (_onQrCallback) {
           _onQrCallback(qr);
         }
@@ -135,7 +133,6 @@ async function connect(options = {}) {
         const shouldReconnect =
           lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
 
-        console.log('[WhatsApp] Connection closed, reconnect:', shouldReconnect);
 
         if (_onDisconnectedCallback) {
           _onDisconnectedCallback({
@@ -156,7 +153,6 @@ async function connect(options = {}) {
         _connectionState = 'connected';
         _qrCode = null;
         _selfId = _socket.user?.id;
-        console.log('[WhatsApp] Connected as:', _selfId);
 
         if (_onConnectedCallback) {
           _onConnectedCallback({
@@ -192,11 +188,9 @@ async function connect(options = {}) {
         // Ignorar mensajes propios SOLO si NO son del mismo teléfono
         // Esto evita loops de auto-respuesta desde otros dispositivos
         if (fromMe && !isSamePhone) {
-          console.log('[WhatsApp] Skipping outbound message (fromMe, different phone)');
           continue;
         }
 
-        console.log('[WhatsApp] New message from:', remoteJid, fromMe ? '(self-chat)' : '');
 
         if (_onMessageCallback) {
           // Pasar información adicional para el handler
@@ -205,7 +199,6 @@ async function connect(options = {}) {
       }
     });
 
-    console.log('[WhatsApp] Socket created, waiting for connection...');
     return true;
   } catch (error) {
     console.error('[WhatsApp] Error creating socket:', error);
@@ -221,9 +214,7 @@ function stop() {
   if (_socket) {
     try {
       _socket.end();
-      console.log('[WhatsApp] Socket stopped (session preserved)');
     } catch (error) {
-      console.log('[WhatsApp] Stop error (ignored):', error.message);
     }
     _socket = null;
     _connectionState = 'disconnected';
@@ -240,9 +231,7 @@ async function logout() {
   if (_socket) {
     try {
       await _socket.logout();
-      console.log('[WhatsApp] Logged out');
     } catch (error) {
-      console.log('[WhatsApp] Logout error (ignored):', error.message);
     }
     _socket = null;
     _connectionState = 'disconnected';
@@ -289,7 +278,6 @@ async function sendText(jid, text) {
   }
 
   await _socket.sendMessage(jid, { text });
-  console.log('[WhatsApp] Sent text to:', jid);
 }
 
 /**
@@ -307,7 +295,6 @@ async function sendImage(jid, image, caption = '') {
     image,
     caption,
   });
-  console.log('[WhatsApp] Sent image to:', jid);
 }
 
 /**
@@ -327,7 +314,6 @@ async function sendDocument(jid, document, filename, mimetype) {
     fileName: filename,
     mimetype,
   });
-  console.log('[WhatsApp] Sent document to:', jid);
 }
 
 /**
@@ -370,7 +356,6 @@ function clearSession() {
   if (fs.existsSync(authDir)) {
     fs.rmSync(authDir, { recursive: true, force: true });
     fs.mkdirSync(authDir, { recursive: true });
-    console.log('[WhatsApp] Session cleared');
   }
 
   _connectionState = 'disconnected';

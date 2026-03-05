@@ -16,6 +16,8 @@ export interface RunPythonOptions {
   cwd?: string;
   /** Path to Python virtual environment (venv directory) */
   venvPath?: string;
+  /** Execution timeout in milliseconds (default 60000) */
+  timeoutMs?: number;
 }
 
 /**

@@ -42,8 +42,6 @@ function init(deps) {
 
   // Cargar allowlist desde settings
   loadAllowlist();
-
-  console.log('[WhatsApp Handler] Initialized');
 }
 
 /**
@@ -56,7 +54,6 @@ function loadAllowlist() {
     if (result?.value) {
       const numbers = JSON.parse(result.value);
       _allowedNumbers = new Set(numbers);
-      console.log('[WhatsApp Handler] Loaded allowlist:', _allowedNumbers.size, 'numbers');
     }
   } catch (error) {
     console.error('[WhatsApp Handler] Error loading allowlist:', error.message);
@@ -84,7 +81,6 @@ function addToAllowlist(phoneNumber) {
   const cleaned = phoneNumber.replace(/[^\d]/g, '');
   _allowedNumbers.add(cleaned);
   saveAllowlist();
-  console.log('[WhatsApp Handler] Added to allowlist:', cleaned);
 }
 
 /**
@@ -95,7 +91,6 @@ function removeFromAllowlist(phoneNumber) {
   const cleaned = phoneNumber.replace(/[^\d]/g, '');
   _allowedNumbers.delete(cleaned);
   saveAllowlist();
-  console.log('[WhatsApp Handler] Removed from allowlist:', cleaned);
 }
 
 /**
@@ -270,7 +265,6 @@ async function createNoteFromText(from, text) {
     // Responder al usuario
     await session.sendText(from, `✅ Note created: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
 
-    console.log('[WhatsApp Handler] Created note from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error creating note:', error);
@@ -325,7 +319,6 @@ async function createUrlResource(from, url) {
 
     await session.sendText(from, `✅ Link saved: ${url}`);
 
-    console.log('[WhatsApp Handler] Created URL resource from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error creating URL resource:', error);
@@ -468,7 +461,6 @@ async function askMartin(from, question) {
         const apiKey = apiKeyResult?.value;
 
         if (apiKey) {
-          console.log(`[WhatsApp Handler] Using ${provider} AI with tools`);
 
           const response = await chatWithToolsInMain(provider, messages, toolDefinitions, {
             database,
@@ -492,7 +484,6 @@ async function askMartin(from, question) {
       const ollamaApiKey = queries.getSetting.get('ollama_api_key')?.value || '';
       const isAvailable = await ollamaService.checkAvailability(ollamaBaseUrl, ollamaApiKey);
       if (isAvailable) {
-        console.log(`[WhatsApp Handler] Using Ollama with tools`);
 
         const response = await chatWithToolsInMain('ollama', messages, toolDefinitions, {
           database,
@@ -576,7 +567,6 @@ async function processAudioMessage(message) {
 
     await session.sendText(from, '✅ Audio saved in Dome. Processing transcription...');
 
-    console.log('[WhatsApp Handler] Created audio resource from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error processing audio:', error);
@@ -654,7 +644,6 @@ async function processImageMessage(message) {
 
     await session.sendText(from, '✅ Image saved in Dome');
 
-    console.log('[WhatsApp Handler] Created image resource from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error processing image:', error);
@@ -735,7 +724,6 @@ async function processDocumentMessage(message) {
 
     await session.sendText(from, `✅ Document saved: ${filename}`);
 
-    console.log('[WhatsApp Handler] Created document resource from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error processing document:', error);
@@ -789,7 +777,6 @@ async function processLocationMessage(message) {
 
     await session.sendText(from, '✅ Location saved in Dome');
 
-    console.log('[WhatsApp Handler] Created location resource from WhatsApp');
     return { success: true, resourceId: id };
   } catch (error) {
     console.error('[WhatsApp Handler] Error processing location:', error);
@@ -812,7 +799,6 @@ async function handleMessage(message, context = {}) {
 
   // Verificar autorización - ignorar silenciosamente si no está autorizado
   if (!isAuthorized(from)) {
-    console.log('[WhatsApp Handler] Ignoring unauthorized message from:', from);
     return { success: true, ignored: true, reason: 'unauthorized' };
   }
 
@@ -820,11 +806,9 @@ async function handleMessage(message, context = {}) {
 
   // Ignorar silenciosamente tipos que no necesitan respuesta
   if (SILENT_MESSAGE_TYPES.has(type)) {
-    console.log('[WhatsApp Handler] Ignoring silent message type:', type);
     return { success: true, ignored: true, type };
   }
 
-  console.log('[WhatsApp Handler] Processing message type:', type, fromMe ? '(self-chat)' : '');
 
   switch (type) {
     case 'text':
@@ -848,7 +832,6 @@ async function handleMessage(message, context = {}) {
 
     case 'contact':
       // Por ahora ignoramos contactos, pero podríamos procesarlos en el futuro
-      console.log('[WhatsApp Handler] Contact received, skipping');
       return { success: true, ignored: true, type: 'contact' };
 
     case 'video':

@@ -3,7 +3,7 @@ function register({ ipcMain, windowManager, notebookPython }) {
   /**
    * Run Python code in notebook (main process subprocess)
    */
-  ipcMain.handle('notebook:runPython', async (event, { code, cells, targetCellIndex, cwd, venvPath }) => {
+  ipcMain.handle('notebook:runPython', async (event, { code, cells, targetCellIndex, cwd, venvPath, timeoutMs }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, outputs: [], error: 'Unauthorized' };
     }
@@ -44,6 +44,9 @@ function register({ ipcMain, windowManager, notebookPython }) {
       }
       if (typeof venvPath === 'string' && venvPath.trim()) {
         options.venvPath = venvPath.trim();
+      }
+      if (typeof timeoutMs === 'number' && timeoutMs > 0) {
+        options.timeoutMs = timeoutMs;
       }
       return await notebookPython.runPythonCode(code, options);
     } catch (error) {
@@ -170,6 +173,7 @@ function register({ ipcMain, windowManager, notebookPython }) {
       return { success: false, error: error.message };
     }
   });
+
 }
 
 module.exports = { register };

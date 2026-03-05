@@ -85,30 +85,34 @@ export default function FlashcardDeckList() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
+      <div className="min-h-[400px] animate-in fade-in duration-150 motion-reduce:animate-none">
+        <div className="flex items-center justify-between mb-6">
+          <div className="h-5 w-32 rounded resource-card-skeleton" aria-hidden="true" />
+          <div className="h-9 w-28 rounded-lg resource-card-skeleton" aria-hidden="true" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="resource-card-skeleton rounded-xl min-h-[180px]"
+              aria-hidden="true"
+            />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="animate-in fade-in duration-150 motion-reduce:animate-none">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2
-            className="text-xl font-semibold"
-            style={{ color: 'var(--primary-text)' }}
-          >
-            Flashcards
-          </h2>
-          <p
-            className="text-sm mt-1"
-            style={{ color: 'var(--secondary-text)' }}
-          >
-            {decks.length} mazo{decks.length !== 1 ? 's' : ''} de estudio
-          </p>
-        </div>
+        <p
+          className="text-sm"
+          style={{ color: 'var(--secondary-text)' }}
+        >
+          {decks.length} mazo{decks.length !== 1 ? 's' : ''} de estudio
+        </p>
         <button
           onClick={() => setShowCreateModal(true)}
           className="btn btn-primary flex items-center gap-2 text-sm"

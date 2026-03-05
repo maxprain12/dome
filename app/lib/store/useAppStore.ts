@@ -39,8 +39,8 @@ interface AppState {
   // UI Estado
   sidebarOpen: boolean;
   toggleSidebar: () => void;
-  homeSidebarSection: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | `agent:${string}` | `team:${string}`;
-  setHomeSidebarSection: (section: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | `agent:${string}` | `team:${string}`) => void;
+  homeSidebarSection: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | `agent:${string}` | `team:${string}` | `workflow:${string}`;
+  setHomeSidebarSection: (section: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | `agent:${string}` | `team:${string}` | `workflow:${string}`) => void;
   homeSidebarCollapsed: boolean;
   toggleHomeSidebar: () => void;
   searchQuery: string;

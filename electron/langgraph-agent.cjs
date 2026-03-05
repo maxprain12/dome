@@ -173,9 +173,6 @@ async function trimMessagesForOllama(messages, llm) {
       startOn: 'human',
       endOn: ['human', 'tool'],
     });
-    if (messages.length !== trimmed.length) {
-      console.log(`[AI LangGraph] Ollama: trimmed ${messages.length} -> ${trimmed.length} messages`);
-    }
     return trimmed;
   } catch (e) {
     console.warn('[AI LangGraph] Ollama trim failed, using full history:', e?.message);
@@ -319,7 +316,6 @@ async function invokeLangGraphAgent(opts) {
         const reviewConfigs = value?.reviewConfigs ?? value?.review_configs ?? [];
         const safeActionRequests = Array.isArray(actionRequests) ? actionRequests : [];
         const safeReviewConfigs = Array.isArray(reviewConfigs) ? reviewConfigs : [];
-        console.log(`[AI LangGraph] HITL interrupt detected (${interruptSource}), ${safeActionRequests.length} action(s)`);
         if (onChunk) {
           onChunk({
             type: 'interrupt',
@@ -490,7 +486,6 @@ async function resumeLangGraphAgent(opts) {
         const reviewConfigs = value?.reviewConfigs ?? value?.review_configs ?? [];
         const safeActionRequests = Array.isArray(actionRequests) ? actionRequests : [];
         const safeReviewConfigs = Array.isArray(reviewConfigs) ? reviewConfigs : [];
-        console.log(`[AI LangGraph] HITL interrupt after resume (${resumeInterruptSource}), ${safeActionRequests.length} action(s)`);
         if (onChunk) {
           onChunk({
             type: 'interrupt',

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Tag, Settings, HelpCircle, WalletCards, Sparkles, Bot, CirclePlus, Calendar, Store, Workflow } from 'lucide-react';
+import { Home, Tag, Settings, HelpCircle, WalletCards, Sparkles, Bot, Calendar, Store, Workflow } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { getManyAgents } from '@/lib/agents/api';
 import { getAgentTeams } from '@/lib/agent-team/api';
@@ -12,10 +12,17 @@ import { startDomeTour } from '@/lib/tour/domeTour';
 
 type SidebarSection = 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams';
 
+type NavAction = 'navigate' | 'section';
+
 interface NavItem {
-  id: SidebarSection;
+  id: string;
   label: string;
   icon: React.ReactNode;
+  action: NavAction;
+  path?: string;
+  section?: SidebarSection;
+  /** Custom isActive check; for section items defaults to activeSection === section */
+  isActive?: (activeSection: string) => boolean;
 }
 
 interface HomeSidebarProps {
@@ -68,12 +75,46 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
     [setSection]
   );
 
-  const navItems: NavItem[] = [
-    { id: 'library', label: 'Library', icon: <Home className="w-5 h-5" strokeWidth={1.5} /> },
-    { id: 'studio', label: 'Studio', icon: <Sparkles className="w-5 h-5" strokeWidth={1.5} /> },
-    { id: 'flashcards', label: 'Flashcards', icon: <WalletCards className="w-5 h-5" strokeWidth={1.5} /> },
-    { id: 'tags', label: 'Tags', icon: <Tag className="w-5 h-5" strokeWidth={1.5} /> },
+  const allNavItems: NavItem[] = [
+    { id: 'library', label: 'Library', icon: <Home className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'library' },
+    { id: 'calendar', label: 'Calendario', icon: <Calendar className="w-5 h-5" strokeWidth={1.5} />, action: 'navigate', path: '/calendar' },
+    { id: 'studio', label: 'Studio', icon: <Sparkles className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'studio' },
+    { id: 'flashcards', label: 'Flashcards', icon: <WalletCards className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'flashcards' },
+    { id: 'tags', label: 'Tags', icon: <Tag className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'tags' },
+    { id: 'agents', label: 'Agentes', icon: <Bot className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'agents' },
+    {
+      id: 'agent-teams',
+      label: 'Workflows',
+      icon: <Workflow className="w-5 h-5" strokeWidth={1.5} />,
+      action: 'section',
+      section: 'agent-teams',
+      isActive: (s) => s === 'agent-teams' || s.toString().startsWith('workflow:'),
+    },
+    { id: 'marketplace', label: 'Marketplace', icon: <Store className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'marketplace' },
   ];
+
+  const getIsActive = (item: NavItem) => {
+    if (item.action === 'navigate') {
+      return location.pathname === item.path;
+    }
+    if (!isCalendar && item.section) {
+      return item.isActive ? item.isActive(activeSection) : activeSection === item.section;
+    }
+    return false;
+  };
+
+  const handleNavClick = (item: NavItem) => {
+    if (item.action === 'navigate' && item.path) {
+      navigate(item.path);
+    } else if (item.action === 'section' && item.section) {
+      if (isCalendar) {
+        setSection(item.section);
+        navigate('/');
+      } else {
+        setSection(item.section);
+      }
+    }
+  };
 
   return (
     <aside
@@ -106,18 +147,15 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden w-full scrollbar-none pb-4" style={{ padding: '0 12px' }}>
         <nav className="flex flex-col gap-1 items-center w-full">
-          {/* Main Apps */}
-          {navItems.filter((i) => i.id === 'library').map((item) => {
-            const isActive = !isCalendar && activeSection === item.id;
+          {allNavItems.map((item) => {
+            const isActive = getIsActive(item);
             return (
               <button
                 key={item.id}
-                data-tour={item.id}
-                onClick={() => {
-                  if (isCalendar) navigate('/');
-                  setSection(item.id);
-                }}
-                className={`flex items-center justify-center rounded-lg transition-colors duration-200 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)]`}
+                type="button"
+                data-tour={item.id === 'agents' ? 'agents' : item.id}
+                onClick={() => handleNavClick(item)}
+                className="flex items-center justify-center rounded-lg transition-colors duration-200 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)]"
                 style={{
                   width: '40px',
                   height: '40px',
@@ -132,107 +170,6 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
               </button>
             );
           })}
-
-          <button
-            onClick={() => navigate('/calendar')}
-            className={`flex items-center justify-center rounded-lg transition-colors duration-200 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)]`}
-            style={{
-              width: '40px',
-              height: '40px',
-              background: isCalendar ? 'var(--dome-surface)' : 'transparent',
-              color: isCalendar ? 'var(--dome-text)' : 'inherit',
-            }}
-            title="Calendario"
-          >
-            <div className="relative z-10 opacity-80">
-              <Calendar className="w-5 h-5" strokeWidth={1.5} />
-            </div>
-          </button>
-
-          {navItems.filter((i) => i.id !== 'library').map((item) => {
-            const isActive = !isCalendar && activeSection === item.id;
-            return (
-              <button
-                key={item.id}
-                data-tour={item.id}
-                onClick={() => {
-                  if (isCalendar) navigate('/');
-                  setSection(item.id);
-                }}
-                className={`flex items-center justify-center rounded-lg transition-colors duration-200 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)]`}
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  background: isActive ? 'var(--dome-surface)' : 'transparent',
-                  color: isActive ? 'var(--dome-text)' : 'inherit',
-                }}
-                title={item.label}
-              >
-                <div className="relative z-10 opacity-80">
-                  {item.icon}
-                </div>
-              </button>
-            );
-          })}
-
-          {/* AI Ecosystem - Agents, Teams, Marketplace */}
-          <button
-            data-tour="agents"
-            onClick={() => {
-              if (isCalendar) navigate('/');
-              setSection('agents');
-            }}
-            className={`flex items-center justify-center rounded-lg transition-colors duration-200 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)]`}
-            style={{
-              width: '40px',
-              height: '40px',
-              background: !isCalendar && activeSection === 'agents' ? 'var(--dome-surface)' : 'transparent',
-              color: !isCalendar && activeSection === 'agents' ? 'var(--dome-text)' : 'inherit',
-            }}
-            title="Agentes"
-          >
-            <div className="relative z-10 opacity-80">
-              <Bot className="w-5 h-5" strokeWidth={1.5} />
-            </div>
-          </button>
-
-          <button
-            onClick={() => {
-              if (isCalendar) navigate('/');
-              setSection('agent-teams');
-            }}
-            className={`flex items-center justify-center rounded-lg transition-colors duration-200 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)]`}
-            style={{
-              width: '40px',
-              height: '40px',
-              background: !isCalendar && (activeSection === 'agent-teams' || activeSection.toString().startsWith('team:')) ? 'var(--dome-surface)' : 'transparent',
-              color: !isCalendar && (activeSection === 'agent-teams' || activeSection.toString().startsWith('team:')) ? 'var(--dome-text)' : 'inherit',
-            }}
-            title="Equipos"
-          >
-            <div className="relative z-10 opacity-80">
-              <Workflow className="w-5 h-5" strokeWidth={1.5} />
-            </div>
-          </button>
-
-          <button
-            onClick={() => {
-              if (isCalendar) navigate('/');
-              setSection('marketplace');
-            }}
-            className={`flex items-center justify-center rounded-lg transition-colors duration-200 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)]`}
-            style={{
-              width: '40px',
-              height: '40px',
-              background: !isCalendar && activeSection === 'marketplace' ? 'var(--dome-surface)' : 'transparent',
-              color: !isCalendar && activeSection === 'marketplace' ? 'var(--dome-text)' : 'inherit',
-            }}
-            title="Marketplace"
-          >
-            <div className="relative z-10 opacity-80">
-              <Store className="w-5 h-5" strokeWidth={1.5} />
-            </div>
-          </button>
         </nav>
       </div>
 

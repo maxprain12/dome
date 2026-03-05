@@ -72,6 +72,7 @@ import scala from "highlight.js/lib/languages/scala";
 import mentionRenderItems from "@/components/editor/components/mention/mention-suggestion.ts";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 import MentionView from "@/components/editor/components/mention/mention-view.tsx";
+import { Markdown } from "@tiptap/markdown";
 import { MarkdownClipboard } from "@/components/editor/extensions/markdown-clipboard.ts";
 import EmojiCommand from "./emoji-command";
 
@@ -266,4 +267,7 @@ export const mainExtensions = [
   }).configure(),
   Columns,
   Column,
+  Markdown.configure({
+    markedOptions: { gfm: true },
+  }),
 ] as any;

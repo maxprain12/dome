@@ -19,6 +19,8 @@ import AgentManagementView from '@/components/agents/AgentManagementView';
 import MarketplaceView from '@/components/marketplace/MarketplaceView';
 import AgentTeamView from '@/components/agent-team/AgentTeamView';
 import AgentTeamChat from '@/components/agent-team/AgentTeamChat';
+import AgentCanvasView from '@/components/agent-canvas/AgentCanvasView';
+import WorkflowLibraryView from '@/components/agent-canvas/WorkflowLibraryView';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
@@ -521,6 +523,13 @@ export default function Home() {
         </div>
       );
     }
+    if (typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('workflow:')) {
+      return (
+        <div className="h-full min-h-0 flex flex-col overflow-hidden relative">
+          <AgentCanvasView />
+        </div>
+      );
+    }
     switch (homeSidebarSection) {
       case 'studio':
         return <StudioHomeView />;
@@ -544,8 +553,8 @@ export default function Home() {
 
       case 'agent-teams':
         return (
-          <div className="h-full min-h-0 flex flex-col overflow-hidden">
-            <AgentTeamView />
+          <div className="h-full min-h-0 flex flex-col overflow-hidden relative">
+            <WorkflowLibraryView />
           </div>
         );
 
@@ -855,14 +864,16 @@ export default function Home() {
               Los resultados aparecen en el buscador. Cierra la búsqueda para verlos aquí.
             </p>
           ) : !isSearchMode && isLoading ? (
-            <div className={viewMode === 'grid' ? 'resources-grid' : 'resources-list'}>
-              {Array.from({ length: viewMode === 'grid' ? 8 : 6 }).map((_, i) => (
-                <div
-                  key={i}
-                  className={viewMode === 'grid' ? 'resource-card-skeleton' : 'resource-card-list-skeleton'}
-                  aria-hidden="true"
-                />
-              ))}
+            <div className="min-h-[480px]" aria-busy="true">
+              <div className={viewMode === 'grid' ? 'resources-grid' : 'resources-list'}>
+                {Array.from({ length: viewMode === 'grid' ? 8 : 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={viewMode === 'grid' ? 'resource-card-skeleton' : 'resource-card-list-skeleton'}
+                    aria-hidden="true"
+                  />
+                ))}
+              </div>
             </div>
           ) : null}
 
@@ -902,7 +913,7 @@ export default function Home() {
 
           {!hideMainSearchResults && ((isSearchMode && resourcesToShow.length > 0) || (!isSearchMode && !isLoading && !error && nonFolderResources.length > 0)) ? (
             <div
-              className={viewMode === 'list' ? 'resources-list-wrapper' : undefined}
+              className={`animate-in fade-in duration-150 motion-reduce:animate-none ${viewMode === 'list' ? 'resources-list-wrapper' : ''}`}
               onClick={(e) => {
                 if (!(e.target as Element).closest('.resource-card-grid, .resource-card-list')) {
                   setSelectedResourceIds(new Set());
@@ -982,9 +993,11 @@ export default function Home() {
 
   const isAgentView = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('agent:');
   const isTeamView = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('team:');
+  const isWorkflowView = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('workflow:');
   const isFullscreenView =
     isAgentView ||
     isTeamView ||
+    isWorkflowView ||
     homeSidebarSection === 'agents' ||
     homeSidebarSection === 'marketplace' ||
     homeSidebarSection === 'agent-teams';

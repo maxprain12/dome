@@ -14,7 +14,6 @@ if (typeof window !== 'undefined') {
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
 
   if (process.env.NODE_ENV === 'development') {
-    console.log('[PDF.js] Worker configured (legacy):', workerPath);
   }
 }
 

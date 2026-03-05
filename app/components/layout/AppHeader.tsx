@@ -15,6 +15,8 @@ const SECTION_TITLES: Record<string, string> = {
   chat: 'Many Chat',
   projects: 'Projects',
   agents: 'Agentes',
+  'agent-teams': 'Workflows',
+  marketplace: 'Marketplace',
 };
 
 const ROUTE_TITLES: Record<string, string> = {
@@ -49,7 +51,9 @@ export default function AppHeader() {
   const { upcomingEvents, upcomingUnreadCount, clearUpcomingUnread } = useCalendarStore();
   const isHome = location.pathname === '/';
   const title = isHome
-    ? SECTION_TITLES[homeSidebarSection] ?? 'Home'
+    ? (typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('workflow:')
+        ? 'Workflow'
+        : SECTION_TITLES[homeSidebarSection] ?? 'Home')
     : ROUTE_TITLES[location.pathname] ?? 'Dome';
 
   const isWindows = typeof window !== 'undefined' && window.electron?.isWindows;
