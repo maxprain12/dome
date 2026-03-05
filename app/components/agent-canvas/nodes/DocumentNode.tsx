@@ -12,6 +12,7 @@ interface ResourceOption {
   title: string;
   type: string;
   content?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export default function DocumentNode({ id, data, selected }: NodeProps<DocumentNodeData>) {
@@ -24,11 +25,18 @@ export default function DocumentNode({ id, data, selected }: NodeProps<DocumentN
     setShowPicker(true);
     try {
       const result = await window.electron?.invoke('db:resources:getAll');
-      if (Array.isArray(result)) {
+      const resourcesList = Array.isArray(result) ? result : result?.data;
+      if (Array.isArray(resourcesList)) {
         setResources(
-          result
+          resourcesList
             .filter((r: ResourceOption) => ['note', 'pdf', 'document', 'url'].includes(r.type))
-            .map((r: ResourceOption) => ({ id: r.id, title: r.title, type: r.type, content: r.content }))
+            .map((r: ResourceOption) => ({
+              id: r.id,
+              title: r.title,
+              type: r.type,
+              content: r.content,
+              metadata: r.metadata,
+            }))
         );
       }
     } catch {
@@ -39,8 +47,10 @@ export default function DocumentNode({ id, data, selected }: NodeProps<DocumentN
   const selectResource = (resource: ResourceOption) => {
     updateNode(id, {
       resourceId: resource.id,
+      resourceType: resource.type,
       resourceTitle: resource.title,
       resourceContent: resource.content ?? null,
+      resourceMetadata: resource.metadata ?? null,
     } as Partial<DocumentNodeData>);
     setShowPicker(false);
     setQuery('');
@@ -49,8 +59,10 @@ export default function DocumentNode({ id, data, selected }: NodeProps<DocumentN
   const clearResource = () => {
     updateNode(id, {
       resourceId: null,
+      resourceType: null,
       resourceTitle: null,
       resourceContent: null,
+      resourceMetadata: null,
     } as Partial<DocumentNodeData>);
   };
 

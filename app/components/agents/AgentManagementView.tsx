@@ -71,10 +71,11 @@ export default function AgentManagementView({ onAgentSelect }: AgentManagementVi
 
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
-    if (deleteTarget.marketplaceId) {
-      await uninstallMarketplaceAgent(deleteTarget.marketplaceId);
-    }
-    const result = await deleteManyAgent(deleteTarget.id);
+
+    const result = deleteTarget.marketplaceId
+      ? await uninstallMarketplaceAgent(deleteTarget.marketplaceId)
+      : await deleteManyAgent(deleteTarget.id);
+
     if (result.success) {
       setAgents((prev) => prev.filter((a) => a.id !== deleteTarget.id));
       setDeleteTarget(null);

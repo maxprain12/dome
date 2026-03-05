@@ -12,6 +12,8 @@ import type { Node, Edge } from 'reactflow';
 import type {
   CanvasNodeData,
   AgentNodeData,
+  CanvasNodePayload,
+  CanvasResourceReference,
   TextInputNodeData,
   DocumentNodeData,
   ImageNodeData,
@@ -65,60 +67,157 @@ function topologicalLevels(nodes: Node[], edges: Edge[]): Node[][] {
     currentLevel = nextLevel;
   }
 
+  const processedCount = levels.reduce((total, level) => total + level.length, 0);
+  if (processedCount !== nodes.length) {
+    throw new Error('El workflow contiene ciclos o dependencias inválidas');
+  }
+
   return levels;
 }
 
-/** Collect resolved text values from nodes connected to a given target node. */
-function getInputValues(
+function payloadToText(payload: CanvasNodePayload | undefined): string {
+  return payload?.text ?? '';
+}
+
+/** Collect resolved payloads from nodes connected to a given target node. */
+function getInputPayloads(
   targetNodeId: string,
   edges: Edge[],
-  resolvedOutputs: Record<string, string>
-): string {
+  resolvedPayloads: Record<string, CanvasNodePayload>
+): CanvasNodePayload[] {
   const incomingEdges = edges.filter((e) => e.target === targetNodeId);
-  const parts: string[] = [];
+  const payloads: CanvasNodePayload[] = [];
 
   for (const edge of incomingEdges) {
-    const value = resolvedOutputs[edge.source];
-    if (value) parts.push(value);
+    const payload = resolvedPayloads[edge.source];
+    if (payload) payloads.push(payload);
   }
 
-  return parts.join('\n\n---\n\n');
+  return payloads;
+}
+
+function mergePayloads(payloads: CanvasNodePayload[]): CanvasNodePayload {
+  const resources = payloads.flatMap((payload) => payload.resources ?? []);
+  const uniqueResources = resources.filter(
+    (resource, index) =>
+      resources.findIndex(
+        (candidate) =>
+          candidate.resourceId === resource.resourceId &&
+          candidate.resourceType === resource.resourceType
+      ) === index
+  );
+
+  return {
+    kind: payloads.length > 1 ? 'bundle' : payloads[0]?.kind ?? 'text',
+    text: payloads.map((payload) => payload.text).filter(Boolean).join('\n\n---\n\n'),
+    resources: uniqueResources.length > 0 ? uniqueResources : undefined,
+  };
+}
+
+function resourceReferenceToPromptBlock(resource: CanvasResourceReference): string {
+  const parts = [
+    `- Resource ID: ${resource.resourceId}`,
+    `- Title: ${resource.resourceTitle}`,
+    `- Type: ${resource.resourceType}`,
+  ];
+
+  if (resource.resourceUrl) {
+    parts.push(`- URL/Preview: ${resource.resourceUrl}`);
+  }
+  if (resource.resourceContent) {
+    parts.push(`- Content:\n${resource.resourceContent}`);
+  }
+
+  return parts.join('\n');
+}
+
+function buildAgentInputPayload(payloads: CanvasNodePayload[]): CanvasNodePayload {
+  const merged = mergePayloads(payloads);
+  if (!merged.resources || merged.resources.length === 0) {
+    return merged;
+  }
+
+  const resourceBlock = merged.resources
+    .map((resource) => resourceReferenceToPromptBlock(resource))
+    .join('\n\n');
+
+  return {
+    ...merged,
+    text: `${merged.text}\n\n## Connected Dome Resources\n${resourceBlock}`.trim(),
+  };
 }
 
 /** Resolve the "output value" of a non-agent node (text-input, document, image). */
-function resolveStaticNodeOutput(node: Node<CanvasNodeData>): string {
+function resolveStaticNodeOutput(node: Node<CanvasNodeData>): CanvasNodePayload {
   const data = node.data;
   if (data.type === 'text-input') {
-    return (data as TextInputNodeData).value ?? '';
+    return {
+      kind: 'text',
+      text: (data as TextInputNodeData).value ?? '',
+    };
   }
   if (data.type === 'document') {
     const d = data as DocumentNodeData;
-    if (d.resourceContent) return d.resourceContent;
-    if (d.resourceTitle) return `[Documento: ${d.resourceTitle}]`;
-    return '';
+    const resource =
+      d.resourceId && d.resourceTitle
+        ? ({
+            resourceId: d.resourceId,
+            resourceType: d.resourceType ?? 'document',
+            resourceTitle: d.resourceTitle,
+            resourceContent: d.resourceContent,
+            metadata: d.resourceMetadata ?? null,
+          } satisfies CanvasResourceReference)
+        : undefined;
+    return {
+      kind: resource ? 'resource' : 'text',
+      text: d.resourceContent || (d.resourceTitle ? `[Documento: ${d.resourceTitle}]` : ''),
+      resources: resource ? [resource] : undefined,
+    };
   }
   if (data.type === 'image') {
     const d = data as ImageNodeData;
-    return d.resourceTitle ? `[Imagen: ${d.resourceTitle}]` : '';
+    const resource =
+      d.resourceId && d.resourceTitle
+        ? ({
+            resourceId: d.resourceId,
+            resourceType: d.resourceType ?? 'image',
+            resourceTitle: d.resourceTitle,
+            resourceUrl: d.resourceUrl,
+            metadata: d.resourceMetadata ?? null,
+          } satisfies CanvasResourceReference)
+        : undefined;
+    return {
+      kind: resource ? 'resource' : 'text',
+      text: d.resourceTitle ? `[Imagen: ${d.resourceTitle}]` : '',
+      resources: resource ? [resource] : undefined,
+    };
   }
-  return '';
+  return { kind: 'text', text: '' };
 }
 
 /** Execute a single agent node, streaming chunks back to the store. */
 async function executeAgentNode(
   node: Node<CanvasNodeData>,
   edges: Edge[],
-  resolvedOutputs: Record<string, string>,
+  resolvedPayloads: Record<string, CanvasNodePayload>,
   store: StoreActions,
   onLog: (entry: Omit<ExecutionLogEntry, 'id' | 'timestamp'>) => void
-): Promise<string> {
+): Promise<CanvasNodePayload> {
   const agentData = node.data as AgentNodeData;
 
-  const inputText = getInputValues(node.id, edges, resolvedOutputs);
+  const inputPayloads = getInputPayloads(node.id, edges, resolvedPayloads);
+  const mergedInputPayload = buildAgentInputPayload(inputPayloads);
+  const inputText = mergedInputPayload.text;
   if (!inputText.trim()) {
     const errMsg = 'No hay inputs conectados a este agente';
     store.updateNode(node.id, { status: 'error', errorMessage: errMsg } as Partial<AgentNodeData>);
-    store.setNodeExecutionState(node.id, { nodeId: node.id, status: 'error', output: '', error: errMsg });
+    store.setNodeExecutionState(node.id, {
+      nodeId: node.id,
+      status: 'error',
+      output: '',
+      payload: mergedInputPayload,
+      error: errMsg,
+    });
     onLog({ nodeId: node.id, nodeLabel: agentData.label, message: errMsg, type: 'error' });
     throw new Error(errMsg);
   }
@@ -184,6 +283,11 @@ async function executeAgentNode(
           nodeId: node.id,
           status: 'running',
           output: agentOutput,
+          payload: {
+            ...mergedInputPayload,
+            kind: mergedInputPayload.resources?.length ? 'bundle' : 'text',
+            text: agentOutput,
+          },
         });
       } else if (chunk.type === 'thinking' && chunk.text) {
         onLog({
@@ -202,7 +306,17 @@ async function executeAgentNode(
       } else if (chunk.type === 'error') {
         const errMsg = (chunk as { type: 'error'; error?: string }).error ?? 'Error del agente';
         store.updateNode(node.id, { status: 'error', errorMessage: errMsg } as Partial<AgentNodeData>);
-        store.setNodeExecutionState(node.id, { nodeId: node.id, status: 'error', output: agentOutput, error: errMsg });
+        store.setNodeExecutionState(node.id, {
+          nodeId: node.id,
+          status: 'error',
+          output: agentOutput,
+          payload: {
+            ...mergedInputPayload,
+            kind: mergedInputPayload.resources?.length ? 'bundle' : 'text',
+            text: agentOutput,
+          },
+          error: errMsg,
+        });
         onLog({ nodeId: node.id, nodeLabel: agentData.label, message: errMsg, type: 'error' });
         throw new Error(errMsg);
       } else if (chunk.type === 'done') {
@@ -212,7 +326,17 @@ async function executeAgentNode(
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Error desconocido';
     store.updateNode(node.id, { status: 'error', errorMessage: msg } as Partial<AgentNodeData>);
-    store.setNodeExecutionState(node.id, { nodeId: node.id, status: 'error', output: agentOutput, error: msg });
+    store.setNodeExecutionState(node.id, {
+      nodeId: node.id,
+      status: 'error',
+      output: agentOutput,
+      payload: {
+        ...mergedInputPayload,
+        kind: mergedInputPayload.resources?.length ? 'bundle' : 'text',
+        text: agentOutput,
+      },
+      error: msg,
+    });
     onLog({ nodeId: node.id, nodeLabel: agentData.label, message: msg, type: 'error' });
     throw err;
   }
@@ -221,10 +345,23 @@ async function executeAgentNode(
     status: 'done',
     outputText: agentOutput,
   } as Partial<AgentNodeData>);
-  store.setNodeExecutionState(node.id, { nodeId: node.id, status: 'done', output: agentOutput });
+  const outputPayload: CanvasNodePayload = {
+    kind: mergedInputPayload.resources?.length ? 'bundle' : 'text',
+    text: agentOutput,
+    resources: mergedInputPayload.resources,
+    metadata: {
+      sourceNodeIds: inputPayloads.length,
+    },
+  };
+  store.setNodeExecutionState(node.id, {
+    nodeId: node.id,
+    status: 'done',
+    output: agentOutput,
+    payload: outputPayload,
+  });
   onLog({ nodeId: node.id, nodeLabel: agentData.label, message: 'Completado ✓', type: 'done' });
 
-  return agentOutput;
+  return outputPayload;
 }
 
 export async function executeWorkflow(
@@ -237,7 +374,7 @@ export async function executeWorkflow(
   store.resetExecution();
 
   const levels = topologicalLevels(nodes, edges);
-  const resolvedOutputs: Record<string, string> = {};
+  const resolvedPayloads: Record<string, CanvasNodePayload> = {};
 
   let logCounter = 0;
   const emit = (entry: Omit<ExecutionLogEntry, 'id' | 'timestamp'>) => {
@@ -257,11 +394,11 @@ export async function executeWorkflow(
           const data = node.data;
 
           if (data.type === 'text-input' || data.type === 'document' || data.type === 'image') {
-            const value = resolveStaticNodeOutput(node);
-            resolvedOutputs[node.id] = value;
+            const payload = resolveStaticNodeOutput(node);
+            resolvedPayloads[node.id] = payload;
             const label = node.data.label ?? 'Input';
             if (data.type === 'text-input') {
-              const preview = (value.length > 60 ? value.slice(0, 60) + '...' : value) || '(vacío)';
+              const preview = (payload.text.length > 60 ? payload.text.slice(0, 60) + '...' : payload.text) || '(vacío)';
               emit({ nodeId: node.id, nodeLabel: label, message: `Input de texto: ${preview}`, type: 'info' });
             } else if (data.type === 'document') {
               const d = data as DocumentNodeData;
@@ -274,40 +411,41 @@ export async function executeWorkflow(
           }
 
           if (data.type === 'output') {
-            const inputText = getInputValues(node.id, edges, resolvedOutputs);
-            resolvedOutputs[node.id] = inputText;
+            const payload = mergePayloads(getInputPayloads(node.id, edges, resolvedPayloads));
+            resolvedPayloads[node.id] = payload;
             store.updateNode(node.id, {
-              content: inputText,
+              content: payload.text,
               status: 'done',
             } as Partial<OutputNodeData>);
             store.setNodeExecutionState(node.id, {
               nodeId: node.id,
               status: 'done',
-              output: inputText,
+              output: payload.text,
+              payload,
             } as NodeExecutionState);
-            const preview = inputText.length > 80 ? inputText.slice(0, 80) + '...' : inputText || '(vacío)';
+            const preview = payload.text.length > 80 ? payload.text.slice(0, 80) + '...' : payload.text || '(vacío)';
             emit({ nodeId: node.id, nodeLabel: (node.data as OutputNodeData).label ?? 'Output', message: `Output: ${preview}`, type: 'info' });
             return;
           }
 
           if (data.type === 'agent') {
             try {
-              const output = await executeAgentNode(node, edges, resolvedOutputs, store, emit);
-              resolvedOutputs[node.id] = output;
+              const outputPayload = await executeAgentNode(node, edges, resolvedPayloads, store, emit);
+              resolvedPayloads[node.id] = outputPayload;
 
               // Propagate to directly connected output nodes
               for (const edge of edges.filter((e) => e.source === node.id)) {
                 const target = nodes.find((n) => n.id === edge.target);
                 if (target?.data.type === 'output') {
                   store.updateNode(edge.target, {
-                    content: output,
+                    content: outputPayload.text,
                     status: 'done',
                   } as Partial<OutputNodeData>);
                 }
               }
             } catch {
               // Individual agent errors don't abort the whole workflow
-              resolvedOutputs[node.id] = '';
+              resolvedPayloads[node.id] = { kind: 'text', text: '' };
             }
           }
         })

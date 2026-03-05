@@ -257,6 +257,8 @@ import { createCalendarTools } from './calendar-tools';
 export interface DefaultToolsConfig {
   webSearch?: WebSearchConfig;
   webFetch?: WebFetchConfig;
+  /** Whether to include web tools */
+  includeWeb?: boolean;
   /** Whether to include memory tools */
   includeMemory?: boolean;
   /** Whether to include resource tools */
@@ -269,10 +271,12 @@ export interface DefaultToolsConfig {
  * Create the default set of tools (web search and fetch only).
  */
 export function createDefaultTools(config?: DefaultToolsConfig): AnyAgentTool[] {
-  const tools: AnyAgentTool[] = [
-    createWebSearchTool(config?.webSearch),
-    createWebFetchTool(config?.webFetch),
-  ];
+  const tools: AnyAgentTool[] = [];
+
+  if (config?.includeWeb !== false) {
+    tools.push(createWebSearchTool(config?.webSearch));
+    tools.push(createWebFetchTool(config?.webFetch));
+  }
 
   if (config?.includeMemory !== false) {
     tools.push(...createMemoryTools());
@@ -289,8 +293,10 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   const tools: AnyAgentTool[] = [];
 
   // Web tools
-  tools.push(createWebSearchTool(config?.webSearch));
-  tools.push(createWebFetchTool(config?.webFetch));
+  if (config?.includeWeb !== false) {
+    tools.push(createWebSearchTool(config?.webSearch));
+    tools.push(createWebFetchTool(config?.webFetch));
+  }
 
   // Memory tools (use IPC if in Electron)
   if (config?.includeMemory !== false) {
@@ -363,8 +369,10 @@ export function createManyToolsForContext(
   const isHome = pathname === '/' || pathname === '/home';
 
   const tools: AnyAgentTool[] = [];
-  tools.push(createWebSearchTool(config?.webSearch));
-  tools.push(createWebFetchTool(config?.webFetch));
+  if (config?.includeWeb !== false) {
+    tools.push(createWebSearchTool(config?.webSearch));
+    tools.push(createWebFetchTool(config?.webFetch));
+  }
   if (config?.includeMemory !== false) {
     tools.push(...createMemoryTools());
   }

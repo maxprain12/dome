@@ -62,17 +62,22 @@ export async function loadMarketplaceAgents(): Promise<MarketplaceAgent[]> {
 
   try {
     const res = await fetch(AGENTS_JSON);
-    if (!res.ok) return [...MARKETPLACE_CATALOG];
+    if (!res.ok) {
+      return MARKETPLACE_CATALOG.map((agent) => ({ ...agent, source: agent.source ?? ('official' as const) }));
+    }
 
     const data = (await res.json()) as unknown;
     const community = Array.isArray(data) ? data : [];
     const valid = community.filter(isValidMarketplaceAgent);
     const officialIds = new Set(MARKETPLACE_CATALOG.map((a) => a.id));
-    const merged = [...MARKETPLACE_CATALOG, ...valid.filter((a) => !officialIds.has(a.id))];
+    const merged = [
+      ...MARKETPLACE_CATALOG.map((agent) => ({ ...agent, source: agent.source ?? ('official' as const) })),
+      ...valid.filter((a) => !officialIds.has(a.id)).map((agent) => ({ ...agent, source: agent.source ?? ('community' as const) })),
+    ];
     agentsCache = merged;
     return merged;
   } catch {
-    return [...MARKETPLACE_CATALOG];
+    return MARKETPLACE_CATALOG.map((agent) => ({ ...agent, source: agent.source ?? ('official' as const) }));
   }
 }
 
@@ -85,17 +90,22 @@ export async function loadMarketplaceWorkflows(): Promise<WorkflowTemplate[]> {
 
   try {
     const res = await fetch(WORKFLOWS_JSON);
-    if (!res.ok) return [...WORKFLOW_CATALOG];
+    if (!res.ok) {
+      return WORKFLOW_CATALOG.map((workflow) => ({ ...workflow, source: workflow.source ?? ('official' as const) }));
+    }
 
     const data = (await res.json()) as unknown;
     const community = Array.isArray(data) ? data : [];
     const valid = community.filter(isValidWorkflowTemplate);
     const officialIds = new Set(WORKFLOW_CATALOG.map((w) => w.id));
-    const merged = [...WORKFLOW_CATALOG, ...valid.filter((w) => !officialIds.has(w.id))];
+    const merged = [
+      ...WORKFLOW_CATALOG.map((workflow) => ({ ...workflow, source: workflow.source ?? ('official' as const) })),
+      ...valid.filter((w) => !officialIds.has(w.id)).map((workflow) => ({ ...workflow, source: workflow.source ?? ('community' as const) })),
+    ];
     workflowsCache = merged;
     return merged;
   } catch {
-    return [...WORKFLOW_CATALOG];
+    return WORKFLOW_CATALOG.map((workflow) => ({ ...workflow, source: workflow.source ?? ('official' as const) }));
   }
 }
 

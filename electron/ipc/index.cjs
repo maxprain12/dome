@@ -33,6 +33,7 @@ const pageIndexHandlers = require('./pageindex.cjs');
 const calendarHandlers = require('./calendar.cjs');
 const domeAuthHandlers = require('./dome-auth.cjs');
 const agentTeamHandlers = require('./agent-team.cjs');
+const chatHandlers = require('./chat.cjs');
 
 /**
  * Register all IPC handlers
@@ -100,6 +101,7 @@ function registerAll(deps) {
   calendarHandlers.register({ ipcMain, windowManager, validateSender });
   domeAuthHandlers.register({ ipcMain, windowManager, database });
   agentTeamHandlers.register({ ipcMain, windowManager, database, aiCloudService, ollamaService });
+  chatHandlers.register({ ipcMain, windowManager, database, validateSender });
 
 }
 

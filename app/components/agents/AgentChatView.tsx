@@ -22,11 +22,14 @@ import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import AgentChatInput from './AgentChatInput';
 
 const RESOURCE_LINK_INSTRUCTION = `
-When mentioning a resource (document, note, PDF, video, etc.) that the user can open, ALWAYS use this format: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, document, excel, ppt, video, audio, image.
+When mentioning a resource (document, note, PDF, video, etc.) that the user can open, ALWAYS use this format: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, document, excel, ppt, video, audio, image, folder.
 
-NEVER use resource:// - it does not work. ONLY dome://resource/ID/TYPE works. NEVER use [[Title]] wikilinks or file:// or raw URLs for internal resources—they open in the browser instead of in Dome. NEVER use /resource/ID as the link URL—always use dome://resource/ID/TYPE. If the user asks for "enlace", "link", or "abrir", use: [Abrir](dome://resource/RESOURCE_ID/TYPE).
+NEVER use resource:// - it does not work. ONLY dome://resource/ID/TYPE works. NEVER use [[Title]] wikilinks or file:// or raw URLs for internal resources—they open in the browser instead of in Dome. CRITICAL: For url-type resources (websites), NEVER use the actual web URL (https://...)—always use dome://resource/ID/url. Using https:// opens in the browser instead of Dome. NEVER use /resource/ID as the link URL—always use dome://resource/ID/TYPE. If the user asks for "enlace", "link", or "abrir", use: [Abrir](dome://resource/RESOURCE_ID/TYPE).
 
 When listing resources, show ONLY the title (e.g. "CE_Python.pdf"), never "Root/..." or folder paths. Format: [Title](dome://resource/ID/TYPE).
+
+When listing folders or subfolders (e.g. from get_library_overview), use: [Abrir carpeta: Title](dome://folder/FOLDER_ID).
+Example: [Abrir carpeta: POO](dome://folder/res_xxx).
 
 For PDFs, when a specific page is relevant (e.g. after pdf_annotation_create, or when referencing a page), use: [Ver: Title p. N](dome://resource/RESOURCE_ID/pdf?page=N).
 
@@ -273,33 +276,74 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
         });
 
         const threadId = `agent_${agentId}_${Date.now()}`;
+        let fullThinking = '';
+
+        // Persist session and user message for traceability
+        let dbSessionId: string | null = null;
+        if (db.isAvailable() && currentSessionId) {
+          try {
+            const sessionResult = await db.createChatSession({
+              id: currentSessionId,
+              agentId,
+              resourceId: null,
+              mode: 'agent',
+              contextId: agentId,
+              threadId,
+              title: agent?.name ?? null,
+              toolIds: agent?.toolIds ?? [],
+              mcpServerIds: enabledMcpIds,
+            });
+            if (sessionResult.success && sessionResult.data) {
+              dbSessionId = sessionResult.data.id;
+              await db.addChatMessage({
+                sessionId: dbSessionId,
+                role: 'user',
+                content: userMessage,
+              });
+            }
+          } catch (e) {
+            console.warn('[AgentChat] Could not persist chat to DB:', e);
+          }
+        }
+
         for await (const chunk of chatWithToolsStream(apiMessages, activeTools, {
           signal: controller.signal,
           threadId,
           skipHitl: true,
           mcpServerIds: enabledMcpIds.length > 0 ? enabledMcpIds : undefined,
         })) {
-          if (chunk.type === 'text' && chunk.text) {
+          if (chunk.type === 'thinking' && chunk.text) {
+            fullThinking += chunk.text;
+          } else if (chunk.type === 'text' && chunk.text) {
             fullResponse += chunk.text;
             setStreamingMessage((prev) =>
               prev ? { ...prev, content: fullResponse, toolCalls: toolCallsData } : null
             );
           } else if (chunk.type === 'tool_call' && chunk.toolCall) {
+            const args = (() => {
+              try {
+                return typeof chunk.toolCall.arguments === 'string'
+                  ? JSON.parse(chunk.toolCall.arguments)
+                  : chunk.toolCall.arguments || {};
+              } catch {
+                return {};
+              }
+            })();
             const tc: ToolCallData = {
               id: chunk.toolCall.id,
               name: chunk.toolCall.name,
-              arguments: (() => {
-                try {
-                  return typeof chunk.toolCall.arguments === 'string'
-                    ? JSON.parse(chunk.toolCall.arguments)
-                    : chunk.toolCall.arguments || {};
-                } catch {
-                  return {};
-                }
-              })(),
+              arguments: args,
               status: 'running',
             };
             toolCallsData.push(tc);
+            if (dbSessionId && db.isAvailable()) {
+              db.appendChatTrace({
+                sessionId: dbSessionId,
+                type: 'tool_call',
+                toolName: chunk.toolCall.name,
+                toolArgs: args,
+              }).catch(() => {});
+            }
             const friendlyLabel =
               TOOL_LABELS[chunk.toolCall.name] ??
               `${chunk.toolCall.name?.replace(/_/g, ' ')}...`;
@@ -318,6 +362,14 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
               entry.status = 'success';
               entry.result = chunk.result;
             }
+            if (dbSessionId && db.isAvailable() && entry) {
+              db.appendChatTrace({
+                sessionId: dbSessionId,
+                type: 'tool_result',
+                toolName: entry.name,
+                result: chunk.result,
+              }).catch(() => {});
+            }
             setStreamingMessage((prev) =>
               prev ? { ...prev, toolCalls: [...toolCallsData] } : null
             );
@@ -325,11 +377,36 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
             setStreamingMessage((prev) =>
               prev ? { ...prev, isStreaming: false } : null
             );
+            // Persist assistant message with toolCalls and thinking for traceability
+            if (dbSessionId && db.isAvailable() && fullResponse) {
+              try {
+                await db.addChatMessage({
+                  sessionId: dbSessionId,
+                  role: 'assistant',
+                  content: fullResponse,
+                  toolCalls: toolCallsData.length > 0 ? toolCallsData : undefined,
+                  thinking: fullThinking || undefined,
+                  metadata: {
+                    toolIds: agent?.toolIds ?? [],
+                    mcpServerIds: enabledMcpIds,
+                  },
+                });
+              } catch (e) {
+                console.warn('[AgentChat] Could not persist assistant message to DB:', e);
+              }
+            }
           } else if (chunk.type === 'error') {
             throw new Error(chunk.error);
           }
         }
-        if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
+        if (fullResponse) {
+          addMessage({
+            role: 'assistant',
+            content: fullResponse,
+            toolCalls: toolCallsData.length > 0 ? toolCallsData : undefined,
+            thinking: fullThinking || undefined,
+          });
+        }
       } else {
         const { chatStream } = await import('@/lib/ai');
         setStreamingMessage({
@@ -389,6 +466,7 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
     toolDefs,
     enabledMcpIds,
     scrollToBottom,
+    currentSessionId,
   ]);
 
   const handleAbort = useCallback(() => {
@@ -402,6 +480,11 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
         role: m.role,
         content: m.content,
         timestamp: m.timestamp,
+        toolCalls: m.toolCalls?.map((toolCall) => ({
+          ...toolCall,
+          status: toolCall.status ?? 'success',
+        })) as ToolCallData[] | undefined,
+        thinking: m.thinking,
       })),
     [messages]
   );

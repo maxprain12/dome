@@ -6,6 +6,7 @@ import type { WorkflowTemplate } from '@/types/canvas';
 interface WorkflowCardProps {
   workflow: WorkflowTemplate;
   isInstalled: boolean;
+  hasUpdate?: boolean;
   isInstalling: boolean;
   onInstall: (workflow: WorkflowTemplate) => void;
   onViewDetail: (workflow: WorkflowTemplate) => void;
@@ -44,6 +45,7 @@ function getTagStyle(tag: string) {
 export default function WorkflowCard({
   workflow,
   isInstalled,
+  hasUpdate = false,
   isInstalling,
   onInstall,
   onViewDetail,
@@ -181,16 +183,21 @@ export default function WorkflowCard({
               color: isInstalled ? 'var(--success)' : 'white',
             }}
           >
-            {isInstalled ? (
-              <>
-                <Play className="w-3 h-3" />
-                Abrir en Canvas
-              </>
-            ) : isInstalling ? (
+            {isInstalling ? (
               <span className="flex items-center gap-1">
                 <span className="w-3 h-3 rounded-full border border-white border-t-transparent animate-spin" />
                 Instalando...
               </span>
+            ) : isInstalled && !hasUpdate ? (
+              <>
+                <Play className="w-3 h-3" />
+                Abrir en Canvas
+              </>
+            ) : hasUpdate ? (
+              <>
+                <Download className="w-3 h-3" />
+                Actualizar
+              </>
             ) : (
               <>
                 <Download className="w-3 h-3" />

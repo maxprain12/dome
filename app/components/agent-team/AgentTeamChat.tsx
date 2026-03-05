@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { Send, Square, PlusCircle, ChevronDown, Cpu, User, Bot } from 'lucide-react';
 import type { AgentTeam, ManyAgent } from '@/types';
 import { getAgentTeamById } from '@/lib/agent-team/api';
@@ -8,6 +9,8 @@ import { getManyAgentById } from '@/lib/agents/api';
 import { useAgentTeamStore } from '@/lib/store/useAgentTeamStore';
 import type { TeamChatMessage } from '@/lib/store/useAgentTeamStore';
 import { showToast } from '@/lib/store/useToastStore';
+import { useAppStore } from '@/lib/store/useAppStore';
+import { db } from '@/lib/db/client';
 import ReactMarkdown from 'react-markdown';
 
 interface AgentTeamChatProps {
@@ -111,6 +114,8 @@ function MessageBubble({ message, memberAgents }: { message: TeamChatMessage; me
 }
 
 export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
+  const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
   const [team, setTeam] = useState<AgentTeam | null>(null);
   const [memberAgents, setMemberAgents] = useState<ManyAgent[]>([]);
   const [input, setInput] = useState('');
@@ -120,9 +125,18 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSubmittingRef = useRef(false);
+  const dbSessionIdRef = useRef<string | null>(null);
+  const streamIdRef = useRef<string | null>(null);
 
-  const { setTeam: setStoreTeam, messages, addMessage, updateLastAssistantMessage, status, setStatus, setActiveAgentLabel, startNewChat } =
+  const { setTeam: setStoreTeam, messages, addMessage, updateLastAssistantMessage, status, setStatus, setActiveAgentLabel, startNewChat, currentSessionId } =
     useAgentTeamStore();
+  const currentFolderId = useAppStore((s) => s.currentFolderId);
+  const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
+  const currentResource = useAppStore((s) => s.currentResource);
+
+  const effectiveResourceId =
+    currentResource?.id ||
+    (pathname?.startsWith('/workspace') ? searchParams.get('id') : null);
 
   useEffect(() => {
     setStoreTeam(teamId);
@@ -160,7 +174,8 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
     addMessage({ role: 'user', content: userMessage });
     scrollToBottom();
 
-    const streamId = `team-${Date.now()}`;
+      const streamId = `team-${Date.now()}`;
+      streamIdRef.current = streamId;
 
     try {
       if (!window.electron?.ai) {
@@ -176,6 +191,37 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
       // Add placeholder assistant message for streaming
       addMessage({ role: 'assistant', content: '', phase: 'synthesis' });
 
+      if (db.isAvailable()) {
+        const sessionResult = await db.createChatSession({
+          id: currentSessionId || `${team.id}:${Date.now()}`,
+          agentId: null,
+          resourceId: effectiveResourceId ?? null,
+          mode: 'team',
+          contextId: team.id,
+          title: team.name,
+          threadId: streamId,
+          toolIds: memberAgents.flatMap((agent) => agent.toolIds ?? []),
+          mcpServerIds: memberAgents.flatMap((agent) => agent.mcpServerIds ?? []),
+        });
+        if (sessionResult.success && sessionResult.data) {
+          dbSessionIdRef.current = sessionResult.data.id;
+          await db.addChatMessage({
+            sessionId: sessionResult.data.id,
+            role: 'user',
+            content: userMessage,
+            metadata: {
+              teamId: team.id,
+              mode: 'team',
+              pathname,
+              homeSidebarSection,
+              currentFolderId,
+              currentResourceId: effectiveResourceId,
+              currentResourceTitle: currentResource?.title ?? null,
+            },
+          });
+        }
+      }
+
       let accumulated = '';
 
       const unsubChunk = window.electron.ai.onStreamChunk((data) => {
@@ -190,6 +236,32 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
             setActiveAgentLabel(null);
           }
         }
+        if (data.type === 'tool_call' && data.toolCall && dbSessionIdRef.current) {
+          const args = (() => {
+            try {
+              return typeof data.toolCall?.arguments === 'string'
+                ? JSON.parse(data.toolCall.arguments)
+                : {};
+            } catch {
+              return {};
+            }
+          })();
+          db.appendChatTrace({
+            sessionId: dbSessionIdRef.current,
+            type: 'tool_call',
+            toolName: data.toolCall.name,
+            toolArgs: args,
+            decision: data.agentName ?? undefined,
+          }).catch(() => {});
+        }
+        if (data.type === 'tool_result' && dbSessionIdRef.current) {
+          db.appendChatTrace({
+            sessionId: dbSessionIdRef.current,
+            type: 'tool_result',
+            toolName: data.agentName ?? null,
+            result: data.result ?? '',
+          }).catch(() => {});
+        }
         if (data.chunk) {
           accumulated += data.chunk;
           setStreamingContent(accumulated);
@@ -203,10 +275,28 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
         messages: historyMessages,
         memberAgentIds: team.memberAgentIds,
         supervisorInstructions: team.supervisorInstructions,
+        currentResourceId: effectiveResourceId,
+        currentResourceTitle: currentResource?.title ?? null,
+        currentFolderId,
+        pathname,
+        homeSidebarSection,
+        teamToolIds: team.toolIds ?? [],
+        teamMcpServerIds: team.mcpServerIds ?? [],
       });
 
       unsubChunk();
       setStreamingContent('');
+      if (dbSessionIdRef.current && accumulated) {
+        await db.addChatMessage({
+          sessionId: dbSessionIdRef.current,
+          role: 'assistant',
+          content: accumulated,
+          metadata: {
+            mode: 'team',
+            teamId: team.id,
+          },
+        });
+      }
     } catch (err) {
       if (!controller.signal.aborted) {
         const errMsg = err instanceof Error ? err.message : 'Error desconocido';
@@ -218,15 +308,36 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
       setStatus('idle');
       setActiveAgentLabel(null);
       setAbortController(null);
+      dbSessionIdRef.current = null;
+      streamIdRef.current = null;
       isSubmittingRef.current = false;
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [input, isLoading, team, messages, addMessage, updateLastAssistantMessage, setStatus, setActiveAgentLabel, scrollToBottom]);
+  }, [
+    input,
+    isLoading,
+    team,
+    messages,
+    addMessage,
+    updateLastAssistantMessage,
+    setStatus,
+    setActiveAgentLabel,
+    scrollToBottom,
+    effectiveResourceId,
+    currentResource,
+    currentFolderId,
+    pathname,
+    homeSidebarSection,
+    memberAgents,
+    currentSessionId,
+  ]);
 
   const handleStop = useCallback(() => {
     if (abortController) {
       abortController.abort();
-      window.electron?.invoke('ai:langgraph:abort', {}).catch(() => { });
+      if (streamIdRef.current) {
+        window.electron?.invoke('ai:team:abort', streamIdRef.current).catch(() => {});
+      }
     }
   }, [abortController]);
 

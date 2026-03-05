@@ -7,6 +7,7 @@ import type { MarketplaceAgent } from '@/types';
 interface MarketplaceAgentCardProps {
   agent: MarketplaceAgent;
   isInstalled: boolean;
+  hasUpdate?: boolean;
   onInstall: (agent: MarketplaceAgent) => void;
   onViewDetail: (agent: MarketplaceAgent) => void;
   isInstalling?: boolean;
@@ -29,6 +30,7 @@ const TAG_COLORS: Record<string, { bg: string; text: string }> = {
 export default function MarketplaceAgentCard({
   agent,
   isInstalled,
+  hasUpdate = false,
   onInstall,
   onViewDetail,
   isInstalling = false,
@@ -119,9 +121,9 @@ export default function MarketplaceAgentCard({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (!isInstalled && !isInstalling) onInstall(agent);
+              if ((!isInstalled || hasUpdate) && !isInstalling) onInstall(agent);
             }}
-            disabled={isInstalled || isInstalling}
+            disabled={(isInstalled && !hasUpdate) || isInstalling}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200"
             style={{
               background: isInstalled
@@ -134,18 +136,27 @@ export default function MarketplaceAgentCard({
                 : isInstalling
                   ? 'var(--dome-text-muted)'
                   : 'white',
-              cursor: isInstalled || isInstalling ? 'default' : 'pointer',
+              cursor: (isInstalled && !hasUpdate) || isInstalling ? 'default' : 'pointer',
             }}
           >
-            {isInstalled ? (
-              <>
-                <CheckCircle2 className="w-3 h-3" />
-                Instalado
-              </>
-            ) : isInstalling ? (
+            {isInstalling ? (
               <>
                 <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
                 Instalando...
+              </>
+            ) : isInstalled ? (
+              <>
+                {hasUpdate ? (
+                  <>
+                    <Download className="w-3 h-3" />
+                    Actualizar
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3 h-3" />
+                    Instalado
+                  </>
+                )}
               </>
             ) : (
               <>

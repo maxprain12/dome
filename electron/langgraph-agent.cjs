@@ -206,6 +206,7 @@ async function invokeLangGraphAgent(opts) {
   let tools;
   const useDirectTools = opts.useDirectTools === true;
   const mcpServerIds = opts.mcpServerIds;
+  const subagentIds = Array.isArray(opts.subagentIds) ? opts.subagentIds : undefined;
 
   // Track real-time emitted tool IDs (useDirectTools path) to avoid duplicates in post-invoke batch
   const rtEmittedIds = new Set();
@@ -238,8 +239,15 @@ async function invokeLangGraphAgent(opts) {
     tools = [...directTools, ...mcpTools];
   } else {
     // Subagents architecture: pass onChunk so subagents emit real-time events for their tools
-    const subagentTools = await createSubagentTools(llm, createLangChainToolsFromOpenAIDefinitions, onChunk);
-    const mcpTools = await getMCPTools(database);
+    const subagentTools = await createSubagentTools(
+      llm,
+      createLangChainToolsFromOpenAIDefinitions,
+      onChunk,
+      subagentIds
+    );
+    const mcpTools = Array.isArray(mcpServerIds)
+      ? (mcpServerIds.length > 0 ? await getMCPTools(database, mcpServerIds) : [])
+      : await getMCPTools(database);
     const rememberFactDef = [{
       type: 'function',
       function: {

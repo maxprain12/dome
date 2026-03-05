@@ -6,6 +6,7 @@ import type { MarketplaceAgent } from '@/types';
 interface MarketplaceAgentDetailProps {
   agent: MarketplaceAgent;
   isInstalled: boolean;
+  hasUpdate?: boolean;
   isInstalling: boolean;
   onInstall: (agent: MarketplaceAgent) => void;
   onClose: () => void;
@@ -42,6 +43,7 @@ const TOOL_LABELS: Record<string, string> = {
 export default function MarketplaceAgentDetail({
   agent,
   isInstalled,
+  hasUpdate = false,
   isInstalling,
   onInstall,
   onClose,
@@ -213,9 +215,9 @@ export default function MarketplaceAgentDetail({
             </button>
             <button
               onClick={() => {
-                if (!isInstalled && !isInstalling) onInstall(agent);
+                if ((!isInstalled || hasUpdate) && !isInstalling) onInstall(agent);
               }}
-              disabled={isInstalled || isInstalling}
+              disabled={(isInstalled && !hasUpdate) || isInstalling}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
               style={{
                 background: isInstalled
@@ -228,18 +230,23 @@ export default function MarketplaceAgentDetail({
                   : isInstalling
                     ? 'var(--dome-text-muted)'
                     : 'white',
-                cursor: isInstalled || isInstalling ? 'default' : 'pointer',
+                cursor: (isInstalled && !hasUpdate) || isInstalling ? 'default' : 'pointer',
               }}
             >
-              {isInstalled ? (
+              {isInstalling ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  Instalando...
+                </>
+              ) : isInstalled && !hasUpdate ? (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
                   Ya instalado
                 </>
-              ) : isInstalling ? (
+              ) : hasUpdate ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  Instalando...
+                  <Download className="w-4 h-4" />
+                  Actualizar agente
                 </>
               ) : (
                 <>

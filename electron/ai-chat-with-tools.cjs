@@ -1044,9 +1044,31 @@ function getWhatsAppToolDefinitions() {
   return getAllToolDefinitions();
 }
 
+function getToolDefinitionsByIds(toolIds) {
+  if (!Array.isArray(toolIds) || toolIds.length === 0) return [];
+  const normalizedIds = new Set(
+    toolIds.map((toolId) =>
+      String(toolId || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '_')
+    )
+  );
+  return getAllToolDefinitions().filter((def) => {
+    const name = def?.function?.name;
+    if (!name) return false;
+    const normalizedName = String(name)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_');
+    return normalizedIds.has(normalizedName);
+  });
+}
+
 module.exports = {
   chatWithToolsInMain,
   executeToolInMain,
   getWhatsAppToolDefinitions,
+  getToolDefinitionsByIds,
   getToolDefsBySubagent,
 };

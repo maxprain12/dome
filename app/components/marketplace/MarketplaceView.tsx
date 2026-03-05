@@ -7,8 +7,10 @@ import type { WorkflowTemplate } from '@/types/canvas';
 import {
   getMarketplaceAgents,
   getInstalledMarketplaceAgentIds,
+  getInstalledMarketplaceAgentRecords,
   installMarketplaceAgent,
   getInstalledWorkflowTemplateIds,
+  getInstalledWorkflowRecords,
   installWorkflowTemplate,
   getWorkflowIdForTemplate,
 } from '@/lib/marketplace/api';
@@ -45,6 +47,7 @@ export default function MarketplaceView() {
   // Agents state
   const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
   const [installedIds, setInstalledIds] = useState<string[]>([]);
+  const [installedAgentRecords, setInstalledAgentRecords] = useState<Record<string, { version: string }>>({});
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [agentSearchQuery, setAgentSearchQuery] = useState('');
   const [activeTag, setActiveTag] = useState<MarketplaceTag>('all');
@@ -57,6 +60,7 @@ export default function MarketplaceView() {
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowTemplate | null>(null);
   const [installingWorkflowId, setInstallingWorkflowId] = useState<string | null>(null);
   const [installedWorkflowIds, setInstalledWorkflowIds] = useState<string[]>([]);
+  const [installedWorkflowRecords, setInstalledWorkflowRecords] = useState<Record<string, { version: string }>>({});
 
   const setSection = useAppStore((s) => s.setHomeSidebarSection);
   const loadWorkflow = useCanvasStore((s) => s.loadWorkflow);
@@ -66,25 +70,35 @@ export default function MarketplaceView() {
     Promise.all([
       getMarketplaceAgents(),
       getInstalledMarketplaceAgentIds(),
+      getInstalledMarketplaceAgentRecords(),
       loadMarketplaceWorkflows(),
       getInstalledWorkflowTemplateIds(),
-    ]).then(([agentsList, installedList, workflowsList, workflowIds]) => {
+      getInstalledWorkflowRecords(),
+    ]).then(([agentsList, installedList, agentRecords, workflowsList, workflowIds, workflowRecords]) => {
       setAgents(agentsList);
       setInstalledIds(installedList);
+      setInstalledAgentRecords(agentRecords);
       setWorkflows(workflowsList);
       setInstalledWorkflowIds(workflowIds);
+      setInstalledWorkflowRecords(workflowRecords);
       setInitialLoading(false);
     });
   }, []);
 
   useEffect(() => {
-    const handler = () => getInstalledMarketplaceAgentIds().then(setInstalledIds);
+    const handler = () => {
+      void getInstalledMarketplaceAgentIds().then(setInstalledIds);
+      void getInstalledMarketplaceAgentRecords().then(setInstalledAgentRecords);
+    };
     window.addEventListener('dome:agents-changed', handler);
     return () => window.removeEventListener('dome:agents-changed', handler);
   }, []);
 
   useEffect(() => {
-    const handler = () => getInstalledWorkflowTemplateIds().then(setInstalledWorkflowIds);
+    const handler = () => {
+      void getInstalledWorkflowTemplateIds().then(setInstalledWorkflowIds);
+      void getInstalledWorkflowRecords().then(setInstalledWorkflowRecords);
+    };
     window.addEventListener('dome:workflows-changed', handler);
     return () => window.removeEventListener('dome:workflows-changed', handler);
   }, []);
@@ -117,8 +131,18 @@ export default function MarketplaceView() {
     try {
       const result = await installMarketplaceAgent(agent.id);
       if (result.success) {
-        setInstalledIds((prev) => [...prev, agent.id]);
-        showToast('success', `"${agent.name}" instalado correctamente`);
+        const previousVersion = installedAgentRecords[agent.id]?.version;
+        setInstalledIds((prev) => (prev.includes(agent.id) ? prev : [...prev, agent.id]));
+        setInstalledAgentRecords((prev) => ({
+          ...prev,
+          [agent.id]: { version: agent.version },
+        }));
+        showToast(
+          'success',
+          previousVersion && previousVersion !== agent.version
+            ? `"${agent.name}" actualizado`
+            : `"${agent.name}" instalado correctamente`
+        );
         setSelectedAgent(null);
       } else {
         showToast('error', result.error ?? 'Error al instalar el agente');
@@ -150,7 +174,9 @@ export default function MarketplaceView() {
     if (installingWorkflowId) return;
 
     const isInstalled = installedWorkflowIds.includes(workflow.id);
-    if (isInstalled) {
+    const installedVersion = installedWorkflowRecords[workflow.id]?.version;
+    const hasUpdate = !!installedVersion && installedVersion !== workflow.version;
+    if (isInstalled && !hasUpdate) {
       const workflowId = await getWorkflowIdForTemplate(workflow.id);
       if (workflowId) {
         const saved = await getWorkflow(workflowId);
@@ -170,18 +196,30 @@ export default function MarketplaceView() {
         setInstalledWorkflowIds((prev) =>
           prev.includes(workflow.id) ? prev : [...prev, workflow.id]
         );
+        setInstalledWorkflowRecords((prev) => ({
+          ...prev,
+          [workflow.id]: { version: workflow.version },
+        }));
         const canvasWorkflow = {
           id: result.data.id,
           name: result.data.name,
           description: workflow.description,
           nodes: workflow.nodes,
           edges: workflow.edges,
+          marketplace: {
+            templateId: workflow.id,
+            version: workflow.version,
+            source: workflow.source ?? 'official',
+            author: workflow.author,
+            capabilities: workflow.capabilities ?? [],
+            resourceAffinity: workflow.resourceAffinity ?? [],
+          },
           createdAt: Date.now(),
           updatedAt: Date.now(),
         };
         loadWorkflow(canvasWorkflow);
         setSelectedWorkflow(null);
-        showToast('success', `Workflow "${workflow.name}" instalado correctamente`);
+        showToast('success', hasUpdate ? `Workflow "${workflow.name}" actualizado` : `Workflow "${workflow.name}" instalado correctamente`);
         setSection(`workflow:${result.data.id}`);
       } else {
         showToast('error', result.error ?? 'Error al instalar el workflow');
@@ -389,6 +427,7 @@ export default function MarketplaceView() {
                           key={agent.id}
                           agent={agent}
                           isInstalled={installedIds.includes(agent.id)}
+                          hasUpdate={installedAgentRecords[agent.id]?.version != null && installedAgentRecords[agent.id]?.version !== agent.version}
                           isInstalling={installingId === agent.id}
                           onInstall={handleInstallAgent}
                           onViewDetail={setSelectedAgent}
@@ -411,6 +450,7 @@ export default function MarketplaceView() {
                           key={agent.id}
                           agent={agent}
                           isInstalled={installedIds.includes(agent.id)}
+                          hasUpdate={installedAgentRecords[agent.id]?.version != null && installedAgentRecords[agent.id]?.version !== agent.version}
                           isInstalling={installingId === agent.id}
                           onInstall={handleInstallAgent}
                           onViewDetail={setSelectedAgent}
@@ -446,6 +486,7 @@ export default function MarketplaceView() {
                       key={workflow.id}
                       workflow={workflow}
                       isInstalled={installedWorkflowIds.includes(workflow.id)}
+                      hasUpdate={installedWorkflowRecords[workflow.id]?.version != null && installedWorkflowRecords[workflow.id]?.version !== workflow.version}
                       isInstalling={installingWorkflowId === workflow.id}
                       onInstall={handleInstallWorkflow}
                       onViewDetail={setSelectedWorkflow}
@@ -463,6 +504,7 @@ export default function MarketplaceView() {
         <MarketplaceAgentDetail
           agent={selectedAgent}
           isInstalled={installedIds.includes(selectedAgent.id)}
+          hasUpdate={installedAgentRecords[selectedAgent.id]?.version != null && installedAgentRecords[selectedAgent.id]?.version !== selectedAgent.version}
           isInstalling={installingId === selectedAgent.id}
           onInstall={handleInstallAgent}
           onClose={() => setSelectedAgent(null)}
@@ -474,6 +516,7 @@ export default function MarketplaceView() {
         <WorkflowDetail
           workflow={selectedWorkflow}
           isInstalled={installedWorkflowIds.includes(selectedWorkflow.id)}
+          hasUpdate={installedWorkflowRecords[selectedWorkflow.id]?.version != null && installedWorkflowRecords[selectedWorkflow.id]?.version !== selectedWorkflow.version}
           isInstalling={installingWorkflowId === selectedWorkflow.id}
           onInstall={handleInstallWorkflow}
           onClose={() => setSelectedWorkflow(null)}

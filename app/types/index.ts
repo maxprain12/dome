@@ -39,6 +39,13 @@ export interface MarketplaceAgent {
   featured: boolean;
   downloads: number;
   createdAt: number;
+  source?: 'official' | 'community';
+  capabilities?: string[];
+  resourceAffinity?: string[];
+  compatibility?: {
+    minAppVersion?: string;
+    minSchemaVersion?: number;
+  };
 }
 
 // Agent Team — supervisor-coordinated team of specialized agents
@@ -48,6 +55,9 @@ export interface AgentTeam {
   description: string;
   supervisorInstructions: string;
   memberAgentIds: string[];
+  toolIds?: string[];
+  mcpServerIds?: string[];
+  capabilities?: string[];
   iconIndex: number;
   createdAt: number;
   updatedAt: number;

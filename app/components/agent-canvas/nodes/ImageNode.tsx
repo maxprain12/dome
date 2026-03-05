@@ -13,6 +13,7 @@ interface ImageResource {
   type: string;
   internal_path?: string;
   thumbnail_data?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeData>) {
@@ -25,9 +26,10 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
     setShowPicker(true);
     try {
       const result = await window.electron?.invoke('db:resources:getAll');
-      if (Array.isArray(result)) {
+      const resourcesList = Array.isArray(result) ? result : result?.data;
+      if (Array.isArray(resourcesList)) {
         setResources(
-          result
+          resourcesList
             .filter((r: ImageResource) => r.type === 'image')
             .map((r: ImageResource) => ({
               id: r.id,
@@ -35,6 +37,7 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
               type: r.type,
               internal_path: r.internal_path,
               thumbnail_data: r.thumbnail_data,
+              metadata: r.metadata,
             }))
         );
       }
@@ -46,8 +49,10 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
   const selectResource = (resource: ImageResource) => {
     updateNode(id, {
       resourceId: resource.id,
+      resourceType: resource.type,
       resourceTitle: resource.title,
       resourceUrl: resource.thumbnail_data ?? null,
+      resourceMetadata: resource.metadata ?? null,
     } as Partial<ImageNodeData>);
     setShowPicker(false);
     setQuery('');
@@ -56,8 +61,10 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
   const clearResource = () => {
     updateNode(id, {
       resourceId: null,
+      resourceType: null,
       resourceTitle: null,
       resourceUrl: null,
+      resourceMetadata: null,
     } as Partial<ImageNodeData>);
   };
 

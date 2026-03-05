@@ -10,6 +10,10 @@ export interface ManyMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  /** Tool calls for assistant messages (traceability) */
+  toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }>;
+  /** Reasoning/chain-of-thought for assistant messages */
+  thinking?: string;
 }
 
 export interface ManyChatSession {

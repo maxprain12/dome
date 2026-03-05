@@ -1565,6 +1565,107 @@ function runMigrations(db) {
       // Non-fatal: log but don't throw so app still starts
     }
   }
+
+  // Migration 15: Chat sessions, messages, and traces for AI chat traceability
+  if (version < 15) {
+    console.log('[DB] Running migration 15 - chat sessions and traces');
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS chat_sessions (
+          id TEXT PRIMARY KEY,
+          agent_id TEXT,
+          resource_id TEXT,
+          mode TEXT,
+          context_id TEXT,
+          thread_id TEXT,
+          title TEXT,
+          tool_ids TEXT,
+          mcp_server_ids TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_agent ON chat_sessions(agent_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_resource ON chat_sessions(resource_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_mode ON chat_sessions(mode)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_context ON chat_sessions(context_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_updated ON chat_sessions(updated_at)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS chat_messages (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+          content TEXT NOT NULL,
+          tool_calls TEXT,
+          thinking TEXT,
+          metadata TEXT,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_messages_session ON chat_messages(session_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS chat_traces (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          message_id TEXT,
+          type TEXT NOT NULL CHECK(type IN ('tool_call', 'tool_result', 'decision', 'interrupt')),
+          tool_name TEXT,
+          tool_args TEXT,
+          result TEXT,
+          mcp_server_id TEXT,
+          decision TEXT,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
+          FOREIGN KEY (message_id) REFERENCES chat_messages(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_traces_session ON chat_traces(session_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_traces_message ON chat_traces(message_id)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '15', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '15', updated_at = excluded.updated_at
+      `).run(Date.now());
+
+      console.log('[DB] Migration 15 complete - chat sessions and traces');
+    } catch (error) {
+      console.error('[DB] Migration 15 error:', error.message);
+    }
+  }
+
+  if (version < 16) {
+    console.log('[DB] Running migration 16 - enrich chat sessions metadata');
+    try {
+      const columns = db.prepare('PRAGMA table_info(chat_sessions)').all();
+      const columnNames = new Set(columns.map((column) => column.name));
+
+      if (!columnNames.has('mode')) {
+        db.exec("ALTER TABLE chat_sessions ADD COLUMN mode TEXT");
+      }
+      if (!columnNames.has('context_id')) {
+        db.exec("ALTER TABLE chat_sessions ADD COLUMN context_id TEXT");
+      }
+      if (!columnNames.has('title')) {
+        db.exec("ALTER TABLE chat_sessions ADD COLUMN title TEXT");
+      }
+
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_mode ON chat_sessions(mode)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_context ON chat_sessions(context_id)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '16', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '16', updated_at = excluded.updated_at
+      `).run(Date.now());
+    } catch (error) {
+      console.error('[DB] Migration 16 failed:', error);
+    }
+  }
 }
 
 /**
@@ -1691,6 +1792,37 @@ function getQueries() {
       WHERE id = ?
     `),
     deleteInteraction: db.prepare('DELETE FROM resource_interactions WHERE id = ?'),
+
+    // Chat sessions and messages (traceability)
+    createChatSession: db.prepare(`
+      INSERT INTO chat_sessions (id, agent_id, resource_id, mode, context_id, thread_id, title, tool_ids, mcp_server_ids, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getChatSession: db.prepare('SELECT * FROM chat_sessions WHERE id = ?'),
+    updateChatSession: db.prepare(`
+      UPDATE chat_sessions SET mode = ?, context_id = ?, thread_id = ?, title = ?, tool_ids = ?, mcp_server_ids = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    getChatSessionsByAgent: db.prepare(`
+      SELECT * FROM chat_sessions WHERE agent_id = ? ORDER BY updated_at DESC LIMIT ?
+    `),
+    getChatSessionsByResource: db.prepare(`
+      SELECT * FROM chat_sessions WHERE resource_id = ? ORDER BY updated_at DESC LIMIT ?
+    `),
+    getChatSessionsGlobal: db.prepare(`
+      SELECT * FROM chat_sessions WHERE agent_id IS NULL AND resource_id IS NULL ORDER BY updated_at DESC LIMIT ?
+    `),
+    createChatMessage: db.prepare(`
+      INSERT INTO chat_messages (id, session_id, role, content, tool_calls, thinking, metadata, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getChatMessagesBySession: db.prepare(`
+      SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC
+    `),
+    appendChatTrace: db.prepare(`
+      INSERT INTO chat_traces (id, session_id, message_id, type, tool_name, tool_args, result, mcp_server_id, decision, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
 
     // Resource Links
     createLink: db.prepare(`

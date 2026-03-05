@@ -342,6 +342,49 @@ declare global {
           update: (interaction: any) => Promise<DBResponse<ResourceInteraction>>;
           delete: (id: string) => Promise<DBResponse<void>>;
         };
+        chat: {
+          createSession: (opts: {
+            id?: string;
+            agentId?: string | null;
+            resourceId?: string | null;
+            mode?: 'many' | 'agent' | 'team' | 'workflow' | 'canvas' | null;
+            contextId?: string | null;
+            threadId?: string | null;
+            title?: string | null;
+            toolIds?: string[];
+            mcpServerIds?: string[];
+          }) => Promise<DBResponse<unknown>>;
+          getSession: (sessionId: string) => Promise<DBResponse<unknown>>;
+          updateSession: (opts: {
+            id: string;
+            mode?: 'many' | 'agent' | 'team' | 'workflow' | 'canvas' | null;
+            contextId?: string | null;
+            threadId?: string | null;
+            title?: string | null;
+            toolIds?: string[];
+            mcpServerIds?: string[];
+          }) => Promise<DBResponse<void>>;
+          getSessionsByAgent: (opts: { agentId: string; limit?: number }) => Promise<DBResponse<unknown[]>>;
+          getSessionsGlobal: (limit?: number) => Promise<DBResponse<unknown[]>>;
+          addMessage: (opts: {
+            sessionId: string;
+            role: 'user' | 'assistant';
+            content: string;
+            toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }>;
+            thinking?: string | null;
+            metadata?: Record<string, unknown>;
+          }) => Promise<DBResponse<unknown>>;
+          appendTrace: (opts: {
+            sessionId: string;
+            messageId?: string | null;
+            type: 'tool_call' | 'tool_result' | 'decision' | 'interrupt';
+            toolName?: string | null;
+            toolArgs?: Record<string, unknown>;
+            result?: unknown;
+            mcpServerId?: string | null;
+            decision?: string | null;
+          }) => Promise<DBResponse<{ id: string }>>;
+        };
         tags: {
           getByResource: (resourceId: string) => Promise<DBResponse<Array<{ id: string; name: string; color?: string }>>>;
           getAll: () => Promise<DBResponse<Array<{ id: string; name: string; color?: string | null; resource_count: number }>>>;
@@ -404,6 +447,11 @@ declare global {
         ) => Promise<{
           success: boolean;
           data?: { windowId: string; resourceId: string; title: string };
+          error?: string;
+        }>;
+        openFolder: (folderId: string) => Promise<{
+          success: boolean;
+          data?: { windowId: string; folderId: string; title: string };
           error?: string;
         }>;
       };
@@ -574,7 +622,8 @@ declare global {
           }>,
           threadId?: string,
           skipHitl?: boolean,
-          mcpServerIds?: string[]
+          mcpServerIds?: string[],
+          subagentIds?: Array<'research' | 'library' | 'writer' | 'data'>
         ) => Promise<{ success: boolean; error?: string }>;
         abortLangGraph: (streamId: string) => Promise<void>;
         resumeLangGraph: (opts: {

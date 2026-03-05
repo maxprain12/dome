@@ -1,11 +1,12 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useCallback, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import CitationBadge from './CitationBadge';
 import type { ParsedCitation } from '@/lib/utils/citations';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { showToast } from '@/lib/store/useToastStore';
 
 /** UUID v4 pattern for resource IDs */
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -17,7 +18,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 function preprocessResourceProtocol(content: string): string {
   return content.replace(
     /\[([^\]]*)\]\(\s*resource:\/\/([^/)\s?#]+)\s*\)/g,
-    (_, label, id) => `[${label}](dome://resource/${id}/document)`
+    (_, label, id) => `[${label}](dome://resource/${id})`
   );
 }
 
@@ -29,9 +30,10 @@ function preprocessResourceLinks(content: string): string {
   return content.replace(
     /\[([^\]]*)\]\(\s*\/resource\/([^/)\s]+)(?:\/([^)\s?#]+))?(?:\?([^#)]*))?\)/g,
     (_, label, id, type, query) => {
-      const t = (type || 'note').trim();
+      const t = typeof type === 'string' ? type.trim() : '';
       const q = query ? `?${query}` : '';
-      return `[${label}](dome://resource/${id}/${t}${q})`;
+      const typeSegment = t ? `/${t}` : '';
+      return `[${label}](dome://resource/${id}${typeSegment}${q})`;
     }
   );
 }
@@ -46,6 +48,48 @@ function preprocessWikilinks(content: string): string {
     if (!trimmed) return `[[${slug}]]`;
     return `[Ver: ${trimmed}](dome://resolve/${encodeURIComponent(trimmed)})`;
   });
+}
+
+/**
+ * Preprocess content: convert [Ver: Title](http://...) or [Ver: Title](https://...) to dome://resolve/Title.
+ * When the AI outputs the actual web URL instead of dome://resource/ID/url, links open in the browser.
+ * Converting to dome://resolve lets us find the resource by title and open it in Dome.
+ */
+function preprocessVerLinksWithHttp(content: string): string {
+  return content.replace(
+    /\[Ver:\s*([^\]]*)\]\(\s*(https?:\/\/[^)\s]+)\s*\)/gi,
+    (_, label, _url) => `[Ver: ${label.trim()}](dome://resolve/${encodeURIComponent(label.trim())})`
+  );
+}
+
+/**
+ * Preprocess: convert [Abrir carpeta: Title](https://...) to dome://resolve/Title.
+ * When the AI outputs a web URL for folder links, convert so we can resolve by title.
+ */
+function preprocessFolderLinksWithHttp(content: string): string {
+  return content.replace(
+    /\[Abrir carpeta:\s*([^\]]*)\]\(\s*(https?:\/\/[^)\s]+)\s*\)/gi,
+    (_, label) => `[Abrir carpeta: ${label.trim()}](dome://resolve/${encodeURIComponent(label.trim())})`
+  );
+}
+
+type IpcResult<T = unknown> = {
+  success?: boolean;
+  error?: string;
+  data?: T;
+};
+
+function parsePageFromQuery(queryString?: string): number | undefined {
+  if (!queryString) return undefined;
+  const params = new URLSearchParams(queryString);
+  const pageVal = params.get('page');
+  if (!pageVal) return undefined;
+  const page = parseInt(pageVal, 10);
+  return !Number.isNaN(page) && page >= 1 ? page : undefined;
+}
+
+function getResultError(result: IpcResult | null | undefined, fallback: string): string {
+  return typeof result?.error === 'string' && result.error.trim() ? result.error : fallback;
 }
 
 interface MarkdownRendererProps {
@@ -140,7 +184,184 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
   const setCurrentProject = useAppStore((s) => s.setCurrentProject);
+  const setCurrentFolderId = useAppStore((s) => s.setCurrentFolderId);
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
+
+  const openFolderInCurrentWindow = useCallback(
+    (folderId: string) => {
+      setHomeSidebarSection('library');
+      setCurrentFolderId(folderId);
+      navigate(`/?folder=${encodeURIComponent(folderId)}`);
+    },
+    [navigate, setCurrentFolderId, setHomeSidebarSection]
+  );
+
+  const handleOpenExternalUrl = useCallback(async (href: string) => {
+    const electron = typeof window !== 'undefined' ? window.electron : null;
+    if (!electron?.invoke) {
+      showToast('error', 'Los enlaces solo funcionan en la aplicación de escritorio.');
+      return;
+    }
+
+    try {
+      const result = await electron.invoke('open-external-url', href);
+      if (result && typeof result === 'object' && 'success' in result && !result.success) {
+        showToast('error', getResultError(result as IpcResult, 'No se pudo abrir el enlace externo.'));
+      }
+    } catch (err) {
+      console.error('[MarkdownRenderer] Failed to open external URL:', err);
+      showToast('error', 'No se pudo abrir el enlace externo.');
+    }
+  }, []);
+
+  const handleDomeHref = useCallback(
+    async (href: string) => {
+      const electron = typeof window !== 'undefined' ? window.electron : null;
+      if (!electron?.invoke) {
+        showToast('error', 'Los enlaces solo funcionan en la aplicación de escritorio.');
+        return;
+      }
+
+      const folderMatch = href.match(/^dome:\/\/folder\/([^/?#]+)/);
+      if (folderMatch) {
+        openFolderInCurrentWindow(folderMatch[1]);
+        return;
+      }
+
+      const resourceMatch = href.match(/^dome:\/\/resource\/([^/]+)(?:\/([^?#]+))?(?:\?([^#]*))?/);
+      if (resourceMatch) {
+        const [, resourceId, explicitResourceType, queryString] = resourceMatch;
+        const page = parsePageFromQuery(queryString);
+        let resourceType = explicitResourceType?.trim();
+
+        if (!resourceType && electron.db?.resources?.getById) {
+          try {
+            const lookup = await electron.db.resources.getById(resourceId);
+            if (lookup?.success && lookup.data) {
+              resourceType = (lookup.data as { type?: string }).type || 'note';
+            } else {
+              showToast('error', getResultError(lookup, 'No se encontró el recurso enlazado.'));
+              return;
+            }
+          } catch (err) {
+            console.error('[MarkdownRenderer] Failed to resolve resource type:', err);
+            showToast('error', 'No se encontró el recurso enlazado.');
+            return;
+          }
+        }
+
+        try {
+          const result = await electron.invoke('window:open-workspace', {
+            resourceId,
+            resourceType: resourceType || 'note',
+            page: page ?? undefined,
+          });
+          if (!result?.success) {
+            showToast('error', getResultError(result, 'No se pudo abrir el recurso.'));
+          }
+        } catch (err) {
+          console.error('[MarkdownRenderer] Failed to open resource:', err);
+          showToast('error', 'No se pudo abrir el recurso.');
+        }
+        return;
+      }
+
+      const resolveMatch = href.match(/^dome:\/\/resolve\/(.+)$/);
+      if (resolveMatch) {
+        const resolveSlug = decodeURIComponent(resolveMatch[1]);
+        try {
+          let resolvedId: string | null = null;
+          let resolvedType = 'note';
+
+          if (!electron.db?.resources) {
+            showToast('error', 'No se pudo resolver el enlace interno.');
+            return;
+          }
+
+          if (UUID_REGEX.test(resolveSlug)) {
+            const lookup = await electron.db.resources.getById(resolveSlug);
+            if (lookup?.success && lookup.data) {
+              resolvedId = (lookup.data as { id: string }).id;
+              resolvedType = (lookup.data as { type?: string }).type || 'note';
+            }
+          }
+
+          if (!resolvedId) {
+            const altSlug = resolveSlug.replace(/^Ver:\s*/i, '').trim();
+            const searchSlug = altSlug || resolveSlug;
+            const lookup = await electron.db.resources.searchForMention(searchSlug);
+            const results = lookup?.success && Array.isArray(lookup.data) ? lookup.data : [];
+            const match =
+              results.find(
+                (x: { title?: string }) => (x.title ?? '').toLowerCase() === searchSlug.toLowerCase()
+              ) ??
+              results.find(
+                (x: { title?: string }) => (x.title ?? '').toLowerCase() === resolveSlug.toLowerCase()
+              ) ??
+              results[0];
+
+            if (!match) {
+              showToast('error', getResultError(lookup, 'No se encontró el recurso enlazado.'));
+              return;
+            }
+
+            resolvedId = (match as { id: string }).id;
+            resolvedType = (match as { type?: string }).type || 'note';
+          }
+
+          if (resolvedType === 'folder') {
+            openFolderInCurrentWindow(resolvedId);
+            return;
+          }
+
+          const result = await electron.invoke('window:open-workspace', {
+            resourceId: resolvedId,
+            resourceType: resolvedType,
+          });
+          if (!result?.success) {
+            showToast('error', getResultError(result, 'No se pudo abrir el recurso.'));
+          }
+        } catch (err) {
+          console.error('[MarkdownRenderer] Failed to resolve wikilink:', err);
+          showToast('error', 'No se pudo resolver el enlace interno.');
+        }
+        return;
+      }
+
+      const studioMatch = href.match(/^dome:\/\/studio\/([^/]+)(?:\/([^/]+))?/);
+      if (studioMatch) {
+        const studioOutputId = studioMatch[1];
+        if (!electron.db?.studio?.getById) {
+          showToast('error', 'No se pudo abrir la salida de Studio.');
+          return;
+        }
+
+        try {
+          const result = await electron.db.studio.getById(studioOutputId);
+          if (!result?.success || !result.data) {
+            showToast('error', getResultError(result, 'No se pudo abrir la salida de Studio.'));
+            return;
+          }
+
+          const output = result.data as { id: string; project_id: string; type: string; title: string };
+          addStudioOutput(output as Parameters<typeof addStudioOutput>[0]);
+          setActiveStudioOutput(output as Parameters<typeof setActiveStudioOutput>[0]);
+          setHomeSidebarSection('studio');
+
+          const projResult = await electron.db.projects.getById(output.project_id);
+          if (projResult?.success && projResult.data) {
+            setCurrentProject(projResult.data as Parameters<typeof setCurrentProject>[0]);
+          }
+
+          navigate('/');
+        } catch (err) {
+          console.error('[MarkdownRenderer] Failed to open studio output:', err);
+          showToast('error', 'No se pudo abrir la salida de Studio.');
+        }
+      }
+    },
+    [addStudioOutput, navigate, openFolderInCurrentWindow, setActiveStudioOutput, setCurrentProject, setHomeSidebarSection]
+  );
 
   const components: Components = useMemo(() => {
     const baseComponents: Components = {
@@ -180,134 +401,56 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         </em>
       ),
 
-      // Links - dome://resource/ID/TYPE opens workspace; dome://studio/ID/TYPE opens studio output;
-      // dome://resolve/SLUG resolves wikilinks [[slug]] by title or ID; external links open in new tab
+      // Links - dome://resource/ID/TYPE opens workspace; dome://folder/ID opens Home with folder;
+      // dome://studio/ID/TYPE opens studio output; dome://resolve/SLUG resolves wikilinks
       a: ({ href, children }) => {
         const isDomeResource =
           typeof href === 'string' && href.startsWith('dome://resource/');
+        const isDomeFolder =
+          typeof href === 'string' && href.startsWith('dome://folder/');
         const isDomeStudio =
           typeof href === 'string' && href.startsWith('dome://studio/');
         const isDomeResolve =
           typeof href === 'string' && href.startsWith('dome://resolve/');
 
-        const resourceMatch =
-          typeof href === 'string' && isDomeResource
-            ? href.match(/^dome:\/\/resource\/([^/]+)(?:\/([^?#]+))?(?:\?([^#]*))?/)
-            : null;
-        const resourceId = resourceMatch?.[1];
-        let resourceType = (resourceMatch?.[2] as string) || 'note';
-        const queryString = resourceMatch?.[3] ?? '';
-        let page: number | undefined;
-        if (queryString) {
-          const params = new URLSearchParams(queryString);
-          const pageVal = params.get('page');
-          if (pageVal) {
-            const p = parseInt(pageVal, 10);
-            if (!Number.isNaN(p) && p >= 1) page = p;
-          }
-        }
+        const isDomeLink = isDomeResource || isDomeFolder || isDomeStudio || isDomeResolve;
 
-        const studioMatch =
-          typeof href === 'string' && isDomeStudio
-            ? href.match(/^dome:\/\/studio\/([^/]+)(?:\/([^/]+))?/)
-            : null;
-        const studioOutputId = studioMatch?.[1];
+        // Use <span> for dome links to avoid browser handling of custom protocols.
+        // Chromium may not fire will-navigate for dome://, and the OS can intercept
+        // before our onClick runs. A span guarantees our handler executes.
+        const linkStyle = {
+          color: 'var(--accent)',
+          textDecoration: 'underline',
+          textUnderlineOffset: 2,
+          cursor: 'pointer',
+        } as const;
 
-        const resolveMatch =
-          typeof href === 'string' && isDomeResolve
-            ? href.match(/^dome:\/\/resolve\/(.+)$/)
-            : null;
-        const resolveSlug = resolveMatch?.[1] ? decodeURIComponent(resolveMatch[1]) : null;
-
-        const handleClick = async (e: React.MouseEvent) => {
-          if (isDomeResource && resourceId && typeof window !== 'undefined' && window.electron?.workspace?.open) {
-            e.preventDefault();
-            window.electron.workspace.open(resourceId, resourceType, page != null ? { page } : undefined);
-            return;
-          }
-          if (isDomeResolve && resolveSlug && typeof window !== 'undefined' && window.electron?.db?.resources) {
-            e.preventDefault();
-            try {
-              let resolvedId: string | null = null;
-              let resolvedType = 'note';
-              if (UUID_REGEX.test(resolveSlug)) {
-                const r = await window.electron.db.resources.getById(resolveSlug);
-                if (r?.success && r.data) {
-                  resolvedId = (r.data as { id: string }).id;
-                  resolvedType = (r.data as { type?: string }).type || 'note';
-                }
-              }
-              if (!resolvedId) {
-                const altSlug = resolveSlug.replace(/^Ver:\s*/i, '').trim();
-                const searchSlug = altSlug || resolveSlug;
-                const r = await window.electron.db.resources.searchForMention(searchSlug);
-                const results = r?.success && Array.isArray(r.data) ? r.data : [];
-                const match =
-                  results.find(
-                    (x: { title?: string }) =>
-                      (x.title ?? '').toLowerCase() === searchSlug.toLowerCase()
-                  ) ??
-                  results.find(
-                    (x: { title?: string }) =>
-                      (x.title ?? '').toLowerCase() === resolveSlug.toLowerCase()
-                  ) ??
-                  results[0];
-                if (match) {
-                  resolvedId = (match as { id: string }).id;
-                  resolvedType = (match as { type?: string }).type || 'note';
-                }
-              }
-              if (resolvedId && window.electron.workspace?.open) {
-                await window.electron.workspace.open(resolvedId, resolvedType);
-              }
-            } catch (err) {
-              console.error('[MarkdownRenderer] Failed to resolve wikilink:', err);
-            }
-            return;
-          }
-          if (
-            isDomeStudio &&
-            studioOutputId &&
-            typeof window !== 'undefined' &&
-            window.electron?.db?.studio?.getById
-          ) {
-            e.preventDefault();
-            try {
-              const result = await window.electron.db.studio.getById(studioOutputId);
-              if (result?.success && result.data) {
-                const output = result.data as { id: string; project_id: string; type: string; title: string };
-                addStudioOutput(output as Parameters<typeof addStudioOutput>[0]);
-                setActiveStudioOutput(output as Parameters<typeof setActiveStudioOutput>[0]);
-                setHomeSidebarSection('studio');
-                const projResult = await window.electron.db.projects.getById(output.project_id);
-                if (projResult?.success && projResult.data) {
-                  setCurrentProject(projResult.data as Parameters<typeof setCurrentProject>[0]);
-                }
-                navigate('/');
-              }
-            } catch (err) {
-              console.error('[MarkdownRenderer] Failed to open studio output:', err);
-            }
+        // Use button for ALL links to avoid browser handling and ensure reliable clicks.
+        // Prevents dome:// from being opened by the OS and http(s) from navigating away.
+        const handleAllClicks = (e: React.MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          // External links: open via IPC so we don't navigate away from the app
+          if (typeof href === 'string' && (href.startsWith('http://') || href.startsWith('https://'))) {
+            void handleOpenExternalUrl(href);
           }
         };
 
-        const isDomeLink = isDomeResource || isDomeStudio || isDomeResolve;
-
         return (
-          <a
-            href={isDomeLink ? '#' : href}
-            target={isDomeLink ? undefined : '_blank'}
-            rel={isDomeLink ? undefined : 'noopener noreferrer'}
-            onClick={handleClick}
+          <button
+            type="button"
+            data-dome-href={isDomeLink ? href : undefined}
+            onClick={handleAllClicks}
             style={{
-              color: 'var(--accent)',
-              textDecoration: 'underline',
-              textUnderlineOffset: 2,
-              cursor: 'pointer',
+              ...linkStyle,
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              font: 'inherit',
             }}
           >
             {children}
-          </a>
+          </button>
         );
       },
 
@@ -438,19 +581,54 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
     };
 
     return baseComponents;
-  }, [hasCitations, citationMap, onClickCitation, navigate, addStudioOutput, setActiveStudioOutput, setHomeSidebarSection, setCurrentProject]);
+  }, [citationMap, handleOpenExternalUrl, hasCitations, onClickCitation]);
 
   const processedContent = useMemo(
     () =>
       preprocessWikilinks(
-        preprocessResourceLinks(preprocessResourceProtocol(content))
+        preprocessFolderLinksWithHttp(
+          preprocessVerLinksWithHttp(
+            preprocessResourceLinks(preprocessResourceProtocol(content))
+          )
+        )
       ),
     [content]
   );
 
+  // Capture-phase click handler: intercept dome links at container level so clicks
+  // are handled even if child event handling fails (e.g. scroll, overlay, etc.)
+  const handleContainerClickCapture = useCallback(
+    async (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const linkEl = target.closest('[data-dome-href]') as HTMLElement | null;
+      if (!linkEl) return;
+      const href = linkEl.getAttribute('data-dome-href');
+      if (!href || !href.startsWith('dome://')) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      await handleDomeHref(href);
+    },
+    [handleDomeHref]
+  );
+
+  const markdownUrlTransform = useCallback((url: string) => {
+    if (url.startsWith('dome://')) {
+      return url;
+    }
+
+    return defaultUrlTransform(url);
+  }, []);
+
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-      {processedContent}
-    </ReactMarkdown>
+    <div onClickCapture={handleContainerClickCapture}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={components}
+        urlTransform={markdownUrlTransform}
+      >
+        {processedContent}
+      </ReactMarkdown>
+    </div>
   );
 }

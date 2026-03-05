@@ -154,6 +154,116 @@ class DatabaseClient {
   }
 
   // ============================================
+  // CHAT (traceability)
+  // ============================================
+
+  async createChatSession(opts: {
+    id?: string;
+    agentId?: string | null;
+    resourceId?: string | null;
+    mode?: 'many' | 'agent' | 'team' | 'workflow' | 'canvas' | null;
+    contextId?: string | null;
+    threadId?: string | null;
+    title?: string | null;
+    toolIds?: string[];
+    mcpServerIds?: string[];
+  }): Promise<DBResponse<{ id: string; agentId?: string | null; resourceId?: string | null; mode?: string | null; contextId?: string | null; threadId?: string | null; title?: string | null; toolIds?: string[]; mcpServerIds?: string[]; createdAt: number; updatedAt: number }>> {
+    return this.db.chat.createSession(opts) as Promise<DBResponse<{ id: string; agentId?: string | null; resourceId?: string | null; mode?: string | null; contextId?: string | null; threadId?: string | null; title?: string | null; toolIds?: string[]; mcpServerIds?: string[]; createdAt: number; updatedAt: number }>>;
+  }
+
+  async getChatSession(sessionId: string): Promise<
+    DBResponse<{
+      id: string;
+      agent_id: string | null;
+      resource_id: string | null;
+      mode: string | null;
+      context_id: string | null;
+      thread_id: string | null;
+      title: string | null;
+      tool_ids: string[];
+      mcp_server_ids: string[];
+      messages: Array<{
+        id: string;
+        session_id: string;
+        role: 'user' | 'assistant';
+        content: string;
+        tool_calls: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }> | null;
+        thinking: string | null;
+        metadata: Record<string, unknown> | null;
+        created_at: number;
+      }>;
+    } | null>
+  > {
+    return this.db.chat.getSession(sessionId) as Promise<
+      DBResponse<{
+        id: string;
+        agent_id: string | null;
+        resource_id: string | null;
+        mode: string | null;
+        context_id: string | null;
+        thread_id: string | null;
+        title: string | null;
+        tool_ids: string[];
+        mcp_server_ids: string[];
+        messages: Array<{
+          id: string;
+          session_id: string;
+          role: 'user' | 'assistant';
+          content: string;
+          tool_calls: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }> | null;
+          thinking: string | null;
+          metadata: Record<string, unknown> | null;
+          created_at: number;
+        }>;
+      } | null>
+    >;
+  }
+
+  async updateChatSession(opts: {
+    id: string;
+    mode?: 'many' | 'agent' | 'team' | 'workflow' | 'canvas' | null;
+    contextId?: string | null;
+    threadId?: string | null;
+    title?: string | null;
+    toolIds?: string[];
+    mcpServerIds?: string[];
+  }): Promise<DBResponse<void>> {
+    return this.db.chat.updateSession(opts) as Promise<DBResponse<void>>;
+  }
+
+  async getChatSessionsByAgent(agentId: string, limit?: number): Promise<DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>> {
+    return this.db.chat.getSessionsByAgent({ agentId, limit }) as Promise<DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>>;
+  }
+
+  async getChatSessionsGlobal(limit?: number): Promise<DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>> {
+    return this.db.chat.getSessionsGlobal(limit) as Promise<DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>>;
+  }
+
+  async addChatMessage(opts: {
+    sessionId: string;
+    role: 'user' | 'assistant';
+    content: string;
+    toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }>;
+    thinking?: string | null;
+    metadata?: Record<string, unknown>;
+  }): Promise<DBResponse<{ id: string; sessionId: string; role: string; content: string; toolCalls?: unknown[]; thinking?: string | null; metadata?: Record<string, unknown>; createdAt: number }>> {
+    return this.db.chat.addMessage(opts) as Promise<DBResponse<{ id: string; sessionId: string; role: string; content: string; toolCalls?: unknown[]; thinking?: string | null; metadata?: Record<string, unknown>; createdAt: number }>>;
+  }
+
+  async appendChatTrace(opts: {
+    sessionId: string;
+    messageId?: string | null;
+    type: 'tool_call' | 'tool_result' | 'decision' | 'interrupt';
+    toolName?: string | null;
+    toolArgs?: Record<string, unknown>;
+    result?: unknown;
+    mcpServerId?: string | null;
+    decision?: string | null;
+  }): Promise<DBResponse<{ id: string }>> {
+    return this.db.chat.appendTrace(opts) as Promise<DBResponse<{ id: string }>>;
+  }
+
+  // ============================================
   // SETTINGS
   // ============================================
 

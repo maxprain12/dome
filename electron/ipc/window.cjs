@@ -9,6 +9,51 @@ const { BrowserWindow } = require('electron');
  * @param {Object} deps - { database, windowManager, nativeTheme }
  * @returns {Promise<{ success: boolean; error?: string; data?: { windowId: string; resourceId: string; title: string } }>}
  */
+/**
+ * Open a Home window with a folder selected. Reusable from IPC and deep-link handler.
+ * @param {string} folderId
+ * @param {Object} deps - { database, windowManager, nativeTheme }
+ * @returns {Promise<{ success: boolean; error?: string; data?: { windowId: string; folderId: string; title: string } }>}
+ */
+async function openFolderForFolder(folderId, { database, windowManager, nativeTheme }) {
+  const queries = database.getQueries();
+  const folder = queries.getResourceById.get(folderId);
+
+  if (!folder || folder.type !== 'folder') {
+    return { success: false, error: 'Folder not found' };
+  }
+
+  const windowId = `folder-${folderId}`;
+  const existingWindow = windowManager.get(windowId);
+  if (existingWindow && !existingWindow.isDestroyed()) {
+    existingWindow.focus();
+    return {
+      success: true,
+      data: { windowId, folderId, title: folder.title },
+    };
+  }
+
+  const route = `/?folder=${encodeURIComponent(folderId)}`;
+  windowManager.create(
+    windowId,
+    {
+      width: 1200,
+      height: 800,
+      minWidth: 800,
+      minHeight: 600,
+      title: `${folder.title} - Dome`,
+      backgroundColor: nativeTheme.shouldUseDarkColors ? '#0f1419' : '#ffffff',
+    },
+    route
+  );
+
+  console.log('[Workspace] Opened folder:', folder.title);
+  return {
+    success: true,
+    data: { windowId, folderId, title: folder.title },
+  };
+}
+
 async function openWorkspaceForResource(resourceId, resourceType, options = {}, { database, windowManager, nativeTheme }) {
   const { page } = options;
   const queries = database.getQueries();
@@ -16,6 +61,11 @@ async function openWorkspaceForResource(resourceId, resourceType, options = {}, 
 
   if (!resource) {
     return { success: false, error: 'Resource not found' };
+  }
+
+  // Folders open Home with folder selected, not workspace
+  if (resourceType === 'folder' || resource.type === 'folder') {
+    return openFolderForFolder(resourceId, { database, windowManager, nativeTheme });
   }
 
   const windowId = `workspace-${resourceId}`;
@@ -240,6 +290,28 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
     }
   });
 
+  // Open Home window with folder selected
+  ipcMain.handle('window:open-folder', async (event, { folderId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      if (!folderId || typeof folderId !== 'string' || folderId.length > 200) {
+        throw new Error('folderId must be a non-empty string with max 200 characters');
+      }
+
+      return await openFolderForFolder(folderId, {
+        database,
+        windowManager,
+        nativeTheme,
+      });
+    } catch (error) {
+      console.error('[Workspace] Error opening folder:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Open workspace window for a resource (options: { page?: number } for PDF navigation)
   ipcMain.handle('window:open-workspace', async (event, { resourceId, resourceType, page }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -311,4 +383,4 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
   });
 }
 
-module.exports = { register, openWorkspaceForResource };
+module.exports = { register, openWorkspaceForResource, openFolderForFolder };

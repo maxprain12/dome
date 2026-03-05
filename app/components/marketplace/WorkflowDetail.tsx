@@ -6,6 +6,7 @@ import type { WorkflowTemplate } from '@/types/canvas';
 interface WorkflowDetailProps {
   workflow: WorkflowTemplate;
   isInstalled: boolean;
+  hasUpdate?: boolean;
   isInstalling: boolean;
   onInstall: (workflow: WorkflowTemplate) => void;
   onClose: () => void;
@@ -30,6 +31,7 @@ const DIFFICULTY_STYLES = {
 export default function WorkflowDetail({
   workflow,
   isInstalled,
+  hasUpdate = false,
   isInstalling,
   onInstall,
   onClose,
@@ -250,16 +252,21 @@ export default function WorkflowDetail({
                 boxShadow: isInstalled ? 'none' : '0 2px 8px rgba(89, 96, 55, 0.3)',
               }}
             >
-              {isInstalled ? (
-                <>
-                  <Play className="w-4 h-4" />
-                  Abrir en Canvas
-                </>
-              ) : isInstalling ? (
+              {isInstalling ? (
                 <span className="flex items-center gap-1.5">
                   <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                   Instalando...
                 </span>
+              ) : isInstalled && !hasUpdate ? (
+                <>
+                  <Play className="w-4 h-4" />
+                  Abrir en Canvas
+                </>
+              ) : hasUpdate ? (
+                <>
+                  <Download className="w-4 h-4" />
+                  Actualizar
+                </>
               ) : (
                 <>
                   <Download className="w-4 h-4" />

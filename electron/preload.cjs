@@ -43,6 +43,7 @@ const ALLOWED_CHANNELS = {
     'window:list',
     'window:broadcast',
     'window:open-workspace',
+    'window:open-folder',
     'window:open-settings',
     // Initialization
     'init:initialize',
@@ -94,6 +95,14 @@ const ALLOWED_CHANNELS = {
     'db:interactions:getByType',
     'db:interactions:update',
     'db:interactions:delete',
+    // Database - Chat (traceability)
+    'db:chat:createSession',
+    'db:chat:getSession',
+    'db:chat:updateSession',
+    'db:chat:getSessionsByAgent',
+    'db:chat:getSessionsGlobal',
+    'db:chat:addMessage',
+    'db:chat:appendTrace',
     // Database - Links
     'db:links:create',
     'db:links:getBySource',
@@ -697,6 +706,17 @@ const electronHandler = {
       delete: (id) => ipcRenderer.invoke('db:interactions:delete', id),
     },
 
+    // Chat sessions and messages (traceability)
+    chat: {
+      createSession: (opts) => ipcRenderer.invoke('db:chat:createSession', opts),
+      getSession: (sessionId) => ipcRenderer.invoke('db:chat:getSession', sessionId),
+      updateSession: (opts) => ipcRenderer.invoke('db:chat:updateSession', opts),
+      getSessionsByAgent: (opts) => ipcRenderer.invoke('db:chat:getSessionsByAgent', opts),
+      getSessionsGlobal: (limit) => ipcRenderer.invoke('db:chat:getSessionsGlobal', limit),
+      addMessage: (opts) => ipcRenderer.invoke('db:chat:addMessage', opts),
+      appendTrace: (opts) => ipcRenderer.invoke('db:chat:appendTrace', opts),
+    },
+
     // Tags
     tags: {
       getByResource: (resourceId) => ipcRenderer.invoke('db:tags:getByResource', resourceId),
@@ -779,6 +799,9 @@ const electronHandler = {
     // Open a workspace window for a resource (options: { page?: number } for PDF)
     open: (resourceId, resourceType, options) =>
       ipcRenderer.invoke('window:open-workspace', { resourceId, resourceType, ...options }),
+    // Open Home window with folder selected
+    openFolder: (folderId) =>
+      ipcRenderer.invoke('window:open-folder', { folderId }),
   },
 
   // ============================================
@@ -946,8 +969,8 @@ const electronHandler = {
       ipcRenderer.invoke('ai:stream', { provider, messages, model, streamId, tools }),
 
     // Stream chat using LangGraph agent (tools executed in main process)
-    streamLangGraph: (provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds) =>
-      ipcRenderer.invoke('ai:langgraph:stream', { provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds }),
+    streamLangGraph: (provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds, subagentIds) =>
+      ipcRenderer.invoke('ai:langgraph:stream', { provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds, subagentIds }),
 
     // Abort LangGraph stream (for Stop button in chat)
     abortLangGraph: (streamId) => ipcRenderer.invoke('ai:langgraph:abort', streamId),

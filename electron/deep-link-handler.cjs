@@ -8,7 +8,7 @@
 const mcpOauth = require('./mcp-oauth.cjs');
 const domeOauth = require('./dome-oauth.cjs');
 const googleCalendarOAuth = require('./google-calendar-service.cjs');
-const { openWorkspaceForResource } = require('./ipc/window.cjs');
+const { openWorkspaceForResource, openFolderForFolder } = require('./ipc/window.cjs');
 
 /**
  * Handle a dome:// URL (resource, studio, or OAuth)
@@ -34,6 +34,69 @@ async function handleDomeUrl(url, deps) {
   // Google Calendar OAuth callback
   if (url.startsWith('dome://calendar-oauth/')) {
     return googleCalendarOAuth.handleOAuthCallback(url);
+  }
+
+  // dome://folder/ID - open Home with folder selected
+  const folderMatch = url.match(/^dome:\/\/folder\/([^/?#]+)/);
+  if (folderMatch) {
+    const folderId = folderMatch[1];
+    try {
+      const result = await openFolderForFolder(folderId, deps);
+      if (result.success) {
+        console.log('[DeepLink] Opened folder:', folderId);
+        return true;
+      }
+      console.warn('[DeepLink] Failed to open folder:', result.error);
+      return false;
+    } catch (err) {
+      console.error('[DeepLink] Error opening folder:', err);
+      return false;
+    }
+  }
+
+  // dome://resolve/SLUG - resolve by title or ID, then open workspace
+  const resolveMatch = url.match(/^dome:\/\/resolve\/(.+)$/);
+  if (resolveMatch) {
+    const slug = decodeURIComponent(resolveMatch[1]);
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const queries = deps.database.getQueries();
+    let resourceId = null;
+    let resourceType = 'note';
+
+    if (UUID_REGEX.test(slug)) {
+      const r = queries.getResourceById.get(slug);
+      if (r) {
+        resourceId = r.id;
+        resourceType = r.type || 'note';
+      }
+    }
+    if (!resourceId) {
+      const altSlug = slug.replace(/^Ver:\s*/i, '').trim();
+      const searchSlug = altSlug || slug;
+      const searchTerm = `%${searchSlug}%`;
+      const results = queries.searchForMention.all(searchTerm, searchTerm);
+      const match =
+        results.find((x) => (x.title || '').toLowerCase() === searchSlug.toLowerCase()) ??
+        results.find((x) => (x.title || '').toLowerCase() === slug.toLowerCase()) ??
+        results[0];
+      if (match) {
+        resourceId = match.id;
+        resourceType = match.type || 'note';
+      }
+    }
+    if (resourceId) {
+      try {
+        const result = await openWorkspaceForResource(resourceId, resourceType, {}, deps);
+        if (result.success) {
+          console.log('[DeepLink] Opened resource via resolve:', resourceId);
+          return true;
+        }
+      } catch (err) {
+        console.error('[DeepLink] Error opening resolved resource:', err);
+      }
+    }
+    console.warn('[DeepLink] Could not resolve slug:', slug);
+    return false;
   }
 
   // dome://resource/ID/TYPE or dome://resource/ID/TYPE?page=N - open workspace

@@ -70,6 +70,9 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
   const description = descriptions[agentName] || `Delegate to the ${agentName} subagent.`;
 
   const systemPrompts = {
+    library: `You are the library subagent. You search, read, and organize the user's resources.
+
+LINK FORMAT (CRITICAL): When listing resources from get_library_overview or resource_list, ALWAYS use: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact id and type from the tool results. NEVER use the actual web URL (https://...) for url-type resources—always use dome://resource/ID/url. Using https:// opens in the browser instead of Dome. For folders/subfolders, use: [Abrir carpeta: Title](dome://folder/FOLDER_ID).`,
     data: `You are the data subagent. You handle Excel and PowerPoint.
 For PowerPoint: ALWAYS use ppt_create to create real .pptx files. NEVER use resource_create (writer's tool) for presentations—that creates notes/documents, not PPTs.
 
@@ -133,9 +136,11 @@ PPT from folder: (1) get_library_overview; (2) resource_list with folder_id; (3)
  * @param {Function|null} onChunk - optional chunk emitter for real-time tool events
  * @returns {Promise<Array>} LangChain tools the main agent can call
  */
-async function createSubagentTools(llm, createLangChainTools, onChunk) {
+async function createSubagentTools(llm, createLangChainTools, onChunk, agentNames) {
   const executeFn = (name, args) => executeToolInMain(name, args);
-  const agents = ['research', 'library', 'writer', 'data'];
+  const agents = Array.isArray(agentNames) && agentNames.length > 0
+    ? agentNames
+    : ['research', 'library', 'writer', 'data'];
   const tools = [];
   for (const name of agents) {
     try {

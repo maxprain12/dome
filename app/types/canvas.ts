@@ -6,6 +6,22 @@ export type CanvasNodeType = 'text-input' | 'document' | 'image' | 'agent' | 'ou
 
 export type CanvasNodeStatus = 'idle' | 'running' | 'done' | 'error';
 
+export interface CanvasResourceReference {
+  resourceId: string;
+  resourceType: string;
+  resourceTitle: string;
+  resourceContent?: string | null;
+  resourceUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface CanvasNodePayload {
+  kind: 'text' | 'resource' | 'bundle';
+  text: string;
+  resources?: CanvasResourceReference[];
+  metadata?: Record<string, unknown>;
+}
+
 // Data stored inside each ReactFlow node's `data` field
 export interface TextInputNodeData {
   type: 'text-input';
@@ -17,16 +33,20 @@ export interface DocumentNodeData {
   type: 'document';
   label: string;
   resourceId: string | null;
+  resourceType?: string | null;
   resourceTitle: string | null;
   resourceContent: string | null;
+  resourceMetadata?: Record<string, unknown> | null;
 }
 
 export interface ImageNodeData {
   type: 'image';
   label: string;
   resourceId: string | null;
+  resourceType?: string | null;
   resourceTitle: string | null;
   resourceUrl: string | null;
+  resourceMetadata?: Record<string, unknown> | null;
 }
 
 export type SystemAgentRole = 'research' | 'library' | 'writer' | 'data' | 'presenter' | 'curator';
@@ -64,6 +84,14 @@ export interface CanvasWorkflow {
   description: string;
   nodes: SerializedNode[];
   edges: SerializedEdge[];
+  marketplace?: {
+    templateId?: string;
+    version?: string;
+    source?: 'official' | 'community' | 'local';
+    author?: string;
+    capabilities?: string[];
+    resourceAffinity?: string[];
+  };
   createdAt: number;
   updatedAt: number;
 }
@@ -101,6 +129,13 @@ export interface WorkflowTemplate {
   outputType?: string;
   category?: string;
   useCases?: string[];
+  source?: 'official' | 'community';
+  capabilities?: string[];
+  resourceAffinity?: string[];
+  compatibility?: {
+    minAppVersion?: string;
+    minSchemaVersion?: number;
+  };
   /** Pre-configured nodes for this template */
   nodes: SerializedNode[];
   /** Pre-configured edges for this template */
@@ -112,6 +147,7 @@ export interface NodeExecutionState {
   nodeId: string;
   status: CanvasNodeStatus;
   output: string;
+  payload?: CanvasNodePayload;
   error?: string;
 }
 
@@ -134,5 +170,5 @@ export interface WorkflowExecution {
   finishedAt?: number;
   status: 'running' | 'done' | 'error';
   entries: ExecutionLogEntry[];
-  nodeOutputs?: Record<string, { output?: string; error?: string }>;
+  nodeOutputs?: Record<string, { output?: string; error?: string; payload?: CanvasNodePayload }>;
 }

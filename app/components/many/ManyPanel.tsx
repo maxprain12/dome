@@ -9,14 +9,18 @@ import {
   getAIConfig,
   chatStream,
   chatWithToolsStream,
-  createWebSearchTool,
-  createWebFetchTool,
   createManyToolsForContext,
   providerSupportsTools,
   toOpenAIToolDefinitions,
   type AIProviderType,
   type AnyAgentTool,
 } from '@/lib/ai';
+import {
+  buildSharedResourceHint,
+  buildSharedUiContextBlock,
+  getUiLocationDescription,
+  resolveManyCapabilityRuntime,
+} from '@/lib/ai/shared-capabilities';
 import { createRememberFactTool } from '@/lib/ai/tools/memory';
 import { buildManyFloatingPrompt, buildMartinSupervisorPrompt, prompts } from '@/lib/prompts/loader';
 import { showToast } from '@/lib/store/useToastStore';
@@ -28,8 +32,6 @@ import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { db } from '@/lib/db/client';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
-
-const WEB_TOOLS = [createWebSearchTool(), createWebFetchTool()];
 
 const QUICK_PROMPTS_BASE = [
   'Summarize my current resource',
@@ -49,27 +51,28 @@ const STREAMING_LABELS: Record<string, string> = {
   call_research_agent: 'Investigando',
 };
 
-function getContextFromPath(pathname: string): { location: string; description: string } {
-  if (pathname === '/' || pathname === '/home') {
-    return { location: 'Home', description: 'in the main library' };
-  }
-  if (pathname.startsWith('/workspace/note/')) {
-    return { location: 'Note Editor', description: 'editing a note' };
-  }
-  if (pathname.startsWith('/workspace/docx')) {
-    return { location: 'Document Editor', description: 'editing a DOCX document' };
-  }
-  if (pathname.startsWith('/workspace/url')) {
-    return { location: 'URL Viewer', description: 'viewing a web resource' };
-  }
-  if (pathname.startsWith('/workspace/youtube')) {
-    return { location: 'YouTube Player', description: 'watching a YouTube video' };
-  }
-  if (pathname.startsWith('/workspace/')) {
-    return { location: 'Workspace', description: 'working on a resource' };
-  }
-  return { location: 'Dome', description: 'in the application' };
-}
+const APP_SECTION_GUIDE = `## Dome App Sections
+- Home > Library: browse folders and resources, open folders, and organize the main library.
+- Home > Studio: open generated outputs such as mindmaps, guides, quizzes, timelines, tables, flashcards, audio, and video.
+- Home > Flashcards: review and manage flashcard decks.
+- Home > Tags: browse resources grouped by tags.
+- Home > Agents: manage specialized agents.
+- Home > Workflows: run agent teams and workflow automations.
+- Home > Marketplace: explore installable assets, workflows, and agents.
+- Calendar: view and manage events.
+- Workspace: open and edit a specific resource such as a note, notebook, PDF, DOCX, PPT, URL, video, or audio.
+
+## Navigation Guidance
+- If the user asks how to do something in Dome, explain the path step by step using the real section names above.
+- If another area of the app is better for the task, say it explicitly: for example "ve a Studio", "abre Workflows", or "entra en Library".
+- Prefer actionable guidance plus clickable internal links when available.
+- If a workflow or specialized agent is the best route, mention it clearly and explain why.
+
+## Deep Link Rules
+- Resource links must use \`dome://resource/RESOURCE_ID/TYPE\`.
+- Folder links must use \`dome://folder/FOLDER_ID\` and open the folder inside Home > Library in the current app window.
+- Studio links must use \`dome://studio/OUTPUT_ID/TYPE\`.
+- Never invent resource IDs, folder IDs, output IDs, or types. Use exact values from tool results only.`;
 
 interface ManyPanelProps {
   width: number;
@@ -96,6 +99,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     whatsappConnected,
   } = useManyStore();
   const currentFolderId = useAppStore((s) => s.currentFolderId);
+  const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -118,6 +122,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pendingApprovalRef = useRef<HTMLDivElement>(null);
+  const hitlDecisionsRef = useRef<Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }> | null>(null);
   const isSubmittingRef = useRef(false);
 
   const effectiveResourceId =
@@ -178,13 +183,10 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
   }, []);
 
   const activeTools = useMemo(() => {
-    const tools: AnyAgentTool[] = [];
-    if (toolsEnabled) {
-      tools.push(...WEB_TOOLS);
-    }
-    if (resourceToolsEnabled) {
-      tools.push(...createManyToolsForContext(pathname || '/'));
-    }
+    const tools: AnyAgentTool[] = createManyToolsForContext(pathname || '/', {
+      includeWeb: toolsEnabled,
+      includeResources: resourceToolsEnabled,
+    });
     tools.push(createRememberFactTool());
     return tools;
   }, [toolsEnabled, resourceToolsEnabled, pathname]);
@@ -223,7 +225,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     if (petPromptOverride) {
       return petPromptOverride;
     }
-    const context = getContextFromPath(pathname || '/');
+    const context = getUiLocationDescription(pathname || '/', homeSidebarSection);
     const now = new Date();
     let prompt = buildManyFloatingPrompt({
       location: context.location,
@@ -233,11 +235,27 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       resourceTitle: currentResourceTitle || undefined,
       whatsappConnected,
     });
+    prompt += `\n\n${APP_SECTION_GUIDE}\n\n${buildSharedUiContextBlock({
+      pathname: pathname || '/',
+      homeSidebarSection,
+      currentFolderId,
+      currentResourceId: effectiveResourceId,
+      currentResourceTitle: currentResourceTitle || null,
+    })}`;
     if (userMemory) {
       prompt += `\n\n## What I know about you\n${userMemory}`;
     }
     return prompt;
-  }, [pathname, currentResourceTitle, petPromptOverride, whatsappConnected, userMemory]);
+  }, [
+    currentFolderId,
+    currentResourceTitle,
+    effectiveResourceId,
+    homeSidebarSection,
+    pathname,
+    petPromptOverride,
+    userMemory,
+    whatsappConnected,
+  ]);
 
   const isSummarizeRequest = (msg: string) => {
     const lower = msg.toLowerCase();
@@ -369,7 +387,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       ];
 
       if (useToolsForThisRequest) {
-        const context = getContextFromPath(pathname || '/');
+        const context = getUiLocationDescription(pathname || '/', homeSidebarSection);
         const now = new Date();
         const supervisorPrompt = buildMartinSupervisorPrompt({
           location: context.location,
@@ -378,17 +396,27 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           resourceTitle: currentResourceTitle || undefined,
           includeDateTime: true,
         });
-        const isNotebook = pathname?.includes('/workspace/notebook');
-        const toolHint = effectiveResourceId
-          ? `\n\nThe user is viewing resource ID: ${effectiveResourceId} (title: "${currentResourceTitle || 'unknown'}"). When delegating to library, writer, or data agents, include resource_id: "${effectiveResourceId}" in the context so they can access this resource.${isNotebook ? ` The user is editing a notebook: use notebook_get, notebook_add_cell, notebook_update_cell with resource_id: "${effectiveResourceId}".` : ''} For Excel: excel_get, excel_set_cell, excel_get_file_path require resource_id.`
-          : '';
-        const folderHint = (pathname === '/' || pathname === '/home') && currentFolderId
-          ? `\n\nThe user is viewing folder ID: ${currentFolderId}. When delegating to library or writer agents, include folder_id: "${currentFolderId}" for listing/creating resources in that folder.`
-          : '';
+        const sharedContext = {
+          pathname: pathname || '/',
+          homeSidebarSection,
+          currentFolderId,
+          currentResourceId: effectiveResourceId,
+          currentResourceTitle: currentResourceTitle || null,
+        };
+        const uiContextBlock = buildSharedUiContextBlock(sharedContext);
+        const toolHint = buildSharedResourceHint(sharedContext);
+        const capabilityRuntime = resolveManyCapabilityRuntime(
+          {
+            toolsEnabled,
+            resourceToolsEnabled,
+            mcpEnabled,
+          },
+          undefined
+        );
         const tools: AnyAgentTool[] = []; // Subagents architecture: main agent uses subagent-invocation tools (built in main process)
         const memoryBlock = userMemory ? `\n\n## What I know about you\n${userMemory}` : '';
         const toolsMessages = [
-          { role: 'system', content: supervisorPrompt + memoryBlock + (skillsBlock || '') + toolHint + folderHint },
+          { role: 'system', content: supervisorPrompt + '\n\n' + APP_SECTION_GUIDE + '\n\n' + uiContextBlock + memoryBlock + (skillsBlock || '') + toolHint },
           ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
           { role: 'user', content: userMessage },
         ];
@@ -405,9 +433,39 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
 
         let mutatingToolsUsed = false;
         const threadId = `many_${effectiveResourceId || 'global'}_${Date.now()}`;
+
+        // Persist session and user message for traceability
+        let dbSessionId: string | null = null;
+        if (db.isAvailable() && currentSessionId) {
+          try {
+            const sessionResult = await db.createChatSession({
+              id: currentSessionId,
+              agentId: null,
+              resourceId: effectiveResourceId ?? null,
+              threadId,
+              toolIds: capabilityRuntime.subagentIds.map((subagentId) => `call_${subagentId}_agent`),
+              mcpServerIds: capabilityRuntime.mcpServerIds,
+              mode: 'many',
+              contextId: effectiveResourceId ?? null,
+            });
+            if (sessionResult.success && sessionResult.data) {
+              dbSessionId = sessionResult.data.id;
+              await db.addChatMessage({
+                sessionId: dbSessionId,
+                role: 'user',
+                content: userMessage,
+              });
+            }
+          } catch (e) {
+            console.warn('[Many] Could not persist chat to DB:', e);
+          }
+        }
+
         for await (const chunk of chatWithToolsStream(toolsMessages, tools, {
           signal: controller.signal,
           threadId,
+          mcpServerIds: capabilityRuntime.mcpServerIds,
+          subagentIds: capabilityRuntime.subagentIds,
         })) {
           if (chunk.type === 'thinking' && chunk.text) {
             fullThinking += chunk.text;
@@ -416,21 +474,30 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
             fullResponse += chunk.text;
             setStreamingMessage((prev) => (prev ? { ...prev, content: fullResponse, toolCalls: toolCallsData } : null));
           } else if (chunk.type === 'tool_call' && chunk.toolCall) {
+            const args = (() => {
+              try {
+                return typeof chunk.toolCall.arguments === 'string'
+                  ? JSON.parse(chunk.toolCall.arguments)
+                  : chunk.toolCall.arguments || {};
+              } catch {
+                return {};
+              }
+            })();
             const tc: ToolCallData = {
               id: chunk.toolCall.id,
               name: chunk.toolCall.name,
-              arguments: (() => {
-                try {
-                  return typeof chunk.toolCall.arguments === 'string'
-                    ? JSON.parse(chunk.toolCall.arguments)
-                    : chunk.toolCall.arguments || {};
-                } catch {
-                  return {};
-                }
-              })(),
+              arguments: args,
               status: 'running',
             };
             toolCallsData.push(tc);
+            if (dbSessionId && db.isAvailable()) {
+              db.appendChatTrace({
+                sessionId: dbSessionId,
+                type: 'tool_call',
+                toolName: chunk.toolCall.name,
+                toolArgs: args,
+              }).catch(() => {});
+            }
             if (['resource_create', 'resource_update', 'resource_delete', 'resource_move_to_folder', 'call_writer_agent', 'call_library_agent', 'notebook_add_cell', 'notebook_update_cell', 'notebook_delete_cell', 'ppt_create', 'excel_create'].includes(chunk.toolCall.name?.toLowerCase?.())) {
               mutatingToolsUsed = true;
             }
@@ -442,16 +509,60 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
               entry.status = 'success';
               entry.result = chunk.result;
             }
+            if (dbSessionId && db.isAvailable() && entry) {
+              db.appendChatTrace({
+                sessionId: dbSessionId,
+                type: 'tool_result',
+                toolName: entry.name,
+                result: chunk.result,
+              }).catch(() => {});
+            }
             setStreamingMessage((prev) => (prev ? { ...prev, toolCalls: [...toolCallsData] } : null));
           } else if (chunk.type === 'done') {
             setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
             setPendingApproval(null);
+            // Persist assistant message with toolCalls and thinking for traceability
+            if (dbSessionId && db.isAvailable() && fullResponse) {
+              try {
+                const hitlDecisions = hitlDecisionsRef.current;
+                if (hitlDecisions && hitlDecisions.length > 0) {
+                  for (const d of hitlDecisions) {
+                    await db.appendChatTrace({
+                      sessionId: dbSessionId,
+                      type: 'decision',
+                      decision: d.type,
+                      toolArgs: d.type === 'edit' ? d.editedAction : undefined,
+                    });
+                  }
+                  hitlDecisionsRef.current = null;
+                }
+                await db.addChatMessage({
+                  sessionId: dbSessionId,
+                  role: 'assistant',
+                  content: fullResponse,
+                  toolCalls: toolCallsData.length > 0 ? toolCallsData : undefined,
+                  thinking: fullThinking || undefined,
+                  metadata: {
+                    toolIds: [],
+                    mcpServerIds: capabilityRuntime.mcpServerIds ?? [],
+                    mode: 'many',
+                    ...(hitlDecisions && hitlDecisions.length > 0 ? { hitlDecisions } : {}),
+                  },
+                });
+              } catch (e) {
+                console.warn('[Many] Could not persist assistant message to DB:', e);
+              }
+            }
           } else if (chunk.type === 'interrupt' && chunk.actionRequests && chunk.reviewConfigs) {
             setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
+            const origSubmitResume = chunk.submitResume ?? (() => {});
             setPendingApproval({
               actionRequests: chunk.actionRequests,
               reviewConfigs: chunk.reviewConfigs,
-              submitResume: chunk.submitResume ?? (() => {}),
+              submitResume: (decisions) => {
+                hitlDecisionsRef.current = decisions;
+                origSubmitResume(decisions);
+              },
             });
           } else if (chunk.type === 'error') {
             throw new Error(chunk.error);
@@ -460,7 +571,14 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         if (mutatingToolsUsed) {
           window.dispatchEvent(new Event('dome:resources-changed'));
         }
-        if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
+        if (fullResponse) {
+          addMessage({
+            role: 'assistant',
+            content: fullResponse,
+            toolCalls: toolCallsData.length > 0 ? toolCallsData : undefined,
+            thinking: fullThinking || undefined,
+          });
+        }
       } else {
         const toolDefs =
           toolsEnabled && activeTools.length > 0 && supportsTools
@@ -523,6 +641,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     buildSystemPrompt,
     effectiveResourceId,
     pathname,
+    homeSidebarSection,
     currentFolderId,
     useToolsStream,
     toolsEnabled,
@@ -579,6 +698,11 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         role: m.role,
         content: m.content,
         timestamp: m.timestamp,
+        toolCalls: m.toolCalls?.map((toolCall) => ({
+          ...toolCall,
+          status: toolCall.status ?? 'success',
+        })) as ToolCallData[] | undefined,
+        thinking: m.thinking,
       })),
     [messages],
   );
@@ -595,7 +719,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     }
   }, [clearMessages]);
 
-  const context = getContextFromPath(pathname || '/');
+  const context = getUiLocationDescription(pathname || '/', homeSidebarSection);
 
   const loadingHint = useMemo(() => {
     if (pendingApproval) return 'Esperando aprobación';

@@ -7,6 +7,10 @@
  */
 
 const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
+const langgraphAgent = require('../langgraph-agent.cjs');
+const { getToolDefinitionsByIds } = require('../ai-chat-with-tools.cjs');
+
+const agentTeamAbortControllers = new Map();
 
 /**
  * Get AI settings from database
@@ -54,6 +58,19 @@ function loadAgents(database) {
   } catch {
     return [];
   }
+}
+
+function buildDelegationContext(payload = {}) {
+  const lines = ['## Dome Context'];
+
+  if (payload.pathname) lines.push(`- Route: ${payload.pathname}`);
+  if (payload.homeSidebarSection) lines.push(`- Home section: ${payload.homeSidebarSection}`);
+  if (payload.currentFolderId) lines.push(`- Current folder ID: ${payload.currentFolderId}`);
+  if (payload.currentResourceId) lines.push(`- Current resource ID: ${payload.currentResourceId}`);
+  if (payload.currentResourceTitle) lines.push(`- Current resource title: "${payload.currentResourceTitle}"`);
+
+  if (lines.length === 1) return '';
+  return `${lines.join('\n')}\n- Use this context when deciding which Dome resources or folders to inspect.\n`;
 }
 
 /**
@@ -144,7 +161,20 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       return { success: false, error: 'Unauthorized' };
     }
 
-    const { streamId, teamId, messages, memberAgentIds, supervisorInstructions } = payload || {};
+    const {
+      streamId,
+      teamId,
+      messages,
+      memberAgentIds,
+      supervisorInstructions,
+      currentResourceId,
+      currentResourceTitle,
+      currentFolderId,
+      pathname,
+      homeSidebarSection,
+      teamToolIds,
+      teamMcpServerIds,
+    } = payload || {};
 
     if (!streamId || !teamId || !Array.isArray(messages) || !Array.isArray(memberAgentIds)) {
       return { success: false, error: 'Invalid payload' };
@@ -156,12 +186,23 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       }
     };
 
+    const controller = new AbortController();
+    agentTeamAbortControllers.set(streamId, controller);
+
     try {
       const settings = getAISettings(database);
       const allAgents = loadAgents(database);
       const memberAgents = memberAgentIds
         .map((id) => allAgents.find((a) => a.id === id))
         .filter(Boolean);
+
+      const contextBlock = buildDelegationContext({
+        currentResourceId,
+        currentResourceTitle,
+        currentFolderId,
+        pathname,
+        homeSidebarSection,
+      });
 
       if (memberAgents.length === 0) {
         throw new Error('No se encontraron agentes del equipo. Verifica la configuración.');
@@ -187,7 +228,9 @@ Tu objetivo es:
     { "agentId": "<id del agente>", "agentName": "<nombre>", "task": "<descripción clara de la subtarea>" }
   ]
 }
-Solo responde con el JSON, sin texto adicional.`;
+Solo responde con el JSON, sin texto adicional.
+
+${contextBlock}`.trim();
 
       const planMessages = [
         { role: 'system', content: supervisorSystemPrompt },
@@ -251,8 +294,20 @@ Solo responde con el JSON, sin texto adicional.`;
           || agent.description
           || `You are ${agent.name}, a specialized AI assistant.`;
 
+        const toolDefinitions = getToolDefinitionsByIds([
+          ...(Array.isArray(agent.toolIds) ? agent.toolIds : []),
+          ...(Array.isArray(teamToolIds) ? teamToolIds : []),
+        ]);
+        const mcpServerIds = [
+          ...(Array.isArray(agent.mcpServerIds) ? agent.mcpServerIds : []),
+          ...(Array.isArray(teamMcpServerIds) ? teamMcpServerIds : []),
+        ];
+
         const agentMessages = [
-          { role: 'system', content: agentSystemPrompt },
+          {
+            role: 'system',
+            content: `${agentSystemPrompt}\n\n${contextBlock}\nUse Dome tools when they improve the answer, especially for resource-aware tasks.`,
+          },
           {
             role: 'user',
             content: delegation.task || messages[messages.length - 1]?.content || '',
@@ -260,12 +315,40 @@ Solo responde con el JSON, sin texto adicional.`;
         ];
 
         try {
-          const result = await callLLM(settings, agentMessages, undefined, aiCloudService, ollamaService);
+          let memberResponse = '';
+          const normalizedMcpServerIds = Array.from(
+            new Set(mcpServerIds.filter((serverId) => typeof serverId === 'string' && serverId.trim().length > 0))
+          );
+
+          await langgraphAgent.invokeLangGraphAgent({
+            provider: settings.provider,
+            model: settings.model,
+            apiKey: settings.apiKey,
+            baseUrl: settings.baseUrl,
+            messages: agentMessages,
+            toolDefinitions,
+            useDirectTools: toolDefinitions.length > 0 || normalizedMcpServerIds.length > 0,
+            mcpServerIds: normalizedMcpServerIds.length > 0 ? normalizedMcpServerIds : undefined,
+            signal: controller.signal,
+            threadId: `team_${teamId}_${agent.id}_${Date.now()}`,
+            skipHitl: true,
+            onChunk: (chunk) => {
+              if (!event.sender || event.sender.isDestroyed()) return;
+              if (chunk.type === 'text' && chunk.text) {
+                memberResponse += chunk.text;
+              }
+              send({
+                ...chunk,
+                agentName: agent.name,
+              });
+            },
+          });
+
           agentResults.push({
             agentName: agent.name,
             agentId: agent.id,
             task: delegation.task,
-            result: result.text,
+            result: memberResponse,
           });
         } catch (err) {
           console.error(`[AgentTeam] Agent ${agent.name} error:`, err);
@@ -329,9 +412,21 @@ Responde en el idioma del usuario.`;
       return { success: true };
     } catch (error) {
       console.error('[AgentTeam] Stream error:', error);
+      if (error?.name === 'AbortError') {
+        send({ done: true });
+        return { success: true };
+      }
       send({ error: error.message || 'Error desconocido en Agent Team' });
       return { success: false, error: error.message };
+    } finally {
+      agentTeamAbortControllers.delete(streamId);
     }
+  });
+
+  ipcMain.handle('ai:team:abort', async (event, streamId) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return;
+    const controller = agentTeamAbortControllers.get(streamId);
+    if (controller) controller.abort();
   });
 }
 

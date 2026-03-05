@@ -152,6 +152,16 @@ function AgentCanvasInner() {
         setExecutionLog((prev) => [...prev, entry]);
       });
       if (storeSnapshot.activeWorkflowId) {
+        const nodeOutputs = Object.fromEntries(
+          Object.entries(useCanvasStore.getState().executionStates).map(([nodeId, state]) => [
+            nodeId,
+            {
+              output: state.output,
+              error: state.error,
+              payload: state.payload,
+            },
+          ])
+        );
         const execution: WorkflowExecution = {
           id: executionId,
           workflowId: storeSnapshot.activeWorkflowId,
@@ -160,12 +170,23 @@ function AgentCanvasInner() {
           finishedAt: Date.now(),
           status: 'done',
           entries,
+          nodeOutputs,
         };
         await saveExecution(execution);
         setExecutionHistory((prev) => [execution, ...prev]);
       }
     } catch (err) {
       if (storeSnapshot.activeWorkflowId) {
+        const nodeOutputs = Object.fromEntries(
+          Object.entries(useCanvasStore.getState().executionStates).map(([nodeId, state]) => [
+            nodeId,
+            {
+              output: state.output,
+              error: state.error,
+              payload: state.payload,
+            },
+          ])
+        );
         const execution: WorkflowExecution = {
           id: executionId,
           workflowId: storeSnapshot.activeWorkflowId,
@@ -174,6 +195,7 @@ function AgentCanvasInner() {
           finishedAt: Date.now(),
           status: 'error',
           entries,
+          nodeOutputs,
         };
         await saveExecution(execution);
         setExecutionHistory((prev) => [execution, ...prev]);

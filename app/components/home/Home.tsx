@@ -1,5 +1,6 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useClickOutside } from '@/lib/hooks/useClickOutside';
 import { FolderOpen, Plus, Loader2, CheckCircle2, AlertCircle, ChevronRight, Home as HomeIcon, X, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, MoreVertical, Pencil, Trash2, ExternalLink, FolderInput, Globe } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
@@ -57,6 +58,7 @@ function getSearchSnippetForResource(
 }
 
 export default function Home() {
+  const [searchParams] = useSearchParams();
   const { name } = useUserStore();
   const searchQuery = useAppStore((s) => s.searchQuery);
   const searchResults = useAppStore((s) => s.searchResults);
@@ -73,8 +75,9 @@ export default function Home() {
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderColor, setNewFolderColor] = useState(DEFAULT_FOLDER_COLORS[0]);
 
-  // Folder navigation state
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  // Folder navigation state (initialized from ?folder= URL param when opening via dome://folder/ID)
+  const folderFromUrl = searchParams.get('folder');
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(() => folderFromUrl || null);
 
   // Move to folder modal state (ids to move - from single resource or multi-select)
   const [showMoveModal, setShowMoveModal] = useState(false);
@@ -135,6 +138,14 @@ export default function Home() {
     setCurrentFolderIdInStore(currentFolderId);
     return () => setCurrentFolderIdInStore(null);
   }, [currentFolderId, setCurrentFolderIdInStore]);
+
+  // Initialize folder from ?folder= URL param (when opening via dome://folder/ID)
+  useEffect(() => {
+    const folderParam = searchParams.get('folder');
+    if (folderParam) {
+      setCurrentFolderId(folderParam);
+    }
+  }, [searchParams]);
 
   // Reset drag-over state when drag ends (e.g. user drops outside drop zones)
   useEffect(() => {
