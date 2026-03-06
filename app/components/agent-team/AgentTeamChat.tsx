@@ -1,17 +1,23 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { Send, Square, PlusCircle, ChevronDown, Cpu, User, Bot } from 'lucide-react';
+import { Send, Square, PlusCircle, Plug2, Cpu } from 'lucide-react';
 import type { AgentTeam, ManyAgent } from '@/types';
 import { getAgentTeamById } from '@/lib/agent-team/api';
 import { getManyAgentById } from '@/lib/agents/api';
 import { useAgentTeamStore } from '@/lib/store/useAgentTeamStore';
-import type { TeamChatMessage } from '@/lib/store/useAgentTeamStore';
 import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { db } from '@/lib/db/client';
-import ReactMarkdown from 'react-markdown';
+import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
+import type { ChatMessageData } from '@/components/chat/ChatMessage';
+import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
+import { collectTeamMcpServerIds } from '@/lib/ai/shared-capabilities';
+import { inferMcpServerForTool, loadMcpServersSetting } from '@/lib/mcp/settings';
+import type { MCPServerConfig } from '@/types';
 
 interface AgentTeamChatProps {
   teamId: string;
@@ -23,96 +29,6 @@ const STATUS_LABELS: Record<string, string> = {
   synthesizing: 'Sintetizando respuestas...',
 };
 
-function MessageBubble({ message, memberAgents }: { message: TeamChatMessage; memberAgents: ManyAgent[] }) {
-  const isUser = message.role === 'user';
-  const agent = message.agentId
-    ? memberAgents.find((a) => a.id === message.agentId)
-    : null;
-
-  return (
-    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'} items-end`}>
-      {/* Avatar */}
-      <div className="shrink-0 mb-1">
-        {isUser ? (
-          <div
-            className="w-6 h-6 rounded flex items-center justify-center opacity-80"
-            style={{ background: 'var(--dome-surface)' }}
-          >
-            <User className="w-3.5 h-3.5" style={{ color: 'var(--dome-text)' }} />
-          </div>
-        ) : agent ? (
-          <div
-            className="w-6 h-6 rounded overflow-hidden opacity-90"
-            style={{ background: 'transparent' }}
-          >
-            <img
-              src={`/agents/sprite_${agent.iconIndex}.png`}
-              alt={agent.name}
-              className="w-full h-full object-contain grayscale"
-            />
-          </div>
-        ) : (
-          <div
-            className="w-6 h-6 rounded flex items-center justify-center opacity-70"
-            style={{ background: 'transparent' }}
-          >
-            <Cpu className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className={`flex flex-col gap-1 max-w-[85%] ${isUser ? 'items-end' : 'items-start'}`}>
-        {/* Label */}
-        {!isUser && (
-          <div className="flex items-center gap-1.5 ml-1 mb-0.5 opacity-80">
-            {agent ? (
-              <span className="text-[11px] font-medium tracking-wide uppercase" style={{ color: 'var(--dome-text)' }}>
-                {agent.name}
-              </span>
-            ) : message.phase === 'planning' ? (
-              <span className="text-[11px] font-medium tracking-wide uppercase" style={{ color: 'var(--dome-text-muted)' }}>
-                Planning
-              </span>
-            ) : message.phase === 'synthesis' ? (
-              <span className="text-[11px] font-medium tracking-wide uppercase" style={{ color: 'var(--dome-text)' }}>
-                Synthesis
-              </span>
-            ) : (
-              <span className="text-[11px] font-medium tracking-wide uppercase" style={{ color: 'var(--dome-text-muted)' }}>
-                System
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Bubble */}
-        <div
-          className={`px-4 py-2.5 text-[14px] leading-relaxed relative ${isUser ? 'bg-[var(--dome-surface)] text-[var(--dome-text)]' : 'bg-transparent text-[var(--dome-text)]'}`}
-          style={{
-            border: isUser ? '1px solid var(--dome-border)' : 'none',
-            borderRadius: isUser ? '8px 8px 0px 8px' : '0px 8px 8px 8px',
-            borderLeft: !isUser ? '2px solid var(--dome-border)' : 'none',
-            paddingLeft: !isUser ? '1rem' : '1rem',
-          }}
-        >
-          {isUser ? (
-            <p className="whitespace-pre-wrap">{message.content}</p>
-          ) : (
-            <div className="prose prose-sm max-w-none dark:prose-invert" style={{ color: 'var(--dome-text)' }}>
-              <ReactMarkdown>{message.content}</ReactMarkdown>
-            </div>
-          )}
-        </div>
-
-        <span className="text-[10px] mt-0.5 opacity-50" style={{ color: 'var(--dome-text-muted)' }}>
-          {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
@@ -120,15 +36,20 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
   const [memberAgents, setMemberAgents] = useState<ManyAgent[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [streamingContent, setStreamingContent] = useState('');
+  const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSubmittingRef = useRef(false);
   const dbSessionIdRef = useRef<string | null>(null);
   const streamIdRef = useRef<string | null>(null);
+  const [showCapabilities, setShowCapabilities] = useState(false);
+  const capabilitiesButtonRef = useRef<HTMLButtonElement>(null);
+  const capabilitiesDropdownRef = useRef<HTMLDivElement>(null);
+  const [capabilitiesDropdownRect, setCapabilitiesDropdownRect] = useState<{ top: number; left: number; above?: boolean } | null>(null);
+  const currentAgentLabelRef = useRef<string | null>(null);
 
-  const { setTeam: setStoreTeam, messages, addMessage, updateLastAssistantMessage, status, setStatus, setActiveAgentLabel, startNewChat, currentSessionId } =
+  const { setTeam: setStoreTeam, messages, addMessage, status, setStatus, setActiveAgentLabel, startNewChat, currentSessionId } =
     useAgentTeamStore();
   const currentFolderId = useAppStore((s) => s.currentFolderId);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
@@ -137,6 +58,10 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
   const effectiveResourceId =
     currentResource?.id ||
     (pathname?.startsWith('/workspace') ? searchParams.get('id') : null);
+  const teamMcpServerIds = useMemo(
+    () => collectTeamMcpServerIds(team, memberAgents),
+    [team, memberAgents]
+  );
 
   useEffect(() => {
     setStoreTeam(teamId);
@@ -156,7 +81,44 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, streamingContent, scrollToBottom]);
+  }, [messages, streamingMessage, scrollToBottom]);
+
+  useEffect(() => {
+    if (!showCapabilities) {
+      setCapabilitiesDropdownRect(null);
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        capabilitiesDropdownRef.current &&
+        !capabilitiesDropdownRef.current.contains(target) &&
+        capabilitiesButtonRef.current &&
+        !capabilitiesButtonRef.current.contains(target)
+      ) {
+        setShowCapabilities(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCapabilities]);
+
+  useEffect(() => {
+    if (!showCapabilities || !capabilitiesButtonRef.current || typeof window === 'undefined') {
+      return;
+    }
+    const rect = capabilitiesButtonRef.current.getBoundingClientRect();
+    const estimatedHeight = 320;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const showAbove = spaceBelow < estimatedHeight && rect.top > spaceBelow;
+    setCapabilitiesDropdownRect({
+      top: showAbove ? rect.top - 6 : rect.bottom + 6,
+      left: rect.left,
+      above: showAbove,
+    });
+  }, [showCapabilities]);
 
   const handleSend = useCallback(async () => {
     const userMessage = input.trim();
@@ -166,7 +128,8 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
     setInput('');
     setIsLoading(true);
     setStatus('thinking');
-    setStreamingContent('');
+    setStreamingMessage(null);
+    currentAgentLabelRef.current = null;
 
     const controller = new AbortController();
     setAbortController(controller);
@@ -187,9 +150,6 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
         content: m.content,
       }));
       historyMessages.push({ role: 'user', content: userMessage });
-
-      // Add placeholder assistant message for streaming
-      addMessage({ role: 'assistant', content: '', phase: 'synthesis' });
 
       if (db.isAvailable()) {
         const sessionResult = await db.createChatSession({
@@ -223,6 +183,18 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
       }
 
       let accumulated = '';
+      let streamingToolCalls: ToolCallData[] = [];
+      const pendingTraceEntries: Array<{
+        type: 'tool_call' | 'tool_result';
+        toolName?: string | null;
+        toolArgs?: Record<string, unknown>;
+        result?: unknown;
+        mcpServerId?: string | null;
+        decision?: string | null;
+      }> = [];
+      const configuredMcpServers: MCPServerConfig[] = teamMcpServerIds.length > 0
+        ? await loadMcpServersSetting()
+        : [];
 
       const unsubChunk = window.electron.ai.onStreamChunk((data) => {
         if (data.streamId !== streamId) return;
@@ -231,9 +203,11 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
           if (data.agentName) {
             setStatus('delegating');
             setActiveAgentLabel(data.agentName);
+            currentAgentLabelRef.current = data.agentName;
           } else {
             setStatus('synthesizing');
             setActiveAgentLabel(null);
+            currentAgentLabelRef.current = 'Síntesis';
           }
         }
         if (data.type === 'tool_call' && data.toolCall && dbSessionIdRef.current) {
@@ -246,26 +220,70 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
               return {};
             }
           })();
-          db.appendChatTrace({
-            sessionId: dbSessionIdRef.current,
+          const toolCallEntry: ToolCallData = {
+            id: data.toolCall.id,
+            name: data.toolCall.name,
+            arguments: args,
+            status: 'running',
+          };
+          streamingToolCalls = [...streamingToolCalls, toolCallEntry];
+          const mcpServer = inferMcpServerForTool(configuredMcpServers, data.toolCall.name);
+          pendingTraceEntries.push({
             type: 'tool_call',
             toolName: data.toolCall.name,
             toolArgs: args,
+            mcpServerId: mcpServer?.name ?? null,
             decision: data.agentName ?? undefined,
-          }).catch(() => {});
+          });
+          setStreamingMessage((prev) => ({
+            id: prev?.id || `team-stream-${Date.now()}`,
+            role: 'assistant',
+            content: accumulated,
+            timestamp: prev?.timestamp || Date.now(),
+            isStreaming: true,
+            toolCalls: streamingToolCalls,
+            agentLabel: currentAgentLabelRef.current ?? undefined,
+            streamingLabel: data.agentName ? `${data.agentName} ejecutando tools...` : 'Ejecutando tools...',
+          }));
         }
         if (data.type === 'tool_result' && dbSessionIdRef.current) {
-          db.appendChatTrace({
-            sessionId: dbSessionIdRef.current,
+          if (data.toolCallId) {
+            streamingToolCalls = streamingToolCalls.map((toolCall) =>
+              toolCall.id === data.toolCallId
+                ? { ...toolCall, status: 'success', result: data.result ?? '' }
+                : toolCall
+            );
+          }
+          const matchingTool = streamingToolCalls.find((toolCall) => toolCall.id === data.toolCallId);
+          const mcpServer = matchingTool
+            ? inferMcpServerForTool(configuredMcpServers, matchingTool.name)
+            : undefined;
+          pendingTraceEntries.push({
             type: 'tool_result',
-            toolName: data.agentName ?? null,
+            toolName: matchingTool?.name ?? data.agentName ?? null,
             result: data.result ?? '',
-          }).catch(() => {});
+            mcpServerId: mcpServer?.name ?? null,
+          });
+          setStreamingMessage((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  toolCalls: streamingToolCalls,
+                }
+              : null
+          );
         }
         if (data.chunk) {
           accumulated += data.chunk;
-          setStreamingContent(accumulated);
-          updateLastAssistantMessage(accumulated);
+          setStreamingMessage((prev) => ({
+            id: prev?.id || `team-stream-${Date.now()}`,
+            role: 'assistant',
+            content: accumulated,
+            timestamp: prev?.timestamp || Date.now(),
+            isStreaming: true,
+            toolCalls: streamingToolCalls,
+            agentLabel: currentAgentLabelRef.current ?? 'Síntesis',
+          }));
         }
       });
 
@@ -285,31 +303,56 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
       });
 
       unsubChunk();
-      setStreamingContent('');
+      setStreamingMessage(null);
+      if (accumulated) {
+        addMessage({
+          role: 'assistant',
+          content: accumulated,
+          toolCalls: streamingToolCalls,
+          agentName: currentAgentLabelRef.current ?? undefined,
+          phase: currentAgentLabelRef.current ? 'synthesis' : undefined,
+        });
+      }
       if (dbSessionIdRef.current && accumulated) {
-        await db.addChatMessage({
+        const messageResult = await db.addChatMessage({
           sessionId: dbSessionIdRef.current,
           role: 'assistant',
           content: accumulated,
+          toolCalls: streamingToolCalls,
           metadata: {
             mode: 'team',
             teamId: team.id,
           },
         });
+        const messageId = messageResult.success && messageResult.data ? messageResult.data.id : null;
+        for (const trace of pendingTraceEntries) {
+          await db.appendChatTrace({
+            sessionId: dbSessionIdRef.current,
+            messageId,
+            type: trace.type,
+            toolName: trace.toolName,
+            toolArgs: trace.toolArgs,
+            result: trace.result,
+            mcpServerId: trace.mcpServerId,
+            decision: trace.decision,
+          });
+        }
       }
     } catch (err) {
       if (!controller.signal.aborted) {
         const errMsg = err instanceof Error ? err.message : 'Error desconocido';
         showToast('error', errMsg);
-        updateLastAssistantMessage(`Error: ${errMsg}`);
+        addMessage({ role: 'assistant', content: `Error: ${errMsg}`, agentName: 'Sistema' });
       }
     } finally {
       setIsLoading(false);
       setStatus('idle');
       setActiveAgentLabel(null);
       setAbortController(null);
+      setStreamingMessage(null);
       dbSessionIdRef.current = null;
       streamIdRef.current = null;
+      currentAgentLabelRef.current = null;
       isSubmittingRef.current = false;
       setTimeout(() => inputRef.current?.focus(), 100);
     }
@@ -319,7 +362,6 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
     team,
     messages,
     addMessage,
-    updateLastAssistantMessage,
     setStatus,
     setActiveAgentLabel,
     scrollToBottom,
@@ -330,6 +372,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
     homeSidebarSection,
     memberAgents,
     currentSessionId,
+    teamMcpServerIds,
   ]);
 
   const handleStop = useCallback(() => {
@@ -347,6 +390,32 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
       handleSend();
     }
   };
+
+  const chatMessages = useMemo<ChatMessageData[]>(
+    () =>
+      messages.map((message) => ({
+        id: message.id,
+        role: message.role === 'system' ? 'assistant' : message.role,
+        content: message.content,
+        timestamp: message.timestamp,
+        toolCalls: message.toolCalls as ToolCallData[] | undefined,
+        agentLabel:
+          message.agentName ||
+          (message.phase === 'planning'
+            ? 'Planificación'
+            : message.phase === 'delegation'
+              ? 'Delegación'
+              : message.phase === 'synthesis'
+                ? 'Síntesis'
+                : undefined),
+      })),
+    [messages]
+  );
+
+  const messageGroups = useMemo(() => {
+    const allMessages = streamingMessage ? [...chatMessages, streamingMessage] : chatMessages;
+    return groupMessagesByRole(allMessages);
+  }, [chatMessages, streamingMessage]);
 
   if (!team) {
     return (
@@ -433,8 +502,12 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
             </div>
           </div>
         ) : (
-          messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} memberAgents={memberAgents} />
+          messageGroups.map((group, index) => (
+            <ChatMessageGroup
+              key={`team-group-${index}-${group[0]?.id || index}`}
+              messages={group}
+              showAvatar={false}
+            />
           ))
         )}
 
@@ -477,7 +550,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
         style={{ borderTop: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}
       >
         <div
-          className="flex items-end gap-2 rounded-lg px-3 py-2 transition-colors focus-within:border-[var(--dome-text-muted)]"
+          className="flex flex-col rounded-lg px-3 py-2 transition-colors focus-within:border-[var(--dome-text-muted)]"
           style={{
             background: 'var(--dome-surface)',
             border: '1px solid var(--dome-border)',
@@ -502,26 +575,69 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
               el.style.height = Math.min(el.scrollHeight, 200) + 'px';
             }}
           />
-          <button
-            onClick={isLoading ? handleStop : handleSend}
-            disabled={!isLoading && !input.trim()}
-            className="shrink-0 w-8 h-8 flex items-center justify-center rounded transition-all mb-0.5"
-            style={{
-              background: isLoading
-                ? 'transparent'
-                : input.trim()
-                  ? 'var(--dome-text)'
-                  : 'transparent',
-              color: isLoading ? '#ef4444' : input.trim() ? 'var(--dome-bg)' : 'var(--dome-text-muted)',
-              border: isLoading ? '1px solid #ef4444' : 'none'
-            }}
-          >
-            {isLoading ? (
-              <Square className="w-3.5 h-3.5" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </button>
+          <div className="flex items-center justify-between gap-2 mt-2">
+            <div className="flex items-center gap-2">
+              {teamMcpServerIds.length > 0 ? (
+                <div className="relative">
+                  <button
+                    ref={capabilitiesButtonRef}
+                    type="button"
+                    onClick={() => setShowCapabilities(!showCapabilities)}
+                    className="flex h-7 items-center gap-1.5 rounded px-2 text-[11px] font-medium transition-all"
+                    style={{
+                      background: showCapabilities ? 'var(--dome-accent-bg)' : 'transparent',
+                      color: showCapabilities ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
+                    }}
+                  >
+                    <Plug2 className="w-3.5 h-3.5" />
+                    MCP
+                  </button>
+                  {showCapabilities && capabilitiesDropdownRect && typeof document !== 'undefined' && createPortal(
+                    <div
+                      ref={capabilitiesDropdownRef}
+                      className="fixed min-w-[300px] max-h-[min(360px,60vh)] rounded-lg border shadow-lg py-2 overflow-y-auto"
+                      style={{
+                        top: capabilitiesDropdownRect.above ? undefined : capabilitiesDropdownRect.top,
+                        bottom: capabilitiesDropdownRect.above ? window.innerHeight - capabilitiesDropdownRect.top : undefined,
+                        left: capabilitiesDropdownRect.left,
+                        backgroundColor: 'var(--dome-surface)',
+                        borderColor: 'var(--dome-border)',
+                        zIndex: 600,
+                      }}
+                    >
+                      <div className="px-3 py-1">
+                        <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+                          MCP y tools globales
+                        </div>
+                        <McpCapabilitiesSection serverIds={teamMcpServerIds} />
+                      </div>
+                    </div>,
+                    document.body
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <button
+              onClick={isLoading ? handleStop : handleSend}
+              disabled={!isLoading && !input.trim()}
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded transition-all"
+              style={{
+                background: isLoading
+                  ? 'transparent'
+                  : input.trim()
+                    ? 'var(--dome-text)'
+                    : 'transparent',
+                color: isLoading ? '#ef4444' : input.trim() ? 'var(--dome-bg)' : 'var(--dome-text-muted)',
+                border: isLoading ? '1px solid #ef4444' : 'none',
+              }}
+            >
+              {isLoading ? (
+                <Square className="w-3.5 h-3.5" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </button>
+          </div>
         </div>
         <div className="flex justify-between items-center mt-2 px-1 text-[10px] opacity-50" style={{ color: 'var(--dome-text-muted)' }}>
           <span>Agent Team Chat</span>

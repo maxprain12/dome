@@ -24,6 +24,8 @@ export interface ChatMessageData {
   thinking?: string;
   /** Custom label for streaming placeholder (e.g. "Ejecutando herramientas...") */
   streamingLabel?: string;
+  /** Optional label for multi-agent chats or system phases */
+  agentLabel?: string;
 }
 
 interface ChatMessageProps {
@@ -105,7 +107,7 @@ export default function ChatMessage({
 
         {/* Thinking - styled as minimalist card (Assistant only) */}
         {isAssistant && message.thinking && (
-          <div className="max-w-[85%]">
+          <div className="w-full min-w-0 max-w-full sm:max-w-[85%]">
             <button
               type="button"
               onClick={() => setThinkingExpanded(!thinkingExpanded)}
@@ -131,18 +133,26 @@ export default function ChatMessage({
 
         {/* Tool calls (Assistant only) - displayed before message content */}
         {message.toolCalls && message.toolCalls.length > 0 && (
-          <div className="space-y-1 max-w-[85%]">
+          <div className="w-full min-w-0 max-w-full space-y-1 sm:max-w-[85%]">
             {message.toolCalls.map((toolCall) => (
               <ChatToolCard key={toolCall.id} toolCall={toolCall} />
             ))}
           </div>
         )}
 
+        {!isUser && message.agentLabel ? (
+          <div className="w-full min-w-0 max-w-full px-2 sm:max-w-[85%]">
+            <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--secondary-text)' }}>
+              {message.agentLabel}
+            </span>
+          </div>
+        ) : null}
+
         {/* Message content bubble */}
         {(message.content || message.isStreaming) && (
           <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} w-full`}>
             <div
-              className={`relative inline-block px-4 py-2.5 max-w-[85%] text-[14px] leading-relaxed ${isUser
+              className={`relative inline-block w-full min-w-0 px-4 py-2.5 text-[14px] leading-relaxed sm:w-auto sm:max-w-[85%] ${isUser
                 ? 'bg-[var(--dome-surface)] text-[var(--dome-text)]'
                 : 'bg-transparent text-[var(--dome-text)]'
                 }`}
@@ -155,9 +165,11 @@ export default function ChatMessage({
             >
               {/* Message text */}
               {message.content ? (
-                <div className="break-words" style={{ overflowWrap: 'anywhere' }}>
+                <div className="min-w-0 break-words" style={{ overflowWrap: 'anywhere' }}>
                   {isUser ? (
-                    <span className="whitespace-pre-wrap">{message.content}</span>
+                    <span className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>
+                      {message.content}
+                    </span>
                   ) : (
                     <MarkdownRenderer
                       content={message.content}

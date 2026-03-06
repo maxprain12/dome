@@ -14,7 +14,7 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
   {
     id: 'web_search',
     label: 'Web Search',
-    description: 'Realiza búsquedas en la web usando Brave o Perplexity. Devuelve títulos, URLs y fragmentos relevantes. Ideal como primer paso de cualquier investigación para obtener fuentes actualizadas.',
+    description: 'Realiza búsquedas en la web usando Brave Search. Si Brave no está configurado, hace un fallback por scraping HTML menos fiable. Devuelve títulos, URLs y fragmentos relevantes para investigación actualizada.',
     group: 'web',
   },
   {

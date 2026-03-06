@@ -1,17 +1,7 @@
 /**
  * Recommended MCPs for Dome - One-Click install catalog (Marketplace)
  */
-
-export interface MCPServerConfig {
-  name: string;
-  type: 'stdio' | 'http' | 'sse';
-  command?: string;
-  args?: string[];
-  url?: string;
-  headers?: Record<string, string>;
-  env?: Record<string, string>;
-  enabled?: boolean;
-}
+import type { MCPServerConfig } from '@/types';
 
 export interface RecommendedMCP {
   id: string;

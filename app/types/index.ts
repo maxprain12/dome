@@ -5,6 +5,29 @@ export type {
   NoteLinkPayload,
 } from './contracts';
 
+export interface MCPToolConfig {
+  id: string;
+  name: string;
+  description?: string;
+  enabled?: boolean;
+  inputSchema?: Record<string, unknown>;
+}
+
+export interface MCPServerConfig {
+  name: string;
+  type: 'stdio' | 'http' | 'sse';
+  command?: string;
+  args?: string[];
+  url?: string;
+  headers?: Record<string, string>;
+  env?: Record<string, string>;
+  enabled?: boolean;
+  tools?: MCPToolConfig[];
+  enabledToolIds?: string[];
+  lastDiscoveryAt?: number;
+  lastDiscoveryError?: string | null;
+}
+
 // Many Agent (specialized AI agent - "hijo de Many")
 export interface ManyAgent {
   id: string;
@@ -239,6 +262,8 @@ export interface AISettings {
   model?: string;
   embedding_model?: string;
   base_url?: string;
+  web_search_provider?: 'brave';
+  brave_search_api_key?: string;
   // Para Ollama:
   ollama_base_url?: string;
   ollama_model?: string;

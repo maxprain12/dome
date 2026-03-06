@@ -367,7 +367,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'web_search',
-        description: 'Search the web for information. Use Brave or Perplexity. Returns titles, URLs, snippets. Requires BRAVE_API_KEY or PERPLEXITY_API_KEY env var.',
+        description: 'Search the web for current information using Brave Search configured in Settings. If Brave is missing, falls back to less reliable HTML scraping. Returns titles, URLs, and snippets.',
         parameters: {
           type: 'object',
           properties: {

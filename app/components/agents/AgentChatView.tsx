@@ -20,6 +20,8 @@ import ReadingIndicator from '@/components/chat/ReadingIndicator';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import AgentChatInput from './AgentChatInput';
+import { inferMcpServerForTool, loadMcpServersSetting } from '@/lib/mcp/settings';
+import type { MCPServerConfig } from '@/types';
 
 const RESOURCE_LINK_INSTRUCTION = `
 When mentioning a resource (document, note, PDF, video, etc.) that the user can open, ALWAYS use this format: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, document, excel, ppt, video, audio, image, folder.
@@ -246,6 +248,14 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
 
     let fullResponse = '';
     let toolCallsData: ToolCallData[] = [];
+    let configuredMcpServers: MCPServerConfig[] = [];
+    const pendingTraceEntries: Array<{
+      type: 'tool_call' | 'tool_result';
+      toolName?: string | null;
+      toolArgs?: Record<string, unknown>;
+      result?: unknown;
+      mcpServerId?: string | null;
+    }> = [];
 
     try {
       const config = await getAIConfig();
@@ -265,6 +275,7 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
       ];
 
       if (useToolsStream) {
+        configuredMcpServers = enabledMcpIds.length > 0 ? await loadMcpServersSetting() : [];
         setStreamingMessage({
           id: `streaming-${Date.now()}`,
           role: 'assistant',
@@ -336,14 +347,13 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
               status: 'running',
             };
             toolCallsData.push(tc);
-            if (dbSessionId && db.isAvailable()) {
-              db.appendChatTrace({
-                sessionId: dbSessionId,
-                type: 'tool_call',
-                toolName: chunk.toolCall.name,
-                toolArgs: args,
-              }).catch(() => {});
-            }
+            const mcpServer = inferMcpServerForTool(configuredMcpServers, chunk.toolCall.name);
+            pendingTraceEntries.push({
+              type: 'tool_call',
+              toolName: chunk.toolCall.name,
+              toolArgs: args,
+              mcpServerId: mcpServer?.name ?? null,
+            });
             const friendlyLabel =
               TOOL_LABELS[chunk.toolCall.name] ??
               `${chunk.toolCall.name?.replace(/_/g, ' ')}...`;
@@ -362,13 +372,14 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
               entry.status = 'success';
               entry.result = chunk.result;
             }
-            if (dbSessionId && db.isAvailable() && entry) {
-              db.appendChatTrace({
-                sessionId: dbSessionId,
+            if (entry) {
+              const mcpServer = inferMcpServerForTool(configuredMcpServers, entry.name);
+              pendingTraceEntries.push({
                 type: 'tool_result',
                 toolName: entry.name,
                 result: chunk.result,
-              }).catch(() => {});
+                mcpServerId: mcpServer?.name ?? null,
+              });
             }
             setStreamingMessage((prev) =>
               prev ? { ...prev, toolCalls: [...toolCallsData] } : null
@@ -378,9 +389,9 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
               prev ? { ...prev, isStreaming: false } : null
             );
             // Persist assistant message with toolCalls and thinking for traceability
-            if (dbSessionId && db.isAvailable() && fullResponse) {
+            if (dbSessionId && db.isAvailable() && (fullResponse || pendingTraceEntries.length > 0 || toolCallsData.length > 0)) {
               try {
-                await db.addChatMessage({
+                const messageResult = await db.addChatMessage({
                   sessionId: dbSessionId,
                   role: 'assistant',
                   content: fullResponse,
@@ -391,6 +402,18 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
                     mcpServerIds: enabledMcpIds,
                   },
                 });
+                const messageId = messageResult.success && messageResult.data ? messageResult.data.id : null;
+                for (const trace of pendingTraceEntries) {
+                  await db.appendChatTrace({
+                    sessionId: dbSessionId,
+                    messageId,
+                    type: trace.type,
+                    toolName: trace.toolName,
+                    toolArgs: trace.toolArgs,
+                    result: trace.result,
+                    mcpServerId: trace.mcpServerId,
+                  });
+                }
               } catch (e) {
                 console.warn('[AgentChat] Could not persist assistant message to DB:', e);
               }

@@ -7,7 +7,17 @@ declare module '*.txt?raw' {
 }
 
 // Tiptap custom commands declaration
-import type { CalloutBlockAttributes, DividerAttributes, ToggleBlockAttributes, PDFEmbedAttributes, FileBlockAttributes, VideoEmbedAttributes, AudioEmbedAttributes } from '@/types';
+import type {
+  CalloutBlockAttributes,
+  DividerAttributes,
+  ToggleBlockAttributes,
+  PDFEmbedAttributes,
+  FileBlockAttributes,
+  VideoEmbedAttributes,
+  AudioEmbedAttributes,
+  MCPServerConfig,
+  MCPToolConfig,
+} from '@/types';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -279,7 +289,7 @@ declare global {
       // MCP API
       mcp: {
         testConnection: () => Promise<{ success: boolean; toolCount: number; error?: string }>;
-        testServer: (server: { name: string; type: string; command?: string; args?: string[]; url?: string; headers?: Record<string, string>; env?: Record<string, string> }) => Promise<{ success: boolean; toolCount: number; error?: string }>;
+        testServer: (server: MCPServerConfig) => Promise<{ success: boolean; toolCount: number; tools?: MCPToolConfig[]; error?: string }>;
         startOAuthFlow: (providerId: string) => Promise<{ success: boolean; token?: string; error?: string }>;
         getOAuthProviders: () => Promise<string[]>;
       };
@@ -587,6 +597,13 @@ declare global {
         ) => Promise<{
           success: boolean;
           content?: string;
+          error?: string;
+        }>;
+        testWebSearch: () => Promise<{
+          success: boolean;
+          provider?: string;
+          count?: number;
+          warning?: string;
           error?: string;
         }>;
         stream: (

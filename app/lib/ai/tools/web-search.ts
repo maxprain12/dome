@@ -1,8 +1,8 @@
 /**
  * Web Search Tool
  * 
- * Search the web using Brave Search or Perplexity APIs.
- * Based on clawdbot's src/agents/tools/web-search.ts
+ * Search the web using Brave Search.
+ * Keeps legacy Perplexity fallback support for older environments.
  */
 
 import { Type } from '@sinclair/typebox';
@@ -320,7 +320,7 @@ async function runWebSearch(params: {
     });
   } else {
     if (!params.braveApiKey) {
-      throw new Error('Brave Search API key required. Set BRAVE_API_KEY environment variable.');
+      throw new Error('Brave Search API key required. Configure Brave Search in Settings or set BRAVE_API_KEY.');
     }
     
     result = await runBraveSearch({
@@ -359,7 +359,7 @@ export function createWebSearchTool(config?: WebSearchConfig): AnyAgentTool {
   
   const description = provider === 'perplexity'
     ? 'Search the web using Perplexity Sonar. Returns AI-synthesized answers with citations from real-time web search.'
-    : 'Search the web using Brave Search API. Supports region-specific and localized search. Returns titles, URLs, and snippets for fast research.';
+    : 'Search the web using Brave Search configured in Settings. If Brave is not configured, the app may fall back to low-reliability HTML scraping. Returns titles, URLs, and snippets for fast research.';
 
   return {
     label: 'Web Search',

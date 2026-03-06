@@ -32,6 +32,8 @@ import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { db } from '@/lib/db/client';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import { inferMcpServerForTool, loadMcpServersSetting } from '@/lib/mcp/settings';
+import type { MCPServerConfig } from '@/types';
 
 const QUICK_PROMPTS_BASE = [
   'Summarize my current resource',
@@ -292,13 +294,22 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     let fullThinking = '';
     let chatSuccess = true;
     let providerForAnalytics: string | null = null;
+    let configuredMcpServers: MCPServerConfig[] = [];
+    const pendingTraceEntries: Array<{
+      type: 'tool_call' | 'tool_result' | 'decision' | 'interrupt';
+      toolName?: string | null;
+      toolArgs?: Record<string, unknown>;
+      result?: unknown;
+      mcpServerId?: string | null;
+      decision?: string | null;
+    }> = [];
 
     try {
       const config = await getAIConfig();
       if (!config) {
         addMessage({
           role: 'assistant',
-          content: 'I don\'t have AI configuration. Go to **Settings > AI** to configure a provider.',
+          content: 'No tengo configuración de IA. Ve a **Ajustes > AI** para configurar un proveedor.',
         });
         return;
       }
@@ -309,7 +320,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         setError('API key not configured. Go to Settings to configure it.');
         addMessage({
           role: 'assistant',
-          content: 'API key not configured. Go to **Settings > AI** to configure your API key.',
+          content: 'La API key no está configurada. Ve a **Ajustes > AI** para añadir tu clave.',
         });
         return;
       }
@@ -387,6 +398,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       ];
 
       if (useToolsForThisRequest) {
+        configuredMcpServers = mcpEnabled ? await loadMcpServersSetting() : [];
         const context = getUiLocationDescription(pathname || '/', homeSidebarSection);
         const now = new Date();
         const supervisorPrompt = buildMartinSupervisorPrompt({
@@ -490,14 +502,13 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
               status: 'running',
             };
             toolCallsData.push(tc);
-            if (dbSessionId && db.isAvailable()) {
-              db.appendChatTrace({
-                sessionId: dbSessionId,
-                type: 'tool_call',
-                toolName: chunk.toolCall.name,
-                toolArgs: args,
-              }).catch(() => {});
-            }
+            const mcpServer = inferMcpServerForTool(configuredMcpServers, chunk.toolCall.name);
+            pendingTraceEntries.push({
+              type: 'tool_call',
+              toolName: chunk.toolCall.name,
+              toolArgs: args,
+              mcpServerId: mcpServer?.name ?? null,
+            });
             if (['resource_create', 'resource_update', 'resource_delete', 'resource_move_to_folder', 'call_writer_agent', 'call_library_agent', 'notebook_add_cell', 'notebook_update_cell', 'notebook_delete_cell', 'ppt_create', 'excel_create'].includes(chunk.toolCall.name?.toLowerCase?.())) {
               mutatingToolsUsed = true;
             }
@@ -509,26 +520,26 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
               entry.status = 'success';
               entry.result = chunk.result;
             }
-            if (dbSessionId && db.isAvailable() && entry) {
-              db.appendChatTrace({
-                sessionId: dbSessionId,
+            if (entry) {
+              const mcpServer = inferMcpServerForTool(configuredMcpServers, entry.name);
+              pendingTraceEntries.push({
                 type: 'tool_result',
                 toolName: entry.name,
                 result: chunk.result,
-              }).catch(() => {});
+                mcpServerId: mcpServer?.name ?? null,
+              });
             }
             setStreamingMessage((prev) => (prev ? { ...prev, toolCalls: [...toolCallsData] } : null));
           } else if (chunk.type === 'done') {
             setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
             setPendingApproval(null);
             // Persist assistant message with toolCalls and thinking for traceability
-            if (dbSessionId && db.isAvailable() && fullResponse) {
+            if (dbSessionId && db.isAvailable() && (fullResponse || pendingTraceEntries.length > 0 || toolCallsData.length > 0)) {
               try {
                 const hitlDecisions = hitlDecisionsRef.current;
                 if (hitlDecisions && hitlDecisions.length > 0) {
                   for (const d of hitlDecisions) {
-                    await db.appendChatTrace({
-                      sessionId: dbSessionId,
+                    pendingTraceEntries.push({
                       type: 'decision',
                       decision: d.type,
                       toolArgs: d.type === 'edit' ? d.editedAction : undefined,
@@ -536,7 +547,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
                   }
                   hitlDecisionsRef.current = null;
                 }
-                await db.addChatMessage({
+                const messageResult = await db.addChatMessage({
                   sessionId: dbSessionId,
                   role: 'assistant',
                   content: fullResponse,
@@ -549,12 +560,33 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
                     ...(hitlDecisions && hitlDecisions.length > 0 ? { hitlDecisions } : {}),
                   },
                 });
+                const messageId = messageResult.success && messageResult.data ? messageResult.data.id : null;
+                for (const trace of pendingTraceEntries) {
+                  await db.appendChatTrace({
+                    sessionId: dbSessionId,
+                    messageId,
+                    type: trace.type,
+                    toolName: trace.toolName,
+                    toolArgs: trace.toolArgs,
+                    result: trace.result,
+                    mcpServerId: trace.mcpServerId,
+                    decision: trace.decision,
+                  });
+                }
               } catch (e) {
                 console.warn('[Many] Could not persist assistant message to DB:', e);
               }
             }
           } else if (chunk.type === 'interrupt' && chunk.actionRequests && chunk.reviewConfigs) {
             setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
+            pendingTraceEntries.push({
+              type: 'interrupt',
+              toolName: chunk.actionRequests[0]?.name ?? 'interrupt',
+              toolArgs: {
+                actionRequests: chunk.actionRequests,
+                reviewConfigs: chunk.reviewConfigs,
+              },
+            });
             const origSubmitResume = chunk.submitResume ?? (() => {});
             setPendingApproval({
               actionRequests: chunk.actionRequests,
@@ -613,7 +645,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       } else {
         console.error('[Many] Error:', err);
         const msg = err instanceof Error ? err.message : 'Unknown error';
-        addMessage({ role: 'assistant', content: `Sorry, I had a problem: ${msg}` });
+        addMessage({ role: 'assistant', content: `Lo siento, tuve un problema: ${msg}` });
         showToast('error', `Many: ${msg}`);
       }
     } finally {

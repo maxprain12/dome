@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
-import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Gift } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Gift, Search } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -29,9 +29,13 @@ export default function AISettingsPanel() {
   const [ollamaApiKey, setOllamaApiKey] = useState('');
   const [showOllamaApiKey, setShowOllamaApiKey] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [braveSearchApiKey, setBraveSearchApiKey] = useState('');
+  const [showBraveSearchApiKey, setShowBraveSearchApiKey] = useState(false);
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testingWebSearch, setTestingWebSearch] = useState(false);
+  const [webSearchResult, setWebSearchResult] = useState<{ success: boolean; message: string } | null>(null);
   const [domeConnected, setDomeConnected] = useState(false);
   const [domeConnecting, setDomeConnecting] = useState(false);
 
@@ -71,6 +75,7 @@ export default function AISettingsPanel() {
         }
         
         setOllamaBaseURL(config.ollama_base_url || 'http://localhost:11434');
+        setBraveSearchApiKey(config.brave_search_api_key || '');
         setOllamaModel(config.ollama_model || 'llama3.2');
         setOllamaApiKey(config.ollama_api_key || '');
       }
@@ -148,6 +153,8 @@ export default function AISettingsPanel() {
     // Only save settings relevant to the selected provider
     const config: Partial<AISettings> = {
       provider,
+      web_search_provider: 'brave',
+      brave_search_api_key: braveSearchApiKey.trim(),
     };
 
     // Provider-specific settings
@@ -252,6 +259,48 @@ export default function AISettingsPanel() {
       setTestResult({ success: true, message: 'Cuenta de Dome desconectada.' });
     } catch (error) {
       setTestResult({ success: false, message: error instanceof Error ? error.message : 'No se pudo desconectar.' });
+    }
+  };
+
+  const handleTestWebSearch = async () => {
+    await saveAIConfig({
+      web_search_provider: 'brave',
+      brave_search_api_key: braveSearchApiKey.trim(),
+    });
+
+    setTestingWebSearch(true);
+    setWebSearchResult(null);
+
+    try {
+      if (!window.electron?.ai?.testWebSearch) {
+        setWebSearchResult({
+          success: false,
+          message: 'La prueba de web search no está disponible en esta versión.',
+        });
+        return;
+      }
+
+      const result = await window.electron.ai.testWebSearch();
+      if (result.success) {
+        setWebSearchResult({
+          success: true,
+          message: result.warning
+            ? `${result.warning} (${result.count ?? 0} resultado(s) de prueba).`
+            : `Brave Search conectado correctamente (${result.count ?? 0} resultado(s) de prueba).`,
+        });
+      } else {
+        setWebSearchResult({
+          success: false,
+          message: result.error || 'No se pudo validar Brave Search.',
+        });
+      }
+    } catch (error) {
+      setWebSearchResult({
+        success: false,
+        message: error instanceof Error ? error.message : 'Error desconocido al probar Brave Search.',
+      });
+    } finally {
+      setTestingWebSearch(false);
     }
   };
 
@@ -618,6 +667,79 @@ export default function AISettingsPanel() {
             </div>
           </div>
         )}
+
+        <section className="space-y-4 rounded-2xl border p-5" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 rounded-full p-2" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--accent)' }}>
+              <Search className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+                Web Search
+              </h4>
+              <p className="mt-1 text-xs leading-5" style={{ color: 'var(--secondary-text)' }}>
+                Las búsquedas web de Many y los agentes usan Brave Search configurado aquí. Si no hay clave, `web_search` intentará una búsqueda por scraping HTML como fallback, pero será menos estable y menos fiable.
+              </p>
+            </div>
+          </div>
+
+          <div className="group">
+            <label htmlFor="brave-search-api-key" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
+              Brave Search API Key
+            </label>
+            <div className="relative">
+              <input
+                id="brave-search-api-key"
+                type={showBraveSearchApiKey ? 'text' : 'password'}
+                value={braveSearchApiKey}
+                onChange={(e) => setBraveSearchApiKey(e.target.value)}
+                placeholder="BSA..."
+                className="input pr-12"
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                onClick={() => setShowBraveSearchApiKey((value) => !value)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100 cursor-pointer"
+                style={{ color: 'var(--secondary-text)' }}
+                aria-label={showBraveSearchApiKey ? 'Ocultar API key de Brave' : 'Mostrar API key de Brave'}
+              >
+                {showBraveSearchApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="mt-1.5 text-xs" style={{ color: 'var(--tertiary-text)' }}>
+              Consigue una clave gratuita en <a href="https://api.search.brave.com/" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">api.search.brave.com</a>.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleTestWebSearch}
+              disabled={testingWebSearch}
+              className="px-4 py-2 rounded-full text-sm font-medium disabled:opacity-50"
+              style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+            >
+              {testingWebSearch ? 'Probando Brave...' : 'Probar Brave Search'}
+            </button>
+
+            <div className="text-xs" style={{ color: braveSearchApiKey.trim() ? 'var(--secondary-text)' : 'var(--warning, #f59e0b)' }}>
+              Estado: {braveSearchApiKey.trim() ? 'configurado' : 'sin configurar'}
+            </div>
+          </div>
+
+          {webSearchResult && (
+            <div
+              className="rounded-lg px-3 py-2 text-xs"
+              style={{
+                backgroundColor: webSearchResult.success ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+                color: webSearchResult.success ? 'var(--success, #22c55e)' : 'var(--error, #ef4444)',
+              }}
+            >
+              {webSearchResult.message}
+            </div>
+          )}
+        </section>
 
         {/* Save & Test Buttons */}
         <div className="pt-6 space-y-3">

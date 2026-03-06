@@ -25,18 +25,16 @@ import {
 } from 'lucide-react';
 import { db } from '@/lib/db/client';
 import { RECOMMENDED_MCPS } from '@/lib/mcp/recommended-mcps';
+import {
+  loadMcpServersSetting,
+  parseMcpServersSetting,
+  saveMcpServersSetting,
+  toggleAllGlobalMcpTools,
+  toggleGlobalMcpTool,
+  updateServerTools,
+} from '@/lib/mcp/settings';
 import { showToast } from '@/lib/store/useToastStore';
-
-interface MCPServerConfig {
-  name: string;
-  type: 'stdio' | 'http' | 'sse';
-  command?: string;
-  args?: string[];
-  url?: string;
-  headers?: Record<string, string>;
-  env?: Record<string, string>;
-  enabled?: boolean;
-}
+import type { MCPServerConfig, MCPToolConfig } from '@/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const ICON_MAP: Record<string, any> = {
@@ -85,41 +83,6 @@ function parseArgsInput(value: string): string[] {
     .filter(Boolean);
 }
 
-/** Normalize headers from import to Record<string, string>. */
-function normalizeImportHeaders(v: unknown): Record<string, string> | undefined {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
-  const out: Record<string, string> = {};
-  for (const [k, val] of Object.entries(v)) {
-    if (typeof k === 'string' && typeof val === 'string') out[k] = val;
-  }
-  return Object.keys(out).length > 0 ? out : undefined;
-}
-
-/** Normalize args from import (string or array) to clean string array. */
-function normalizeImportArgs(v: unknown): string[] {
-  if (Array.isArray(v)) {
-    return v.map((a) => String(a).trim().replace(/^["'\s,]+|["'\s,]+$/g, '')).filter(Boolean);
-  }
-  if (typeof v === 'string') {
-    const t = v.trim();
-    if (t.startsWith('[') && t.endsWith(']')) {
-      try {
-        const parsed = JSON.parse(t);
-        return Array.isArray(parsed)
-          ? parsed.map((a) => String(a).trim().replace(/^["'\s,]+|["'\s,]+$/g, '')).filter(Boolean)
-          : [];
-      } catch {
-        // fall through
-      }
-    }
-    if (t.includes(',')) {
-      return t.split(',').map((s) => s.trim().replace(/^["'\s,]+|["'\s,]+$/g, '')).filter(Boolean);
-    }
-    return t.split(/\s+/).map((s) => s.trim().replace(/^["'\s,]+|["'\s,]+$/g, '')).filter(Boolean);
-  }
-  return [];
-}
-
 export default function MCPSettingsPanel() {
   const [servers, setServers] = useState<MCPServerConfig[]>([]);
   const [mcpEnabled, setMcpEnabled] = useState(true);
@@ -132,7 +95,7 @@ export default function MCPSettingsPanel() {
   const [envDrafts, setEnvDrafts] = useState<Record<number, string>>({});
   const [headersDrafts, setHeadersDrafts] = useState<Record<number, string>>({});
   const [serverTestStatus, setServerTestStatus] = useState<Record<number, 'idle' | 'testing' | 'ok' | 'error'>>({});
-  const [serverTestResult, setServerTestResult] = useState<Record<number, { toolCount?: number; error?: string }>>({});
+  const [serverTestResult, setServerTestResult] = useState<Record<number, { toolCount?: number; tools?: MCPToolConfig[]; error?: string }>>({});
   const [showConnStrModal, setShowConnStrModal] = useState(false);
   const [connStrInput, setConnStrInput] = useState('');
   const [pendingMcpInstall, setPendingMcpInstall] = useState<typeof RECOMMENDED_MCPS[0] | null>(null);
@@ -141,22 +104,11 @@ export default function MCPSettingsPanel() {
   const [pendingTokenMcpInstall, setPendingTokenMcpInstall] = useState<typeof RECOMMENDED_MCPS[0] | null>(null);
 
   const loadServers = useCallback(async () => {
-    if (!db.isAvailable()) return;
     setLoading(true);
     setError(null);
     try {
-      const result = await db.getSetting('mcp_servers');
-      if (result.success && result.data) {
-        try {
-          const parsed = JSON.parse(result.data);
-          const list = Array.isArray(parsed) ? parsed : [];
-          setServers(list.map((s: MCPServerConfig) => ({ ...s, enabled: s.enabled !== false })));
-        } catch {
-          setServers([]);
-        }
-      } else {
-        setServers([]);
-      }
+      const loadedServers = await loadMcpServersSetting();
+      setServers(loadedServers.map((server) => ({ ...server, enabled: server.enabled !== false })));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar configuración');
       setServers([]);
@@ -251,7 +203,7 @@ export default function MCPSettingsPanel() {
     setError(null);
     setSaved(false);
     try {
-      const result = await db.setSetting('mcp_servers', JSON.stringify(servers));
+      const result = await saveMcpServersSetting(servers);
       if (result.success) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
@@ -271,47 +223,9 @@ export default function MCPSettingsPanel() {
 
   const handleImport = () => {
     try {
-      const parsed = JSON.parse(importJson);
-      const list = Array.isArray(parsed)
-        ? parsed
-            .map((s) => {
-              if (!s || typeof s !== 'object') return null;
-              const t = s as Record<string, unknown>;
-              let type: 'stdio' | 'http' | 'sse' = (t.type as 'stdio' | 'http' | 'sse') || 'stdio';
-              if (t.transport === 'sse' || t.type === 'sse') type = 'sse';
-              else if (typeof t.url === 'string') type = 'http';
-              return {
-                ...s,
-                type,
-                args: normalizeImportArgs(t.args),
-                headers: normalizeImportHeaders(t.headers),
-                enabled: t.enabled !== false,
-              };
-            })
-            .filter(Boolean)
-        : parsed?.mcpServers
-          ? Object.entries(parsed.mcpServers as Record<string, Record<string, unknown>>).map(([k, v]) => {
-              const hasUrl = typeof v.url === 'string';
-              const transport = v.transport as string | undefined;
-              const vType = v.type as string | undefined;
-              const type: 'stdio' | 'http' | 'sse' =
-                transport === 'sse' || vType === 'sse' ? 'sse'
-                  : hasUrl ? 'http'
-                  : 'stdio';
-              return {
-                name: k,
-                type,
-                command: (v.command as string) ?? '',
-                args: normalizeImportArgs(v.args),
-                url: v.url as string,
-                headers: normalizeImportHeaders(v.headers),
-                env: v.env as Record<string, string> | undefined,
-                enabled: (v.enabled as boolean) !== false,
-              };
-            })
-          : [];
+      const list = parseMcpServersSetting(importJson);
       if (list.length > 0) {
-        setServers(list);
+        setServers(list.map((server) => ({ ...server, enabled: server.enabled !== false })));
         setShowImport(false);
         setImportJson('');
         setError(null);
@@ -331,6 +245,10 @@ export default function MCPSettingsPanel() {
     setServers((prev) =>
       prev.map((s, i) => (i === index ? { ...s, ...updates } : s))
     );
+  };
+
+  const replaceServer = (index: number, nextServer: MCPServerConfig) => {
+    setServers((prev) => prev.map((server, currentIndex) => (currentIndex === index ? nextServer : server)));
   };
 
   const handleTestServer = async (index: number) => {
@@ -355,10 +273,22 @@ export default function MCPSettingsPanel() {
       });
       if (result.success) {
         setServerTestStatus((s) => ({ ...s, [index]: 'ok' }));
-        setServerTestResult((r) => ({ ...r, [index]: { toolCount: result.toolCount ?? 0 } }));
+        setServerTestResult((r) => ({
+          ...r,
+          [index]: {
+            toolCount: result.toolCount ?? 0,
+            tools: result.tools ?? [],
+          },
+        }));
+        replaceServer(index, updateServerTools(server, result.tools ?? []));
       } else {
         setServerTestStatus((s) => ({ ...s, [index]: 'error' }));
         setServerTestResult((r) => ({ ...r, [index]: { error: result.error ?? 'Error desconocido' } }));
+        replaceServer(index, {
+          ...server,
+          lastDiscoveryAt: Date.now(),
+          lastDiscoveryError: result.error ?? 'Error desconocido',
+        });
       }
     } catch (err) {
       setServerTestStatus((s) => ({ ...s, [index]: 'error' }));
@@ -387,7 +317,7 @@ export default function MCPSettingsPanel() {
           MCP (Model Context Protocol)
         </h2>
         <p className="mt-1 text-sm" style={{ color: 'var(--secondary-text)' }}>
-          Las herramientas MCP configuradas aquí están disponibles en Many cuando chateas. Conecta servidores para ampliar las capacidades del asistente.
+          Configura servidores MCP, descubre sus tools y define aquí qué tools quedan activas globalmente. Esa selección se reutiliza en Many, chats de agentes y equipos.
         </p>
       </div>
 
@@ -652,6 +582,65 @@ export default function MCPSettingsPanel() {
                         {serverTestResult[index]!.error}
                       </div>
                     ) : null}
+                    {Array.isArray(server.tools) && server.tools.length > 0 ? (
+                      <div className="rounded-xl border p-3" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg)' }}>
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div>
+                            <p className="text-xs font-medium" style={{ color: 'var(--text)' }}>
+                              Tools activas globalmente
+                            </p>
+                            <p className="text-[11px]" style={{ color: 'var(--secondary-text)' }}>
+                              Esta selección se reutiliza en Many, agentes y equipos.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => replaceServer(index, toggleAllGlobalMcpTools(server, true))}
+                              className="rounded-md px-2 py-1 text-[11px] font-medium"
+                              style={{ backgroundColor: 'var(--primary-subtle)', color: 'var(--accent)' }}
+                            >
+                              Activar todas
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => replaceServer(index, toggleAllGlobalMcpTools(server, false))}
+                              className="rounded-md px-2 py-1 text-[11px] font-medium border"
+                              style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)' }}
+                            >
+                              Desactivar todas
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-3 space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                          {server.tools.map((tool) => (
+                            <label
+                              key={tool.id}
+                              className="flex items-start justify-between gap-3 rounded-lg px-2 py-2 cursor-pointer hover:bg-[var(--bg-hover)]"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm" style={{ color: 'var(--text)' }}>
+                                  {tool.name}
+                                </p>
+                                {tool.description ? (
+                                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--secondary-text)' }}>
+                                    {tool.description}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 rounded"
+                                checked={tool.enabled !== false}
+                                onChange={(e) =>
+                                  replaceServer(index, toggleGlobalMcpTool(server, tool.id || tool.name, e.target.checked))
+                                }
+                              />
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     {(server.command || server.url) && (
                       <div className="flex items-center gap-2">
                         <button
@@ -666,7 +655,7 @@ export default function MCPSettingsPanel() {
                           ) : (
                             <Wifi className="w-4 h-4" />
                           )}
-                          {serverTestStatus[index] === 'testing' ? 'Probando...' : 'Probar conexión'}
+                          {serverTestStatus[index] === 'testing' ? 'Descubriendo...' : 'Probar y descubrir tools'}
                         </button>
                       </div>
                     )}

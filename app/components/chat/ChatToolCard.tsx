@@ -46,10 +46,10 @@ const TOOL_LABELS: Record<string, string> = {
   resource_create: 'Creando recurso',
   resource_get: 'Obteniendo recurso',
   resource_search: 'Buscando recursos',
-  call_research_agent: 'Investigando',
-  call_library_agent: 'Consultando biblioteca',
-  call_writer_agent: 'Creando contenido',
-  call_data_agent: 'Procesando datos',
+  call_research_agent: 'Delegando investigación',
+  call_library_agent: 'Delegando consulta de biblioteca',
+  call_writer_agent: 'Delegando creación de contenido',
+  call_data_agent: 'Delegando procesamiento de datos',
   notebook_add_cell: 'Añadiendo celda',
   notebook_update_cell: 'Actualizando celda',
   notebook_delete_cell: 'Eliminando celda',
@@ -69,6 +69,7 @@ function getLabelForTool(name: string): string {
   if (TOOL_LABELS[name]) return TOOL_LABELS[name];
   const norm = (name || '').toLowerCase();
   if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query')) return 'Consulta a base de datos';
+  if (norm.includes('mcp') || norm.startsWith('mcp_')) return 'Tool MCP';
   const humanized = name.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   return humanized || name;
 }
@@ -165,12 +166,12 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
   };
 
   return (
-    <div className={`text-sm ${className}`}>
+    <div className={`min-w-0 max-w-full text-sm ${className}`}>
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
         disabled={isPending}
-        className={`group flex items-center gap-2 py-1 px-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)] max-w-full ${isPending ? 'cursor-default' : 'cursor-pointer'
+        className={`group flex w-full min-w-0 items-start gap-2 py-1.5 px-2 rounded-lg text-left transition-colors hover:bg-[var(--bg-hover)] ${isPending ? 'cursor-default' : 'cursor-pointer'
           }`}
       >
         <div className={`flex items-center justify-center h-5 w-5 rounded transition-colors ${isPending ? 'text-[var(--accent)]' : toolCall.status === 'error' ? 'text-[var(--error)]' : 'text-[var(--tertiary-text)] group-hover:text-[var(--secondary-text)]'
@@ -184,16 +185,19 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
           )}
         </div>
 
-        <span className={`text-[13px] font-medium truncate flex-1 text-left ${isPending ? 'text-[var(--primary-text)]' : 'text-[var(--secondary-text)]'
-          }`}>
-          {label}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className={`text-[13px] font-medium ${isPending ? 'text-[var(--primary-text)]' : 'text-[var(--secondary-text)]'}`}>
+            {label}
+          </span>
           {argsText && (isPending || expanded) && (
-            <span className="ml-2 text-[12px] opacity-60 font-normal">{argsText}</span>
+            <span className="mt-0.5 break-words text-[11px] font-normal leading-5 opacity-70" style={{ overflowWrap: 'anywhere' }}>
+              {argsText}
+            </span>
           )}
         </span>
 
         {!isPending && (toolCall.result || toolCall.error) && (
-          <div className="text-[var(--tertiary-text)] opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="shrink-0 pt-0.5 text-[var(--tertiary-text)] opacity-0 transition-opacity group-hover:opacity-100">
             {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           </div>
         )}
@@ -201,7 +205,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
 
       {/* Expandable Result Area */}
       {expanded && !isPending && (toolCall.result || toolCall.error) && (
-        <div className="mt-1 ml-2 pl-4 border-l border-[var(--border)] py-1 animate-in fade-in duration-200 slide-in-from-top-1">
+        <div className="mt-1 ml-2 min-w-0 overflow-hidden border-l border-[var(--border)] py-1 pl-4 animate-in fade-in duration-200 slide-in-from-top-1">
           {documentItems && (
             <div className="mb-2">
               <button

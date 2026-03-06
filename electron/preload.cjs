@@ -215,6 +215,7 @@ const ALLOWED_CHANNELS = {
     'ai:langgraph:resume',
     'ai:embeddings',
     'ai:testConnection',
+    'ai:testWebSearch',
     // Agent Team orchestration
     'ai:team:stream',
     'ai:team:abort',
@@ -992,6 +993,9 @@ const electronHandler = {
     // Test AI connection (minimal API call to verify config)
     testConnection: () =>
       ipcRenderer.invoke('ai:testConnection'),
+
+    testWebSearch: () =>
+      ipcRenderer.invoke('ai:testWebSearch'),
 
     // AI Tools for Many agent
     tools: {

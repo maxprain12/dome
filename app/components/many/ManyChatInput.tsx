@@ -1,5 +1,23 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Database, Search, Send, StopCircle, Plug2 } from 'lucide-react';
+import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-[var(--accent)]' : 'bg-[var(--bg-tertiary)]'}`}
+    >
+      <span
+        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform mt-0.5 ${checked ? 'translate-x-4' : 'translate-x-0.5'}`}
+      />
+    </button>
+  );
+}
 
 interface ManyChatInputProps {
   input: string;
@@ -34,6 +52,11 @@ export default memo(function ManyChatInput({
   onSend,
   onAbort,
 }: ManyChatInputProps) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; above?: boolean } | null>(null);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -55,6 +78,45 @@ export default memo(function ManyChatInput({
     : toolsEnabled
       ? 'Pregunta algo... (con búsqueda web)'
       : 'Pregunta algo...';
+
+  useEffect(() => {
+    if (!showDropdown) {
+      setDropdownRect(null);
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(target)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showDropdown]);
+
+  useEffect(() => {
+    if (!showDropdown || !buttonRef.current || typeof window === 'undefined') {
+      return;
+    }
+    const rect = buttonRef.current.getBoundingClientRect();
+    const estimatedHeight = 320;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const showAbove = spaceBelow < estimatedHeight && rect.top > spaceBelow;
+    setDropdownRect({
+      top: showAbove ? rect.top - 6 : rect.bottom + 6,
+      left: rect.left,
+      above: showAbove,
+    });
+  }, [showDropdown]);
+
+  const hasActiveCapabilities = resourceToolsEnabled || toolsEnabled || mcpEnabled;
 
   return (
     <div className="many-input-area border-t border-[var(--border)] bg-[var(--bg)] px-4 py-4">
@@ -81,46 +143,80 @@ export default memo(function ManyChatInput({
         <div className="flex items-center justify-between px-2 pb-2">
           <div className="flex items-center gap-1">
             {supportsTools && (
-              <>
+              <div className="relative">
                 <button
+                  ref={buttonRef}
                   type="button"
-                  onClick={() => setResourceToolsEnabled(!resourceToolsEnabled)}
-                  className={`group flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium transition-all ${resourceToolsEnabled
+                  onClick={() => setShowDropdown(!showDropdown)}
+                  className={`group flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium transition-all ${showDropdown || hasActiveCapabilities
                     ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'
                     : 'text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]'
                     }`}
-                  title={resourceToolsEnabled ? 'Contexto activo' : 'Activar contexto'}
+                  title="Capacidades activas"
                 >
-                  <Database size={14} strokeWidth={2} />
-                  <span className="hidden sm:inline">Recursos</span>
+                  <Plug2 size={14} strokeWidth={2} />
+                  <span className="hidden sm:inline">Capacidades</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setToolsEnabled(!toolsEnabled)}
-                  className={`group flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium transition-all ${toolsEnabled
-                    ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'
-                    : 'text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]'
-                    }`}
-                  title={toolsEnabled ? 'Web activa' : 'Activar búsqueda web'}
-                >
-                  <Search size={14} strokeWidth={2} />
-                  <span className="hidden sm:inline">Web</span>
-                </button>
-                {hasMcp && (
-                  <button
-                    type="button"
-                    onClick={() => setMcpEnabled(!mcpEnabled)}
-                    className={`group flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium transition-all ${mcpEnabled
-                      ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'
-                      : 'text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]'
-                      }`}
-                    title={mcpEnabled ? 'MCP activo' : 'Activar MCP'}
+
+                {showDropdown && dropdownRect && typeof document !== 'undefined' && createPortal(
+                  <div
+                    ref={dropdownRef}
+                    className="fixed min-w-[300px] max-h-[min(360px,60vh)] rounded-lg border shadow-lg py-2 overflow-y-auto"
+                    style={{
+                      top: dropdownRect.above ? undefined : dropdownRect.top,
+                      bottom: dropdownRect.above ? window.innerHeight - dropdownRect.top : undefined,
+                      left: dropdownRect.left,
+                      backgroundColor: 'var(--bg-secondary)',
+                      borderColor: 'var(--border)',
+                      zIndex: 600,
+                    }}
                   >
-                    <Plug2 size={14} strokeWidth={2} />
-                    <span className="hidden sm:inline">MCP</span>
-                  </button>
+                    <div className="px-3 py-1.5">
+                      <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--secondary-text)' }}>
+                        Capacidades base
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
+                          <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
+                            <Database size={13} />
+                            Recursos
+                          </div>
+                          <Toggle checked={resourceToolsEnabled} onChange={() => setResourceToolsEnabled(!resourceToolsEnabled)} />
+                        </div>
+                        <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
+                          <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
+                            <Search size={13} />
+                            Web
+                          </div>
+                          <Toggle checked={toolsEnabled} onChange={() => setToolsEnabled(!toolsEnabled)} />
+                        </div>
+                        {hasMcp ? (
+                          <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
+                            <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
+                              <Plug2 size={13} />
+                              MCP
+                            </div>
+                            <Toggle checked={mcpEnabled} onChange={() => setMcpEnabled(!mcpEnabled)} />
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {hasMcp ? (
+                      <>
+                        <div className="h-px my-1" style={{ backgroundColor: 'var(--border)' }} />
+                        <div className="px-3 py-1">
+                          <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--secondary-text)' }}>
+                            MCP y tools globales
+                          </div>
+                          <McpCapabilitiesSection />
+                        </div>
+                      </>
+                    ) : null}
+                  </div>,
+                  document.body
                 )}
-              </>
+              </div>
             )}
           </div>
 

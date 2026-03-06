@@ -14,6 +14,7 @@ export interface TeamChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
+  toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }>;
   /** Which agent produced this message, if it came from a sub-agent */
   agentId?: string;
   agentName?: string;

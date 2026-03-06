@@ -463,6 +463,10 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
             <code
               style={{
                 display: 'block',
+                width: '100%',
+                maxWidth: '100%',
+                whiteSpace: 'pre-wrap',
+                overflowWrap: 'anywhere',
                 padding: '10px 12px',
                 backgroundColor: 'var(--bg-tertiary)',
                 borderRadius: 6,
@@ -499,7 +503,9 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           style={{
             margin: '8px 0',
             borderRadius: 6,
-            overflow: 'hidden',
+            maxWidth: '100%',
+            overflowX: 'auto',
+            overflowY: 'hidden',
           }}
         >
           {children}

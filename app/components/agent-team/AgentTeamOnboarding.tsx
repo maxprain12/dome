@@ -5,14 +5,17 @@ import { ChevronRight, ChevronLeft, X, Users, Cpu, FileText, Image } from 'lucid
 import type { ManyAgent, AgentTeam } from '@/types';
 import { getManyAgents } from '@/lib/agents/api';
 import { createAgentTeam } from '@/lib/agent-team/api';
+import AgentToolsStep from '@/components/agents/steps/AgentToolsStep';
+import AgentMcpStep from '@/components/agents/steps/AgentMcpStep';
 
-type Step = 'basics' | 'members' | 'supervisor' | 'icon';
+type Step = 'basics' | 'members' | 'capabilities' | 'supervisor' | 'icon';
 
-const STEP_ORDER: Step[] = ['basics', 'members', 'supervisor', 'icon'];
+const STEP_ORDER: Step[] = ['basics', 'members', 'capabilities', 'supervisor', 'icon'];
 
 const STEP_LABELS: Record<Step, string> = {
   basics: 'Nombre',
   members: 'Agentes',
+  capabilities: 'Capacidades',
   supervisor: 'Supervisor',
   icon: 'Icono',
 };
@@ -38,6 +41,8 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([]);
+  const [toolIds, setToolIds] = useState<string[]>([]);
+  const [mcpServerIds, setMcpServerIds] = useState<string[]>([]);
   const [supervisorInstructions, setSupervisorInstructions] = useState(DEFAULT_SUPERVISOR_INSTRUCTIONS);
   const [iconIndex, setIconIndex] = useState(1);
   const [agents, setAgents] = useState<ManyAgent[]>([]);
@@ -53,6 +58,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
   const canProceed = () => {
     if (step === 'basics') return name.trim().length > 0;
     if (step === 'members') return selectedAgentIds.length >= 2;
+    if (step === 'capabilities') return true;
     if (step === 'supervisor') return supervisorInstructions.trim().length > 0;
     return true;
   };
@@ -79,6 +85,8 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
         description: description.trim(),
         supervisorInstructions: supervisorInstructions.trim(),
         memberAgentIds: selectedAgentIds,
+        toolIds,
+        mcpServerIds,
         iconIndex,
       });
       if (result.success && result.data) {
@@ -294,6 +302,34 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                 }}
               />
             </div>
+          </div>
+        )}
+
+        {step === 'capabilities' && (
+          <div className="flex flex-col gap-6">
+            <div
+              className="flex items-start gap-2 p-3 rounded-xl text-xs"
+              style={{ background: 'var(--dome-accent-bg)', color: 'var(--dome-accent, #6366f1)' }}
+            >
+              <Cpu className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                Puedes añadir tools y MCPs al nivel del equipo. Se sumarán a las capacidades de los agentes miembros y compartirán la misma configuración global de tools MCP.
+              </span>
+            </div>
+
+            <section>
+              <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--dome-text)' }}>
+                Tools del equipo
+              </h3>
+              <AgentToolsStep selectedIds={toolIds} onChange={setToolIds} />
+            </section>
+
+            <section>
+              <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--dome-text)' }}>
+                MCP del equipo
+              </h3>
+              <AgentMcpStep selectedIds={mcpServerIds} onChange={setMcpServerIds} />
+            </section>
           </div>
         )}
 

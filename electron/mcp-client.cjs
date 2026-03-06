@@ -13,6 +13,19 @@
 
 const DEFAULT_MCP_SERVERS = [];
 
+function normalizeServerId(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+function normalizeToolId(name) {
+  return normalizeServerId(name);
+}
+
 /**
  * Sanitize args: strip quotes/spaces, filter empty.
  * @param {string[]|unknown} args
@@ -54,11 +67,39 @@ function normalizeServerEntry(name, s) {
     ? s.env
     : undefined;
   const headers = sanitizeHeaders(s.headers);
+  const tools = Array.isArray(s.tools)
+    ? s.tools
+        .map((tool) => normalizeToolEntry(tool))
+        .filter(Boolean)
+    : undefined;
+  const enabledToolIds = Array.isArray(s.enabledToolIds)
+    ? s.enabledToolIds
+        .map((toolId) => (typeof toolId === 'string' ? normalizeToolId(toolId) : ''))
+        .filter(Boolean)
+    : undefined;
   if ((s.type === 'sse' || s.transport === 'sse') && typeof s.url === 'string') {
-    return { name: n, type: 'sse', url: s.url, headers };
+    return {
+      name: n,
+      type: 'sse',
+      url: s.url,
+      headers,
+      tools,
+      enabledToolIds,
+      lastDiscoveryAt: typeof s.lastDiscoveryAt === 'number' ? s.lastDiscoveryAt : undefined,
+      lastDiscoveryError: typeof s.lastDiscoveryError === 'string' ? s.lastDiscoveryError : null,
+    };
   }
   if ((s.type === 'http' || s.url) && typeof s.url === 'string') {
-    return { name: n, type: 'http', url: s.url, headers };
+    return {
+      name: n,
+      type: 'http',
+      url: s.url,
+      headers,
+      tools,
+      enabledToolIds,
+      lastDiscoveryAt: typeof s.lastDiscoveryAt === 'number' ? s.lastDiscoveryAt : undefined,
+      lastDiscoveryError: typeof s.lastDiscoveryError === 'string' ? s.lastDiscoveryError : null,
+    };
   }
   if ((s.type === 'stdio' || s.command) && typeof s.command === 'string') {
     return {
@@ -67,9 +108,36 @@ function normalizeServerEntry(name, s) {
       command: s.command,
       args: sanitizeArgs(s.args),
       env,
+      tools,
+      enabledToolIds,
+      lastDiscoveryAt: typeof s.lastDiscoveryAt === 'number' ? s.lastDiscoveryAt : undefined,
+      lastDiscoveryError: typeof s.lastDiscoveryError === 'string' ? s.lastDiscoveryError : null,
     };
   }
   return null;
+}
+
+function normalizeToolEntry(tool) {
+  if (!tool || typeof tool !== 'object') return null;
+  const name = typeof tool.name === 'string'
+    ? tool.name.trim()
+    : typeof tool.id === 'string'
+      ? tool.id.trim()
+      : '';
+  if (!name) return null;
+  return {
+    id: typeof tool.id === 'string' && tool.id.trim()
+      ? normalizeToolId(tool.id)
+      : normalizeToolId(name),
+    name,
+    description: typeof tool.description === 'string' && tool.description.trim()
+      ? tool.description
+      : '',
+    inputSchema: tool.inputSchema && typeof tool.inputSchema === 'object' && !Array.isArray(tool.inputSchema)
+      ? tool.inputSchema
+      : undefined,
+    enabled: tool.enabled !== false,
+  };
 }
 
 /**
@@ -149,6 +217,73 @@ function buildMcpServersObject(servers) {
   return out;
 }
 
+function getEnabledToolIdsForServer(server) {
+  if (Array.isArray(server?.enabledToolIds) && server.enabledToolIds.length > 0) {
+    return server.enabledToolIds
+      .map((toolId) => normalizeToolId(toolId))
+      .filter(Boolean);
+  }
+  if (Array.isArray(server?.tools) && server.tools.length > 0) {
+    return server.tools
+      .filter((tool) => tool?.enabled !== false)
+      .map((tool) => normalizeToolId(tool.id || tool.name))
+      .filter(Boolean);
+  }
+  return null;
+}
+
+function serializeTool(tool) {
+  if (!tool || typeof tool !== 'object') return null;
+  const name = typeof tool.name === 'string' ? tool.name.trim() : '';
+  if (!name) return null;
+
+  let inputSchema;
+  try {
+    if (tool.schema && typeof tool.schema === 'object' && typeof tool.schema.toJSON === 'function') {
+      inputSchema = tool.schema.toJSON();
+    } else if (tool.schema && typeof tool.schema === 'object') {
+      inputSchema = tool.schema;
+    }
+  } catch {
+    inputSchema = undefined;
+  }
+
+  return {
+    id: normalizeToolId(name),
+    name,
+    description: typeof tool.description === 'string' ? tool.description : '',
+    inputSchema,
+  };
+}
+
+async function createClientForServers(servers) {
+  const mcpServers = buildMcpServersObject(servers);
+  if (Object.keys(mcpServers).length === 0) {
+    return null;
+  }
+  const { MultiServerMCPClient } = await import('@langchain/mcp-adapters');
+  return new MultiServerMCPClient({
+    mcpServers,
+    throwOnLoadError: false,
+    onConnectionError: 'ignore',
+  });
+}
+
+async function loadToolsForServer(server) {
+  const client = await createClientForServers([server]);
+  if (!client) {
+    return { tools: [], manifest: [] };
+  }
+
+  const tools = await client.getTools();
+  const safeTools = Array.isArray(tools) ? tools : [];
+  const manifest = safeTools
+    .map((tool) => serializeTool(tool))
+    .filter(Boolean);
+
+  return { tools: safeTools, manifest };
+}
+
 /**
  * Get MCP tools from configured servers.
  * @param {object} database - Dome database module (with getQueries())
@@ -173,18 +308,21 @@ async function getMCPTools(database, serverIds) {
     if (servers.length === 0) return [];
   }
 
-  const mcpServers = buildMcpServersObject(servers);
-  if (Object.keys(mcpServers).length === 0) return [];
-
   try {
-    const { MultiServerMCPClient } = await import('@langchain/mcp-adapters');
-    const client = new MultiServerMCPClient({
-      mcpServers,
-      throwOnLoadError: false,
-      onConnectionError: 'ignore',
-    });
-    const tools = await client.getTools();
-    return Array.isArray(tools) ? tools : [];
+    const allTools = [];
+    for (const server of servers) {
+      const { tools } = await loadToolsForServer(server);
+      const enabledToolIds = getEnabledToolIdsForServer(server);
+      if (!enabledToolIds || enabledToolIds.length === 0) {
+        allTools.push(...tools);
+        continue;
+      }
+
+      const enabledSet = new Set(enabledToolIds);
+      const filteredTools = tools.filter((tool) => enabledSet.has(normalizeToolId(tool?.name)));
+      allTools.push(...filteredTools);
+    }
+    return allTools;
   } catch (err) {
     console.warn('[MCP] Failed to load MCP tools:', err?.message);
     return [];
@@ -198,27 +336,24 @@ async function getMCPTools(database, serverIds) {
  */
 async function testSingleMcpServer(server) {
   if (!server || !server.name) {
-    return { success: false, toolCount: 0, error: 'Config inválida' };
+    return { success: false, toolCount: 0, tools: [], error: 'Config inválida' };
   }
-  const servers = [server];
-  const mcpServers = buildMcpServersObject(servers);
-  if (Object.keys(mcpServers).length === 0) {
-    return { success: false, toolCount: 0, error: 'Servidor no configurado correctamente' };
+  const normalized = normalizeServerEntry(server.name, server);
+  if (!normalized) {
+    return { success: false, toolCount: 0, tools: [], error: 'Servidor no configurado correctamente' };
   }
   try {
-    const { MultiServerMCPClient } = await import('@langchain/mcp-adapters');
-    const client = new MultiServerMCPClient({
-      mcpServers,
-      throwOnLoadError: false,
-      onConnectionError: 'ignore',
-    });
-    const tools = await client.getTools();
-    const toolCount = Array.isArray(tools) ? tools.length : 0;
-    return { success: true, toolCount };
+    const { manifest } = await loadToolsForServer(normalized);
+    return {
+      success: true,
+      toolCount: manifest.length,
+      tools: manifest,
+    };
   } catch (err) {
     return {
       success: false,
       toolCount: 0,
+      tools: [],
       error: err?.message || String(err),
     };
   }

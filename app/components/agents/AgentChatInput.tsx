@@ -4,6 +4,7 @@ import { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Send, StopCircle, Plug2 } from 'lucide-react';
 import { getToolById } from '@/lib/agents/catalog';
+import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -188,22 +189,11 @@ export default memo(function AgentChatInput({
                           <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
                             MCP
                           </div>
-                          <div className="space-y-1">
-                            {mcpServerIds.map((id) => {
-                              const enabled = !disabledMcpIds.has(id);
-                              return (
-                                <div
-                                  key={id}
-                                  className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--dome-bg)]"
-                                >
-                                  <span className="text-[12px]" style={{ color: enabled ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}>
-                                    {id}
-                                  </span>
-                                  <Toggle checked={enabled} onChange={() => onToggleMcp(id)} />
-                                </div>
-                              );
-                            })}
-                          </div>
+                          <McpCapabilitiesSection
+                            serverIds={mcpServerIds}
+                            disabledServerIds={disabledMcpIds}
+                            onToggleServer={onToggleMcp}
+                          />
                         </div>
                       )}
                       {hasMcp && hasTools && (
