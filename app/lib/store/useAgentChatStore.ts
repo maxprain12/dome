@@ -93,6 +93,7 @@ interface AgentChatState {
   switchSession: (id: string) => void;
   deleteSession: (id: string) => void;
   updateSessionTitle: (id: string, title: string) => void;
+  hydrateSession: (session: AgentChatSession) => void;
 }
 
 export const useAgentChatStore = create<AgentChatState>((set, get) => ({
@@ -238,5 +239,28 @@ export const useAgentChatStore = create<AgentChatState>((set, get) => ({
       persistSessions(agentId, nextSessions);
       set({ sessions: nextSessions });
     }
+  },
+
+  hydrateSession: (session) => {
+    const { agentId, sessions, currentSessionId } = get();
+    if (!agentId) return;
+    const idx = sessions.findIndex((item) => item.id === session.id);
+    const normalizedSession: AgentChatSession = {
+      ...session,
+      createdAt: session.createdAt ?? Date.now(),
+      messages: Array.isArray(session.messages) ? session.messages : [],
+    };
+    const nextSessions = idx >= 0
+      ? sessions.map((item) => (item.id === session.id ? normalizedSession : item))
+      : [normalizedSession, ...sessions].slice(0, MAX_SESSIONS);
+    persistSessions(agentId, nextSessions);
+    set({
+      sessions: nextSessions,
+      currentSessionId: currentSessionId ?? normalizedSession.id,
+      messages:
+        currentSessionId === normalizedSession.id || (!currentSessionId && nextSessions[0]?.id === normalizedSession.id)
+          ? [...normalizedSession.messages]
+          : get().messages,
+    });
   },
 }));

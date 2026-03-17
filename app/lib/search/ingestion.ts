@@ -8,8 +8,8 @@ export interface IngestionResult {
 
 /**
  * Ingest a resource into PageIndex for reasoning-based RAG.
- * Only PDF resources are supported — PageIndex works directly with PDF files.
- * For other resource types, returns success with 0 chunks (FTS handles text search).
+ * Dome now indexes several text-bearing resource types using the same tree format:
+ * PDFs, notes, notebooks, processed URLs, and extracted document content.
  */
 export async function ingestResource(
   resourceId: string,
@@ -23,8 +23,7 @@ export async function ingestResource(
   _options: Record<string, unknown> = {}
 ): Promise<IngestionResult> {
   try {
-    if (metadata.type !== 'pdf') {
-      // PageIndex only indexes PDFs; other types are covered by SQLite FTS
+    if (!['pdf', 'note', 'document', 'url', 'notebook'].includes(metadata.type)) {
       return { success: true, chunksProcessed: 0 };
     }
 
@@ -37,7 +36,7 @@ export async function ingestResource(
     }
 
     console.log(`[Ingestion] PageIndex indexing complete for resource ${resourceId}`);
-    return { success: true, chunksProcessed: 1 };
+    return { success: true, chunksProcessed: result.nodeCount ?? 0 };
 
   } catch (error) {
     console.error('[Ingestion] Error ingesting resource:', error);

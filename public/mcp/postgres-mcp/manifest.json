@@ -1,0 +1,14 @@
+{
+  "id": "postgres-mcp",
+  "name": "PostgreSQL MCP",
+  "description": "Ejecuta consultas SQL en bases de datos PostgreSQL directamente desde tus agentes.",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL}"],
+  "env": {
+    "DATABASE_URL": "${DATABASE_URL}"
+  },
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "tags": ["database", "postgres", "sql", "data"],
+  "repository": "https://github.com/modelcontextprotocol/servers"
+}

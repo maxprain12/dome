@@ -6,7 +6,7 @@ export interface ToolCatalogEntry {
   id: string;
   label: string;
   description: string;
-  group: 'web' | 'memory' | 'resources' | 'context' | 'flashcards' | 'studio' | 'audio' | 'research' | 'graph' | 'notebook' | 'excel' | 'ppt' | 'calendar';
+  group: 'web' | 'resources' | 'context' | 'flashcards' | 'studio' | 'audio' | 'research' | 'graph' | 'notebook' | 'excel' | 'ppt' | 'calendar';
 }
 
 export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
@@ -24,21 +24,6 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
     group: 'web',
   },
 
-  // Memory
-  {
-    id: 'memory_search',
-    label: 'Memory Search',
-    description: 'Busca en la memoria semántica del agente hechos, instrucciones y contexto previamente guardado. Útil para recuperar preferencias del usuario, decisiones pasadas y conocimiento acumulado.',
-    group: 'memory',
-  },
-  {
-    id: 'memory_get',
-    label: 'Memory Get',
-    description: 'Recupera un registro específico de la memoria del agente por su identificador. Permite acceder a fragmentos de conocimiento persistente almacenados en sesiones anteriores.',
-    group: 'memory',
-  },
-
-  // Resources
   {
     id: 'resource_search',
     label: 'Resource Search',
@@ -48,7 +33,13 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
   {
     id: 'resource_get',
     label: 'Resource Get',
-    description: 'Obtiene el contenido completo de un recurso por su ID: texto, transcripción, resumen y metadatos. Para PDFs retorna el árbol de secciones (PageIndex). Esencial antes de analizar un documento.',
+    description: 'Obtiene detalles de un recurso. Para PDFs indexados retorna solo la estructura (TOC con node_ids). Para notas y otros tipos retorna contenido completo. Usa resource_get_section para secciones específicas.',
+    group: 'resources',
+  },
+  {
+    id: 'resource_get_section',
+    label: 'Resource Get Section',
+    description: 'Obtiene el contenido (summary) de una sección específica de un PDF o nota indexada por node_id. Usar tras get_document_structure o resource_semantic_search.',
     group: 'resources',
   },
   {
@@ -327,7 +318,6 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
 
 const GROUP_LABELS: Record<ToolCatalogEntry['group'], string> = {
   web: 'Web',
-  memory: 'Memoria',
   resources: 'Recursos',
   context: 'Contexto',
   flashcards: 'Flashcards',

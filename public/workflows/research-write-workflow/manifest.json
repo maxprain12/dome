@@ -1,0 +1,73 @@
+{
+  "id": "research-write-workflow",
+  "name": "Research & Write",
+  "description": "Investiga un tema en la web y redacta un artículo completo y bien documentado.",
+  "longDescription": "Este workflow conecta un agente investigador con un agente escritor. Primero busca y analiza información relevante en la web, luego produce un artículo estructurado con citas. Ideal para posts de blog, artículos académicos e informes de investigación.",
+  "author": "Dome Team",
+  "version": "1.0.0",
+  "tags": ["research", "writing", "productivity"],
+  "featured": true,
+  "downloads": 0,
+  "createdAt": 1741737600000,
+  "estimatedTime": "~3 min",
+  "difficulty": "beginner",
+  "inputTypes": ["text"],
+  "outputType": "article",
+  "category": "research",
+  "useCases": [
+    "Redactar artículos académicos sobre un tema",
+    "Crear posts de blog documentados",
+    "Preparar informes de investigación"
+  ],
+  "nodes": [
+    {
+      "id": "rw-input",
+      "type": "textInput",
+      "position": { "x": 80, "y": 80 },
+      "data": { "type": "text-input", "label": "Tema a investigar", "value": "" }
+    },
+    {
+      "id": "rw-researcher",
+      "type": "agent",
+      "position": { "x": 80, "y": 240 },
+      "data": {
+        "type": "agent",
+        "label": "Investigador",
+        "agentId": null,
+        "systemAgentRole": "research",
+        "agentName": "Research Agent",
+        "agentIconIndex": 1,
+        "status": "idle",
+        "outputText": null,
+        "errorMessage": null
+      }
+    },
+    {
+      "id": "rw-writer",
+      "type": "agent",
+      "position": { "x": 80, "y": 420 },
+      "data": {
+        "type": "agent",
+        "label": "Escritor",
+        "agentId": null,
+        "systemAgentRole": "writer",
+        "agentName": "Writer Agent",
+        "agentIconIndex": 2,
+        "status": "idle",
+        "outputText": null,
+        "errorMessage": null
+      }
+    },
+    {
+      "id": "rw-output",
+      "type": "output",
+      "position": { "x": 80, "y": 600 },
+      "data": { "type": "output", "label": "Artículo Final", "content": null, "status": "idle" }
+    }
+  ],
+  "edges": [
+    { "id": "rw-e1", "source": "rw-input", "target": "rw-researcher" },
+    { "id": "rw-e2", "source": "rw-researcher", "target": "rw-writer" },
+    { "id": "rw-e3", "source": "rw-writer", "target": "rw-output" }
+  ]
+}

@@ -10,13 +10,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Technology Stack
 
-- **Runtime**: Bun for development/build, Node.js for Electron
+- **Runtime**: Bun for development/build, Node.js for Electron main process
 - **Desktop**: Electron 32 with strict security (contextIsolation, no nodeIntegration)
-- **Frontend**: Vite 7 + React 18 + React Router 7 (client-side SPA)
-- **Database**: SQLite (better-sqlite3 in main process)
+- **Frontend**: Vite 7 + React 18 + React Router 7 (client-side SPA, entry: `app/main.tsx`)
+- **Database**: SQLite via **better-sqlite3** (NOT bun:sqlite — Electron runs on Node.js)
 - **Vector DB**: LanceDB for semantic search
+- **AI**: LangChain + LangGraph for agent workflows; multi-provider (OpenAI, Anthropic, Google, Ollama)
 - **Editor**: Tiptap (Dome-native extensions in `app/lib/dome-editor/`)
-- **State**: Zustand stores + Jotai for atoms
+- **State**: Zustand stores + Jotai atoms
 - **Styling**: Tailwind CSS + CSS Variables + Mantine UI components
 - **Language**: TypeScript (strict mode)
 
@@ -24,24 +25,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Development (recommended)
-bun run electron:dev     # Start Vite dev server + Electron with hot reload
+bun run electron:dev            # Start Vite dev server + Electron with hot reload
 
 # Development (separate)
-bun run dev              # Vite dev server only (http://localhost:5173)
-bun run electron         # Electron only (must build Vite first)
+bun run dev                     # Vite dev server only (http://localhost:5173)
+bun run electron                # Electron only (must build Vite first)
 
 # Production Build
-bun run build            # Build Vite for production (output: dist/)
-bun run rebuild:natives  # Rebuild native modules for Electron
-bun run verify:natives   # Verify native modules are correctly compiled
-bun run electron:build   # Package Electron app for distribution (includes rebuild)
-bun run electron:build:verbose  # Verbose build output for debugging
+bun run build                   # Build Vite for production (output: dist/)
+bun run rebuild:natives         # Rebuild native modules for Electron
+bun run verify:natives          # Verify native modules are correctly compiled
+bun run electron:build          # Package Electron app for distribution (includes rebuild)
+bun run electron:build:verbose  # Same as above with DEBUG=electron-builder output
+bun run prepare:pageindex-runtime  # Bundle Python doc-indexing runtime (auto-runs in build)
 
 # Database & Testing
 bun run test:db          # Test database connection and queries
 
 # Utilities
 bun run clean            # Remove build artifacts and user data
+bun run copy:pdf-worker  # Copy pdfjs-dist worker to public/ (auto-runs in postinstall)
 bun run generate-icons   # Generate app icons
 bun run postinstall      # Install Electron native dependencies (runs automatically)
 ```
@@ -52,10 +55,11 @@ bun run postinstall      # Install Electron native dependencies (runs automatica
 
 **Main Process** (`electron/*.cjs`):
 - Has full Node.js/Electron API access
-- Manages SQLite database via better-sqlite3
+- Manages SQLite database via `better-sqlite3`
 - Handles file system operations
 - Creates and manages windows
-- Exposes safe APIs via IPC handlers
+- Executes AI agent workflows (LangGraph)
+- Exposes safe APIs via IPC handlers in `electron/ipc/`
 
 **Renderer Process** (`app/**/*.ts`, `app/**/*.tsx`):
 - Runs Vite + React application (entry: `app/main.tsx`)
@@ -68,7 +72,6 @@ bun run postinstall      # Install Electron native dependencies (runs automatica
 // ❌ NEVER do this in app/
 import Database from 'better-sqlite3';
 import fs from 'fs';
-const db = new Database('dome.db');
 ```
 
 **Example - CORRECT**:
@@ -83,272 +86,169 @@ const db = new Database(dbPath);
 
 ### IPC Communication Pattern
 
-All main process functionality is exposed via IPC channels:
+IPC handlers are organized in `electron/ipc/` (one file per domain). All channels must be whitelisted in `electron/preload.cjs` ALLOWED_CHANNELS.
 
-1. **Main Process** (`electron/main.cjs`): Define IPC handler
-```javascript
-ipcMain.handle('db:projects:getAll', async (event) => {
-  // Validate sender
-  if (!validateSender(event.sender)) {
-    throw new Error('Unauthorized');
-  }
+1. **IPC Handler** (`electron/ipc/<domain>.cjs`): Define the handler
+2. **Register** (`electron/ipc/index.cjs`): Import and register all handlers
+3. **Whitelist** (`electron/preload.cjs`): Add channel to ALLOWED_CHANNELS
+4. **Renderer** (`app/`): Call via `window.electron.invoke('channel', args)`
 
-  // Execute operation
-  const projects = database.getQueries().getProjects.all();
-  return projects;
-});
-```
-
-2. **Preload Script** (`electron/preload.cjs`): Add channel to whitelist
-```javascript
-const ALLOWED_CHANNELS = {
-  invoke: [
-    'db:projects:getAll',  // Add new channels here
-    // ...
-  ]
-};
-```
-
-3. **Renderer** (`app/`): Call via window.electron
-```typescript
-const projects = await window.electron.invoke('db:projects:getAll');
-```
+IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`, `calendar`, `chat`, `cloud-storage`, `database`, `dome-auth`, `files`, `flashcards`, `graph`, `images`, `interactions`, `links`, `marketplace`, `mcp`, `migration`, `note-export`, `notebook`, `ollama`, `pageindex`, `personality`, `plugins`, `resources`, `runs`, `storage`, `studio`, `sync`, `system`, `tags`, `updater`, `web`, `whatsapp`, `window`.
 
 ### Database Architecture
 
-**SQLite** (Relational):
-- Main relational data (projects, resources, sources, tags)
-- Metadata and relationships
+**SQLite** (`electron/database.cjs` via `better-sqlite3`):
+- Stored at `app.getPath('userData')/dome.db`
+- Key tables: `projects`, `resources`, `sources`, `tags`, `interactions`, `settings`
 - Full-text search via FTS5
-- Managed in `electron/database.cjs`
-- Accessed via IPC from renderer
+- Accessed via `db:*` IPC channels from renderer
 
 **LanceDB** (Vector):
 - Semantic search embeddings
-- Resource content vectors
-- AI-powered similarity search
 - Accessed via IPC from renderer
 
-**Key Tables**:
-- `projects`: Project organization
-- `resources`: Notes, PDFs, videos, audios, images, URLs, folders
-- `sources`: Academic citations and bibliography
-- `tags`: Resource tagging system
-- `interactions`: PDF annotations, comments
-- `settings`: User preferences and AI configuration
+### Custom Protocols
+
+- **`app://dome/`**: Production URL scheme (loads `dist/index.html`; dev loads `http://localhost:5173`)
+- **`dome://`**: OAuth callback deep links for MCP integrations (single-instance lock routes these to the correct handler)
 
 ## Code Organization
 
 ```
 dome/
 ├── electron/                    # Main Process (Node.js context)
-│   ├── main.cjs                # Entry point, IPC handlers, window management
-│   ├── preload.cjs             # contextBridge, whitelist IPC channels
+│   ├── main.cjs                # Entry point, window management, protocol handlers
+│   ├── preload.cjs             # contextBridge, IPC channel whitelist
 │   ├── database.cjs            # SQLite operations (better-sqlite3)
-│   ├── file-storage.cjs        # File system management
+│   ├── ipc/                    # IPC handlers organized by domain (~35 files)
 │   ├── window-manager.cjs      # Multi-window management
-│   ├── security.cjs            # Input validation, path sanitization
 │   ├── ai-cloud-service.cjs    # Cloud AI providers (OpenAI, Anthropic, Google)
+│   ├── langgraph-agent.cjs     # LangGraph agent execution
 │   ├── ai-tools-handler.cjs    # AI tool execution (web search, memory, etc.)
 │   ├── ollama-service.cjs      # Local Ollama integration
-│   ├── youtube-service.cjs     # YouTube metadata extraction
-│   ├── web-scraper.cjs         # Playwright web content extraction
-│   ├── thumbnail.cjs           # Image thumbnail generation
-│   ├── ppt-slide-extractor.cjs # PPTX slide extraction (hidden BrowserWindow)
-│   └── init.cjs                # App initialization and onboarding
+│   ├── automation-service.cjs  # Automation/scheduled task execution
+│   ├── run-engine.cjs          # Agent run execution engine
+│   ├── plugin-loader.cjs       # Plugin system
+│   ├── marketplace-config.cjs  # Plugin marketplace
+│   ├── pdf-extractor.cjs       # PDF text/page extraction
+│   ├── github-client.cjs       # GitHub API integration
+│   ├── crop-image.cjs          # Image cropping utilities
+│   ├── pageindex_bridge.py     # Python bridge for document indexing
+│   └── ppt-slide-extractor.cjs # PPTX slide extraction (hidden BrowserWindow)
 │
 ├── app/                         # Renderer Process (Browser context)
-│   ├── main.tsx                # Vite entry point
-│   ├── App.tsx                 # Root React component with Router
+│   ├── main.tsx                # Vite entry point (MantineProvider + BrowserRouter)
+│   ├── App.tsx                 # Root React component with Routes
 │   ├── pages/                  # React Router pages
-│   ├── components/             # React components
+│   ├── components/             # React components by feature
 │   │   ├── editor/             # Tiptap editor and extensions
 │   │   ├── viewers/            # PDF, Video, Audio, Image viewers
-│   │   ├── chat/               # AI chat interface (Many assistant)
-│   │   ├── CommandCenter/      # Cmd+K search palette
+│   │   ├── chat/               # Chat message rendering (ChatMessage, ChatToolCard)
+│   │   ├── many/               # "Many" AI assistant panel (ManyPanel, ManyFloatingButton)
+│   │   ├── agents/             # AI agent management views
+│   │   ├── agent-canvas/       # Visual workflow canvas (ReactFlow)
+│   │   ├── agent-team/         # Multi-agent team chat
+│   │   ├── automations/        # Automation rules and run logs UI
+│   │   ├── cloud/              # Cloud storage file picker
+│   │   ├── marketplace/        # Plugin marketplace UI
 │   │   ├── settings/           # Settings panels
-│   │   ├── workspace/          # Main workspace layout
-│   │   └── onboarding/         # First-run setup
+│   │   └── CommandCenter/      # Cmd+K search palette
 │   │
 │   ├── lib/
 │   │   ├── dome-editor/        # Dome's Tiptap extensions (MIT licensed)
 │   │   ├── ai/                 # AI client and provider adapters
-│   │   │   ├── client.ts       # Main AI client (unified interface)
-│   │   │   ├── providers/      # Provider implementations
-│   │   │   ├── tools/          # AI tool definitions
-│   │   │   └── catalogs/       # Model catalogs per provider
+│   │   │   ├── client.ts       # Main AI client (unified interface, multi-provider)
+│   │   │   ├── providers/      # Per-provider implementations
+│   │   │   ├── tools/          # AI tool definitions (web-fetch, resources, etc.)
+│   │   │   ├── catalogs/       # Model catalogs per provider
+│   │   │   └── models.ts       # Model definitions and capabilities
 │   │   │
 │   │   ├── db/
-│   │   │   └── client.ts       # IPC wrapper for database operations
+│   │   │   └── client.ts       # IPC wrapper for all database operations
 │   │   │
-│   │   ├── store/              # Zustand state management
-│   │   │   ├── useAppStore.ts  # Global app state
-│   │   │   ├── useUserStore.ts # User profile state
-│   │   │   └── useMartinStore.ts # Chat state (Many agent)
-│   │   │
-│   │   ├── utils/              # Utilities (pure functions only)
-│   │   ├── hooks/              # React hooks
-│   │   └── settings/           # Settings management
+│   │   ├── store/              # Zustand stores (one per feature domain)
+│   │   ├── automations/        # Automation trigger/action logic
+│   │   ├── marketplace/        # Marketplace loaders and catalog
+│   │   └── utils/              # Pure utility functions
 │   │
-│   ├── types/                  # TypeScript type definitions
-│   └── routes/                 # React Router configuration
+│   └── types/                  # TypeScript type definitions (global.d.ts has window.electron types)
 │
-├── public/                     # Static assets
-├── assets/                     # App icons, build assets
-└── scripts/                    # Build and utility scripts
+├── prompts/                     # System prompt templates (martin/tools.txt, etc.)
+├── public/
+│   ├── agents/                  # Agent definition JSON bundles (one dir per agent)
+│   ├── workflows/               # Workflow definition JSON files
+│   ├── skills/                  # Skill definition files
+│   ├── mcp/                     # MCP server config files
+│   └── agents.json / workflows.json / skills.json  # Catalogs for the above
+└── scripts/                     # Build and utility scripts
 ```
 
 ## Key Patterns
 
 ### Window Creation
 
-Windows are created via `windowManager.create(id, options, route)` in `electron/window-manager.cjs`. Routes are client-side SPA routes.
-
 ```javascript
-// Main process - create a new window
-windowManager.create('resource-viewer', {
-  width: 900,
-  height: 700,
-}, '/resource/123');
+// Main process - create a new window at a client-side route
+windowManager.create('resource-viewer', { width: 900, height: 700 }, '/resource/123');
 ```
 
 ### Dome Editor Library
 
-All Tiptap extensions are in `app/lib/dome-editor/` (Dome-owned, MIT licensed). The old `@docmost/editor-ext` package is replaced with this local library.
+All Tiptap extensions are in `app/lib/dome-editor/` (Dome-owned, MIT licensed). Aliased via `vite.config.ts` and `tsconfig.json`.
 
 - `verbatimModuleSyntax: true` in tsconfig means ALL type-only imports MUST use `import type { }`
 - If you get "does not provide export X" dev-server errors, change `import { X }` → `import type { X }` when X is a TS type/interface
 
-### PPT Slide Extraction
-
-PPT extraction uses Electron-native approach (no LibreOffice/poppler):
-- `electron/ppt-slide-extractor.cjs` creates a hidden 960×540 BrowserWindow
-- Hidden window loads `/ppt-capture` route → `app/pages/PptCapturePage.tsx`
-- Page exposes `window.__pptCapture.{init, renderSlide}` using pptx-preview library
-- Main process uses `executeJavaScript()` + `webContents.capturePage()` for screenshots
-
 ### AI Integration
 
-Dome supports multiple AI providers through a unified client interface:
+Multi-provider client with unified interface. Provider adapters in `app/lib/ai/providers/`. Tools defined in `app/lib/ai/tools/`. Heavy AI work (LangGraph agents, web search, MCP tool calls) runs in the main process via IPC.
 
 ```typescript
+// Renderer - use the unified AI client
 import { createAIClient } from '@/lib/ai/client';
 
-const client = createAIClient({
-  provider: 'anthropic',  // or 'openai', 'google', 'ollama', etc.
-  apiKey: 'sk-ant-...',
-  model: 'claude-3-5-sonnet-latest'
-});
-
-// Streaming chat
-const stream = await client.chat({
-  messages: [...],
-  tools: [...],
-  onChunk: (chunk) => { /* handle streaming */ }
-});
+// Main process - LangGraph agent workflows
+// electron/langgraph-agent.cjs uses @langchain/langgraph
 ```
 
-AI operations that require system access (web search, file operations) are executed in the main process via `electron/ai-tools-handler.cjs`.
+### PPT Slide Extraction
 
-### Resource Management
+`electron/ppt-slide-extractor.cjs` creates a hidden 960×540 BrowserWindow that loads `/ppt-capture` → `app/pages/PptCapturePage.tsx`. Main process uses `executeJavaScript()` + `webContents.capturePage()` for screenshots.
 
-All resources (notes, PDFs, videos, etc.) follow this pattern:
+### Automations & Run Engine
 
-1. **Create**: Insert metadata in SQLite via IPC
-2. **Store Files**: Save binary data via `electron/file-storage.cjs`
-3. **Generate Embeddings**: Create vectors for semantic search (LanceDB)
-4. **Link**: Associate with projects, tags, sources
+`electron/automation-service.cjs` manages scheduled/triggered automation rules. `electron/run-engine.cjs` executes individual agent runs (used by both automations and the Runs UI). Run state is persisted to SQLite and surfaced in `app/components/automations/RunLogView.tsx` via `runs` IPC domain.
+
+### Plugin System
+
+Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron/marketplace-config.cjs`. Renderer settings UI in `app/components/settings/PluginsSettings.tsx` and `MarketplaceSettings.tsx`.
 
 ## Build & Packaging
 
-### Development Build
-- Vite runs in dev mode on port 5173 with hot reload
-- Electron loads from `http://localhost:5173`
-- DevTools enabled
-
-### Production Build
-- Vite builds to `dist/` (static files)
-- Electron loads from `dist/index.html` via custom `app://dome/` protocol
-- electron-builder packages for macOS/Windows/Linux
-
-### Native Dependencies
-The following must be unpacked from asar (configured in package.json):
-- `better-sqlite3` (native SQLite bindings)
-- `sharp` (image processing)
-- `node-pty` (terminal)
-- `@napi-rs/canvas` (canvas rendering)
+- **Dev**: Vite on port 5173, Electron loads `http://localhost:5173`
+- **Prod**: Vite builds to `dist/`, Electron loads via `app://dome/` protocol
+- **Native modules** unpacked from asar: `better-sqlite3`, `sharp`, `node-pty`, `@napi-rs/canvas`, `archiver`, `yauzl`
+- **pageindex-runtime**: Python-based document indexing bundled via `scripts/prepare-pageindex-runtime.cjs`
 
 ## Security Requirements
 
-All code must follow Electron security best practices:
-
-1. **Context Isolation**: Always enabled (`contextIsolation: true`)
-2. **Node Integration**: Always disabled in renderer (`nodeIntegration: false`)
-3. **IPC Validation**: All IPC handlers must validate sender and inputs
-4. **Path Sanitization**: Use `sanitizePath()` for all file paths from renderer
-5. **URL Validation**: Use `validateUrl()` for external URLs
-6. **No Remote Module**: Never use remote module (deprecated)
-
-See `.claude/rules/electron-best-practices.md` for comprehensive security guidelines.
+1. `contextIsolation: true`, `nodeIntegration: false` on all windows
+2. All IPC channels validated against whitelist in `electron/preload.cjs`
+3. All IPC handlers must validate sender and sanitize inputs
+4. Use `sanitizePath()` for file paths from renderer
 
 ## Common Pitfalls
 
-1. **Importing Node.js in renderer**: Check if code is in `app/` - if yes, use IPC
-2. **SQLite in renderer**: Use `window.electron.invoke('db:...')` instead of direct database
-3. **File paths**: Always use IPC handlers, never access filesystem directly from renderer
-4. **Bun vs Node**: Electron runs on Node.js, not Bun (even though we use Bun for development)
-5. **better-sqlite3 vs bun:sqlite**: Use better-sqlite3 in Electron main process
-6. **Type-only imports**: Use `import type { }` due to `verbatimModuleSyntax: true`
-
-## Testing
-
-```bash
-# Test database operations
-bun run test:db
-
-# Manual testing in development
-bun run electron:dev
-# Then open DevTools in Electron window
-```
-
-## Production Troubleshooting
-
-If the production build is slow or features don't work:
-
-1. **Rebuild native modules:**
-```bash
-bun run rebuild:natives
-bun run verify:natives
-```
-
-2. **Check build output:**
-```bash
-# After electron:build, verify app.asar.unpacked exists
-ls -la release/mac/Dome.app/Contents/Resources/app.asar.unpacked/node_modules/
-# Should show better-sqlite3, sharp, node-pty
-```
-
-3. **Enable production debugging:**
-```bash
-# macOS - Open DevTools with Cmd+Shift+I
-# Windows/Linux - Open DevTools with Ctrl+Shift+I
-```
-
-4. **Check logs:**
-```bash
-# macOS
-~/Library/Logs/Dome/main.log
-# Windows
-%USERPROFILE%\AppData\Roaming\Dome\logs\main.log
-# Linux
-~/.config/Dome/logs/main.log
-```
+1. **`bun:sqlite` in Electron**: Electron runs Node.js, not Bun. Always use `better-sqlite3` in main process.
+2. **SQLite in renderer**: Use `window.electron.invoke('db:...')` — never import better-sqlite3 in `app/`
+3. **New IPC channel**: Must be added in both `electron/ipc/<domain>.cjs` AND `electron/preload.cjs` ALLOWED_CHANNELS
+4. **Type-only imports**: Use `import type { }` due to `verbatimModuleSyntax: true`
+5. **File paths**: Always use IPC handlers, never access filesystem directly from renderer
 
 ## Additional Documentation
 
-- `.claude/rules/architecture-rules.md` - Critical architecture rules (READ FIRST)
-- `.claude/rules/electron-best-practices.md` - Comprehensive Electron patterns
-- `.claude/rules/dome-style-guide.md` - Code style and conventions
-- `.claude/rules/ui-style-guidelines.md` - UI design system
-- `.claude/rules/new-color-palette.md` - Current color palette variables
-- `README.md` - User-facing documentation and features
+- `.claude/rules/architecture-rules.md` — Critical architecture rules
+- `.claude/rules/electron-best-practices.md` — Electron patterns and security
+- `.claude/rules/dome-style-guide.md` — Code style (note: references to "bun:sqlite" and "Next.js" in that file are outdated)
+- `.claude/rules/ui-style-guidelines.md` — UI design system
+- `.claude/rules/new-color-palette.md` — Current color palette variables

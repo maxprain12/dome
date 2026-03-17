@@ -1,0 +1,90 @@
+{
+  "id": "literature-review-pipeline",
+  "name": "Literature Review Pipeline",
+  "description": "Pipeline completo: busca literatura, la analiza y produce una revisión académica estructurada.",
+  "longDescription": "Automatiza el proceso de revisión de literatura en tres etapas: el investigador busca y recopila fuentes relevantes, el curador las organiza y filtra, y el escritor produce la revisión académica final con citas y síntesis temática.",
+  "author": "Dome Team",
+  "version": "1.0.0",
+  "tags": ["research", "academic", "writing"],
+  "featured": true,
+  "downloads": 0,
+  "createdAt": 1741737600000,
+  "estimatedTime": "~8 min",
+  "difficulty": "intermediate",
+  "inputTypes": ["text"],
+  "outputType": "report",
+  "category": "research",
+  "useCases": [
+    "Marco teórico para tesis doctoral",
+    "Estado del arte en artículos científicos",
+    "Revisión de evidencia para proyectos de investigación"
+  ],
+  "nodes": [
+    {
+      "id": "lr-input",
+      "type": "textInput",
+      "position": { "x": 80, "y": 80 },
+      "data": { "type": "text-input", "label": "Pregunta de investigación o tema", "value": "" }
+    },
+    {
+      "id": "lr-researcher",
+      "type": "agent",
+      "position": { "x": 80, "y": 240 },
+      "data": {
+        "type": "agent",
+        "label": "Buscador de Literatura",
+        "agentId": null,
+        "systemAgentRole": "research",
+        "agentName": "Literature Finder",
+        "agentIconIndex": 1,
+        "status": "idle",
+        "outputText": null,
+        "errorMessage": null
+      }
+    },
+    {
+      "id": "lr-curator",
+      "type": "agent",
+      "position": { "x": 80, "y": 420 },
+      "data": {
+        "type": "agent",
+        "label": "Curador y Analizador",
+        "agentId": null,
+        "systemAgentRole": "curator",
+        "agentName": "Literature Curator",
+        "agentIconIndex": 7,
+        "status": "idle",
+        "outputText": null,
+        "errorMessage": null
+      }
+    },
+    {
+      "id": "lr-writer",
+      "type": "agent",
+      "position": { "x": 80, "y": 600 },
+      "data": {
+        "type": "agent",
+        "label": "Redactor de Revisión",
+        "agentId": null,
+        "systemAgentRole": "writer",
+        "agentName": "Academic Writer",
+        "agentIconIndex": 2,
+        "status": "idle",
+        "outputText": null,
+        "errorMessage": null
+      }
+    },
+    {
+      "id": "lr-output",
+      "type": "output",
+      "position": { "x": 80, "y": 780 },
+      "data": { "type": "output", "label": "Revisión de Literatura", "content": null, "status": "idle" }
+    }
+  ],
+  "edges": [
+    { "id": "lr-e1", "source": "lr-input", "target": "lr-researcher" },
+    { "id": "lr-e2", "source": "lr-researcher", "target": "lr-curator" },
+    { "id": "lr-e3", "source": "lr-curator", "target": "lr-writer" },
+    { "id": "lr-e4", "source": "lr-writer", "target": "lr-output" }
+  ]
+}

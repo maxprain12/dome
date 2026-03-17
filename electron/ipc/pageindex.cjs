@@ -2,20 +2,22 @@
 /**
  * PageIndex IPC Handlers - Main Process
  *
- * Native JS implementation — no Python subprocess.
- * Uses doc-indexer.cjs for tree building and search.
+ * Python-backed PageIndex implementation with JS fallback.
+ * Uses pageindex-python.cjs to run the real PageIndex package in a subprocess.
  *
  * Channels:
- *   pageindex:index            - Index a resource (PDF or note)
+ *   pageindex:index            - Index a supported resource
  *   pageindex:search           - Reasoning-based search across indexed documents
  *   pageindex:status           - Overall stats (total indexed, etc.)
  *   pageindex:resource-status  - Status of a specific resource (processing/done/error)
  *   pageindex:delete           - Remove index for a resource
- *   pageindex:reindex          - Re-index all PDF resources (batch)
+ *   pageindex:reindex          - Re-index all supported resources (batch)
  *   pageindex:start            - No-op (kept for backwards compat, no service to start)
  */
 
-const docIndexer = require('../doc-indexer.cjs');
+const pageIndexRuntime = require('../pageindex-python.cjs');
+
+const INDEXABLE_TYPES = ['pdf', 'note', 'document', 'url', 'notebook', 'ppt', 'excel'];
 
 /**
  * @param {Object} deps
@@ -30,11 +32,16 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   // ---------------------------------------------------------------------------
   // pageindex:start — no-op (kept for backwards compat)
   // ---------------------------------------------------------------------------
-  ipcMain.handle('pageindex:start', (event) => {
+  ipcMain.handle('pageindex:start', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    return { success: true, message: 'Native JS indexer — no service to start' };
+    try {
+      await pageIndexRuntime.start();
+      return { success: true, message: 'PageIndex Python runner ready' };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 
   // ---------------------------------------------------------------------------
@@ -51,13 +58,15 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const indexed = stats?.total_indexed ?? 0;
       let total_indexable = 0;
       if (db) {
-        const row = db.prepare(`SELECT COUNT(*) as c FROM resources WHERE type IN ('pdf','note')`).get();
+        const row = db.prepare(
+          `SELECT COUNT(*) as c FROM resources WHERE type IN (${INDEXABLE_TYPES.map((type) => `'${type}'`).join(',')})`
+        ).get();
         total_indexable = row?.c ?? 0;
       }
       return {
         success: true,
         running: true,
-        provider: 'native-js',
+        provider: pageIndexRuntime.getRuntimeDescriptor?.() || 'python-subprocess',
         indexed_documents: indexed,
         total_indexable,
         unindexed: Math.max(0, total_indexable - indexed),
@@ -83,7 +92,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const queries = database.getQueries();
 
       // 1. Check in-memory state first (most up-to-date for active processing)
-      const memState = docIndexer.getState(resourceId);
+      const memState = pageIndexRuntime.getState(resourceId);
       if (memState) {
         return { success: true, resourceId, ...memState };
       }
@@ -130,7 +139,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // ---------------------------------------------------------------------------
-  // pageindex:index — generate tree for a resource (PDF or note)
+  // pageindex:index — generate tree for a supported resource
   // ---------------------------------------------------------------------------
   ipcMain.handle('pageindex:index', async (event, { resourceId } = {}) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -145,38 +154,18 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const resource = queries.getResourceById.get(resourceId);
 
       if (!resource) return { success: false, error: 'Resource not found' };
-
-      const indexerDeps = { database, windowManager };
-      const settingRow = queries.getSetting.get('ai_model');
-      const modelUsed = settingRow?.value || 'unknown';
-
-      let result;
-
-      if (resource.type === 'pdf') {
-        const internalPath = resource.internal_path;
-        if (!internalPath) return { success: false, error: 'Resource has no file path' };
-        const fullPath = fileStorage.getFullPath(internalPath);
-        if (!fullPath || !require('fs').existsSync(fullPath)) {
-          return { success: false, error: `PDF file not found at: ${fullPath}` };
-        }
-        result = await docIndexer.indexPDF(resourceId, fullPath, indexerDeps);
-
-      } else if (resource.type === 'note') {
-        const { tiptapToMarkdown } = require('../resource-indexer.cjs');
-        const markdown = tiptapToMarkdown(resource.content || '');
-        result = await docIndexer.indexMarkdown(resourceId, markdown, resource.title || '', indexerDeps);
-
-      } else {
+      if (!INDEXABLE_TYPES.includes(resource.type)) {
         return { success: false, error: `Unsupported type: ${resource.type}` };
       }
-
-      if (result.success && result.tree_json) {
-        queries.upsertPageIndex.run(resourceId, result.tree_json, Date.now(), modelUsed);
-        queries.deletePageIndexStatus?.run(resourceId);
-        return { success: true, resourceId };
+      const result = await pageIndexRuntime.indexResource(resourceId, { database, windowManager, fileStorage });
+      if (!result?.success) {
+        return { success: false, error: result?.error || 'Indexing failed' };
       }
-
-      return { success: false, error: result.error || 'Indexing failed' };
+      return {
+        success: true,
+        resourceId,
+        nodeCount: Number(result.node_count || 0),
+      };
 
     } catch (err) {
       console.error('[PageIndex IPC] index error:', err.message);
@@ -211,7 +200,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       }
 
       const treePayload = trees.map(t => ({ resource_id: t.resource_id, tree_json: t.tree_json }));
-      const searchResult = await docIndexer.search(query, treePayload, topK, database);
+      const searchResult = await pageIndexRuntime.search(query, treePayload, topK, database);
 
       if (!searchResult.success) return { success: false, error: searchResult.error || 'Search failed' };
 
@@ -222,9 +211,12 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           title: resource?.title || r.resource_id,
           type: resource?.type || 'pdf',
           project_id: resource?.project_id,
+          node_id: r.node_id,
           pages: r.pages,
+          page_range: r.page_range,
           text: r.text,
           node_title: r.node_title,
+          node_path: r.node_path,
           score: r.score,
         };
       });
@@ -273,7 +265,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         `SELECT r.id, r.type, r.internal_path, r.content, r.title
          FROM resources r
          LEFT JOIN resource_page_index pi ON r.id = pi.resource_id
-         WHERE r.type IN ('pdf','note') AND pi.resource_id IS NULL`
+         WHERE r.type IN (${INDEXABLE_TYPES.map((type) => `'${type}'`).join(',')}) AND pi.resource_id IS NULL`
       ).all();
 
       const total = resources.length;
@@ -296,30 +288,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
       for (let i = 0; i < resources.length; i++) {
         const res = resources[i];
-        const indexerDeps = { database, windowManager, title: res.title || '' };
-        const settingRow = queries.getSetting.get('ai_model');
-        const modelUsed = settingRow?.value || 'unknown';
-
         sendProgress(i, res, 'indexing');
 
         try {
-          let result;
-          if (res.type === 'pdf') {
-            if (!res.internal_path) { failed++; sendProgress(i + 1, res, 'skipped'); continue; }
-            const fullPath = fileStorage.getFullPath(res.internal_path);
-            if (!fullPath || !require('fs').existsSync(fullPath)) { failed++; sendProgress(i + 1, res, 'skipped'); continue; }
-            result = await docIndexer.indexPDF(res.id, fullPath, indexerDeps);
-          } else if (res.type === 'note') {
-            if (!res.content) { failed++; sendProgress(i + 1, res, 'skipped'); continue; }
-            const { tiptapToMarkdown } = require('../resource-indexer.cjs');
-            const markdown = tiptapToMarkdown(res.content);
-            if (!markdown.trim()) { failed++; sendProgress(i + 1, res, 'skipped'); continue; }
-            result = await docIndexer.indexMarkdown(res.id, markdown, res.title || '', indexerDeps);
-          }
-
-          if (result?.success && result.tree_json) {
-            queries.upsertPageIndex.run(res.id, result.tree_json, Date.now(), modelUsed);
-            queries.deletePageIndexStatus?.run(res.id);
+          const result = await pageIndexRuntime.indexResource(res.id, { database, windowManager, fileStorage });
+          if (result?.success) {
             indexed++;
             sendProgress(i + 1, res, 'done');
           } else {
@@ -345,7 +318,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // ---------------------------------------------------------------------------
-  // pageindex:reindex — re-index all PDF + note resources
+  // pageindex:reindex — re-index all supported resources
   // ---------------------------------------------------------------------------
   ipcMain.handle('pageindex:reindex', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -357,32 +330,18 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
       const queries = database.getQueries();
       const resources = db.prepare(
-        `SELECT id, type, internal_path, content, title FROM resources WHERE type IN ('pdf','note')`
+        `SELECT id, type, internal_path, content, title
+         FROM resources
+         WHERE type IN (${INDEXABLE_TYPES.map((type) => `'${type}'`).join(',')})`
       ).all();
 
       let indexed = 0;
       let failed = 0;
 
       for (const res of resources) {
-        const indexerDeps = { database, windowManager };
-        const settingRow = queries.getSetting.get('ai_model');
-        const modelUsed = settingRow?.value || 'unknown';
-        let result;
-
         try {
-          if (res.type === 'pdf') {
-            if (!res.internal_path) { failed++; continue; }
-            const fullPath = fileStorage.getFullPath(res.internal_path);
-            if (!fullPath || !require('fs').existsSync(fullPath)) { failed++; continue; }
-            result = await docIndexer.indexPDF(res.id, fullPath, indexerDeps);
-          } else if (res.type === 'note') {
-            if (!res.content) { failed++; continue; }
-            result = await docIndexer.indexMarkdown(res.id, res.content, res.title || '', indexerDeps);
-          }
-
-          if (result?.success && result.tree_json) {
-            queries.upsertPageIndex.run(res.id, result.tree_json, Date.now(), modelUsed);
-            queries.deletePageIndexStatus?.run(res.id);
+          const result = await pageIndexRuntime.indexResource(res.id, { database, windowManager, fileStorage });
+          if (result?.success) {
             indexed++;
           } else {
             failed++;

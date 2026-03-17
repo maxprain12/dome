@@ -3,12 +3,11 @@ import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import ManyChatHeader from './ManyChatHeader';
 import ManyChatInput from './ManyChatInput';
-import { useManyStore } from '@/lib/store/useManyStore';
+import { useManyStore, type ManyChatSession, type ManyMessage } from '@/lib/store/useManyStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import {
   getAIConfig,
   chatStream,
-  chatWithToolsStream,
   createManyToolsForContext,
   providerSupportsTools,
   toOpenAIToolDefinitions,
@@ -29,11 +28,20 @@ import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMes
 import ReadingIndicator from '@/components/chat/ReadingIndicator';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import { buildCitationMap } from '@/lib/utils/citations';
 import { db } from '@/lib/db/client';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
-import { inferMcpServerForTool, loadMcpServersSetting } from '@/lib/mcp/settings';
-import type { MCPServerConfig } from '@/types';
+import { loadMcpServersSetting } from '@/lib/mcp/settings';
+import {
+  abortRun,
+  getActiveRunBySession,
+  onRunChunk,
+  onRunUpdated,
+  resumeRun,
+  startLangGraphRun,
+  type PersistentRun,
+} from '@/lib/automations/api';
 
 const QUICK_PROMPTS_BASE = [
   'Summarize my current resource',
@@ -52,6 +60,11 @@ const STREAMING_LABELS: Record<string, string> = {
   call_library_agent: 'Consultando biblioteca',
   call_research_agent: 'Investigando',
 };
+
+const CHAT_CITATION_INSTRUCTION = `## Citation Guidance
+- When you use evidence from resource_semantic_search or resource_get, cite the supporting source inline as [1], [2], etc.
+- Reuse the numbering order from the most recent tool results in this answer.
+- Prefer one citation per concrete factual claim or paragraph grounded in the library.`;
 
 const APP_SECTION_GUIDE = `## Dome App Sections
 - Home > Library: browse folders and resources, open folders, and organize the main library.
@@ -76,12 +89,18 @@ const APP_SECTION_GUIDE = `## Dome App Sections
 - Studio links must use \`dome://studio/OUTPUT_ID/TYPE\`.
 - Never invent resource IDs, folder IDs, output IDs, or types. Use exact values from tool results only.`;
 
+const ENTITY_CREATION_RULES = `## Entity Creation (agent_create, workflow_create, automation_create)
+- **agent_create**: Always pass \`tool_ids\` — an agent without tools cannot work. Example: Noticiero needs ["web_fetch", "resource_create"]. After calling, your response MUST include the artifact block: \`\`\`artifact:created_entity (newline) {JSON from tool, strip ENTITY_CREATED: prefix} (newline) \`\`\`. This block renders the visual card. Without it, the user only sees plain text.
+- **workflow_create**: When workflow nodes reference custom agents, create those agents first with agent_create (including tool_ids!), then reference their ID in nodes.
+- **automation_create**: Dome has native automations. After creating an agent that could run recurrently (e.g. Noticiero), offer to create an automation. Never mention n8n or Make.`;
+
 interface ManyPanelProps {
   width: number;
   onClose: () => void;
+  isVisible: boolean;
 }
 
-export default function ManyPanel({ width, onClose }: ManyPanelProps) {
+export default function ManyPanel({ width, onClose, isVisible }: ManyPanelProps) {
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const {
@@ -93,12 +112,14 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     startNewChat,
     switchSession,
     deleteSession,
+    hydrateSession,
     sessions,
     currentSessionId,
     currentResourceId,
     currentResourceTitle,
     petPromptOverride,
     whatsappConnected,
+    pinnedResources,
   } = useManyStore();
   const currentFolderId = useAppStore((s) => s.currentFolderId);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
@@ -112,6 +133,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
   const [supportsTools, setSupportsTools] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
   const [pendingApproval, setPendingApproval] = useState<{
     actionRequests: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
@@ -126,6 +148,10 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
   const pendingApprovalRef = useRef<HTMLDivElement>(null);
   const hitlDecisionsRef = useRef<Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }> | null>(null);
   const isSubmittingRef = useRef(false);
+  const currentSession = useMemo(
+    () => sessions.find((session) => session.id === currentSessionId) ?? null,
+    [sessions, currentSessionId],
+  );
 
   const effectiveResourceId =
     currentResourceId ||
@@ -139,7 +165,8 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           config.provider === 'ollama'
             ? (config.ollamaModel || 'default')
             : (config.model || 'default');
-        setProviderInfo(`${config.provider} / ${model}`);
+        const displayInfo = model.startsWith(`${config.provider}/`) ? config.provider : `${config.provider} / ${model}`;
+        setProviderInfo(displayInfo);
         setSupportsTools(providerSupportsTools(config.provider as AIProviderType));
       } else {
         setProviderInfo('Not configured');
@@ -176,6 +203,242 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     };
     loadMemory();
   }, []);
+
+  useEffect(() => {
+    if (!currentSessionId || !db.isAvailable()) {
+      return;
+    }
+
+    let cancelled = false;
+    void db.getChatSession(currentSessionId).then((result) => {
+      if (cancelled || !result.success || !result.data) {
+        return;
+      }
+
+      const persistedMessages: ManyMessage[] = result.data.messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        timestamp: message.created_at,
+        toolCalls: message.tool_calls ?? undefined,
+        thinking: message.thinking ?? undefined,
+      }));
+
+      const shouldHydrate =
+        !currentSession ||
+        persistedMessages.length > currentSession.messages.length ||
+        (persistedMessages.length === currentSession.messages.length &&
+          persistedMessages[persistedMessages.length - 1]?.id !== currentSession.messages[currentSession.messages.length - 1]?.id);
+
+      if (!shouldHydrate) {
+        return;
+      }
+
+      hydrateSession({
+        id: currentSessionId,
+        title: result.data.title || currentSession?.title || 'New chat',
+        messages: persistedMessages,
+        createdAt: currentSession?.createdAt ?? result.data.messages[0]?.created_at ?? Date.now(),
+      } satisfies ManyChatSession);
+    }).catch((error) => {
+      console.warn('[Many] Could not hydrate session from DB:', error);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSessionId, currentSession, hydrateSession]);
+
+  const refreshSessionFromDb = useCallback(async () => {
+    if (!currentSessionId || !db.isAvailable()) {
+      return;
+    }
+    const result = await db.getChatSession(currentSessionId);
+    if (!result.success || !result.data) {
+      return;
+    }
+    hydrateSession({
+      id: currentSessionId,
+      title: result.data.title || currentSession?.title || 'New chat',
+      messages: result.data.messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        timestamp: message.created_at,
+        toolCalls: message.tool_calls ?? undefined,
+        thinking: message.thinking ?? undefined,
+      })),
+      createdAt: currentSession?.createdAt ?? result.data.messages[0]?.created_at ?? Date.now(),
+    } satisfies ManyChatSession);
+  }, [currentSession, currentSessionId, hydrateSession]);
+
+  const applyRunSnapshot = useCallback((run: PersistentRun | null) => {
+    if (!run) {
+      setActiveRunId(null);
+      return;
+    }
+    setActiveRunId(run.id);
+    if (run.status === 'waiting_approval') {
+      const pending = run.metadata?.pendingApproval as
+        | {
+            actionRequests?: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
+            reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
+          }
+        | undefined;
+      if (pending?.actionRequests && pending.reviewConfigs) {
+        setPendingApproval({
+          actionRequests: pending.actionRequests,
+          reviewConfigs: pending.reviewConfigs,
+          submitResume: (decisions) => {
+            hitlDecisionsRef.current = decisions;
+            void resumeRun(run.id, decisions as Array<unknown>);
+          },
+        });
+      }
+    } else {
+      setPendingApproval(null);
+    }
+    if (['queued', 'running', 'waiting_approval'].includes(run.status)) {
+      setIsLoading(true);
+      setStatus('thinking');
+      setStreamingMessage((prev) => ({
+        id: prev?.id || `run-${run.id}`,
+        role: 'assistant',
+        content: run.outputText || '',
+        timestamp: run.updatedAt || Date.now(),
+        isStreaming: run.status !== 'waiting_approval',
+        toolCalls: prev?.toolCalls || [],
+        streamingLabel: run.status === 'waiting_approval' ? 'Esperando aprobación...' : (prev?.streamingLabel || 'Ejecutando en background...'),
+      }));
+      return;
+    }
+    setIsLoading(false);
+    setStatus('idle');
+    setStreamingMessage(null);
+    setPendingApproval(null);
+  }, [setStatus]);
+
+  useEffect(() => {
+    if (!currentSessionId) {
+      setActiveRunId(null);
+      return;
+    }
+    let cancelled = false;
+    void getActiveRunBySession(currentSessionId)
+      .then((run) => {
+        if (!cancelled) {
+          applyRunSnapshot(run);
+        }
+      })
+      .catch((error) => {
+        console.warn('[Many] Could not load active run:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyRunSnapshot, currentSessionId]);
+
+  useEffect(() => {
+    if (!activeRunId) {
+      return;
+    }
+    const unsubUpdated = onRunUpdated(({ run }) => {
+      if (run.id !== activeRunId) {
+        return;
+      }
+      applyRunSnapshot(run);
+      if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+        setActiveRunId(null);
+        void refreshSessionFromDb();
+        if (run.status === 'completed') {
+          window.dispatchEvent(new Event('dome:resources-changed'));
+        }
+      }
+    });
+    const unsubChunk = onRunChunk((payload) => {
+      if (payload.runId !== activeRunId) {
+        return;
+      }
+      if (payload.type === 'text' && payload.text) {
+        setStreamingMessage((prev) =>
+          prev
+            ? { ...prev, content: `${prev.content || ''}${payload.text}` }
+            : {
+                id: `run-${payload.runId}`,
+                role: 'assistant',
+                content: payload.text,
+                timestamp: Date.now(),
+                isStreaming: true,
+                toolCalls: [],
+                streamingLabel: 'Ejecutando en background...',
+              },
+        );
+      } else if (payload.type === 'thinking' && payload.text) {
+        setStreamingMessage((prev) => (prev ? { ...prev, thinking: `${prev.thinking || ''}${payload.text}` } : prev));
+      } else if (payload.type === 'tool_call' && payload.toolCall) {
+        const args = (() => {
+          try {
+            return typeof payload.toolCall?.arguments === 'string'
+              ? JSON.parse(payload.toolCall.arguments)
+              : {};
+          } catch {
+            return {};
+          }
+        })();
+        setStreamingMessage((prev) => {
+          const nextToolCalls = [
+            ...(prev?.toolCalls || []),
+            {
+              id: payload.toolCall.id,
+              name: payload.toolCall.name,
+              arguments: args,
+              status: 'running',
+            },
+          ];
+          return prev
+            ? {
+                ...prev,
+                toolCalls: nextToolCalls,
+                streamingLabel: `${STREAMING_LABELS[payload.toolCall.name || ''] || payload.toolCall.name || 'Herramienta'}...`,
+              }
+            : {
+                id: `run-${payload.runId}`,
+                role: 'assistant',
+                content: '',
+                timestamp: Date.now(),
+                isStreaming: true,
+                toolCalls: nextToolCalls,
+                streamingLabel: `${payload.toolCall.name}...`,
+              };
+        });
+      } else if (payload.type === 'tool_result' && payload.toolCallId) {
+        setStreamingMessage((prev) => {
+          if (!prev?.toolCalls) {
+            return prev;
+          }
+          return {
+            ...prev,
+            toolCalls: prev.toolCalls.map((call) =>
+              call.id === payload.toolCallId ? { ...call, status: 'success', result: payload.result } : call,
+            ),
+          };
+        });
+      } else if (payload.type === 'interrupt' && payload.actionRequests && payload.reviewConfigs) {
+        setPendingApproval({
+          actionRequests: payload.actionRequests,
+          reviewConfigs: payload.reviewConfigs,
+          submitResume: (decisions) => {
+            hitlDecisionsRef.current = decisions;
+            void resumeRun(payload.runId, decisions as Array<unknown>);
+          },
+        });
+      }
+    });
+    return () => {
+      unsubUpdated();
+      unsubChunk();
+    };
+  }, [activeRunId, applyRunSnapshot, refreshSessionFromDb]);
 
   const setMcpEnabled = useCallback(async (value: boolean) => {
     setMcpEnabledState(value);
@@ -223,7 +486,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     }
   }, []);
 
-  const buildSystemPrompt = useCallback(() => {
+  const buildSystemPrompt = useCallback(async () => {
     if (petPromptOverride) {
       return petPromptOverride;
     }
@@ -244,9 +507,40 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       currentResourceId: effectiveResourceId,
       currentResourceTitle: currentResourceTitle || null,
     })}`;
+    prompt += `\n\n${CHAT_CITATION_INSTRUCTION}`;
     if (userMemory) {
       prompt += `\n\n## What I know about you\n${userMemory}`;
     }
+
+    // Inject pinned resource content
+    if (pinnedResources.length > 0 && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
+      const pinnedIds = pinnedResources.map((r) => r.id);
+      let pinnedBlock = '\n\n## Pinned Context Resources\nThe following resources have been added to context by the user. Use their content directly — do NOT call resource_get or resource_search for these IDs unless you need pages not shown here.\n';
+      for (const resource of pinnedResources) {
+        try {
+          const result = await window.electron.ai.tools.resourceGet(resource.id, {
+            includeContent: true,
+            maxContentLength: 5000,
+          });
+          if (result?.success && result?.resource) {
+            const r = result.resource;
+            const content = r.content || r.summary || r.transcription || r.metadata?.summary || '';
+            pinnedBlock += `\n### [${resource.title}] (id: ${resource.id}, type: ${resource.type})\n`;
+            if (content?.trim()) {
+              pinnedBlock += content.slice(0, 5000);
+              if (content.length > 5000) pinnedBlock += '\n[Content truncated]';
+            } else {
+              pinnedBlock += '(No content available)';
+            }
+          }
+        } catch {
+          pinnedBlock += `\n### [${resource.title}] (id: ${resource.id})\n(Could not load content)`;
+        }
+      }
+      prompt += pinnedBlock;
+      prompt += `\n\n> Already loaded resource IDs (skip fetching): ${pinnedIds.join(', ')}`;
+    }
+
     return prompt;
   }, [
     currentFolderId,
@@ -255,6 +549,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     homeSidebarSection,
     pathname,
     petPromptOverride,
+    pinnedResources,
     userMemory,
     whatsappConnected,
   ]);
@@ -290,19 +585,10 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     scrollToBottom(true);
 
     let fullResponse = '';
-    let toolCallsData: ToolCallData[] = [];
     let fullThinking = '';
     let chatSuccess = true;
     let providerForAnalytics: string | null = null;
-    let configuredMcpServers: MCPServerConfig[] = [];
-    const pendingTraceEntries: Array<{
-      type: 'tool_call' | 'tool_result' | 'decision' | 'interrupt';
-      toolName?: string | null;
-      toolArgs?: Record<string, unknown>;
-      result?: unknown;
-      mcpServerId?: string | null;
-      decision?: string | null;
-    }> = [];
+    let delegatedToRunEngine = false;
 
     try {
       const config = await getAIConfig();
@@ -325,7 +611,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         return;
       }
 
-      let systemPrompt = buildSystemPrompt();
+      let systemPrompt = await buildSystemPrompt();
       let contentInjected = false;
 
       if (effectiveResourceId && isSummarizeRequest(userMessage) && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
@@ -384,6 +670,14 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         }
       }
 
+      // Note: pinned resource content is already injected into systemPrompt via buildSystemPrompt().
+      // Build a compact pinnedBlock for the tools path supervisor prompt too.
+      let pinnedBlock = '';
+      if (pinnedResources.length > 0) {
+        const alreadyInjectedNote = pinnedResources.map((r) => `"${r.title}" (id: ${r.id})`).join(', ');
+        pinnedBlock = `\n\n> Context resources already loaded by user — do NOT re-fetch: ${alreadyInjectedNote}`;
+      }
+
       const useToolsForThisRequest = useToolsStream && (isSummarizeRequest(userMessage) ? !contentInjected : true);
       providerForAnalytics = config.provider;
       capturePostHog(ANALYTICS_EVENTS.AI_CHAT_STARTED, {
@@ -398,7 +692,9 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       ];
 
       if (useToolsForThisRequest) {
-        configuredMcpServers = mcpEnabled ? await loadMcpServersSetting() : [];
+        if (mcpEnabled) {
+          await loadMcpServersSetting();
+        }
         const context = getUiLocationDescription(pathname || '/', homeSidebarSection);
         const now = new Date();
         const supervisorPrompt = buildMartinSupervisorPrompt({
@@ -425,10 +721,9 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           },
           undefined
         );
-        const tools: AnyAgentTool[] = []; // Subagents architecture: main agent uses subagent-invocation tools (built in main process)
         const memoryBlock = userMemory ? `\n\n## What I know about you\n${userMemory}` : '';
         const toolsMessages = [
-          { role: 'system', content: supervisorPrompt + '\n\n' + APP_SECTION_GUIDE + '\n\n' + uiContextBlock + memoryBlock + (skillsBlock || '') + toolHint },
+          { role: 'system', content: supervisorPrompt + '\n\n' + APP_SECTION_GUIDE + '\n\n' + ENTITY_CREATION_RULES + '\n\n' + uiContextBlock + memoryBlock + (skillsBlock || '') + toolHint + pinnedBlock },
           ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
           { role: 'user', content: userMessage },
         ];
@@ -443,10 +738,8 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           streamingLabel: 'Ejecutando herramientas...',
         });
 
-        let mutatingToolsUsed = false;
         const threadId = `many_${effectiveResourceId || 'global'}_${Date.now()}`;
 
-        // Persist session and user message for traceability
         let dbSessionId: string | null = null;
         if (db.isAvailable() && currentSessionId) {
           try {
@@ -473,144 +766,24 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
           }
         }
 
-        for await (const chunk of chatWithToolsStream(toolsMessages, tools, {
-          signal: controller.signal,
-          threadId,
+        const run = await startLangGraphRun({
+          ownerType: 'many',
+          ownerId: currentSessionId || `many-${Date.now()}`,
+          title: userMessage.slice(0, 80) || 'Many run',
+          sessionId: dbSessionId,
+          contextId: effectiveResourceId ?? null,
+          sessionTitle: currentSession?.title || null,
+          messages: toolsMessages,
+          toolDefinitions: [],
+          toolIds: capabilityRuntime.subagentIds.map((subagentId) => `call_${subagentId}_agent`),
           mcpServerIds: capabilityRuntime.mcpServerIds,
           subagentIds: capabilityRuntime.subagentIds,
-        })) {
-          if (chunk.type === 'thinking' && chunk.text) {
-            fullThinking += chunk.text;
-            setStreamingMessage((prev) => (prev ? { ...prev, thinking: fullThinking } : null));
-          } else if (chunk.type === 'text' && chunk.text) {
-            fullResponse += chunk.text;
-            setStreamingMessage((prev) => (prev ? { ...prev, content: fullResponse, toolCalls: toolCallsData } : null));
-          } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-            const args = (() => {
-              try {
-                return typeof chunk.toolCall.arguments === 'string'
-                  ? JSON.parse(chunk.toolCall.arguments)
-                  : chunk.toolCall.arguments || {};
-              } catch {
-                return {};
-              }
-            })();
-            const tc: ToolCallData = {
-              id: chunk.toolCall.id,
-              name: chunk.toolCall.name,
-              arguments: args,
-              status: 'running',
-            };
-            toolCallsData.push(tc);
-            const mcpServer = inferMcpServerForTool(configuredMcpServers, chunk.toolCall.name);
-            pendingTraceEntries.push({
-              type: 'tool_call',
-              toolName: chunk.toolCall.name,
-              toolArgs: args,
-              mcpServerId: mcpServer?.name ?? null,
-            });
-            if (['resource_create', 'resource_update', 'resource_delete', 'resource_move_to_folder', 'call_writer_agent', 'call_library_agent', 'notebook_add_cell', 'notebook_update_cell', 'notebook_delete_cell', 'ppt_create', 'excel_create'].includes(chunk.toolCall.name?.toLowerCase?.())) {
-              mutatingToolsUsed = true;
-            }
-            const toolLabel = STREAMING_LABELS[chunk.toolCall.name || ''] || chunk.toolCall.name?.replace(/_/g, ' ') || 'Ejecutando...';
-            setStreamingMessage((prev) => (prev ? { ...prev, toolCalls: [...toolCallsData], streamingLabel: `${toolLabel}...` } : null));
-          } else if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
-            const entry = toolCallsData.find((t) => t.id === chunk.toolCallId);
-            if (entry) {
-              entry.status = 'success';
-              entry.result = chunk.result;
-            }
-            if (entry) {
-              const mcpServer = inferMcpServerForTool(configuredMcpServers, entry.name);
-              pendingTraceEntries.push({
-                type: 'tool_result',
-                toolName: entry.name,
-                result: chunk.result,
-                mcpServerId: mcpServer?.name ?? null,
-              });
-            }
-            setStreamingMessage((prev) => (prev ? { ...prev, toolCalls: [...toolCallsData] } : null));
-          } else if (chunk.type === 'done') {
-            setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
-            setPendingApproval(null);
-            // Persist assistant message with toolCalls and thinking for traceability
-            if (dbSessionId && db.isAvailable() && (fullResponse || pendingTraceEntries.length > 0 || toolCallsData.length > 0)) {
-              try {
-                const hitlDecisions = hitlDecisionsRef.current;
-                if (hitlDecisions && hitlDecisions.length > 0) {
-                  for (const d of hitlDecisions) {
-                    pendingTraceEntries.push({
-                      type: 'decision',
-                      decision: d.type,
-                      toolArgs: d.type === 'edit' ? d.editedAction : undefined,
-                    });
-                  }
-                  hitlDecisionsRef.current = null;
-                }
-                const messageResult = await db.addChatMessage({
-                  sessionId: dbSessionId,
-                  role: 'assistant',
-                  content: fullResponse,
-                  toolCalls: toolCallsData.length > 0 ? toolCallsData : undefined,
-                  thinking: fullThinking || undefined,
-                  metadata: {
-                    toolIds: [],
-                    mcpServerIds: capabilityRuntime.mcpServerIds ?? [],
-                    mode: 'many',
-                    ...(hitlDecisions && hitlDecisions.length > 0 ? { hitlDecisions } : {}),
-                  },
-                });
-                const messageId = messageResult.success && messageResult.data ? messageResult.data.id : null;
-                for (const trace of pendingTraceEntries) {
-                  await db.appendChatTrace({
-                    sessionId: dbSessionId,
-                    messageId,
-                    type: trace.type,
-                    toolName: trace.toolName,
-                    toolArgs: trace.toolArgs,
-                    result: trace.result,
-                    mcpServerId: trace.mcpServerId,
-                    decision: trace.decision,
-                  });
-                }
-              } catch (e) {
-                console.warn('[Many] Could not persist assistant message to DB:', e);
-              }
-            }
-          } else if (chunk.type === 'interrupt' && chunk.actionRequests && chunk.reviewConfigs) {
-            setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
-            pendingTraceEntries.push({
-              type: 'interrupt',
-              toolName: chunk.actionRequests[0]?.name ?? 'interrupt',
-              toolArgs: {
-                actionRequests: chunk.actionRequests,
-                reviewConfigs: chunk.reviewConfigs,
-              },
-            });
-            const origSubmitResume = chunk.submitResume ?? (() => {});
-            setPendingApproval({
-              actionRequests: chunk.actionRequests,
-              reviewConfigs: chunk.reviewConfigs,
-              submitResume: (decisions) => {
-                hitlDecisionsRef.current = decisions;
-                origSubmitResume(decisions);
-              },
-            });
-          } else if (chunk.type === 'error') {
-            throw new Error(chunk.error);
-          }
-        }
-        if (mutatingToolsUsed) {
-          window.dispatchEvent(new Event('dome:resources-changed'));
-        }
-        if (fullResponse) {
-          addMessage({
-            role: 'assistant',
-            content: fullResponse,
-            toolCalls: toolCallsData.length > 0 ? toolCallsData : undefined,
-            thinking: fullThinking || undefined,
-          });
-        }
+          threadId,
+        });
+        delegatedToRunEngine = true;
+        setAbortController(null);
+        setActiveRunId(run.id);
+        applyRunSnapshot(run);
       } else {
         const toolDefs =
           toolsEnabled && activeTools.length > 0 && supportsTools
@@ -649,7 +822,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         showToast('error', `Many: ${msg}`);
       }
     } finally {
-      if (providerForAnalytics) {
+      if (providerForAnalytics && !delegatedToRunEngine) {
         capturePostHog(ANALYTICS_EVENTS.AI_CHAT_COMPLETED, {
           success: chatSuccess,
           provider: providerForAnalytics,
@@ -657,11 +830,13 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
         });
       }
       isSubmittingRef.current = false;
-      setIsLoading(false);
-      setStatus('idle');
-      setStreamingMessage(null);
-      setPendingApproval(null);
-      setAbortController(null);
+      if (!delegatedToRunEngine) {
+        setIsLoading(false);
+        setStatus('idle');
+        setStreamingMessage(null);
+        setPendingApproval(null);
+        setAbortController(null);
+      }
       inputRef.current?.focus();
     }
   }, [
@@ -683,8 +858,12 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
   ]);
 
   const handleAbort = useCallback(() => {
+    if (activeRunId) {
+      void abortRun(activeRunId);
+      return;
+    }
     if (abortController) abortController.abort();
-  }, [abortController]);
+  }, [abortController, activeRunId]);
 
   const handleSaveAsNote = useCallback(async (content: string) => {
     try {
@@ -725,22 +904,30 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
 
   const chatMessages: ChatMessageData[] = useMemo(
     () =>
-      messages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        timestamp: m.timestamp,
-        toolCalls: m.toolCalls?.map((toolCall) => ({
+      messages.map((m) => {
+        const toolCalls = m.toolCalls?.map((toolCall) => ({
           ...toolCall,
           status: toolCall.status ?? 'success',
-        })) as ToolCallData[] | undefined,
-        thinking: m.thinking,
-      })),
+        })) as ToolCallData[] | undefined;
+
+        return {
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+          toolCalls,
+          citationMap: buildCitationMap(toolCalls),
+          thinking: m.thinking,
+        };
+      }),
     [messages],
   );
 
   const messageGroups = useMemo(() => {
-    const all = streamingMessage ? [...chatMessages, streamingMessage] : chatMessages;
+    const liveStreamingMessage = streamingMessage
+      ? { ...streamingMessage, citationMap: buildCitationMap(streamingMessage.toolCalls) }
+      : null;
+    const all = liveStreamingMessage ? [...chatMessages, liveStreamingMessage] : chatMessages;
     return groupMessagesByRole(all);
   }, [chatMessages, streamingMessage]);
 
@@ -776,11 +963,15 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
     <div
       className="flex flex-col h-full overflow-hidden shrink-0 border-l"
       style={{
-        width: `${width}px`,
-        minWidth: 320,
-        maxWidth: 600,
+        width: isVisible ? `${width}px` : '0px',
+        minWidth: isVisible ? 320 : 0,
+        maxWidth: isVisible ? 600 : 0,
         background: 'var(--bg)',
         borderColor: 'var(--border)',
+        borderLeftWidth: isVisible ? undefined : '0px',
+        opacity: isVisible ? 1 : 0,
+        pointerEvents: isVisible ? 'auto' : 'none',
+        transition: 'width 180ms ease, opacity 140ms ease',
       }}
     >
       <ManyChatHeader
@@ -799,7 +990,7 @@ export default function ManyPanel({ width, onClose }: ManyPanelProps) {
       />
 
       <div
-        className="many-panel-messages flex-1 overflow-y-auto px-4 pt-4 pb-10 space-y-5 min-h-0"
+        className="many-panel-messages flex-1 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-10 space-y-5 min-h-0"
       >
         {chatMessages.length === 0 && !streamingMessage ? (
           <div className="py-10 text-center">

@@ -54,6 +54,12 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     disabled: !DOME_PROVIDER_ENABLED,
   },
   {
+    value: 'minimax',
+    label: PROVIDERS.minimax.name,
+    description: 'MiniMax M2.5 via Anthropic-compatible API. Requires sk-cp-... key.',
+    icon: Zap,
+  },
+  {
     value: 'ollama',
     label: PROVIDERS.ollama.name,
     description: PROVIDERS.ollama.description + '. Requires Ollama installed.',

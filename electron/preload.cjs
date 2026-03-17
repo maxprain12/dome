@@ -103,6 +103,20 @@ const ALLOWED_CHANNELS = {
     'db:chat:getSessionsGlobal',
     'db:chat:addMessage',
     'db:chat:appendTrace',
+    // Runs and automations
+    'runs:get',
+    'runs:list',
+    'runs:getActiveBySession',
+    'runs:startLangGraph',
+    'runs:startWorkflow',
+    'runs:resume',
+    'runs:abort',
+    'runs:delete',
+    'automations:get',
+    'automations:list',
+    'automations:upsert',
+    'automations:delete',
+    'automations:runNow',
     // Database - Links
     'db:links:create',
     'db:links:getBySource',
@@ -167,6 +181,11 @@ const ALLOWED_CHANNELS = {
     'web:scrape',
     'web:get-youtube-thumbnail',
     'web:save-screenshot',
+    // Image processing
+    'image:crop',
+    'image:resize',
+    'image:thumbnail',
+    'image:metadata',
     'web:process',
     // Ollama
     'ollama:check-availability',
@@ -198,6 +217,7 @@ const ALLOWED_CHANNELS = {
     'auth:validate',
     // Dome provider OAuth
     'domeauth:startOAuthFlow',
+    'domeauth:openDashboard',
     'domeauth:getSession',
     'domeauth:disconnect',
     // Personality Loader
@@ -222,8 +242,14 @@ const ALLOWED_CHANNELS = {
     // AI Tools (for Many agent)
     'ai:tools:resourceSearch',
     'ai:tools:resourceGet',
+    'ai:tools:resourceGetSection',
     'ai:tools:resourceList',
     'ai:tools:resourceSemanticSearch',
+    'ai:tools:pdfExtractText',
+    'ai:tools:pdfGetMetadata',
+    'ai:tools:pdfGetStructure',
+    'ai:tools:pdfSummarize',
+    'ai:tools:pdfExtractTables',
     'ai:tools:projectList',
     'ai:tools:projectGet',
     'ai:tools:interactionList',
@@ -235,6 +261,9 @@ const ALLOWED_CHANNELS = {
     'ai:tools:resourceUpdate',
     'ai:tools:resourceDelete',
     'ai:tools:resourceMoveToFolder',
+    'ai:tools:importFileToLibrary',
+    // Resource import from content (for MCP agent tool)
+    'resource:importFromContent',
     // AI Tools - Flashcards
     'ai:tools:flashcardCreate',
     // AI Tools - Document Structure
@@ -342,6 +371,31 @@ const ALLOWED_CHANNELS = {
     'plugin:uninstall',
     'plugin:setEnabled',
     'plugin:read-asset',
+    // Cloud Storage (Google Drive + OneDrive)
+    'cloud:get-accounts',
+    'cloud:auth-google',
+    'cloud:auth-onedrive',
+    'cloud:disconnect',
+    'cloud:list-files',
+    'cloud:import-file',
+    // Marketplace
+    'marketplace:fetch-all',
+    'marketplace:fetch-agents',
+    'marketplace:fetch-workflows',
+    'marketplace:fetch-mcp',
+    'marketplace:fetch-skills',
+    'marketplace:fetch-plugins',
+    'marketplace:get-config',
+    'marketplace:update-config',
+    'marketplace:refresh',
+    'marketplace:rate-limit',
+    'marketplace:install-plugin',
+    'marketplace:install-skill',
+    'marketplace:uninstall-skill',
+    // Docling cloud conversion
+    'docling:convert-resource',
+    'docling:get-resource-images',
+    'docling:get-image-data',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -401,6 +455,14 @@ const ALLOWED_CHANNELS = {
     'calendar:eventsUpdated',
     'calendar:syncStatus',
     'calendar:upcoming',
+    // Persistent runs
+    'runs:updated',
+    'runs:step',
+    'runs:chunk',
+    // Cloud Storage OAuth result
+    'cloud:auth-result',
+    // Docling cloud conversion progress
+    'docling:progress',
   ],
 };
 
@@ -624,6 +686,7 @@ const electronHandler = {
   // ============================================
   domeAuth: {
     startOAuthFlow: () => ipcRenderer.invoke('domeauth:startOAuthFlow'),
+    openDashboard: () => ipcRenderer.invoke('domeauth:openDashboard'),
     getSession: () => ipcRenderer.invoke('domeauth:getSession'),
     disconnect: () => ipcRenderer.invoke('domeauth:disconnect'),
   },
@@ -638,6 +701,25 @@ const electronHandler = {
     uninstall: (pluginId) => ipcRenderer.invoke('plugin:uninstall', pluginId),
     setEnabled: (pluginId, enabled) => ipcRenderer.invoke('plugin:setEnabled', pluginId, enabled),
     readAsset: (pluginId, relativePath) => ipcRenderer.invoke('plugin:read-asset', pluginId, relativePath),
+  },
+
+  // ============================================
+  // MARKETPLACE API
+  // ============================================
+  marketplace: {
+    fetchAll: () => ipcRenderer.invoke('marketplace:fetch-all'),
+    fetchAgents: () => ipcRenderer.invoke('marketplace:fetch-agents'),
+    fetchWorkflows: () => ipcRenderer.invoke('marketplace:fetch-workflows'),
+    fetchMcp: () => ipcRenderer.invoke('marketplace:fetch-mcp'),
+    fetchSkills: () => ipcRenderer.invoke('marketplace:fetch-skills'),
+    fetchPlugins: () => ipcRenderer.invoke('marketplace:fetch-plugins'),
+    getConfig: () => ipcRenderer.invoke('marketplace:get-config'),
+    updateConfig: (config) => ipcRenderer.invoke('marketplace:update-config', config),
+    refresh: () => ipcRenderer.invoke('marketplace:refresh'),
+    getRateLimit: () => ipcRenderer.invoke('marketplace:rate-limit'),
+    installPlugin: () => ipcRenderer.invoke('marketplace:install-plugin'),
+    installSkill: () => ipcRenderer.invoke('marketplace:install-skill'),
+    uninstallSkill: (skillId) => ipcRenderer.invoke('marketplace:uninstall-skill', skillId),
   },
 
   // ============================================
@@ -794,6 +876,84 @@ const electronHandler = {
   },
 
   // ============================================
+  // RUNS AND AUTOMATIONS API
+  // ============================================
+  runs: {
+    get: (runId) => ipcRenderer.invoke('runs:get', runId),
+    list: (filters) => ipcRenderer.invoke('runs:list', filters),
+    getActiveBySession: (sessionId) => ipcRenderer.invoke('runs:getActiveBySession', sessionId),
+    startLangGraph: (params) => ipcRenderer.invoke('runs:startLangGraph', params),
+    startWorkflow: (params) => ipcRenderer.invoke('runs:startWorkflow', params),
+    resume: (runId, decisions) => ipcRenderer.invoke('runs:resume', { runId, decisions }),
+    abort: (runId) => ipcRenderer.invoke('runs:abort', runId),
+    delete: (runId) => ipcRenderer.invoke('runs:delete', runId),
+    onUpdated: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('runs:updated', subscription);
+      return () => ipcRenderer.removeListener('runs:updated', subscription);
+    },
+    onStep: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('runs:step', subscription);
+      return () => ipcRenderer.removeListener('runs:step', subscription);
+    },
+    onChunk: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('runs:chunk', subscription);
+      return () => ipcRenderer.removeListener('runs:chunk', subscription);
+    },
+  },
+
+  automations: {
+    get: (automationId) => ipcRenderer.invoke('automations:get', automationId),
+    list: (filters) => ipcRenderer.invoke('automations:list', filters),
+    upsert: (automation) => ipcRenderer.invoke('automations:upsert', automation),
+    delete: (automationId) => ipcRenderer.invoke('automations:delete', automationId),
+    runNow: (automationId) => ipcRenderer.invoke('automations:runNow', automationId),
+  },
+
+  // ============================================
+  // CLOUD STORAGE API (Google Drive + OneDrive)
+  // ============================================
+  cloud: {
+    getAccounts: () => ipcRenderer.invoke('cloud:get-accounts'),
+    authGoogle: () => ipcRenderer.invoke('cloud:auth-google'),
+    authOneDrive: () => ipcRenderer.invoke('cloud:auth-onedrive'),
+    disconnect: (accountId) => ipcRenderer.invoke('cloud:disconnect', { accountId }),
+    listFiles: (params) => ipcRenderer.invoke('cloud:list-files', params),
+    importFile: (params) => ipcRenderer.invoke('cloud:import-file', params),
+    onAuthResult: (callback) => {
+      const subscription = (event, data) => callback(data);
+      ipcRenderer.on('cloud:auth-result', subscription);
+      return () => ipcRenderer.removeListener('cloud:auth-result', subscription);
+    },
+  },
+
+  // ============================================
+  // DOCLING CLOUD CONVERSION API
+  // ============================================
+  docling: {
+    // Convert a resource file via Docling cloud service (requires Dome Pro)
+    convertResource: (resourceId) =>
+      ipcRenderer.invoke('docling:convert-resource', { resourceId }),
+
+    // Get all stored images extracted from a resource's Docling conversion
+    getResourceImages: (resourceId) =>
+      ipcRenderer.invoke('docling:get-resource-images', { resourceId }),
+
+    // Get base64 image data for a specific stored image
+    getImageData: (imageId) =>
+      ipcRenderer.invoke('docling:get-image-data', { imageId }),
+
+    // Listen for conversion progress events
+    onProgress: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('docling:progress', subscription);
+      return () => ipcRenderer.removeListener('docling:progress', subscription);
+    },
+  },
+
+  // ============================================
   // WORKSPACE API
   // ============================================
   workspace: {
@@ -859,6 +1019,10 @@ const electronHandler = {
     // Schedule indexing for resource (used when workspace opens - e.g. URL articles with scraped_content)
     scheduleIndex: (resourceId) =>
       ipcRenderer.invoke('resource:scheduleIndex', resourceId),
+
+    // Import file content directly (used by AI agents that read files via MCP servers)
+    importFromContent: (args) =>
+      ipcRenderer.invoke('resource:importFromContent', args),
   },
 
   // ============================================
@@ -958,6 +1122,23 @@ const electronHandler = {
   },
 
   // ============================================
+  // IMAGE PROCESSING
+  // ============================================
+  image: {
+    // Crop an image
+    crop: (options) => ipcRenderer.invoke('image:crop', options),
+
+    // Resize an image
+    resize: (options) => ipcRenderer.invoke('image:resize', options),
+
+    // Generate thumbnail
+    thumbnail: (options) => ipcRenderer.invoke('image:thumbnail', options),
+
+    // Get image metadata
+    metadata: (filePath) => ipcRenderer.invoke('image:metadata', filePath),
+  },
+
+  // ============================================
   // AI CLOUD API (OpenAI, Anthropic, Google)
   // ============================================
   ai: {
@@ -1007,6 +1188,10 @@ const electronHandler = {
       resourceGet: (resourceId, options) =>
         ipcRenderer.invoke('ai:tools:resourceGet', { resourceId, options }),
 
+      // Get a specific section of an indexed PDF/note by node_id
+      resourceGetSection: (resourceId, nodeId) =>
+        ipcRenderer.invoke('ai:tools:resourceGetSection', { resourceId, nodeId }),
+
       // List resources with optional filters
       resourceList: (options) =>
         ipcRenderer.invoke('ai:tools:resourceList', { options }),
@@ -1014,6 +1199,18 @@ const electronHandler = {
       // Semantic search using embeddings
       resourceSemanticSearch: (query, options) =>
         ipcRenderer.invoke('ai:tools:resourceSemanticSearch', { query, options }),
+
+      // PDF extraction tools
+      pdfExtractText: (resourceId, options) =>
+        ipcRenderer.invoke('ai:tools:pdfExtractText', { resourceId, options }),
+      pdfGetMetadata: (resourceId) =>
+        ipcRenderer.invoke('ai:tools:pdfGetMetadata', { resourceId }),
+      pdfGetStructure: (resourceId) =>
+        ipcRenderer.invoke('ai:tools:pdfGetStructure', { resourceId }),
+      pdfSummarize: (resourceId, options) =>
+        ipcRenderer.invoke('ai:tools:pdfSummarize', { resourceId, options }),
+      pdfExtractTables: (resourceId) =>
+        ipcRenderer.invoke('ai:tools:pdfExtractTables', { resourceId }),
 
       // List all projects
       projectList: () =>
@@ -1050,6 +1247,10 @@ const electronHandler = {
 
       resourceMoveToFolder: (resourceId, folderId) =>
         ipcRenderer.invoke('ai:tools:resourceMoveToFolder', { resourceId, folderId }),
+
+      // Import file content (for agents using MCP file servers)
+      importFileToLibrary: (args) =>
+        ipcRenderer.invoke('ai:tools:importFileToLibrary', args),
 
       // Flashcard creation (for AI-generated study decks)
       flashcardCreate: (data) =>

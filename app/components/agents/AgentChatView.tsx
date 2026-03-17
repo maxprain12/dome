@@ -7,7 +7,6 @@ import { getManyAgentById } from '@/lib/agents/api';
 import { useAgentChatStore } from '@/lib/store/useAgentChatStore';
 import {
   getAIConfig,
-  chatWithToolsStream,
   createToolsForAgent,
   toOpenAIToolDefinitions,
   providerSupportsTools,
@@ -19,9 +18,18 @@ import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMes
 import ReadingIndicator from '@/components/chat/ReadingIndicator';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import { buildCitationMap } from '@/lib/utils/citations';
 import AgentChatInput from './AgentChatInput';
-import { inferMcpServerForTool, loadMcpServersSetting } from '@/lib/mcp/settings';
-import type { MCPServerConfig } from '@/types';
+import { ChevronLeft } from 'lucide-react';
+import { loadMcpServersSetting } from '@/lib/mcp/settings';
+import {
+  abortRun,
+  getActiveRunBySession,
+  onRunChunk,
+  onRunUpdated,
+  startLangGraphRun,
+  type PersistentRun,
+} from '@/lib/automations/api';
 
 const RESOURCE_LINK_INSTRUCTION = `
 When mentioning a resource (document, note, PDF, video, etc.) that the user can open, ALWAYS use this format: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, document, excel, ppt, video, audio, image, folder.
@@ -37,10 +45,13 @@ For PDFs, when a specific page is relevant (e.g. after pdf_annotation_create, or
 
 When mentioning a Studio output (mindmap, quiz, guide, FAQ, timeline, table, flashcards, audio, video, research), format it as: [Ver: Title](dome://studio/OUTPUT_ID/TYPE).
 
-ALWAYS include a dome:// link in your response when you create any element via tools (resource_create, flashcard_create, pdf_annotation_create, etc.) so the user can open it. Exception: elements from Studio tile buttons are shown automatically, so no link needed in that context.`;
+ALWAYS include a dome:// link in your response when you create any element via tools (resource_create, flashcard_create, pdf_annotation_create, etc.) so the user can open it. Exception: elements from Studio tile buttons are shown automatically, so no link needed in that context.
+
+When you use evidence from resource_semantic_search or resource_get, cite the supporting source inline as [1], [2], etc. Reuse the numbering order from the latest tool results in the same answer.`;
 
 interface AgentChatViewProps {
   agentId: string;
+  onBack?: () => void;
 }
 
 const THINKING_LABELS = [
@@ -77,12 +88,13 @@ const TOOL_LABELS: Record<string, string> = {
   pdf_annotation_create: 'Creando anotación en PDF...',
 };
 
-export default function AgentChatView({ agentId }: AgentChatViewProps) {
+export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const [agent, setAgent] = useState<ManyAgent | null>(null);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
   const [providerInfo, setProviderInfo] = useState('');
   const [supportsTools, setSupportsTools] = useState(false);
@@ -107,6 +119,7 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
     deleteSession,
     sessions,
     currentSessionId,
+    hydrateSession,
   } = useAgentChatStore();
 
   useEffect(() => {
@@ -132,6 +145,165 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
     };
     load();
   }, []);
+
+  const refreshSessionFromDb = useCallback(async () => {
+    if (!currentSessionId || !db.isAvailable()) {
+      return;
+    }
+    const result = await db.getChatSession(currentSessionId);
+    if (!result.success || !result.data) {
+      return;
+    }
+    hydrateSession({
+      id: currentSessionId,
+      title: result.data.title || agent?.name || 'New chat',
+      messages: result.data.messages.map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        timestamp: message.created_at,
+        toolCalls: message.tool_calls ?? undefined,
+        thinking: message.thinking ?? undefined,
+      })),
+      createdAt: result.data.messages[0]?.created_at ?? Date.now(),
+    });
+  }, [agent?.name, currentSessionId, hydrateSession]);
+
+  const applyRunSnapshot = useCallback((run: PersistentRun | null) => {
+    if (!run) {
+      setActiveRunId(null);
+      return;
+    }
+    setActiveRunId(run.id);
+    if (['queued', 'running', 'waiting_approval'].includes(run.status)) {
+      setIsLoading(true);
+      setStatus('thinking');
+      setStreamingMessage((prev) => ({
+        id: prev?.id || `run-${run.id}`,
+        role: 'assistant',
+        content: run.outputText || '',
+        timestamp: run.updatedAt || Date.now(),
+        isStreaming: run.status !== 'waiting_approval',
+        toolCalls: prev?.toolCalls || [],
+        streamingLabel: prev?.streamingLabel || 'Procesando en background...',
+      }));
+      return;
+    }
+    setIsLoading(false);
+    setStatus('idle');
+    setStreamingMessage(null);
+  }, [setStatus]);
+
+  useEffect(() => {
+    if (!currentSessionId) {
+      setActiveRunId(null);
+      return;
+    }
+    let cancelled = false;
+    void getActiveRunBySession(currentSessionId).then((run) => {
+      if (!cancelled) {
+        applyRunSnapshot(run);
+      }
+    }).catch((error) => {
+      console.warn('[AgentChat] Could not load active run:', error);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyRunSnapshot, currentSessionId]);
+
+  useEffect(() => {
+    if (!activeRunId) {
+      return;
+    }
+    const unsubUpdated = onRunUpdated(({ run }) => {
+      if (run.id !== activeRunId) {
+        return;
+      }
+      applyRunSnapshot(run);
+      if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+        setActiveRunId(null);
+        void refreshSessionFromDb();
+        if (run.status === 'completed') {
+          window.dispatchEvent(new Event('dome:resources-changed'));
+        }
+      }
+    });
+    const unsubChunk = onRunChunk((payload) => {
+      if (payload.runId !== activeRunId) {
+        return;
+      }
+      if (payload.type === 'text' && payload.text) {
+        setStreamingMessage((prev) =>
+          prev
+            ? { ...prev, content: `${prev.content || ''}${payload.text}` }
+            : {
+                id: `run-${payload.runId}`,
+                role: 'assistant',
+                content: payload.text,
+                timestamp: Date.now(),
+                isStreaming: true,
+                toolCalls: [],
+                streamingLabel: 'Procesando en background...',
+              },
+        );
+      } else if (payload.type === 'thinking' && payload.text) {
+        setStreamingMessage((prev) => (prev ? { ...prev, thinking: `${prev.thinking || ''}${payload.text}` } : prev));
+      } else if (payload.type === 'tool_call' && payload.toolCall) {
+        const args = (() => {
+          try {
+            return typeof payload.toolCall.arguments === 'string'
+              ? JSON.parse(payload.toolCall.arguments)
+              : {};
+          } catch {
+            return {};
+          }
+        })();
+        setStreamingMessage((prev) => {
+          const nextToolCalls = [
+            ...(prev?.toolCalls || []),
+            {
+              id: payload.toolCall.id,
+              name: payload.toolCall.name,
+              arguments: args,
+              status: 'running',
+            },
+          ];
+          return prev
+            ? {
+                ...prev,
+                toolCalls: nextToolCalls,
+                streamingLabel: `${TOOL_LABELS[payload.toolCall.name || ''] || payload.toolCall.name || 'Herramienta'}...`,
+              }
+            : {
+                id: `run-${payload.runId}`,
+                role: 'assistant',
+                content: '',
+                timestamp: Date.now(),
+                isStreaming: true,
+                toolCalls: nextToolCalls,
+                streamingLabel: `${payload.toolCall.name}...`,
+              };
+        });
+      } else if (payload.type === 'tool_result' && payload.toolCallId) {
+        setStreamingMessage((prev) => {
+          if (!prev?.toolCalls) {
+            return prev;
+          }
+          return {
+            ...prev,
+            toolCalls: prev.toolCalls.map((call) =>
+              call.id === payload.toolCallId ? { ...call, status: 'success', result: payload.result } : call,
+            ),
+          };
+        });
+      }
+    });
+    return () => {
+      unsubUpdated();
+      unsubChunk();
+    };
+  }, [activeRunId, applyRunSnapshot, refreshSessionFromDb]);
 
   const scrollToBottom = useCallback(
     (force = false) => {
@@ -247,15 +419,7 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
     scrollToBottom(true);
 
     let fullResponse = '';
-    let toolCallsData: ToolCallData[] = [];
-    let configuredMcpServers: MCPServerConfig[] = [];
-    const pendingTraceEntries: Array<{
-      type: 'tool_call' | 'tool_result';
-      toolName?: string | null;
-      toolArgs?: Record<string, unknown>;
-      result?: unknown;
-      mcpServerId?: string | null;
-    }> = [];
+    let delegatedToRunEngine = false;
 
     try {
       const config = await getAIConfig();
@@ -275,7 +439,9 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
       ];
 
       if (useToolsStream) {
-        configuredMcpServers = enabledMcpIds.length > 0 ? await loadMcpServersSetting() : [];
+        if (enabledMcpIds.length > 0) {
+          await loadMcpServersSetting();
+        }
         setStreamingMessage({
           id: `streaming-${Date.now()}`,
           role: 'assistant',
@@ -287,9 +453,7 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
         });
 
         const threadId = `agent_${agentId}_${Date.now()}`;
-        let fullThinking = '';
 
-        // Persist session and user message for traceability
         let dbSessionId: string | null = null;
         if (db.isAvailable() && currentSessionId) {
           try {
@@ -317,119 +481,24 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
           }
         }
 
-        for await (const chunk of chatWithToolsStream(apiMessages, activeTools, {
-          signal: controller.signal,
+        const run = await startLangGraphRun({
+          ownerType: 'agent',
+          ownerId: agentId,
+          title: `${agent.name}: ${userMessage.slice(0, 60)}`,
+          sessionId: dbSessionId,
+          contextId: agentId,
+          sessionTitle: agent.name,
+          messages: apiMessages,
+          toolDefinitions: toolDefs,
+          toolIds: agent.toolIds ?? [],
+          mcpServerIds: enabledMcpIds,
           threadId,
           skipHitl: true,
-          mcpServerIds: enabledMcpIds.length > 0 ? enabledMcpIds : undefined,
-        })) {
-          if (chunk.type === 'thinking' && chunk.text) {
-            fullThinking += chunk.text;
-          } else if (chunk.type === 'text' && chunk.text) {
-            fullResponse += chunk.text;
-            setStreamingMessage((prev) =>
-              prev ? { ...prev, content: fullResponse, toolCalls: toolCallsData } : null
-            );
-          } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-            const args = (() => {
-              try {
-                return typeof chunk.toolCall.arguments === 'string'
-                  ? JSON.parse(chunk.toolCall.arguments)
-                  : chunk.toolCall.arguments || {};
-              } catch {
-                return {};
-              }
-            })();
-            const tc: ToolCallData = {
-              id: chunk.toolCall.id,
-              name: chunk.toolCall.name,
-              arguments: args,
-              status: 'running',
-            };
-            toolCallsData.push(tc);
-            const mcpServer = inferMcpServerForTool(configuredMcpServers, chunk.toolCall.name);
-            pendingTraceEntries.push({
-              type: 'tool_call',
-              toolName: chunk.toolCall.name,
-              toolArgs: args,
-              mcpServerId: mcpServer?.name ?? null,
-            });
-            const friendlyLabel =
-              TOOL_LABELS[chunk.toolCall.name] ??
-              `${chunk.toolCall.name?.replace(/_/g, ' ')}...`;
-            setStreamingMessage((prev) =>
-              prev
-                ? {
-                  ...prev,
-                  toolCalls: [...toolCallsData],
-                  streamingLabel: friendlyLabel,
-                }
-                : null
-            );
-          } else if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
-            const entry = toolCallsData.find((t) => t.id === chunk.toolCallId);
-            if (entry) {
-              entry.status = 'success';
-              entry.result = chunk.result;
-            }
-            if (entry) {
-              const mcpServer = inferMcpServerForTool(configuredMcpServers, entry.name);
-              pendingTraceEntries.push({
-                type: 'tool_result',
-                toolName: entry.name,
-                result: chunk.result,
-                mcpServerId: mcpServer?.name ?? null,
-              });
-            }
-            setStreamingMessage((prev) =>
-              prev ? { ...prev, toolCalls: [...toolCallsData] } : null
-            );
-          } else if (chunk.type === 'done') {
-            setStreamingMessage((prev) =>
-              prev ? { ...prev, isStreaming: false } : null
-            );
-            // Persist assistant message with toolCalls and thinking for traceability
-            if (dbSessionId && db.isAvailable() && (fullResponse || pendingTraceEntries.length > 0 || toolCallsData.length > 0)) {
-              try {
-                const messageResult = await db.addChatMessage({
-                  sessionId: dbSessionId,
-                  role: 'assistant',
-                  content: fullResponse,
-                  toolCalls: toolCallsData.length > 0 ? toolCallsData : undefined,
-                  thinking: fullThinking || undefined,
-                  metadata: {
-                    toolIds: agent?.toolIds ?? [],
-                    mcpServerIds: enabledMcpIds,
-                  },
-                });
-                const messageId = messageResult.success && messageResult.data ? messageResult.data.id : null;
-                for (const trace of pendingTraceEntries) {
-                  await db.appendChatTrace({
-                    sessionId: dbSessionId,
-                    messageId,
-                    type: trace.type,
-                    toolName: trace.toolName,
-                    toolArgs: trace.toolArgs,
-                    result: trace.result,
-                    mcpServerId: trace.mcpServerId,
-                  });
-                }
-              } catch (e) {
-                console.warn('[AgentChat] Could not persist assistant message to DB:', e);
-              }
-            }
-          } else if (chunk.type === 'error') {
-            throw new Error(chunk.error);
-          }
-        }
-        if (fullResponse) {
-          addMessage({
-            role: 'assistant',
-            content: fullResponse,
-            toolCalls: toolCallsData.length > 0 ? toolCallsData : undefined,
-            thinking: fullThinking || undefined,
-          });
-        }
+        });
+        delegatedToRunEngine = true;
+        setAbortController(null);
+        setActiveRunId(run.id);
+        applyRunSnapshot(run);
       } else {
         const { chatStream } = await import('@/lib/ai');
         setStreamingMessage({
@@ -469,10 +538,12 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
       }
     } finally {
       isSubmittingRef.current = false;
-      setIsLoading(false);
-      setStatus('idle');
-      setStreamingMessage(null);
-      setAbortController(null);
+      if (!delegatedToRunEngine) {
+        setIsLoading(false);
+        setStatus('idle');
+        setStreamingMessage(null);
+        setAbortController(null);
+      }
       inputRef.current?.focus();
     }
   }, [
@@ -493,27 +564,39 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
   ]);
 
   const handleAbort = useCallback(() => {
+    if (activeRunId) {
+      void abortRun(activeRunId);
+      return;
+    }
     if (abortController) abortController.abort();
-  }, [abortController]);
+  }, [abortController, activeRunId]);
 
   const chatMessages: ChatMessageData[] = useMemo(
     () =>
-      messages.map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content,
-        timestamp: m.timestamp,
-        toolCalls: m.toolCalls?.map((toolCall) => ({
+      messages.map((m) => {
+        const toolCalls = m.toolCalls?.map((toolCall) => ({
           ...toolCall,
           status: toolCall.status ?? 'success',
-        })) as ToolCallData[] | undefined,
-        thinking: m.thinking,
-      })),
+        })) as ToolCallData[] | undefined;
+
+        return {
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+          toolCalls,
+          citationMap: buildCitationMap(toolCalls),
+          thinking: m.thinking,
+        };
+      }),
     [messages]
   );
 
   const messageGroups = useMemo(() => {
-    const all = streamingMessage ? [...chatMessages, streamingMessage] : chatMessages;
+    const liveStreamingMessage = streamingMessage
+      ? { ...streamingMessage, citationMap: buildCitationMap(streamingMessage.toolCalls) }
+      : null;
+    const all = liveStreamingMessage ? [...chatMessages, liveStreamingMessage] : chatMessages;
     return groupMessagesByRole(all);
   }, [chatMessages, streamingMessage]);
 
@@ -542,6 +625,16 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
         style={{ borderBottom: '1px solid var(--dome-border)', background: 'var(--dome-surface)' }}
       >
         <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-[var(--dome-surface)] transition-colors shrink-0"
+              title="Volver"
+            >
+              <ChevronLeft className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+            </button>
+          )}
           <div
             className="w-8 h-8 rounded-xl overflow-hidden shrink-0"
             style={{ background: 'var(--dome-accent-bg)' }}
@@ -577,7 +670,7 @@ export default function AgentChatView({ agentId }: AgentChatViewProps) {
       {/* Scrollable messages area - fixed in middle */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overscroll-contain px-5 py-5 flex flex-col gap-5"
+        className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-5 py-5 flex flex-col gap-5"
       >
         {chatMessages.length === 0 && !streamingMessage ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center">

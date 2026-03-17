@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Tag, Settings, HelpCircle, WalletCards, Sparkles, Bot, Calendar, Store, Workflow } from 'lucide-react';
+import { Home, Tag, Settings, HelpCircle, WalletCards, Sparkles, Bot, Calendar, Store, Zap } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { getManyAgents } from '@/lib/agents/api';
 import { getAgentTeams } from '@/lib/agent-team/api';
@@ -10,7 +10,7 @@ import type { ManyAgent, AgentTeam } from '@/types';
 import AgentOnboarding from '@/components/agents/AgentOnboarding';
 import { startDomeTour } from '@/lib/tour/domeTour';
 
-type SidebarSection = 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams';
+type SidebarSection = 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | 'automations-hub';
 
 type NavAction = 'navigate' | 'section';
 
@@ -81,14 +81,18 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
     { id: 'studio', label: 'Studio', icon: <Sparkles className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'studio' },
     { id: 'flashcards', label: 'Flashcards', icon: <WalletCards className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'flashcards' },
     { id: 'tags', label: 'Tags', icon: <Tag className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'tags' },
-    { id: 'agents', label: 'Agentes', icon: <Bot className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'agents' },
     {
-      id: 'agent-teams',
-      label: 'Workflows',
-      icon: <Workflow className="w-5 h-5" strokeWidth={1.5} />,
+      id: 'automations-hub',
+      label: 'Agentes & Flows',
+      icon: <Zap className="w-5 h-5" strokeWidth={1.5} />,
       action: 'section',
-      section: 'agent-teams',
-      isActive: (s) => s === 'agent-teams' || s.toString().startsWith('workflow:'),
+      section: 'automations-hub',
+      isActive: (s) =>
+        s === 'automations-hub' ||
+        s === 'agents' ||
+        s === 'agent-teams' ||
+        s.toString().startsWith('agent:') ||
+        s.toString().startsWith('workflow:'),
     },
     { id: 'marketplace', label: 'Marketplace', icon: <Store className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'marketplace' },
   ];

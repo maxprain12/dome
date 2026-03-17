@@ -184,6 +184,12 @@ function PageEditor({
   });
   const editorIsReady = Boolean(editor && editor.isInitialized);
 
+  // Track if cursor/selection is on a link — used to suppress all other menus
+  const isLinkActive = useEditorState({
+    editor,
+    selector: (ctx) => ctx.editor?.isActive("link") ?? false,
+  });
+
 
 
   return (
@@ -197,16 +203,16 @@ function PageEditor({
 
         {editor && editorIsEditable && editorIsReady && (
           <div>
-            <EditorBubbleMenu editor={editor} />
-            <TableMenu editor={editor} />
+            {!isLinkActive && <EditorBubbleMenu editor={editor} />}
+            {!isLinkActive && <TableMenu editor={editor} />}
             <TableCellMenu
               editor={editor}
               appendTo={menuContainerRef}
             />
             <ImageMenu editor={editor} />
             <VideoMenu editor={editor} />
-            <CalloutMenu editor={editor} />
-            <ColumnsMenu editor={editor} />
+            {!isLinkActive && <CalloutMenu editor={editor} />}
+            {!isLinkActive && <ColumnsMenu editor={editor} />}
             <LinkMenu editor={editor} appendTo={menuContainerRef} />
           </div>
         )}

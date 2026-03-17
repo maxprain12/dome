@@ -10,7 +10,9 @@ export interface DomePluginManifest {
   version: string;
   minDomeVersion?: string;
   repo?: string;
-  type?: 'pet';
+  type?: 'pet' | 'view';
+  entry?: string;
+  permissions?: Array<'resources' | 'settings' | 'calendar' | 'projects'>;
   sprites?: Record<string, string | string[]>;
 }
 

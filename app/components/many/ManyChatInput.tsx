@@ -1,7 +1,9 @@
+
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Database, Search, Send, StopCircle, Plug2 } from 'lucide-react';
+import { Database, Search, Send, StopCircle, Plug2, FileText, X, AtSign } from 'lucide-react';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
+import { useManyStore, type PinnedResource } from '@/lib/store/useManyStore';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -36,6 +38,12 @@ interface ManyChatInputProps {
   onAbort: () => void;
 }
 
+interface MentionResource {
+  id: string;
+  title: string;
+  type: string;
+}
+
 export default memo(function ManyChatInput({
   input,
   setInput,
@@ -52,19 +60,52 @@ export default memo(function ManyChatInput({
   onSend,
   onAbort,
 }: ManyChatInputProps) {
+  const { pinnedResources, addPinnedResource, removePinnedResource } = useManyStore();
+
   const [showDropdown, setShowDropdown] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; above?: boolean } | null>(null);
 
+  // @ mention state
+  const [mentionActive, setMentionActive] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionResources, setMentionResources] = useState<MentionResource[]>([]);
+  const [mentionSelectedIdx, setMentionSelectedIdx] = useState(0);
+  const [mentionRect, setMentionRect] = useState<{ top: number; left: number } | null>(null);
+  const mentionDropdownRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (mentionActive) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          setMentionSelectedIdx((i) => Math.min(i + 1, mentionResources.length - 1));
+          return;
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          setMentionSelectedIdx((i) => Math.max(i - 1, 0));
+          return;
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          const selected = mentionResources[mentionSelectedIdx];
+          if (selected) selectMentionResource(selected);
+          return;
+        }
+        if (e.key === 'Escape') {
+          setMentionActive(false);
+          return;
+        }
+      }
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         onSend();
       }
     },
-    [onSend],
+    [mentionActive, mentionResources, mentionSelectedIdx, onSend],
   );
 
   const handleInput = useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
@@ -73,11 +114,111 @@ export default memo(function ManyChatInput({
     target.style.height = Math.min(target.scrollHeight, 140) + 'px';
   }, []);
 
+  // Detect @ trigger in input change
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const val = e.target.value;
+      setInput(val);
+
+      // Find the last @ in the text up to cursor
+      const cursor = e.target.selectionStart ?? val.length;
+      const textUpToCursor = val.slice(0, cursor);
+      const atIdx = textUpToCursor.lastIndexOf('@');
+
+      if (atIdx !== -1) {
+        const afterAt = textUpToCursor.slice(atIdx + 1);
+        // Only activate if no space after @
+        if (!afterAt.includes(' ') && !afterAt.includes('\n')) {
+          setMentionQuery(afterAt);
+          if (!mentionActive) {
+            setMentionActive(true);
+            setMentionSelectedIdx(0);
+            // Load resources
+            loadMentionResources(afterAt);
+          }
+          return;
+        }
+      }
+      setMentionActive(false);
+    },
+    [mentionActive, setInput],
+  );
+
+  const loadMentionResources = async (query: string) => {
+    const electron = typeof window !== 'undefined' ? window.electron : null;
+    if (!electron?.ai?.tools) return;
+    try {
+      let resources: MentionResource[] = [];
+      if (query.trim() && electron.ai?.tools?.resourceSearch) {
+        const result = await electron.ai.tools.resourceSearch(query, { limit: 15 });
+        if (result?.success && Array.isArray(result?.results)) {
+          resources = result.results.map((r: { id: string; title: string; type: string }) => ({
+            id: r.id,
+            title: r.title,
+            type: r.type,
+          }));
+        }
+      } else if (electron.ai?.tools?.resourceList) {
+        const result = await electron.ai.tools.resourceList({ limit: 20 });
+        if (result?.success && Array.isArray(result?.resources)) {
+          resources = result.resources.map((r: { id: string; title: string; type: string }) => ({
+            id: r.id,
+            title: r.title,
+            type: r.type,
+          }));
+        }
+      }
+      setMentionResources(resources);
+      setMentionSelectedIdx(0);
+    } catch {
+      setMentionResources([]);
+    }
+  };
+
+  // Re-filter when query changes
+  useEffect(() => {
+    if (!mentionActive) return;
+    loadMentionResources(mentionQuery);
+  }, [mentionQuery, mentionActive]);
+
+  // Position mention dropdown above the input area
+  useEffect(() => {
+    if (!mentionActive || !containerRef.current) {
+      setMentionRect(null);
+      return;
+    }
+    const rect = containerRef.current.getBoundingClientRect();
+    setMentionRect({ top: rect.top, left: rect.left });
+  }, [mentionActive]);
+
+  const selectMentionResource = useCallback(
+    (resource: MentionResource) => {
+      // Remove the @query from input
+      const cursor = inputRef.current?.selectionStart ?? input.length;
+      const atIdx = input.slice(0, cursor).lastIndexOf('@');
+      if (atIdx !== -1) {
+        const newInput = input.slice(0, atIdx) + input.slice(cursor);
+        setInput(newInput);
+        // Restore cursor position
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            inputRef.current.selectionStart = atIdx;
+            inputRef.current.selectionEnd = atIdx;
+            inputRef.current.focus();
+          }
+        });
+      }
+      addPinnedResource(resource);
+      setMentionActive(false);
+    },
+    [input, inputRef, setInput, addPinnedResource],
+  );
+
   const placeholder = resourceToolsEnabled
-    ? 'Pregunta algo... (busco en tus recursos)'
+    ? 'Pregunta algo... usa @ para añadir documentos'
     : toolsEnabled
       ? 'Pregunta algo... (con búsqueda web)'
-      : 'Pregunta algo...';
+      : 'Pregunta algo... usa @ para añadir documentos';
 
   useEffect(() => {
     if (!showDropdown) {
@@ -116,11 +257,33 @@ export default memo(function ManyChatInput({
     });
   }, [showDropdown]);
 
+  // Close mention on click outside
+  useEffect(() => {
+    if (!mentionActive) return;
+    const handler = (e: MouseEvent) => {
+      if (mentionDropdownRef.current && !mentionDropdownRef.current.contains(e.target as Node)) {
+        setMentionActive(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [mentionActive]);
+
   const hasActiveCapabilities = resourceToolsEnabled || toolsEnabled || mcpEnabled;
 
   return (
     <div className="many-input-area border-t border-[var(--border)] bg-[var(--bg)] px-4 py-4">
+      {/* Pinned resource chips */}
+      {pinnedResources.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {pinnedResources.map((resource) => (
+            <PinnedResourceChip key={resource.id} resource={resource} onRemove={removePinnedResource} />
+          ))}
+        </div>
+      )}
+
       <div
+        ref={containerRef}
         className="relative flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] transition-colors focus-within:border-[var(--accent)]"
         style={{
           background: 'var(--bg-secondary)',
@@ -130,7 +293,7 @@ export default memo(function ManyChatInput({
         <textarea
           ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           onInput={handleInput}
           placeholder={placeholder}
@@ -218,6 +381,30 @@ export default memo(function ManyChatInput({
                 )}
               </div>
             )}
+
+            {/* @ mention hint button */}
+            <button
+              type="button"
+              onClick={() => {
+                const ta = inputRef.current;
+                if (!ta) return;
+                const pos = ta.selectionStart ?? input.length;
+                const newVal = input.slice(0, pos) + '@' + input.slice(pos);
+                setInput(newVal);
+                requestAnimationFrame(() => {
+                  ta.focus();
+                  ta.selectionStart = pos + 1;
+                  ta.selectionEnd = pos + 1;
+                  // Trigger change detection
+                  const event = new Event('input', { bubbles: true });
+                  ta.dispatchEvent(event);
+                });
+              }}
+              className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium transition-all text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]"
+              title="Añadir documento al contexto (@)"
+            >
+              <AtSign size={14} strokeWidth={2} />
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -247,9 +434,89 @@ export default memo(function ManyChatInput({
           </div>
         </div>
       </div>
+
+      {/* @ mention dropdown */}
+      {mentionActive && mentionRect && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={mentionDropdownRef}
+          className="fixed rounded-lg border shadow-lg py-1 overflow-y-auto"
+          style={{
+            bottom: window.innerHeight - mentionRect.top + 6,
+            left: mentionRect.left,
+            width: 280,
+            maxHeight: 240,
+            backgroundColor: 'var(--bg)',
+            borderColor: 'var(--border)',
+            zIndex: 700,
+          }}
+        >
+          <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--tertiary-text)' }}>
+            Añadir al contexto
+          </div>
+          {mentionResources.length === 0 ? (
+            <div className="px-3 py-2 text-[12px]" style={{ color: 'var(--tertiary-text)' }}>
+              Sin resultados
+            </div>
+          ) : (
+            mentionResources.map((resource, idx) => (
+              <button
+                key={resource.id}
+                type="button"
+                onClick={() => selectMentionResource(resource)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors"
+                style={{
+                  background: idx === mentionSelectedIdx ? 'var(--bg-hover)' : 'transparent',
+                  color: 'var(--primary-text)',
+                  fontSize: 13,
+                }}
+              >
+                <FileText size={12} style={{ flexShrink: 0, color: 'var(--tertiary-text)' }} />
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {resource.title}
+                </span>
+                <span style={{ fontSize: 10, color: 'var(--tertiary-text)', flexShrink: 0 }}>{resource.type}</span>
+              </button>
+            ))
+          )}
+        </div>,
+        document.body
+      )}
+
       <div className="mt-2 text-center text-[10px] text-[var(--tertiary-text)] opacity-60">
         Muchos modelos pueden cometer errores. Verifica la información importante.
       </div>
     </div>
   );
 });
+
+function PinnedResourceChip({ resource, onRemove }: { resource: PinnedResource; onRemove: (id: string) => void }) {
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 5,
+        padding: '3px 8px 3px 6px',
+        borderRadius: 6,
+        border: '1px solid color-mix(in srgb, var(--accent) 30%, var(--border))',
+        background: 'color-mix(in srgb, var(--accent) 8%, transparent)',
+        fontSize: 11,
+        color: 'var(--secondary-text)',
+        maxWidth: 180,
+      }}
+    >
+      <FileText style={{ width: 11, height: 11, flexShrink: 0, color: 'var(--accent)' }} />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+        {resource.title}
+      </span>
+      <button
+        type="button"
+        onClick={() => onRemove(resource.id)}
+        style={{ display: 'flex', alignItems: 'center', flexShrink: 0, color: 'var(--tertiary-text)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        title="Quitar del contexto"
+      >
+        <X style={{ width: 11, height: 11 }} />
+      </button>
+    </div>
+  );
+}

@@ -14,7 +14,15 @@
       "Bash(python3:*)",
       "Bash(bun install)",
       "Bash(bunx tsc --noEmit)",
-      "Bash(bun -e \"process.stdin.resume\\(\\); let d=''''; process.stdin.on\\(''data'',c=>d+=c\\); process.stdin.on\\(''end'',\\(\\)=>{const p=JSON.parse\\(d\\); const deps={...p.dependencies,...p.devDependencies}; const toCheck=[''react-i18next'',''i18next'',''@mantine/form'',''@tiptap/extension-youtube'',''@excalidraw/excalidraw'',''react-drawio'',''react-clear-modal'']; toCheck.forEach\\(k=>console.log\\(k+'':'', deps[k]||''NOT INSTALLED''\\)\\);}\\);\")"
+      "Bash(bun -e \"process.stdin.resume\\(\\); let d=''''; process.stdin.on\\(''data'',c=>d+=c\\); process.stdin.on\\(''end'',\\(\\)=>{const p=JSON.parse\\(d\\); const deps={...p.dependencies,...p.devDependencies}; const toCheck=[''react-i18next'',''i18next'',''@mantine/form'',''@tiptap/extension-youtube'',''@excalidraw/excalidraw'',''react-drawio'',''react-clear-modal'']; toCheck.forEach\\(k=>console.log\\(k+'':'', deps[k]||''NOT INSTALLED''\\)\\);}\\);\")",
+      "Bash(find /Users/maxprain/Documents/dome-provider -maxdepth 2 -type d -not -path */node_modules* -not -path */.next*)",
+      "Bash(npx shadcn@latest add card table badge input label separator avatar dropdown-menu tabs progress chart)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(python3 -c \":*)",
+      "Bash(find /Users/maxprain/Documents/dome-provider -type f -name *.ts -o -name *.tsx -o -name *.js -o -name *.cjs)",
+      "WebFetch(domain:docling-api.dowi.es)"
     ]
   }
 }

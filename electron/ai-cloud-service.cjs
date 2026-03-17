@@ -192,6 +192,7 @@ async function streamOpenAI(messages, apiKey, model, onChunk, baseURL = 'https:/
 
 /**
  * Generate embeddings with OpenAI
+ * @deprecated Use PageIndex for semantic search instead of vector embeddings
  * @param {string[]} texts
  * @param {string} apiKey
  * @param {string} model
@@ -374,6 +375,87 @@ async function streamAnthropic(messages, apiKey, model, onChunk, tools) {
   }
 
   return fullResponse;
+}
+
+// ============================================
+// MINIMAX (OpenAI-compatible endpoint)
+// ============================================
+
+const { MINIMAX_BASE_URL } = require('./minimax-config.cjs');
+
+/**
+ * Chat with MiniMax via OpenAI-compatible endpoint
+ * Uses Authorization: Bearer with sk-cp-... keys
+ */
+function chatMiniMax(messages, apiKey, model = 'MiniMax-M2.5') {
+  return chatOpenAI(messages, apiKey, model, MINIMAX_BASE_URL);
+}
+
+/**
+ * Stream chat with MiniMax via OpenAI-compatible endpoint.
+ * Intercepts <think>...</think> blocks and emits them as { type: 'thinking' } chunks
+ * so the UI can render them in the collapsible reasoning section.
+ */
+async function streamMiniMax(messages, apiKey, model, onChunk, tools) {
+  let buffer = '';
+  let inThinking = false;
+
+  const interceptChunk = (data) => {
+    if (!data || data.type !== 'text') {
+      onChunk(data);
+      return;
+    }
+
+    buffer += data.text;
+
+    // Process buffer, emitting thinking and text chunks as tags are found
+    while (true) {
+      if (!inThinking) {
+        const openIdx = buffer.indexOf('<think>');
+        if (openIdx === -1) {
+          // No opening tag — flush everything as text
+          if (buffer.length > 0) {
+            onChunk({ type: 'text', text: buffer });
+            buffer = '';
+          }
+          break;
+        }
+        // Emit text before the tag
+        if (openIdx > 0) {
+          onChunk({ type: 'text', text: buffer.slice(0, openIdx) });
+        }
+        buffer = buffer.slice(openIdx + '<think>'.length);
+        inThinking = true;
+      } else {
+        const closeIdx = buffer.indexOf('</think>');
+        if (closeIdx === -1) {
+          // Still inside thinking block — hold buffer (tag may be split)
+          // But emit partial thinking if buffer is large enough to be safe
+          const safeLen = buffer.length - '</think>'.length;
+          if (safeLen > 0) {
+            onChunk({ type: 'thinking', text: buffer.slice(0, safeLen) });
+            buffer = buffer.slice(safeLen);
+          }
+          break;
+        }
+        // Emit full thinking block
+        if (closeIdx > 0) {
+          onChunk({ type: 'thinking', text: buffer.slice(0, closeIdx) });
+        }
+        buffer = buffer.slice(closeIdx + '</think>'.length);
+        inThinking = false;
+      }
+    }
+  };
+
+  const result = await streamOpenAI(messages, apiKey, model, interceptChunk, MINIMAX_BASE_URL, 120000, tools);
+
+  // Flush any remaining buffer
+  if (buffer.length > 0) {
+    onChunk({ type: inThinking ? 'thinking' : 'text', text: buffer });
+  }
+
+  return result;
 }
 
 // ============================================
@@ -643,6 +725,7 @@ async function streamGoogle(messages, apiKey, model, onChunk, tools = undefined)
 
 /**
  * Generate embeddings with Google
+ * @deprecated Use PageIndex for semantic search instead of vector embeddings
  * @param {string[]} texts
  * @param {string} apiKey
  * @param {string} model
@@ -678,6 +761,7 @@ async function embeddingsGoogle(texts, apiKey, model = 'text-embedding-004') {
 
 /**
  * Generate embeddings with Voyage AI (Anthropic's recommended embedding provider)
+ * @deprecated Use PageIndex for semantic search instead of vector embeddings
  * @param {string[]} texts
  * @param {string} apiKey - Anthropic/Voyage API key
  * @param {string} model - e.g. voyage-multimodal-3, voyage-3-large
@@ -726,6 +810,8 @@ async function chat(provider, messages, apiKey, model) {
       return chatAnthropic(messages, apiKey, model);
     case 'google':
       return chatGoogle(messages, apiKey, model);
+    case 'minimax':
+      return chatMiniMax(messages, apiKey, model);
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -748,6 +834,8 @@ async function stream(provider, messages, apiKey, model, onChunk, tools = undefi
       return streamAnthropic(messages, apiKey, model, onChunk, tools);
     case 'google':
       return streamGoogle(messages, apiKey, model, onChunk, tools);
+    case 'minimax':
+      return streamMiniMax(messages, apiKey, model, onChunk, tools);
     default:
       throw new Error(`Unknown provider: ${provider}`);
   }
@@ -755,6 +843,7 @@ async function stream(provider, messages, apiKey, model, onChunk, tools = undefi
 
 /**
  * Generate embeddings with cloud provider
+ * @deprecated Use PageIndex for semantic search instead of vector embeddings
  * @param {string} provider
  * @param {string[]} texts
  * @param {string} apiKey
@@ -783,6 +872,9 @@ module.exports = {
   chatAnthropic,
   streamAnthropic,
   embeddingsVoyage,
+  // MiniMax (Anthropic-compatible)
+  chatMiniMax,
+  streamMiniMax,
   // Google
   chatGoogle,
   streamGoogle,

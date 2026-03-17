@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Brain, Loader2, AlertCircle, CheckCircle2, HelpCircle, RefreshCw } from 'lucide-react';
+import { Brain, Loader2, AlertCircle, HelpCircle, RefreshCw } from 'lucide-react';
 import type { IndexingStatus, ResourceIndexStatus } from '@/lib/db/pageindex';
 import { getResourceIndexStatus, indexResource } from '@/lib/db/pageindex';
 
@@ -10,8 +10,15 @@ interface IndexStatusBadgeProps {
 
 const POLL_INTERVAL_MS = 2000;
 
+const DOCLING_STEP_LABELS: Record<string, string> = {
+  converting: 'Convirtiendo con Docling…',
+  storing_images: 'Guardando imágenes…',
+  updating_resource: 'Actualizando documento…',
+};
+
 export default function IndexStatusBadge({ resourceId, resourceType }: IndexStatusBadgeProps) {
   const [statusData, setStatusData] = useState<ResourceIndexStatus | null>(null);
+  const [doclingPhase, setDoclingPhase] = useState<{ status: string; progress: number } | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
@@ -45,23 +52,38 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
 
     init();
 
-    // Listen for live progress events from the main process
-    const cleanup = window.electron?.on?.('pageindex:progress', (event: ResourceIndexStatus & { resourceId: string }) => {
-      if (!mountedRef.current) return;
-      if (event.resourceId !== resourceId) return;
-      setStatusData(prev => ({ ...(prev ?? { success: true }), ...event }));
-
-      // When done, do a final fetch to get indexed_at from DB
-      if (event.status === 'done' || event.status === 'error') {
-        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-        setTimeout(fetchStatus, 500);
+    // Listen for Docling conversion progress (automatic indexer)
+    const unsubDocling = window.electron?.on?.(
+      'docling:progress',
+      (event: { resourceId: string; status: string; progress?: number }) => {
+        if (!mountedRef.current) return;
+        if (event.resourceId !== resourceId) return;
+        setDoclingPhase({ status: event.status, progress: event.progress ?? 0 });
       }
-    });
+    );
+
+    // Listen for live progress events from the main process (PageIndex)
+    const unsubPageIndex = window.electron?.on?.(
+      'pageindex:progress',
+      (event: ResourceIndexStatus & { resourceId: string }) => {
+        if (!mountedRef.current) return;
+        if (event.resourceId !== resourceId) return;
+        setDoclingPhase(null); // Docling done, now in PageIndex phase
+        setStatusData(prev => ({ ...(prev ?? { success: true }), ...event }));
+
+        // When done, do a final fetch to get indexed_at from DB
+        if (event.status === 'done' || event.status === 'error') {
+          if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+          setTimeout(fetchStatus, 500);
+        }
+      }
+    );
 
     return () => {
       mountedRef.current = false;
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-      cleanup?.();
+      unsubDocling?.();
+      unsubPageIndex?.();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resourceId]);
@@ -81,6 +103,20 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
       }
     }, POLL_INTERVAL_MS);
   };
+
+  // Docling phase takes priority (conversion before indexing)
+  if (doclingPhase) {
+    const stepLabel = DOCLING_STEP_LABELS[doclingPhase.status] ?? 'Convirtiendo…';
+    return (
+      <div className="index-status-badge index-status-processing">
+        <Loader2 size={12} className="index-status-spinner" />
+        <span>{stepLabel}</span>
+        {doclingPhase.progress > 0 && (
+          <span className="index-status-progress">{doclingPhase.progress}%</span>
+        )}
+      </div>
+    );
+  }
 
   if (!statusData) return null;
 

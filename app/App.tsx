@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import ThemeProvider from '@/components/ui/ThemeProvider';
 import ManyFloatingButton from '@/components/many/ManyFloatingButton';
@@ -134,6 +134,24 @@ export default function App() {
     }
   }, []);
 
+  // Memoizar el ManyPanel para evitar que sus re-renderizados afecten al resto de la app
+  const manyPanelElements = useMemo(() => {
+    if (!showPanel) return null;
+    return (
+      <>
+        <ResizeHandle
+          onResize={handleResize}
+          onResizeEnd={handleResizeEnd}
+        />
+        <ManyPanel
+          width={panelWidth}
+          onClose={toggleOpen}
+          isVisible={showPanel}
+        />
+      </>
+    );
+  }, [showPanel, panelWidth, handleResize, handleResizeEnd, toggleOpen]);
+
   return (
     <ThemeProvider>
       <AnalyticsProvider>
@@ -167,18 +185,7 @@ export default function App() {
               </Routes>
             </div>
 
-            {showPanel && (
-              <>
-                <ResizeHandle
-                  onResize={handleResize}
-                  onResizeEnd={handleResizeEnd}
-                />
-                <ManyPanel
-                  width={panelWidth}
-                  onClose={toggleOpen}
-                />
-              </>
-            )}
+            {!shouldHide && manyPanelElements}
           </div>
         </div>
       </div>

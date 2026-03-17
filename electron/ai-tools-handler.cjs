@@ -36,6 +36,10 @@ function setWindowManager(wm) {
   windowManagerRef = wm;
 }
 
+function generateId() {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
 /**
 // =============================================================================
 // Resource Tools
@@ -55,15 +59,24 @@ async function resourceSearch(query, options = {}) {
     const db = database.getDB();
     const limit = Math.min(options.limit || 10, 50); // Cap at 50
 
-    // Escape FTS special characters
-    const safeQuery = query.replace(/['"*()]/g, ' ').trim();
+    // Sanitize FTS5 special chars: " ' * ( ) - : . { } [ ] ^ ~ and reserved words
+    const safeQuery = String(query || '')
+      .replace(/["'*():.{}[\]^~-]/g, ' ')
+      .replace(/\b(AND|OR|NOT)\b/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     if (!safeQuery) {
       traceLog('resourceSearch', { query, options }, { success: true, results: [] });
       return { success: true, results: [] };
     }
 
-    // Build FTS query with prefix matching
-    const ftsQuery = safeQuery.split(/\s+/).map(word => `${word}*`).join(' ');
+    // Build FTS query with prefix matching (only for words with 2+ chars to avoid wildcard issues)
+    const words = safeQuery.split(/\s+/).filter((w) => w.length >= 2);
+    if (words.length === 0) {
+      traceLog('resourceSearch', { query, options }, { success: true, results: [] });
+      return { success: true, results: [] };
+    }
+    const ftsQuery = words.map((word) => `${word}*`).join(' ');
 
     let results;
     
@@ -140,15 +153,31 @@ async function resourceSearch(query, options = {}) {
   } catch (error) {
     traceLog('resourceSearch', { query, options }, null, error);
     console.error('[AI Tools] resourceSearch error:', error);
-    
+
     // Try to repair FTS if corrupted
     if (error.code === 'SQLITE_CORRUPT' || error.code === 'SQLITE_CORRUPT_VTAB') {
       database.handleCorruptionError(error);
     }
-    
+
+    // Fallback: try semantic search on FTS5 syntax errors
+    const isFtsError = error?.code === 'SQLITE_ERROR' && /fts5/i.test(String(error?.message || ''));
+    if (isFtsError && typeof resourceSemanticSearch === 'function') {
+      try {
+        const semResult = await resourceSemanticSearch(query, {
+          project_id: options.project_id,
+          limit: options.limit || 10,
+        });
+        if (semResult.success && semResult.results?.length > 0) {
+          return { ...semResult, fallback: 'semantic' };
+        }
+      } catch (_) {
+        /* ignore fallback errors */
+      }
+    }
+
     return {
       success: false,
-      error: error.message,
+      error: 'No se pudo completar la búsqueda. Prueba con otros términos.',
       results: [],
     };
   }
@@ -197,35 +226,27 @@ async function resourceGet(resourceId, options = {}) {
       metadata: metadata,
     };
 
-    // --- PDFs: always use PageIndex tree as primary source ---
-    // PageIndex gives structured sections (title + summary per chunk of pages).
-    // The AI can navigate the document section by section via resource_semantic_search,
-    // instead of receiving a truncated raw dump with no structure.
+    // --- PDFs: use PageIndex structure only (no full content dump) ---
+    // Return TOC with node_ids so the AI can navigate via resource_semantic_search
+    // or resource_get_section(resource_id, node_id) for specific sections.
     if (includeContent && resource.type === 'pdf') {
       try {
         const q = database.getQueries();
         const indexed = q.getPageIndex?.get(resourceId);
         if (indexed?.tree_json) {
-          const docIndexer = require('./doc-indexer.cjs');
+          const pageIndexRuntime = require('./pageindex-python.cjs');
           const tree = JSON.parse(indexed.tree_json);
-          const nodes = docIndexer.flattenTree(tree);
+          const sections = pageIndexRuntime.flattenTree(tree).length;
+          const outline = pageIndexRuntime.formatTreeAsOutline(tree);
 
-          const sections = nodes
-            .filter(n => n.summary && n.summary.trim().length > 5)
-            .map(n => {
-              const start = n.start_index ?? 0;
-              const end = n.end_index ?? start;
-              const pageRange = `págs. ${start + 1}–${end + 1}`;
-              return `## ${n.title || 'Sección'} (${pageRange})\n${n.summary}`;
-            });
-
-          if (sections.length > 0) {
+          if (sections > 0 && outline) {
             result.content =
-              `[Documento indexado: ${sections.length} sección(es) — usa resource_semantic_search para buscar contenido específico]\n\n` +
-              sections.join('\n\n');
+              `[Documento indexado: ${sections} sección(es)]\n` +
+              'Estructura (usa resource_get_section con node_id para obtener contenido, o resource_semantic_search para buscar):\n\n' +
+              outline;
             result.content_source = 'pageindex';
             result.content_truncated = false;
-            result.indexed_sections = sections.length;
+            result.indexed_sections = sections;
           }
         }
       } catch (e) {
@@ -299,6 +320,68 @@ async function resourceGet(resourceId, options = {}) {
       success: false,
       error: error.message,
     };
+  }
+}
+
+/**
+ * Get a specific section of an indexed PDF/note by node_id.
+ * Use after get_document_structure or resource_semantic_search to navigate the document.
+ * @param {string} resourceId - Resource ID
+ * @param {string} nodeId - PageIndex node_id (e.g. "0004")
+ * @returns {Promise<Object>}
+ */
+async function resourceGetSection(resourceId, nodeId) {
+  try {
+    if (!resourceId || !nodeId) {
+      return { success: false, error: 'resource_id and node_id are required' };
+    }
+
+    const q = database.getQueries();
+    const resource = q.getResourceById?.get(resourceId);
+    const indexed = q.getPageIndex?.get(resourceId);
+
+    if (!resource) {
+      return { success: false, error: 'Resource not found' };
+    }
+    if (!indexed?.tree_json) {
+      return { success: false, error: 'Document not indexed. Use resource_get for raw content or wait for indexing.' };
+    }
+
+    const pageIndexRuntime = require('./pageindex-python.cjs');
+    const tree = JSON.parse(indexed.tree_json);
+    const found = pageIndexRuntime.findNodeByIdWithPath(tree, nodeId);
+
+    if (!found) {
+      return { success: false, error: `Node ${nodeId} not found in document structure` };
+    }
+
+    const { node, path: nodePath } = found;
+    const start = node.start_index ?? 0;
+    const end = node.end_index ?? start;
+    const pageRange = `págs. ${start + 1}–${end + 1}`;
+    const children = (node.nodes || []).map((n) => ({
+      node_id: n.node_id || '',
+      title: n.title || 'Sección',
+    }));
+
+    return {
+      success: true,
+      resource_id: resourceId,
+      title: resource.title,
+      section: {
+        node_id: node.node_id || nodeId,
+        title: node.title || 'Sección',
+        summary: node.summary || '',
+        start_index: start,
+        end_index: end,
+        page_range: pageRange,
+        node_path: nodePath,
+        children,
+      },
+    };
+  } catch (error) {
+    console.error('[AI Tools] resourceGetSection error:', error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -525,8 +608,8 @@ async function resourceSemanticSearch(query, options = {}) {
       .filter(Boolean)
       .map(t => ({ resource_id: t.resource_id, tree_json: t.tree_json }));
 
-    const docIndexer = require('./doc-indexer.cjs');
-    const searchResult = await docIndexer.search(query, trees, limit, database);
+    const pageIndexRuntime = require('./pageindex-python.cjs');
+    const searchResult = await pageIndexRuntime.search(query, trees, limit, database);
 
     if (!searchResult.success || !searchResult.results) {
       return resourceSearch(query, options);
@@ -555,12 +638,14 @@ async function resourceSemanticSearch(query, options = {}) {
         similarity: r.score,
         // Full section summary — not truncated, this is the indexed content
         snippet: r.text || '',
+        node_id: r.node_id,
         pages: r.pages,
         page_range: pageRange,
         node_title: r.node_title,
+        node_path: r.node_path,
         // Hint so the AI knows how to go deeper into this section
         search_hint: r.text
-          ? `Para más detalle sobre "${r.node_title}" (${pageRange}), busca con una consulta más específica sobre ese subtema.`
+          ? `Para más detalle: usa resource_get_section(resource_id, "${r.node_id}") con el node_id de este resultado.`
           : null,
         created_at: resource.created_at,
         updated_at: resource.updated_at,
@@ -575,7 +660,7 @@ async function resourceSemanticSearch(query, options = {}) {
       count: results.length,
       results,
       navigation_note: results.length > 0
-        ? 'Resultados de PageIndex: cada resultado es una sección del documento. Para profundizar en un tema concreto, usa resource_semantic_search con una consulta más específica.'
+        ? 'Resultados de PageIndex: cada resultado incluye node_id. Usa resource_get_section(resource_id, node_id) para obtener el contenido completo de una sección.'
         : null,
     };
 
@@ -1845,6 +1930,94 @@ function deepResearch(args) {
 }
 
 // =============================================================================
+// Dynamic Context: get_tool_definition
+// =============================================================================
+
+/**
+ * Get the full schema/definition of any tool (Dome or MCP).
+ * Used for dynamic context discovery: agent receives tool names and can load
+ * full definitions on demand to reduce token usage.
+ * @param {string} toolName - Normalized tool name (e.g. resource_search, stripe_create_payment)
+ * @returns {Promise<Object>} { success, definition?, error? }
+ */
+async function getToolDefinition(toolName) {
+  const norm = String(toolName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+  if (!norm) {
+    return { success: false, error: 'tool_name is required' };
+  }
+
+  // Dome tools (lazy require to avoid circular dependency)
+  try {
+    const { getAllToolDefinitions } = require('./ai-chat-with-tools.cjs');
+    const all = getAllToolDefinitions();
+    const dome = all.find((d) => {
+      const n = String(d?.function?.name || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '_')
+        .replace(/_+/g, '_');
+      return n === norm;
+    });
+    if (dome) {
+      return { success: true, definition: dome, source: 'dome' };
+    }
+  } catch (e) {
+    console.warn('[AI Tools] getToolDefinition Dome lookup failed:', e?.message);
+  }
+
+  // MCP tools
+  try {
+    const { getMCPTools } = require('./mcp-client.cjs');
+    const mcpTools = await getMCPTools(database);
+    const mcp = mcpTools.find((t) => {
+      const n = String(t?.name || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '_')
+        .replace(/_+/g, '_');
+      return n === norm;
+    });
+    if (mcp) {
+      let parameters = { type: 'object', properties: {} };
+      if (mcp.schema) {
+        try {
+          if (typeof mcp.schema.toJSON === 'function') {
+            parameters = mcp.schema.toJSON();
+          } else if (mcp.schema._def) {
+            const zodToJson = require('zod-to-json-schema');
+            const fn = zodToJson.zodToJsonSchema || zodToJson.default || zodToJson;
+            parameters = typeof fn === 'function' ? fn(mcp.schema) : parameters;
+          }
+        } catch (_) {
+          /* keep default */
+        }
+      }
+      const params = parameters?.properties
+        ? parameters
+        : { type: 'object', properties: parameters?.properties || {} };
+      const def = {
+        type: 'function',
+        function: {
+          name: mcp.name,
+          description: mcp.description || '',
+          parameters: params,
+        },
+      };
+      return { success: true, definition: def, source: 'mcp' };
+    }
+  } catch (e) {
+    console.warn('[AI Tools] getToolDefinition MCP lookup failed:', e?.message);
+  }
+
+  return { success: false, error: `Tool not found: ${norm}` };
+}
+
+// =============================================================================
 // Memory / Personality Tools
 // =============================================================================
 
@@ -1880,10 +2053,11 @@ async function getDocumentStructure({ resource_id } = {}) {
       };
     }
 
-    const docIndexer = require('./doc-indexer.cjs');
+    const pageIndexRuntime = require('./pageindex-python.cjs');
     const tree = JSON.parse(indexed.tree_json);
-    const outline = docIndexer.formatTreeAsOutline(tree);
-    const sections = docIndexer.flattenTree(tree).length;
+    const outline = pageIndexRuntime.formatTreeAsOutline(tree);
+    const structure = pageIndexRuntime.buildStructureArray(tree);
+    const sections = pageIndexRuntime.flattenTree(tree).length;
 
     return {
       success: true,
@@ -1891,6 +2065,7 @@ async function getDocumentStructure({ resource_id } = {}) {
       title: resource?.title || resource_id,
       sections,
       outline,
+      structure,
     };
   } catch (err) {
     return { success: false, error: err.message };
@@ -2087,6 +2262,283 @@ async function calendarDeleteEvent({ event_id } = {}) {
 }
 
 // =============================================================================
+// Entity Creation (Agents)
+// =============================================================================
+
+/**
+ * Create a new Many agent (specialized agent / "hijo de Many").
+ * Persists to settings.many_agents. Returns ENTITY_CREATED string for artifact block.
+ * @param {Object} args
+ * @param {string} args.name - Agent name
+ * @param {string} [args.description] - Short description
+ * @param {string} [args.systemInstructions] - System prompt for the agent
+ * @param {string[]} [args.toolIds] - Tool IDs to enable
+ * @param {number} [args.iconIndex] - Icon index 1-18
+ */
+/**
+ * Import file content to the Dome library.
+ * Used by agents that retrieve files via MCP servers (filesystem, Drive, etc.)
+ * and want to save them as resources.
+ *
+ * @param {{ title, content, content_base64, mime_type, filename, project_id, folder_id }} args
+ */
+async function importFileToLibrary(args = {}) {
+  try {
+    const { title, content, content_base64, mime_type, filename, project_id, folder_id } = args;
+    if (!title || !title.trim()) {
+      return { success: false, error: 'title is required' };
+    }
+    if (!content && !content_base64) {
+      return { success: false, error: 'content or content_base64 is required' };
+    }
+
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    const crypto = require('crypto');
+    const fileStorage = require('./file-storage.cjs');
+    const documentExtractor = require('./document-extractor.cjs');
+
+    // Determine extension
+    const ext = filename
+      ? path.extname(filename).toLowerCase()
+      : mime_type?.includes('pdf') ? '.pdf'
+      : mime_type?.includes('docx') || mime_type?.includes('wordprocessingml') ? '.docx'
+      : mime_type?.includes('plain') ? '.txt'
+      : '.txt';
+
+    // Write to temp file
+    const tmpName = `dome-mcp-import-${Date.now()}${ext}`;
+    const tempPath = path.join(os.tmpdir(), tmpName);
+    try {
+      if (content_base64) {
+        fs.writeFileSync(tempPath, Buffer.from(content_base64, 'base64'));
+      } else {
+        fs.writeFileSync(tempPath, content || '', 'utf8');
+      }
+
+      // Determine resource type
+      let effectiveType = 'document';
+      if (ext === '.pdf' || mime_type?.includes('pdf')) effectiveType = 'pdf';
+
+      const importResult = await fileStorage.importFile(tempPath, effectiveType);
+
+      // Check duplicate
+      const queries = database.getQueries();
+      const existing = queries.findByHash?.get(importResult.hash);
+      if (existing) {
+        return {
+          success: false,
+          error: 'duplicate',
+          duplicate: { id: existing.id, title: existing.title },
+        };
+      }
+
+      // Extract text
+      const fullPath = fileStorage.getFullPath(importResult.internalPath);
+      let contentText = (!content_base64 ? content : null) || null;
+      try {
+        if (effectiveType === 'pdf') {
+          contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
+        } else if (effectiveType === 'document') {
+          contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
+        }
+      } catch { /* keep original text content */ }
+
+      // Create resource
+      const resourceId = `res_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+      const now = Date.now();
+      const db = database.getDB();
+      const effectiveProjectId = project_id || null;
+
+      queries.createResourceWithFile.run(
+        resourceId,
+        effectiveProjectId,
+        effectiveType,
+        title.trim(),
+        contentText,
+        null,
+        importResult.internalPath,
+        importResult.mimeType || mime_type || null,
+        importResult.size,
+        importResult.hash,
+        null,
+        filename || importResult.originalName || null,
+        null,
+        now,
+        now
+      );
+
+      if (folder_id && queries.moveResourceToFolder) {
+        queries.moveResourceToFolder.run(folder_id, now, resourceId);
+      }
+
+      const resource = queries.getResourceById.get(resourceId);
+
+      // Schedule indexing
+      const resourceIndexerLocal = require('./resource-indexer.cjs');
+      if (resource && resourceIndexerLocal.shouldIndex(resource)) {
+        resourceIndexerLocal.scheduleIndexing(resourceId, { database, windowManager: windowManagerRef, fileStorage });
+      }
+
+      return { success: true, resource };
+    } finally {
+      try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
+    }
+  } catch (error) {
+    console.error('[AI Tools] importFileToLibrary error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function agentCreate(args = {}) {
+  try {
+    const name = typeof args.name === 'string' ? args.name.trim() : '';
+    if (!name) return { status: 'error', error: 'name is required' };
+
+    const queries = database.getQueries();
+    const raw = queries?.getSetting?.get?.('many_agents')?.value;
+    let agents = [];
+    try {
+      const parsed = JSON.parse(raw || '[]');
+      agents = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      agents = [];
+    }
+
+    const now = Date.now();
+    const description = typeof args.description === 'string' ? args.description : '';
+    const systemInstructions = typeof (args.systemInstructions ?? args.system_instructions) === 'string'
+      ? (args.systemInstructions ?? args.system_instructions)
+      : '';
+    const toolIds = Array.isArray(args.toolIds ?? args.tool_ids) ? (args.toolIds ?? args.tool_ids) : [];
+    const iconIndex = typeof args.iconIndex === 'number' && args.iconIndex >= 1 && args.iconIndex <= 18
+      ? Math.round(args.iconIndex)
+      : Math.floor(Math.random() * 18) + 1;
+
+    const agent = {
+      id: generateId(),
+      name,
+      description,
+      systemInstructions,
+      toolIds,
+      mcpServerIds: [],
+      skillIds: [],
+      iconIndex,
+      createdAt: now,
+      updatedAt: now,
+    };
+    agents.push(agent);
+
+    queries.setSetting.run('many_agents', JSON.stringify(agents), now);
+
+    if (windowManagerRef) {
+      windowManagerRef.broadcast('dome:agents-changed');
+    }
+
+    const payload = {
+      entityType: 'agent',
+      id: agent.id,
+      name: agent.name,
+      description: agent.description,
+      config: {
+        tools: toolIds.length > 0 ? toolIds.join(', ') : 'ninguna',
+        instrucciones: systemInstructions ? systemInstructions.slice(0, 120) + (systemInstructions.length > 120 ? '…' : '') : '—',
+      },
+    };
+    return `ENTITY_CREATED:${JSON.stringify(payload)}`;
+  } catch (err) {
+    console.error('[AI Tools] agentCreate error:', err);
+    return { status: 'error', error: err.message };
+  }
+}
+
+// =============================================================================
+// automationCreate
+// =============================================================================
+
+/**
+ * Create a new automation that runs an agent or workflow on a trigger.
+ * Persists via run-engine. Returns ENTITY_CREATED string for artifact block.
+ * @param {Object} args
+ * @param {string} args.title - Automation name
+ * @param {string} [args.description] - What this automation does
+ * @param {string} [args.targetType] - "agent" or "workflow"
+ * @param {string} args.targetId - ID of the target agent or workflow
+ * @param {string} [args.triggerType] - "manual" | "schedule" | "contextual"
+ * @param {string} [args.prompt] - Base prompt to pass when triggered
+ * @param {Object} [args.schedule] - For triggerType "schedule": { cadence?, hour?, weekday?, intervalMinutes? }
+ * @param {string} [args.outputMode] - "chat_only" | "note" | "studio_output" | "mixed"
+ * @param {boolean} [args.enabled] - Whether active. Default true
+ */
+async function automationCreate(args = {}) {
+  try {
+    const title = typeof args.title === 'string' ? args.title.trim() : '';
+    if (!title) return { status: 'error', error: 'title is required' };
+
+    const targetId = typeof (args.targetId ?? args.target_id) === 'string' ? String(args.targetId ?? args.target_id).trim() : '';
+    if (!targetId) return { status: 'error', error: 'targetId is required' };
+
+    const description = typeof args.description === 'string' ? args.description : '';
+    const targetTypeRaw = args.targetType ?? args.target_type ?? 'agent';
+    const targetType = ['agent', 'workflow', 'many'].includes(targetTypeRaw) ? targetTypeRaw : 'agent';
+    const triggerTypeRaw = args.triggerType ?? args.trigger_type ?? 'manual';
+    const triggerType = ['manual', 'schedule', 'contextual'].includes(triggerTypeRaw) ? triggerTypeRaw : 'manual';
+    const prompt = typeof args.prompt === 'string' ? args.prompt : '';
+    const outputModeRaw = args.outputMode ?? args.output_mode ?? 'chat_only';
+    const outputMode = ['chat_only', 'note', 'studio_output', 'mixed'].includes(outputModeRaw) ? outputModeRaw : 'chat_only';
+    const enabled = typeof args.enabled === 'boolean' ? args.enabled : true;
+
+    let schedule = null;
+    if (triggerType === 'schedule' && args.schedule && typeof args.schedule === 'object') {
+      const s = args.schedule;
+      schedule = {
+        cadence: ['daily', 'weekly', 'cron-lite'].includes(s.cadence) ? s.cadence : 'daily',
+        hour: typeof s.hour === 'number' ? Math.max(0, Math.min(23, s.hour)) : 0,
+        weekday: typeof s.weekday === 'number' ? s.weekday : null,
+        intervalMinutes: typeof (s.intervalMinutes ?? s.interval_minutes) === 'number' ? Math.max(1, s.intervalMinutes ?? s.interval_minutes) : null,
+      };
+    }
+
+    const inputTemplate = prompt ? { prompt } : null;
+
+    const runEngine = require('./run-engine.cjs');
+    const automation = runEngine.upsertAutomation({
+      title,
+      description,
+      targetType,
+      targetId,
+      triggerType,
+      schedule,
+      inputTemplate,
+      outputMode,
+      enabled,
+    });
+
+    if (windowManagerRef) {
+      windowManagerRef.broadcast('dome:automations-changed');
+    }
+
+    const payload = {
+      entityType: 'automation',
+      id: automation.id,
+      name: title,
+      description,
+      config: {
+        destino: targetType,
+        trigger: triggerType,
+        salida: outputMode,
+        estado: enabled ? 'Activa' : 'Pausada',
+      },
+    };
+    return `ENTITY_CREATED:${JSON.stringify(payload)}`;
+  } catch (err) {
+    console.error('[AI Tools] automationCreate error:', err);
+    return { status: 'error', error: err.message };
+  }
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -2098,6 +2550,7 @@ module.exports = {
   // Resource tools (read)
   resourceSearch,
   resourceGet,
+  resourceGetSection,
   resourceList,
   resourceSemanticSearch,
   getDocumentStructure,
@@ -2151,6 +2604,9 @@ module.exports = {
   pptExport: pptToolsHandler.pptExport,
   pptGetSlides: pptToolsHandler.pptGetSlides,
 
+  // Dynamic context
+  getToolDefinition,
+
   // Memory tools
   rememberFact,
 
@@ -2164,4 +2620,11 @@ module.exports = {
   calendarCreateEvent,
   calendarUpdateEvent,
   calendarDeleteEvent,
+
+  // Entity creation
+  agentCreate,
+  automationCreate,
+
+  // MCP file import
+  importFileToLibrary,
 };

@@ -5,7 +5,9 @@ import ChatToolCard, { type ToolCallData } from './ChatToolCard';
 import ReadingIndicator from './ReadingIndicator';
 import MarkdownRenderer from './MarkdownRenderer';
 import SourceReference from './SourceReference';
+import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
 import { extractCitationNumbers, type ParsedCitation } from '@/lib/utils/citations';
+import { showToast } from '@/lib/store/useToastStore';
 
 /**
  * ChatMessage - Individual message with actions
@@ -56,6 +58,33 @@ export default function ChatMessage({
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
 
+  const handleOpenCitation = useMemo(() => {
+    return async (citationNumber: number) => {
+      const citation = message.citationMap?.get(citationNumber);
+      if (!citation?.sourceId) return;
+
+      const electron = typeof window !== 'undefined' ? window.electron : null;
+      if (!electron?.invoke) {
+        showToast('error', 'Las referencias solo funcionan en la aplicación de escritorio.');
+        return;
+      }
+
+      try {
+        const result = await electron.invoke('window:open-workspace', {
+          resourceId: citation.sourceId,
+          resourceType: citation.resourceType || 'note',
+          page: citation.page != null ? citation.page + 1 : undefined,
+        });
+        if (!result?.success) {
+          showToast('error', result?.error || 'No se pudo abrir la referencia.');
+        }
+      } catch (error) {
+        console.error('[ChatMessage] Failed to open citation:', error);
+        showToast('error', 'No se pudo abrir la referencia.');
+      }
+    };
+  }, [message.citationMap]);
+
   const handleSaveAsNote = () => {
     if (onSaveAsNote && message.content) {
       onSaveAsNote(message.content);
@@ -97,9 +126,43 @@ export default function ChatMessage({
           id: citation.sourceId || '',
           title: citation.sourceTitle || `Source ${num}`,
           type: 'resource',
+          pageLabel: citation.pageLabel,
+          nodeTitle: citation.nodeTitle,
         };
       });
   }, [message.content, message.citationMap]);
+
+  // Parse artifacts from message content
+  // Artifacts are embedded as JSON in ```artifact:TYPE ... ``` blocks
+  const artifacts = useMemo(() => {
+    if (!message.content) return [];
+    
+    const artifactBlocks: AnyArtifact[] = [];
+    const regex = /```artifact:(\w+)\n([\s\S]*?)```/g;
+    let match;
+    
+    while ((match = regex.exec(message.content)) !== null) {
+      try {
+        const artifactType = match[1] as ArtifactType;
+        const artifactData = JSON.parse(match[2]);
+        
+        artifactBlocks.push({
+          type: artifactType,
+          ...artifactData,
+        } as AnyArtifact);
+      } catch (error) {
+        console.warn('[ChatMessage] Failed to parse artifact:', error);
+      }
+    }
+    
+    return artifactBlocks;
+  }, [message.content]);
+
+  // Clean content by removing artifact blocks for markdown rendering
+  const cleanedContent = useMemo(() => {
+    if (!message.content) return '';
+    return message.content.replace(/```artifact:\w+\n[\s\S]*?```/g, '').trim();
+  }, [message.content]);
 
   return (
     <div className={`group relative ${className}`}>
@@ -107,7 +170,7 @@ export default function ChatMessage({
 
         {/* Thinking - styled as minimalist card (Assistant only) */}
         {isAssistant && message.thinking && (
-          <div className="w-full min-w-0 max-w-full sm:max-w-[85%]">
+          <div className="w-full min-w-0 max-w-full">
             <button
               type="button"
               onClick={() => setThinkingExpanded(!thinkingExpanded)}
@@ -133,7 +196,7 @@ export default function ChatMessage({
 
         {/* Tool calls (Assistant only) - displayed before message content */}
         {message.toolCalls && message.toolCalls.length > 0 && (
-          <div className="w-full min-w-0 max-w-full space-y-1 sm:max-w-[85%]">
+          <div className="w-full min-w-0 max-w-full space-y-1">
             {message.toolCalls.map((toolCall) => (
               <ChatToolCard key={toolCall.id} toolCall={toolCall} />
             ))}
@@ -141,7 +204,7 @@ export default function ChatMessage({
         )}
 
         {!isUser && message.agentLabel ? (
-          <div className="w-full min-w-0 max-w-full px-2 sm:max-w-[85%]">
+          <div className="w-full min-w-0 max-w-full px-2">
             <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--secondary-text)' }}>
               {message.agentLabel}
             </span>
@@ -150,32 +213,62 @@ export default function ChatMessage({
 
         {/* Message content bubble */}
         {(message.content || message.isStreaming) && (
-          <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} w-full`}>
+          <div className={`flex items-start gap-2 w-full min-w-0 ${isUser ? 'justify-end' : 'justify-start'}`}>
+
+            {/* User: copy button on hover (left of bubble) */}
+            {isUser && (
+              <button
+                onClick={handleCopy}
+                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex h-6 w-6 items-center justify-center rounded-full hover:bg-[var(--bg-hover)]"
+                style={{ color: 'var(--tertiary-text)' }}
+                title="Copiar"
+                aria-label="Copiar mensaje"
+              >
+                {copied
+                  ? <Check className="w-3 h-3" style={{ color: 'var(--success)' }} />
+                  : <Copy className="w-3 h-3" />}
+              </button>
+            )}
+
             <div
-              className={`relative inline-block w-full min-w-0 px-4 py-2.5 text-[14px] leading-relaxed sm:w-auto sm:max-w-[85%] ${isUser
-                ? 'bg-[var(--dome-surface)] text-[var(--dome-text)]'
-                : 'bg-transparent text-[var(--dome-text)]'
-                }`}
-              style={{
-                border: isUser ? '1px solid var(--dome-border)' : 'none',
-                borderRadius: isUser ? '8px 8px 0px 8px' : '0px 8px 8px 8px',
-                borderLeft: !isUser ? '2px solid var(--dome-border)' : 'none',
-                paddingLeft: !isUser ? '1rem' : '1rem',
+              className={`relative min-w-0 text-[14px] leading-relaxed ${isUser ? 'inline-block max-w-[88%]' : 'block w-full'}`}
+              style={isUser ? {
+                background: 'transparent',
+                borderRight: '2px solid var(--border)',
+                padding: '2px 14px 2px 0',
+                color: 'var(--primary-text)',
+              } : {
+                background: 'transparent',
+                borderLeft: '2px solid var(--border)',
+                padding: '2px 0 2px 14px',
+                color: 'var(--primary-text)',
               }}
             >
               {/* Message text */}
               {message.content ? (
-                <div className="min-w-0 break-words" style={{ overflowWrap: 'anywhere' }}>
-                  {isUser ? (
-                    <span className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>
-                      {message.content}
-                    </span>
-                  ) : (
-                    <MarkdownRenderer
-                      content={message.content}
-                      citationMap={message.citationMap}
-                      onClickCitation={onClickCitation}
-                    />
+                <div className="min-w-0 w-full break-words" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                  {/* Render artifacts before content */}
+                  {artifacts.length > 0 && (
+                    <div className="space-y-3 mb-3">
+                      {artifacts.map((artifact, idx) => (
+                        <ArtifactCard key={`${artifact.type}-${idx}`} artifact={artifact} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Render content */}
+                  {cleanedContent && (
+                    isUser ? (
+                      <span className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>
+                        {message.content}
+                      </span>
+                    ) : (
+                      <MarkdownRenderer
+                        content={cleanedContent}
+                        citationMap={message.citationMap}
+                        onClickCitation={onClickCitation || handleOpenCitation}
+                      />
+                    )
                   )}
                 </div>
               ) : message.isStreaming ? (
@@ -190,45 +283,49 @@ export default function ChatMessage({
                 <span className="inline-block w-0.5 h-4 ml-0.5 bg-current animate-pulse" aria-hidden />
               )}
 
-              {/* Source references footer (only for assistant messages with citations) */}
+              {/* User: timestamp shown below bubble on hover */}
+              {isUser && message.content && (
+                <div
+                  className="mt-1 text-right opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ fontSize: '10px', color: 'var(--tertiary-text)' }}
+                >
+                  {formattedTime}
+                </div>
+              )}
+
+              {/* Source references footer (assistant only) */}
               {isAssistant && !message.isStreaming && sourceReferences.length > 0 && (
-                <div className="mt-3 pt-3 border-t" style={{ borderColor: 'color-mix(in srgb, currentColor 12%, transparent)' }}>
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
                   <SourceReference
                     sources={sourceReferences}
-                    onClickSource={(sourceId) => {
-                      const citation = sourceReferences.find((s) => s.id === sourceId);
-                      if (citation && onClickCitation) {
-                        onClickCitation(citation.number);
-                      }
+                    onClickSource={(source) => {
+                      if (onClickCitation) { onClickCitation(source.number); return; }
+                      void handleOpenCitation(source.number);
                     }}
                   />
                 </div>
               )}
 
-              {/* Message actions (Copy, Save, Regenerate) - inside bubble, always visible */}
+              {/* Assistant actions */}
               {isAssistant && !message.isStreaming && (
                 <div
                   className="mt-2 pt-2 flex items-center gap-0.5 border-t"
-                  style={{ borderColor: 'color-mix(in srgb, currentColor 12%, transparent)' }}
+                  style={{ borderColor: 'var(--border)' }}
                 >
                   <button
                     onClick={handleCopy}
                     className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
-                    style={{ color: 'var(--secondary-text)' }}
+                    style={{ color: 'var(--tertiary-text)' }}
                     title="Copiar mensaje"
                     aria-label="Copiar mensaje"
                   >
-                    {copied ? (
-                      <Check className="w-3 h-3" style={{ color: 'var(--success)' }} />
-                    ) : (
-                      <Copy className="w-3 h-3" />
-                    )}
+                    {copied ? <Check className="w-3 h-3" style={{ color: 'var(--success)' }} /> : <Copy className="w-3 h-3" />}
                   </button>
                   {onSaveAsNote && message.content ? (
                     <button
                       onClick={handleSaveAsNote}
                       className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
-                      style={{ color: savedAsNote ? 'var(--success)' : 'var(--secondary-text)' }}
+                      style={{ color: savedAsNote ? 'var(--success)' : 'var(--tertiary-text)' }}
                       title={savedAsNote ? 'Guardado' : 'Guardar como nota'}
                       aria-label={savedAsNote ? 'Guardado' : 'Guardar como nota'}
                     >
@@ -239,13 +336,19 @@ export default function ChatMessage({
                     <button
                       onClick={onRegenerate}
                       className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
-                      style={{ color: 'var(--secondary-text)' }}
+                      style={{ color: 'var(--tertiary-text)' }}
                       title="Regenerar respuesta"
                       aria-label="Regenerar respuesta"
                     >
                       <RefreshCw className="w-3 h-3" />
                     </button>
                   ) : null}
+                  <span
+                    className="ml-auto text-[10px]"
+                    style={{ color: 'var(--tertiary-text)' }}
+                  >
+                    {formattedTime}
+                  </span>
                 </div>
               )}
             </div>

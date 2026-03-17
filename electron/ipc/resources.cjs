@@ -734,6 +734,140 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       return { success: false, error: error.message };
     }
   });
+
+  /**
+   * Import file content directly (for AI agents using MCP servers).
+   * Accepts either text content or base64-encoded binary content, writes to
+   * a temp file, and imports via the standard fileStorage flow.
+   */
+  ipcMain.handle('resource:importFromContent', async (event, {
+    title,
+    content,
+    content_base64,
+    mime_type,
+    filename,
+    type,
+    project_id,
+    folder_id,
+  }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const os = require('os');
+
+    let tempPath = null;
+    try {
+      if (!title || typeof title !== 'string' || !title.trim()) {
+        return { success: false, error: 'title is required' };
+      }
+      if (!content && !content_base64) {
+        return { success: false, error: 'content or content_base64 is required' };
+      }
+
+      // Determine extension from filename or mime_type
+      const ext = filename
+        ? path.extname(filename).toLowerCase()
+        : mime_type?.includes('pdf') ? '.pdf'
+        : mime_type?.includes('docx') || mime_type?.includes('wordprocessingml') ? '.docx'
+        : mime_type?.includes('plain') ? '.txt'
+        : mime_type?.includes('markdown') ? '.md'
+        : '.txt';
+
+      // Write content to a temp file
+      const tmpName = `dome-import-${Date.now()}${ext}`;
+      tempPath = path.join(os.tmpdir(), tmpName);
+
+      if (content_base64) {
+        const buf = Buffer.from(content_base64, 'base64');
+        fs.writeFileSync(tempPath, buf);
+      } else {
+        fs.writeFileSync(tempPath, content || '', 'utf8');
+      }
+
+      // Determine resource type
+      let effectiveType = type;
+      if (!effectiveType) {
+        if (ext === '.pdf' || mime_type?.includes('pdf')) effectiveType = 'pdf';
+        else if (['.docx', '.doc', '.odt', '.rtf'].includes(ext)) effectiveType = 'document';
+        else effectiveType = 'document';
+      }
+
+      // Import via fileStorage
+      const importResult = await fileStorage.importFile(tempPath, effectiveType);
+
+      // Check duplicate
+      const queries = database.getQueries();
+      const existing = queries.findByHash?.get(importResult.hash);
+      if (existing) {
+        return {
+          success: false,
+          error: 'duplicate',
+          duplicate: { id: existing.id, title: existing.title, projectId: existing.project_id },
+        };
+      }
+
+      // Extract text for searchable types
+      const fullPath = fileStorage.getFullPath(importResult.internalPath);
+      let contentText = content || null;
+      if (effectiveType === 'document' || effectiveType === 'pdf') {
+        try {
+          if (effectiveType === 'pdf') {
+            contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
+          } else {
+            contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
+          }
+        } catch {
+          // Keep plain text content if extraction fails
+        }
+      }
+
+      // Create resource record
+      const resourceId = generateId();
+      const now = Date.now();
+      const resourceTitle = title.trim() || filename || 'Imported File';
+      const effectiveProjectId = project_id || null;
+
+      queries.createResourceWithFile.run(
+        resourceId,
+        effectiveProjectId,
+        effectiveType,
+        resourceTitle,
+        contentText,
+        null,
+        importResult.internalPath,
+        importResult.mimeType || mime_type || null,
+        importResult.size,
+        importResult.hash,
+        null, // thumbnail
+        filename || importResult.originalName || null,
+        null, // metadata
+        now,
+        now
+      );
+
+      // Set folder if provided
+      if (folder_id && queries.moveResourceToFolder) {
+        queries.moveResourceToFolder?.run(folder_id, now, resourceId);
+      }
+
+      const resource = queries.getResourceById.get(resourceId);
+      windowManager.broadcast('resource:created', resource);
+
+      if (indexerDeps && resource && resourceIndexer.shouldIndex(resource)) {
+        resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
+      }
+
+      return { success: true, resource };
+    } catch (error) {
+      console.error('[Resource] importFromContent error:', error);
+      return { success: false, error: error.message };
+    } finally {
+      if (tempPath) {
+        try { fs.unlinkSync(tempPath); } catch { /* ignore cleanup errors */ }
+      }
+    }
+  });
 }
 
 module.exports = { register };

@@ -1,0 +1,14 @@
+{
+  "id": "brave-search-mcp",
+  "name": "Brave Search MCP",
+  "description": "Búsqueda web privada con la API de Brave Search, sin rastreo y con resultados relevantes.",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+  "env": {
+    "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+  },
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "tags": ["search", "web", "research"],
+  "repository": "https://github.com/modelcontextprotocol/servers"
+}

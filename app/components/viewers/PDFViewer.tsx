@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
-import IndexStatusBadge from './shared/IndexStatusBadge';
+import { ChevronLeft, ChevronRight, ExternalLink, FileText, Loader2 } from 'lucide-react';
 import type { Resource } from '@/types';
+import { db } from '@/lib/db/client';
 import { useInteractions } from '@/lib/hooks/useInteractions';
 import { loadPDFDocument, getPDFPage, getPDFOutline, type OutlineItem } from '@/lib/pdf/pdf-loader';
 import type { PDFAnnotation, AnnotationType } from '@/lib/pdf/annotation-utils';
@@ -36,13 +36,20 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   const [strokeWidth, setStrokeWidth] = useState(2);
   const [isOpeningExternal, setIsOpeningExternal] = useState(false);
   const [outline, setOutline] = useState<OutlineItem[]>([]);
+  const [domeConnected, setDomeConnected] = useState(false);
+  const [provider, setProvider] = useState<string>('');
+  const [doclingConverting, setDoclingConverting] = useState(false);
+  const [doclingProgress, setDoclingProgress] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageInputRef = useRef<HTMLInputElement>(null);
   const setPdfState = usePDFViewerStore((s) => s.setPdfState);
+  
+  // Track if initial page has been set to avoid reloads
+  const initialPageSetRef = useRef(false);
 
   const { annotations: dbAnnotations, addInteraction, updateInteraction, deleteInteraction } = useInteractions(resource.id);
 
-  // Load PDF document
+  // Load PDF document - only reloads when resource.id changes, not when initialPage changes
   useEffect(() => {
     async function loadPDF() {
       if (typeof window === 'undefined' || !window.electron) return;
@@ -50,6 +57,9 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
       try {
         setIsLoading(true);
         setError(null);
+
+        // Reset initial page tracking when resource changes
+        initialPageSetRef.current = false;
 
         // Get file path and read file in parallel (independent operations)
         const [pathResult, result] = await Promise.all([
@@ -82,10 +92,14 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
           const toc = await getPDFOutline(doc);
           setOutline(toc);
 
-          if (initialPage != null && initialPage >= 1 && initialPage <= numPages) {
-            setCurrentPage(initialPage);
-          } else if (initialPage != null && initialPage > numPages) {
-            setCurrentPage(numPages);
+          // Set initial page only once when PDF first loads
+          if (!initialPageSetRef.current) {
+            if (initialPage != null && initialPage >= 1 && initialPage <= numPages) {
+              setCurrentPage(initialPage);
+            } else if (initialPage != null && initialPage > numPages) {
+              setCurrentPage(numPages);
+            }
+            initialPageSetRef.current = true;
           }
         } else {
           setError(result.error || 'Failed to load PDF');
@@ -99,7 +113,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
     }
 
     loadPDF();
-  }, [resource.id, initialPage]);
+  }, [resource.id]); // Only reload when resource ID changes
 
   // Parse annotations from database
   useEffect(() => {
@@ -112,6 +126,46 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
     });
     setAnnotations(parsedAnnotations);
   }, [dbAnnotations]);
+
+  // Check provider and Dome session for Docling button
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron) return;
+    const load = async () => {
+      const [providerRes, sessionRes] = await Promise.all([
+        db.getSetting('ai_provider'),
+        window.electron.domeAuth?.getSession?.() ?? Promise.resolve({ connected: false }),
+      ]);
+      setProvider((providerRes.data ?? '').toLowerCase());
+      setDomeConnected(sessionRes?.connected ?? false);
+    };
+    load();
+    const onConfigChange = () => load();
+    window.addEventListener('dome:ai-config-changed', onConfigChange);
+    return () => window.removeEventListener('dome:ai-config-changed', onConfigChange);
+  }, []);
+
+  // Listen for Docling progress
+  useEffect(() => {
+    if (!window.electron?.docling?.onProgress) return;
+    const unsub = window.electron.docling.onProgress((event: { resourceId: string; status: string; progress?: number }) => {
+      if (event.resourceId !== resource.id) return;
+      const labels: Record<string, string> = {
+        converting: 'Convirtiendo…',
+        storing_images: 'Guardando imágenes…',
+        updating_resource: 'Actualizando…',
+        indexing: 'Indexando…',
+        done: 'Listo',
+        error: 'Error',
+      };
+      setDoclingProgress(labels[event.status] ?? event.status);
+      if (event.status === 'done' || event.status === 'error') {
+        setDoclingConverting(false);
+        setDoclingProgress(null);
+        window.dispatchEvent(new Event('dome:resources-changed'));
+      }
+    });
+    return unsub;
+  }, [resource.id]);
 
   // Calculate zoom based on mode; ResizeObserver for container resize
   useEffect(() => {
@@ -250,6 +304,22 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
       }
     }
   }, [filePath]);
+
+  const handleDoclingConvert = useCallback(async () => {
+    if (!window.electron?.docling?.convertResource || doclingConverting) return;
+    setDoclingConverting(true);
+    setDoclingProgress('Convirtiendo…');
+    try {
+      const result = await window.electron.docling.convertResource(resource.id);
+      if (!result?.success) {
+        setDoclingConverting(false);
+        setDoclingProgress(null);
+      }
+    } catch {
+      setDoclingConverting(false);
+      setDoclingProgress(null);
+    }
+  }, [resource.id, doclingConverting]);
 
   const handleAnnotationCreate = useCallback(
     async (annotation: Omit<PDFAnnotation, 'id'>) => {
@@ -398,7 +468,25 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <IndexStatusBadge resourceId={resource.id} resourceType="pdf" />
+          {provider === 'dome' && domeConnected && (
+            <button
+              onClick={handleDoclingConvert}
+              disabled={doclingConverting}
+              className="p-1.5 rounded text-sm flex items-center gap-1"
+              style={{ color: 'var(--secondary-text)' }}
+              aria-label="Convertir con Docling"
+              title="Convertir PDF a markdown con Docling (mejora indexación para IA)"
+            >
+              {doclingConverting ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  <span className="text-xs">{doclingProgress ?? '…'}</span>
+                </>
+              ) : (
+                <FileText size={14} />
+              )}
+            </button>
+          )}
           <button
             onClick={handleOpenExternal}
             className="p-1.5 rounded text-sm"

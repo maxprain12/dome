@@ -18,6 +18,30 @@ const database = require('./database.cjs');
 
 /** Shared checkpointer for HITL so resume can find the checkpoint from the same thread */
 let sharedCheckpointer = null;
+
+/**
+ * Emit text, extracting <think>...</think> blocks as separate 'thinking' chunks.
+ * Models like MiniMax M2.5 embed chain-of-thought inline in the response text.
+ */
+function emitTextWithThinking(text, onChunk) {
+  if (!onChunk || !text) return;
+  const regex = /<think>([\s\S]*?)<\/think>/g;
+  let lastIndex = 0;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      onChunk({ type: 'text', text: text.slice(lastIndex, match.index).trimStart() });
+    }
+    if (match[1].trim()) {
+      onChunk({ type: 'thinking', text: match[1] });
+    }
+    lastIndex = match.index + match[0].length;
+  }
+  const remaining = lastIndex < text.length ? text.slice(lastIndex) : '';
+  if (remaining.trim()) {
+    onChunk({ type: 'text', text: remaining.trimStart() });
+  }
+}
 function getSharedCheckpointer() {
   if (!sharedCheckpointer) {
     const { MemorySaver } = require('@langchain/langgraph-checkpoint');
@@ -131,6 +155,25 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
     return new ChatGoogleGenerativeAI({
       model: model || 'gemini-3-flash-preview',
       apiKey: apiKey || process.env.GOOGLE_API_KEY,
+      temperature: 0.7,
+    });
+  }
+  if (provider === 'minimax') {
+    const { ChatOpenAI } = await import('@langchain/openai');
+    const { MINIMAX_OPENAI_BASE_URL } = require('./minimax-config.cjs');
+    return new ChatOpenAI({
+      model: model || 'MiniMax-M2.5',
+      apiKey: apiKey,
+      configuration: { baseURL: MINIMAX_OPENAI_BASE_URL },
+      temperature: 0.7,
+    });
+  }
+  if (provider === 'dome') {
+    const { ChatOpenAI } = await import('@langchain/openai');
+    return new ChatOpenAI({
+      model: model || 'dome/auto',
+      apiKey: apiKey,
+      configuration: { baseURL: baseUrl },
       temperature: 0.7,
     });
   }
@@ -248,23 +291,95 @@ async function invokeLangGraphAgent(opts) {
     const mcpTools = Array.isArray(mcpServerIds)
       ? (mcpServerIds.length > 0 ? await getMCPTools(database, mcpServerIds) : [])
       : await getMCPTools(database);
-    const rememberFactDef = [{
-      type: 'function',
-      function: {
-        name: 'remember_fact',
-        description: 'Save an important fact about the user to long-term memory. Use this when you learn something relevant: name, preferences, work topics, communication style, goals.',
-        parameters: {
-          type: 'object',
-          properties: {
-            key: { type: 'string', description: 'Short label for the memory (e.g. "user_name", "preferred_language", "research_topic")' },
-            value: { type: 'string', description: 'The fact to remember' },
+    const mainAgentDefs = [
+      {
+        type: 'function',
+        function: {
+          name: 'get_tool_definition',
+          description:
+            'Get the full schema of any tool (Dome or MCP). Use when you need to see exact parameters before calling a tool. Reduces token usage.',
+          parameters: {
+            type: 'object',
+            properties: {
+              tool_name: { type: 'string', description: 'Normalized tool name (e.g. resource_search, stripe_create_payment)' },
+            },
+            required: ['tool_name'],
           },
-          required: ['key', 'value'],
         },
       },
-    }];
-    const memoryTools = await createLangChainToolsFromOpenAIDefinitions(rememberFactDef, executeToolInMain);
-    tools = [...subagentTools, ...mcpTools, ...memoryTools];
+      {
+        type: 'function',
+        function: {
+          name: 'remember_fact',
+          description: 'Save an important fact about the user to long-term memory. Use this when you learn something relevant: name, preferences, work topics, communication style, goals.',
+          parameters: {
+            type: 'object',
+            properties: {
+              key: { type: 'string', description: 'Short label for the memory (e.g. "user_name", "preferred_language", "research_topic")' },
+              value: { type: 'string', description: 'The fact to remember' },
+            },
+            required: ['key', 'value'],
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'agent_create',
+          description:
+            'Create a new specialized agent (hijo de Many) with a custom system prompt and tools. Use when the user asks to create, build, or set up a new AI agent. Do NOT delegate to subagents—call agent_create directly.',
+          parameters: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Name of the agent (e.g. "Research Assistant", "Noticiero")' },
+              description: { type: 'string', description: 'Short description of what this agent does' },
+              system_instructions: { type: 'string', description: 'System prompt for the agent. Describe WHAT the agent will do when invoked. Be specific.' },
+              tool_ids: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'REQUIRED. Tool IDs the agent needs (e.g. ["web_fetch", "resource_create"]). Agent cannot work without tools. Never omit.',
+              },
+              icon_index: { type: 'number', description: 'Icon index 1-18. Default: random' },
+            },
+            required: ['name', 'tool_ids'],
+          },
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'automation_create',
+          description:
+            'Create an automation that runs an agent or workflow on a trigger (manual, schedule, or contextual). Dome has native automations—use this, never mention n8n or Make. Use when the user asks to automate, schedule, or set up recurring tasks. After creating an agent that could run recurrently (e.g. Noticiero), offer to create an automation.',
+          parameters: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', description: 'Name of the automation (e.g. "Daily briefing")' },
+              description: { type: 'string', description: 'What this automation does' },
+              target_type: { type: 'string', description: 'Target: "agent" or "workflow"' },
+              target_id: { type: 'string', description: 'ID of the target agent or workflow' },
+              trigger_type: { type: 'string', description: 'Trigger: "manual" | "schedule" | "contextual". Default: manual' },
+              prompt: { type: 'string', description: 'Base prompt/instructions to pass when triggered' },
+              schedule: {
+                type: 'object',
+                description: 'For trigger_type "schedule". cadence: "daily"|"weekly"|"cron-lite", hour: 0-23, weekday: 1-7 (for weekly), interval_minutes (for cron-lite)',
+                properties: {
+                  cadence: { type: 'string', enum: ['daily', 'weekly', 'cron-lite'] },
+                  hour: { type: 'number', description: 'Hour of day (0-23)' },
+                  weekday: { type: 'number', description: 'Day of week 1-7 for weekly' },
+                  interval_minutes: { type: 'number', description: 'Minutes between runs for cron-lite' },
+                },
+              },
+              output_mode: { type: 'string', description: '"chat_only" | "note" | "studio_output" | "mixed". Use "note" when agent creates a resource' },
+              enabled: { type: 'boolean', description: 'Whether active. Default: true' },
+            },
+            required: ['title', 'target_id'],
+          },
+        },
+      },
+    ];
+    const mainAgentTools = await createLangChainToolsFromOpenAIDefinitions(mainAgentDefs, executeToolInMain);
+    tools = [...subagentTools, ...mcpTools, ...mainAgentTools];
   }
 
   const interruptOn = skipHitl || useDirectTools
@@ -383,7 +498,7 @@ async function invokeLangGraphAgent(opts) {
       }
       if (textContent) {
         fullText = textContent;
-        if (onChunk) onChunk({ type: 'text', text: textContent });
+        emitTextWithThinking(textContent, onChunk);
       }
     }
 
@@ -550,7 +665,7 @@ async function resumeLangGraphAgent(opts) {
       }
       if (textContent) {
         fullText = textContent;
-        if (onChunk) onChunk({ type: 'text', text: textContent });
+        emitTextWithThinking(textContent, onChunk);
       }
     }
 

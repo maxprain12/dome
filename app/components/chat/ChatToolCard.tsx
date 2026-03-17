@@ -1,10 +1,26 @@
 
 import { useState, useMemo } from 'react';
-import { ChevronDown, ChevronRight, Globe, Search, FileText, Loader2, CheckCircle2, XCircle, Database, Plug } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Globe,
+  Search,
+  FileText,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  Database,
+  Plug,
+  FileTextIcon,
+  Image,
+  PlusCircle,
+} from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
+import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
+import { useManyStore } from '@/lib/store/useManyStore';
 
 /**
- * ChatToolCard - Minimalist display for tool calls
+ * ChatToolCard - Polished display for tool calls with category color system
  */
 
 export interface ToolCallData {
@@ -21,11 +37,59 @@ interface ChatToolCardProps {
   className?: string;
 }
 
+type ToolCategory = 'search' | 'file' | 'agent' | 'db' | 'mcp' | 'default';
+
+/** Category color accent (border/dot color) using fixed semantic colors that work in both themes */
+const CATEGORY_COLORS: Record<ToolCategory, string> = {
+  search: '#3b82f6',   // blue
+  file: '#10b981',     // green
+  agent: '#8b5cf6',    // purple
+  db: '#f59e0b',       // orange
+  mcp: '#6b7280',      // gray
+  default: '#6b7280',  // gray
+};
+
+function getCategory(name: string): ToolCategory {
+  const n = (name || '').toLowerCase();
+  if (n.includes('search') || n.includes('web_fetch') || n.includes('web_search') || n.includes('fetch')) return 'search';
+  if (n.includes('pdf') || n.includes('file') || n.includes('resource') || n.includes('image') || n.includes('notebook')) return 'file';
+  if (n.includes('agent') || n.includes('call_') || n.includes('delegate')) return 'agent';
+  if (n.includes('postgres') || n.includes('sql') || n.includes('query') || n.includes('database') || n.includes('db')) return 'db';
+  if (n.startsWith('mcp') || n.includes('mcp_')) return 'mcp';
+  return 'default';
+}
+
+/** Parse result as image data URL */
+function parseImageResult(result: unknown): { dataUrl: string; alt?: string } | null {
+  if (!result) return null;
+  let parsed: unknown;
+  if (typeof result === 'string') {
+    try {
+      parsed = JSON.parse(result);
+    } catch {
+      if (typeof result === 'string' && result.startsWith('data:image/')) return { dataUrl: result };
+      return null;
+    }
+  } else if (result && typeof result === 'object') {
+    parsed = result;
+  } else {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const obj = parsed as Record<string, unknown>;
+  const imageFields = ['croppedImage', 'thumbnail', 'screenshot', 'image', 'dataUrl', 'imageData'];
+  for (const field of imageFields) {
+    const value = obj[field];
+    if (typeof value === 'string' && value.startsWith('data:image/')) {
+      return { dataUrl: value, alt: String(obj.title || obj.alt || field) };
+    }
+  }
+  return null;
+}
+
 const TOOL_ICONS: Record<string, typeof Globe> = {
   web_search: Search,
   web_fetch: Globe,
-  memory_search: FileText,
-  memory_get: FileText,
   resource_create: FileText,
   resource_get: FileText,
   resource_search: Search,
@@ -36,13 +100,18 @@ const TOOL_ICONS: Record<string, typeof Globe> = {
   notebook_add_cell: FileText,
   notebook_update_cell: FileText,
   notebook_delete_cell: FileText,
+  pdf_extract_text: FileTextIcon,
+  pdf_get_metadata: FileTextIcon,
+  pdf_get_structure: FileTextIcon,
+  pdf_summarize: FileTextIcon,
+  pdf_extract_tables: FileTextIcon,
+  image_crop: Image,
+  image_thumbnail: Image,
 };
 
 const TOOL_LABELS: Record<string, string> = {
   web_search: 'Búsqueda web',
   web_fetch: 'Obteniendo contenido',
-  memory_search: 'Buscando en memoria',
-  memory_get: 'Obteniendo documento',
   resource_create: 'Creando recurso',
   resource_get: 'Obteniendo recurso',
   resource_search: 'Buscando recursos',
@@ -53,14 +122,19 @@ const TOOL_LABELS: Record<string, string> = {
   notebook_add_cell: 'Añadiendo celda',
   notebook_update_cell: 'Actualizando celda',
   notebook_delete_cell: 'Eliminando celda',
+  pdf_extract_text: 'Extrayendo texto de PDF',
+  pdf_get_metadata: 'Obteniendo metadatos de PDF',
+  pdf_get_structure: 'Obteniendo estructura de PDF',
+  pdf_summarize: 'Resumiendo PDF',
+  pdf_extract_tables: 'Extrayendo tablas de PDF',
+  image_crop: 'Recortando imagen',
+  image_thumbnail: 'Generando miniatura',
 };
 
 function getIconForTool(name: string): typeof Globe {
   const norm = (name || '').toLowerCase();
   if (TOOL_ICONS[name]) return TOOL_ICONS[name];
-  if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query') || norm.includes('database')) {
-    return Database;
-  }
+  if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query') || norm.includes('database')) return Database;
   if (norm.includes('mcp_') || norm.startsWith('mcp')) return Plug;
   return Globe;
 }
@@ -79,11 +153,7 @@ function parseDocumentResult(result: unknown): Array<{ content?: string; metadat
   if (!result) return null;
   let parsed: unknown;
   if (typeof result === 'string') {
-    try {
-      parsed = JSON.parse(result);
-    } catch {
-      return null;
-    }
+    try { parsed = JSON.parse(result); } catch { return null; }
   } else {
     parsed = result;
   }
@@ -98,58 +168,226 @@ function parseDocumentResult(result: unknown): Array<{ content?: string; metadat
   return valid ? (parsed as Array<{ content?: string; metadata?: Record<string, unknown> }>) : null;
 }
 
+/** Parse result as artifact */
+function parseArtifactResult(result: unknown): AnyArtifact | null {
+  if (!result) return null;
+  let parsed: unknown;
+  if (typeof result === 'string') {
+    try { parsed = JSON.parse(result); } catch { return null; }
+  } else if (result && typeof result === 'object') {
+    parsed = result;
+  } else {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const obj = parsed as Record<string, unknown>;
+  let artifact: AnyArtifact | undefined;
+  if (obj.artifact && typeof obj.artifact === 'object') artifact = obj.artifact as AnyArtifact;
+  if (!artifact && obj.content && Array.isArray(obj.content)) {
+    const textContent = obj.content[0]?.text;
+    if (typeof textContent === 'string') {
+      try {
+        const p = JSON.parse(textContent);
+        if (p.artifact) artifact = p.artifact as AnyArtifact;
+      } catch { /* Not JSON */ }
+    }
+  }
+  if (!artifact && obj.details && typeof obj.details === 'object') {
+    const details = obj.details as Record<string, unknown>;
+    if (details.artifact) artifact = details.artifact as AnyArtifact;
+  }
+  if (!artifact) return null;
+  const artifactType = artifact.type as ArtifactType;
+  if (!artifactType) return null;
+  const validTypes: ArtifactType[] = ['pdf_summary', 'table', 'action_items', 'chart', 'code', 'list'];
+  if (!validTypes.includes(artifactType)) return null;
+  return artifact;
+}
+
+/**
+ * Simple JSON pretty-printer that renders key-value pairs with alternating row backgrounds.
+ * No external libraries needed.
+ */
+function JsonPrettyPrinter({ value, depth = 0 }: { value: unknown; depth?: number }) {
+  if (value === null) return <span style={{ color: 'var(--tertiary-text)' }}>null</span>;
+  if (typeof value === 'boolean') return <span style={{ color: '#f59e0b' }}>{String(value)}</span>;
+  if (typeof value === 'number') return <span style={{ color: '#10b981' }}>{value}</span>;
+  if (typeof value === 'string') {
+    return <span style={{ color: 'var(--secondary-text)' }}>"{value}"</span>;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>[]</span>;
+    return (
+      <span>
+        {'[\u200B'}
+        <span style={{ paddingLeft: 16 * (depth + 1) }}>
+          {value.map((item, i) => (
+            <div key={i} style={{ paddingLeft: 16, background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)' }}>
+              <JsonPrettyPrinter value={item} depth={depth + 1} />
+              {i < value.length - 1 && <span style={{ color: 'var(--tertiary-text)' }}>,</span>}
+            </div>
+          ))}
+        </span>
+        {']'}
+      </span>
+    );
+  }
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>);
+    if (entries.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>{'{}'}</span>;
+    return (
+      <div>
+        {entries.map(([k, v], i) => (
+          <div
+            key={k}
+            style={{
+              display: 'flex',
+              gap: 6,
+              padding: '2px 6px',
+              borderRadius: 3,
+              background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)',
+            }}
+          >
+            <span style={{ color: 'var(--accent)', fontWeight: 500, flexShrink: 0 }}>{k}:</span>
+            <span style={{ wordBreak: 'break-word', minWidth: 0 }}>
+              <JsonPrettyPrinter value={v} depth={depth + 1} />
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <span>{String(value)}</span>;
+}
+
+interface ResourceItem {
+  id: string;
+  title: string;
+  type: string;
+  snippet?: string;
+  similarity?: number;
+}
+
+function parseResourceItems(toolName: string, result: unknown): ResourceItem[] | null {
+  const n = (toolName || '').toLowerCase();
+  if (!n.includes('resource_list') && !n.includes('resource_search') && !n.includes('resource_semantic')) return null;
+  let parsed: unknown;
+  if (typeof result === 'string') {
+    try { parsed = JSON.parse(result); } catch { return null; }
+  } else {
+    parsed = result;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const obj = parsed as Record<string, unknown>;
+  const arr = Array.isArray(obj.results) ? obj.results : Array.isArray(obj.resources) ? obj.resources : null;
+  if (!arr) return null;
+  return arr
+    .filter((item): item is Record<string, unknown> => item && typeof item === 'object')
+    .map((item) => ({
+      id: String(item.id || ''),
+      title: String(item.title || '(sin título)'),
+      type: String(item.type || 'resource'),
+      snippet: typeof item.snippet === 'string' ? item.snippet : undefined,
+      similarity: typeof item.similarity === 'number' ? item.similarity : undefined,
+    }))
+    .filter((item) => item.id);
+}
+
+/** Format args as a short single-line summary, truncated at ~60 chars */
+function formatArgsSummary(args: Record<string, unknown>): string {
+  const parts = Object.entries(args || {})
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`);
+  const joined = parts.join(', ');
+  if (joined.length > 60) return joined.slice(0, 60) + '…';
+  return joined;
+}
+
 export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [showRawJson, setShowRawJson] = useState(false);
+  const { pinnedResources, addPinnedResource, removePinnedResource } = useManyStore();
 
   const Icon = getIconForTool(toolCall.name);
   const label = getLabelForTool(toolCall.name);
+  const category = getCategory(toolCall.name);
+  const accentColor = CATEGORY_COLORS[category];
 
   const documentItems = useMemo(() => parseDocumentResult(toolCall.result), [toolCall.result]);
+  const artifactItems = useMemo(() => parseArtifactResult(toolCall.result), [toolCall.result]);
+  const imageItems = useMemo(() => parseImageResult(toolCall.result), [toolCall.result]);
+  const resourceItems = useMemo(() => parseResourceItems(toolCall.name, toolCall.result), [toolCall.name, toolCall.result]);
+  const pinnedIds = useMemo(() => new Set(pinnedResources.map((r) => r.id)), [pinnedResources]);
 
-  // Format result for display
   const formatResult = (result: unknown): string => {
     if (typeof result === 'string') return result;
     if (result === null || result === undefined) return '';
-    try {
-      return JSON.stringify(result, null, 2);
-    } catch {
-      return String(result);
-    }
+    try { return JSON.stringify(result, null, 2); } catch { return String(result); }
   };
+
+  const parsedResult = useMemo(() => {
+    if (!toolCall.result) return null;
+    if (typeof toolCall.result === 'object') return toolCall.result;
+    if (typeof toolCall.result === 'string') {
+      try { return JSON.parse(toolCall.result); } catch { return null; }
+    }
+    return null;
+  }, [toolCall.result]);
 
   const resultText = formatResult(toolCall.result);
   const isPending = toolCall.status === 'pending' || toolCall.status === 'running';
-
-  // Format arguments for display
-  const argsText = Object.entries(toolCall.arguments || {})
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`)
-    .join(', ');
+  const argsSummary = formatArgsSummary(toolCall.arguments);
 
   const renderResultContent = () => {
     if (toolCall.error) {
-      return <p className="text-xs text-[var(--error)]">{toolCall.error}</p>;
+      return (
+        <div
+          style={{
+            fontSize: 12,
+            color: 'var(--error)',
+            padding: '6px 8px',
+            background: 'color-mix(in srgb, var(--error) 8%, transparent)',
+            borderRadius: 4,
+          }}
+        >
+          {toolCall.error}
+        </div>
+      );
     }
+
     if (showRawJson) {
       return (
-        <pre className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-64 text-[var(--secondary-text)]">
+        <pre
+          style={{
+            fontSize: 11,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            overflowY: 'auto',
+            maxHeight: 256,
+            color: 'var(--secondary-text)',
+            background: 'var(--bg-tertiary)',
+            borderRadius: 4,
+            padding: '8px 10px',
+            margin: 0,
+          }}
+        >
           {resultText}
         </pre>
       );
     }
+
     if (documentItems && documentItems.length > 0) {
       return (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {documentItems.map((item, idx) => (
-            <div key={idx} className="space-y-1.5">
+            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {item.metadata?.title != null && (
-                <p className="text-xs font-medium text-[var(--primary-text)]">
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary-text)', margin: 0 }}>
                   {String(item.metadata.title)}
                 </p>
               )}
               {item.content && (
-                <div className="text-xs prose prose-sm max-w-none text-[var(--secondary-text)]">
+                <div style={{ fontSize: 12, color: 'var(--secondary-text)' }}>
                   <MarkdownRenderer content={typeof item.content === 'string' ? item.content : ''} />
                 </div>
               )}
@@ -158,59 +396,271 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
         </div>
       );
     }
+
+    if (artifactItems) {
+      return (
+        <div style={{ marginTop: 6 }}>
+          <ArtifactCard artifact={artifactItems} />
+        </div>
+      );
+    }
+
+    if (imageItems) {
+      return (
+        <div style={{ marginTop: 6, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <img
+            src={imageItems.dataUrl}
+            alt={imageItems.alt || 'Imagen procesada'}
+            style={{
+              maxWidth: 200,
+              maxHeight: 200,
+              objectFit: 'contain',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+            }}
+          />
+          <div style={{ fontSize: 12, color: 'var(--secondary-text)' }}>
+            <p style={{ fontWeight: 600, color: 'var(--primary-text)', margin: '0 0 4px' }}>Imagen procesada</p>
+            <p style={{ opacity: 0.7, margin: 0 }}>Haz clic para expandir</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Resource list/search results with add-to-context buttons
+    if (resourceItems && resourceItems.length > 0) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {resourceItems.map((item) => {
+            const isPinned = pinnedIds.has(item.id);
+            return (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 6,
+                  padding: '5px 6px',
+                  borderRadius: 5,
+                  border: '1px solid var(--border)',
+                  background: isPinned ? 'color-mix(in srgb, var(--accent) 6%, transparent)' : 'var(--bg-tertiary)',
+                }}
+              >
+                <FileText style={{ width: 12, height: 12, flexShrink: 0, marginTop: 2, color: 'var(--tertiary-text)' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--primary-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.title}
+                  </span>
+                  {item.snippet && (
+                    <span style={{ fontSize: 11, color: 'var(--tertiary-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.snippet}
+                    </span>
+                  )}
+                </div>
+                {item.similarity != null && (
+                  <span style={{ fontSize: 10, color: 'var(--tertiary-text)', flexShrink: 0, marginTop: 2 }}>
+                    {Math.round(item.similarity * 100)}%
+                  </span>
+                )}
+                <button
+                  onClick={() => {
+                    if (isPinned) {
+                      removePinnedResource(item.id);
+                    } else {
+                      addPinnedResource({ id: item.id, title: item.title, type: item.type });
+                    }
+                  }}
+                  title={isPinned ? 'Quitar del contexto' : 'Añadir al contexto del chat'}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 20,
+                    height: 20,
+                    flexShrink: 0,
+                    borderRadius: 4,
+                    border: 'none',
+                    background: 'transparent',
+                    color: isPinned ? 'var(--accent)' : 'var(--tertiary-text)',
+                    cursor: 'pointer',
+                    transition: 'color 150ms ease',
+                  }}
+                >
+                  {isPinned
+                    ? <CheckCircle2 style={{ width: 13, height: 13 }} />
+                    : <PlusCircle style={{ width: 13, height: 13 }} />
+                  }
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // JSON pretty view for objects/arrays
+    if (parsedResult && typeof parsedResult === 'object') {
+      return (
+        <div
+          style={{
+            fontSize: 11,
+            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+            overflowY: 'auto',
+            maxHeight: 256,
+            background: 'var(--bg-tertiary)',
+            borderRadius: 4,
+            padding: '8px 10px',
+          }}
+        >
+          <JsonPrettyPrinter value={parsedResult} />
+        </div>
+      );
+    }
+
     return (
-      <pre className="text-xs whitespace-pre-wrap break-words overflow-auto max-h-64 text-[var(--secondary-text)]">
+      <pre
+        style={{
+          fontSize: 11,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          overflowY: 'auto',
+          maxHeight: 256,
+          color: 'var(--secondary-text)',
+          background: 'var(--bg-tertiary)',
+          borderRadius: 4,
+          padding: '8px 10px',
+          margin: 0,
+        }}
+      >
         {resultText}
       </pre>
     );
   };
 
+  const hasResult = Boolean(toolCall.result || toolCall.error);
+  const canExpand = !isPending && hasResult;
+
   return (
-    <div className={`min-w-0 max-w-full text-sm ${className}`}>
+    <div
+      className={className}
+      style={{
+        minWidth: 0,
+        maxWidth: '100%',
+        fontSize: 13,
+        borderLeft: `2px solid ${accentColor}`,
+        borderRadius: '0 4px 4px 0',
+        transition: 'background 150ms ease',
+      }}
+    >
       <button
         type="button"
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => canExpand && setExpanded(!expanded)}
         disabled={isPending}
-        className={`group flex w-full min-w-0 items-start gap-2 py-1.5 px-2 rounded-lg text-left transition-colors hover:bg-[var(--bg-hover)] ${isPending ? 'cursor-default' : 'cursor-pointer'
-          }`}
+        style={{
+          display: 'flex',
+          width: '100%',
+          minWidth: 0,
+          alignItems: 'center',
+          gap: 8,
+          padding: '5px 8px',
+          borderRadius: '0 4px 4px 0',
+          textAlign: 'left',
+          background: 'transparent',
+          border: 'none',
+          cursor: canExpand ? 'pointer' : 'default',
+          transition: 'background 150ms ease',
+        }}
+        onMouseOver={(e) => {
+          if (canExpand) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)';
+        }}
+        onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
       >
-        <div className={`flex items-center justify-center h-5 w-5 rounded transition-colors ${isPending ? 'text-[var(--accent)]' : toolCall.status === 'error' ? 'text-[var(--error)]' : 'text-[var(--tertiary-text)] group-hover:text-[var(--secondary-text)]'
-          }`}>
+        {/* Status indicator */}
+        <div style={{ flexShrink: 0, width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {isPending ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2
+              style={{ width: 13, height: 13, color: accentColor, animation: 'spin 1s linear infinite' }}
+            />
           ) : toolCall.status === 'error' ? (
-            <XCircle className="h-3.5 w-3.5" />
+            <XCircle style={{ width: 13, height: 13, color: 'var(--error)' }} />
+          ) : toolCall.status === 'success' ? (
+            <CheckCircle2 style={{ width: 13, height: 13, color: '#10b981' }} />
           ) : (
-            <Icon className="h-3.5 w-3.5" />
+            <Icon style={{ width: 13, height: 13, color: 'var(--tertiary-text)' }} />
           )}
         </div>
 
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className={`text-[13px] font-medium ${isPending ? 'text-[var(--primary-text)]' : 'text-[var(--secondary-text)]'}`}>
+        {/* Label + args */}
+        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: isPending ? 'var(--primary-text)' : 'var(--secondary-text)',
+              lineHeight: 1.4,
+            }}
+          >
             {label}
           </span>
-          {argsText && (isPending || expanded) && (
-            <span className="mt-0.5 break-words text-[11px] font-normal leading-5 opacity-70" style={{ overflowWrap: 'anywhere' }}>
-              {argsText}
+          {argsSummary && (
+            <span
+              style={{
+                fontSize: 11,
+                color: 'var(--tertiary-text)',
+                lineHeight: 1.4,
+                marginTop: 1,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {argsSummary}
             </span>
           )}
         </span>
 
-        {!isPending && (toolCall.result || toolCall.error) && (
-          <div className="shrink-0 pt-0.5 text-[var(--tertiary-text)] opacity-0 transition-opacity group-hover:opacity-100">
-            {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        {/* Expand chevron */}
+        {canExpand && (
+          <div style={{ flexShrink: 0, color: 'var(--tertiary-text)', opacity: 0.6 }}>
+            {expanded ? (
+              <ChevronDown style={{ width: 13, height: 13 }} />
+            ) : (
+              <ChevronRight style={{ width: 13, height: 13 }} />
+            )}
           </div>
         )}
       </button>
 
       {/* Expandable Result Area */}
-      {expanded && !isPending && (toolCall.result || toolCall.error) && (
-        <div className="mt-1 ml-2 min-w-0 overflow-hidden border-l border-[var(--border)] py-1 pl-4 animate-in fade-in duration-200 slide-in-from-top-1">
-          {documentItems && (
-            <div className="mb-2">
+      {expanded && canExpand && (
+        <div
+          style={{
+            marginTop: 2,
+            marginLeft: 8,
+            paddingLeft: 16,
+            paddingTop: 6,
+            paddingBottom: 6,
+            borderLeft: '1px solid var(--border)',
+          }}
+        >
+          {/* JSON toggle button */}
+          {!toolCall.error && hasResult && (
+            <div style={{ marginBottom: 6 }}>
               <button
                 type="button"
-                className="text-[10px] opacity-60 hover:opacity-100 transition-opacity text-[var(--secondary-text)]"
+                style={{
+                  fontSize: 10,
+                  color: 'var(--tertiary-text)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                  textDecoration: 'underline',
+                  opacity: 0.7,
+                }}
+                onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+                onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.7'; }}
                 onClick={() => setShowRawJson(!showRawJson)}
               >
                 {showRawJson ? 'Vista formateada' : 'Ver JSON'}

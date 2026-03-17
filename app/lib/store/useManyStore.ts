@@ -5,6 +5,12 @@ const MAX_SESSIONS = 20;
 
 export type ManyStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
 
+export interface PinnedResource {
+  id: string;
+  title: string;
+  type: string;
+}
+
 export interface ManyMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -115,6 +121,7 @@ interface ManyState {
   switchSession: (id: string) => void;
   deleteSession: (id: string) => void;
   updateSessionTitle: (id: string, title: string) => void;
+  hydrateSession: (session: ManyChatSession) => void;
   setCurrentInput: (input: string) => void;
   incrementUnread: () => void;
   clearUnread: () => void;
@@ -128,6 +135,11 @@ interface ManyState {
   clearSuggestedQuestions: () => void;
   petPromptOverride: string | null;
   setPetPromptOverride: (prompt: string | null) => void;
+  /** Resources pinned as context for the current session (not persisted) */
+  pinnedResources: PinnedResource[];
+  addPinnedResource: (resource: PinnedResource) => void;
+  removePinnedResource: (id: string) => void;
+  clearPinnedResources: () => void;
 }
 
 export const useManyStore = create<ManyState>((set, get) => ({
@@ -292,6 +304,28 @@ export const useManyStore = create<ManyState>((set, get) => ({
     }
   },
 
+  hydrateSession: (session) => {
+    const { sessions, currentSessionId } = get();
+    const idx = sessions.findIndex((item) => item.id === session.id);
+    const normalizedSession: ManyChatSession = {
+      ...session,
+      createdAt: session.createdAt ?? Date.now(),
+      messages: Array.isArray(session.messages) ? session.messages : [],
+    };
+    const nextSessions = idx >= 0
+      ? sessions.map((item) => (item.id === session.id ? normalizedSession : item))
+      : [normalizedSession, ...sessions].slice(0, MAX_SESSIONS);
+    persistSessions(nextSessions);
+    set({
+      sessions: nextSessions,
+      currentSessionId: currentSessionId ?? normalizedSession.id,
+      messages:
+        currentSessionId === normalizedSession.id || (!currentSessionId && nextSessions[0]?.id === normalizedSession.id)
+          ? [...normalizedSession.messages]
+          : get().messages,
+    });
+  },
+
   setCurrentInput: (input) => set({ currentInput: input }),
 
   incrementUnread: () => set((state) => ({ unreadCount: state.unreadCount + 1 })),
@@ -322,4 +356,14 @@ export const useManyStore = create<ManyState>((set, get) => ({
 
   petPromptOverride: null,
   setPetPromptOverride: (prompt) => set({ petPromptOverride: prompt }),
+
+  pinnedResources: [],
+  addPinnedResource: (resource) =>
+    set((state) => {
+      if (state.pinnedResources.some((r) => r.id === resource.id)) return state;
+      return { pinnedResources: [...state.pinnedResources, resource] };
+    }),
+  removePinnedResource: (id) =>
+    set((state) => ({ pinnedResources: state.pinnedResources.filter((r) => r.id !== id) })),
+  clearPinnedResources: () => set({ pinnedResources: [] }),
 }));

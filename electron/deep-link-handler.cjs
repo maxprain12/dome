@@ -26,7 +26,10 @@ async function handleDomeUrl(url, deps) {
     return mcpOauth.handleOAuthCallback(url);
   }
 
-  // Dome provider OAuth callback
+  // Dome provider: connect (dashboard-initiated) vs OAuth callback (desktop-initiated)
+  if (url.startsWith('dome://dome-auth/connect')) {
+    return domeOauth.handleConnectCallback(url, deps.database);
+  }
   if (url.startsWith('dome://dome-auth/')) {
     return domeOauth.handleOAuthCallback(url, deps.database);
   }

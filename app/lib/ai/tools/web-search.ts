@@ -55,7 +55,7 @@ const WebSearchSchema = Type.Object({
   query: Type.String({ description: 'Search query string.' }),
   count: Type.Optional(
     Type.Number({
-      description: 'Number of results to return (1-10).',
+      description: 'Number of results to return (1-10). Default: 5. Use fewer results to reduce processing time.',
       minimum: 1,
       maximum: MAX_SEARCH_COUNT,
     }),

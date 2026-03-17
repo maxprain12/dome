@@ -1,0 +1,15 @@
+{
+  "id": "slack-mcp",
+  "name": "Slack MCP",
+  "description": "Integración con Slack: lee canales, envía mensajes y gestiona notificaciones del workspace.",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-slack"],
+  "env": {
+    "SLACK_BOT_TOKEN": "${SLACK_BOT_TOKEN}",
+    "SLACK_TEAM_ID": "${SLACK_TEAM_ID}"
+  },
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "tags": ["slack", "communication", "productivity"],
+  "repository": "https://github.com/modelcontextprotocol/servers"
+}

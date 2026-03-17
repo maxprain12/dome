@@ -292,6 +292,20 @@ async function callOCRBatch(pageImages, database) {
     return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
   }
 
+  if (provider === 'minimax') {
+    const content = [{ type: 'text', text: textPrompt }];
+    for (const { base64 } of pageImages) {
+      content.push({ type: 'image_url', image_url: { url: `data:image/png;base64,${base64}`, detail: 'high' } });
+    }
+    try {
+      const { MINIMAX_BASE_URL } = require('./minimax-config.cjs');
+      return await aiCloudService.chatOpenAI([{ role: 'user', content }], apiKey, model, MINIMAX_BASE_URL, 120000);
+    } catch (err) {
+      console.warn('[DocIndexer] Minimax OCR failed (vision may be unsupported):', err.message);
+      return '';
+    }
+  }
+
   if (provider === 'ollama') {
     const baseUrl = queries.getSetting.get('ollama_base_url')?.value || 'http://localhost:11434';
     const ollamaApiKey = queries.getSetting.get('ollama_api_key')?.value || '';
@@ -382,6 +396,388 @@ function resetNodeCounter() {
 // ---------------------------------------------------------------------------
 
 const PAGES_PER_CHUNK = 10;
+const TARGET_SECTION_PAGES = 3;
+const MAX_SECTION_PAGES = 5;
+const MIN_SECTION_TEXT_LENGTH = 60;
+const MAX_SECTION_SNIPPET_CHARS = 3500;
+const MAX_RECURSIVE_DEPTH = 2;
+const RECURSIVE_SECTION_PAGE_THRESHOLD = 4;
+const SECTION_NUMBER_REGEX = /^(\d+(?:\.\d+)*)(?:[\s).:-]+|$)/;
+const HEADING_PREFIX_REGEX = /^([A-Z]\.|(?:\d+(?:\.\d+)*)|(?:[IVXLCDM]+))(?:[\s).:-]+)(.+)$/i;
+
+function normalizeWhitespace(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+function pageRangeLabel(startIndex, endIndex = startIndex) {
+  if (startIndex == null) return '';
+  if (endIndex == null || endIndex === startIndex) return `p.${startIndex + 1}`;
+  return `p.${startIndex + 1}-${endIndex + 1}`;
+}
+
+function cleanSectionTitle(rawTitle) {
+  let title = normalizeWhitespace(rawTitle);
+  if (!title) return '';
+  title = title
+    .replace(/^[#>*\-\u2022]+\s*/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return title.slice(0, 220);
+}
+
+function extractStructureCode(title) {
+  const match = cleanSectionTitle(title).match(SECTION_NUMBER_REGEX);
+  return match?.[1] || null;
+}
+
+function isLikelyHeadingLine(line) {
+  const trimmed = cleanSectionTitle(line);
+  if (!trimmed || trimmed.length < 3 || trimmed.length > 140) return false;
+  if (/^[\W\d_]+$/.test(trimmed)) return false;
+  if (/^[a-z]/.test(trimmed) && !SECTION_NUMBER_REGEX.test(trimmed)) return false;
+  if (/[:;,.!?]$/.test(trimmed) && trimmed.length > 90) return false;
+  if (trimmed.split(' ').length > 14) return false;
+  if (SECTION_NUMBER_REGEX.test(trimmed)) return true;
+  if (/^(cap[ií]tulo|secci[oó]n|tema|parte|anexo|appendix|chapter)\b/i.test(trimmed)) return true;
+  if (/^[A-ZÁÉÍÓÚÑ0-9][A-ZÁÉÍÓÚÑ0-9\s()\-/:]{4,}$/.test(trimmed) && trimmed.length <= 90) return true;
+  const alphaWords = trimmed.split(/\s+/).filter(Boolean);
+  if (alphaWords.length === 0) return false;
+  const titleCaseWords = alphaWords.filter((word) => /^[A-ZÁÉÍÓÚÑ][a-záéíóúñ0-9]/.test(word));
+  return titleCaseWords.length >= Math.max(1, Math.ceil(alphaWords.length * 0.6));
+}
+
+function extractHeadingCandidatesFromPage(pageText, pageIndex) {
+  const lines = String(pageText || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) return [];
+
+  const candidates = [];
+  const seenTitles = new Set();
+  const maxLinesToInspect = Math.min(lines.length, 80);
+
+  for (let i = 0; i < maxLinesToInspect; i++) {
+    const line = lines[i];
+    if (!isLikelyHeadingLine(line)) continue;
+
+    const title = cleanSectionTitle(line);
+    if (!title || seenTitles.has(title)) continue;
+
+    seenTitles.add(title);
+    candidates.push({
+      title,
+      physical_index: pageIndex,
+      structure: extractStructureCode(title),
+    });
+
+    if (candidates.length >= 5) break;
+  }
+
+  return candidates;
+}
+
+function safeJsonParse(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    return null;
+  }
+}
+
+function buildTaggedPageText(pageTexts, startPage = 0, endPage = pageTexts.length - 1) {
+  const slices = [];
+  for (let pageIndex = startPage; pageIndex <= endPage; pageIndex++) {
+    const pageText = String(pageTexts[pageIndex] || '').trim();
+    if (!pageText) continue;
+    slices.push(`[PAGE ${pageIndex + 1}]\n${pageText}`);
+  }
+  return slices.join('\n\n');
+}
+
+async function extractSectionCandidatesWithLLM(pageTexts, database, startPage = 0, endPage = pageTexts.length - 1) {
+  const taggedText = buildTaggedPageText(pageTexts, startPage, endPage);
+  if (!taggedText.trim()) return [];
+
+  const prompt =
+    `Analiza este documento PDF etiquetado por páginas y extrae únicamente las secciones visibles.\n` +
+    `Devuelve SOLO JSON con este formato exacto:\n` +
+    `{"sections":[{"title":"<título visible>","physical_index":<número de página 1-based>,"structure":"<numeración visible o null>"}]}\n\n` +
+    `Reglas:\n` +
+    `- Usa sólo títulos que realmente aparezcan en el texto.\n` +
+    `- physical_index debe ser la primera página donde aparece la sección.\n` +
+    `- Si la sección no tiene numeración explícita, usa null en structure.\n` +
+    `- No añadas una raíz global para el documento.\n` +
+    `- Conserva subtítulos como "5.1 ..." cuando existan.\n\n` +
+    `Documento:\n${taggedText}\n\n` +
+    `Responde SOLO con el JSON.`;
+
+  const parsed = safeJsonParse(await callLLM(prompt, database));
+  const sections = Array.isArray(parsed?.sections) ? parsed.sections : [];
+
+  return sections.map((section) => {
+    const rawPage = Number(section?.physical_index);
+    const clampedPage = Number.isFinite(rawPage)
+      ? Math.max(startPage, Math.min(endPage, rawPage - 1))
+      : startPage;
+    const title = cleanSectionTitle(section?.title);
+    return {
+      title,
+      physical_index: clampedPage,
+      structure: typeof section?.structure === 'string' && section.structure.trim()
+        ? section.structure.trim()
+        : extractStructureCode(title),
+    };
+  }).filter((section) => section.title);
+}
+
+function dedupeSectionCandidates(candidates, totalPages) {
+  const normalized = [];
+  const seen = new Set();
+
+  for (const candidate of candidates) {
+    if (!candidate || !candidate.title) continue;
+    const physicalIndex = Math.max(0, Math.min(totalPages - 1, candidate.physical_index ?? 0));
+    const title = cleanSectionTitle(candidate.title);
+    if (!title) continue;
+    const key = `${physicalIndex}:${title.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push({
+      title,
+      physical_index: physicalIndex,
+      structure: candidate.structure || extractStructureCode(title),
+    });
+  }
+
+  normalized.sort((a, b) => {
+    if (a.physical_index !== b.physical_index) return a.physical_index - b.physical_index;
+    const aStructure = a.structure || '';
+    const bStructure = b.structure || '';
+    return aStructure.localeCompare(bStructure);
+  });
+
+  return normalized;
+}
+
+function buildFallbackSectionCandidates(pageTexts) {
+  const totalPages = pageTexts.length;
+  const candidates = [];
+  const step = totalPages <= 3 ? 1 : totalPages <= 8 ? 2 : TARGET_SECTION_PAGES;
+
+  for (let start = 0; start < totalPages; start += step) {
+    const end = Math.min(start + step - 1, totalPages - 1);
+    const rangeText = pageTexts.slice(start, end + 1).join('\n').trim();
+    if (!rangeText) continue;
+    const pageHeadings = extractHeadingCandidatesFromPage(pageTexts[start], start);
+    const fallbackTitle = pageHeadings[0]?.title || `Sección ${candidates.length + 1} (${pageRangeLabel(start, end)})`;
+    candidates.push({
+      title: fallbackTitle,
+      physical_index: start,
+      structure: String(candidates.length + 1),
+    });
+  }
+
+  return candidates;
+}
+
+function assignImplicitStructures(candidates) {
+  let rootCounter = 0;
+  return candidates.map((candidate) => {
+    if (candidate.structure) return candidate;
+    rootCounter += 1;
+    return {
+      ...candidate,
+      structure: String(rootCounter),
+    };
+  });
+}
+
+function buildTreeFromSectionCandidates(candidates, totalPages, endPage = totalPages - 1) {
+  const normalized = assignImplicitStructures(dedupeSectionCandidates(candidates, totalPages));
+  if (normalized.length === 0) return [];
+
+  const items = normalized.map((candidate, index) => {
+    const next = normalized[index + 1];
+    const nextPage = next?.physical_index;
+    const startIndex = candidate.physical_index;
+    const endIndex = nextPage == null
+      ? endPage
+      : nextPage > startIndex
+        ? Math.min(endPage, Math.max(startIndex, nextPage - 1))
+        : startIndex;
+    return {
+      title: candidate.title,
+      structure: candidate.structure,
+      start_index: startIndex,
+      end_index: endIndex,
+      nodes: [],
+    };
+  });
+
+  const byStructure = new Map();
+  const roots = [];
+
+  for (const item of items) {
+    byStructure.set(item.structure, item);
+    const parentStructure = item.structure.includes('.')
+      ? item.structure.split('.').slice(0, -1).join('.')
+      : null;
+    if (parentStructure && byStructure.has(parentStructure)) {
+      byStructure.get(parentStructure).nodes.push(item);
+    } else {
+      roots.push(item);
+    }
+  }
+
+  const cleanNode = (node) => {
+    if (!node.nodes.length) {
+      delete node.nodes;
+      return node;
+    }
+    node.nodes = node.nodes.map(cleanNode);
+    return node;
+  };
+
+  return roots.map(cleanNode);
+}
+
+function getNodeRangeText(pageTexts, node) {
+  const start = Math.max(0, node.start_index ?? 0);
+  const end = Math.max(start, node.end_index ?? start);
+  return pageTexts.slice(start, end + 1).join('\n\n').trim();
+}
+
+function isGenericSectionTitle(title) {
+  const normalized = normalizeWhitespace(title).toLowerCase();
+  return !normalized || normalized.startsWith('sección ') || normalized.startsWith('páginas ') || normalized.startsWith('p.');
+}
+
+function countTreeNodes(tree) {
+  return flattenTree(tree).length;
+}
+
+function assignNodeIds(tree) {
+  const walk = (item) => {
+    if (Array.isArray(item)) {
+      item.forEach(walk);
+      return;
+    }
+    if (!item || typeof item !== 'object') return;
+    item.node_id = nextNodeId();
+    if (Array.isArray(item.nodes)) item.nodes.forEach(walk);
+  };
+  walk(tree);
+}
+
+async function summarizeTreeNodes(tree, pageTexts, database, resourceId, windowManager) {
+  const flatNodes = [];
+  const walk = (item) => {
+    if (Array.isArray(item)) {
+      item.forEach(walk);
+      return;
+    }
+    if (!item || typeof item !== 'object') return;
+    flatNodes.push(item);
+    if (Array.isArray(item.nodes)) item.nodes.forEach(walk);
+  };
+  walk(tree);
+  if (flatNodes.length === 0) return;
+
+  for (let index = 0; index < flatNodes.length; index++) {
+    const node = flatNodes[index];
+    const start = node.start_index ?? 0;
+    const end = node.end_index ?? start;
+    const text = getNodeRangeText(pageTexts, node);
+    if (!text) continue;
+
+    const progress = 35 + Math.round((index / Math.max(flatNodes.length, 1)) * 55);
+    setState(
+      resourceId,
+      'processing',
+      Math.min(progress, 92),
+      `Resumiendo ${index + 1} de ${flatNodes.length} (${pageRangeLabel(start, end)})…`,
+      windowManager,
+      database
+    );
+
+    if (text.length < 450) {
+      node.summary = text.slice(0, 500);
+      node.keywords = node.keywords || [];
+      continue;
+    }
+
+    const snippet = text.slice(0, MAX_SECTION_SNIPPET_CHARS);
+    const prompt =
+      `Eres un asistente de análisis de documentos académicos. Resume esta sección del documento ` +
+      `(${pageRangeLabel(start, end)}). Devuelve SOLO JSON:\n` +
+      `{"title":"<título descriptivo ≤80 chars>","summary":"<resumen de 2-4 oraciones>","keywords":["<kw1>","<kw2>","<kw3>"]}\n\n` +
+      `Fragmento:\n${snippet}\n\nResponde SOLO con el JSON.`;
+
+    const parsed = safeJsonParse(await callLLM(prompt, database));
+    const parsedTitle = cleanSectionTitle(parsed?.title);
+    if (parsedTitle && isGenericSectionTitle(node.title)) {
+      node.title = parsedTitle;
+    }
+    node.summary = normalizeWhitespace(parsed?.summary) || snippet.slice(0, 500);
+    node.keywords = Array.isArray(parsed?.keywords)
+      ? parsed.keywords.slice(0, 5).map((keyword) => normalizeWhitespace(keyword)).filter(Boolean)
+      : [];
+  }
+}
+
+async function extractCandidateSectionsFromPages(pageTexts, database, startPage = 0, endPage = pageTexts.length - 1) {
+  const scopedPages = pageTexts.slice(startPage, endPage + 1);
+  const heuristicCandidates = [];
+
+  scopedPages.forEach((pageText, pageOffset) => {
+    const physicalIndex = startPage + pageOffset;
+    heuristicCandidates.push(...extractHeadingCandidatesFromPage(pageText, physicalIndex));
+  });
+
+  let candidates = dedupeSectionCandidates(heuristicCandidates, pageTexts.length);
+  const totalScopedPages = endPage - startPage + 1;
+  const totalScopedText = scopedPages.join('\n').length;
+
+  if ((candidates.length <= 1 || totalScopedPages > MAX_SECTION_PAGES) && totalScopedText < 50000) {
+    const llmCandidates = await extractSectionCandidatesWithLLM(pageTexts, database, startPage, endPage);
+    if (llmCandidates.length > candidates.length) {
+      candidates = dedupeSectionCandidates(llmCandidates, pageTexts.length);
+    }
+  }
+
+  if (candidates.length === 0) {
+    candidates = dedupeSectionCandidates(buildFallbackSectionCandidates(scopedPages).map((candidate) => ({
+      ...candidate,
+      physical_index: candidate.physical_index + startPage,
+    })), pageTexts.length);
+  }
+
+  return candidates;
+}
+
+async function refineLargeNodesRecursively(node, pageTexts, database, depth = 0) {
+  if (!node || depth >= MAX_RECURSIVE_DEPTH) return;
+  const start = node.start_index ?? 0;
+  const end = node.end_index ?? start;
+  const pageSpan = end - start + 1;
+  if (pageSpan < RECURSIVE_SECTION_PAGE_THRESHOLD) return;
+
+  const candidates = await extractCandidateSectionsFromPages(pageTexts, database, start, end);
+  const childTree = buildTreeFromSectionCandidates(candidates, pageTexts.length, end)
+    .filter((child) => child.start_index >= start && child.end_index <= end)
+    .filter((child) => !(child.start_index === start && child.end_index === end && cleanSectionTitle(child.title) === cleanSectionTitle(node.title)));
+
+  if (childTree.length >= 2) {
+    node.nodes = childTree;
+    for (const child of childTree) {
+      await refineLargeNodesRecursively(child, pageTexts, database, depth + 1);
+    }
+  }
+}
 
 /**
  * Index a PDF resource: extract text, chunk by pages, summarize with LLM.
@@ -587,93 +983,30 @@ async function indexPDF(resourceId, pdfPath, deps) {
   }
 
   // --- Normal PDF with text ---
-  // Filter out empty pages and only chunk pages with content
-  const meaningfulPages = pageTexts.map((text, i) => ({ text, pageIndex: i }));
+  setState(
+    resourceId,
+    'processing',
+    10,
+    `${effectivePages.length} de ${numPages} páginas con texto — detectando estructura…`,
+    windowManager,
+    database
+  );
 
-  // Group pages into chunks
-  const chunks = [];
-  for (let i = 0; i < meaningfulPages.length; i += PAGES_PER_CHUNK) {
-    const slice = meaningfulPages.slice(i, i + PAGES_PER_CHUNK);
-    chunks.push({
-      startPage: slice[0].pageIndex,
-      endPage: slice[slice.length - 1].pageIndex,
-      text: slice.map(p => p.text).join('\n\n').trim(),
-    });
+  const candidates = await extractCandidateSectionsFromPages(pageTexts, database);
+  let finalTree = buildTreeFromSectionCandidates(candidates, pageTexts.length, pageTexts.length - 1);
+
+  if (finalTree.length === 0) {
+    finalTree = buildTreeFromSectionCandidates(buildFallbackSectionCandidates(pageTexts), pageTexts.length, pageTexts.length - 1);
   }
 
-  // Remove empty chunks
-  const validChunks = chunks.filter(c => c.text.length > 20);
-
-  setState(resourceId, 'processing', 10,
-    `${effectivePages.length} de ${numPages} páginas con texto — ${validChunks.length} secciones…`,
-    windowManager, database);
+  setState(resourceId, 'processing', 25, 'Refinando capítulos largos…', windowManager, database);
+  for (const node of finalTree) {
+    await refineLargeNodesRecursively(node, pageTexts, database);
+  }
 
   resetNodeCounter();
-  const nodes = [];
-
-  for (let ci = 0; ci < validChunks.length; ci++) {
-    const chunk = validChunks[ci];
-    const progress = 10 + Math.round((ci / validChunks.length) * 85);
-    const stepLabel = `Resumiendo sección ${ci + 1} de ${validChunks.length} (págs. ${chunk.startPage + 1}–${chunk.endPage + 1})…`;
-    setState(resourceId, 'processing', progress, stepLabel, windowManager, database);
-
-    const snippet = chunk.text.slice(0, 3000);
-    const prompt =
-      `Eres un asistente de análisis de documentos académicos. Dado el siguiente fragmento ` +
-      `(páginas ${chunk.startPage + 1}–${chunk.endPage + 1}), devuelve SOLO JSON:\n` +
-      `{"title":"<título descriptivo ≤80 chars>","summary":"<resumen de 2-4 oraciones con ` +
-      `conceptos clave, argumentos y conclusiones>","keywords":["<kw1>","<kw2>","<kw3>"]}\n\n` +
-      `Fragmento:\n${snippet}\n\nResponde SOLO con el JSON.`;
-
-    let title = `Páginas ${chunk.startPage + 1}–${chunk.endPage + 1}`;
-    let summary = '';
-    let keywords = [];
-
-    try {
-      const raw = await callLLM(prompt, database);
-      const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-      const parsed = JSON.parse(cleaned);
-      if (parsed.title) title = String(parsed.title).slice(0, 200);
-      if (parsed.summary) summary = String(parsed.summary).slice(0, 1000);
-      if (Array.isArray(parsed.keywords)) keywords = parsed.keywords.slice(0, 5).map(String);
-    } catch { /* use fallback title/summary */ }
-
-    nodes.push({
-      title,
-      node_id: nextNodeId(),
-      summary: summary || snippet.slice(0, 300),
-      keywords,
-      start_index: chunk.startPage,
-      end_index: chunk.endPage,
-      nodes: [],
-    });
-  }
-
-  // Hierarchical structure pass: group flat nodes into a 2-level chapter hierarchy
-  let finalTree = nodes;
-  if (nodes.length > 2) {
-    setState(resourceId, 'processing', 97, 'Organizando estructura jerárquica…', windowManager, database);
-    const sectionList = nodes.map((n, i) =>
-      `${i}. [${n.title}] p.${n.start_index + 1}–${n.end_index + 1}: ${n.summary.slice(0, 120)}`
-    ).join('\n');
-
-    const structurePrompt =
-      `El siguiente es el índice plano de un documento PDF.\n` +
-      `Agrupa las secciones en capítulos con máx. 2 niveles de profundidad. ` +
-      `Conserva todos los node_id originales. Devuelve SOLO un JSON array con la misma ` +
-      `estructura de nodos pero con subnodos en el campo "nodes":\n` +
-      `[{"title":"<capítulo>","node_id":"<id>","summary":"<sum>","start_index":<n>,"end_index":<n>,"nodes":[...]}]\n\n` +
-      `Secciones:\n${sectionList}\n\nResponde SOLO con el JSON array.`;
-
-    try {
-      const raw = await callLLM(structurePrompt, database);
-      const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-      const hierarchicalTree = JSON.parse(cleaned);
-      if (Array.isArray(hierarchicalTree) && hierarchicalTree.length > 0) {
-        finalTree = hierarchicalTree;
-      }
-    } catch { /* fallback to flat tree */ }
-  }
+  assignNodeIds(finalTree);
+  await summarizeTreeNodes(finalTree, pageTexts, database, resourceId, windowManager);
 
   setState(resourceId, 'processing', 99, 'Guardando índice…', windowManager, database);
 
@@ -795,6 +1128,22 @@ async function indexMarkdown(resourceId, content, title, deps) {
   return { success: true, tree_json: treeJson };
 }
 
+/**
+ * Index a generic text-based resource by coercing it into markdown.
+ * This keeps a single tree format for notes, notebooks, processed URLs,
+ * DOCX/PPT text extracts, and similar content-bearing resources.
+ * @param {string} resourceId
+ * @param {string} content
+ * @param {string} title
+ * @param {{ database: object, windowManager: object }} deps
+ * @returns {Promise<{ success: boolean, tree_json?: string, error?: string }>}
+ */
+async function indexTextResource(resourceId, content, title, deps) {
+  const safeTitle = String(title || 'Contenido').trim();
+  const body = String(content || '').trim();
+  return indexMarkdown(resourceId, body, safeTitle, deps);
+}
+
 // ---------------------------------------------------------------------------
 // Search (replaces Python _llm_search)
 // ---------------------------------------------------------------------------
@@ -814,6 +1163,30 @@ function flattenTree(tree) {
     if (Array.isArray(children)) children.forEach(walk);
   }
   walk(tree);
+  return nodes;
+}
+
+function flattenTreeWithAncestors(tree) {
+  const nodes = [];
+  function walk(item, ancestors = []) {
+    if (Array.isArray(item)) {
+      item.forEach((child) => walk(child, ancestors));
+      return;
+    }
+    if (!item || typeof item !== 'object') return;
+    const { nodes: children, ...node } = item;
+    nodes.push({
+      ...node,
+      ancestors,
+      level: ancestors.length,
+      path: [...ancestors.map((ancestor) => ancestor.title), node.title].filter(Boolean),
+    });
+    if (Array.isArray(children)) {
+      const nextAncestors = [...ancestors, { title: node.title, node_id: node.node_id }];
+      children.forEach((child) => walk(child, nextAncestors));
+    }
+  }
+  walk(tree, []);
   return nodes;
 }
 
@@ -839,7 +1212,7 @@ async function search(query, trees, topK, database) {
       let tree;
       try { tree = JSON.parse(tree_json); } catch { continue; }
 
-      const flatNodes = flattenTree(tree);
+      const flatNodes = flattenTreeWithAncestors(tree);
       if (flatNodes.length === 0) continue;
 
       const sections = flatNodes.map((n, i) =>
@@ -872,7 +1245,10 @@ async function search(query, trees, topK, database) {
           resource_id,
           pages,
           text: n.summary || '',
+          node_id: n.node_id || '',
           node_title: n.title || '',
+          node_path: Array.isArray(n.path) ? n.path : [],
+          page_range: pageRangeLabel(start, end),
           score: Math.max(0, 1.0 - rank * (0.5 / Math.max(topK, 1))),
         });
       }
@@ -913,7 +1289,71 @@ function isProcessing(resourceId) {
 // ---------------------------------------------------------------------------
 
 /**
- * Format a hierarchical tree as a readable outline string.
+ * Find a node in the tree by node_id.
+ * @param {Array|object} tree
+ * @param {string} nodeId
+ * @returns {object|null}
+ */
+function findNodeById(tree, nodeId) {
+  const result = findNodeByIdWithPath(tree, nodeId);
+  return result ? result.node : null;
+}
+
+/**
+ * Find a node in the tree by node_id, with its ancestor path.
+ * @param {Array|object} tree
+ * @param {string} nodeId
+ * @returns {{ node: object, path: string[] }|null}
+ */
+function findNodeByIdWithPath(tree, nodeId) {
+  if (!tree || !nodeId) return null;
+  const normalized = String(nodeId).trim();
+  function walk(item, ancestors) {
+    if (Array.isArray(item)) {
+      for (const child of item) {
+        const found = walk(child, ancestors);
+        if (found) return found;
+      }
+      return null;
+    }
+    if (!item || typeof item !== 'object') return null;
+    if (String(item.node_id || '').trim() === normalized) {
+      const path = [...ancestors.map((a) => a.title), item.title].filter(Boolean);
+      return { node: item, path };
+    }
+    const nextAncestors = [...ancestors, { title: item.title }];
+    for (const child of item.nodes || []) {
+      const found = walk(child, nextAncestors);
+      if (found) return found;
+    }
+    return null;
+  }
+  return walk(Array.isArray(tree) ? tree : [tree], []);
+}
+
+/**
+ * Build a compact structure array from the tree for programmatic use.
+ * @param {Array} tree
+ * @returns {Array<{ node_id: string, title: string, page_range: string, children: Array }>}
+ */
+function buildStructureArray(tree) {
+  if (!Array.isArray(tree)) return [];
+  return tree.map((node) => {
+    const start = node.start_index ?? 0;
+    const end = node.end_index ?? start;
+    const pageRange = `p.${start + 1}–${end + 1}`;
+    const children = buildStructureArray(node.nodes || []);
+    return {
+      node_id: node.node_id || '',
+      title: node.title || 'Sección',
+      page_range: pageRange,
+      children,
+    };
+  });
+}
+
+/**
+ * Format a hierarchical tree as a readable outline string (includes node_id for navigation).
  * @param {Array} tree
  * @param {number} [depth]
  * @returns {string}
@@ -923,8 +1363,9 @@ function formatTreeAsOutline(tree, depth = 0) {
   return tree.map(node => {
     const indent = '  '.repeat(depth);
     const range = node.start_index != null
-      ? ` (p.${node.start_index + 1}–${node.end_index + 1})` : '';
-    const line = `${indent}• ${node.title}${range}`;
+      ? ` (p.${node.start_index + 1}–${(node.end_index ?? node.start_index) + 1})` : '';
+    const nodeIdPart = node.node_id ? ` [node_id: ${node.node_id}]` : '';
+    const line = `${indent}• ${node.title || 'Sección'}${range}${nodeIdPart}`;
     const keywords = node.keywords?.length ? ` [${node.keywords.slice(0, 3).join(', ')}]` : '';
     const sub = node.nodes?.length
       ? '\n' + formatTreeAsOutline(node.nodes, depth + 1) : '';
@@ -939,9 +1380,15 @@ function formatTreeAsOutline(tree, depth = 0) {
 module.exports = {
   indexPDF,
   indexMarkdown,
+  indexTextResource,
   search,
   getState,
   isProcessing,
   flattenTree,
+  flattenTreeWithAncestors,
   formatTreeAsOutline,
+  buildStructureArray,
+  findNodeById,
+  findNodeByIdWithPath,
+  countTreeNodes,
 };

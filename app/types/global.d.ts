@@ -297,6 +297,7 @@ declare global {
       // Dome Provider OAuth API
       domeAuth: {
         startOAuthFlow: () => Promise<{ success: boolean; connected?: boolean; error?: string }>;
+        openDashboard: () => Promise<{ success: boolean; error?: string }>;
         getSession: () => Promise<{ success: boolean; connected: boolean; userId?: string; error?: string }>;
         disconnect: () => Promise<{ success: boolean; error?: string }>;
       };
@@ -513,6 +514,17 @@ declare global {
         delete: (resourceId: string) => Promise<DBResponse<void>>;
         regenerateThumbnail: (resourceId: string) => Promise<DBResponse<string>>;
         setThumbnail: (resourceId: string, thumbnailDataUrl: string) => Promise<DBResponse<void>>;
+        scheduleIndex: (resourceId: string) => Promise<{ success: boolean; error?: string }>;
+        importFromContent: (args: {
+          title: string;
+          content?: string;
+          content_base64?: string;
+          mime_type?: string;
+          filename?: string;
+          type?: string;
+          project_id?: string;
+          folder_id?: string | null;
+        }) => Promise<{ success: boolean; resource?: Resource; error?: string; duplicate?: { id: string; title: string; projectId?: string } }>;
       };
 
       // Note Export API
@@ -584,6 +596,63 @@ declare global {
         process: (resourceId: string) => Promise<{
           success: boolean;
           metadata?: any;
+          error?: string;
+        }>;
+      };
+
+      // Image Processing
+      image: {
+        crop: (options: {
+          filePath: string;
+          x?: number;
+          y?: number;
+          width: number;
+          height: number;
+          format?: 'jpeg' | 'png' | 'webp';
+          quality?: number;
+          maxWidth?: number;
+          maxHeight?: number;
+        }) => Promise<{
+          success: boolean;
+          dataUrl?: string;
+          error?: string;
+        }>;
+        resize: (options: {
+          filePath: string;
+          width?: number;
+          height?: number;
+          fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
+          format?: 'jpeg' | 'png' | 'webp';
+          quality?: number;
+        }) => Promise<{
+          success: boolean;
+          dataUrl?: string;
+          error?: string;
+        }>;
+        thumbnail: (options: {
+          filePath: string;
+          maxWidth?: number;
+          maxHeight?: number;
+          format?: 'jpeg' | 'png' | 'webp';
+          quality?: number;
+        }) => Promise<{
+          success: boolean;
+          dataUrl?: string;
+          error?: string;
+        }>;
+        metadata: (filePath: string) => Promise<{
+          success: boolean;
+          metadata?: {
+            width: number;
+            height: number;
+            format: string;
+            space?: string;
+            channels?: number;
+            depth?: string;
+            density?: number;
+            hasAlpha?: boolean;
+            orientation?: number;
+          };
           error?: string;
         }>;
       };
@@ -732,6 +801,25 @@ declare global {
               created_at: number;
               updated_at: number;
               metadata?: Record<string, any>;
+            };
+            error?: string;
+          }>;
+          resourceGetSection: (
+            resourceId: string,
+            nodeId: string
+          ) => Promise<{
+            success: boolean;
+            resource_id?: string;
+            title?: string;
+            section?: {
+              node_id: string;
+              title: string;
+              summary: string;
+              start_index: number;
+              end_index: number;
+              page_range: string;
+              node_path: string[];
+              children: Array<{ node_id: string; title: string }>;
             };
             error?: string;
           }>;
@@ -922,6 +1010,20 @@ declare global {
             resource_id?: string;
             folder_id?: string | null;
             error?: string;
+          }>;
+          importFileToLibrary: (args: {
+            title: string;
+            content?: string;
+            content_base64?: string;
+            mime_type?: string;
+            filename?: string;
+            project_id?: string;
+            folder_id?: string | null;
+          }) => Promise<{
+            success: boolean;
+            resource?: Resource;
+            error?: string;
+            duplicate?: { id: string; title: string };
           }>;
           flashcardCreate: (data: {
             resource_id?: string;
@@ -1252,6 +1354,45 @@ declare global {
         addMemory: (entry: string) => Promise<{ success: boolean; error?: string }>;
         listFiles: () => Promise<{ success: boolean; data?: string[]; error?: string }>;
         rememberFact: (key: string, value: string) => Promise<{ success: boolean; error?: string }>;
+      };
+
+      // Cloud Storage API (Google Drive + OneDrive)
+      cloud: {
+        getAccounts: () => Promise<{
+          success: boolean;
+          accounts?: Array<{ provider: 'google' | 'onedrive'; accountId: string; email: string; connected: boolean }>;
+          error?: string;
+        }>;
+        authGoogle: () => Promise<{ success: boolean; message?: string; error?: string }>;
+        authOneDrive: () => Promise<{ success: boolean; message?: string; error?: string }>;
+        disconnect: (accountId: string) => Promise<{ success: boolean; error?: string }>;
+        listFiles: (params: {
+          accountId: string;
+          folderId?: string | null;
+          query?: string;
+        }) => Promise<{
+          success: boolean;
+          files?: Array<{
+            id: string;
+            name: string;
+            mimeType: string | null;
+            size: number | null;
+            modifiedAt: string | null;
+            isFolder: boolean;
+            provider: string;
+            accountId: string;
+          }>;
+          error?: string;
+        }>;
+        importFile: (params: {
+          accountId: string;
+          fileId: string;
+          fileName?: string;
+          mimeType?: string | null;
+          projectId?: string;
+          folderId?: string | null;
+        }) => Promise<{ success: boolean; resource?: Resource; error?: string; duplicate?: { id: string; title: string } }>;
+        onAuthResult: (callback: (data: { success: boolean; provider: string; email?: string; accountId?: string; error?: string }) => void) => RemoveListenerFn;
       };
     };
   }

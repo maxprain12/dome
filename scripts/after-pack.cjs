@@ -59,6 +59,17 @@ exports.default = async function afterPack(context) {
     console.error('[AfterPack] Native modules will not work in production!');
   }
 
+  const pageIndexRuntimePath = path.join(resourcesPath, 'pageindex-runtime');
+  if (fs.existsSync(pageIndexRuntimePath)) {
+    console.log('[AfterPack] ✅ Embedded PageIndex runtime exists');
+    const runtimeTargets = fs.readdirSync(pageIndexRuntimePath).filter(name => !name.startsWith('.'));
+    runtimeTargets.forEach((target) => {
+      console.log(`[AfterPack]    Runtime target: ${target}`);
+    });
+  } else {
+    console.warn('[AfterPack] ⚠️  Embedded PageIndex runtime missing from resources');
+  }
+
   console.log('[AfterPack] After-pack hook completed');
 };
 

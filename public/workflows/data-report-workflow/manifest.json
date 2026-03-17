@@ -1,0 +1,73 @@
+{
+  "id": "data-report-workflow",
+  "name": "Data → Report",
+  "description": "Analiza datos de tu biblioteca y genera un informe ejecutivo con visualizaciones.",
+  "longDescription": "Transforma datos en decisiones. El agente de datos analiza archivos Excel o conjuntos de datos, identifica patrones y tendencias, y el presentador genera un informe ejecutivo con visualizaciones conceptuales y recomendaciones accionables.",
+  "author": "Dome Team",
+  "version": "1.0.0",
+  "tags": ["data", "productivity", "content"],
+  "featured": false,
+  "downloads": 0,
+  "createdAt": 1741737600000,
+  "estimatedTime": "~5 min",
+  "difficulty": "intermediate",
+  "inputTypes": ["document", "text"],
+  "outputType": "report",
+  "category": "data",
+  "useCases": [
+    "Informes de análisis de datos académicos",
+    "Reportes de métricas y KPIs",
+    "Análisis de resultados de encuestas"
+  ],
+  "nodes": [
+    {
+      "id": "dr-input",
+      "type": "textInput",
+      "position": { "x": 80, "y": 80 },
+      "data": { "type": "text-input", "label": "Dataset o pregunta de análisis", "value": "" }
+    },
+    {
+      "id": "dr-data",
+      "type": "agent",
+      "position": { "x": 80, "y": 240 },
+      "data": {
+        "type": "agent",
+        "label": "Analista de Datos",
+        "agentId": null,
+        "systemAgentRole": "data",
+        "agentName": "Data Analyst",
+        "agentIconIndex": 4,
+        "status": "idle",
+        "outputText": null,
+        "errorMessage": null
+      }
+    },
+    {
+      "id": "dr-presenter",
+      "type": "agent",
+      "position": { "x": 80, "y": 420 },
+      "data": {
+        "type": "agent",
+        "label": "Generador de Informe",
+        "agentId": null,
+        "systemAgentRole": "presenter",
+        "agentName": "Report Generator",
+        "agentIconIndex": 9,
+        "status": "idle",
+        "outputText": null,
+        "errorMessage": null
+      }
+    },
+    {
+      "id": "dr-output",
+      "type": "output",
+      "position": { "x": 80, "y": 600 },
+      "data": { "type": "output", "label": "Informe Ejecutivo", "content": null, "status": "idle" }
+    }
+  ],
+  "edges": [
+    { "id": "dr-e1", "source": "dr-input", "target": "dr-data" },
+    { "id": "dr-e2", "source": "dr-data", "target": "dr-presenter" },
+    { "id": "dr-e3", "source": "dr-presenter", "target": "dr-output" }
+  ]
+}

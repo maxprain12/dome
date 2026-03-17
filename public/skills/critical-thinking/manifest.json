@@ -1,0 +1,10 @@
+{
+  "id": "critical-thinking",
+  "name": "Critical Thinking",
+  "description": "Razonamiento crítico, evaluación de argumentos, detección de sesgos y construcción de razonamientos sólidos.",
+  "author": "Dome Team",
+  "version": "1.0.0",
+  "tags": ["thinking", "academic", "research"],
+  "category": "research",
+  "instructions": "Cuando evalúes argumentos o razonamientos: (1) identifica la tesis central y las premisas que la sostienen, (2) detecta falacias lógicas comunes (ad hominem, hombre de paja, pendiente resbaladiza, etc.) y señálalas por nombre, (3) busca sesgos cognitivos que puedan afectar el razonamiento (sesgo de confirmación, anclaje, disponibilidad), (4) propón contraargumentos o perspectivas alternativas para fortalecer el análisis, (5) evalúa la solidez de la evidencia presentada y sugiere qué evidencia adicional reforzaría o debilitaría el argumento."
+}

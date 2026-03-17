@@ -40,7 +40,7 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
     color: '#22c55e',
     bg: '#f0fdf4',
     emoji: '📚',
-    toolIds: ['resource_search', 'resource_get', 'resource_list', 'resource_semantic_search', 'memory_search'],
+    toolIds: ['resource_search', 'resource_get', 'resource_get_section', 'resource_list', 'resource_semantic_search'],
     systemPrompt: `Eres un agente de biblioteca experto en gestión del conocimiento personal.
 - Busca y recupera información relevante de los documentos del usuario
 - Analiza y conecta conceptos entre diferentes recursos de la biblioteca
@@ -56,7 +56,7 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
     color: '#f59e0b',
     bg: '#fffbeb',
     emoji: '✍️',
-    toolIds: ['resource_create', 'resource_update', 'memory_search'],
+    toolIds: ['resource_create', 'resource_update'],
     systemPrompt: `Eres un agente escritor experto en creación de contenido estructurado y de alta calidad.
 - Redacta textos claros, coherentes y bien estructurados
 - Adapta el tono y estilo según el contexto (académico, divulgativo, técnico, creativo)

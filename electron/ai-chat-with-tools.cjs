@@ -15,6 +15,7 @@ const aiToolsHandler = require('./ai-tools-handler.cjs');
 const TOOL_HANDLER_MAP = {
   resource_search: 'resourceSearch',
   resource_get: 'resourceGet',
+  resource_get_section: 'resourceGetSection',
   resource_list: 'resourceList',
   resource_semantic_search: 'resourceSemanticSearch',
   get_document_structure: 'getDocumentStructure',
@@ -61,6 +62,11 @@ const TOOL_HANDLER_MAP = {
   calendar_create_event: 'calendarCreateEvent',
   calendar_update_event: 'calendarUpdateEvent',
   calendar_delete_event: 'calendarDeleteEvent',
+  get_tool_definition: 'getToolDefinition',
+
+  // Entity creation
+  agent_create: 'agentCreate',
+  automation_create: 'automationCreate',
 };
 
 function normalizeToolName(name) {
@@ -97,6 +103,12 @@ async function executeToolInMain(toolName, args) {
           includeContent: args.include_content !== false,
           maxContentLength: args.max_content_length,
         });
+        break;
+      case 'resourceGetSection':
+        result = await fn(
+          args.resource_id || args.resourceId || args.id,
+          args.node_id || args.nodeId,
+        );
         break;
       case 'resourceList':
         result = await fn({ project_id: args.project_id, folder_id: args.folder_id, type: args.type, limit: args.limit, sort: args.sort });
@@ -239,6 +251,9 @@ async function executeToolInMain(toolName, args) {
       case 'calendarDeleteEvent':
         result = await fn({ event_id: args.event_id });
         break;
+      case 'getToolDefinition':
+        result = await fn(args.tool_name || args.toolName || '');
+        break;
       default:
         result = await fn(args);
     }
@@ -308,6 +323,7 @@ function getToolDefsBySubagent() {
     library: pick(
       'resource_search',
       'resource_get',
+      'resource_get_section',
       'resource_list',
       'resource_semantic_search',
       'get_document_structure',
@@ -351,6 +367,7 @@ function getToolDefsBySubagent() {
       'get_library_overview',
       'resource_list',
       'resource_get',
+      'resource_get_section',
       'get_document_structure',
       'get_current_project',
     ),
@@ -432,7 +449,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_get',
-        description: 'Get full details of a specific resource including content. Use to read a note, PDF, or other resource.',
+        description: 'Get full details of a specific resource. For indexed PDFs, returns only the structure (TOC with node_ids)—use resource_get_section or resource_semantic_search for specific content. For notes and other types, returns full content. Cite inline as [N] when using in answers.',
         parameters: {
           type: 'object',
           properties: {
@@ -465,7 +482,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_semantic_search',
-        description: 'Semantic search for resources using natural language query.',
+        description: 'Semantic search for resources using natural language query. If you rely on these results, cite the supporting result inline as [N] following the order returned by the tool.',
         parameters: {
           type: 'object',
           properties: {
@@ -480,8 +497,23 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'resource_get_section',
+        description: 'Get the content (summary) of a specific section of an indexed PDF or note by node_id. Use after get_document_structure or resource_semantic_search to obtain the full content of a section. Returns title, summary, page_range, and children (subsections) for deeper navigation.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'ID of the resource' },
+            node_id: { type: 'string', description: 'PageIndex node_id (e.g. "0004") from structure or search results' },
+          },
+          required: ['resource_id', 'node_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'get_document_structure',
-        description: 'Get the hierarchical outline/table of contents of a PDF or note. Use when the user asks what topics a document covers, wants a section overview, or you need to navigate the document hierarchically before searching specific content.',
+        description: 'Get the hierarchical outline/table of contents of a PDF or note. Returns structure with node_ids—use resource_get_section(resource_id, node_id) to get section content. Use when the user asks what topics a document covers or you need to navigate before searching.',
         parameters: {
           type: 'object',
           properties: {
@@ -1032,6 +1064,76 @@ function getAllToolDefinitions() {
         },
       },
     },
+    {
+      type: 'function',
+      function: {
+        name: 'get_tool_definition',
+        description:
+          'Get the full schema (name, description, parameters) of any tool (Dome or MCP). Use when you need to see the exact parameters of a tool before calling it. Reduces token usage by loading definitions on demand.',
+        parameters: {
+          type: 'object',
+          properties: {
+            tool_name: { type: 'string', description: 'Normalized tool name (e.g. resource_search, stripe_create_payment)' },
+          },
+          required: ['tool_name'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'agent_create',
+        description:
+          'Create a new specialized agent (hijo de Many) with a custom system prompt and tools. Use when the user asks to create, build, or set up a new AI agent. Do NOT delegate to subagents for this—call agent_create directly.',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Name of the agent (e.g. "Research Assistant", "Noticiero")' },
+            description: { type: 'string', description: 'Short description of what this agent does' },
+            system_instructions: { type: 'string', description: 'System prompt for the agent. Describe WHAT the agent will do when invoked, including step-by-step flow. Be specific.' },
+            tool_ids: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'REQUIRED. Tool IDs the agent needs (e.g. ["web_fetch", "resource_create"]). Agent cannot work without tools. Never omit.',
+            },
+            icon_index: { type: 'number', description: 'Icon index 1-18 for the agent avatar. Default: random' },
+          },
+          required: ['name', 'tool_ids'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'automation_create',
+        description:
+          'Create an automation that runs an agent or workflow on a trigger (manual, schedule, or contextual). Dome has native automations—use this, never mention n8n or Make. Use when the user asks to automate, schedule, or set up recurring tasks. After creating an agent that could run recurrently (e.g. Noticiero), offer to create an automation.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Name of the automation (e.g. "Daily briefing")' },
+            description: { type: 'string', description: 'What this automation does' },
+            target_type: { type: 'string', description: 'Target: "agent" or "workflow"' },
+            target_id: { type: 'string', description: 'ID of the target agent or workflow' },
+            trigger_type: { type: 'string', description: 'Trigger: "manual" | "schedule" | "contextual". Default: manual' },
+            prompt: { type: 'string', description: 'Base prompt/instructions to pass when triggered' },
+            schedule: {
+              type: 'object',
+              description: 'For trigger_type "schedule". cadence: "daily"|"weekly"|"cron-lite", hour: 0-23, weekday: 1-7 (for weekly), intervalMinutes (for cron-lite)',
+              properties: {
+                cadence: { type: 'string', enum: ['daily', 'weekly', 'cron-lite'] },
+                hour: { type: 'number', description: 'Hour of day (0-23)' },
+                weekday: { type: 'number', description: 'Day of week 1-7 for weekly' },
+                interval_minutes: { type: 'number', description: 'Minutes between runs for cron-lite' },
+              },
+            },
+            output_mode: { type: 'string', description: '"chat_only" | "note" | "studio_output" | "mixed". Use "note" when agent creates a resource' },
+            enabled: { type: 'boolean', description: 'Whether active. Default: true' },
+          },
+          required: ['title', 'target_id'],
+        },
+      },
+    },
   ];
 }
 
@@ -1068,6 +1170,7 @@ function getToolDefinitionsByIds(toolIds) {
 module.exports = {
   chatWithToolsInMain,
   executeToolInMain,
+  getAllToolDefinitions,
   getWhatsAppToolDefinitions,
   getToolDefinitionsByIds,
   getToolDefsBySubagent,

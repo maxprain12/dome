@@ -328,7 +328,7 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
   openai: {
     id: 'openai',
     name: 'OpenAI',
-    description: 'GPT-5.2, GPT-5 y embeddings',
+    description: 'GPT-5.2, GPT-5 y o3',
     icon: 'openai',
     models: OPENAI_MODELS,
     embeddingModels: OPENAI_EMBEDDING_MODELS,
@@ -342,7 +342,7 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
   anthropic: {
     id: 'anthropic',
     name: 'Anthropic',
-    description: 'Claude 4.6, 4.5 y Voyage embeddings',
+    description: 'Claude 4.6 y Claude 4.5',
     icon: 'anthropic',
     models: ANTHROPIC_MODELS,
     embeddingModels: ANTHROPIC_EMBEDDING_MODELS,
@@ -415,13 +415,26 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
   minimax: {
     id: 'minimax',
     name: 'MiniMax',
-    description: 'MiniMax M2',
+    description: 'MiniMax M2.5 Coding Plan',
     icon: 'minimax',
-    models: [],
+    models: [
+      {
+        id: 'MiniMax-M2.5',
+        name: 'MiniMax M2.5',
+        reasoning: true,
+        input: ['text'],
+        contextWindow: 1000000,
+        maxTokens: 16384,
+        recommended: true,
+        description: 'MiniMax M2.5 — OpenAI-compatible API',
+        api: 'openai-completions',
+      },
+    ],
     supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
-    baseUrl: 'https://api.minimax.chat/v1',
+    apiKeyPlaceholder: 'sk-cp-...',
+    baseUrl: 'https://api.minimax.io',
   },
   moonshot: {
     id: 'moonshot',
@@ -525,7 +538,7 @@ export function getDefaultModelId(providerId: AIProviderType): string {
     case 'ollama': return 'llama3.2';
     case 'copilot': return 'gpt-4o';
     case 'deepseek': return 'deepseek-chat';
-    case 'minimax': return 'abab6.5s-chat';
+    case 'minimax': return 'MiniMax-M2.5';
     case 'moonshot': return 'moonshot-v1-8k';
     case 'qwen': return 'qwen-max';
     default: return '';

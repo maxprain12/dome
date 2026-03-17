@@ -1,1 +1,87 @@
-[]
+[
+  {
+    "id": "research-write-workflow",
+    "name": "Research & Write",
+    "description": "Investiga un tema en la web y redacta un artículo completo y bien documentado.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["research", "writing", "productivity"],
+    "featured": true,
+    "estimatedTime": "~3 min",
+    "difficulty": "beginner",
+    "category": "research",
+    "useCases": [
+      "Redactar artículos académicos sobre un tema",
+      "Crear posts de blog documentados",
+      "Preparar informes de investigación"
+    ]
+  },
+  {
+    "id": "pdf-study-materials",
+    "name": "PDF → Study Materials",
+    "description": "Convierte un documento de la biblioteca en flashcards, quiz y resumen de estudio.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["education", "productivity", "knowledge"],
+    "featured": true,
+    "estimatedTime": "~4 min",
+    "difficulty": "beginner",
+    "category": "education",
+    "useCases": [
+      "Preparar exámenes a partir de apuntes",
+      "Crear flashcards de papers académicos",
+      "Generar tests de práctica de capítulos de libro"
+    ]
+  },
+  {
+    "id": "literature-review-pipeline",
+    "name": "Literature Review Pipeline",
+    "description": "Pipeline completo: busca literatura, la analiza y produce una revisión académica estructurada.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["research", "academic", "writing"],
+    "featured": true,
+    "estimatedTime": "~8 min",
+    "difficulty": "intermediate",
+    "category": "research",
+    "useCases": [
+      "Marco teórico para tesis doctoral",
+      "Estado del arte en artículos científicos",
+      "Revisión de evidencia para proyectos de investigación"
+    ]
+  },
+  {
+    "id": "data-report-workflow",
+    "name": "Data → Report",
+    "description": "Analiza datos de tu biblioteca y genera un informe ejecutivo con visualizaciones.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["data", "productivity", "content"],
+    "featured": false,
+    "estimatedTime": "~5 min",
+    "difficulty": "intermediate",
+    "category": "data",
+    "useCases": [
+      "Informes de análisis de datos académicos",
+      "Reportes de métricas y KPIs",
+      "Análisis de resultados de encuestas"
+    ]
+  },
+  {
+    "id": "knowledge-base-builder",
+    "name": "Knowledge Base Builder",
+    "description": "Construye una base de conocimiento conectada a partir de múltiples fuentes de tu biblioteca.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["knowledge", "productivity", "research"],
+    "featured": false,
+    "estimatedTime": "~6 min",
+    "difficulty": "intermediate",
+    "category": "knowledge",
+    "useCases": [
+      "Organizar notas de un curso o asignatura",
+      "Crear un wiki personal de un dominio de conocimiento",
+      "Preparar documentación de un proyecto"
+    ]
+  }
+]

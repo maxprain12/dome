@@ -1,6 +1,6 @@
 {
   "name": "dome",
-  "version": "2.0.7",
+  "version": "2.0.8",
   "description": "Aplicación de escritorio inteligente para gestión de conocimiento e investigación",
   "author": "Dome Team",
   "repository": {
@@ -16,8 +16,9 @@
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "concurrently \"bun run dev\" \"wait-on http://localhost:5173 && cross-env NODE_OPTIONS=--max-old-space-size=8192 electron .\"",
-    "electron:build": "bun run build && bun run rebuild:natives && bun run verify:natives && cross-env DEBUG= electron-builder",
-    "electron:build:verbose": "bun run build && bun run rebuild:natives && bun run verify:natives && cross-env DEBUG=electron-builder electron-builder",
+    "electron:build": "bun run build && bun run rebuild:natives && bun run verify:natives && node scripts/prepare-pageindex-runtime.cjs && cross-env DEBUG= electron-builder",
+    "electron:build:verbose": "bun run build && bun run rebuild:natives && bun run verify:natives && node scripts/prepare-pageindex-runtime.cjs && cross-env DEBUG=electron-builder electron-builder",
+    "prepare:pageindex-runtime": "node scripts/prepare-pageindex-runtime.cjs",
     "rebuild:natives": "electron-rebuild -f -w=better-sqlite3,sharp,@ffmpeg-installer/ffmpeg,@napi-rs/canvas,node-pty",
     "verify:natives": "node scripts/verify-natives.cjs",
     "copy:pdf-worker": "node scripts/copy-pdf-worker.cjs",
@@ -187,7 +188,18 @@
       "!**/{appveyor.yml,.travis.yml,circle.yml}",
       "!**/node_modules/*/{example,examples,doc,docs}"
     ],
+    "extraResources": [
+      {
+        "from": "build/pageindex-runtime",
+        "to": "pageindex-runtime",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "asarUnpack": [
+      "electron/**/*.py",
+      "electron/vendor/pageindex/**/*",
       "node_modules/@napi-rs/canvas/**/*",
       "node_modules/@napi-rs/canvas-*/**/*",
       "node_modules/better-sqlite3/**/*",

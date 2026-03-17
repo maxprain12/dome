@@ -110,21 +110,8 @@ export {
 // Tools - Web
 export { createWebSearchTool, type WebSearchConfig } from './web-search';
 export { createWebFetchTool, type WebFetchConfig } from './web-fetch';
-
-// Tools - Memory
-export {
-  createMemorySearchTool,
-  createMemoryGetTool,
-  createMemorySearchStub,
-  createMemoryGetStub,
-  createMemorySearchWithIPC,
-  createMemoryGetWithIPC,
-  createMemoryTools,
-  type MemorySearchConfig,
-  type MemorySearchResult,
-  type MemoryGetConfig,
-  type MemoryDocument,
-} from './memory';
+export { createImageCropTool, type ImageCropConfig } from './image-crop';
+export { createImageThumbnailTool, type ImageThumbnailConfig } from './image-thumbnail';
 
 // Tools - Resources (Read)
 export {
@@ -141,6 +128,7 @@ export {
   createResourceUpdateTool,
   createResourceDeleteTool,
   createResourceActionTools,
+  createImportFileToDomeTool,
 } from './resource-actions';
 
 // Tools - Flashcards
@@ -204,6 +192,15 @@ export {
   createExcelTools,
 } from './excel-tools';
 
+// Tools - Memory
+export {
+  createMemorySearchTool,
+  createMemoryGetTool,
+  createMemorySearchStub,
+  createMemoryGetStub,
+  createMemoryTools,
+} from './memory';
+
 // Tools - PPT
 export {
   createPptCreateTool,
@@ -220,6 +217,16 @@ export {
   createPdfAnnotationTools,
 } from './pdf-annotation-tools';
 
+// Tools - PDF Extraction
+export {
+  createPdfExtractTextTool,
+  createPdfGetMetadataTool,
+  createPdfGetStructureTool,
+  createPdfSummarizeTool,
+  createPdfExtractTablesTool,
+  createPdfExtractionTools,
+} from './pdf-extraction-tools';
+
 // Tools - Calendar
 export {
   createCalendarCreateTool,
@@ -229,6 +236,29 @@ export {
   createCalendarTools,
 } from './calendar-tools';
 
+// Tools - Entity Creation (agents, automations)
+export {
+  createAgentCreateTool,
+  createWorkflowCreateTool,
+  createAutomationCreateTool,
+  createEntityTools,
+} from './entity-tools';
+
+// Tools - Marketplace (search and install)
+export {
+  createMarketplaceSearchTool,
+  createMarketplaceInstallTool,
+  createMarketplaceTools,
+} from './marketplace-tools';
+
+// Tools - Docling (visual artifacts from converted documents)
+export {
+  createDoclingListImagesTool,
+  createDoclingShowImageTool,
+  createDoclingShowPageImagesTool,
+  createDoclingTools,
+} from './docling-tools';
+
 // =============================================================================
 // Default Tools
 // =============================================================================
@@ -236,7 +266,8 @@ export {
 import type { AnyAgentTool } from './types';
 import { createWebSearchTool, type WebSearchConfig } from './web-search';
 import { createWebFetchTool, type WebFetchConfig } from './web-fetch';
-import { createMemoryTools } from './memory';
+import { createImageCropTool, type ImageCropConfig } from './image-crop';
+import { createImageThumbnailTool, type ImageThumbnailConfig } from './image-thumbnail';
 import { createResourceTools } from './resources';
 import { createResourceActionTools } from './resource-actions';
 import { createFlashcardTools } from './flashcards';
@@ -250,6 +281,9 @@ import { createExcelTools } from './excel-tools';
 import { createPptTools } from './ppt-tools';
 import { createPdfAnnotationTools } from './pdf-annotation-tools';
 import { createCalendarTools } from './calendar-tools';
+import { createEntityTools } from './entity-tools';
+import { createMarketplaceTools } from './marketplace-tools';
+import { createDoclingTools } from './docling-tools';
 
 /**
  * Configuration for creating default tools
@@ -257,10 +291,12 @@ import { createCalendarTools } from './calendar-tools';
 export interface DefaultToolsConfig {
   webSearch?: WebSearchConfig;
   webFetch?: WebFetchConfig;
+  imageCrop?: ImageCropConfig;
+  imageThumbnail?: ImageThumbnailConfig;
   /** Whether to include web tools */
   includeWeb?: boolean;
-  /** Whether to include memory tools */
-  includeMemory?: boolean;
+  /** Whether to include image processing tools */
+  includeImages?: boolean;
   /** Whether to include resource tools */
   includeResources?: boolean;
   /** Whether to include context tools */
@@ -278,16 +314,12 @@ export function createDefaultTools(config?: DefaultToolsConfig): AnyAgentTool[] 
     tools.push(createWebFetchTool(config?.webFetch));
   }
 
-  if (config?.includeMemory !== false) {
-    tools.push(...createMemoryTools());
-  }
-
   return tools;
 }
 
 /**
  * Create all available tools for the Many agent.
- * This includes web, memory, resource, and context tools.
+ * This includes web, resource, and context tools.
  */
 export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[] {
   const tools: AnyAgentTool[] = [];
@@ -298,9 +330,10 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
     tools.push(createWebFetchTool(config?.webFetch));
   }
 
-  // Memory tools (use IPC if in Electron)
-  if (config?.includeMemory !== false) {
-    tools.push(...createMemoryTools());
+  // Image processing tools
+  if (config?.includeImages !== false) {
+    tools.push(createImageCropTool(config?.imageCrop));
+    tools.push(createImageThumbnailTool(config?.imageThumbnail));
   }
 
   // Resource tools (read + write)
@@ -342,6 +375,15 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // Calendar tools (create, update, delete, list events)
   tools.push(...createCalendarTools());
 
+  // Entity creation tools (create agents, workflows, automations)
+  tools.push(...createEntityTools());
+
+  // Marketplace tools (search and install)
+  tools.push(...createMarketplaceTools());
+
+  // Docling tools (visual artifacts from converted documents)
+  tools.push(...createDoclingTools());
+
   return tools;
 }
 
@@ -353,7 +395,6 @@ export function createResourceOnlyTools(): AnyAgentTool[] {
   return [
     ...createResourceTools(),
     ...createContextTools(),
-    ...createMemoryTools(),
   ];
 }
 
@@ -373,8 +414,9 @@ export function createManyToolsForContext(
     tools.push(createWebSearchTool(config?.webSearch));
     tools.push(createWebFetchTool(config?.webFetch));
   }
-  if (config?.includeMemory !== false) {
-    tools.push(...createMemoryTools());
+  if (config?.includeImages !== false) {
+    tools.push(createImageCropTool(config?.imageCrop));
+    tools.push(createImageThumbnailTool(config?.imageThumbnail));
   }
   if (config?.includeResources !== false) {
     tools.push(...createResourceTools());
@@ -411,6 +453,17 @@ export function createManyToolsForContext(
     tools.push(...createAudioOverviewTools());
     tools.push(...createDeepResearchTools());
     tools.push(...createGraphTools());
+  }
+
+  // Entity creation tools (agents, workflows, automations): useful when user asks to create
+  tools.push(...createEntityTools());
+
+  // Marketplace tools: useful when user asks about marketplace agents/workflows
+  tools.push(...createMarketplaceTools());
+
+  // Docling tools: available whenever viewing a workspace or home (gracefully handles docs without images)
+  if (isWorkspace || isHome) {
+    tools.push(...createDoclingTools());
   }
 
   return tools;

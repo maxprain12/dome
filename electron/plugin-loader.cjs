@@ -47,6 +47,12 @@ function validateManifest(manifest) {
   if (manifest.sprites != null && typeof manifest.sprites !== 'object') {
     return { valid: false, error: 'manifest.sprites must be an object' };
   }
+  if (manifest.entry != null && typeof manifest.entry !== 'string') {
+    return { valid: false, error: 'manifest.entry must be a string' };
+  }
+  if (manifest.permissions != null && !Array.isArray(manifest.permissions)) {
+    return { valid: false, error: 'manifest.permissions must be an array' };
+  }
   return { valid: true };
 }
 
@@ -94,7 +100,7 @@ function listPlugins() {
 
 /**
  * Install plugin from a directory (copy to plugins folder)
- * @param {string} sourceDir - Path to plugin folder (contains manifest.json, main.js)
+ * @param {string} sourceDir - Path to plugin folder (contains manifest.json and runtime files)
  * @returns {{ success: boolean, plugin?: object, error?: string }}
  */
 function installFromDir(sourceDir) {
@@ -118,8 +124,10 @@ function installFromDir(sourceDir) {
   }
 
   const mainPath = path.join(sourceDir, 'main.js');
-  if (!fs.existsSync(mainPath)) {
-    return { success: false, error: 'main.js not found' };
+  const entryPath = manifest.entry ? path.join(sourceDir, manifest.entry) : path.join(sourceDir, 'index.html');
+  const hasRuntimeEntry = fs.existsSync(mainPath) || fs.existsSync(entryPath);
+  if (!hasRuntimeEntry) {
+    return { success: false, error: 'Plugin runtime entry not found (expected main.js or entry HTML)' };
   }
 
   const destDir = path.join(getPluginsDir(), manifest.id);
@@ -195,12 +203,127 @@ function setEnabled(pluginId, enabled) {
   return { success: true };
 }
 
+/**
+ * Install plugin from GitHub repo
+ * Downloads the latest release and extracts to plugins directory
+ * @param {string} repo - Repository in format "owner/repo"
+ * @returns {{ success: boolean, plugin?: object, error?: string }}
+ */
+async function installFromRepo(repo) {
+  if (!repo || typeof repo !== 'string') {
+    return { success: false, error: 'Invalid repo format. Use owner/repo' };
+  }
+
+  const [owner, repoName] = repo.split('/');
+  if (!owner || !repoName) {
+    return { success: false, error: 'Invalid repo format. Use owner/repo' };
+  }
+
+  ensurePluginsDir();
+
+  const https = require('https');
+  const { URL } = require('url');
+
+  try {
+    // Get repo info to find the latest release
+    const githubClient = require('./github-client.cjs');
+    const release = await githubClient.getLatestRelease(owner, repoName);
+    
+    if (!release || !release.zipball_url) {
+      return { success: false, error: 'No releases found' };
+    }
+
+    // Download the zipball
+    const zipUrl = new URL(release.zipball_url);
+    
+    return new Promise((resolve) => {
+      const req = https.get(zipUrl, { headers: { 'User-Agent': 'Dome-Plugin/1.0' } }, (res) => {
+        if (res.statusCode !== 200) {
+          resolve({ success: false, error: `Download failed: ${res.statusCode}` });
+          return;
+        }
+        
+        const chunks = [];
+        res.on('data', chunk => chunks.push(chunk));
+        res.on('end', async () => {
+          try {
+            const AdmZip = require('adm-zip');
+            const zip = new AdmZip(Buffer.concat(chunks));
+            
+            // Extract to temp directory
+            const tempDir = path.join(getPluginsDir(), '_temp');
+            if (fs.existsSync(tempDir)) {
+              fs.rmSync(tempDir, { recursive: true });
+            }
+            zip.extractAllTo(tempDir, true);
+            
+            // Find the extracted folder
+            const entries = fs.readdirSync(tempDir, { withFileTypes: true });
+            const extractedDir = entries.find(e => e.isDirectory());
+            
+            if (!extractedDir) {
+              fs.rmSync(tempDir, { recursive: true });
+              resolve({ success: false, error: 'Invalid release format' });
+              return;
+            }
+            
+            // Move to plugins directory with repo name as ID
+            const destDir = path.join(getPluginsDir(), repoName);
+            if (fs.existsSync(destDir)) {
+              fs.rmSync(destDir, { recursive: true });
+            }
+            
+            fs.renameSync(path.join(tempDir, extractedDir.name), destDir);
+            fs.rmSync(tempDir, { recursive: true });
+            
+            // Check for manifest
+            const manifestPath = path.join(destDir, 'manifest.json');
+            if (!fs.existsSync(manifestPath)) {
+              fs.rmSync(destDir, { recursive: true });
+              resolve({ success: false, error: 'No manifest.json found in release' });
+              return;
+            }
+            
+            // Read and validate manifest
+            const raw = fs.readFileSync(manifestPath, 'utf8');
+            const manifest = JSON.parse(raw);
+            const { valid, error } = validateManifest(manifest);
+            
+            if (!valid) {
+              fs.rmSync(destDir, { recursive: true });
+              resolve({ success: false, error: `Invalid manifest: ${error}` });
+              return;
+            }
+            
+            fs.writeFileSync(path.join(destDir, '.enabled'), '1');
+            resolve({ success: true, plugin: { ...manifest, dir: destDir, enabled: true } });
+          } catch (err) {
+            resolve({ success: false, error: err.message });
+          }
+        });
+      });
+      
+      req.on('error', (err) => {
+        resolve({ success: false, error: err.message });
+      });
+      
+      req.setTimeout(60000, () => {
+        req.destroy();
+        resolve({ success: false, error: 'Download timeout' });
+      });
+    });
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   getPluginsDir,
   ensurePluginsDir,
   validateManifest,
   listPlugins,
   installFromDir,
+  installFromRepo,
   uninstall,
   setEnabled,
 };

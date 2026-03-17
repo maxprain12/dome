@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FolderOpen, Trash2, Clock, Plus, Workflow } from 'lucide-react';
+import { FolderOpen, Trash2, Clock, Plus, Workflow, Zap } from 'lucide-react';
 import type { CanvasWorkflow } from '@/types/canvas';
 import { getWorkflows, deleteWorkflow } from '@/lib/agent-canvas/api';
 import { syncMarketplaceOnWorkflowDelete } from '@/lib/marketplace/api';
@@ -9,7 +9,11 @@ import { useCanvasStore } from '@/lib/store/useCanvasStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
 
-export default function WorkflowLibraryView() {
+interface WorkflowLibraryViewProps {
+  onShowAutomations?: (workflowId: string, workflowLabel: string) => void;
+}
+
+export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibraryViewProps) {
   const [workflows, setWorkflows] = useState<CanvasWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -92,10 +96,7 @@ export default function WorkflowLibraryView() {
         <button
           onClick={handleNew}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:opacity-90"
-          style={{
-            background: 'var(--dome-accent)',
-            color: 'white',
-          }}
+          style={{ background: 'var(--dome-accent)', color: 'white' }}
         >
           <Plus className="w-4 h-4" />
           Nuevo workflow
@@ -107,35 +108,22 @@ export default function WorkflowLibraryView() {
         {loading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 animate-in fade-in duration-150 motion-reduce:animate-none">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="resource-card-skeleton rounded-xl min-h-[120px]"
-                aria-hidden="true"
-              />
+              <div key={i} className="resource-card-skeleton rounded-xl min-h-[120px]" aria-hidden="true" />
             ))}
           </div>
         ) : workflows.length === 0 ? (
-          <div
-            className="flex flex-col items-center justify-center py-20 gap-4"
-            style={{ color: 'var(--dome-text-muted)' }}
-          >
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center"
-              style={{ background: 'var(--dome-accent-bg)' }}
-            >
+          <div className="flex flex-col items-center justify-center py-20 gap-4" style={{ color: 'var(--dome-text-muted)' }}>
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'var(--dome-accent-bg)' }}>
               <FolderOpen className="w-8 h-8" style={{ color: 'var(--dome-accent)' }} />
             </div>
             <p className="text-sm font-medium">No hay workflows guardados</p>
             <p className="text-xs max-w-sm text-center">
-              Crea un nuevo workflow para conectar inputs, agentes y resultados. Soporta ejecución paralela (1 input → N agentes → 1 agente).
+              Crea un nuevo workflow para conectar inputs, agentes y resultados.
             </p>
             <button
               onClick={handleNew}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
-              style={{
-                background: 'var(--dome-accent)',
-                color: 'white',
-              }}
+              style={{ background: 'var(--dome-accent)', color: 'white' }}
             >
               <Plus className="w-4 h-4" />
               Crear primer workflow
@@ -150,16 +138,10 @@ export default function WorkflowLibraryView() {
                 tabIndex={0}
                 onClick={() => handleOpen(wf)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleOpen(wf);
-                  }
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleOpen(wf); }
                 }}
                 className="flex items-start gap-4 p-4 rounded-xl text-left transition-all hover:shadow-md group cursor-pointer"
-                style={{
-                  background: 'var(--dome-surface)',
-                  border: '1px solid var(--dome-border)',
-                }}
+                style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
               >
                 <div
                   className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -168,9 +150,7 @@ export default function WorkflowLibraryView() {
                   <FolderOpen className="w-5 h-5" style={{ color: 'var(--dome-accent)' }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: 'var(--dome-text)' }}>
-                    {wf.name}
-                  </p>
+                  <p className="text-sm font-semibold truncate" style={{ color: 'var(--dome-text)' }}>{wf.name}</p>
                   <p className="text-xs truncate mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
                     {wf.description || `${wf.nodes.length} nodos · ${wf.edges.length} conexiones`}
                   </p>
@@ -179,18 +159,27 @@ export default function WorkflowLibraryView() {
                     {formatDate(wf.updatedAt)}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(e, wf.id);
-                  }}
-                  disabled={deletingId === wf.id}
-                  className="p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-[var(--error-bg)] shrink-0"
-                  title="Eliminar"
-                >
-                  <Trash2 className="w-4 h-4" style={{ color: 'var(--error)' }} />
-                </button>
+                <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+                  {onShowAutomations && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onShowAutomations(wf.id, wf.name); }}
+                      className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)] transition-colors"
+                      title="Automatizaciones"
+                    >
+                      <Zap className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); void handleDelete(e, wf.id); }}
+                    disabled={deletingId === wf.id}
+                    className="p-1.5 rounded-lg hover:bg-[var(--error-bg)] transition-colors"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--error)' }} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

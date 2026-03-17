@@ -284,7 +284,7 @@ function AgentCanvasInner() {
         onStop={handleStop}
         onSave={handleSave}
         onClear={handleClear}
-        onBackToLibrary={() => setHomeSidebarSection('agent-teams')}
+        onBackToLibrary={() => setHomeSidebarSection('automations-hub')}
         onRename={handleRename}
       />
 

@@ -15,6 +15,7 @@ import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMes
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
+import { buildCitationMap } from '@/lib/utils/citations';
 import { collectTeamMcpServerIds } from '@/lib/ai/shared-capabilities';
 import { inferMcpServerForTool, loadMcpServersSetting } from '@/lib/mcp/settings';
 import type { MCPServerConfig } from '@/types';
@@ -393,27 +394,34 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
 
   const chatMessages = useMemo<ChatMessageData[]>(
     () =>
-      messages.map((message) => ({
-        id: message.id,
-        role: message.role === 'system' ? 'assistant' : message.role,
-        content: message.content,
-        timestamp: message.timestamp,
-        toolCalls: message.toolCalls as ToolCallData[] | undefined,
-        agentLabel:
-          message.agentName ||
-          (message.phase === 'planning'
-            ? 'Planificación'
-            : message.phase === 'delegation'
-              ? 'Delegación'
-              : message.phase === 'synthesis'
-                ? 'Síntesis'
-                : undefined),
-      })),
+      messages.map((message) => {
+        const toolCalls = message.toolCalls as ToolCallData[] | undefined;
+        return {
+          id: message.id,
+          role: message.role === 'system' ? 'assistant' : message.role,
+          content: message.content,
+          timestamp: message.timestamp,
+          toolCalls,
+          citationMap: buildCitationMap(toolCalls),
+          agentLabel:
+            message.agentName ||
+            (message.phase === 'planning'
+              ? 'Planificación'
+              : message.phase === 'delegation'
+                ? 'Delegación'
+                : message.phase === 'synthesis'
+                  ? 'Síntesis'
+                  : undefined),
+        };
+      }),
     [messages]
   );
 
   const messageGroups = useMemo(() => {
-    const allMessages = streamingMessage ? [...chatMessages, streamingMessage] : chatMessages;
+    const liveStreamingMessage = streamingMessage
+      ? { ...streamingMessage, citationMap: buildCitationMap(streamingMessage.toolCalls) }
+      : null;
+    const allMessages = liveStreamingMessage ? [...chatMessages, liveStreamingMessage] : chatMessages;
     return groupMessagesByRole(allMessages);
   }, [chatMessages, streamingMessage]);
 
@@ -476,7 +484,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5 flex flex-col gap-5">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-5 py-5 flex flex-col gap-5">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
             <div

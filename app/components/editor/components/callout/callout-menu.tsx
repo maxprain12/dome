@@ -35,6 +35,8 @@ export function CalloutMenu({ editor, shouldHide }: EditorMenuProps) {
         return false;
       }
       if (isTextSelected(editor)) return false;
+      // Hide when cursor is inside a link — let LinkMenu handle it exclusively
+      if (editor.isActive("link")) return false;
 
       return editor.isActive("callout");
     },

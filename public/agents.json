@@ -1,1 +1,202 @@
-[]
+[
+  {
+    "id": "dome-research-pro",
+    "name": "Research Pro",
+    "description": "Investigador profundo especializado en búsqueda web, análisis de fuentes y síntesis académica.",
+    "author": "Dome Team",
+    "version": "1.1.0",
+    "tags": ["research", "academic", "web"],
+    "featured": true,
+    "iconIndex": 1
+  },
+  {
+    "id": "dome-writing-coach",
+    "name": "Writing Coach",
+    "description": "Experto en escritura que mejora tu estilo, corrige errores y potencia tus textos.",
+    "author": "Dome Team",
+    "version": "1.1.0",
+    "tags": ["writing", "productivity", "language"],
+    "featured": true,
+    "iconIndex": 2
+  },
+  {
+    "id": "dome-code-helper",
+    "name": "Code Helper",
+    "description": "Asistente de programación para analizar, depurar y generar código en múltiples lenguajes.",
+    "author": "Dome Team",
+    "version": "1.1.0",
+    "tags": ["coding", "development", "productivity"],
+    "featured": true,
+    "iconIndex": 3
+  },
+  {
+    "id": "dome-data-analyst",
+    "name": "Data Analyst",
+    "description": "Analista de datos especializado en Excel, estadísticas y visualización de información.",
+    "author": "Dome Team",
+    "version": "1.1.0",
+    "tags": ["data", "analytics", "excel"],
+    "featured": true,
+    "iconIndex": 4
+  },
+  {
+    "id": "dome-study-buddy",
+    "name": "Study Buddy",
+    "description": "Compañero de estudio que crea flashcards, quizzes y resúmenes para optimizar tu aprendizaje.",
+    "author": "Dome Team",
+    "version": "1.1.0",
+    "tags": ["education", "learning", "flashcards"],
+    "featured": true,
+    "iconIndex": 5
+  },
+  {
+    "id": "dome-project-manager",
+    "name": "Project Manager",
+    "description": "Gestor de proyectos que organiza tareas, plazos y recursos para maximizar tu productividad.",
+    "author": "Dome Team",
+    "version": "1.1.0",
+    "tags": ["productivity", "planning", "management"],
+    "featured": true,
+    "iconIndex": 6
+  },
+  {
+    "id": "dome-content-creator",
+    "name": "Content Creator",
+    "description": "Creador de contenido creativo para blogs, redes sociales, guiones y más.",
+    "author": "Dome Team",
+    "version": "1.1.0",
+    "tags": ["content", "marketing", "creative"],
+    "featured": true,
+    "iconIndex": 7
+  },
+  {
+    "id": "dome-language-tutor",
+    "name": "Language Tutor",
+    "description": "Tutor de idiomas personalizado para aprender, practicar y corregir cualquier lengua.",
+    "author": "Dome Team",
+    "version": "1.1.0",
+    "tags": ["language", "education", "learning"],
+    "featured": true,
+    "iconIndex": 8
+  },
+  {
+    "id": "dome-graph-architect",
+    "name": "Graph Architect",
+    "description": "Construye y analiza grafos de conocimiento que conectan conceptos, entidades y relaciones de tu biblioteca.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["research", "productivity", "knowledge"],
+    "featured": true,
+    "iconIndex": 9
+  },
+  {
+    "id": "dome-presentation-designer",
+    "name": "Presentation Designer",
+    "description": "Diseñador de presentaciones, mapas mentales y material multimedia a partir de cualquier tema o documento.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["content", "productivity", "creative"],
+    "featured": true,
+    "iconIndex": 10
+  },
+  {
+    "id": "dome-knowledge-curator",
+    "name": "Knowledge Curator",
+    "description": "Organiza, enriquece y conecta el conocimiento de tu biblioteca: flashcards, grafos, notas y enlaces semánticos.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["productivity", "research", "learning"],
+    "featured": false,
+    "iconIndex": 11
+  },
+  {
+    "id": "dome-academic-writer",
+    "name": "Academic Writer",
+    "description": "Redactor académico que investiga, sintetiza fuentes y produce ensayos y papers con estructura científica.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["writing", "research", "academic"],
+    "featured": false,
+    "iconIndex": 12
+  },
+  {
+    "id": "pdf-deep-reader",
+    "name": "PDF Deep Reader",
+    "description": "Analiza PDFs en profundidad: extrae estructura, ideas clave, argumentos y citas textuales.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["research", "academic", "knowledge"],
+    "featured": true,
+    "iconIndex": 2
+  },
+  {
+    "id": "systematic-reviewer",
+    "name": "Systematic Reviewer",
+    "description": "Realiza revisiones sistemáticas de literatura: busca, filtra, sintetiza y cita fuentes académicas.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["research", "academic", "writing"],
+    "featured": true,
+    "iconIndex": 1
+  },
+  {
+    "id": "zettelkasten-builder",
+    "name": "Zettelkasten Builder",
+    "description": "Construye y conecta notas atómicas en estilo Zettelkasten para gestión del conocimiento.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["knowledge", "productivity", "writing"],
+    "featured": true,
+    "iconIndex": 11
+  },
+  {
+    "id": "exam-prep-coach",
+    "name": "Exam Prep Coach",
+    "description": "Prepara al estudiante para exámenes con tests adaptativos, resúmenes y técnicas de estudio.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["education", "productivity"],
+    "featured": true,
+    "iconIndex": 5
+  },
+  {
+    "id": "research-synthesizer",
+    "name": "Research Synthesizer",
+    "description": "Sintetiza múltiples fuentes de investigación en narrativas coherentes con citas y referencias.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["research", "writing", "academic"],
+    "featured": false,
+    "iconIndex": 12
+  },
+  {
+    "id": "meeting-processor",
+    "name": "Meeting Processor",
+    "description": "Procesa notas de reunión: extrae acuerdos, tareas, decisiones y genera acta estructurada.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["productivity", "writing"],
+    "featured": false,
+    "iconIndex": 6
+  },
+  {
+    "id": "data-storyteller",
+    "name": "Data Storyteller",
+    "description": "Analiza datos de Excel/CSV y convierte los hallazgos en narrativas visuales y presentaciones.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["data", "productivity", "content"],
+    "featured": false,
+    "iconIndex": 4
+  },
+  {
+    "id": "concept-mapper",
+    "name": "Concept Mapper",
+    "description": "Crea mapas conceptuales y grafos de conocimiento para visualizar relaciones entre ideas.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["knowledge", "education", "productivity"],
+    "featured": false,
+    "iconIndex": 9
+  }
+]

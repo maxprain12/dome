@@ -47,6 +47,10 @@ function disconnect(database) {
   queries.clearDomeProviderSessions.run();
 }
 
+function openDashboard() {
+  shell.openExternal(`${PROVIDER_BASE_URL}/dashboard`);
+}
+
 async function exchangeCodeForToken(code, codeVerifier) {
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
@@ -94,6 +98,58 @@ function startOAuthFlow(database) {
 
     shell.openExternal(authUrl.toString());
   });
+}
+
+async function exchangeConnectCode(code) {
+  const response = await fetch(`${PROVIDER_BASE_URL}/api/oauth/connect`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Connect exchange failed: ${response.status} ${text}`);
+  }
+
+  const data = await response.json();
+  if (!data.access_token || !data.user_id) {
+    throw new Error('Connect response missing access_token or user_id');
+  }
+  return data;
+}
+
+async function handleConnectCallback(url, database) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'dome:' || !parsed.pathname.includes('/connect')) {
+      return false;
+    }
+
+    const code = parsed.searchParams.get('code');
+    if (!code) {
+      console.warn('[Dome OAuth] Connect callback missing code');
+      return true; // We handled the URL type
+    }
+
+    const tokenResponse = await exchangeConnectCode(code);
+    const queries = database.getQueries();
+    const now = Date.now();
+    const expiresInSec = Number(tokenResponse.expires_in || 3600);
+    queries.upsertDomeProviderSession.run(
+      tokenResponse.user_id,
+      tokenResponse.access_token,
+      tokenResponse.refresh_token || null,
+      now + expiresInSec * 1000,
+      now,
+      now,
+    );
+    console.log('[Dome OAuth] Connected via dashboard, user_id:', tokenResponse.user_id);
+    return true;
+  } catch (error) {
+    console.error('[Dome OAuth] Connect callback error:', error?.message);
+    return true; // We handled the URL type even if exchange failed
+  }
 }
 
 function handleOAuthCallback(url, database) {
@@ -155,7 +211,9 @@ function handleOAuthCallback(url, database) {
 module.exports = {
   startOAuthFlow,
   handleOAuthCallback,
+  handleConnectCallback,
   getSession,
   disconnect,
+  openDashboard,
   PROVIDER_BASE_URL,
 };

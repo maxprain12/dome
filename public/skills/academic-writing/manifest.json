@@ -1,0 +1,10 @@
+{
+  "id": "academic-writing",
+  "name": "Academic Writing",
+  "description": "Habilidades de escritura académica: citas APA/MLA, estructura de papers, revisión de literatura y redacción científica.",
+  "author": "Dome Team",
+  "version": "1.0.0",
+  "tags": ["writing", "academic", "research"],
+  "category": "writing",
+  "instructions": "Cuando redactes o ayudes a redactar textos académicos: (1) usa siempre formato de cita APA 7 por defecto (o el que el usuario indique), (2) estructura el texto con secciones claras: introducción, desarrollo y conclusión, (3) mantén un tono formal y objetivo, evita coloquialismos, (4) cada afirmación importante debe estar respaldada por una cita o evidencia, (5) usa voz activa cuando sea posible para mayor claridad, (6) sugiere mejoras de cohesión y coherencia del texto si el usuario comparte borradores."
+}

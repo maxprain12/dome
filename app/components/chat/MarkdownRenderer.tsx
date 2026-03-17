@@ -159,6 +159,8 @@ function processTextWithCitations(
         number={citationNumber}
         sourceTitle={citation?.sourceTitle}
         sourcePassage={citation?.passage}
+        pageLabel={citation?.pageLabel}
+        nodeTitle={citation?.nodeTitle}
         onClickCitation={onClickCitation}
       />
     );
@@ -367,24 +369,42 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
     const baseComponents: Components = {
       // Headings - limited size for chat context
       h1: ({ children }) => (
-        <h1 style={{ fontSize: 16, fontWeight: 600, color: 'var(--primary-text)', margin: '12px 0 6px' }}>
+        <h1
+          style={{
+            fontSize: 16,
+            fontWeight: 600,
+            color: 'var(--primary-text)',
+            margin: '16px 0 6px',
+            paddingBottom: 4,
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
           {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
         </h1>
       ),
       h2: ({ children }) => (
-        <h2 style={{ fontSize: 15, fontWeight: 600, color: 'var(--primary-text)', margin: '10px 0 4px' }}>
+        <h2
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: 'var(--primary-text)',
+            margin: '16px 0 6px',
+            paddingBottom: 3,
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
           {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
         </h2>
       ),
       h3: ({ children }) => (
-        <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary-text)', margin: '8px 0 4px' }}>
+        <h3 style={{ fontSize: 14, fontWeight: 600, color: 'var(--primary-text)', margin: '16px 0 6px' }}>
           {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
         </h3>
       ),
 
       // Paragraphs
       p: ({ children }) => (
-        <p style={{ margin: '4px 0', lineHeight: 1.6 }}>
+        <p style={{ margin: '6px 0', lineHeight: 1.65 }}>
           {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
         </p>
       ),
@@ -415,16 +435,6 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
 
         const isDomeLink = isDomeResource || isDomeFolder || isDomeStudio || isDomeResolve;
 
-        // Use <span> for dome links to avoid browser handling of custom protocols.
-        // Chromium may not fire will-navigate for dome://, and the OS can intercept
-        // before our onClick runs. A span guarantees our handler executes.
-        const linkStyle = {
-          color: 'var(--accent)',
-          textDecoration: 'underline',
-          textUnderlineOffset: 2,
-          cursor: 'pointer',
-        } as const;
-
         // Use button for ALL links to avoid browser handling and ensure reliable clicks.
         // Prevents dome:// from being opened by the OS and http(s) from navigating away.
         const handleAllClicks = (e: React.MouseEvent) => {
@@ -436,13 +446,44 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           }
         };
 
+        if (isDomeLink) {
+          return (
+            <button
+              type="button"
+              data-dome-href={href}
+              onClick={handleAllClicks}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 3,
+                color: 'var(--accent)',
+                fontWeight: 500,
+                textDecoration: 'none',
+                cursor: 'pointer',
+                background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
+                border: 'none',
+                borderRadius: 4,
+                padding: '1px 6px 1px 4px',
+                font: 'inherit',
+                fontSize: '0.95em',
+              }}
+            >
+              <span style={{ fontSize: '0.85em', opacity: 0.8 }}>↗</span>
+              {children}
+            </button>
+          );
+        }
+
         return (
           <button
             type="button"
-            data-dome-href={isDomeLink ? href : undefined}
+            data-dome-href={undefined}
             onClick={handleAllClicks}
             style={{
-              ...linkStyle,
+              color: 'var(--accent)',
+              textDecoration: 'underline',
+              textUnderlineOffset: 2,
+              cursor: 'pointer',
               background: 'none',
               border: 'none',
               padding: 0,
@@ -484,10 +525,11 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         return (
           <code
             style={{
-              padding: '1px 5px',
+              padding: '2px 6px',
               backgroundColor: 'var(--bg-tertiary)',
+              border: '1px solid var(--border)',
               borderRadius: 3,
-              fontSize: '0.9em',
+              fontSize: '0.88em',
               fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
               color: 'var(--primary-text)',
             }}
@@ -514,26 +556,28 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
 
       // Lists
       ul: ({ children }) => (
-        <ul style={{ margin: '4px 0', paddingLeft: 20, listStyleType: 'disc' }}>{children}</ul>
+        <ul style={{ margin: '4px 0', paddingLeft: 24, listStyleType: 'disc' }}>{children}</ul>
       ),
       ol: ({ children }) => (
-        <ol style={{ margin: '4px 0', paddingLeft: 20, listStyleType: 'decimal' }}>{children}</ol>
+        <ol style={{ margin: '4px 0', paddingLeft: 24, listStyleType: 'decimal' }}>{children}</ol>
       ),
       li: ({ children }) => (
-        <li style={{ margin: '2px 0', lineHeight: 1.5 }}>
+        <li style={{ margin: '4px 0', lineHeight: 1.6 }}>
           {hasCitations ? processCitations(children, citationMap!, onClickCitation) : children}
         </li>
       ),
 
-      // Blockquote
+      // Blockquote — styled as a note box, not italic
       blockquote: ({ children }) => (
         <blockquote
           style={{
             margin: '8px 0',
-            paddingLeft: 12,
-            borderLeft: '3px solid var(--border)',
+            padding: '10px 14px',
+            borderLeft: '3px solid var(--accent)',
+            borderRadius: '0 4px 4px 0',
+            background: 'var(--bg-secondary)',
             color: 'var(--secondary-text)',
-            fontStyle: 'italic',
+            fontStyle: 'normal',
           }}
         >
           {children}

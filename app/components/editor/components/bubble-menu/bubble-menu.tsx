@@ -150,6 +150,7 @@ export const EditorBubbleMenu: FC<EditorBubbleMenuProps> = (props) => {
       editor.isActive("video") ||
       editor.isActive("callout") ||
       editor.isActive("columns") ||
+      editor.isActive("link") ||
       empty ||
       isNodeSelection(selection) ||
       isCellSelection(selection) ||
@@ -190,6 +191,7 @@ export const EditorBubbleMenu: FC<EditorBubbleMenuProps> = (props) => {
   return (
     <BubbleMenu
       {...bubbleMenuProps}
+      updateDelay={0}
       style={{ zIndex: 1000 }}
     >
       <div className={classes.bubbleMenu}>

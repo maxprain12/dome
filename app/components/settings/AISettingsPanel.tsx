@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Gift, Search } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
@@ -83,18 +83,26 @@ export default function AISettingsPanel() {
     loadConfig();
   }, []);
 
-  useEffect(() => {
-    const loadDomeSession = async () => {
-      if (!window.electron?.domeAuth) return;
-      try {
-        const session = await window.electron.domeAuth.getSession();
-        setDomeConnected(session.success && session.connected === true);
-      } catch {
-        setDomeConnected(false);
-      }
-    };
-    void loadDomeSession();
+  const refreshDomeSession = useCallback(async () => {
+    if (!window.electron?.domeAuth) return;
+    try {
+      const session = await window.electron.domeAuth.getSession();
+      setDomeConnected(session.success && session.connected === true);
+    } catch {
+      setDomeConnected(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void refreshDomeSession();
+  }, [refreshDomeSession]);
+
+  // Refresh session when window regains focus (user may have connected via dashboard deep link)
+  useEffect(() => {
+    const onFocus = () => void refreshDomeSession();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refreshDomeSession]);
 
   // Check Ollama availability when provider changes or URL changes
   useEffect(() => {
@@ -162,20 +170,30 @@ export default function AISettingsPanel() {
       case 'openai':
         config.api_key = apiKey;
         config.model = model;
+        config.base_url = ''; // Clear any leftover base_url from other providers (e.g. Minimax)
         break;
 
       case 'anthropic':
         config.api_key = apiKey;
         config.model = model;
+        config.base_url = '';
         break;
 
       case 'google':
         config.api_key = apiKey;
         config.model = model;
+        config.base_url = '';
         break;
 
       case 'dome':
         config.model = 'dome/auto';
+        config.base_url = '';
+        break;
+
+      case 'minimax':
+        config.api_key = apiKey;
+        config.model = model;
+        // base_url for minimax is managed by the backend automatically
         break;
 
       case 'ollama':
@@ -233,18 +251,16 @@ export default function AISettingsPanel() {
     setDomeConnecting(true);
     setTestResult(null);
     try {
-      const result = await window.electron.domeAuth.startOAuthFlow();
+      const result = await window.electron.domeAuth.openDashboard();
       if (result.success) {
-        setDomeConnected(true);
-        setModel('dome/auto');
-        await saveAIConfig({ provider: 'dome', model: 'dome/auto' });
-        setTestResult({ success: true, message: 'Cuenta de Dome conectada correctamente.' });
+        setTestResult({
+          success: true,
+          message: 'Se abrió el dashboard. Inicia sesión y haz click en "Conectar Dome Desktop". Al volver aquí, la conexión se completará.',
+        });
       } else {
-        setDomeConnected(false);
-        setTestResult({ success: false, message: result.error || 'No se pudo conectar con Dome.' });
+        setTestResult({ success: false, message: result.error || 'No se pudo abrir el dashboard.' });
       }
     } catch (error) {
-      setDomeConnected(false);
       setTestResult({ success: false, message: error instanceof Error ? error.message : 'Error desconocido' });
     } finally {
       setDomeConnecting(false);
@@ -342,7 +358,7 @@ export default function AISettingsPanel() {
           AI Configuration
         </h2>
         <p className="text-sm opacity-70" style={{ color: 'var(--secondary-text)' }}>
-          Configure your AI provider for semantic search, transcriptions, and assistant
+          Configure your AI provider and assistant
         </p>
       </div>
 
@@ -402,8 +418,8 @@ export default function AISettingsPanel() {
           Configuration
         </h3>
 
-        {/* API Key for OpenAI, Anthropic, and Google */}
-        {(provider === 'openai' || provider === 'anthropic' || provider === 'google') && (
+        {/* API Key for OpenAI, Anthropic, Google, and MiniMax */}
+        {(provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax') && (
           <div className="group">
             <label htmlFor="ai-api-key-cloud" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
               API Key
@@ -443,8 +459,8 @@ export default function AISettingsPanel() {
           </div>
         )}
 
-        {/* Model Selection for cloud providers (OpenAI, Anthropic, Google) */}
-        {(provider === 'openai' || provider === 'anthropic' || provider === 'google') && currentProviderModels.length > 0 && (
+        {/* Model Selection for cloud providers (OpenAI, Anthropic, Google, MiniMax) */}
+        {(provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax') && currentProviderModels.length > 0 && (
           <>
             <div className="group">
               <div className="flex items-center justify-between mb-2">
@@ -638,7 +654,7 @@ export default function AISettingsPanel() {
                 Conecta tu cuenta de Dome para activar el provider administrado y el modelo automático <code className="font-mono">dome/auto</code>.
               </p>
               <p className="text-xs opacity-70" style={{ color: 'var(--secondary-text)' }}>
-                El plan y la cuota de tokens se gestionan en la web de Dome Provider.
+                Abre el dashboard, inicia sesión y haz click en &quot;Conectar Dome Desktop&quot;. El plan y la cuota se gestionan en la web.
               </p>
             </div>
             <div className="flex items-center gap-3">

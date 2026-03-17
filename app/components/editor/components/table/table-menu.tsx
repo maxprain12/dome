@@ -39,6 +39,8 @@ export const TableMenu = React.memo(
         // Hide when text is selected (bubble menu handles that) or multi-cell selection
         if (!selection.empty) return false;
         if (isCellSelection(selection)) return false;
+        // Hide when cursor is inside a link — let LinkMenu handle it exclusively
+        if (editor.isActive("link")) return false;
         return editor.isActive("table");
       },
       [editor]
@@ -106,6 +108,7 @@ export const TableMenu = React.memo(
         editor={editor}
         pluginKey="table-menu"
         resizeDelay={0}
+        updateDelay={0}
         getReferencedVirtualElement={getReferencedVirtualElement}
         ref={(element) => {
           if (!element) return;

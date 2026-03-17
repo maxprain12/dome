@@ -86,6 +86,26 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
   });
 
   /**
+   * Get a specific section of an indexed PDF/note by node_id
+   */
+  ipcMain.handle('ai:tools:resourceGetSection', async (event, { resourceId, nodeId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const result = await aiToolsHandler.resourceGetSection(resourceId, nodeId);
+      toolTrace('resourceGetSection', { resourceId, nodeId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceGetSection', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('resourceGetSection', { resourceId, nodeId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceGetSection', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
    * List resources with optional filters
    */
   ipcMain.handle('ai:tools:resourceList', async (event, { options }) => {
@@ -342,6 +362,29 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       toolTrace('resourceDelete', { resourceId }, null, error);
       broadcastToolAnalytics(windowManager, 'ai:tools:resourceDelete', false);
       console.error('[AI Tools] resourceDelete error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Import file content to Dome library (used by agents that read files via MCP servers)
+   */
+  ipcMain.handle('ai:tools:importFileToLibrary', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.importFileToLibrary(args || {});
+      toolTrace('importFileToLibrary', { title: args?.title, mime_type: args?.mime_type }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:importFileToLibrary', result?.success !== false);
+      if (result.success && result.resource) {
+        windowManager.broadcast('resource:created', result.resource);
+      }
+      return result;
+    } catch (error) {
+      toolTrace('importFileToLibrary', { title: args?.title }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:importFileToLibrary', false);
+      console.error('[AI Tools] importFileToLibrary error:', error);
       return { success: false, error: error.message };
     }
   });
@@ -748,6 +791,141 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     } catch (error) {
       toolTrace('getRelatedResources', args, null, error);
       broadcastToolAnalytics(windowManager, 'ai:tools:getRelatedResources', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Extract text content from a PDF
+   */
+  ipcMain.handle('ai:tools:pdfExtractText', async (event, { resourceId, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const pdfExtractor = require('../pdf-extractor.cjs');
+      const database = require('../database.cjs').default.getDatabase();
+      
+      const filePathResult = await pdfExtractor.getPdfFilePathFromResource(resourceId, database);
+      if (!filePathResult.success) {
+        return filePathResult;
+      }
+      
+      const result = await pdfExtractor.extractPdfText(filePathResult.filePath, options || {});
+      toolTrace('pdfExtractText', { resourceId, options }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfExtractText', result?.success !== false);
+      return { ...result, title: filePathResult.title };
+    } catch (error) {
+      toolTrace('pdfExtractText', { resourceId, options }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfExtractText', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Get PDF metadata (title, author, page count, etc.)
+   */
+  ipcMain.handle('ai:tools:pdfGetMetadata', async (event, { resourceId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const pdfExtractor = require('../pdf-extractor.cjs');
+      const database = require('../database.cjs').default.getDatabase();
+      
+      const filePathResult = await pdfExtractor.getPdfFilePathFromResource(resourceId, database);
+      if (!filePathResult.success) {
+        return filePathResult;
+      }
+      
+      const result = await pdfExtractor.getPdfMetadata(filePathResult.filePath);
+      toolTrace('pdfGetMetadata', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfGetMetadata', result?.success !== false);
+      return { ...result, title: filePathResult.title };
+    } catch (error) {
+      toolTrace('pdfGetMetadata', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfGetMetadata', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Get PDF structure (headings per page)
+   */
+  ipcMain.handle('ai:tools:pdfGetStructure', async (event, { resourceId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const pdfExtractor = require('../pdf-extractor.cjs');
+      const database = require('../database.cjs').default.getDatabase();
+      
+      const filePathResult = await pdfExtractor.getPdfFilePathFromResource(resourceId, database);
+      if (!filePathResult.success) {
+        return filePathResult;
+      }
+      
+      const result = await pdfExtractor.extractPdfStructure(filePathResult.filePath);
+      toolTrace('pdfGetStructure', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfGetStructure', result?.success !== false);
+      return { ...result, title: filePathResult.title };
+    } catch (error) {
+      toolTrace('pdfGetStructure', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfGetStructure', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Summarize PDF content
+   */
+  ipcMain.handle('ai:tools:pdfSummarize', async (event, { resourceId, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const pdfExtractor = require('../pdf-extractor.cjs');
+      const database = require('../database.cjs').default.getDatabase();
+      
+      const filePathResult = await pdfExtractor.getPdfFilePathFromResource(resourceId, database);
+      if (!filePathResult.success) {
+        return filePathResult;
+      }
+      
+      const result = await pdfExtractor.summarizePdf(filePathResult.filePath, options || {});
+      toolTrace('pdfSummarize', { resourceId, options }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfSummarize', result?.success !== false);
+      return { ...result, title: filePathResult.title };
+    } catch (error) {
+      toolTrace('pdfSummarize', { resourceId, options }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfSummarize', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Extract tables from PDF
+   */
+  ipcMain.handle('ai:tools:pdfExtractTables', async (event, { resourceId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const pdfExtractor = require('../pdf-extractor.cjs');
+      const database = require('../database.cjs').default.getDatabase();
+      
+      const filePathResult = await pdfExtractor.getPdfFilePathFromResource(resourceId, database);
+      if (!filePathResult.success) {
+        return filePathResult;
+      }
+      
+      const result = await pdfExtractor.extractPdfTables(filePathResult.filePath);
+      toolTrace('pdfExtractTables', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfExtractTables', result?.success !== false);
+      return { ...result, title: filePathResult.title };
+    } catch (error) {
+      toolTrace('pdfExtractTables', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfExtractTables', false);
       return { success: false, error: error.message };
     }
   });

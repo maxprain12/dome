@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.1-00C853?style=flat)](https://langchain-ai.github.io/langgraphjs/)
 [![License](https://img.shields.io/badge/License-Custom%20Open%20Source-blue.svg)](LICENSE)
 
-**v1.4.1** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently.
+**v2.0.8** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently. Now with native Google Drive and OneDrive integration, MCP-powered file import, and automatic background indexing.
 
 ---
 
@@ -35,16 +35,24 @@
 Dome provides a unified workspace for managing your research and knowledge. It combines powerful AI capabilities with an intuitive interface, allowing you to:
 
 - **Organize resources** (notes, PDFs, videos, audios, images, URLs, PowerPoints) in projects
+- **Agent Canvas** — Visual workflow builder with ReactFlow
+- **Agent Teams** — Multi-agent collaboration
+- **Marketplace** — Community extensions (agents, plugins, skills, workflows)
 - **Many AI Assistant** — Chat with LangGraph-powered agent (web search, resource search, memory, MCP tools)
 - **Many Agents** — Create specialized agents with custom instructions, tools, MCP, and icons
 - **Studio** — Generate mindmaps, quizzes, flashcards, guides, FAQs, timelines from your content
 - **Flashcards** — Spaced repetition (SM-2) with AI-generated decks from your documents
 - **Calendar** — Event management with Google Calendar sync and AI-driven event tools
+- **Cloud Storage** — Native Google Drive and OneDrive integration with built-in file picker
+- **Auto-Indexing** — Background PageIndex sweep on startup and every hour, no manual action needed
+- **MCP File Import** — Agents can import files from MCP servers directly into the Dome library
 - **Annotate PDFs** with highlights, comments, and notes
 - **Notion-style editor** for rich documents
 - **PageIndex** — Reasoning-based AI indexing so every resource is ready for semantic search
 - **Manage academic sources** and generate citations
 - **MCP Integration** — Connect Model Context Protocol servers for extended AI capabilities
+- **Plugins** — Extend Dome with pets and custom views
+- **Skills** — Agent capabilities from skills.sh ecosystem
 - **Guided tours** — Built-in onboarding tours powered by driver.js
 - **Web scraping** for offline access
 - **WhatsApp** connection for mobile integration
@@ -53,7 +61,32 @@ Dome provides a unified workspace for managing your research and knowledge. It c
 
 ## What's New
 
-### v1.4.1 — PageIndex, Calendar & Dome Editor
+### v2.0.8 — Cloud Storage, Auto-Indexing, MCP Import & More
+
+- **Google Drive Integration** — Connect your Google Drive account in Settings → Cloud Storage and import files directly into Dome with the built-in file picker. Uses PKCE OAuth 2.0 — no data passes through Dome servers. See [Cloud Storage Setup](docs/cloud-storage-setup.md).
+- **OneDrive Integration** — Connect your Microsoft OneDrive account using the same native OAuth 2.0 flow. Files.Read scope only; Dome never writes to your cloud.
+- **Cloud File Picker** — Browse folders, search by name, and multi-select files from Google Drive or OneDrive. Imported files are automatically added to your Dome library and queued for PageIndex.
+- **Automatic Background Indexing** — Dome now indexes all unindexed resources automatically: once on startup (after a 15-second warm-up) and then every hour, so your library is always AI-ready without manual intervention.
+- **`import_file_to_dome` Agent Tool** — AI agents can now save files retrieved from any MCP server directly into the Dome library. The tool accepts plain text or base64-encoded binary content (PDF, DOCX, etc.) and triggers indexing automatically.
+- **Agent Canvas** — Visual workflow builder with ReactFlow. Create workflows by connecting nodes (text input, agents, documents, outputs, images). Run workflows and see execution logs in real-time.
+- **Agent Teams** — Multi-agent collaboration. Create teams of specialized agents that work together in a shared chat session.
+- **Marketplace** — Unified marketplace for Agents, Plugins, Skills, and Workflows. Browse, install, and manage extensions from the community.
+- **Plugins System** — Extend Dome with custom plugins:
+  - **Pets**: Virtual companions that live in your Home and can interact with users
+  - **Views**: Custom views integrated into Dome's navigation
+- **Skills** — Agent capabilities from the skills.sh ecosystem. Pre-built skills for code review, browser automation, and more.
+- **Workflow Library** — Pre-built workflows ready to use (Research & Write, etc.)
+- **Image Tools** — AI agents can now crop and resize images (`image_crop`) and generate thumbnails (`image_thumbnail`)
+- **PDF Extraction** — Extract text from scanned PDFs using OCR models in Ollama (llava, moondream2, minicpm-v, glm4v)
+- **Automations** — Create automation rules that trigger actions based on events
+- **Projects Dashboard** — New home screen showing all your projects at a glance
+- **Run Engine** — Background engine for running agent workflows
+- **GitHub Integration** — Connect GitHub repositories for workflow automation
+- **Remotion** — Render videos from your content
+
+### v2.0.0 — The Major Update
+
+Dome 2.0 represents a major evolution with the introduction of Agent Canvas, Agent Teams, and a complete Marketplace ecosystem. This release brings visual workflow building, multi-agent collaboration, and community-driven extensions to Dome.
 
 - **PageIndex** — Replaced LanceDB with a reasoning-based document indexing engine. Resources are parsed, chunked, and indexed without embeddings; AI search uses direct reasoning over structured text nodes. Each resource shows an **"Listo para IA"** status badge in the workspace header once indexed.
 - **Calendar** — Full calendar view with day/week event management, event creation modal (all-day or timed), and **Google Calendar sync**. AI agents get calendar tools (`create_event`, `update_event`, `delete_event`) so Many can schedule directly from chat.
@@ -149,6 +182,76 @@ Dome uses **LangGraph** for the chat-with-tools experience and supports multiple
 - **Semantic Search** — Find resources by meaning (PageIndex reasoning engine)
 - **Auto-Transcription** — Convert audio/video to text
 - **Document Summarization** — Quick summaries of long documents
+
+### Agent Canvas — Visual Workflow Builder
+
+Build AI workflows visually with an intuitive drag-and-drop interface:
+
+- **Node Types**: Text Input, Agent, Document, Output, Image
+- **Visual Editor**: Connect nodes to create complex workflows
+- **Execution**: Run workflows and see real-time execution logs
+- **Workflow Library**: Pre-built workflows from the marketplace
+- **System Agents**: Research, Writer, Library, Data, Curator, Presenter roles
+
+### Agent Teams — Multi-Agent Collaboration
+
+Work with multiple AI agents together in a unified chat:
+
+- **Team Chat**: Collaborate with several agents in the same conversation
+- **Role Assignment**: Each agent brings specialized capabilities
+- **Shared Context**: All agents access the same project resources
+- **Onboarding**: Guided setup for creating agent teams
+
+### Marketplace — Extensions Ecosystem
+
+Discover and install community extensions:
+
+| Extension | Description |
+|-----------|-------------|
+| **Agents** | Pre-configured AI agents for specific tasks |
+| **Plugins** | Local extensions (pets, custom views) |
+| **Skills** | Agent capabilities from skills.sh |
+| **Workflows** | Ready-to-use visual workflows |
+
+### Plugins System
+
+Extend Dome with custom plugins:
+
+- **Pet Plugins**: Virtual companions that live in your Home, interact with users and Many
+- **View Plugins**: Custom pages integrated into Dome's navigation
+- **Permissions**: Plugins can request access to resources, settings, calendar, projects
+
+### Skills — Agent Capabilities
+
+Give your agents specialized abilities:
+
+- **Skills.sh Integration**: Browse and install skills from the skills ecosystem
+- **Available Skills**: Code review, browser automation, React best practices
+- **Per-Agent Skills**: Assign skills to specific agents
+
+### Automations
+
+Create automated workflows based on events:
+
+- **Trigger Rules**: Define conditions that start automations
+- **Actions**: Execute tasks automatically
+- **Target Selection**: Choose which resources/projects are affected
+
+### Image Tools
+
+AI agents can now manipulate images:
+
+- **Crop**: Crop and resize images with coordinates
+- **Thumbnail**: Generate thumbnails for images and PDFs
+- **Format Support**: JPEG, PNG, WebP output formats
+
+### PDF Extraction
+
+Extract text from scanned documents:
+
+- **OCR Integration**: Use Ollama vision models (llava, moondream2, minicpm-v, glm4v)
+- **Batch Processing**: Extract text from multiple pages
+- **Searchable PDFs**: Convert scanned docs to searchable format
 
 ### PageIndex — AI-Ready Documents
 
@@ -310,8 +413,11 @@ Comprehensive source management for academic work:
 | **Appearance** | Light, dark, and system theme modes |
 | **AI Configuration** | Providers, API keys, models |
 | **Indexing** | PageIndex provider/model, re-index controls |
+| **Cloud Storage** | Connect Google Drive and OneDrive accounts |
 | **Calendar** | Google Calendar account connection and sync |
 | **MCP** | Configure Model Context Protocol servers (stdio/http) |
+| **Skills** | Browse and manage agent skills |
+| **Plugins** | Manage installed plugins and marketplace extensions |
 | **Privacy** | PostHog analytics opt-in/out toggle |
 | **WhatsApp** | Connection management |
 
@@ -325,6 +431,8 @@ Comprehensive source management for academic work:
 | Desktop Framework | [Electron 32](https://www.electronjs.org/) |
 | Frontend | [Vite 7](https://vitejs.dev/) + [React 18](https://reactjs.org/) |
 | UI Styling | [Tailwind CSS](https://tailwindcss.com/) |
+| UI Components | [Mantine UI](https://mantine.dev/) |
+| Visual Workflows | [ReactFlow](https://reactflow.dev/) |
 | Rich Text Editor | [Tiptap](https://tiptap.dev/) (ProseMirror) + Dome Editor (MIT) |
 | AI Agent | [LangGraph](https://langchain-ai.github.io/langgraphjs/) + [LangChain](https://js.langchain.com/) |
 | MCP | [@langchain/mcp-adapters](https://js.langchain.com/docs/integrations/tools/mcp) |
@@ -335,6 +443,7 @@ Comprehensive source management for academic work:
 | Web Automation | [Playwright](https://playwright.dev/) |
 | PDF Rendering | [PDF.js](https://mozilla.github.io/pdf.js/) |
 | PowerPoint Rendering | [pptx-preview](https://github.com/mesmerize-dev/pptx-preview) |
+| Video Rendering | [Remotion](https://www.remotion.dev/) |
 | Guided Tours | [driver.js](https://driverjs.com/) |
 | Analytics | [PostHog](https://posthog.com/) (opt-in) |
 
@@ -422,6 +531,7 @@ When you first launch Dome:
    - For cloud providers: Enter your API key and choose your chat model
 3. **Configure Indexing** (optional): Go to **Settings → Indexing** to set the provider and model for PageIndex
 4. **Configure MCP** (optional): Add MCP servers in Settings → MCP for extended AI tools
+5. **Connect Cloud Storage** (optional): Go to **Settings → Cloud Storage** to link Google Drive or OneDrive accounts — see the [Cloud Storage Setup Guide](docs/cloud-storage-setup.md) for credential setup
 
 ### 2. Creating Projects
 
@@ -594,59 +704,99 @@ To connect WhatsApp:
 dome/
 ├── app/                          # React Application (Renderer Process)
 │   ├── components/               # React Components
-│   │   ├── calendar/             # Calendar grid and event modal
-│   │   ├── chat/                 # AI Chat (messages, tool cards)
-│   │   ├── CommandCenter/        # Search and command palette
-│   │   ├── editor/               # Notion-style editor
-│   │   │   ├── blocks/           # Custom block components
-│   │   │   └── extensions/       # Tiptap extension wiring
-│   │   ├── flashcards/           # Flashcard decks, study view
-│   │   ├── many/                 # Many AI panel (floating, chat, header)
-│   │   ├── agents/               # Many Agents: onboarding, editing, management
-│   │   ├── onboarding/           # First-run setup
-│   │   ├── settings/             # Settings panels (AI, Indexing, Calendar, MCP…)
-│   │   ├── studio/               # Studio home view (mindmap, quiz, etc.)
-│   │   ├── viewers/              # Resource viewers (PDF, Video, PPT…)
-│   │   │   └── shared/           # Shared viewer components (IndexStatusBadge)
-│   │   └── workspace/            # Workspace layout and header
-│   ├── lib/                      # Business Logic
-│   │   ├── ai/                   # AI Client, LangChain adapter, Tools
-│   │   │   ├── catalogs/         # Model catalogs by provider
-│   │   │   ├── providers/        # Provider implementations
-│   │   │   └── tools/            # Web, resources, memory, flashcards, calendar
-│   │   ├── db/                   # Database clients (SQLite, PageIndex)
-│   │   ├── dome-editor/          # Dome's own Tiptap extension library (MIT)
-│   │   ├── hooks/                # React hooks
-│   │   ├── store/                # Zustand (useManyStore, useAgentChatStore, useCalendarStore…)
-│   │   ├── agents/               # Many Agents API and catalog
-│   │   ├── studio/               # Studio constants and outputs
-│   │   └── utils/                # Utilities
-│   ├── pages/                    # Route pages (Calendar, Settings, PPT…)
-│   ├── types/                    # TypeScript definitions
-│   └── workspace/                # Workspace routes
+│   │   ├── agent-canvas/        # Visual workflow builder (ReactFlow)
+│   │   │   ├── nodes/           # Custom nodes (Agent, TextInput, Document, Output, Image)
+│   │   │   ├── CanvasWorkspace.tsx
+│   │   │   ├── CanvasToolbar.tsx
+│   │   │   ├── CanvasSidebar.tsx
+│   │   │   ├── PropertiesPanel.tsx
+│   │   │   ├── ExecutionLog.tsx
+│   │   │   └── WorkflowLibraryView.tsx
+│   │   ├── agent-team/          # Multi-agent collaboration
+│   │   │   ├── AgentTeamView.tsx
+│   │   │   ├── AgentTeamChat.tsx
+│   │   │   └── AgentTeamOnboarding.tsx
+│   │   ├── marketplace/         # Marketplace UI
+│   │   │   ├── MarketplaceView.tsx
+│   │   │   ├── MarketplaceAgentCard.tsx
+│   │   │   └── MarketplaceAgentDetail.tsx
+│   │   ├── automations/        # Automation rules UI
+│   │   │   └── AutomationTargetPanel.tsx
+│   │   ├── calendar/            # Calendar grid and event modal
+│   │   ├── chat/                # AI Chat (messages, tool cards)
+│   │   ├── CommandCenter/       # Search and command palette
+│   │   ├── editor/              # Notion-style editor
+│   │   │   ├── blocks/          # Custom block components
+│   │   │   └── extensions/      # Tiptap extension wiring
+│   │   ├── flashcards/          # Flashcard decks, study view
+│   │   ├── home/                # Home screen and sidebar
+│   │   │   ├── Home.tsx
+│   │   │   └── ProjectsDashboard.tsx
+│   │   ├── many/                # Many AI panel (floating, chat, header)
+│   │   ├── agents/              # Many Agents: onboarding, editing, management
+│   │   ├── onboarding/          # First-run setup
+│   │   ├── settings/            # Settings panels (AI, Indexing, Calendar, MCP, Plugins, Marketplace…)
+│   │   ├── studio/              # Studio home view (mindmap, quiz, etc.)
+│   │   ├── viewers/             # Resource viewers (PDF, Video, PPT…)
+│   │   │   └── shared/          # Shared viewer components (IndexStatusBadge)
+│   │   └── workspace/           # Workspace layout and header
+│   ├── lib/                     # Business Logic
+│   │   ├── ai/                  # AI Client, LangChain adapter, Tools
+│   │   │   ├── catalogs/        # Model catalogs by provider
+│   │   │   ├── providers/       # Provider implementations
+│   │   │   └── tools/           # Web, resources, memory, flashcards, calendar, image tools
+│   │   │       ├── image-crop.ts
+│   │   │       ├── image-thumbnail.ts
+│   │   │       └── pdf-extraction-tools.ts
+│   │   ├── automations/        # Automation logic
+│   │   ├── db/                  # Database clients (SQLite, PageIndex)
+│   │   ├── dome-editor/         # Dome's own Tiptap extension library (MIT)
+│   │   ├── hooks/               # React hooks
+│   │   ├── marketplace/        # Marketplace loaders and catalog
+│   │   ├── store/               # Zustand (useManyStore, useAgentChatStore, useCalendarStore, useMarketplaceStore…)
+│   │   ├── agents/              # Many Agents API and catalog
+│   │   ├── studio/              # Studio constants and outputs
+│   │   └── utils/               # Utilities
+│   ├── pages/                   # Route pages (Calendar, Settings, PPT…)
+│   ├── types/                   # TypeScript definitions
+│   └── workspace/               # Workspace routes
 ├── electron/                     # Electron Main Process
-│   ├── main.cjs                  # Entry point, IPC handlers
-│   ├── preload.cjs               # Preload (IPC bridge)
-│   ├── database.cjs              # SQLite operations
-│   ├── file-storage.cjs          # File system management
-│   ├── ai-cloud-service.cjs      # Cloud AI providers
-│   ├── ai-tools-handler.cjs      # AI tools (resources, flashcard create)
-│   ├── langgraph-agent.cjs       # LangGraph agent (chat with tools)
-│   ├── doc-indexer.cjs           # PageIndex document indexer
-│   ├── resource-indexer.cjs      # Resource indexing orchestrator
+│   ├── main.cjs                 # Entry point, IPC handlers
+│   ├── preload.cjs              # Preload (IPC bridge)
+│   ├── database.cjs             # SQLite operations
+│   ├── file-storage.cjs         # File system management
+│   ├── ai-cloud-service.cjs     # Cloud AI providers
+│   ├── ai-tools-handler.cjs     # AI tools (resources, flashcard create)
+│   ├── langgraph-agent.cjs      # LangGraph agent (chat with tools)
+│   ├── doc-indexer.cjs          # PageIndex document indexer
+│   ├── resource-indexer.cjs     # Resource indexing orchestrator
 │   ├── calendar-service.cjs      # Calendar CRUD + Google sync
 │   ├── calendar-notification-service.cjs  # Desktop event reminders
-│   ├── mcp-client.cjs            # MCP server connections
-│   ├── ollama-service.cjs        # Ollama integration
-│   ├── ppt-slide-extractor.cjs   # Electron-native PPT slide capture
-│   ├── youtube-service.cjs       # YouTube utilities
-│   ├── web-scraper.cjs           # Playwright scraper
+│   ├── mcp-client.cjs           # MCP server connections
+│   ├── ollama-service.cjs       # Ollama integration
+│   ├── ppt-slide-extractor.cjs  # Electron-native PPT slide capture
+│   ├── youtube-service.cjs      # YouTube utilities
+│   ├── web-scraper.cjs         # Playwright scraper
 │   ├── thumbnail.cjs             # Image thumbnail generation
-│   ├── window-manager.cjs        # Window management
-│   ├── security.cjs              # Security utilities
-│   └── whatsapp/                 # WhatsApp integration
+│   ├── crop-image.cjs           # Image crop tool
+│   ├── pdf-extractor.cjs        # PDF text extraction
+│   ├── automation-service.cjs    # Automation rules execution
+│   ├── run-engine.cjs           # Background agent workflow execution
+│   ├── github-client.cjs        # GitHub integration
+│   ├── plugin-loader.cjs        # Plugin system
+│   ├── marketplace-config.cjs    # Marketplace configuration
+│   ├── ipc/                     # IPC handlers by domain
+│   │   ├── index.cjs           # IPC handler registration
+│   │   ├── ai.cjs
+│   │   ├── agents.cjs
+│   │   ├── marketplace.cjs
+│   │   └── ...
+│   ├── window-manager.cjs       # Window management
+│   ├── security.cjs             # Security utilities
+│   ├── vendor/pageindex/        # PageIndex Python runtime
+│   └── whatsapp/                # WhatsApp integration
 ├── prompts/                      # System prompts (Many, tools)
-├── public/                       # Static assets
+├── public/                       # Static assets (skills.json, workflows.json, agents.json, plugins.json)
 ├── assets/                       # Application assets
 ├── scripts/                      # Build and utility scripts
 ├── package.json                  # Dependencies and scripts
@@ -703,6 +853,22 @@ Configure in **Settings** → **Indexing**:
 - **Model** — Choose the model used for document parsing and indexing
 - **Re-index all** — Trigger a full re-index of all project resources
 - Indexing runs automatically in the background when resources are added or updated
+
+### Cloud Storage — Google Drive & OneDrive
+
+Connect cloud accounts in **Settings** → **Cloud Storage**.
+
+Dome uses **PKCE OAuth 2.0** — your tokens are stored locally in the SQLite database and never sent to Dome servers.
+
+**Required environment variables** (set in `.env.local` for development, or as GitHub secrets for CI builds):
+
+```bash
+DOME_GOOGLE_DRIVE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+DOME_GOOGLE_DRIVE_CLIENT_SECRET=GOCSPX-your-client-secret
+DOME_ONEDRIVE_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+📖 **[Cloud Storage Setup Guide](docs/cloud-storage-setup.md)** — Step-by-step instructions to create Google Cloud credentials and register a Microsoft Azure app, including redirect URI setup and scope configuration.
 
 ### MCP Servers
 

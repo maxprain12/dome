@@ -2,17 +2,21 @@
 /**
  * Resource Indexer - Main Process
  *
- * Schedules and coordinates document indexing using the native JS DocIndexer.
- * No Python dependency — uses pdfjs-dist and the configured AI provider directly.
+ * Schedules and coordinates document indexing using the Python-backed PageIndex runner.
+ * Falls back to the native JS DocIndexer if Python/PageIndex is unavailable.
  *
  * Full-text search continues via SQLite FTS5 triggers (automatic).
  *
  * Supported types:
- *   pdf  → extracts text with pdfjs-dist, summarizes chunks with LLM
- *   note → parses markdown headers, builds section tree (no LLM needed)
+ *   pdf       → delegates tree generation to PageIndex Python
+ *   note      → converts Tiptap to markdown, then delegates to PageIndex Python
+ *   document  → indexes extracted text content when available
+ *   url       → indexes processed article/page content
+ *   notebook  → indexes markdown/code cells as structured text
  */
 
-const docIndexer = require('./doc-indexer.cjs');
+const pageIndexRuntime = require('./pageindex-python.cjs');
+const doclingPipeline = require('./docling-pipeline.cjs');
 
 const pending = new Map();
 let debounceTimer = null;
@@ -23,7 +27,7 @@ const DEBOUNCE_MS = 2000;
  */
 function shouldIndex(resource) {
   if (!resource || !resource.type) return false;
-  return resource.type === 'pdf' || resource.type === 'note';
+  return ['pdf', 'note', 'document', 'url', 'notebook'].includes(resource.type);
 }
 
 /**
@@ -95,7 +99,7 @@ function scheduleIndexing(resourceId, deps) {
 }
 
 /**
- * Index a single resource using native DocIndexer.
+ * Index a single resource using the PageIndex runtime.
  */
 async function indexResource(resourceId, deps) {
   try {
@@ -109,43 +113,42 @@ async function indexResource(resourceId, deps) {
     if (!resource || !shouldIndex(resource)) return;
 
     // Skip if already processing
-    if (docIndexer.isProcessing(resourceId)) {
+    if (pageIndexRuntime.isProcessing(resourceId)) {
       console.log(`[Indexer] Already processing ${resourceId}, skipping`);
       return;
     }
 
-    const settingRow = queries.getSetting?.get('ai_model');
-    const modelUsed = settingRow?.value || 'unknown';
-    const indexerDeps = { database, windowManager, title: resource.title || '' };
+    if (resource.type === 'pdf' && !fileStorage) return;
+    if (resource.type === 'pdf' && !resource.internal_path) return;
+    if (resource.type !== 'pdf' && !resource.content && resource.type !== 'document') return;
 
-    let result;
-
-    if (resource.type === 'pdf') {
-      if (!fileStorage) return;
-      const internalPath = resource.internal_path;
-      if (!internalPath) return;
-      const fs = require('fs');
-      const fullPath = fileStorage.getFullPath(internalPath);
-      if (!fullPath || !fs.existsSync(fullPath)) {
-        console.warn(`[Indexer] PDF file not found for resource ${resourceId}`);
+    // When provider=dome and PDF has no content, convert via Docling first
+    if (resource.type === 'pdf' && doclingPipeline.shouldRunDoclingForPdf(resource, database)) {
+      console.log(`[Indexer] Converting PDF ${resourceId} via Docling before indexing`);
+      const convertResult = await doclingPipeline.convertAndUpdateResource(
+        resourceId,
+        { database, fileStorage, windowManager },
+        {
+          onProgress: (status, progress) => {
+            if (windowManager) {
+              windowManager.broadcast('docling:progress', { resourceId, status, progress });
+            }
+          },
+        }
+      );
+      if (!convertResult.success) {
+        console.warn(`[Indexer] Docling conversion failed for ${resourceId}:`, convertResult.error);
         return;
       }
-      console.log(`[Indexer] Starting PDF indexing for ${resourceId}`);
-      result = await docIndexer.indexPDF(resourceId, fullPath, indexerDeps);
-
-    } else if (resource.type === 'note') {
-      const rawContent = resource.content;
-      if (!rawContent) return;
-      const markdown = tiptapToMarkdown(rawContent);
-      if (!markdown.trim()) return;
-      console.log(`[Indexer] Starting note indexing for ${resourceId}`);
-      result = await docIndexer.indexMarkdown(resourceId, markdown, resource.title || '', indexerDeps);
+      // Resource now has markdown content; re-fetch for pageIndexRuntime
+      const updated = queries.getResourceById?.get(resourceId);
+      if (updated) Object.assign(resource, updated);
     }
 
-    if (result?.success && result.tree_json) {
-      queries.upsertPageIndex.run(resourceId, result.tree_json, Date.now(), modelUsed);
-      // Clear transient status row (tree is now in resource_page_index with status=done)
-      queries.deletePageIndexStatus?.run(resourceId);
+    console.log(`[Indexer] Starting ${resource.type} indexing for ${resourceId}`);
+    const result = await pageIndexRuntime.indexResource(resourceId, { database, windowManager, fileStorage });
+
+    if (result?.success) {
       console.log(`[Indexer] Tree saved for ${resource.type} resource ${resourceId}`);
     } else if (result) {
       console.warn(`[Indexer] Indexing failed for ${resourceId}:`, result.error);
@@ -176,10 +179,71 @@ async function deleteEmbeddings(resourceId, deps) {
 /** @returns {string} */
 function extractIndexableText() { return ''; }
 
+/**
+ * Index all resources that don't have an existing page index entry.
+ * Safe to call multiple times — skips resources already being processed.
+ * @param {{ database, fileStorage, windowManager }} deps
+ */
+async function indexMissingResources(deps) {
+  const { database } = deps || {};
+  if (!database) return;
+  const db = database.getDB ? database.getDB() : null;
+  if (!db) return;
+
+  const TYPES = ['pdf', 'note', 'document', 'url', 'notebook'];
+  let resources;
+  try {
+    resources = db.prepare(
+      `SELECT r.id, r.type, r.internal_path, r.content, r.title
+       FROM resources r
+       LEFT JOIN resource_page_index pi ON r.id = pi.resource_id
+       WHERE r.type IN (${TYPES.map((t) => `'${t}'`).join(',')}) AND pi.resource_id IS NULL`
+    ).all();
+  } catch (err) {
+    console.error('[AutoIndex] DB query failed:', err.message);
+    return;
+  }
+
+  if (resources.length === 0) return;
+  console.log(`[AutoIndex] Found ${resources.length} unindexed resource(s)`);
+
+  for (const res of resources) {
+    if (!pageIndexRuntime.isProcessing(res.id)) {
+      await indexResource(res.id, deps).catch((err) =>
+        console.error(`[AutoIndex] Error indexing ${res.id}:`, err.message)
+      );
+    }
+  }
+}
+
+/**
+ * Schedule periodic auto-indexing: once on startup (15s delay) and every hour.
+ * @param {{ database, fileStorage, windowManager }} deps
+ */
+function startAutoIndexing(deps) {
+  // Startup: delay 15s so the app finishes initializing
+  setTimeout(() => {
+    indexMissingResources(deps).catch((err) =>
+      console.error('[AutoIndex] Startup sweep failed:', err.message)
+    );
+  }, 15_000);
+
+  // Hourly sweep
+  setInterval(() => {
+    indexMissingResources(deps).catch((err) =>
+      console.error('[AutoIndex] Hourly sweep failed:', err.message)
+    );
+  }, 60 * 60 * 1_000);
+
+  console.log('[AutoIndex] Periodic indexing scheduled (startup +15s, then every 1h)');
+}
+
 module.exports = {
   shouldIndex,
   scheduleIndexing,
   deleteEmbeddings,
   extractIndexableText,
   tiptapToMarkdown,
+  indexMissingResources,
+  startAutoIndexing,
 };

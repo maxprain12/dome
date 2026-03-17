@@ -1,0 +1,73 @@
+{
+  "id": "knowledge-base-builder",
+  "name": "Knowledge Base Builder",
+  "description": "Construye una base de conocimiento conectada a partir de múltiples fuentes de tu biblioteca.",
+  "longDescription": "Combina el poder de búsqueda semántica y gestión del conocimiento para construir una base de conocimiento organizada. El curador organiza y conecta notas existentes, mientras el escritor produce un documento maestro de síntesis.",
+  "author": "Dome Team",
+  "version": "1.0.0",
+  "tags": ["knowledge", "productivity", "research"],
+  "featured": false,
+  "downloads": 0,
+  "createdAt": 1741737600000,
+  "estimatedTime": "~6 min",
+  "difficulty": "intermediate",
+  "inputTypes": ["text"],
+  "outputType": "article",
+  "category": "knowledge",
+  "useCases": [
+    "Organizar notas de un curso o asignatura",
+    "Crear un wiki personal de un dominio de conocimiento",
+    "Preparar documentación de un proyecto"
+  ],
+  "nodes": [
+    {
+      "id": "kb-input",
+      "type": "textInput",
+      "position": { "x": 80, "y": 80 },
+      "data": { "type": "text-input", "label": "Tema o dominio de conocimiento", "value": "" }
+    },
+    {
+      "id": "kb-library",
+      "type": "agent",
+      "position": { "x": 80, "y": 240 },
+      "data": {
+        "type": "agent",
+        "label": "Buscador de Biblioteca",
+        "agentId": null,
+        "systemAgentRole": "library",
+        "agentName": "Library Search Agent",
+        "agentIconIndex": 2,
+        "status": "idle",
+        "outputText": null,
+        "errorMessage": null
+      }
+    },
+    {
+      "id": "kb-curator",
+      "type": "agent",
+      "position": { "x": 80, "y": 420 },
+      "data": {
+        "type": "agent",
+        "label": "Curador de Conocimiento",
+        "agentId": null,
+        "systemAgentRole": "curator",
+        "agentName": "Knowledge Curator",
+        "agentIconIndex": 11,
+        "status": "idle",
+        "outputText": null,
+        "errorMessage": null
+      }
+    },
+    {
+      "id": "kb-output",
+      "type": "output",
+      "position": { "x": 80, "y": 600 },
+      "data": { "type": "output", "label": "Base de Conocimiento", "content": null, "status": "idle" }
+    }
+  ],
+  "edges": [
+    { "id": "kb-e1", "source": "kb-input", "target": "kb-library" },
+    { "id": "kb-e2", "source": "kb-library", "target": "kb-curator" },
+    { "id": "kb-e3", "source": "kb-curator", "target": "kb-output" }
+  ]
+}

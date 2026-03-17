@@ -14,6 +14,7 @@ const storageHandlers = require('./storage.cjs');
 const filesHandlers = require('./files.cjs');
 const migrationHandlers = require('./migration.cjs');
 const webHandlers = require('./web.cjs');
+const imageHandlers = require('./images.cjs');
 const ollamaHandlers = require('./ollama.cjs');
 const whatsappHandlers = require('./whatsapp.cjs');
 const authHandlers = require('./auth.cjs');
@@ -34,6 +35,10 @@ const calendarHandlers = require('./calendar.cjs');
 const domeAuthHandlers = require('./dome-auth.cjs');
 const agentTeamHandlers = require('./agent-team.cjs');
 const chatHandlers = require('./chat.cjs');
+const runsHandlers = require('./runs.cjs');
+const marketplaceHandlers = require('./marketplace.cjs');
+const cloudStorageHandlers = require('./cloud-storage.cjs');
+const doclingHandlers = require('./docling.cjs');
 
 /**
  * Register all IPC handlers
@@ -47,6 +52,7 @@ function registerAll(deps) {
     initModule,
     fileStorage,
     thumbnail,
+    cropImage,
     webScraper,
     youtubeService,
     ollamaService,
@@ -82,6 +88,7 @@ function registerAll(deps) {
   filesHandlers.register({ ipcMain, app, windowManager, sanitizePath });
   migrationHandlers.register({ ipcMain, fs, windowManager, database, fileStorage, thumbnail });
   webHandlers.register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService, initModule });
+  imageHandlers.register({ ipcMain, windowManager, cropImage });
   ollamaHandlers.register({ ipcMain, windowManager, database, ollamaService, ollamaManager });
   whatsappHandlers.register({ ipcMain, windowManager, database, fileStorage, ollamaService });
   authHandlers.register({ ipcMain, windowManager, authManager });
@@ -102,6 +109,10 @@ function registerAll(deps) {
   domeAuthHandlers.register({ ipcMain, windowManager, database });
   agentTeamHandlers.register({ ipcMain, windowManager, database, aiCloudService, ollamaService });
   chatHandlers.register({ ipcMain, windowManager, database, validateSender });
+  runsHandlers.register({ ipcMain, windowManager, validateSender });
+  marketplaceHandlers.register({ ipcMain, windowManager, validateSender });
+  cloudStorageHandlers.register({ ipcMain, windowManager, database, fileStorage });
+  doclingHandlers.register({ ipcMain, windowManager, database, fileStorage });
 
 }
 

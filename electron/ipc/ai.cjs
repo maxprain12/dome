@@ -49,8 +49,8 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
 
     try {
       // Validate inputs
-      if (!provider || !['openai', 'anthropic', 'google', 'dome'].includes(provider)) {
-        throw new Error('Invalid provider. Must be openai, anthropic, google, or dome');
+      if (!provider || !['openai', 'anthropic', 'google', 'dome', 'minimax'].includes(provider)) {
+        throw new Error('Invalid provider. Must be openai, anthropic, google, dome, or minimax');
       }
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');
@@ -125,8 +125,8 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
 
     try {
       // Validate inputs
-      if (!provider || !['openai', 'anthropic', 'google', 'dome', 'ollama'].includes(provider)) {
-        throw new Error('Invalid provider. Must be openai, anthropic, google, dome, or ollama');
+      if (!provider || !['openai', 'anthropic', 'google', 'dome', 'ollama', 'minimax'].includes(provider)) {
+        throw new Error('Invalid provider. Must be openai, anthropic, google, dome, ollama, or minimax');
       }
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');
@@ -151,6 +151,8 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
           body: JSON.stringify({
             model: model || 'dome/auto',
             messages,
+            stream: true,
+            ...(tools && tools.length > 0 ? { tools } : {}),
           }),
         });
 
@@ -159,13 +161,77 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
           throw new Error(`Dome provider request failed (${response.status}): ${text}`);
         }
 
-        const data = await response.json();
-        const content = data?.choices?.[0]?.message?.content || '';
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let fullContent = '';
+        const pendingToolCalls = {}; // index → { id, name, argumentsBuffer }
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue;
+            const raw = line.slice(6).trim();
+            if (raw === '[DONE]') {
+              if (event.sender && !event.sender.isDestroyed()) {
+                event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
+              }
+              return { success: true, content: fullContent };
+            }
+            try {
+              const parsed = JSON.parse(raw);
+              const choice = parsed.choices?.[0];
+              if (!choice) continue;
+              const delta = choice.delta;
+              const finishReason = choice.finish_reason;
+
+              // Text content
+              if (delta?.content && event.sender && !event.sender.isDestroyed()) {
+                fullContent += delta.content;
+                event.sender.send('ai:stream:chunk', { streamId, type: 'text', text: delta.content });
+              }
+
+              // Accumulate streaming tool_calls deltas (arrive in pieces across chunks)
+              if (delta?.tool_calls) {
+                for (const tcDelta of delta.tool_calls) {
+                  const idx = tcDelta.index ?? 0;
+                  if (!pendingToolCalls[idx]) pendingToolCalls[idx] = { id: '', name: '', argumentsBuffer: '' };
+                  const p = pendingToolCalls[idx];
+                  if (tcDelta.id) p.id = tcDelta.id;
+                  if (tcDelta.function?.name) p.name = tcDelta.function.name;
+                  if (tcDelta.function?.arguments) p.argumentsBuffer += tcDelta.function.arguments;
+                }
+              }
+
+              // Emit complete tool calls when all args have arrived
+              if (finishReason === 'tool_calls') {
+                for (const p of Object.values(pendingToolCalls)) {
+                  if (p.id && p.name && event.sender && !event.sender.isDestroyed()) {
+                    event.sender.send('ai:stream:chunk', {
+                      streamId,
+                      type: 'tool_call',
+                      toolCall: { id: p.id, name: p.name, arguments: p.argumentsBuffer },
+                    });
+                  }
+                }
+              }
+            } catch {
+              // ignore malformed SSE lines
+            }
+          }
+        }
+
+        // Fallback done if stream ended without [DONE]
         if (event.sender && !event.sender.isDestroyed()) {
-          event.sender.send('ai:stream:chunk', { streamId, type: 'text', text: content });
           event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
         }
-        return { success: true, content };
+        return { success: true, content: fullContent };
       }
 
       // ollama: stream locally without API key
@@ -285,8 +351,8 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     }
 
     try {
-      if (!provider || !['openai', 'anthropic', 'google', 'ollama'].includes(provider)) {
-        throw new Error('Invalid provider for LangGraph. Must be openai, anthropic, google, or ollama');
+      if (!provider || !['openai', 'anthropic', 'google', 'ollama', 'minimax'].includes(provider)) {
+        throw new Error('Invalid provider for LangGraph. Must be openai, anthropic, google, ollama, or minimax');
       }
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');

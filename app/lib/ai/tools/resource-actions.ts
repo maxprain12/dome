@@ -35,14 +35,14 @@ const ResourceCreateSchema = Type.Object({
   type: Type.Optional(
     Type.String({
       description:
-        "Resource type: 'note' | 'notebook' | 'document' | 'url' | 'folder'. " +
-        "note/document: text/HTML content. notebook: Python cells. url: metadata.url required. folder: title only. Default: 'note'.",
+        "Resource type: 'note' | 'notebook' | 'url' | 'folder'. " +
+        "note: text/HTML content. notebook: Python cells. url: metadata.url required. folder: title only. Default: 'note'.",
     }),
   ),
   content: Type.Optional(
     Type.String({
       description:
-        'Content: for note = text or HTML. For document = HTML or Markdown (recommended HTML for better fidelity when generating DOCX). For notebook = JSON string of NotebookContent, or omit and use cells instead.',
+        'Content: for note = text or HTML. For notebook = JSON string of NotebookContent, or omit and use cells instead.',
     }),
   ),
   cells: Type.Optional(
@@ -185,7 +185,7 @@ export function createResourceCreateTool(): AnyAgentTool {
   return {
     label: 'Crear Recurso',
     name: 'resource_create',
-    description: 'Create resource. Types: note, notebook, document, url, folder. Use folder_id to place in folder.',
+    description: 'Create resource. Types: note, notebook, url, folder. Use folder_id to place in folder.',
     parameters: ResourceCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -209,15 +209,17 @@ export function createResourceCreateTool(): AnyAgentTool {
           return jsonResult({ status: 'error', error: 'Title is required.' });
         }
 
-        const validTypes = ['note', 'notebook', 'document', 'url', 'folder'];
-        if (!validTypes.includes(type)) {
+        const validTypes = ['note', 'notebook', 'url', 'folder'];
+        // Redirect legacy 'document' type to 'note'
+        const normalizedType = type === 'document' ? 'note' : type;
+        if (!validTypes.includes(normalizedType)) {
           return jsonResult({
             status: 'error',
             error: `Type must be one of: ${validTypes.join(', ')}.`,
           });
         }
 
-        if (type === 'notebook') {
+        if (normalizedType === 'notebook') {
           if (Array.isArray(cells) && cells.length > 0) {
             content = buildNotebookContentFromCells(cells);
           } else if (!content || !content.trim()) {
@@ -226,12 +228,12 @@ export function createResourceCreateTool(): AnyAgentTool {
               { cell_type: 'code', source: 'print("Hello from Python!")' },
             ]);
           }
-        } else if (type === 'url') {
+        } else if (normalizedType === 'url') {
           const url = metadata?.url;
           if (typeof url === 'string' && url.trim()) {
             content = content || '';
           }
-        } else if (type === 'folder') {
+        } else if (normalizedType === 'folder') {
           content = '';
         } else {
           content = content || '';
@@ -239,7 +241,7 @@ export function createResourceCreateTool(): AnyAgentTool {
 
         const createPayload: Record<string, unknown> = {
           title,
-          type,
+          type: normalizedType,
           content: content ?? '',
           project_id: projectId,
           folder_id: folderId,
@@ -259,7 +261,7 @@ export function createResourceCreateTool(): AnyAgentTool {
 
         return jsonResult({
           status: 'success',
-          message: `Resource "${title}" (${type}) created successfully.`,
+          message: `Resource "${title}" (${normalizedType}) created successfully.`,
           resource: result.resource,
         });
       } catch (error) {
@@ -455,4 +457,53 @@ export function createResourceActionTools(): AnyAgentTool[] {
     createResourceDeleteTool(),
     createResourceMoveToFolderTool(),
   ];
+}
+
+// =============================================================================
+// Import File to Dome Library (for MCP agents)
+// =============================================================================
+
+const ImportFileToDomeSchema = Type.Object({
+  title: Type.String({ description: 'Title for the resource in Dome.' }),
+  content: Type.Optional(Type.String({ description: 'Text content of the file (for plain text, markdown, etc.).' })),
+  content_base64: Type.Optional(Type.String({ description: 'Base64-encoded binary content (for PDFs, DOCX, etc.).' })),
+  mime_type: Type.Optional(Type.String({ description: 'MIME type of the file, e.g. application/pdf, text/plain.' })),
+  filename: Type.Optional(Type.String({ description: 'Original filename with extension, used to infer type.' })),
+  project_id: Type.Optional(Type.String({ description: 'Project ID to place the resource in.' })),
+  folder_id: Type.Optional(Type.Union([Type.String(), Type.Null()], { description: 'Folder ID to place the resource in, or null for root.' })),
+});
+
+/**
+ * Tool for AI agents to import file content retrieved from MCP servers into the Dome library.
+ */
+export function createImportFileToDomeTool(): AnyAgentTool {
+  return {
+    label: 'Import File to Dome Library',
+    name: 'import_file_to_dome',
+    description:
+      'Save file content retrieved from an MCP server (filesystem, Google Drive, etc.) as a resource in the Dome library. ' +
+      'Use this after reading a file with an MCP tool. Provide either text content or base64-encoded binary content.',
+    parameters: ImportFileToDomeSchema,
+    execute: async (_toolCallId, args) => {
+      try {
+        const result = await window.electron.ai.tools.importFileToLibrary({
+          title: readStringParam(args, 'title') ?? '',
+          content: readStringParam(args, 'content') ?? undefined,
+          content_base64: readStringParam(args, 'content_base64') ?? undefined,
+          mime_type: readStringParam(args, 'mime_type') ?? undefined,
+          filename: readStringParam(args, 'filename') ?? undefined,
+          project_id: readStringParam(args, 'project_id') ?? undefined,
+          folder_id: args.folder_id !== undefined ? (args.folder_id as string | null) : undefined,
+        });
+        return jsonResult(
+          result.success
+            ? { status: 'success', resource_id: result.resource?.id, title: result.resource?.title }
+            : { status: 'error', error: result.error }
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return jsonResult({ status: 'error', error: message });
+      }
+    },
+  };
 }

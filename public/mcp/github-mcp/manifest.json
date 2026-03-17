@@ -1,0 +1,14 @@
+{
+  "id": "github-mcp",
+  "name": "GitHub MCP",
+  "description": "Integración completa con la API de GitHub: repositorios, issues, pull requests y más.",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-github"],
+  "env": {
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+  },
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "tags": ["github", "git", "development"],
+  "repository": "https://github.com/modelcontextprotocol/servers"
+}

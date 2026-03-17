@@ -1666,6 +1666,133 @@ function runMigrations(db) {
       console.error('[DB] Migration 16 failed:', error);
     }
   }
+
+  if (version < 17) {
+    console.log('[DB] Running migration 17 - automation definitions and persistent runs');
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS automation_definitions (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          target_type TEXT NOT NULL CHECK(target_type IN ('many', 'agent', 'workflow')),
+          target_id TEXT NOT NULL,
+          trigger_type TEXT NOT NULL CHECK(trigger_type IN ('manual', 'schedule', 'contextual')),
+          schedule_json TEXT,
+          input_template_json TEXT,
+          output_mode TEXT NOT NULL DEFAULT 'chat_only',
+          enabled INTEGER NOT NULL DEFAULT 0,
+          legacy_source TEXT,
+          last_run_at INTEGER,
+          last_run_status TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_definitions_target ON automation_definitions(target_type, target_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_definitions_trigger ON automation_definitions(trigger_type, enabled)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS automation_runs (
+          id TEXT PRIMARY KEY,
+          automation_id TEXT,
+          owner_type TEXT NOT NULL CHECK(owner_type IN ('many', 'agent', 'workflow', 'automation')),
+          owner_id TEXT NOT NULL,
+          title TEXT,
+          status TEXT NOT NULL CHECK(status IN ('queued', 'running', 'waiting_approval', 'completed', 'failed', 'cancelled')),
+          session_id TEXT,
+          workflow_id TEXT,
+          workflow_execution_id TEXT,
+          thread_id TEXT,
+          output_text TEXT,
+          summary TEXT,
+          error TEXT,
+          metadata TEXT,
+          started_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          finished_at INTEGER,
+          last_heartbeat_at INTEGER,
+          FOREIGN KEY (automation_id) REFERENCES automation_definitions(id) ON DELETE SET NULL,
+          FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_runs_owner ON automation_runs(owner_type, owner_id, updated_at)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_runs_status ON automation_runs(status, updated_at)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_runs_automation ON automation_runs(automation_id, updated_at)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_runs_session ON automation_runs(session_id, updated_at)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS automation_run_steps (
+          id TEXT PRIMARY KEY,
+          run_id TEXT NOT NULL,
+          parent_step_id TEXT,
+          step_type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'done',
+          content TEXT,
+          metadata TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (run_id) REFERENCES automation_runs(id) ON DELETE CASCADE,
+          FOREIGN KEY (parent_step_id) REFERENCES automation_run_steps(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_run_steps_run ON automation_run_steps(run_id, created_at)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS automation_run_links (
+          id TEXT PRIMARY KEY,
+          run_id TEXT NOT NULL,
+          link_type TEXT NOT NULL,
+          link_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (run_id) REFERENCES automation_runs(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_run_links_run ON automation_run_links(run_id)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '17', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '17', updated_at = excluded.updated_at
+      `).run(Date.now());
+
+      console.log('[DB] Migration 17 complete - automation definitions and persistent runs');
+    } catch (error) {
+      console.error('[DB] Migration 17 failed:', error);
+    }
+  }
+
+  // Migration 18: Resource images from Docling cloud conversion
+  if (version < 18) {
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS resource_images (
+          id TEXT PRIMARY KEY,
+          resource_id TEXT NOT NULL,
+          internal_path TEXT NOT NULL,
+          file_mime_type TEXT NOT NULL,
+          image_index INTEGER NOT NULL,
+          page_no INTEGER,
+          caption TEXT,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resource_images_resource ON resource_images(resource_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resource_images_page ON resource_images(resource_id, page_no)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '18', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '18', updated_at = excluded.updated_at
+      `).run(Date.now());
+
+      console.log('[DB] Migration 18 complete - resource images for Docling');
+    } catch (error) {
+      console.error('[DB] Migration 18 failed:', error);
+    }
+  }
 }
 
 /**
@@ -1822,6 +1949,103 @@ function getQueries() {
     appendChatTrace: db.prepare(`
       INSERT INTO chat_traces (id, session_id, message_id, type, tool_name, tool_args, result, mcp_server_id, decision, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+
+    // Automations and persistent runs
+    createAutomationDefinition: db.prepare(`
+      INSERT INTO automation_definitions (
+        id, title, description, target_type, target_id, trigger_type, schedule_json,
+        input_template_json, output_mode, enabled, legacy_source, last_run_at, last_run_status,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateAutomationDefinition: db.prepare(`
+      UPDATE automation_definitions
+      SET title = ?, description = ?, target_type = ?, target_id = ?, trigger_type = ?, schedule_json = ?,
+          input_template_json = ?, output_mode = ?, enabled = ?, legacy_source = ?, last_run_at = ?, last_run_status = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    getAutomationDefinitionById: db.prepare('SELECT * FROM automation_definitions WHERE id = ?'),
+    getAutomationDefinitionsByTarget: db.prepare(`
+      SELECT * FROM automation_definitions
+      WHERE target_type = ? AND target_id = ?
+      ORDER BY updated_at DESC
+    `),
+    getAllAutomationDefinitions: db.prepare(`
+      SELECT * FROM automation_definitions
+      ORDER BY updated_at DESC
+    `),
+    getEnabledScheduledAutomations: db.prepare(`
+      SELECT * FROM automation_definitions
+      WHERE enabled = 1 AND trigger_type = 'schedule'
+      ORDER BY updated_at DESC
+    `),
+    deleteAutomationDefinition: db.prepare('DELETE FROM automation_definitions WHERE id = ?'),
+    countAutomationDefinitions: db.prepare('SELECT COUNT(*) as count FROM automation_definitions'),
+
+    createAutomationRun: db.prepare(`
+      INSERT INTO automation_runs (
+        id, automation_id, owner_type, owner_id, title, status, session_id, workflow_id,
+        workflow_execution_id, thread_id, output_text, summary, error, metadata,
+        started_at, updated_at, finished_at, last_heartbeat_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateAutomationRun: db.prepare(`
+      UPDATE automation_runs
+      SET automation_id = ?, owner_type = ?, owner_id = ?, title = ?, status = ?, session_id = ?, workflow_id = ?,
+          workflow_execution_id = ?, thread_id = ?, output_text = ?, summary = ?, error = ?, metadata = ?,
+          updated_at = ?, finished_at = ?, last_heartbeat_at = ?
+      WHERE id = ?
+    `),
+    getAutomationRunById: db.prepare('SELECT * FROM automation_runs WHERE id = ?'),
+    getAutomationRunsByOwner: db.prepare(`
+      SELECT * FROM automation_runs
+      WHERE owner_type = ? AND owner_id = ?
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `),
+    getAutomationRunsByAutomation: db.prepare(`
+      SELECT * FROM automation_runs
+      WHERE automation_id = ?
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `),
+    getActiveRunBySession: db.prepare(`
+      SELECT * FROM automation_runs
+      WHERE session_id = ? AND status IN ('queued', 'running', 'waiting_approval')
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `),
+    getLatestAutomationRuns: db.prepare(`
+      SELECT * FROM automation_runs
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `),
+    deleteAutomationRun: db.prepare('DELETE FROM automation_runs WHERE id = ?'),
+
+    createAutomationRunStep: db.prepare(`
+      INSERT INTO automation_run_steps (
+        id, run_id, parent_step_id, step_type, title, status, content, metadata, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateAutomationRunStep: db.prepare(`
+      UPDATE automation_run_steps
+      SET status = ?, content = ?, metadata = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    getAutomationRunSteps: db.prepare(`
+      SELECT * FROM automation_run_steps
+      WHERE run_id = ?
+      ORDER BY created_at ASC
+    `),
+    createAutomationRunLink: db.prepare(`
+      INSERT INTO automation_run_links (id, run_id, link_type, link_id, created_at)
+      VALUES (?, ?, ?, ?, ?)
+    `),
+    getAutomationRunLinks: db.prepare(`
+      SELECT * FROM automation_run_links
+      WHERE run_id = ?
+      ORDER BY created_at ASC
     `),
 
     // Resource Links
@@ -2080,6 +2304,15 @@ function getQueries() {
     `),
     getPageIndexStatus: db.prepare('SELECT * FROM resource_index_status WHERE resource_id = ?'),
     deletePageIndexStatus: db.prepare('DELETE FROM resource_index_status WHERE resource_id = ?'),
+
+    // Resource Images (Docling cloud conversion)
+    insertResourceImage: db.prepare(`
+      INSERT INTO resource_images (id, resource_id, internal_path, file_mime_type, image_index, page_no, caption, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getResourceImages: db.prepare('SELECT * FROM resource_images WHERE resource_id = ? ORDER BY image_index ASC'),
+    getResourceImageById: db.prepare('SELECT * FROM resource_images WHERE id = ?'),
+    deleteResourceImages: db.prepare('DELETE FROM resource_images WHERE resource_id = ?'),
 
     // Calendar - Accounts
     createCalendarAccount: db.prepare(`

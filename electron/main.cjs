@@ -1,4 +1,8 @@
 /* eslint-disable no-console */
+// Increase default max listeners to avoid spurious warnings from concurrent
+// fetch/stream AbortSignal usage (MCP servers, AI streams, etc.)
+require('events').EventEmitter.defaultMaxListeners = 30;
+
 const {
   app,
   BrowserWindow,
@@ -45,16 +49,42 @@ if (process.platform !== 'win32') {
       '/opt/homebrew/sbin',
       '/usr/local/bin',      // Homebrew on Intel / system tools
       '/usr/local/sbin',
-      `${home}/.nvm/current/bin`,       // NVM symlink
       `${home}/.volta/bin`,             // Volta
       `${home}/.pyenv/shims`,           // Pyenv
       `${home}/.pyenv/bin`,
-      `${home}/.local/bin`,             // pip install --user
+      `${home}/.local/bin`,             // pip install --user / uv / uvx
       `${home}/.cargo/bin`,             // Rust/Cargo
     ];
     const currentParts = (process.env.PATH || '').split(':');
     for (const p of extraPaths) {
       if (!currentParts.includes(p)) currentParts.push(p);
+    }
+    // NVM: dynamically resolve the active version via ~/.nvm/alias/default
+    try {
+      const nvmAliasDefault = path.join(home, '.nvm', 'alias', 'default');
+      if (fs.existsSync(nvmAliasDefault)) {
+        let nvmVersion = fs.readFileSync(nvmAliasDefault, 'utf8').trim();
+        // Follow lts/* aliases (e.g. lts/iron -> reads alias/lts/iron)
+        if (nvmVersion.startsWith('lts/')) {
+          const ltsFile = path.join(home, '.nvm', 'alias', nvmVersion);
+          if (fs.existsSync(ltsFile)) nvmVersion = fs.readFileSync(ltsFile, 'utf8').trim();
+        }
+        if (!nvmVersion.startsWith('v')) nvmVersion = `v${nvmVersion}`;
+        const nvmBin = path.join(home, '.nvm', 'versions', 'node', nvmVersion, 'bin');
+        if (!currentParts.includes(nvmBin)) currentParts.push(nvmBin);
+      } else {
+        // Fallback: add the latest installed NVM version
+        const nvmVersionsDir = path.join(home, '.nvm', 'versions', 'node');
+        if (fs.existsSync(nvmVersionsDir)) {
+          const versions = fs.readdirSync(nvmVersionsDir).sort().reverse();
+          if (versions.length > 0) {
+            const nvmBin = path.join(nvmVersionsDir, versions[0], 'bin');
+            if (!currentParts.includes(nvmBin)) currentParts.push(nvmBin);
+          }
+        }
+      }
+    } catch (nvmErr) {
+      console.warn('[Main] NVM PATH detection failed:', nvmErr?.message);
     }
     process.env.PATH = currentParts.join(':');
   } catch (e) {
@@ -118,6 +148,7 @@ const database = require('./database.cjs');
 const initModule = require('./init.cjs');
 const fileStorage = require('./file-storage.cjs');
 const thumbnail = require('./thumbnail.cjs');
+const cropImage = require('./crop-image.cjs');
 const webScraper = require('./web-scraper.cjs');
 const youtubeService = require('./youtube-service.cjs');
 const ollamaService = require('./ollama-service.cjs');
@@ -137,7 +168,10 @@ const notebookPython = require('./notebook-python.cjs');
 const mcpOauth = require('./mcp-oauth.cjs');
 const { handleDomeUrl } = require('./deep-link-handler.cjs');
 const calendarNotificationService = require('./calendar-notification-service.cjs');
+const automationService = require('./automation-service.cjs');
+const runEngine = require('./run-engine.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
+const resourceIndexer = require('./resource-indexer.cjs');
 
 // IPC handlers (modularized)
 const { registerAll } = require('./ipc/index.cjs');
@@ -494,6 +528,7 @@ app
       initModule,
       fileStorage,
       thumbnail,
+      cropImage,
       webScraper,
       youtubeService,
       ollamaService,
@@ -548,11 +583,16 @@ app
 
     // Initialize calendar notification service (upcoming events broadcast)
     calendarNotificationService.init(windowManager);
+    runEngine.init(windowManager, database);
+    automationService.init(windowManager, database);
 
     // Initialize the app in background (SQLite settings, filesystem)
     initModule.initializeApp().catch(err => {
       console.error('❌ Background initialization failed:', err);
     });
+
+    // Start periodic auto-indexing (startup sweep + hourly)
+    resourceIndexer.startAutoIndexing({ database, fileStorage, windowManager });
 
     // Native JS doc-indexer needs no startup — available immediately
 
@@ -590,6 +630,8 @@ app
 app.on('before-quit', async () => {
   console.log('👋 Cerrando Dome...');
   calendarNotificationService.stop();
+  automationService.stop();
+  runEngine.stop();
   // doc-indexer is native JS, no subprocess to stop
   await ollamaManager.cleanup();
   database.closeDB();

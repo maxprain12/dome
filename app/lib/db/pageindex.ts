@@ -3,7 +3,7 @@
  *
  * Reasoning-based RAG client. Replaces the embedding-based vector.ts.
  * All operations go through IPC to the main process, which coordinates
- * with the Python FastAPI service running PageIndex.
+ * with a Python subprocess running the real PageIndex package.
  */
 
 export interface PageIndexSearchResult {
@@ -11,9 +11,12 @@ export interface PageIndexSearchResult {
   title: string;
   type: string;
   project_id?: string;
+  node_id?: string;
   pages: number[];
+  page_range?: string;
   text: string;
   node_title: string;
+  node_path?: string[];
   score: number;
 }
 
@@ -80,8 +83,8 @@ export async function getPageIndexStatus(): Promise<PageIndexStatus> {
 }
 
 /**
- * Start the PageIndex Python service explicitly.
- * Usually auto-started on app launch; call this to retry after failure.
+ * Ensure the PageIndex Python runner can start.
+ * The subprocess is started lazily; call this to surface any setup errors.
  */
 export async function startPageIndex(): Promise<{ success: boolean; error?: string }> {
   if (typeof window === 'undefined' || !window.electron) {
@@ -98,7 +101,7 @@ export async function startPageIndex(): Promise<{ success: boolean; error?: stri
  * Index a PDF resource — generates the hierarchical PageIndex tree.
  * @param resourceId - ID of the PDF resource to index
  */
-export async function indexResource(resourceId: string): Promise<{ success: boolean; error?: string }> {
+export async function indexResource(resourceId: string): Promise<{ success: boolean; error?: string; nodeCount?: number }> {
   if (typeof window === 'undefined' || !window.electron) {
     return { success: false, error: 'Electron not available' };
   }

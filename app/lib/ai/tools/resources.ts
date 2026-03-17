@@ -20,7 +20,7 @@ const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
 const DEFAULT_MAX_CONTENT_LENGTH = 10000;
 
-const RESOURCE_TYPES = ['note', 'notebook', 'pdf', 'video', 'audio', 'image', 'url', 'document', 'folder', 'excel'] as const;
+const RESOURCE_TYPES = ['note', 'notebook', 'pdf', 'video', 'audio', 'image', 'url', 'folder', 'excel'] as const;
 type ResourceType = typeof RESOURCE_TYPES[number];
 
 // =============================================================================
@@ -38,7 +38,7 @@ const ResourceSearchSchema = Type.Object({
   ),
   type: Type.Optional(
     Type.String({
-      description: 'Filter by resource type: note, pdf, video, audio, image, url, document, folder.',
+      description: 'Filter by resource type: note, pdf, video, audio, image, url, folder.',
     }),
   ),
   limit: Type.Optional(
@@ -79,7 +79,7 @@ const ResourceListSchema = Type.Object({
   ),
   type: Type.Optional(
     Type.String({
-      description: 'Filter by resource type: note, pdf, video, audio, image, url, document, folder.',
+      description: 'Filter by resource type: note, pdf, video, audio, image, url, folder.',
     }),
   ),
   limit: Type.Optional(
@@ -94,6 +94,15 @@ const ResourceListSchema = Type.Object({
       description: "Sort by: 'created_at' or 'updated_at'. Default: 'updated_at'.",
     }),
   ),
+});
+
+const ResourceGetSectionSchema = Type.Object({
+  resource_id: Type.String({
+    description: 'The ID of the resource (indexed PDF or note).',
+  }),
+  node_id: Type.String({
+    description: 'PageIndex node_id (e.g. "0004") from structure or search results.',
+  }),
 });
 
 const ResourceSemanticSearchSchema = Type.Object({
@@ -300,6 +309,54 @@ export function createResourceGetTool(): AnyAgentTool {
 }
 
 /**
+ * Create a resource get section tool to retrieve a specific section by node_id.
+ */
+export function createResourceGetSectionTool(): AnyAgentTool {
+  return {
+    label: 'Obtener Sección',
+    name: 'resource_get_section',
+    description: 'Get the content (summary) of a specific section of an indexed PDF or note by node_id. Use after get_document_structure or resource_semantic_search.',
+    parameters: ResourceGetSectionSchema,
+    execute: async (_toolCallId, args) => {
+      try {
+        if (!isElectron()) {
+          return jsonResult({
+            status: 'error',
+            error: 'Resource get section requires Electron environment.',
+          });
+        }
+
+        const params = args as Record<string, unknown>;
+        const resourceId = readStringParam(params, 'resource_id', { required: true });
+        const nodeId = readStringParam(params, 'node_id', { required: true });
+
+        const result = await window.electron.ai.tools.resourceGetSection(resourceId, nodeId);
+
+        if (!result.success) {
+          return jsonResult({
+            status: 'error',
+            error: result.error || 'Section not found',
+          });
+        }
+
+        return jsonResult({
+          status: 'success',
+          resource_id: result.resource_id,
+          title: result.title,
+          section: result.section,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return jsonResult({
+          status: 'error',
+          error: message,
+        });
+      }
+    },
+  };
+}
+
+/**
  * Create a resource list tool to browse resources.
  */
 export function createResourceListTool(): AnyAgentTool {
@@ -412,6 +469,11 @@ export function createResourceSemanticSearchTool(): AnyAgentTool {
             type: r.type,
             similarity: r.similarity,
             snippet: r.snippet,
+            node_id: r.node_id,
+            pages: r.pages,
+            page_range: r.page_range,
+            node_title: r.node_title,
+            node_path: r.node_path,
             updated_at: new Date(r.updated_at).toISOString(),
           })),
         });
@@ -437,6 +499,7 @@ export function createResourceTools(): AnyAgentTool[] {
   return [
     createResourceSearchTool(),
     createResourceGetTool(),
+    createResourceGetSectionTool(),
     createResourceListTool(),
     createResourceSemanticSearchTool(),
   ];

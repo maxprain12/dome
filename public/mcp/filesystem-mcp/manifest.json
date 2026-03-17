@@ -1,0 +1,12 @@
+{
+  "id": "filesystem-mcp",
+  "name": "Filesystem MCP",
+  "description": "Acceso seguro al sistema de archivos local para leer, escribir y gestionar ficheros.",
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem"],
+  "env": {},
+  "author": "Anthropic",
+  "version": "1.0.0",
+  "tags": ["filesystem", "storage", "files"],
+  "repository": "https://github.com/modelcontextprotocol/servers"
+}

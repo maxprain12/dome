@@ -104,7 +104,7 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
         const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
         return { success: true, dataUrl };
       }
-      if (ext === '.txt') {
+      if (['.txt', '.html', '.css', '.js', '.json', '.md'].includes(ext)) {
         return { success: true, text: buf.toString('utf8') };
       }
       return { success: false, error: 'Unsupported asset type' };

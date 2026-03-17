@@ -244,12 +244,7 @@ export {
   streamOpenAI,
   streamClaude,
   streamGemini,
-  
-  // Embeddings
-  generateEmbeddings,
-  generateEmbeddingsOpenAI,
-  generateEmbeddingsGoogle,
-  
+
   // Utilities
   chunkText,
   getMartinSystemPrompt,

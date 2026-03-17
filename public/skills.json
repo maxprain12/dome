@@ -1,0 +1,47 @@
+[
+  {
+    "id": "academic-writing",
+    "name": "Academic Writing",
+    "description": "Habilidades de escritura académica: citas APA/MLA, estructura de papers, revisión de literatura y redacción científica.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["writing", "academic", "research"],
+    "category": "writing"
+  },
+  {
+    "id": "research-assistant",
+    "name": "Research Assistant",
+    "description": "Habilidades avanzadas de investigación: búsqueda sistemática, evaluación de fuentes y síntesis de información.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["research", "academic", "knowledge"],
+    "category": "research"
+  },
+  {
+    "id": "data-analysis",
+    "name": "Data Analysis",
+    "description": "Análisis estadístico de datos, visualización, interpretación de resultados y generación de insights.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["data", "analytics", "statistics"],
+    "category": "data"
+  },
+  {
+    "id": "knowledge-management",
+    "name": "Knowledge Management",
+    "description": "Gestión del conocimiento: Zettelkasten, mapas conceptuales, taxonomías y sistemas de organización de notas.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["knowledge", "productivity", "organization"],
+    "category": "productivity"
+  },
+  {
+    "id": "critical-thinking",
+    "name": "Critical Thinking",
+    "description": "Razonamiento crítico, evaluación de argumentos, detección de sesgos y construcción de razonamientos sólidos.",
+    "author": "Dome Team",
+    "version": "1.0.0",
+    "tags": ["thinking", "academic", "research"],
+    "category": "research"
+  }
+]

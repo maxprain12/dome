@@ -7,7 +7,14 @@ export interface ParsedCitation {
   number: number;
   sourceId?: string;
   sourceTitle?: string;
+  resourceType?: string;
   passage?: string;
+  pages?: number[];
+  page?: number;
+  pageLabel?: string;
+  nodeTitle?: string;
+  nodeId?: string;
+  nodePath?: string[];
 }
 
 /**
@@ -64,25 +71,46 @@ export function buildCitationMap(
 
   let citationCounter = 1;
 
+  const parseResult = (value: unknown): any => {
+    if (typeof value !== 'string') return value;
+    try {
+      return JSON.parse(value);
+    } catch {
+      return value;
+    }
+  };
+
   for (const toolResult of toolResults) {
+    const parsedResult = parseResult(toolResult.result);
     if (toolResult.name === 'resource_search' || toolResult.name === 'resource_semantic_search') {
-      const results = toolResult.result?.results || [];
+      const results = parsedResult?.results || [];
       for (const r of results) {
+        const pages = Array.isArray(r.pages)
+          ? r.pages.map((page: unknown) => Number(page)).filter((page: number) => Number.isFinite(page))
+          : undefined;
         map.set(citationCounter, {
           number: citationCounter,
           sourceId: r.id,
           sourceTitle: r.title,
+          resourceType: r.type,
           passage: r.snippet || r.content?.slice(0, 200),
+          pages,
+          page: pages && pages.length > 0 ? pages[0] : undefined,
+          pageLabel: r.page_range,
+          nodeTitle: r.node_title,
+          nodeId: r.node_id,
+          nodePath: Array.isArray(r.node_path) ? r.node_path : undefined,
         });
         citationCounter++;
       }
     } else if (toolResult.name === 'resource_get') {
-      const resource = toolResult.result?.resource;
-      if (resource) {
+      const resource = parsedResult?.resource ?? parsedResult;
+      if (resource?.id) {
         map.set(citationCounter, {
           number: citationCounter,
           sourceId: resource.id,
           sourceTitle: resource.title,
+          resourceType: resource.type,
           passage: resource.content?.slice(0, 200) || resource.summary,
         });
         citationCounter++;

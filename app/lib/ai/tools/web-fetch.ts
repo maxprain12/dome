@@ -33,6 +33,39 @@ const MAX_CONTENT_LENGTH = 100000; // 100KB text limit
 // Common user agent for web requests
 const USER_AGENT = 'Mozilla/5.0 (compatible; Dome/1.0; +https://dome.app)';
 
+// Known public API patterns that should use simple fetch instead of scraping
+const PUBLIC_API_PATTERNS = [
+  /\/v\d+\/.*\.json$/,           // Versioned API endpoints
+  /\/api\//,                      // /api/ paths
+  /\.json$/,                      // JSON files
+  /\/v0\/.*\.json$/,              // HN Firebase API pattern
+  /\/graphql$/,                   // GraphQL endpoints
+  /\/rest\//,                     // REST API paths
+];
+
+// Check if URL is likely a public API (not a regular webpage)
+function isLikelyApiUrl(url: string): boolean {
+  try {
+    const urlObj = new URL(url);
+    // Skip if it's a known API domain
+    const apiDomains = [
+      'firebaseio.com',
+      'api.github.com',
+      'api.twitter.com',
+      'api.reddit.com',
+      'newsapi.org',
+      'api.the-odds-api.com',
+    ];
+    if (apiDomains.some(domain => urlObj.hostname.includes(domain))) {
+      return true;
+    }
+    // Check path patterns
+    return PUBLIC_API_PATTERNS.some(pattern => pattern.test(urlObj.pathname));
+  } catch {
+    return false;
+  }
+}
+
 // =============================================================================
 // Cache
 // =============================================================================
@@ -57,7 +90,7 @@ const WebFetchSchema = Type.Object({
   ),
   maxLength: Type.Optional(
     Type.Number({
-      description: 'Maximum content length to return. Default: 50000.',
+      description: 'Maximum content length to return. Default: 50000. Use lower values to get faster results.',
       minimum: 1000,
       maximum: MAX_CONTENT_LENGTH,
     }),
@@ -65,6 +98,16 @@ const WebFetchSchema = Type.Object({
   selector: Type.Optional(
     Type.String({
       description: 'CSS selector to extract specific content (e.g., "article", "main", ".content").',
+    }),
+  ),
+  useAdvancedScraper: Type.Optional(
+    Type.Boolean({
+      description: 'Use advanced scraper with Chromium for JavaScript-rendered pages (SPA, dashboards). Default: false. Only use when the page requires JavaScript. For API endpoints (JSON), regular fetch is faster and more reliable.',
+    }),
+  ),
+  includeScreenshot: Type.Optional(
+    Type.Boolean({
+      description: 'Include a screenshot of the page (only when using advanced scraper). Default: false.',
     }),
   ),
 });
@@ -256,12 +299,18 @@ async function fetchWebContent(params: {
   if (cached) return { ...cached.value, cached: true };
 
   const start = Date.now();
-
+  
+  // Check if URL is likely a public API - use JSON accept header
+  const isApiUrl = isLikelyApiUrl(params.url);
+  const acceptHeader = isApiUrl 
+    ? 'application/json,text/json,*/*' 
+    : 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
+  
   const response = await fetch(params.url, {
     method: 'GET',
     headers: {
       'User-Agent': params.userAgent,
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      Accept: acceptHeader,
       'Accept-Language': 'en-US,en;q=0.5',
     },
     signal: withTimeout(undefined, params.timeoutSeconds * 1000),
@@ -272,10 +321,34 @@ async function fetchWebContent(params: {
     throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
   }
 
-  const contentType = response.headers.get('content-type') || '';
   const html = await response.text();
+  const contentType = response.headers.get('content-type') || '';
+  const isJsonResponse = contentType.includes('application/json');
   
-  let result: Record<string, unknown> = {
+  // For API URLs, try to parse and format as JSON
+  if (isApiUrl && isJsonResponse) {
+    try {
+      const jsonData = JSON.parse(html);
+      const formattedJson = JSON.stringify(jsonData, null, 2);
+      const result: Record<string, unknown> = {
+        url: params.url,
+        finalUrl: response.url,
+        contentType,
+        statusCode: response.status,
+        isApiResponse: true,
+        content: formattedJson,
+        contentLength: formattedJson.length,
+        tookMs: Date.now() - start,
+      };
+      writeCache(FETCH_CACHE, cacheKey, result, params.cacheTtlMs);
+      return result;
+    } catch {
+      // Not valid JSON, continue with HTML parsing
+    }
+  }
+
+  let content = html;
+  const result: Record<string, unknown> = {
     url: params.url,
     finalUrl: response.url,
     contentType,
@@ -287,9 +360,6 @@ async function fetchWebContent(params: {
     result.metadata = extractMetadata(html, params.url);
   }
 
-  // Extract content
-  let content = html;
-  
   // Apply selector if provided
   if (params.selector) {
     const selected = extractBySelector(html, params.selector);
@@ -332,7 +402,7 @@ export function createWebFetchTool(config?: WebFetchConfig): AnyAgentTool {
   return {
     label: 'Web Fetch',
     name: 'web_fetch',
-    description: 'Fetch and extract content from a web page. Returns the page content as text, optionally with metadata like title, description, and author.',
+    description: 'Fetch and extract content from a web page. Returns the page content as text, optionally with metadata like title, description, and author. Use useAdvancedScraper=true for JavaScript-rendered pages and screenshots.',
     parameters: WebFetchSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -342,6 +412,8 @@ export function createWebFetchTool(config?: WebFetchConfig): AnyAgentTool {
         const includeMetadata = readBooleanParam(params, 'includeMetadata', { defaultValue: true }) ?? true;
         const maxLength = readNumberParam(params, 'maxLength', { integer: true }) ?? config?.maxLength ?? 50000;
         const selector = readStringParam(params, 'selector');
+        const useAdvancedScraper = readBooleanParam(params, 'useAdvancedScraper', { defaultValue: false }) ?? false;
+        const includeScreenshot = readBooleanParam(params, 'includeScreenshot', { defaultValue: false }) ?? false;
 
         // Validate URL
         try {
@@ -353,6 +425,68 @@ export function createWebFetchTool(config?: WebFetchConfig): AnyAgentTool {
           });
         }
 
+        // Use advanced scraper if requested (uses Chromium for JavaScript rendering)
+        if (useAdvancedScraper) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const scrapedResult = await (window.electron as any).scrape(url);
+
+            if (!scrapedResult.success) {
+              return jsonResult({
+                status: 'error',
+                error: scrapedResult.error || 'Failed to scrape URL',
+                url,
+              });
+            }
+
+            let content = scrapedResult.content || '';
+            const screenshot = includeScreenshot && scrapedResult.screenshot
+              ? `data:image/${scrapedResult.screenshotFormat || 'jpeg'};base64,${scrapedResult.screenshot}`
+              : undefined;
+
+            // Extract text if requested
+            if (extractText) {
+              // Content is already extracted as markdown by the scraper
+              // Just truncate if necessary
+              if (content.length > maxLength) {
+                content = content.slice(0, maxLength);
+              }
+            }
+
+            const result: Record<string, unknown> = {
+              url: scrapedResult.url || url,
+              title: scrapedResult.title,
+              content,
+              contentLength: content.length,
+              truncated: content.length >= maxLength,
+            };
+
+            if (includeMetadata && scrapedResult.metadata) {
+              result.metadata = {
+                title: scrapedResult.metadata.title,
+                description: scrapedResult.metadata.description,
+                image: scrapedResult.metadata.image,
+                author: scrapedResult.metadata.author,
+                siteName: scrapedResult.metadata.section,
+                tags: scrapedResult.metadata.tags,
+                publishedDate: scrapedResult.metadata.published_date,
+                modifiedDate: scrapedResult.metadata.modified_date,
+              };
+            }
+
+            if (screenshot) {
+              result.screenshot = screenshot;
+            }
+
+            return jsonResult(result);
+          } catch (scrapeError) {
+            const scrapeMessage = scrapeError instanceof Error ? scrapeError.message : String(scrapeError);
+            // Fall back to basic fetch if advanced scraper fails
+            console.warn('[WebFetch] Advanced scraper failed, falling back to basic fetch:', scrapeMessage);
+          }
+        }
+
+        // Use basic fetch
         const result = await fetchWebContent({
           url,
           extractText,

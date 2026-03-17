@@ -84,6 +84,8 @@ export function ColumnsMenu({ editor, shouldHide }: EditorMenuProps) {
       if (!state) return false;
       if (!editor.isActive("columns")) return false;
       if (isTextSelected(editor)) return false;
+      // Hide when cursor is inside a link — let LinkMenu handle it exclusively
+      if (editor.isActive("link")) return false;
       if (nodesWithMenus.some((name) => editor.isActive(name))) return false;
 
       const parent = findParentNode(

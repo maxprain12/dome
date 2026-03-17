@@ -7,6 +7,9 @@
  * Migrated and enhanced from clawdbot's AI system.
  */
 
+// Import types to ensure global window.electron types are available
+import type {} from '@/types/global';
+
 import { db } from '../db/client';
 import {
   getDefaultModelId,
@@ -179,7 +182,7 @@ export async function* streamOpenAI(
   let resolveWait: (() => void) | null = null;
 
   // Subscribe to stream chunks
-  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type?: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
     if (data.streamId !== streamId) return;
 
     if (data.type === 'text' && data.text) {
@@ -260,7 +263,7 @@ export async function* streamClaude(
   let error: Error | null = null;
   let resolveWait: (() => void) | null = null;
 
-  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type?: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
     if (data.streamId !== streamId) return;
 
     if (data.type === 'text' && data.text) {
@@ -351,7 +354,7 @@ export async function* streamDome(
   let error: Error | null = null;
   let resolveWait: (() => void) | null = null;
 
-  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type?: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
     if (data.streamId !== streamId) return;
 
     if (data.type === 'text' && data.text) {
@@ -411,7 +414,7 @@ export async function* streamGemini(
   let error: Error | null = null;
   let resolveWait: (() => void) | null = null;
 
-  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type?: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
     if (data.streamId !== streamId) return;
 
     if (data.type === 'text' && data.text) {
@@ -473,7 +476,7 @@ export async function* streamOllama(
   let error: Error | null = null;
   let resolveWait: (() => void) | null = null;
 
-  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type?: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
     if (data.streamId !== streamId) return;
 
     if (data.type === 'thinking' && data.text) {
@@ -520,8 +523,12 @@ export async function* streamOllama(
 
 // =============================================================================
 // Embeddings (via IPC to main process)
+// DEPRECATED: Use PageIndex for semantic search instead of vector embeddings
 // =============================================================================
 
+/**
+ * @deprecated Use PageIndex for semantic search instead of vector embeddings
+ */
 export async function generateEmbeddingsOpenAI(
   texts: string[],
   _apiKey: string,
@@ -538,6 +545,9 @@ export async function generateEmbeddingsOpenAI(
   return result.embeddings;
 }
 
+/**
+ * @deprecated Use PageIndex for semantic search instead of vector embeddings
+ */
 export async function generateEmbeddingsGoogle(
   texts: string[],
   _apiKey: string,
@@ -554,6 +564,9 @@ export async function generateEmbeddingsGoogle(
   return result.embeddings;
 }
 
+/**
+ * @deprecated Use PageIndex for semantic search instead of vector embeddings
+ */
 export async function generateEmbeddingsAnthropic(
   texts: string[],
   _apiKey: string,
@@ -577,6 +590,9 @@ export async function generateEmbeddingsAnthropic(
 /**
  * Generate embeddings using Ollama (local)
  * Falls back to this when the main provider doesn't support embeddings
+ */
+/**
+ * @deprecated Use PageIndex for semantic search instead of vector embeddings
  */
 async function generateEmbeddingsOllama(texts: string[]): Promise<number[][]> {
   if (!isElectron()) {
@@ -610,6 +626,9 @@ async function checkOllamaAvailable(): Promise<boolean> {
   }
 }
 
+/**
+ * @deprecated Use PageIndex for semantic search instead of vector embeddings
+ */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   const config = await getAIConfig();
   if (!config) {
@@ -768,7 +787,7 @@ export async function* chatStream(
 
 type StreamChunkData = {
   streamId: string;
-  type: string;
+  type?: string;
   text?: string;
   error?: string;
   toolCall?: { id: string; name: string; arguments: string };

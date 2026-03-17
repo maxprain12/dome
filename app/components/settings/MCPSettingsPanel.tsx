@@ -11,20 +11,8 @@ import {
   Loader2,
   CheckCircle2,
   Wifi,
-  FolderOpen,
-  Cloud,
-  Database,
-  Search,
-  GitBranch,
-  Plug2,
-  FileText,
-  Layers,
-  List,
-  MessageSquare,
-  Zap,
 } from 'lucide-react';
 import { db } from '@/lib/db/client';
-import { RECOMMENDED_MCPS } from '@/lib/mcp/recommended-mcps';
 import {
   loadMcpServersSetting,
   parseMcpServersSetting,
@@ -33,24 +21,7 @@ import {
   toggleGlobalMcpTool,
   updateServerTools,
 } from '@/lib/mcp/settings';
-import { showToast } from '@/lib/store/useToastStore';
 import type { MCPServerConfig, MCPToolConfig } from '@/types';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ICON_MAP: Record<string, any> = {
-  FolderOpen,
-  Cloud,
-  Globe,
-  Database,
-  Search,
-  GitBranch,
-  Plug2,
-  FileText,
-  Layers,
-  List,
-  MessageSquare,
-  Zap,
-};
 
 const FORMAT_EXAMPLE = '{ "mcpServers": { "nombre": { "command", "args", "env" } } }';
 
@@ -96,12 +67,6 @@ export default function MCPSettingsPanel() {
   const [headersDrafts, setHeadersDrafts] = useState<Record<number, string>>({});
   const [serverTestStatus, setServerTestStatus] = useState<Record<number, 'idle' | 'testing' | 'ok' | 'error'>>({});
   const [serverTestResult, setServerTestResult] = useState<Record<number, { toolCount?: number; tools?: MCPToolConfig[]; error?: string }>>({});
-  const [showConnStrModal, setShowConnStrModal] = useState(false);
-  const [connStrInput, setConnStrInput] = useState('');
-  const [pendingMcpInstall, setPendingMcpInstall] = useState<typeof RECOMMENDED_MCPS[0] | null>(null);
-  const [showTokenModal, setShowTokenModal] = useState(false);
-  const [tokenInput, setTokenInput] = useState('');
-  const [pendingTokenMcpInstall, setPendingTokenMcpInstall] = useState<typeof RECOMMENDED_MCPS[0] | null>(null);
 
   const loadServers = useCallback(async () => {
     setLoading(true);
@@ -137,64 +102,6 @@ export default function MCPSettingsPanel() {
     if (db.isAvailable()) {
       await db.setSetting('mcp_enabled', next ? 'true' : 'false');
     }
-  };
-
-  const isMcpInstalled = (id: string) =>
-    servers.some((s) => s.name?.toLowerCase().replace(/[^a-z0-9]/g, '_') === id.toLowerCase().replace(/[^a-z0-9]/g, '_'));
-
-  const handleInstallRecommended = useCallback(
-    async (mcp: (typeof RECOMMENDED_MCPS)[0]) => {
-      if (mcp.requiresConfig === 'folder') {
-        const path = await window.electron?.selectFolder?.();
-        if (!path) return;
-        const config = mcp.buildConfig(path);
-        setServers((prev) => [...prev, { ...config, enabled: true }]);
-        showToast('success', 'MCP añadido. Guarda los cambios para aplicar.');
-        return;
-      }
-      if (mcp.requiresConfig === 'connectionString') {
-        setPendingMcpInstall(mcp);
-        setConnStrInput('postgres://user:password@localhost:5432/dbname');
-        setShowConnStrModal(true);
-        return;
-      }
-      if (mcp.requiresConfig === 'token') {
-        setPendingTokenMcpInstall(mcp);
-        setTokenInput('');
-        setShowTokenModal(true);
-        return;
-      }
-      if (mcp.requiresConfig === 'env') {
-        const config = mcp.buildConfig();
-        setServers((prev) => [...prev, { ...config, enabled: true }]);
-        showToast('success', 'MCP añadido. Configura env (OAuth, token) en el servidor y guarda.');
-        return;
-      }
-      const config = mcp.buildConfig();
-      setServers((prev) => [...prev, { ...config, enabled: true }]);
-      showToast('success', 'MCP añadido. Guarda los cambios para aplicar.');
-    },
-    [],
-  );
-
-  const handleTokenSubmit = () => {
-    if (!pendingTokenMcpInstall) return;
-    const config = pendingTokenMcpInstall.buildConfig(undefined, tokenInput.trim());
-    setServers((prev) => [...prev, { ...config, enabled: true }]);
-    setShowTokenModal(false);
-    setPendingTokenMcpInstall(null);
-    setTokenInput('');
-    showToast('success', 'MCP añadido. Guarda los cambios para aplicar.');
-  };
-
-  const handleConnStrSubmit = () => {
-    if (!pendingMcpInstall) return;
-    const config = pendingMcpInstall.buildConfig(connStrInput.trim() || 'postgres://localhost:5432');
-    setServers((prev) => [...prev, { ...config, enabled: true }]);
-    setShowConnStrModal(false);
-    setPendingMcpInstall(null);
-    setConnStrInput('');
-    showToast('success', 'MCP añadido. Guarda los cambios para aplicar.');
   };
 
   const saveServers = async () => {
@@ -347,61 +254,6 @@ export default function MCPSettingsPanel() {
         </button>
       </div>
 
-      <div>
-        <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text)' }}>
-          One-Click Tools
-        </h3>
-        <p className="text-xs mb-3" style={{ color: 'var(--secondary-text)' }}>
-          Instala MCPs recomendados con un clic.
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {RECOMMENDED_MCPS.map((mcp) => {
-            const IconComponent = ICON_MAP[mcp.icon] ?? Plug2;
-            const installed = isMcpInstalled(mcp.id);
-            return (
-              <div
-                key={mcp.id}
-                className="rounded-lg border px-3 py-2.5 flex flex-col min-h-[120px]"
-                style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}
-              >
-                <div className="flex-1 min-h-0 flex flex-col gap-1.5">
-                  <div className="flex items-center gap-2 shrink-0">
-                    <IconComponent size={16} strokeWidth={2} style={{ color: 'var(--secondary-text)' }} />
-                    <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-                      {mcp.name}
-                    </span>
-                  </div>
-                  <p className="text-xs line-clamp-2" style={{ color: 'var(--secondary-text)' }}>
-                    {mcp.description}
-                  </p>
-                  {mcp.note ? (
-                    <p className="text-[10px] italic line-clamp-2" style={{ color: 'var(--tertiary-text)' }}>
-                      {mcp.note}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="mt-auto pt-2 shrink-0">
-                  {installed ? (
-                    <span className="text-xs font-medium" style={{ color: 'var(--accent)' }}>
-                      Ya instalado
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => handleInstallRecommended(mcp)}
-                      className="text-xs font-medium px-2 py-1 rounded"
-                      style={{ backgroundColor: 'var(--primary-subtle)', color: 'var(--accent)' }}
-                    >
-                      Instalar
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       <div className="space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <span className="text-sm font-medium" style={{ color: 'var(--secondary-text)' }}>
@@ -444,8 +296,8 @@ export default function MCPSettingsPanel() {
                 className="rounded-lg border p-4"
                 style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-3">
+                <div className="flex items-start justify-between gap-4 min-w-0">
+                  <div className="flex-1 min-w-0 space-y-3 overflow-hidden">
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         type="button"
@@ -488,32 +340,34 @@ export default function MCPSettingsPanel() {
                       </select>
                     </div>
                     {server.type === 'stdio' ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <Server className="w-4 h-4" style={{ color: 'var(--secondary-text)' }} />
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Server className="w-4 h-4 shrink-0" style={{ color: 'var(--secondary-text)' }} />
+                            <input
+                              type="text"
+                              placeholder="Comando"
+                              value={server.command || ''}
+                              onChange={(e) => updateServer(index, { command: e.target.value })}
+                              className="rounded-md border px-3 py-2 text-sm w-28 font-mono min-w-0"
+                              style={inputStyle}
+                            />
+                          </div>
                           <input
                             type="text"
-                            placeholder="Comando"
-                            value={server.command || ''}
-                            onChange={(e) => updateServer(index, { command: e.target.value })}
-                            className="rounded-md border px-3 py-2 text-sm w-32 font-mono"
+                            placeholder="Args (ej: -y @pkg/server)"
+                            value={(server.args || []).join(' ')}
+                            onChange={(e) =>
+                              updateServer(index, {
+                                args: parseArgsInput(e.target.value),
+                              })
+                            }
+                            className="flex-1 min-w-0 rounded-md border px-3 py-2 text-sm font-mono"
                             style={inputStyle}
                           />
                         </div>
-                        <input
-                          type="text"
-                          placeholder="Args"
-                          value={(server.args || []).join(' ')}
-                          onChange={(e) =>
-                            updateServer(index, {
-                              args: parseArgsInput(e.target.value),
-                            })
-                          }
-                          className="flex-1 min-w-[200px] rounded-md border px-3 py-2 text-sm font-mono"
-                          style={inputStyle}
-                        />
                         <div className="w-full">
-                          <label className="block text-xs mt-2 mb-1" style={{ color: 'var(--secondary-text)' }}>
+                          <label className="block text-xs mb-1" style={{ color: 'var(--secondary-text)' }}>
                             env (JSON)
                           </label>
                           <textarea
@@ -526,8 +380,8 @@ export default function MCPSettingsPanel() {
                               if (!v) { updateServer(index, { env: undefined }); return; }
                               try { updateServer(index, { env: JSON.parse(v) }); } catch { updateServer(index, { env: undefined }); }
                             }}
-                            className="w-full rounded-md border px-3 py-2 text-sm font-mono min-h-[50px]"
-                            style={inputStyle}
+                            className="w-full rounded-md border px-3 py-2 text-sm font-mono min-h-[50px] resize-y"
+                            style={{ ...inputStyle, wordBreak: 'break-all', overflowWrap: 'break-word' }}
                           />
                         </div>
                       </div>
@@ -618,12 +472,12 @@ export default function MCPSettingsPanel() {
                               key={tool.id}
                               className="flex items-start justify-between gap-3 rounded-lg px-2 py-2 cursor-pointer hover:bg-[var(--bg-hover)]"
                             >
-                              <div className="min-w-0">
-                                <p className="text-sm" style={{ color: 'var(--text)' }}>
+                              <div className="min-w-0 overflow-hidden">
+                                <p className="text-sm truncate" style={{ color: 'var(--text)' }}>
                                   {tool.name}
                                 </p>
                                 {tool.description ? (
-                                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--secondary-text)' }}>
+                                  <p className="text-[11px] mt-0.5 line-clamp-2" style={{ color: 'var(--secondary-text)' }}>
                                     {tool.description}
                                   </p>
                                 ) : null}
@@ -712,102 +566,6 @@ export default function MCPSettingsPanel() {
               <button
                 type="button"
                 onClick={() => { setShowImport(false); setImportJson(''); setError(null); }}
-                className="rounded-lg px-4 py-2 text-sm font-medium border"
-                style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)' }}
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {showConnStrModal && pendingMcpInstall ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-          onClick={() => { setShowConnStrModal(false); setPendingMcpInstall(null); }}
-        >
-          <div
-            className="rounded-lg border p-6 max-w-md w-full"
-            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text)' }}>
-              {pendingMcpInstall.name}
-            </h3>
-            <p className="text-sm mb-3" style={{ color: 'var(--secondary-text)' }}>
-              DSN (ej. postgres://user:password@localhost:5432/dbname)
-            </p>
-            <input
-              type="text"
-              value={connStrInput}
-              onChange={(e) => setConnStrInput(e.target.value)}
-              placeholder="postgres://localhost:5432/dbname"
-              className="w-full rounded-md border px-3 py-2 text-sm font-mono mb-4"
-              style={inputStyle}
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleConnStrSubmit}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-white"
-                style={{ backgroundColor: 'var(--accent)' }}
-              >
-                Instalar
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowConnStrModal(false); setPendingMcpInstall(null); }}
-                className="rounded-lg px-4 py-2 text-sm font-medium border"
-                style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)' }}
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {showTokenModal && pendingTokenMcpInstall ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-          onClick={() => { setShowTokenModal(false); setPendingTokenMcpInstall(null); }}
-        >
-          <div
-            className="rounded-lg border p-6 max-w-md w-full"
-            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text)' }}>
-              {pendingTokenMcpInstall.name}
-            </h3>
-            <p className="text-sm mb-3" style={{ color: 'var(--secondary-text)' }}>
-              Introduce tu API key o token para {pendingTokenMcpInstall.name}
-            </p>
-            <input
-              type="password"
-              autoComplete="off"
-              value={tokenInput}
-              onChange={(e) => setTokenInput(e.target.value)}
-              placeholder={pendingTokenMcpInstall.tokenEnvVar ?? 'API key o token'}
-              className="w-full rounded-md border px-3 py-2 text-sm font-mono mb-4"
-              style={inputStyle}
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleTokenSubmit}
-                disabled={!tokenInput.trim()}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                style={{ backgroundColor: 'var(--accent)' }}
-              >
-                Instalar
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowTokenModal(false); setPendingTokenMcpInstall(null); setTokenInput(''); }}
                 className="rounded-lg px-4 py-2 text-sm font-medium border"
                 style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)' }}
               >

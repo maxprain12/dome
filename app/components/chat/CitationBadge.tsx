@@ -5,10 +5,19 @@ interface CitationBadgeProps {
   number: number;
   sourceTitle?: string;
   sourcePassage?: string;
+  pageLabel?: string;
+  nodeTitle?: string;
   onClickCitation?: (number: number) => void;
 }
 
-export default function CitationBadge({ number, sourceTitle, sourcePassage, onClickCitation }: CitationBadgeProps) {
+export default function CitationBadge({
+  number,
+  sourceTitle,
+  sourcePassage,
+  pageLabel,
+  nodeTitle,
+  onClickCitation,
+}: CitationBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
@@ -24,7 +33,7 @@ export default function CitationBadge({ number, sourceTitle, sourcePassage, onCl
       </button>
 
       {/* Tooltip */}
-      {showTooltip && (sourceTitle || sourcePassage) ? (
+      {showTooltip && (sourceTitle || sourcePassage || pageLabel || nodeTitle) ? (
         <div
           className="absolute z-dropdown bottom-full left-1/2 -translate-x-1/2 mb-2 animate-in"
           style={{
@@ -40,6 +49,11 @@ export default function CitationBadge({ number, sourceTitle, sourcePassage, onCl
           {sourceTitle && (
             <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--dome-text)', marginBottom: '4px' }}>
               {sourceTitle}
+            </div>
+          )}
+          {(pageLabel || nodeTitle) && (
+            <div style={{ fontSize: '11px', color: 'var(--tertiary-text)', marginBottom: sourcePassage ? '6px' : 0 }}>
+              {[nodeTitle, pageLabel].filter(Boolean).join(' · ')}
             </div>
           )}
           {sourcePassage && (

@@ -29,6 +29,18 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
+  ipcMain.handle('domeauth:openDashboard', (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      domeOauth.openDashboard();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error?.message || 'Failed to open dashboard' };
+    }
+  });
+
   ipcMain.handle('domeauth:disconnect', (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };

@@ -201,6 +201,7 @@ Resumen:`;
 
 /**
  * Generate embeddings for multiple texts
+ * @deprecated Use PageIndex for semantic search instead of vector embeddings
  * @param {string[]} texts - Array of texts to embed
  * @param {string} model - Embedding model name
  * @param {string} baseUrl - Ollama base URL

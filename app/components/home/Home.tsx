@@ -2,7 +2,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useClickOutside } from '@/lib/hooks/useClickOutside';
-import { FolderOpen, Plus, Loader2, CheckCircle2, AlertCircle, ChevronRight, Home as HomeIcon, X, Tags as TagsIcon, FolderOpen as ProjectIcon, MessageCircle, MoreVertical, Pencil, Trash2, ExternalLink, FolderInput, Globe } from 'lucide-react';
+import { FolderOpen, Plus, Loader2, CheckCircle2, AlertCircle, ChevronRight, Home as HomeIcon, X, Tags as TagsIcon, MessageCircle, MoreVertical, Pencil, Trash2, ExternalLink, FolderInput, Globe } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { CommandCenter } from '@/components/CommandCenter/CommandCenter';
@@ -22,6 +22,8 @@ import AgentTeamView from '@/components/agent-team/AgentTeamView';
 import AgentTeamChat from '@/components/agent-team/AgentTeamChat';
 import AgentCanvasView from '@/components/agent-canvas/AgentCanvasView';
 import WorkflowLibraryView from '@/components/agent-canvas/WorkflowLibraryView';
+import AutomationsHubView from '@/components/automations/AutomationsHubView';
+import ProjectsDashboard from '@/components/home/ProjectsDashboard';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
 import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
@@ -65,6 +67,8 @@ export default function Home() {
   const commandCenterExpanded = useAppStore((s) => s.commandCenterExpanded);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
+  const currentProject = useAppStore((s) => s.currentProject);
+  const setCurrentProject = useAppStore((s) => s.setCurrentProject);
   const setCurrentFolderIdInStore = useAppStore((s) => s.setCurrentFolderId);
 
   // Resource fetching and filtering
@@ -128,10 +132,23 @@ export default function Home() {
     getBreadcrumbPath
   } = useResources({
     types: selectedTypes.length > 0 ? selectedTypes : undefined,
+    projectId: currentProject?.id ?? undefined,
     folderId: currentFolderId,
     sortBy,
     sortOrder: 'desc'
   });
+
+  const resolvedProjectId = currentProject?.id || 'default';
+
+  // Listen for navigation events dispatched by ArtifactCard or other components
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const section = (e as CustomEvent<string>).detail;
+      if (section) setHomeSidebarSection(section);
+    };
+    window.addEventListener('dome:navigate-section', handler);
+    return () => window.removeEventListener('dome:navigate-section', handler);
+  }, [setHomeSidebarSection]);
 
   // Sync current folder to store so Many AI knows the scope when user asks "these documents"
   useEffect(() => {
@@ -243,21 +260,21 @@ export default function Home() {
       await createResource({
         type: 'note',
         title: 'Untitled Note',
-        project_id: 'default',
+        project_id: resolvedProjectId,
         content: '',
         folder_id: currentFolderId,
       });
     } catch (err) {
       console.error('Failed to create note:', err);
     }
-  }, [createResource, currentFolderId]);
+  }, [createResource, currentFolderId, resolvedProjectId]);
 
   const handleCreateNotebook = useCallback(async () => {
     try {
       const nb = await createResource({
         type: 'notebook',
         title: 'Untitled Notebook',
-        project_id: 'default',
+        project_id: resolvedProjectId,
         content: serializeNotebookContent({
           nbformat: 4,
           nbformat_minor: 1,
@@ -275,7 +292,7 @@ export default function Home() {
     } catch (err) {
       console.error('Failed to create notebook:', err);
     }
-  }, [createResource, currentFolderId]);
+  }, [createResource, currentFolderId, resolvedProjectId]);
 
   const handleUpload = useCallback((files: File[]) => {
     console.log('Upload files:', files);
@@ -283,13 +300,13 @@ export default function Home() {
 
   const handleImportFiles = useCallback(async (filePaths: string[]) => {
     console.log('Importing files:', filePaths, 'into folder:', currentFolderId);
-    const result = await importFiles(filePaths, 'default', currentFolderId);
+    const result = await importFiles(filePaths, resolvedProjectId, currentFolderId);
     if (result.success) {
       console.log(`Successfully imported ${result.imported} files`);
     } else {
       console.error(`Import completed with ${result.failed} failures:`, result.errors);
     }
-  }, [importFiles, currentFolderId]);
+  }, [importFiles, currentFolderId, resolvedProjectId]);
 
   const handleAddUrl = useCallback(async (url: string, type: 'youtube' | 'article') => {
     console.log('Adding URL resource:', url, 'Type:', type);
@@ -299,7 +316,7 @@ export default function Home() {
       const result = await createResource({
         type: resourceType as ResourceType,
         title: type === 'youtube' ? 'YouTube Video' : 'Web Article',
-        project_id: 'default',
+        project_id: resolvedProjectId,
         content: url,
         folder_id: currentFolderId,
         metadata: {
@@ -317,7 +334,7 @@ export default function Home() {
     } catch (err) {
       console.error('Failed to add URL resource:', err);
     }
-  }, [createResource, currentFolderId]);
+  }, [createResource, currentFolderId, resolvedProjectId]);
 
   const handleCreateFolder = useCallback(async () => {
     if (!newFolderName.trim()) return;
@@ -326,7 +343,7 @@ export default function Home() {
       await createResource({
         type: 'folder' as ResourceType,
         title: newFolderName,
-        project_id: 'default',
+        project_id: resolvedProjectId,
         folder_id: currentFolderId,
         metadata: { color: newFolderColor },
       });
@@ -336,7 +353,7 @@ export default function Home() {
     } catch (err) {
       console.error('Failed to create folder:', err);
     }
-  }, [newFolderName, newFolderColor, createResource, currentFolderId]);
+  }, [newFolderName, newFolderColor, createResource, currentFolderId, resolvedProjectId]);
 
   const handleFolderClick = useCallback((folder: Resource) => {
     setCurrentFolderId(folder.id);
@@ -522,7 +539,7 @@ export default function Home() {
       const agentId = homeSidebarSection.replace(/^agent:/, '');
       return (
         <div className="h-full min-h-0 flex flex-col overflow-hidden">
-          <AgentChatView agentId={agentId} />
+          <AgentChatView agentId={agentId} onBack={() => setHomeSidebarSection('automations-hub')} />
         </div>
       );
     }
@@ -552,6 +569,13 @@ export default function Home() {
         return (
           <div className="h-full min-h-0 flex flex-col overflow-hidden">
             <AgentManagementView onAgentSelect={(id) => setHomeSidebarSection(`agent:${id}`)} />
+          </div>
+        );
+
+      case 'automations-hub':
+        return (
+          <div className="h-full min-h-0 flex flex-col overflow-hidden">
+            <AutomationsHubView onAgentSelect={(id) => setHomeSidebarSection(`agent:${id}`)} />
           </div>
         );
 
@@ -586,17 +610,11 @@ export default function Home() {
 
       case 'projects':
         return (
-          <div className="dashboard-empty-state">
-            <div className="dashboard-icon-wrapper">
-              <ProjectIcon className="dashboard-icon" />
-            </div>
-            <h3 className="dashboard-title">
-              Proyectos
-            </h3>
-            <p className="dashboard-description">
-              Organiza tus recursos por proyecto. Proximamente.
-            </p>
-          </div>
+          <ProjectsDashboard
+            currentProject={currentProject}
+            onSelectProject={setCurrentProject}
+            onOpenProjectLibrary={() => setHomeSidebarSection('library')}
+          />
         );
 
       case 'recent':
@@ -1010,6 +1028,7 @@ export default function Home() {
     isTeamView ||
     isWorkflowView ||
     homeSidebarSection === 'agents' ||
+    homeSidebarSection === 'automations-hub' ||
     homeSidebarSection === 'marketplace' ||
     homeSidebarSection === 'agent-teams';
 

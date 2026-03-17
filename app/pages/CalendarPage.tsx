@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Loader2, RefreshCw } from 'lucide-react';
 import CalendarGrid from '@/components/calendar/CalendarGrid';
 import EventModal from '@/components/calendar/EventModal';
 import { useCalendarStore, type CalendarEvent } from '@/lib/store/useCalendarStore';
@@ -23,6 +23,8 @@ export default function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [initialModalDate, setInitialModalDate] = useState<Date | undefined>();
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
 
   const loadEvents = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron?.calendar) return;
@@ -37,10 +39,31 @@ export default function CalendarPage() {
     }
   }, [currentDate, setEvents]);
 
+  const loadOperationalData = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron?.calendar) return;
+    const upcomingResult = await window.electron.calendar.getUpcoming({ windowMinutes: 60 * 24 * 7, limit: 12 });
+    if (upcomingResult.success && upcomingResult.events) {
+      setUpcomingEvents(upcomingResult.events as CalendarEvent[]);
+    }
+  }, []);
+
   useEffect(() => {
     setLoading(true);
-    loadEvents().finally(() => setLoading(false));
-  }, [loadEvents]);
+    Promise.all([loadEvents(), loadOperationalData()]).finally(() => setLoading(false));
+  }, [loadEvents, loadOperationalData]);
+
+  const handleSyncNow = useCallback(async () => {
+    if (!window.electron?.calendar?.syncNow) {
+      return;
+    }
+    setSyncing(true);
+    try {
+      await window.electron.calendar.syncNow();
+      await Promise.all([loadEvents(), loadOperationalData()]);
+    } finally {
+      setSyncing(false);
+    }
+  }, [loadEvents, loadOperationalData]);
 
   const handleDayClick = (date: Date) => {
     setSelectedEvent(null);
@@ -101,7 +124,8 @@ export default function CalendarPage() {
           </div>
 
           {/* Controles y calendario */}
-          <div className="flex flex-col gap-6">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-1">
                 <button
@@ -160,6 +184,54 @@ export default function CalendarPage() {
                 </div>
               )}
             </div>
+            </div>
+
+            <aside className="flex min-h-[500px] flex-col gap-4">
+              <section
+                className="rounded-xl border p-4"
+                style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>Panel operativo</h2>
+                    <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                      Próximos eventos y sincronización rápida.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleSyncNow()}
+                    disabled={syncing}
+                    className="rounded-lg border p-2"
+                    style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
+                    title="Sincronizar ahora"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {upcomingEvents.length === 0 ? (
+                    <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+                      No hay eventos próximos en los siguientes 7 días.
+                    </p>
+                  ) : (
+                    upcomingEvents.slice(0, 6).map((event) => (
+                      <div
+                        key={event.id}
+                        className="rounded-lg border p-3"
+                        style={{ borderColor: 'var(--dome-border)' }}
+                      >
+                        <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{event.title}</p>
+                        <p className="mt-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                          {new Date(event.start_at).toLocaleString('es')}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+            </aside>
           </div>
         </div>
       </div>
