@@ -18,6 +18,7 @@ import {
 import MarkdownRenderer from './MarkdownRenderer';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
 import { useManyStore } from '@/lib/store/useManyStore';
+import { parseContentImages, parseImageResult } from '@/lib/chat/docling-utils';
 
 /**
  * ChatToolCard - Polished display for tool calls with category color system
@@ -59,34 +60,6 @@ function getCategory(name: string): ToolCategory {
   return 'default';
 }
 
-/** Parse result as image data URL */
-function parseImageResult(result: unknown): { dataUrl: string; alt?: string } | null {
-  if (!result) return null;
-  let parsed: unknown;
-  if (typeof result === 'string') {
-    try {
-      parsed = JSON.parse(result);
-    } catch {
-      if (typeof result === 'string' && result.startsWith('data:image/')) return { dataUrl: result };
-      return null;
-    }
-  } else if (result && typeof result === 'object') {
-    parsed = result;
-  } else {
-    return null;
-  }
-  if (!parsed || typeof parsed !== 'object') return null;
-  const obj = parsed as Record<string, unknown>;
-  const imageFields = ['croppedImage', 'thumbnail', 'screenshot', 'image', 'dataUrl', 'imageData'];
-  for (const field of imageFields) {
-    const value = obj[field];
-    if (typeof value === 'string' && value.startsWith('data:image/')) {
-      return { dataUrl: value, alt: String(obj.title || obj.alt || field) };
-    }
-  }
-  return null;
-}
-
 const TOOL_ICONS: Record<string, typeof Globe> = {
   web_search: Search,
   web_fetch: Globe,
@@ -107,6 +80,9 @@ const TOOL_ICONS: Record<string, typeof Globe> = {
   pdf_extract_tables: FileTextIcon,
   image_crop: Image,
   image_thumbnail: Image,
+  docling_list_images: Image,
+  docling_show_image: Image,
+  docling_show_page_images: Image,
 };
 
 const TOOL_LABELS: Record<string, string> = {
@@ -129,6 +105,9 @@ const TOOL_LABELS: Record<string, string> = {
   pdf_extract_tables: 'Extrayendo tablas de PDF',
   image_crop: 'Recortando imagen',
   image_thumbnail: 'Generando miniatura',
+  docling_list_images: 'Listando imágenes del documento',
+  docling_show_image: 'Mostrando artefacto visual',
+  docling_show_page_images: 'Mostrando figuras del documento',
 };
 
 function getIconForTool(name: string): typeof Globe {
@@ -316,6 +295,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
   const documentItems = useMemo(() => parseDocumentResult(toolCall.result), [toolCall.result]);
   const artifactItems = useMemo(() => parseArtifactResult(toolCall.result), [toolCall.result]);
   const imageItems = useMemo(() => parseImageResult(toolCall.result), [toolCall.result]);
+  const contentImages = useMemo(() => parseContentImages(toolCall.result), [toolCall.result]);
   const resourceItems = useMemo(() => parseResourceItems(toolCall.name, toolCall.result), [toolCall.name, toolCall.result]);
   const pinnedIds = useMemo(() => new Set(pinnedResources.map((r) => r.id)), [pinnedResources]);
 
@@ -401,6 +381,31 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
       return (
         <div style={{ marginTop: 6 }}>
           <ArtifactCard artifact={artifactItems} />
+        </div>
+      );
+    }
+
+    if (contentImages && contentImages.length > 0) {
+      return (
+        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {contentImages.map((item, idx) => (
+            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {item.label && (
+                <p style={{ fontSize: 11, color: 'var(--secondary-text)', margin: 0 }}>{item.label}</p>
+              )}
+              <img
+                src={item.dataUrl}
+                alt={item.label || `Figure ${idx + 1}`}
+                style={{
+                  maxWidth: 280,
+                  maxHeight: 200,
+                  objectFit: 'contain',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                }}
+              />
+            </div>
+          ))}
         </div>
       );
     }
@@ -668,6 +673,92 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
             </div>
           )}
           {renderResultContent()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Grouped tool calls: compact header with count, expandable to show individual cards */
+interface ChatToolCardGroupProps {
+  name: string;
+  calls: ToolCallData[];
+  className?: string;
+}
+
+export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardGroupProps) {
+  const [expanded, setExpanded] = useState(false);
+  const Icon = getIconForTool(name);
+  const label = getLabelForTool(name);
+  const category = getCategory(name);
+  const accentColor = CATEGORY_COLORS[category];
+  const count = calls.length;
+  const hasError = calls.some((c) => c.status === 'error');
+  const hasPending = calls.some((c) => c.status === 'pending' || c.status === 'running');
+  const allSuccess = calls.every((c) => c.status === 'success');
+
+  return (
+    <div
+      className={className}
+      style={{
+        minWidth: 0,
+        maxWidth: '100%',
+        fontSize: 13,
+        borderLeft: `2px solid ${accentColor}`,
+        borderRadius: '0 4px 4px 0',
+        transition: 'background 150ms ease',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          display: 'flex',
+          width: '100%',
+          minWidth: 0,
+          alignItems: 'center',
+          gap: 8,
+          padding: '5px 8px',
+          borderRadius: '0 4px 4px 0',
+          textAlign: 'left',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+          transition: 'background 150ms ease',
+        }}
+        onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+        onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+      >
+        <div style={{ flexShrink: 0, width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {hasPending ? (
+            <Loader2 style={{ width: 13, height: 13, color: accentColor, animation: 'spin 1s linear infinite' }} />
+          ) : hasError ? (
+            <XCircle style={{ width: 13, height: 13, color: 'var(--error)' }} />
+          ) : allSuccess ? (
+            <CheckCircle2 style={{ width: 13, height: 13, color: '#10b981' }} />
+          ) : (
+            <Icon style={{ width: 13, height: 13, color: 'var(--tertiary-text)' }} />
+          )}
+        </div>
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: 'var(--secondary-text)',
+            lineHeight: 1.4,
+          }}
+        >
+          {label} ({count})
+        </span>
+        <div style={{ flexShrink: 0, color: 'var(--tertiary-text)', opacity: 0.6 }}>
+          {expanded ? <ChevronDown style={{ width: 13, height: 13 }} /> : <ChevronRight style={{ width: 13, height: 13 }} />}
+        </div>
+      </button>
+      {expanded && (
+        <div style={{ marginTop: 2, marginLeft: 8, paddingLeft: 12, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {calls.map((tc) => (
+            <ChatToolCard key={tc.id} toolCall={tc} />
+          ))}
         </div>
       )}
     </div>

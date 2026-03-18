@@ -1,5 +1,5 @@
 import { memo, useState, useRef, useEffect } from 'react';
-import { Trash2, X, Plus, MessageSquare } from 'lucide-react';
+import { Trash2, X, Plus, MessageSquare, Maximize2, Minimize2 } from 'lucide-react';
 import ManyIcon from './ManyIcon';
 import type { ManyChatSession } from '@/lib/store/useManyStore';
 
@@ -12,6 +12,8 @@ interface ManyChatHeaderProps {
   currentSessionId: string | null;
   /** Hint when loading: e.g. "Procesando datos...", "Ejecutando acciones..." */
   loadingHint?: string;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
   onClear: () => void;
   onStartNewChat: () => void;
   onSwitchSession: (id: string) => void;
@@ -26,6 +28,8 @@ export default memo(function ManyChatHeader({
   messagesCount,
   sessions,
   currentSessionId,
+  isFullscreen,
+  onToggleFullscreen,
   onClear,
   onStartNewChat,
   onSwitchSession,
@@ -137,6 +141,18 @@ export default memo(function ManyChatHeader({
         ) : null}
 
         <div className="mx-1 h-4 w-[1px] bg-[var(--border)]"></div>
+
+        {onToggleFullscreen ? (
+          <button
+            type="button"
+            onClick={onToggleFullscreen}
+            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--primary-text)]"
+            title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+            aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          >
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </button>
+        ) : null}
 
         <button
           type="button"

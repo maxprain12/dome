@@ -98,13 +98,15 @@ interface ManyPanelProps {
   width: number;
   onClose: () => void;
   isVisible: boolean;
+  isFullscreen?: boolean;
 }
 
-export default function ManyPanel({ width, onClose, isVisible }: ManyPanelProps) {
+export default function ManyPanel({ width, onClose, isVisible, isFullscreen = false }: ManyPanelProps) {
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const {
     status,
+    setFullscreen,
     setStatus,
     messages,
     addMessage,
@@ -962,17 +964,29 @@ export default function ManyPanel({ width, onClose, isVisible }: ManyPanelProps)
   return (
     <div
       className="flex flex-col h-full overflow-hidden shrink-0 border-l"
-      style={{
-        width: isVisible ? `${width}px` : '0px',
-        minWidth: isVisible ? 320 : 0,
-        maxWidth: isVisible ? 600 : 0,
-        background: 'var(--bg)',
-        borderColor: 'var(--border)',
-        borderLeftWidth: isVisible ? undefined : '0px',
-        opacity: isVisible ? 1 : 0,
-        pointerEvents: isVisible ? 'auto' : 'none',
-        transition: 'width 180ms ease, opacity 140ms ease',
-      }}
+      style={
+        isFullscreen
+          ? {
+              width: '100%',
+              minWidth: 0,
+              maxWidth: 'none',
+              background: 'var(--bg)',
+              borderLeftWidth: 0,
+              opacity: 1,
+              pointerEvents: 'auto',
+            }
+          : {
+              width: isVisible ? `${width}px` : '0px',
+              minWidth: isVisible ? 320 : 0,
+              maxWidth: isVisible ? 600 : 0,
+              background: 'var(--bg)',
+              borderColor: 'var(--border)',
+              borderLeftWidth: isVisible ? undefined : '0px',
+              opacity: isVisible ? 1 : 0,
+              pointerEvents: isVisible ? 'auto' : 'none',
+              transition: 'width 180ms ease, opacity 140ms ease',
+            }
+      }
     >
       <ManyChatHeader
         status={status}
@@ -982,6 +996,8 @@ export default function ManyPanel({ width, onClose, isVisible }: ManyPanelProps)
         loadingHint={loadingHint}
         sessions={sessions}
         currentSessionId={currentSessionId}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={() => setFullscreen(!isFullscreen)}
         onClear={handleClear}
         onStartNewChat={startNewChat}
         onSwitchSession={switchSession}

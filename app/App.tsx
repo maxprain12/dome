@@ -56,7 +56,7 @@ export default function App() {
   if (pathname === '/ppt-capture') {
     return <PptCapturePage />;
   }
-  const { isOpen, toggleOpen } = useManyStore();
+  const { isOpen, toggleOpen, isFullscreen } = useManyStore();
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
@@ -137,20 +137,40 @@ export default function App() {
   // Memoizar el ManyPanel para evitar que sus re-renderizados afecten al resto de la app
   const manyPanelElements = useMemo(() => {
     if (!showPanel) return null;
+    const panel = (
+      <ManyPanel
+        width={panelWidth}
+        onClose={toggleOpen}
+        isVisible={showPanel}
+        isFullscreen={isFullscreen}
+      />
+    );
+    if (isFullscreen) {
+      const isWorkspace = pathname?.startsWith('/workspace');
+      return (
+        <div
+          className="fixed z-[9999] flex flex-col bg-[var(--bg)]"
+          style={{
+            top: 'var(--app-header-total)',
+            left: isWorkspace ? 0 : 'var(--sidebar-width, 56px)',
+            right: 0,
+            bottom: 0,
+          }}
+        >
+          {panel}
+        </div>
+      );
+    }
     return (
       <>
         <ResizeHandle
           onResize={handleResize}
           onResizeEnd={handleResizeEnd}
         />
-        <ManyPanel
-          width={panelWidth}
-          onClose={toggleOpen}
-          isVisible={showPanel}
-        />
+        {panel}
       </>
     );
-  }, [showPanel, panelWidth, handleResize, handleResizeEnd, toggleOpen]);
+  }, [showPanel, panelWidth, isFullscreen, pathname, handleResize, handleResizeEnd, toggleOpen]);
 
   return (
     <ThemeProvider>

@@ -4,6 +4,7 @@ import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import CitationBadge from './CitationBadge';
+import DoclingInlineImage from './DoclingInlineImage';
 import type { ParsedCitation } from '@/lib/utils/citations';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
@@ -567,6 +568,27 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         </li>
       ),
 
+      // Images — docling:image_id renders DoclingInlineImage (fetch + lightbox)
+      img: ({ src, alt }) => {
+        if (typeof src === 'string' && src.startsWith('docling:')) {
+          const imageId = src.slice(8).trim();
+          if (!imageId) return null;
+          return <DoclingInlineImage imageId={imageId} alt={alt || 'Figure'} />;
+        }
+        return (
+          <img
+            src={src}
+            alt={alt || ''}
+            style={{
+              maxWidth: '100%',
+              height: 'auto',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+            }}
+          />
+        );
+      },
+
       // Blockquote — styled as a note box, not italic
       blockquote: ({ children }) => (
         <blockquote
@@ -663,7 +685,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
   );
 
   const markdownUrlTransform = useCallback((url: string) => {
-    if (url.startsWith('dome://')) {
+    if (url.startsWith('dome://') || url.startsWith('docling:')) {
       return url;
     }
 

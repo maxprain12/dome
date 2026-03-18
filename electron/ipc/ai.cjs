@@ -31,7 +31,9 @@ function convertToolsToAnthropic(tools) {
   });
 }
 
+const { setMaxListeners } = require('events');
 const langgraphAgent = require('../langgraph-agent.cjs');
+const domeOauth = require('../dome-oauth.cjs');
 
 /** Abort controllers by streamId for ai:langgraph:stream (enables renderer to stop stream) */
 const langGraphAbortControllers = new Map();
@@ -60,18 +62,9 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       }
 
       if (provider === 'dome') {
-        const queries = database.getQueries();
-        const session = queries.getActiveDomeProviderSession.get(Date.now());
-        if (!session?.access_token) {
-          throw new Error('Dome provider is not connected. Open Settings > AI > Dome and connect your account.');
-        }
-
-        const response = await fetch(`${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
+        const response = await domeOauth.fetchWithDomeAuth(database, `${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: model || 'dome/auto',
             messages,
@@ -136,18 +129,9 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       }
 
       if (provider === 'dome') {
-        const queries = database.getQueries();
-        const session = queries.getActiveDomeProviderSession.get(Date.now());
-        if (!session?.access_token) {
-          throw new Error('Dome provider is not connected. Open Settings > AI > Dome and connect your account.');
-        }
-
-        const response = await fetch(`${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
+        const response = await domeOauth.fetchWithDomeAuth(database, `${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: model || 'dome/auto',
             messages,
@@ -377,6 +361,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       }
 
       const controller = new AbortController();
+      setMaxListeners(64, controller.signal);
       langGraphAbortControllers.set(streamId, controller);
 
       const onChunk = (data) => {
@@ -460,6 +445,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       }
 
       const controller = new AbortController();
+      setMaxListeners(64, controller.signal);
       langGraphAbortControllers.set(streamId, controller);
 
       const onChunk = (data) => {
@@ -590,21 +576,15 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       const model = modelResult?.value;
 
       if (provider === 'dome') {
-        const session = queries.getActiveDomeProviderSession.get(Date.now());
-        if (!session?.access_token) {
-          return { success: false, error: 'Dome provider no conectado. Ve a Settings > AI > Dome.' };
-        }
         try {
-          const quotaResponse = await fetch(`${DOME_PROVIDER_URL}/api/v1/me/quota`, {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          });
+          const quotaResponse = await domeOauth.fetchWithDomeAuth(database, `${DOME_PROVIDER_URL}/api/v1/me/quota`);
           if (!quotaResponse.ok) {
             const text = await quotaResponse.text();
             return { success: false, error: `Dome provider no disponible: ${text}` };
           }
           return { success: true, provider: 'dome', model: model || 'dome/auto' };
         } catch (err) {
-          return { success: false, error: `Error conectando Dome provider: ${err.message}` };
+          return { success: false, error: err.message || `Error conectando Dome provider: ${err.message}` };
         }
       }
 

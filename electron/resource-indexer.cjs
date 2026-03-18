@@ -123,7 +123,7 @@ async function indexResource(resourceId, deps) {
     if (resource.type !== 'pdf' && !resource.content && resource.type !== 'document') return;
 
     // When provider=dome and PDF has no content, convert via Docling first
-    if (resource.type === 'pdf' && doclingPipeline.shouldRunDoclingForPdf(resource, database)) {
+    if (resource.type === 'pdf' && (await doclingPipeline.shouldRunDoclingForPdf(resource, database))) {
       console.log(`[Indexer] Converting PDF ${resourceId} via Docling before indexing`);
       const convertResult = await doclingPipeline.convertAndUpdateResource(
         resourceId,

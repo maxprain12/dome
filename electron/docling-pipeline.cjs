@@ -116,14 +116,15 @@ async function convertAndUpdateResource(resourceId, deps, { onProgress } = {}) {
  * Siempre ejecutamos Docling cuando el provider es Dome (IA avanzada: extracción de
  * imágenes + markdown completo para PageIndex), incluso si ya hay contenido previo.
  */
-function shouldRunDoclingForPdf(resource, database) {
+async function shouldRunDoclingForPdf(resource, database) {
   if (!resource || resource.type !== 'pdf') return false;
   const queries = database?.getQueries?.();
   if (!queries) return false;
   const provider = (queries.getSetting.get('ai_provider')?.value || 'openai').toLowerCase();
   if (provider !== 'dome') return false;
-  const row = queries.getActiveDomeProviderSession?.get(Date.now());
-  return !!(row?.access_token);
+  const domeOauth = require('./dome-oauth.cjs');
+  const session = await domeOauth.getOrRefreshSession(database);
+  return !!(session?.connected && session?.accessToken);
 }
 
 module.exports = {

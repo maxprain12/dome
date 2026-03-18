@@ -1904,6 +1904,11 @@ function getQueries() {
       ORDER BY updated_at DESC
       LIMIT 1
     `),
+    getDomeProviderSessionWithRefresh: db.prepare(`
+      SELECT * FROM dome_provider_sessions
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `),
     clearDomeProviderSessions: db.prepare('DELETE FROM dome_provider_sessions'),
 
     // Resource Interactions
@@ -2313,6 +2318,9 @@ function getQueries() {
     getResourceImages: db.prepare('SELECT * FROM resource_images WHERE resource_id = ? ORDER BY image_index ASC'),
     getResourceImageById: db.prepare('SELECT * FROM resource_images WHERE id = ?'),
     deleteResourceImages: db.prepare('DELETE FROM resource_images WHERE resource_id = ?'),
+    getResourceImageInternalPaths: db.prepare(`
+      SELECT internal_path FROM resource_images WHERE internal_path IS NOT NULL
+    `),
 
     // Calendar - Accounts
     createCalendarAccount: db.prepare(`

@@ -16,6 +16,7 @@ function traceLog(fn, params, result, err) {
   }
 }
 
+const fs = require('fs');
 const database = require('./database.cjs');
 const fileStorage = require('./file-storage.cjs');
 const documentExtractor = require('./document-extractor.cjs');
@@ -2073,6 +2074,126 @@ async function getDocumentStructure({ resource_id } = {}) {
 }
 
 // =============================================================================
+// Docling Image Tools (figures, charts from converted PDFs)
+// =============================================================================
+
+/**
+ * List all Docling-extracted images for a resource.
+ * @param {string} resourceId
+ * @returns {Promise<Object>}
+ */
+async function doclingGetResourceImages(resourceId) {
+  try {
+    if (!resourceId) return { success: false, error: 'resource_id is required' };
+    const queries = database.getQueries();
+    const rows = queries.getResourceImages.all(resourceId);
+    const images = rows.map((r) => ({
+      id: r.id,
+      image_id: r.id,
+      image_index: r.image_index,
+      page_no: r.page_no,
+      caption: r.caption,
+    }));
+    return { success: true, images };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Get a single Docling image as base64 data URI.
+ * Returns format compatible with imageResult for chat display.
+ * @param {string} imageId
+ * @param {string} [resourceId] - Optional for context in extraText
+ * @returns {Promise<Object>}
+ */
+async function doclingGetImageData(imageId, resourceId) {
+  try {
+    if (!imageId) return { success: false, error: 'image_id is required' };
+    const queries = database.getQueries();
+    const img = queries.getResourceImageById.get(imageId);
+    if (!img) return { success: false, error: 'Image not found' };
+    const imgPath = fileStorage.getFullPath(img.internal_path);
+    if (!fs.existsSync(imgPath)) return { success: false, error: 'Image file not found on disk' };
+    const buffer = fs.readFileSync(imgPath);
+    const base64 = buffer.toString('base64');
+    const mimeType = img.file_mime_type || 'image/png';
+    const captionParts = [];
+    if (img.caption) captionParts.push(img.caption);
+    if (img.page_no != null) captionParts.push(`Page ${img.page_no}`);
+    if (resourceId) captionParts.push(`Resource: ${resourceId}`);
+    const extraText = captionParts.length > 0 ? captionParts.join(' | ') : `Artifact: ${imageId}`;
+    return {
+      content: [
+        { type: 'text', text: extraText },
+        { type: 'image', data: base64, mimeType },
+      ],
+      details: { image_id: imageId, resource_id: resourceId, page_no: img.page_no, caption: img.caption },
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Get multiple Docling images for a resource (optionally filtered by page).
+ * Returns content array for inline display in chat.
+ * @param {Object} params
+ * @param {string} params.resource_id
+ * @param {number} [params.page_no]
+ * @param {number} [params.max_images=3]
+ * @returns {Promise<Object>}
+ */
+async function doclingShowPageImages({ resource_id, page_no, max_images = 3 } = {}) {
+  try {
+    if (!resource_id) return { success: false, error: 'resource_id is required' };
+    const listResult = await doclingGetResourceImages(resource_id);
+    if (!listResult.success) return listResult;
+    let images = listResult.images || [];
+    if (page_no != null) images = images.filter((img) => img.page_no === page_no);
+    images = images.slice(0, Math.min(max_images, 5));
+    if (images.length === 0) {
+      return {
+        success: true,
+        content: [
+          {
+            type: 'text',
+            text: page_no != null
+              ? `No visual artifacts found on page ${page_no}.`
+              : 'No visual artifacts found. The document may not have been converted with Docling yet.',
+          },
+        ],
+        details: { resource_id, page_no, shown_count: 0 },
+      };
+    }
+    const contentParts = [];
+    contentParts.push({
+      type: 'text',
+      text: `Showing ${images.length} artifact${images.length > 1 ? 's' : ''}${page_no != null ? ` from page ${page_no}` : ''} of resource ${resource_id}:`,
+    });
+    for (const img of images) {
+      const dataResult = await doclingGetImageData(img.id, resource_id);
+      if (!dataResult.content) continue;
+      const imgBlock = dataResult.content.find((c) => c.type === 'image');
+      if (!imgBlock) continue;
+      const label =
+        img.caption
+          ? `Figure ${img.image_index + 1}: ${img.caption}${img.page_no != null ? ` (p.${img.page_no})` : ''}`
+          : `Figure ${img.image_index + 1}${img.page_no != null ? ` (p.${img.page_no})` : ''}`;
+      contentParts.push({ type: 'text', text: label });
+      contentParts.push({ type: 'image', data: imgBlock.data, mimeType: imgBlock.mimeType });
+    }
+    return {
+      success: true,
+      content: contentParts,
+      details: { resource_id, page_no, shown_count: images.length },
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// =============================================================================
 // Graph / Resource Linking Tools
 // =============================================================================
 
@@ -2627,4 +2748,9 @@ module.exports = {
 
   // MCP file import
   importFileToLibrary,
+
+  // Docling image tools
+  doclingGetResourceImages,
+  doclingGetImageData,
+  doclingShowPageImages,
 };

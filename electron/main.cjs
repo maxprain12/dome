@@ -601,7 +601,9 @@ app
       try {
         console.log('[App] Running automatic orphan file cleanup...');
         const queries = database.getQueries();
-        const internalPaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
+        const resourcePaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
+        const imagePaths = (queries.getResourceImageInternalPaths?.all?.() ?? []).map((r) => r.internal_path);
+        const internalPaths = [...resourcePaths, ...imagePaths];
         const avatarSetting = queries.getSetting.get('user_avatar_path');
         const currentAvatarPath = avatarSetting?.value || null;
 

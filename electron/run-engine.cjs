@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 const crypto = require('crypto');
+const { setMaxListeners } = require('events');
 const langgraphAgent = require('./langgraph-agent.cjs');
 const { getToolDefinitionsByIds } = require('./ai-chat-with-tools.cjs');
 
@@ -607,7 +608,7 @@ function resolveStaticNodeOutput(node) {
   return { kind: 'text', text: '' };
 }
 
-function getProviderConfig(providerArg, modelArg) {
+async function getProviderConfig(providerArg, modelArg) {
   const queries = getQueries();
   const provider = providerArg || queries.getSetting.get('ai_provider')?.value || 'ollama';
   let apiKey;
@@ -618,12 +619,13 @@ function getProviderConfig(providerArg, modelArg) {
     apiKey = queries.getSetting.get('ollama_api_key')?.value || undefined;
     model = modelArg || queries.getSetting.get('ollama_model')?.value || 'llama3.2';
   } else if (provider === 'dome') {
-    const session = queries.getActiveDomeProviderSession?.get(Date.now());
-    if (!session?.access_token) {
+    const domeOauth = require('./dome-oauth.cjs');
+    const session = await domeOauth.getOrRefreshSession(_database);
+    if (!session?.connected || !session?.accessToken) {
       throw new Error('Dome provider is not connected. Open Settings > AI > Dome and connect your account.');
     }
     const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
-    apiKey = session.access_token;
+    apiKey = session.accessToken;
     baseUrl = `${DOME_PROVIDER_URL}/api/v1`;
     model = modelArg || queries.getSetting.get('ai_model')?.value || 'dome/auto';
   } else {
@@ -853,8 +855,8 @@ async function executeLangGraphRun(runId, params) {
   }
 }
 
-function startLangGraphRun(params) {
-  const providerConfig = getProviderConfig(params.provider, params.model);
+async function startLangGraphRun(params) {
+  const providerConfig = await getProviderConfig(params.provider, params.model);
   const threadId = params.threadId || `run_${params.ownerType}_${now()}`;
   const run = createRun({
     automationId: params.automationId ?? null,
@@ -872,8 +874,10 @@ function startLangGraphRun(params) {
       contextId: params.contextId ?? null,
     },
   });
+  const controller = new AbortController();
+  setMaxListeners(64, controller.signal);
   activeRunContexts.set(run.id, {
-    controller: new AbortController(),
+    controller,
     fullResponse: run.outputText || '',
     fullThinking: '',
     toolCalls: [],
@@ -903,10 +907,17 @@ async function resumeRun(runId, decisions) {
     throw new Error('El run no tiene threadId para reanudar');
   }
   const metadata = run.metadata ?? {};
-  const providerConfig = getProviderConfig(metadata.provider, metadata.model);
+  const providerConfig = await getProviderConfig(metadata.provider, metadata.model);
   const existingContext = activeRunContexts.get(runId);
+  let controller;
+  if (existingContext?.controller) {
+    controller = existingContext.controller;
+  } else {
+    controller = new AbortController();
+    setMaxListeners(64, controller.signal);
+  }
   const context = existingContext ?? {
-    controller: new AbortController(),
+    controller,
     fullResponse: run.outputText || '',
     fullThinking: '',
     toolCalls: Array.isArray(metadata.toolCalls) ? metadata.toolCalls : [],
@@ -1068,7 +1079,7 @@ async function executeWorkflowRun(runId, params, workflow) {
             inputPayload.text || '',
           ].filter(Boolean).join('\n\n');
           const toolDefinitions = getToolDefinitionsByIds(agentDef.toolIds || []);
-          const providerConfig = getProviderConfig(params.provider, params.model);
+          const providerConfig = await getProviderConfig(params.provider, params.model);
           const nodeContext = {
             fullResponse: '',
             fullThinking: '',
@@ -1206,14 +1217,16 @@ function startWorkflowRun(params) {
       workflowName: workflow.name,
     },
   });
-  activeRunContexts.set(run.id, { controller: new AbortController() });
+  const controller = new AbortController();
+  setMaxListeners(64, controller.signal);
+  activeRunContexts.set(run.id, { controller });
   setImmediate(() => {
     void executeWorkflowRun(run.id, params, workflow);
   });
   return getRun(run.id);
 }
 
-function startAutomationNow(automationId) {
+async function startAutomationNow(automationId) {
   const automation = getAutomation(automationId);
   if (!automation) {
     throw new Error('Automatización no encontrada');
@@ -1236,7 +1249,7 @@ function startAutomationNow(automationId) {
   const toolDefinitions = Array.isArray(toolIds) && toolIds.length > 0
     ? getToolDefinitionsByIds(toolIds)
     : [];
-  const run = startLangGraphRun({
+  const run = await startLangGraphRun({
     automationId: automation.id,
     ownerType: targetOwnerType,
     ownerId: automation.targetId,

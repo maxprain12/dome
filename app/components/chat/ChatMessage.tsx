@@ -1,13 +1,17 @@
 
 import { useState, useMemo } from 'react';
 import { Copy, Check, RefreshCw, ChevronDown, ChevronRight, BookmarkPlus } from 'lucide-react';
-import ChatToolCard, { type ToolCallData } from './ChatToolCard';
+import ChatToolCard, { ChatToolCardGroup, type ToolCallData } from './ChatToolCard';
 import ReadingIndicator from './ReadingIndicator';
 import MarkdownRenderer from './MarkdownRenderer';
 import SourceReference from './SourceReference';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
 import { extractCitationNumbers, type ParsedCitation } from '@/lib/utils/citations';
 import { showToast } from '@/lib/store/useToastStore';
+import {
+  extractDoclingImagesFromToolCalls,
+  buildDoclingArtifactFromListImages,
+} from '@/lib/chat/docling-utils';
 
 /**
  * ChatMessage - Individual message with actions
@@ -132,37 +136,74 @@ export default function ChatMessage({
       });
   }, [message.content, message.citationMap]);
 
-  // Parse artifacts from message content
-  // Artifacts are embedded as JSON in ```artifact:TYPE ... ``` blocks
-  const artifacts = useMemo(() => {
-    if (!message.content) return [];
-    
-    const artifactBlocks: AnyArtifact[] = [];
-    const regex = /```artifact:(\w+)\n([\s\S]*?)```/g;
+  // Parse artifacts from message content and split into segments for inline rendering
+  // Artifacts are embedded as JSON in ```artifact:TYPE ... ``` blocks — render at their position in text
+  const contentSegments = useMemo(() => {
+    if (!message.content) return [{ type: 'text' as const, content: '' }];
+
+    const artifactRegex = /```artifact:(\w+)\n([\s\S]*?)```/g;
+    const segments: Array<{ type: 'text'; content: string } | { type: 'artifact'; artifact: AnyArtifact }> = [];
+    let lastIndex = 0;
     let match;
-    
-    while ((match = regex.exec(message.content)) !== null) {
+
+    while ((match = artifactRegex.exec(message.content)) !== null) {
+      const textBefore = message.content.slice(lastIndex, match.index).trim();
+      if (textBefore) {
+        segments.push({ type: 'text', content: textBefore });
+      }
       try {
         const artifactType = match[1] as ArtifactType;
         const artifactData = JSON.parse(match[2]);
-        
-        artifactBlocks.push({
-          type: artifactType,
-          ...artifactData,
-        } as AnyArtifact);
+        segments.push({
+          type: 'artifact',
+          artifact: { type: artifactType, ...artifactData } as AnyArtifact,
+        });
       } catch (error) {
         console.warn('[ChatMessage] Failed to parse artifact:', error);
       }
+      lastIndex = match.index + match[0].length;
     }
-    
-    return artifactBlocks;
+    const textAfter = message.content.slice(lastIndex).trim();
+    if (textAfter) {
+      segments.push({ type: 'text', content: textAfter });
+    }
+    return segments.length > 0 ? segments : [{ type: 'text' as const, content: '' }];
   }, [message.content]);
 
-  // Clean content by removing artifact blocks for markdown rendering
-  const cleanedContent = useMemo(() => {
-    if (!message.content) return '';
-    return message.content.replace(/```artifact:\w+\n[\s\S]*?```/g, '').trim();
-  }, [message.content]);
+  // Fallback: when AI failed to output artifact but called docling_list_images, build artifact from tool result
+  const doclingFallbackArtifact = useMemo(
+    () => buildDoclingArtifactFromListImages(message.toolCalls),
+    [message.toolCalls],
+  );
+
+  // Fallback: base64 images from docling_show_page_images when artifact was not used
+  const doclingImagesFromTools = useMemo(
+    () => extractDoclingImagesFromToolCalls(message.toolCalls),
+    [message.toolCalls],
+  );
+
+  const hasDoclingArtifact = contentSegments.some(
+    (s) => s.type === 'artifact' && s.artifact.type === 'docling_images',
+  );
+  const hasDoclingFallback = !!doclingFallbackArtifact;
+
+  // When AI called docling_list_images but didn't output artifact, append fallback at end
+  const segmentsToRender = useMemo(() => {
+    if (!hasDoclingFallback || hasDoclingArtifact) return contentSegments;
+    return [...contentSegments, { type: 'artifact' as const, artifact: doclingFallbackArtifact as AnyArtifact }];
+  }, [contentSegments, hasDoclingArtifact, hasDoclingFallback, doclingFallbackArtifact]);
+
+  // Group tool calls by name for cleaner display
+  const groupedToolCalls = useMemo(() => {
+    if (!message.toolCalls || message.toolCalls.length === 0) return [];
+    const grouped = new Map<string, ToolCallData[]>();
+    for (const tc of message.toolCalls) {
+      const arr = grouped.get(tc.name) ?? [];
+      arr.push(tc);
+      grouped.set(tc.name, arr);
+    }
+    return Array.from(grouped.entries()).map(([name, calls]) => ({ name, calls }));
+  }, [message.toolCalls]);
 
   return (
     <div className={`group relative ${className}`}>
@@ -194,12 +235,16 @@ export default function ChatMessage({
           </div>
         )}
 
-        {/* Tool calls (Assistant only) - displayed before message content */}
-        {message.toolCalls && message.toolCalls.length > 0 && (
+        {/* Tool calls (Assistant only) - grouped by name for cleaner display */}
+        {groupedToolCalls.length > 0 && (
           <div className="w-full min-w-0 max-w-full space-y-1">
-            {message.toolCalls.map((toolCall) => (
-              <ChatToolCard key={toolCall.id} toolCall={toolCall} />
-            ))}
+            {groupedToolCalls.map(({ name, calls }) =>
+              calls.length === 1 ? (
+                <ChatToolCard key={calls[0].id} toolCall={calls[0]} />
+              ) : (
+                <ChatToolCardGroup key={name} name={name} calls={calls} />
+              )
+            )}
           </div>
         )}
 
@@ -244,31 +289,84 @@ export default function ChatMessage({
                 color: 'var(--primary-text)',
               }}
             >
-              {/* Message text */}
+              {/* Message text — segments interleaved: text | artifact | text | ... */}
               {message.content ? (
                 <div className="min-w-0 w-full break-words" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-                  {/* Render artifacts before content */}
-                  {artifacts.length > 0 && (
-                    <div className="space-y-3 mb-3">
-                      {artifacts.map((artifact, idx) => (
-                        <ArtifactCard key={`${artifact.type}-${idx}`} artifact={artifact} />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Render content */}
-                  {cleanedContent && (
-                    isUser ? (
-                      <span className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>
-                        {message.content}
-                      </span>
-                    ) : (
-                      <MarkdownRenderer
-                        content={cleanedContent}
-                        citationMap={message.citationMap}
-                        onClickCitation={onClickCitation || handleOpenCitation}
-                      />
-                    )
+                  {isUser ? (
+                    <span className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>
+                      {message.content.replace(/```artifact:\w+\n[\s\S]*?```/g, '').trim()}
+                    </span>
+                  ) : (
+                    <>
+                      {segmentsToRender.map((seg, idx) =>
+                        seg.type === 'text' ? (
+                          seg.content ? (
+                            <MarkdownRenderer
+                              key={`text-${idx}`}
+                              content={seg.content}
+                              citationMap={message.citationMap}
+                              onClickCitation={onClickCitation || handleOpenCitation}
+                            />
+                          ) : null
+                        ) : (
+                          <div key={`artifact-${idx}`} className="my-3">
+                            <ArtifactCard artifact={seg.artifact} />
+                          </div>
+                        ),
+                      )}
+                      {/* Fallback: base64 images from docling_show_page_images when no artifact */}
+                      {!message.isStreaming && !hasDoclingArtifact && !hasDoclingFallback && doclingImagesFromTools.length > 0 && (
+                        <div
+                          className="mt-4 pt-4"
+                          style={{ borderTop: '1px solid var(--border)' }}
+                        >
+                          <p
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: 'var(--secondary-text)',
+                              margin: '0 0 12px 0',
+                            }}
+                          >
+                            Figuras del documento
+                          </p>
+                          <div
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 12,
+                            }}
+                          >
+                            {doclingImagesFromTools.map((item, i) => (
+                              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                {item.label && (
+                                  <p
+                                    style={{
+                                      fontSize: 11,
+                                      color: 'var(--secondary-text)',
+                                      margin: 0,
+                                    }}
+                                  >
+                                    {item.label}
+                                  </p>
+                                )}
+                                <img
+                                  src={item.dataUrl}
+                                  alt={item.label || `Figure ${i + 1}`}
+                                  style={{
+                                    maxWidth: 280,
+                                    maxHeight: 200,
+                                    objectFit: 'contain',
+                                    borderRadius: 6,
+                                    border: '1px solid var(--border)',
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               ) : message.isStreaming ? (

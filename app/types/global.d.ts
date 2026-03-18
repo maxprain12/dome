@@ -300,6 +300,16 @@ declare global {
         openDashboard: () => Promise<{ success: boolean; error?: string }>;
         getSession: () => Promise<{ success: boolean; connected: boolean; userId?: string; error?: string }>;
         disconnect: () => Promise<{ success: boolean; error?: string }>;
+        getQuota: () => Promise<{
+          success: boolean;
+          planId?: string;
+          limit?: number;
+          used?: number;
+          remaining?: number;
+          periodEnd?: number;
+          subscriptionStatus?: string;
+          error?: string;
+        }>;
       };
 
       // Plugins API

@@ -6,16 +6,18 @@
  * and synthesizes the results into a final response.
  */
 
+const { setMaxListeners } = require('events');
 const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
 const langgraphAgent = require('../langgraph-agent.cjs');
 const { getToolDefinitionsByIds } = require('../ai-chat-with-tools.cjs');
+const domeOauth = require('../dome-oauth.cjs');
 
 const agentTeamAbortControllers = new Map();
 
 /**
- * Get AI settings from database
+ * Get AI settings from database (async for dome provider session refresh)
  */
-function getAISettings(database) {
+async function getAISettings(database) {
   const queries = database.getQueries();
   const provider = queries.getSetting.get('ai_provider')?.value || 'ollama';
 
@@ -29,10 +31,10 @@ function getAISettings(database) {
   }
 
   if (provider === 'dome') {
-    const session = queries.getActiveDomeProviderSession?.get?.(Date.now());
+    const session = await domeOauth.getOrRefreshSession(database);
     return {
       provider: 'dome',
-      apiKey: session?.access_token,
+      apiKey: session?.accessToken,
       model: queries.getSetting.get('ai_model')?.value || 'dome/auto',
       baseUrl: DOME_PROVIDER_URL,
     };
@@ -108,6 +110,7 @@ async function callLLM(settings, messages, tools, aiCloudService, ollamaService)
   }
 
   if (provider === 'dome') {
+    if (!apiKey) throw new Error('Dome provider is not connected. Open Settings > AI > Dome.');
     const res = await fetch(`${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
       method: 'POST',
       headers: {
@@ -187,10 +190,11 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     };
 
     const controller = new AbortController();
+    setMaxListeners(64, controller.signal);
     agentTeamAbortControllers.set(streamId, controller);
 
     try {
-      const settings = getAISettings(database);
+      const settings = await getAISettings(database);
       const allAgents = loadAgents(database);
       const memberAgents = memberAgentIds
         .map((id) => allAgents.find((a) => a.id === id))

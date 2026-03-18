@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Gift, Search } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Gift, Search, Zap } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -17,6 +17,12 @@ interface OllamaModel {
   name: string;
   size: number;
   modified_at: string;
+}
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+  return n.toString();
 }
 
 export default function AISettingsPanel() {
@@ -38,6 +44,14 @@ export default function AISettingsPanel() {
   const [webSearchResult, setWebSearchResult] = useState<{ success: boolean; message: string } | null>(null);
   const [domeConnected, setDomeConnected] = useState(false);
   const [domeConnecting, setDomeConnecting] = useState(false);
+  const [domeQuota, setDomeQuota] = useState<{
+    planId?: string;
+    limit?: number;
+    used?: number;
+    remaining?: number;
+    periodEnd?: number;
+    subscriptionStatus?: string;
+  } | null>(null);
 
   // Ollama-specific state
   const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null);
@@ -87,9 +101,28 @@ export default function AISettingsPanel() {
     if (!window.electron?.domeAuth) return;
     try {
       const session = await window.electron.domeAuth.getSession();
-      setDomeConnected(session.success && session.connected === true);
+      const connected = session.success && session.connected === true;
+      setDomeConnected(connected);
+      if (connected && window.electron.domeAuth.getQuota) {
+        const quotaRes = await window.electron.domeAuth.getQuota();
+        if (quotaRes.success && quotaRes.planId) {
+          setDomeQuota({
+            planId: quotaRes.planId,
+            limit: quotaRes.limit,
+            used: quotaRes.used,
+            remaining: quotaRes.remaining,
+            periodEnd: quotaRes.periodEnd,
+            subscriptionStatus: quotaRes.subscriptionStatus,
+          });
+        } else {
+          setDomeQuota(null);
+        }
+      } else {
+        setDomeQuota(null);
+      }
     } catch {
       setDomeConnected(false);
+      setDomeQuota(null);
     }
   }, []);
 
@@ -681,6 +714,45 @@ export default function AISettingsPanel() {
             <div className="text-xs" style={{ color: domeConnected ? 'var(--success, #22c55e)' : 'var(--secondary-text)' }}>
               Estado: {domeConnected ? 'Conectado' : 'No conectado'}
             </div>
+            {domeConnected && domeQuota && domeQuota.planId !== 'unsubscribed' && (
+              <div
+                className="rounded-lg p-4 border flex items-center gap-3"
+                style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-tertiary)' }}
+              >
+                <div className="rounded-full p-2" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--accent)' }}>
+                  <Zap className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+                    Uso del periodo
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--secondary-text)' }}>
+                    {domeQuota.used != null && domeQuota.limit != null
+                      ? `${formatTokens(domeQuota.used)} de ${formatTokens(domeQuota.limit)} tokens (${domeQuota.limit > 0 ? Math.round((domeQuota.used / domeQuota.limit) * 100) : 0}%)`
+                      : '—'}
+                  </p>
+                  <div
+                    className="mt-2 h-1.5 rounded-full overflow-hidden"
+                    style={{ backgroundColor: 'var(--border)' }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: domeQuota.limit && domeQuota.limit > 0
+                          ? `${Math.min((domeQuota.used ?? 0) / domeQuota.limit * 100, 100)}%`
+                          : '0%',
+                        backgroundColor: 'var(--accent)',
+                      }}
+                    />
+                  </div>
+                  {domeQuota.periodEnd && (
+                    <p className="text-[10px] mt-1 opacity-60" style={{ color: 'var(--secondary-text)' }}>
+                      Renovación: {new Date(domeQuota.periodEnd).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

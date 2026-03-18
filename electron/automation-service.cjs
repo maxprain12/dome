@@ -59,7 +59,7 @@ async function tick() {
       continue;
     }
     try {
-      runEngine.startAutomationNow(automation.id);
+      await runEngine.startAutomationNow(automation.id);
     } catch (error) {
       console.error(`[Automation] Failed to run ${automation.id}:`, error?.message || error);
     }

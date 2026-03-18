@@ -100,6 +100,7 @@ const hydratedState = ensureInitialSession(initialState);
 interface ManyState {
   isOpen: boolean;
   isMinimized: boolean;
+  isFullscreen: boolean;
   status: ManyStatus;
   messages: ManyMessage[];
   sessions: ManyChatSession[];
@@ -114,6 +115,7 @@ interface ManyState {
   setOpen: (open: boolean) => void;
   toggleOpen: () => void;
   setMinimized: (minimized: boolean) => void;
+  setFullscreen: (fullscreen: boolean) => void;
   setStatus: (status: ManyStatus) => void;
   addMessage: (message: Omit<ManyMessage, 'id' | 'timestamp'>) => void;
   clearMessages: () => void;
@@ -146,6 +148,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
   ...hydratedState,
   isOpen: false,
   isMinimized: false,
+  isFullscreen: false,
   status: 'idle',
   currentInput: '',
   unreadCount: 0,
@@ -160,7 +163,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
     if (open) {
       set({ unreadCount: 0 });
     } else {
-      set({ petPromptOverride: null });
+      set({ petPromptOverride: null, isFullscreen: false });
     }
   },
 
@@ -171,11 +174,13 @@ export const useManyStore = create<ManyState>((set, get) => ({
       set({ unreadCount: 0 });
     }
     if (isOpen) {
-      set({ petPromptOverride: null });
+      set({ petPromptOverride: null, isFullscreen: false });
     }
   },
 
   setMinimized: (minimized) => set({ isMinimized: minimized }),
+
+  setFullscreen: (fullscreen) => set({ isFullscreen: fullscreen }),
 
   setStatus: (status) => set({ status }),
 

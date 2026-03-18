@@ -25,6 +25,125 @@ function getUserIdentifier(database) {
   return `desktop-user-${Date.now()}`;
 }
 
+const REFRESH_BUFFER_MS = 5 * 60 * 1000; // Refresh if expiring within 5 min
+
+async function refreshAccessToken(database, refreshToken) {
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+    client_id: CLIENT_ID,
+  });
+  const response = await fetch(`${PROVIDER_BASE_URL}/api/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Refresh failed: ${response.status} ${text}`);
+  }
+  const data = await response.json();
+  if (!data.access_token) throw new Error('Refresh response missing access_token');
+  return data;
+}
+
+async function getOrRefreshSession(database) {
+  try {
+    const queries = database.getQueries();
+    const row = queries.getDomeProviderSessionWithRefresh.get();
+    if (!row) return { connected: false };
+
+    const now = Date.now();
+    const expiresAt = row.expires_at;
+    const needsRefresh = expiresAt <= now + REFRESH_BUFFER_MS;
+
+    if (!needsRefresh) {
+      return {
+        connected: true,
+        userId: row.user_id,
+        accessToken: row.access_token,
+        expiresAt: row.expires_at,
+      };
+    }
+
+    if (row.refresh_token) {
+      try {
+        const tokenResponse = await refreshAccessToken(database, row.refresh_token);
+        const newExpiresInSec = Number(tokenResponse.expires_in || 3600);
+        const newExpiresAt = now + newExpiresInSec * 1000;
+        queries.upsertDomeProviderSession.run(
+          row.user_id,
+          tokenResponse.access_token,
+          tokenResponse.refresh_token || row.refresh_token,
+          newExpiresAt,
+          now,
+          now,
+        );
+        return {
+          connected: true,
+          userId: row.user_id,
+          accessToken: tokenResponse.access_token,
+          expiresAt: newExpiresAt,
+        };
+      } catch (err) {
+        console.warn('[Dome OAuth] Refresh failed:', err?.message);
+        if (expiresAt <= now) {
+          queries.clearDomeProviderSessions.run();
+          return { connected: false };
+        }
+        return {
+          connected: true,
+          userId: row.user_id,
+          accessToken: row.access_token,
+          expiresAt: row.expires_at,
+        };
+      }
+    }
+
+    if (expiresAt <= now) return { connected: false };
+    return {
+      connected: true,
+      userId: row.user_id,
+      accessToken: row.access_token,
+      expiresAt: row.expires_at,
+    };
+  } catch (error) {
+    console.error('[Dome OAuth] getOrRefreshSession failed:', error);
+    return { connected: false };
+  }
+}
+
+async function fetchWithDomeAuth(database, url, options = {}) {
+  let session = await getOrRefreshSession(database);
+  if (!session.connected || !session.accessToken) {
+    throw new Error('Dome provider is not connected. Open Settings > AI > Dome and connect your account.');
+  }
+  const doFetch = (token) => fetch(url, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } });
+  let response = await doFetch(session.accessToken);
+  if (response.status === 401) {
+    const row = database.getQueries().getDomeProviderSessionWithRefresh.get();
+    if (row?.refresh_token) {
+      try {
+        const tokenResponse = await refreshAccessToken(database, row.refresh_token);
+        const now = Date.now();
+        const newExpiresAt = now + Number(tokenResponse.expires_in || 3600) * 1000;
+        database.getQueries().upsertDomeProviderSession.run(
+          row.user_id,
+          tokenResponse.access_token,
+          tokenResponse.refresh_token || row.refresh_token,
+          newExpiresAt,
+          now,
+          now,
+        );
+        response = await doFetch(tokenResponse.access_token);
+      } catch (err) {
+        console.warn('[Dome OAuth] Retry refresh on 401 failed:', err?.message);
+      }
+    }
+  }
+  return response;
+}
+
 function getSession(database) {
   try {
     const queries = database.getQueries();
@@ -42,8 +161,20 @@ function getSession(database) {
   }
 }
 
-function disconnect(database) {
+async function disconnect(database) {
   const queries = database.getQueries();
+  const row = queries.getDomeProviderSessionWithRefresh.get();
+  if (row?.refresh_token) {
+    try {
+      await fetch(`${PROVIDER_BASE_URL}/api/oauth/revoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: row.refresh_token, token_type_hint: 'refresh_token' }),
+      });
+    } catch (err) {
+      console.warn('[Dome OAuth] Revoke failed:', err?.message);
+    }
+  }
   queries.clearDomeProviderSessions.run();
 }
 
@@ -213,6 +344,8 @@ module.exports = {
   handleOAuthCallback,
   handleConnectCallback,
   getSession,
+  getOrRefreshSession,
+  fetchWithDomeAuth,
   disconnect,
   openDashboard,
   PROVIDER_BASE_URL,

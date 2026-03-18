@@ -34,7 +34,7 @@ function getAuthHeaders(accessToken) {
  * @returns {Promise<import('./types').DoclingConversionResult>}
  */
 async function convertDocument(fileBuffer, filename, database, { doOcr = true, onProgress } = {}) {
-  const session = domeOauth.getSession(database);
+  const session = await domeOauth.getOrRefreshSession(database);
   if (!session.connected) {
     const err = new Error('Not connected to Dome Provider. Please sign in via Settings → Cloud.');
     err.code = 'not_connected';

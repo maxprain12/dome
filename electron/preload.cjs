@@ -220,6 +220,7 @@ const ALLOWED_CHANNELS = {
     'domeauth:openDashboard',
     'domeauth:getSession',
     'domeauth:disconnect',
+    'domeauth:getQuota',
     // Personality Loader
     'personality:get-prompt',
     'personality:read-file',
@@ -689,6 +690,7 @@ const electronHandler = {
     openDashboard: () => ipcRenderer.invoke('domeauth:openDashboard'),
     getSession: () => ipcRenderer.invoke('domeauth:getSession'),
     disconnect: () => ipcRenderer.invoke('domeauth:disconnect'),
+    getQuota: () => ipcRenderer.invoke('domeauth:getQuota'),
   },
 
   // ============================================

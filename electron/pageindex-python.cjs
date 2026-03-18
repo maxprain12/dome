@@ -428,7 +428,7 @@ function getRuntimeDescriptor() {
 
 const { MINIMAX_OPENAI_BASE_URL } = require('./minimax-config.cjs');
 
-function getProviderConfig(database) {
+async function getProviderConfig(database) {
   const queries = database.getQueries();
   const provider = (queries.getSetting.get('ai_provider')?.value || 'openai').toLowerCase();
 
@@ -444,15 +444,16 @@ function getProviderConfig(database) {
   }
 
   if (provider === 'dome') {
+    const domeOauth = require('./dome-oauth.cjs');
     const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
-    const row = queries.getActiveDomeProviderSession?.get(Date.now());
-    if (!row?.access_token) {
+    const session = await domeOauth.getOrRefreshSession(database);
+    if (!session?.connected || !session?.accessToken) {
       throw new Error('Dome provider not connected. Connect in Settings > AI.');
     }
     return {
       provider: 'openai',
       model: queries.getSetting.get('ai_model')?.value || 'dome/auto',
-      api_key: row.access_token,
+      api_key: session.accessToken,
       base_url: `${DOME_PROVIDER_URL.replace(/\/$/, '')}/api/v1`,
     };
   }
@@ -708,7 +709,7 @@ async function indexResource(resourceId, deps) {
       db_path: getDatabasePath(),
       storage_root: getStorageRoot(),
       user_data_path: app.getPath('userData'),
-      llm: getProviderConfig(database),
+      llm: await getProviderConfig(database),
     };
     const response = await callBridge('index-resource', payload);
     stopPolling();
@@ -747,7 +748,7 @@ async function search(query, trees, topK, database) {
       query,
       top_k: topK,
       trees,
-      llm: getProviderConfig(database),
+      llm: await getProviderConfig(database),
     };
     const response = await callBridge('search', payload, 3 * 60 * 1000);
     return { success: true, results: Array.isArray(response.results) ? response.results : [] };

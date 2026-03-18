@@ -67,6 +67,11 @@ const TOOL_HANDLER_MAP = {
   // Entity creation
   agent_create: 'agentCreate',
   automation_create: 'automationCreate',
+
+  // Docling image tools
+  docling_list_images: 'doclingGetResourceImages',
+  docling_show_image: 'doclingGetImageData',
+  docling_show_page_images: 'doclingShowPageImages',
 };
 
 function normalizeToolName(name) {
@@ -254,6 +259,19 @@ async function executeToolInMain(toolName, args) {
       case 'getToolDefinition':
         result = await fn(args.tool_name || args.toolName || '');
         break;
+      case 'doclingGetResourceImages':
+        result = await fn(args.resource_id || args.resourceId);
+        break;
+      case 'doclingGetImageData':
+        result = await fn(args.image_id || args.imageId, args.resource_id || args.resourceId);
+        break;
+      case 'doclingShowPageImages':
+        result = await fn({
+          resource_id: args.resource_id || args.resourceId,
+          page_no: args.page_no,
+          max_images: args.max_images ?? 3,
+        });
+        break;
       default:
         result = await fn(args);
     }
@@ -340,6 +358,9 @@ function getToolDefsBySubagent() {
       'calendar_create_event',
       'calendar_update_event',
       'calendar_delete_event',
+      'docling_list_images',
+      'docling_show_image',
+      'docling_show_page_images',
     ),
     writer: pick(
       'resource_create',
@@ -449,7 +470,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_get',
-        description: 'Get full details of a specific resource. For indexed PDFs, returns only the structure (TOC with node_ids)—use resource_get_section or resource_semantic_search for specific content. For notes and other types, returns full content. Cite inline as [N] when using in answers.',
+        description: 'Get full details of a specific resource. For indexed PDFs, returns only the structure (TOC with node_ids)—use resource_get_section or resource_semantic_search for specific content. Do NOT call get_document_structure—the structure is already included. For notes and other types, returns full content. Cite inline as [N] when using in answers.',
         parameters: {
           type: 'object',
           properties: {
@@ -482,7 +503,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_semantic_search',
-        description: 'Semantic search for resources using natural language query. If you rely on these results, cite the supporting result inline as [N] following the order returned by the tool.',
+        description: 'Semantic search across the user\'s library. When the user is viewing a specific resource (resource_id in context), prefer resource_get first—it returns structure. Use resource_semantic_search when you need to find sections by meaning (e.g. "methodology", "conclusions") or when searching across multiple documents. Cite inline as [N] when using results.',
         parameters: {
           type: 'object',
           properties: {
@@ -498,7 +519,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_get_section',
-        description: 'Get the content (summary) of a specific section of an indexed PDF or note by node_id. Use after get_document_structure or resource_semantic_search to obtain the full content of a section. Returns title, summary, page_range, and children (subsections) for deeper navigation.',
+        description: 'Get section content by node_id. Use node_ids from resource_get or get_document_structure. Do not call resource_get_section for the same node_id twice. Returns title, summary, page_range, and children (subsections) for deeper navigation.',
         parameters: {
           type: 'object',
           properties: {
@@ -513,7 +534,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'get_document_structure',
-        description: 'Get the hierarchical outline/table of contents of a PDF or note. Returns structure with node_ids—use resource_get_section(resource_id, node_id) to get section content. Use when the user asks what topics a document covers or you need to navigate before searching.',
+        description: 'Get the hierarchical outline/table of contents of a PDF or note. REDUNDANT if you already called resource_get for this resource—resource_get for indexed PDFs includes the structure. Use get_document_structure ONLY when you need structure without metadata (e.g. from a prior resource_list result). Returns node_ids for resource_get_section.',
         parameters: {
           type: 'object',
           properties: {
@@ -552,6 +573,51 @@ function getAllToolDefinitions() {
           type: 'object',
           properties: {
             resource_id: { type: 'string', description: 'ID of the resource to find neighbors for' },
+          },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'docling_list_images',
+        description: 'List all visual artifacts (figures, charts, diagrams) extracted from a document via Docling conversion. Returns image IDs, page numbers, and captions. Use docling_show_image or docling_show_page_images to display them inline. Use when the user asks for images, figures, or visual details.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'ID of the resource (PDF, document) whose Docling-extracted images to list' },
+          },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'docling_show_image',
+        description: 'Display a single visual artifact (figure, chart, diagram) extracted from a document inline. Use docling_list_images first to get available image IDs.',
+        parameters: {
+          type: 'object',
+          properties: {
+            image_id: { type: 'string', description: 'ID of the image to display' },
+            resource_id: { type: 'string', description: 'Optional resource ID for context' },
+          },
+          required: ['image_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'docling_show_page_images',
+        description: 'Fetch visual artifacts (figures, charts, diagrams) from a document. Returns images with captions for your analysis. Use with docling_list_images: call docling_list_images first to get image_ids, then use artifact:docling_images in your response with ONLY the image_ids of figures relevant to the user\'s request. You decide which figures to show.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'ID of the resource' },
+            page_no: { type: 'number', description: 'Show only images from this page. Omit for all images.' },
+            max_images: { type: 'number', description: 'Max images to display (1-5). Default: 3.' },
           },
           required: ['resource_id'],
         },

@@ -25,8 +25,10 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     try {
       const queries = database.getQueries();
 
-      // Get all valid file paths from database
-      const internalPaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
+      // Get all valid file paths from database (resources + resource_images for Docling)
+      const resourcePaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
+      const imagePaths = (queries.getResourceImageInternalPaths?.all?.() ?? []).map((r) => r.internal_path);
+      const internalPaths = [...resourcePaths, ...imagePaths];
 
       // Get current avatar path from settings
       const avatarSetting = queries.getSetting.get('user_avatar_path');

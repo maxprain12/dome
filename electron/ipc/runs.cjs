@@ -33,10 +33,10 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('runs:startLangGraph', (event, params) => {
+  ipcMain.handle('runs:startLangGraph', async (event, params) => {
     try {
       validateSender(event, windowManager);
-      return { success: true, data: runEngine.startLangGraphRun(params || {}) };
+      return { success: true, data: await runEngine.startLangGraphRun(params || {}) };
     } catch (error) {
       console.error('[Runs] startLangGraph error:', error);
       return { success: false, error: error.message };
@@ -126,10 +126,10 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('automations:runNow', (event, automationId) => {
+  ipcMain.handle('automations:runNow', async (event, automationId) => {
     try {
       validateSender(event, windowManager);
-      return { success: true, data: runEngine.startAutomationNow(automationId) };
+      return { success: true, data: await runEngine.startAutomationNow(automationId) };
     } catch (error) {
       console.error('[Automations] runNow error:', error);
       return { success: false, error: error.message };
