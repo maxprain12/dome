@@ -33,6 +33,10 @@ const ALLOWED_CHANNELS = {
     // Theme
     'get-theme',
     'set-theme',
+    // System / auto-launch
+    'system:get-login-item',
+    'system:set-login-item',
+    'system:quit',
     // Window management
     'window:create',
     'window:create-modal',
@@ -528,6 +532,13 @@ const electronHandler = {
       ipcRenderer.removeListener('theme-changed', subscription);
     };
   },
+
+  // ============================================
+  // SYSTEM / AUTO-LAUNCH
+  // ============================================
+  getLoginItemSettings: () => ipcRenderer.invoke('system:get-login-item'),
+  setLoginItemSettings: (openAtLogin) => ipcRenderer.invoke('system:set-login-item', openAtLogin),
+  quitApp: () => ipcRenderer.invoke('system:quit'),
 
   // ============================================
   // USER SETTINGS

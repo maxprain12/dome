@@ -167,6 +167,40 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   nativeTheme.on('updated', () => {
     windowManager.broadcast('theme-changed', { theme: 'light' });
   });
+
+  // Auto-launch (start with system)
+  ipcMain.handle('system:get-login-item', (event) => {
+    try {
+      validateSender(event, windowManager);
+      const settings = app.getLoginItemSettings();
+      return { openAtLogin: settings.openAtLogin };
+    } catch (error) {
+      console.error('[IPC] Error in system:get-login-item:', error.message);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('system:set-login-item', (event, openAtLogin) => {
+    try {
+      validateSender(event, windowManager);
+      app.setLoginItemSettings({ openAtLogin: Boolean(openAtLogin) });
+      return { openAtLogin: Boolean(openAtLogin) };
+    } catch (error) {
+      console.error('[IPC] Error in system:set-login-item:', error.message);
+      throw error;
+    }
+  });
+
+  // Quit the app (used from settings or tray)
+  ipcMain.handle('system:quit', (event) => {
+    try {
+      validateSender(event, windowManager);
+      app.quit();
+    } catch (error) {
+      console.error('[IPC] Error in system:quit:', error.message);
+      throw error;
+    }
+  });
 }
 
 module.exports = { register };

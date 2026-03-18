@@ -10,6 +10,7 @@ const {
   shell,
   nativeTheme,
   Menu,
+  Tray,
   protocol,
 } = require('electron');
 const path = require('path');
@@ -329,6 +330,14 @@ async function createWindow() {
     }
   });
 
+  // When user clicks the window close button, hide to tray instead of quitting
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
   // Enable DevTools in production with Cmd+Shift+I (Mac) or Ctrl+Shift+I (Windows/Linux)
   mainWindow.webContents.on('before-input-event', (event, input) => {
     const isMac = process.platform === 'darwin';
@@ -345,8 +354,106 @@ async function createWindow() {
   return mainWindow;
 }
 
+// Flag to distinguish tray-hide from a real quit
+let isQuitting = false;
+// Tray icon instance (kept in module scope to prevent GC)
+let appTray = null;
+
+/**
+ * Create the system tray icon with a context menu.
+ * Called once after the main window is ready.
+ */
+function createTray(mainWindow) {
+  const RESOURCES_PATH = app.isPackaged
+    ? path.join(process.resourcesPath, 'assets')
+    : path.join(__dirname, '../assets');
+
+  // macOS uses a template image (white/black auto-switching); other platforms use the colour icon
+  const trayIconName = process.platform === 'darwin' ? 'icon.png' : 'icon.png';
+  const trayIconPath = path.join(RESOURCES_PATH, trayIconName);
+
+  appTray = new Tray(fs.existsSync(trayIconPath) ? trayIconPath : undefined);
+  appTray.setToolTip('Dome');
+
+  const buildContextMenu = () => Menu.buildFromTemplate([
+    {
+      label: 'Abrir Dome',
+      click: () => {
+        const win = windowManager.get('main');
+        if (win && !win.isDestroyed()) {
+          win.show();
+          win.focus();
+        } else {
+          createWindow();
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Automatizaciones activas',
+      enabled: false,
+    },
+    { type: 'separator' },
+    {
+      label: 'Salir de Dome',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  appTray.setContextMenu(buildContextMenu());
+
+  // Single click on tray icon shows/hides the main window
+  appTray.on('click', () => {
+    const win = windowManager.get('main');
+    if (!win || win.isDestroyed()) {
+      createWindow();
+      return;
+    }
+    if (win.isVisible()) {
+      win.hide();
+    } else {
+      win.show();
+      win.focus();
+    }
+  });
+
+  // Double-click on Windows also opens the window
+  appTray.on('double-click', () => {
+    const win = windowManager.get('main');
+    if (win && !win.isDestroyed()) {
+      win.show();
+      win.focus();
+    } else {
+      createWindow();
+    }
+  });
+}
+
+/**
+ * Enable auto-launch on first install (can be toggled later from settings).
+ */
+function configureFirstLaunchAutoStart() {
+  try {
+    const queries = database.getQueries();
+    const already = queries.getSetting.get('auto_launch_initialized');
+    if (!already) {
+      // First install — enable start-at-login by default
+      app.setLoginItemSettings({ openAtLogin: true });
+      queries.setSetting.run('auto_launch_initialized', '1');
+      console.log('[AutoLaunch] Enabled auto-launch on first install');
+    }
+  } catch (err) {
+    console.warn('[AutoLaunch] Could not configure first-launch auto-start:', err?.message);
+  }
+}
+
 // App lifecycle events
 app.on('window-all-closed', () => {
+  // When tray is active, keep the app alive even when all windows are closed
+  if (appTray) return;
   // Respect macOS convention of keeping app in memory
   if (process.platform !== 'darwin') {
     app.quit();
@@ -551,6 +658,12 @@ app
     // La inicializacion de LanceDB puede fallar o bloquearse con modulos nativos
     const mainWindow = await createWindow();
 
+    // Create tray icon for background operation (automations, notifications)
+    createTray(mainWindow);
+
+    // Enable auto-launch on first install
+    configureFirstLaunchAutoStart();
+
     // Cold start on Windows/Linux: dome:// URL may be in argv - handle after window exists
     if (process.platform !== 'darwin') {
       const coldStartUrl = process.argv.find((arg) => typeof arg === 'string' && arg.startsWith('dome://'));
@@ -630,7 +743,12 @@ app
 
 // Cleanup before quit
 app.on('before-quit', async () => {
+  isQuitting = true;
   console.log('👋 Cerrando Dome...');
+  if (appTray) {
+    appTray.destroy();
+    appTray = null;
+  }
   calendarNotificationService.stop();
   automationService.stop();
   runEngine.stop();
