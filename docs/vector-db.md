@@ -1,4 +1,12 @@
-# Base de datos vectorial LanceDB
+# Base de datos vectorial LanceDB ⚠️ DEPRECATED
+
+> **Este módulo fue reemplazado por PageIndex en Dome v2.0.0.**
+> Para la documentación actual del motor de búsqueda semántica, ver [pageindex.md](./pageindex.md).
+> Este documento se conserva como referencia histórica.
+
+---
+
+# Base de datos vectorial LanceDB (legacy)
 
 Dome usa LanceDB para almacenar embeddings de recursos y anotaciones, permitiendo búsqueda semántica.
 

@@ -89,9 +89,41 @@ interface AppPreferences {
 
 - **General**: User name, email, avatar (select file → copy to dome-files/avatars via IPC, set user_avatar_path).
 - **Appearance**: Theme (light/dark/auto); applied app-wide via IPC theme.
-- **AI**: Provider, API key, model, embedding model, base URL, Ollama options, Venice privacy; see docs/ai-chat.md.
+- **AI**: Provider, API key, model, embedding model, base URL, Ollama options, Venice privacy; Dome Provider OAuth connect. See docs/ai-chat.md and docs/dome-provider-integration.md.
+- **Calendar**: Connect/disconnect Google Calendar (OAuth PKCE); manage sync frequency; select default calendar. See docs/calendar.md.
+- **Cloud Storage**: Connect/disconnect Google Drive and OneDrive (OAuth PKCE). See docs/cloud-storage-setup.md.
+- **Indexing**: PageIndex configuration — AI provider/model for indexing, auto-index toggle, re-index triggers, manual re-index all. See docs/pageindex.md.
+- **Agents**: List and manage custom Many agents (create, edit, delete, set tools/MCP/model).
+- **Marketplace**: View/uninstall installed agents, plugins, skills, workflows, MCP servers.
+- **MCP Servers**: Configure Model Context Protocol servers for extended AI tool access.
 - **WhatsApp**: Status, start/stop, allowlist; see docs/whatsapp.md.
-- **Advanced**: Storage usage, cleanup, migration, citation style, shortcuts, etc.
+- **Privacy**: Toggle opt-in PostHog analytics (feature usage tracking, error reporting).
+- **Advanced**: Storage usage, cleanup, migration, citation style, shortcuts, experimental features.
+
+---
+
+## Settings keys reference (v2.0.8)
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `user_name` | string | User display name |
+| `user_email` | string | User email |
+| `user_avatar_path` | string | Relative path to avatar in dome-files |
+| `app_theme` | `light\|dark\|auto` | Application theme |
+| `app_auto_save` | bool | Auto-save toggle |
+| `app_citation_style` | string | APA, MLA, Chicago, etc. |
+| `ai_provider` | string | openai, anthropic, google, ollama, dome, openrouter |
+| `ai_api_key` | string | API key for current provider |
+| `ai_model` | string | Model ID (e.g. gpt-4o, claude-sonnet-4-6) |
+| `ollama_base_url` | string | Ollama server URL (default: http://127.0.0.1:11434) |
+| `ollama_model` | string | Ollama model name |
+| `many_agents` | JSON | Array of custom agent configs |
+| `pageindex_provider` | string | Provider for PageIndex reasoning |
+| `pageindex_model` | string | Model for PageIndex reasoning |
+| `pageindex_auto` | bool | Auto-index on startup and changes |
+| `calendar_google_token` | JSON | Google Calendar OAuth token |
+| `onboarding_completed` | bool | Has user completed onboarding |
+| `analytics_opted_in` | bool | PostHog analytics consent |
 
 ---
 
