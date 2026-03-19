@@ -59,6 +59,11 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
 
   // Load resource - dual-read: try notes (new domain) first, then resources (legacy)
   useEffect(() => {
+    setLoading(true);
+    setContent('');
+    setTitle('');
+    setError(null);
+
     async function loadResource() {
       if (!window.electron?.db) {
         setError('Database not available');
@@ -293,7 +298,7 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+      <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
         <div className="animate-pulse" style={{ color: 'var(--secondary-text)' }}>Loading note...</div>
       </div>
     );
@@ -301,7 +306,7 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
 
   if (error || !resource) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--bg)' }}>
+      <div className="h-full flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--bg)' }}>
         <div style={{ color: 'var(--error)' }}>{error || 'Note not found'}</div>
         <button
           onClick={() => { if (typeof window !== 'undefined') window.close(); }}
@@ -314,7 +319,7 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
   }
 
   return (
-    <div ref={containerRef} className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)', overflow: 'clip' }}>
+    <div ref={containerRef} className="h-full flex flex-col" style={{ backgroundColor: 'var(--bg)', overflow: 'clip' }}>
       {/* Shared Header */}
       <WorkspaceHeader
         resource={resource}

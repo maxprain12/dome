@@ -113,7 +113,7 @@ export default function HomePage() {
   if (!isInitialized) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center animate-in"
+        className="min-h-full flex items-center justify-center animate-in"
         style={{ background: 'var(--bg)' }}
       >
         <div className="text-center animate-slide-up">

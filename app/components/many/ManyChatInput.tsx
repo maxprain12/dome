@@ -1,7 +1,7 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Database, Search, Send, StopCircle, Plug2, FileText, X, AtSign } from 'lucide-react';
+import { Database, Search, ArrowUp, StopCircle, Plug2, FileText, X, Paperclip } from 'lucide-react';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
 import { useManyStore, type PinnedResource } from '@/lib/store/useManyStore';
 
@@ -36,6 +36,8 @@ interface ManyChatInputProps {
   hasMcp: boolean;
   onSend: () => void;
   onAbort: () => void;
+  /** When true, renders a larger welcome-screen variant (centered, wider, taller) */
+  isWelcomeScreen?: boolean;
 }
 
 interface MentionResource {
@@ -59,6 +61,7 @@ export default memo(function ManyChatInput({
   hasMcp,
   onSend,
   onAbort,
+  isWelcomeScreen = false,
 }: ManyChatInputProps) {
   const { pinnedResources, addPinnedResource, removePinnedResource } = useManyStore();
 
@@ -271,11 +274,15 @@ export default memo(function ManyChatInput({
 
   const hasActiveCapabilities = resourceToolsEnabled || toolsEnabled || mcpEnabled;
 
+  const outerCls = isWelcomeScreen
+    ? 'many-input-area bg-transparent px-0 pb-0'
+    : 'many-input-area border-t border-[var(--border)] bg-[var(--bg)] px-4 py-3';
+
   return (
-    <div className="many-input-area border-t border-[var(--border)] bg-[var(--bg)] px-4 py-4">
+    <div className={outerCls}>
       {/* Pinned resource chips */}
       {pinnedResources.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-2">
+        <div className={`flex flex-wrap gap-1.5 mb-2 ${isWelcomeScreen ? 'justify-center' : ''}`}>
           {pinnedResources.map((resource) => (
             <PinnedResourceChip key={resource.id} resource={resource} onRemove={removePinnedResource} />
           ))}
@@ -284,10 +291,12 @@ export default memo(function ManyChatInput({
 
       <div
         ref={containerRef}
-        className="relative flex flex-col overflow-hidden rounded-2xl border border-[var(--border)] transition-colors focus-within:border-[var(--accent)]"
+        className="relative flex flex-col overflow-hidden border transition-colors focus-within:border-[var(--border-hover)]"
         style={{
+          borderRadius: 20,
           background: 'var(--bg-secondary)',
-          boxShadow: 'var(--shadow-sm)',
+          borderColor: 'var(--border)',
+          boxShadow: isWelcomeScreen ? '0 2px 16px rgba(0,0,0,0.08)' : 'var(--shadow-sm)',
         }}
       >
         <textarea
@@ -296,123 +305,122 @@ export default memo(function ManyChatInput({
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onInput={handleInput}
-          placeholder={placeholder}
+          placeholder={isWelcomeScreen ? 'Pregúntame algo o describe una tarea...' : placeholder}
           disabled={isLoading}
-          rows={1}
-          className="min-h-[48px] max-h-[200px] w-full resize-none border-none bg-transparent px-4 py-3 text-[14px] text-[var(--primary-text)] placeholder:text-[var(--tertiary-text)] focus:outline-none focus:ring-0 disabled:opacity-50"
-          style={{ lineHeight: '1.5', border: 'none', boxShadow: 'none' }}
+          rows={isWelcomeScreen ? 2 : 1}
+          className="w-full resize-none border-none bg-transparent px-4 pt-4 pb-2 text-[14px] text-[var(--primary-text)] placeholder:text-[var(--tertiary-text)] focus:outline-none focus:ring-0 disabled:opacity-50"
+          style={{
+            lineHeight: '1.6',
+            border: 'none',
+            boxShadow: 'none',
+            minHeight: isWelcomeScreen ? 72 : 48,
+            maxHeight: 200,
+          }}
         />
 
-        <div className="flex items-center justify-between px-2 pb-2">
+        {/* Bottom action row */}
+        <div className="flex items-center justify-between px-3 pb-3">
           <div className="flex items-center gap-1">
-            {supportsTools && (
-              <div className="relative">
-                <button
-                  ref={buttonRef}
-                  type="button"
-                  onClick={() => setShowDropdown(!showDropdown)}
-                  className={`group flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium transition-all ${showDropdown || hasActiveCapabilities
-                    ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'
-                    : 'text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]'
-                    }`}
-                  title="Capacidades activas"
-                >
-                  <Plug2 size={14} strokeWidth={2} />
-                  <span className="hidden sm:inline">Capacidades</span>
-                </button>
-
-                {showDropdown && dropdownRect && typeof document !== 'undefined' && createPortal(
-                  <div
-                    ref={dropdownRef}
-                    className="fixed min-w-[300px] max-h-[min(360px,60vh)] rounded-lg border shadow-lg py-2 overflow-y-auto"
-                    style={{
-                      top: dropdownRect.above ? undefined : dropdownRect.top,
-                      bottom: dropdownRect.above ? window.innerHeight - dropdownRect.top : undefined,
-                      left: dropdownRect.left,
-                      backgroundColor: 'var(--bg-secondary)',
-                      borderColor: 'var(--border)',
-                      zIndex: 600,
-                    }}
-                  >
-                    <div className="px-3 py-1.5">
-                      <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--secondary-text)' }}>
-                        Capacidades base
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
-                          <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
-                            <Database size={13} />
-                            Recursos
-                          </div>
-                          <Toggle checked={resourceToolsEnabled} onChange={() => setResourceToolsEnabled(!resourceToolsEnabled)} />
-                        </div>
-                        <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
-                          <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
-                            <Search size={13} />
-                            Web
-                          </div>
-                          <Toggle checked={toolsEnabled} onChange={() => setToolsEnabled(!toolsEnabled)} />
-                        </div>
-                        {hasMcp ? (
-                          <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
-                            <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
-                              <Plug2 size={13} />
-                              MCP
-                            </div>
-                            <Toggle checked={mcpEnabled} onChange={() => setMcpEnabled(!mcpEnabled)} />
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    {hasMcp ? (
-                      <>
-                        <div className="h-px my-1" style={{ backgroundColor: 'var(--border)' }} />
-                        <div className="px-3 py-1">
-                          <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--secondary-text)' }}>
-                            MCP y tools globales
-                          </div>
-                          <McpCapabilitiesSection />
-                        </div>
-                      </>
-                    ) : null}
-                  </div>,
-                  document.body
-                )}
-              </div>
-            )}
-
-            {/* @ mention hint button */}
+            {/* Paperclip / @ mention */}
             <button
               type="button"
+              ref={buttonRef}
               onClick={() => {
-                const ta = inputRef.current;
-                if (!ta) return;
-                const pos = ta.selectionStart ?? input.length;
-                const newVal = input.slice(0, pos) + '@' + input.slice(pos);
-                setInput(newVal);
-                requestAnimationFrame(() => {
-                  ta.focus();
-                  ta.selectionStart = pos + 1;
-                  ta.selectionEnd = pos + 1;
-                  // Trigger change detection
-                  const event = new Event('input', { bubbles: true });
-                  ta.dispatchEvent(event);
-                });
+                // If supports tools, show the capabilities dropdown; otherwise insert @
+                if (supportsTools) {
+                  setShowDropdown(!showDropdown);
+                } else {
+                  const ta = inputRef.current;
+                  if (!ta) return;
+                  const pos = ta.selectionStart ?? input.length;
+                  const newVal = input.slice(0, pos) + '@' + input.slice(pos);
+                  setInput(newVal);
+                  requestAnimationFrame(() => {
+                    ta.focus();
+                    ta.selectionStart = pos + 1;
+                    ta.selectionEnd = pos + 1;
+                    const event = new Event('input', { bubbles: true });
+                    ta.dispatchEvent(event);
+                  });
+                }
               }}
-              className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[11px] font-medium transition-all text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]"
-              title="Añadir documento al contexto (@)"
+              className={`flex h-8 w-8 items-center justify-center rounded-full transition-all ${showDropdown || hasActiveCapabilities
+                ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'
+                : 'text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]'
+                }`}
+              title={supportsTools ? 'Capacidades activas' : 'Añadir documento (@)'}
             >
-              <AtSign size={14} strokeWidth={2} />
+              <Paperclip size={16} strokeWidth={1.75} />
             </button>
+
+            {/* Capabilities dropdown portal */}
+            {showDropdown && dropdownRect && typeof document !== 'undefined' && createPortal(
+              <div
+                ref={dropdownRef}
+                className="fixed min-w-[300px] max-h-[min(360px,60vh)] rounded-xl border shadow-xl py-2 overflow-y-auto"
+                style={{
+                  top: dropdownRect.above ? undefined : dropdownRect.top,
+                  bottom: dropdownRect.above ? window.innerHeight - dropdownRect.top : undefined,
+                  left: dropdownRect.left,
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderColor: 'var(--border)',
+                  zIndex: 600,
+                }}
+              >
+                <div className="px-3 py-1.5">
+                  <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--secondary-text)' }}>
+                    Capacidades base
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
+                      <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
+                        <Database size={13} />
+                        Recursos
+                      </div>
+                      <Toggle checked={resourceToolsEnabled} onChange={() => setResourceToolsEnabled(!resourceToolsEnabled)} />
+                    </div>
+                    <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
+                      <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
+                        <Search size={13} />
+                        Web
+                      </div>
+                      <Toggle checked={toolsEnabled} onChange={() => setToolsEnabled(!toolsEnabled)} />
+                    </div>
+                    {hasMcp ? (
+                      <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
+                        <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
+                          <Plug2 size={13} />
+                          MCP
+                        </div>
+                        <Toggle checked={mcpEnabled} onChange={() => setMcpEnabled(!mcpEnabled)} />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                {hasMcp ? (
+                  <>
+                    <div className="h-px my-1" style={{ backgroundColor: 'var(--border)' }} />
+                    <div className="px-3 py-1">
+                      <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--secondary-text)' }}>
+                        MCP y tools globales
+                      </div>
+                      <McpCapabilitiesSection />
+                    </div>
+                  </>
+                ) : null}
+              </div>,
+              document.body
+            )}
           </div>
 
+          {/* Send / Stop */}
           <div className="flex items-center gap-2">
             {isLoading ? (
               <button
                 type="button"
                 onClick={onAbort}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--bg)] text-[var(--primary-text)] ring-1 ring-inset ring-[var(--border)] hover:bg-[var(--bg-hover)]"
+                className="flex h-9 w-9 items-center justify-center rounded-full transition-all"
+                style={{ background: 'var(--primary-text)', color: 'var(--bg)' }}
                 title="Detener"
               >
                 <StopCircle size={16} />
@@ -422,13 +430,15 @@ export default memo(function ManyChatInput({
                 type="button"
                 onClick={onSend}
                 disabled={!input.trim()}
-                className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all ${input.trim()
-                  ? 'bg-[var(--accent)] text-white shadow-sm hover:bg-[var(--accent-hover)]'
-                  : 'bg-[var(--bg-tertiary)] text-[var(--tertiary-text)]'
-                  }`}
+                className="flex h-9 w-9 items-center justify-center rounded-full transition-all"
+                style={{
+                  background: input.trim() ? 'var(--primary-text)' : 'var(--bg-tertiary)',
+                  color: input.trim() ? 'var(--bg)' : 'var(--tertiary-text)',
+                  opacity: input.trim() ? 1 : 0.5,
+                }}
                 title="Enviar"
               >
-                <Send size={15} strokeWidth={2.5} />
+                <ArrowUp size={17} strokeWidth={2.5} />
               </button>
             )}
           </div>
@@ -439,7 +449,7 @@ export default memo(function ManyChatInput({
       {mentionActive && mentionRect && typeof document !== 'undefined' && createPortal(
         <div
           ref={mentionDropdownRef}
-          className="fixed rounded-lg border shadow-lg py-1 overflow-y-auto"
+          className="fixed rounded-xl border shadow-lg py-1 overflow-y-auto"
           style={{
             bottom: window.innerHeight - mentionRect.top + 6,
             left: mentionRect.left,
@@ -481,10 +491,6 @@ export default memo(function ManyChatInput({
         </div>,
         document.body
       )}
-
-      <div className="mt-2 text-center text-[10px] text-[var(--tertiary-text)] opacity-60">
-        Muchos modelos pueden cometer errores. Verifica la información importante.
-      </div>
     </div>
   );
 });

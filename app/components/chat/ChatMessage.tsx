@@ -8,6 +8,7 @@ import SourceReference from './SourceReference';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
 import { extractCitationNumbers, type ParsedCitation } from '@/lib/utils/citations';
 import { showToast } from '@/lib/store/useToastStore';
+import { useTabStore } from '@/lib/store/useTabStore';
 import {
   extractDoclingImagesFromToolCalls,
   buildDoclingArtifactFromListImages,
@@ -63,29 +64,14 @@ export default function ChatMessage({
   const isAssistant = message.role === 'assistant';
 
   const handleOpenCitation = useMemo(() => {
-    return async (citationNumber: number) => {
+    return (citationNumber: number) => {
       const citation = message.citationMap?.get(citationNumber);
       if (!citation?.sourceId) return;
-
-      const electron = typeof window !== 'undefined' ? window.electron : null;
-      if (!electron?.invoke) {
-        showToast('error', 'Las referencias solo funcionan en la aplicación de escritorio.');
-        return;
-      }
-
-      try {
-        const result = await electron.invoke('window:open-workspace', {
-          resourceId: citation.sourceId,
-          resourceType: citation.resourceType || 'note',
-          page: citation.page != null ? citation.page + 1 : undefined,
-        });
-        if (!result?.success) {
-          showToast('error', result?.error || 'No se pudo abrir la referencia.');
-        }
-      } catch (error) {
-        console.error('[ChatMessage] Failed to open citation:', error);
-        showToast('error', 'No se pudo abrir la referencia.');
-      }
+      useTabStore.getState().openResourceTab(
+        citation.sourceId,
+        citation.resourceType || 'note',
+        'Recurso'
+      );
     };
   }, [message.citationMap]);
 

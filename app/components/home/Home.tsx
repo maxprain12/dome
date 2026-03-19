@@ -1,6 +1,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTabStore } from '@/lib/store/useTabStore';
 import { useClickOutside } from '@/lib/hooks/useClickOutside';
 import { FolderOpen, Plus, Loader2, CheckCircle2, AlertCircle, ChevronRight, Home as HomeIcon, X, Tags as TagsIcon, MessageCircle, MoreVertical, Pencil, Trash2, ExternalLink, FolderInput, Globe } from 'lucide-react';
 import { useUserStore } from '@/lib/store/useUserStore';
@@ -13,8 +14,7 @@ import InlineFolderNav from './InlineFolderNav';
 import DocumentToolbar from './DocumentToolbar';
 import SelectionActionBar from './SelectionActionBar';
 import ContextMenu from './ContextMenu';
-import FlashcardDeckList from '@/components/flashcards/FlashcardDeckList';
-import StudioHomeView from '@/components/studio/StudioHomeView';
+import LearnPage from '@/components/learn/LearnPage';
 import AgentChatView from '@/components/agents/AgentChatView';
 import AgentManagementView from '@/components/agents/AgentManagementView';
 import MarketplaceView from '@/components/marketplace/MarketplaceView';
@@ -196,30 +196,19 @@ export default function Home() {
     ? rawSearchResources.filter((r: Resource) => r.type !== 'folder')
     : nonFolderResources;
 
-  // Command Center handlers
-  const handleResourceSelect = useCallback(async (resource: any) => {
-    console.log('Selected resource:', resource);
+  const { openResourceTab } = useTabStore();
 
-    // In search mode we don't show folders; if one slips through, open as workspace (or no-op)
+  // Command Center handlers
+  const handleResourceSelect = useCallback((resource: any) => {
+    // In search mode we don't show folders; if one slips through, navigate in-place
     if (resource.type === 'folder') {
       if (!isSearchMode) setCurrentFolderId(resource.id);
       return;
     }
 
-    // For all resources (pdf, video, audio, image, document, note, url)
-    // Open in a workspace window (page: 1-based for PDF navigation from highlights)
-    if (typeof window !== 'undefined' && window.electron?.workspace) {
-      try {
-        const page = resource.pageIndex != null ? resource.pageIndex + 1 : undefined;
-        const result = await window.electron.workspace.open(resource.id, resource.type || 'note', { page });
-        if (!result.success) {
-          console.error('Failed to open workspace:', result.error);
-        }
-      } catch (err) {
-        console.error('Failed to open workspace:', err);
-      }
-    }
-  }, [isSearchMode]);
+    // Open resource as a tab in the same window
+    openResourceTab(resource.id, resource.type || 'note', resource.title || 'Resource');
+  }, [isSearchMode, openResourceTab]);
 
   const handleResourceClick = useCallback(
     (resource: Resource, event: React.MouseEvent) => {
@@ -560,10 +549,8 @@ export default function Home() {
     }
     switch (homeSidebarSection) {
       case 'studio':
-        return <StudioHomeView />;
-
       case 'flashcards':
-        return <FlashcardDeckList />;
+        return <LearnPage />;
 
       case 'agents':
         return (

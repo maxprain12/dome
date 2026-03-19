@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Loader2, AlertCircle, File, ExternalLink } from 'lucide-react';
 import WorkspaceHeader from './WorkspaceHeader';
 import SidePanel from './SidePanel';
@@ -10,6 +9,7 @@ import StudioOutputViewer from './StudioOutputViewer';
 import MetadataModal from './MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useManyStore } from '@/lib/store/useManyStore';
+import { useTabStore } from '@/lib/store/useTabStore';
 import { type Resource } from '@/types';
 
 const PDFViewer = lazy(() => import('../viewers/PDFViewer'));
@@ -25,7 +25,6 @@ interface WorkspaceLayoutProps {
 }
 
 export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLayoutProps) {
-  const navigate = useNavigate();
   const [resource, setResource] = useState<Resource | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +66,32 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
 
     loadResource();
   }, [resourceId]);
+
+  // Detect ppt/docx resources and replace tab type so ContentRouter mounts the correct component
+  useEffect(() => {
+    if (!resource) return;
+    if (resource.type === 'ppt') {
+      const { activeTabId, replaceTabType } = useTabStore.getState();
+      replaceTabType(activeTabId, 'ppt');
+      return;
+    }
+    if (resource.type === 'document') {
+      const filename = (resource.original_filename || resource.title || '').toLowerCase();
+      const mime = resource.file_mime_type || '';
+      const isPptx = filename.endsWith('.pptx') || filename.endsWith('.ppt') || mime.includes('presentationml') || mime.includes('ms-powerpoint');
+      if (isPptx) {
+        const { activeTabId, replaceTabType } = useTabStore.getState();
+        replaceTabType(activeTabId, 'ppt');
+        return;
+      }
+      const isDocx = filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword') || !resource.internal_path;
+      if (isDocx) {
+        const { activeTabId, replaceTabType } = useTabStore.getState();
+        replaceTabType(activeTabId, 'docx');
+        return;
+      }
+    }
+  }, [resource]);
 
   // Update Many context when resource loads (ensures ManyFloatingButton has current resource)
   useEffect(() => {
@@ -169,7 +194,6 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
         case 'excel':
           return <SpreadsheetViewer resource={resource} />;
         case 'ppt':
-          navigate(`/workspace/ppt?id=${resource.id}`, { replace: true });
           return (
             <div className="flex flex-col items-center justify-center h-full p-8">
               <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
@@ -187,9 +211,8 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
           const mime = resource.file_mime_type || '';
           const isPptx = filename.endsWith('.pptx') || filename.endsWith('.ppt') || mime.includes('presentationml') || mime.includes('ms-powerpoint');
 
-          // PPTX / PPT — redirect to PPT workspace
+          // PPTX / PPT — tab type will be replaced by useEffect
           if (isPptx) {
-            navigate(`/workspace/ppt?id=${resource.id}`, { replace: true });
             return (
               <div className="flex flex-col items-center justify-center h-full p-8">
                 <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
@@ -202,9 +225,8 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
 
           const isDocx = filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword') || !resource.internal_path;
 
-          // DOCX / DOC — redirect to editable workspace (incl. AI-created document without file)
+          // DOCX / DOC — tab type will be replaced by useEffect
           if (isDocx) {
-            navigate(`/workspace/docx?id=${resource.id}`, { replace: true });
             return (
               <div className="flex flex-col items-center justify-center h-full p-8">
                 <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
@@ -304,7 +326,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   if (isLoading) {
     return (
       <div
-        className="flex items-center justify-center min-h-screen animate-in"
+        className="flex items-center justify-center min-h-full animate-in"
         style={{ background: 'var(--bg)' }}
       >
         <div className="flex flex-col items-center gap-5 animate-slide-up">
@@ -323,7 +345,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   if (error || !resource) {
     return (
       <div
-        className="flex flex-col items-center justify-center min-h-screen p-8 animate-in"
+        className="flex flex-col items-center justify-center min-h-full p-8 animate-in"
         style={{ background: 'var(--bg)' }}
       >
         <div className="flex flex-col items-center gap-5 animate-slide-up">
@@ -346,7 +368,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   }
 
   return (
-    <div className="flex flex-col h-screen" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
       {/* Header */}
       <WorkspaceHeader
         resource={resource}

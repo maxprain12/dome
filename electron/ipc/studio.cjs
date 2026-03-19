@@ -42,6 +42,26 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
+  // Get all studio outputs across all projects
+  ipcMain.handle('db:studio:getAll', (event, limit = 500) => {
+    try {
+      validateSender(event, windowManager);
+      const db = database.getDB();
+      const stmt = db.prepare(`
+        SELECT s.*, d.card_count as deck_card_count
+        FROM studio_outputs s
+        LEFT JOIN flashcard_decks d ON s.deck_id = d.id
+        ORDER BY s.updated_at DESC
+        LIMIT ?
+      `);
+      const results = stmt.all(limit);
+      return { success: true, data: results };
+    } catch (error) {
+      console.error('[DB] Error getting all studio outputs:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Get studio outputs by project (with flashcard deck stats for type=flashcards)
   ipcMain.handle('db:studio:getByProject', (event, projectId) => {
     try {

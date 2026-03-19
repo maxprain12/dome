@@ -45,7 +45,7 @@ function getInitialSessionsState(): {
     const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
     if (!raw) return { sessions: [], currentSessionId: null, messages: [] };
     const parsed = JSON.parse(raw) as unknown;
-    const sessions: ManyChatSession[] = Array.isArray(parsed)
+    const sessions: ManyChatSession[] = (Array.isArray(parsed)
       ? parsed.slice(0, MAX_SESSIONS).filter(
           (s): s is ManyChatSession =>
             s &&
@@ -53,7 +53,13 @@ function getInitialSessionsState(): {
             typeof s.id === 'string' &&
             Array.isArray(s.messages)
         )
-      : [];
+      : []).map((s) => ({
+        ...s,
+        // Backfill title from first user message if missing or still default
+        title: (!s.title || s.title === 'New chat')
+          ? (s.messages.find((m: ManyMessage) => m.role === 'user')?.content?.slice(0, 50)?.trim() || 'New chat')
+          : s.title,
+      }));
     if (sessions.length === 0) return { sessions: [], currentSessionId: null, messages: [] };
     const sorted = [...sessions].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
     const current = sorted[0];
@@ -203,8 +209,8 @@ export const useManyStore = create<ManyState>((set, get) => ({
           ...session,
           messages: [...session.messages, newMessage],
           title:
-            message.role === 'user'
-              ? message.content.slice(0, 50).trim() || session.title
+            message.role === 'user' && (!session.title || session.title === 'New chat')
+              ? message.content.slice(0, 50).trim() || 'New chat'
               : session.title,
         };
         nextSessions = [...nextSessions];

@@ -189,9 +189,15 @@
   --dome-accent: var(--accent);
   --dome-accent-hover: var(--accent-hover);
   --dome-accent-bg: var(--translucent);
+  --dome-error: var(--error);
+  --dome-bg-hover: var(--bg-hover);
+  --dome-logo-filter: none;
   --tertiary: var(--tertiary-text);
   --brand-accent: var(--accent);
   --brand-secondary: var(--secondary);
+
+  /* Sidebar — DenchClaw-inspired warm stone tone */
+  --dome-sidebar-bg: #f0f0ed;
 }
 
 /* ============================================

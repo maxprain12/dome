@@ -10,7 +10,7 @@ export default function NoteWorkspaceLayout({ initialNoteId }: NoteWorkspaceLayo
   const resourceId = initialNoteId ?? '';
 
   return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)', overflow: 'clip' }}>
+    <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--bg)', overflow: 'clip' }}>
       <div className="flex-1 min-h-0 overflow-hidden">
         {resourceId ? (
           <NoteWorkspaceClient resourceId={resourceId} />

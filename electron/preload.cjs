@@ -321,6 +321,7 @@ const ALLOWED_CHANNELS = {
     'audio:list',
     // Database - Studio Outputs
     'db:studio:create',
+    'db:studio:getAll',
     'db:studio:getByProject',
     'db:studio:getById',
     'db:studio:update',
@@ -468,6 +469,9 @@ const ALLOWED_CHANNELS = {
     'cloud:auth-result',
     // Docling cloud conversion progress
     'docling:progress',
+    // Tab navigation (deep links → renderer tab store)
+    'dome:open-resource-in-tab',
+    'dome:open-settings-in-tab',
   ],
 };
 
@@ -866,6 +870,7 @@ const electronHandler = {
     // Studio outputs
     studio: {
       create: (data) => ipcRenderer.invoke('db:studio:create', data),
+      getAll: (limit) => ipcRenderer.invoke('db:studio:getAll', limit),
       getByProject: (projectId) => ipcRenderer.invoke('db:studio:getByProject', projectId),
       getById: (id) => ipcRenderer.invoke('db:studio:getById', id),
       update: (id, updates) => ipcRenderer.invoke('db:studio:update', id, updates),

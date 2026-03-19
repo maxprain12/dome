@@ -448,6 +448,7 @@ declare global {
         };
         studio: {
           create: (data: any) => Promise<DBResponse<any>>;
+          getAll: (limit?: number) => Promise<DBResponse<any[]>>;
           getByProject: (projectId: string) => Promise<DBResponse<any[]>>;
           getById: (id: string) => Promise<DBResponse<any>>;
           update: (id: string, updates: any) => Promise<DBResponse<void>>;

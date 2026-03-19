@@ -8,6 +8,7 @@ import DoclingInlineImage from './DoclingInlineImage';
 import type { ParsedCitation } from '@/lib/utils/citations';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
+import { useTabStore } from '@/lib/store/useTabStore';
 
 /** UUID v4 pattern for resource IDs */
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -253,19 +254,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           }
         }
 
-        try {
-          const result = await electron.invoke('window:open-workspace', {
-            resourceId,
-            resourceType: resourceType || 'note',
-            page: page ?? undefined,
-          });
-          if (!result?.success) {
-            showToast('error', getResultError(result, 'No se pudo abrir el recurso.'));
-          }
-        } catch (err) {
-          console.error('[MarkdownRenderer] Failed to open resource:', err);
-          showToast('error', 'No se pudo abrir el recurso.');
-        }
+        useTabStore.getState().openResourceTab(resourceId, resourceType || 'note', 'Recurso');
         return;
       }
 
@@ -317,13 +306,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
             return;
           }
 
-          const result = await electron.invoke('window:open-workspace', {
-            resourceId: resolvedId,
-            resourceType: resolvedType,
-          });
-          if (!result?.success) {
-            showToast('error', getResultError(result, 'No se pudo abrir el recurso.'));
-          }
+          useTabStore.getState().openResourceTab(resolvedId, resolvedType, 'Recurso');
         } catch (err) {
           console.error('[MarkdownRenderer] Failed to resolve wikilink:', err);
           showToast('error', 'No se pudo resolver el enlace interno.');

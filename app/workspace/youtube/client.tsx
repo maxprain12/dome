@@ -195,7 +195,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
   if (isLoading) {
     return (
       <div
-        className="flex items-center justify-center min-h-screen"
+        className="flex items-center justify-center min-h-full"
         style={{ background: 'var(--bg)' }}
       >
         <div className="flex flex-col items-center gap-4">
@@ -209,7 +209,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
   if (error || !resource) {
     return (
       <div
-        className="flex flex-col items-center justify-center min-h-screen p-8"
+        className="flex flex-col items-center justify-center min-h-full p-8"
         style={{ background: 'var(--bg)' }}
       >
         <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--error)' }} />
@@ -237,7 +237,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
     : null;
 
   return (
-    <div className="flex flex-col h-screen" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
       <WorkspaceHeader
         resource={resource}
         sidePanelOpen={sidePanelOpen}

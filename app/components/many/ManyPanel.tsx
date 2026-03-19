@@ -1005,69 +1005,153 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         onClose={onClose}
       />
 
-      <div
-        className="many-panel-messages flex-1 overflow-y-auto overflow-x-hidden px-4 pt-4 pb-10 space-y-5 min-h-0"
-      >
-        {chatMessages.length === 0 && !streamingMessage ? (
-          <div className="py-10 text-center">
-            <div className="mb-3 flex justify-center">
-              <ManyAvatar size="lg" />
-            </div>
-            <p className="text-[15px] font-medium text-[var(--primary-text)]">Hi, I&apos;m Many</p>
-            <p className="mx-auto mt-1 max-w-xs text-[13px] text-[var(--tertiary-text)]">
-              Your personal assistant in Dome. Ask me anything.
-            </p>
-            <div className="mx-auto mt-5 flex max-w-md flex-wrap justify-center gap-2">
-              {[...QUICK_PROMPTS_BASE, ...(supportsTools ? QUICK_PROMPTS_WITH_TOOLS : [])].map((prompt) => (
+      {/* ── WELCOME SCREEN (fullscreen, no messages) ── */}
+      {isFullscreen && chatMessages.length === 0 && !streamingMessage ? (
+        <div className="flex flex-col items-center justify-center flex-1 min-h-0 px-6 py-12">
+          <h1
+            style={{
+              fontFamily: "Georgia, 'Times New Roman', serif",
+              fontSize: 'clamp(28px, 4vw, 42px)',
+              fontWeight: 600,
+              color: 'var(--primary-text)',
+              textAlign: 'center',
+              lineHeight: 1.2,
+              marginBottom: 36,
+            }}
+          >
+            ¿En qué puedo ayudarte?
+          </h1>
+
+          {/* Big centered input */}
+          <div className="w-full max-w-2xl mb-6">
+            <ManyChatInput
+              input={input}
+              setInput={setInput}
+              inputRef={inputRef}
+              isLoading={isLoading}
+              toolsEnabled={toolsEnabled}
+              resourceToolsEnabled={resourceToolsEnabled}
+              mcpEnabled={mcpEnabled}
+              setToolsEnabled={setToolsEnabled}
+              setResourceToolsEnabled={setResourceToolsEnabled}
+              setMcpEnabled={setMcpEnabled}
+              supportsTools={supportsTools}
+              hasMcp={hasLangGraph}
+              onSend={() => handleSend()}
+              onAbort={handleAbort}
+              isWelcomeScreen
+            />
+          </div>
+
+          {/* Quick prompt pills */}
+          <div className="flex flex-col items-center gap-3 w-full max-w-2xl">
+            <div className="flex flex-wrap justify-center gap-2">
+              {[
+                { icon: '🔍', label: 'Buscar en mi biblioteca' },
+                { icon: '📁', label: 'Organizar recursos' },
+                { icon: '📋', label: 'Preparar reunión' },
+              ].map(({ icon, label }) => (
                 <button
-                  key={prompt}
+                  key={label}
                   type="button"
-                  onClick={() => {
-                    setInput(prompt);
-                    inputRef.current?.focus();
-                  }}
-                  className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[12px] text-[var(--secondary-text)] transition-colors hover:border-[var(--border-hover)] hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                  onClick={() => { setInput(label); inputRef.current?.focus(); }}
+                  className="flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-medium transition-colors"
+                  style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)', background: 'transparent' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-hover)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
                 >
-                  {prompt}
+                  <span>{icon}</span>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {[
+                { icon: '🤖', label: 'Estrategia con IA' },
+                { icon: '📊', label: 'Crear tabla' },
+                { icon: '📅', label: 'Reporte semanal' },
+                { icon: '✉️', label: 'Redactar email' },
+              ].map(({ icon, label }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => { setInput(label); inputRef.current?.focus(); }}
+                  className="flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-medium transition-colors"
+                  style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)', background: 'transparent' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-hover)'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+                >
+                  <span>{icon}</span>
+                  {label}
                 </button>
               ))}
             </div>
           </div>
-        ) : (
-          <>
-            {messageGroups.map((group, index) => (
-              <ChatMessageGroup
-                key={`group-${index}-${group[0]?.id || index}`}
-                className="many-message-group"
-                messages={group}
-                onRegenerate={handleRegenerate}
-                onSaveAsNote={handleSaveAsNote}
-              />
-            ))}
-            {isLoading && !streamingMessage ? (
-              <div className="flex gap-3">
-                <ManyAvatar size="sm" />
-                <div className="flex items-center gap-2 rounded-2xl rounded-tl-md bg-[var(--bg-secondary)] px-4 py-3">
-                  <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />
-                  <span className="text-[13px] text-[var(--secondary-text)]">Analizando tu consulta...</span>
+        </div>
+      ) : (
+        /* ── MESSAGES AREA ── */
+        <div
+          className="many-panel-messages flex-1 overflow-y-auto overflow-x-hidden min-h-0 py-6"
+          style={{ paddingLeft: isFullscreen ? '10%' : '16px', paddingRight: isFullscreen ? '10%' : '16px' }}
+        >
+          {chatMessages.length === 0 && !streamingMessage ? (
+            <div className="py-10 text-center">
+              <div className="mb-3 flex justify-center">
+                <ManyAvatar size="lg" />
+              </div>
+              <p className="text-[15px] font-medium text-[var(--primary-text)]">Hi, I&apos;m Many</p>
+              <p className="mx-auto mt-1 max-w-xs text-[13px] text-[var(--tertiary-text)]">
+                Your personal assistant in Dome. Ask me anything.
+              </p>
+              <div className="mx-auto mt-5 flex max-w-md flex-wrap justify-center gap-2">
+                {[...QUICK_PROMPTS_BASE, ...(supportsTools ? QUICK_PROMPTS_WITH_TOOLS : [])].map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => { setInput(prompt); inputRef.current?.focus(); }}
+                    className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[12px] text-[var(--secondary-text)] transition-colors hover:bg-[var(--bg-hover)]"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              {messageGroups.map((group, index) => (
+                <ChatMessageGroup
+                  key={`group-${index}-${group[0]?.id || index}`}
+                  className="many-message-group"
+                  messages={group}
+                  onRegenerate={handleRegenerate}
+                  onSaveAsNote={handleSaveAsNote}
+                />
+              ))}
+              {isLoading && !streamingMessage ? (
+                <div className="flex gap-3 mt-5">
+                  <ManyAvatar size="sm" />
+                  <div className="flex items-center gap-2 rounded-2xl rounded-tl-md bg-[var(--bg-secondary)] px-4 py-3">
+                    <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />
+                    <span className="text-[13px] text-[var(--secondary-text)]">Analizando tu consulta...</span>
+                  </div>
                 </div>
-              </div>
-            ) : null}
-            {error ? (
-              <div
-                className="mx-auto flex max-w-md gap-3 rounded-xl p-4"
-                style={{
-                  backgroundColor: 'color-mix(in srgb, var(--error) 10%, transparent)',
-                  border: '1px solid color-mix(in srgb, var(--error) 20%, transparent)',
-                }}
-              >
-                <p className="flex-1 text-sm text-[var(--error)]">{error}</p>
-              </div>
-            ) : null}
-          </>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+              ) : null}
+              {error ? (
+                <div
+                  className="mx-auto flex max-w-md gap-3 rounded-xl p-4 mt-5"
+                  style={{
+                    backgroundColor: 'color-mix(in srgb, var(--error) 10%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--error) 20%, transparent)',
+                  }}
+                >
+                  <p className="flex-1 text-sm text-[var(--error)]">{error}</p>
+                </div>
+              ) : null}
+            </>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      )}
 
       {pendingApproval ? (
         <div
@@ -1125,22 +1209,46 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         </div>
       ) : null}
 
-      <ManyChatInput
-        input={input}
-        setInput={setInput}
-        inputRef={inputRef}
-        isLoading={isLoading}
-        toolsEnabled={toolsEnabled}
-        resourceToolsEnabled={resourceToolsEnabled}
-        mcpEnabled={mcpEnabled}
-        setToolsEnabled={setToolsEnabled}
-        setResourceToolsEnabled={setResourceToolsEnabled}
-        setMcpEnabled={setMcpEnabled}
-        supportsTools={supportsTools}
-        hasMcp={hasLangGraph}
-        onSend={() => handleSend()}
-        onAbort={handleAbort}
-      />
+      {/* Hide bottom input when welcome screen is showing centered input */}
+      {!(isFullscreen && chatMessages.length === 0 && !streamingMessage) && (
+        isFullscreen ? (
+          <div className="px-[10%] pb-4">
+            <ManyChatInput
+              input={input}
+              setInput={setInput}
+              inputRef={inputRef}
+              isLoading={isLoading}
+              toolsEnabled={toolsEnabled}
+              resourceToolsEnabled={resourceToolsEnabled}
+              mcpEnabled={mcpEnabled}
+              setToolsEnabled={setToolsEnabled}
+              setResourceToolsEnabled={setResourceToolsEnabled}
+              setMcpEnabled={setMcpEnabled}
+              supportsTools={supportsTools}
+              hasMcp={hasLangGraph}
+              onSend={() => handleSend()}
+              onAbort={handleAbort}
+            />
+          </div>
+        ) : (
+          <ManyChatInput
+            input={input}
+            setInput={setInput}
+            inputRef={inputRef}
+            isLoading={isLoading}
+            toolsEnabled={toolsEnabled}
+            resourceToolsEnabled={resourceToolsEnabled}
+            mcpEnabled={mcpEnabled}
+            setToolsEnabled={setToolsEnabled}
+            setResourceToolsEnabled={setResourceToolsEnabled}
+            setMcpEnabled={setMcpEnabled}
+            supportsTools={supportsTools}
+            hasMcp={hasLangGraph}
+            onSend={() => handleSend()}
+            onAbort={handleAbort}
+          />
+        )
+      )}
     </div>
   );
 }

@@ -218,7 +218,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+      <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
         <div className="animate-pulse" style={{ color: 'var(--secondary-text)' }}>Loading notebook...</div>
       </div>
     );
@@ -226,7 +226,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
 
   if (error || !resource) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--bg)' }}>
+      <div className="h-full flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--bg)' }}>
         <div style={{ color: 'var(--error)' }}>{error || 'Notebook not found'}</div>
         <button
           onClick={() => { if (typeof window !== 'undefined') window.close(); }}
@@ -239,7 +239,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
   }
 
   return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: 'var(--bg)', overflow: 'clip' }}>
+    <div className="h-full flex flex-col" style={{ backgroundColor: 'var(--bg)', overflow: 'clip' }}>
       <WorkspaceHeader
         resource={resource}
         sidePanelOpen={isPanelOpen}
