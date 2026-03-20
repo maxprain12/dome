@@ -469,8 +469,6 @@ export function createManyToolsForContext(
   return tools;
 }
 
-/** @deprecated Use createManyToolsForContext */
-export const createMartinToolsForContext = createManyToolsForContext;
 
 /**
  * Create tools filtered by a list of tool IDs (for specialized Many agents).

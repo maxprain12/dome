@@ -113,8 +113,6 @@ export function buildManyFloatingPrompt(options: {
   });
 }
 
-/** @deprecated Use buildManyFloatingPrompt */
-export const buildMartinFloatingPrompt = buildManyFloatingPrompt;
 
 /**
  * Build supervisor prompt for subagents architecture.

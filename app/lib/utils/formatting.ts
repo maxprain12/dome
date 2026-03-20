@@ -187,24 +187,6 @@ export function isValidUrl(url: string): boolean {
   }
 }
 
-// Extraer dominio de URL
-export function extractDomain(url: string): string {
-  try {
-    const urlObj = new URL(url);
-    return urlObj.hostname;
-  } catch {
-    return '';
-  }
-}
-
-// Resaltar texto de búsqueda
-export function highlightSearchText(text: string, query: string): string {
-  if (!query) return text;
-
-  const regex = new RegExp(`(${query})`, 'gi');
-  return text.replace(regex, '<mark>$1</mark>');
-}
-
 // Debounce function
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
@@ -235,19 +217,6 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-// Descargar archivo
-export function downloadFile(data: Blob | string, filename: string, mimeType?: string) {
-  const blob = typeof data === 'string' ? new Blob([data], { type: mimeType }) : data;
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
 /** User-friendly label for resource type (e.g. ppt -> Slides) */
 export function getResourceTypeLabel(type: string): string {
   const labels: Record<string, string> = {
@@ -264,28 +233,4 @@ export function getResourceTypeLabel(type: string): string {
     ppt: 'Slides',
   };
   return labels[type] ?? type;
-}
-
-// Generar color aleatorio
-export function generateRandomColor(): string {
-  const colors = [
-    '#ef4444', // red
-    '#f97316', // orange
-    '#f59e0b', // amber
-    '#eab308', // yellow
-    '#84cc16', // lime
-    '#22c55e', // green
-    '#10b981', // emerald
-    '#14b8a6', // teal
-    '#06b6d4', // cyan
-    '#0ea5e9', // sky
-    '#3b82f6', // blue
-    '#6366f1', // indigo
-    '#8b5cf6', // violet
-    '#a855f7', // purple
-    '#d946ef', // fuchsia
-    '#ec4899', // pink
-  ];
-
-  return colors[Math.floor(Math.random() * colors.length)] ?? '#3b82f6';
 }

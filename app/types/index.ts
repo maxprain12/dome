@@ -554,22 +554,6 @@ export interface ResearchLogEntry {
   message: string;
 }
 
-export type MartinStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
-
-export interface MartinMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: number;
-}
-
-export interface MartinState {
-  isOpen: boolean;
-  isThinking: boolean;
-  unreadCount: number;
-  currentContext?: string;
-}
-
 // ============================================
 // STUDIO OUTPUT TYPES
 // ============================================
