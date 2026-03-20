@@ -24,6 +24,8 @@ interface NoteWorkspaceClientProps {
 
 export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsavedChange }: NoteWorkspaceClientProps) {
   const { t } = useTranslation();
+  const tRef = useRef(t);
+  tRef.current = t;
   const [resource, setResource] = useState<Resource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +50,9 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
   const resourceRef = useRef<Resource | null>(null);
   const contentRef = useRef<string>('');
   const titleRef = useRef<string>('');
+  const isMountedRef = useRef(true);
+  /** Bumped when a load for this resource starts; stale debounced saves must not run after a newer load. */
+  const loadGenerationRef = useRef(0);
   resourceRef.current = resource;
   contentRef.current = content;
   titleRef.current = title;
@@ -70,8 +75,10 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
   onUnsavedChangeRef.current = onUnsavedChange;
 
   // Load resource — single source: `resources` (type note)
+  // deps: resourceId only — including `t` re-ran this effect, cleared content, and let a stale debounced save overwrite the DB with an empty doc.
   useEffect(() => {
     let cancelled = false;
+    loadGenerationRef.current += 1;
     setLoading(true);
     setContent('');
     setTitle('');
@@ -80,7 +87,7 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
 
     async function loadResource() {
       if (!window.electron?.db?.resources) {
-        if (!cancelled) setError(t('errors.database_unavailable'));
+        if (!cancelled) setError(tRef.current('errors.database_unavailable'));
         if (!cancelled) setLoading(false);
         return;
       }
@@ -123,7 +130,7 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
     return () => {
       cancelled = true;
     };
-  }, [resourceId, t]);
+  }, [resourceId]);
 
   // External updates (AI tools, sync, other windows). Do not overwrite body while local edits are pending.
   useEffect(() => {
@@ -172,6 +179,7 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
   }, [resourceId]);
 
   const saveContent = useCallback(async (newContent: string, _isManual = false) => {
+    if (!isMountedRef.current) return;
     const res = resourceRef.current;
     if (!res || !window.electron?.db?.resources) return;
     if (newContent === lastSavedContentRef.current) return;
@@ -225,6 +233,13 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
     };
   }, [resourceId]);
 
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const handleManualSave = useCallback(() => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -235,6 +250,7 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
 
   const handleContentChange = useCallback(
     (jsonFromEditor: unknown) => {
+      if (!isMountedRef.current) return;
       const serialized =
         typeof jsonFromEditor === 'string' ? jsonFromEditor : JSON.stringify(jsonFromEditor);
       setContent(serialized);
@@ -244,7 +260,10 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
         clearTimeout(saveTimeoutRef.current);
       }
 
+      const genAtSchedule = loadGenerationRef.current;
       saveTimeoutRef.current = setTimeout(() => {
+        if (!isMountedRef.current) return;
+        if (genAtSchedule !== loadGenerationRef.current) return;
         saveContent(serialized);
       }, 1000);
     },

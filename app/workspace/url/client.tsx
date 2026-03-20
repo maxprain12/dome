@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import URLViewer from '@/components/viewers/URLViewer';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
+import { processUrlResource } from '@/lib/web/processor';
 import SidePanel from '@/components/workspace/SidePanel';
 import SourcesPanel from '@/components/workspace/SourcesPanel';
 import StudioPanel from '@/components/workspace/StudioPanel';
@@ -19,11 +21,13 @@ interface URLWorkspaceClientProps {
 }
 
 export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientProps) {
+  const { t } = useTranslation();
   const [resource, setResource] = useState<Resource | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
+  const [urlProcessBusy, setUrlProcessBusy] = useState(false);
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
   const graphPanelOpen = useAppStore((s) => s.graphPanelOpen);
@@ -31,6 +35,28 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
 
   const navigate = useNavigate();
+
+  const runUrlProcess = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron?.web?.process) return;
+    setUrlProcessBusy(true);
+    try {
+      const result = await processUrlResource(resourceId);
+      if (result.success) {
+        const resourceResult = await window.electron.db.resources.getById(resourceId);
+        if (resourceResult?.success && resourceResult.data) {
+          const resourceData = resourceResult.data;
+          if (resourceData.metadata && typeof resourceData.metadata === 'string') {
+            resourceData.metadata = JSON.parse(resourceData.metadata);
+          }
+          setResource(resourceData as Resource);
+        }
+      }
+    } catch (err) {
+      console.error('Error processing URL resource:', err);
+    } finally {
+      setUrlProcessBusy(false);
+    }
+  }, [resourceId]);
 
   useEffect(() => {
     async function loadResource() {
@@ -178,11 +204,11 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     return (
       <div
         className="flex items-center justify-center min-h-full"
-        style={{ background: 'var(--bg)' }}
+        style={{ background: 'var(--dome-bg)' }}
       >
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Loading resource...</p>
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>{t('workspace.loading_resources')}</p>
         </div>
       </div>
     );
@@ -192,29 +218,35 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     return (
       <div
         className="flex flex-col items-center justify-center min-h-full p-8"
-        style={{ background: 'var(--bg)' }}
+        style={{ background: 'var(--dome-bg)' }}
       >
-        <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--error)' }} />
-        <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--primary-text)' }}>
-          Error
+        <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--dome-error, #ef4444)' }} />
+        <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
+          {t('workspace.error_loading')}
         </h2>
-        <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
-          {error || 'Resource not found'}
+        <p className="text-sm mb-4" style={{ color: 'var(--dome-text-muted)' }}>
+          {error || t('workspace.no_resources')}
         </p>
         <button
+          type="button"
           onClick={() => navigate('/')}
           className="px-4 py-2 rounded-lg text-sm font-medium"
-          style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+          style={{ backgroundColor: 'var(--dome-accent)', color: 'white' }}
         >
-          Go Back
+          {t('workspace.home')}
         </button>
       </div>
     );
   }
 
+  const meta = resource.metadata as Record<string, unknown> | undefined;
+  const pageUrl =
+    (typeof meta?.url === 'string' && meta.url.length > 0 ? meta.url : null) ||
+    (typeof resource.content === 'string' && resource.content.length > 0 ? resource.content : null);
+
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
-      {/* Header */}
+    <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
+      {/* Header — solo título + índice + paneles + más (acciones web en el visor) */}
       <WorkspaceHeader
         resource={resource}
         sidePanelOpen={sidePanelOpen}
@@ -234,7 +266,12 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
 
         {/* Viewer - min-h-0 allows flex child to shrink and fill available space */}
         <div className="flex-1 min-h-0 overflow-hidden relative flex flex-col">
-          <URLViewer resource={resource} />
+          <URLViewer
+            resource={resource}
+            onRunUrlProcess={runUrlProcess}
+            pageUrl={pageUrl}
+            processBusy={urlProcessBusy}
+          />
 
           {/* Studio Output Viewer Overlay */}
           {activeStudioOutput && (

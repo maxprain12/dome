@@ -2,6 +2,7 @@ import "@/components/editor/styles/index.css";
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   memo,
 } from "react";
@@ -92,6 +93,8 @@ function PageEditor({
   const [, setEditor] = useAtom(pageEditorAtom);
   const onContentChangeRef = useRef(onContentChange);
   onContentChangeRef.current = onContentChange;
+  /** False during unmount cleanup so deferred Tiptap destroy cannot trigger a stale autosave in the parent. */
+  const emitContentChangesRef = useRef(true);
 
   useEffect(() => {
     isComponentMounted.current = true;
@@ -165,13 +168,25 @@ function PageEditor({
           editorRef.current = editor;
         }
       },
+      onDestroy() {
+        emitContentChangesRef.current = false;
+      },
       onUpdate({ editor }) {
+        if (!emitContentChangesRef.current || editor.isDestroyed) return;
         const editorJson = editor.getJSON();
         onContentChangeRef.current?.(editorJson);
       },
     },
     [noteId, editable],
   );
+
+  // Layout phase runs before passive effect teardown — block onContentChange before useEditor schedules destroy.
+  useLayoutEffect(() => {
+    emitContentChangesRef.current = true;
+    return () => {
+      emitContentChangesRef.current = false;
+    };
+  }, []);
 
   // Sync body when switching notes or when parent replaces content (e.g. resource:updated).
   // `content` is read from the render that bumps `contentRevision`; omitting `content` from deps

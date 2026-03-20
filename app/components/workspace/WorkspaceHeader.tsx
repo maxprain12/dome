@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
 import {
   Info,
-  PanelRightClose,
   PanelRightOpen,
   FileText,
   Video,
@@ -149,16 +148,16 @@ export default function WorkspaceHeader({
   const getTypeIcon = () => {
     const iconProps = { size: 18, className: 'shrink-0' };
     switch (resource.type) {
-      case 'pdf': return <FileText {...iconProps} />;
-      case 'video': return <Video {...iconProps} />;
-      case 'audio': return <Music {...iconProps} />;
-      case 'image': return <Image {...iconProps} />;
-      case 'note': return <FileEdit {...iconProps} />;
-      case 'notebook': return <Notebook {...iconProps} />;
-      case 'document': return <File {...iconProps} />;
-      case 'ppt': return <Presentation {...iconProps} />;
-      case 'url': return <ExternalLink {...iconProps} />;
-      default: return <Folder {...iconProps} />;
+      case 'pdf': return <FileText {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
+      case 'video': return <Video {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
+      case 'audio': return <Music {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
+      case 'image': return <Image {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
+      case 'note': return <FileEdit {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
+      case 'notebook': return <Notebook {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
+      case 'document': return <File {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
+      case 'ppt': return <Presentation {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
+      case 'url': return <ExternalLink {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
+      default: return <Folder {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
     }
   };
 
@@ -178,8 +177,8 @@ export default function WorkspaceHeader({
     <header
       className={`flex items-center justify-between px-4 py-3 border-b app-region-drag shrink-0${isWindows ? ' win-titlebar-padding' : ''}`}
       style={{
-        background: 'var(--bg)',
-        borderColor: 'var(--border)',
+        background: 'var(--dome-bg)',
+        borderColor: 'var(--dome-border)',
         minHeight: '56px',
         paddingTop: 'calc(12px + var(--safe-area-inset-top))',
       }}
@@ -187,7 +186,7 @@ export default function WorkspaceHeader({
       {/* Left section */}
       <div className="flex items-center gap-3 min-w-0 app-region-no-drag">
         <div className="flex items-center gap-2 min-w-0">
-          <div style={{ color: 'var(--secondary-text)' }} className="shrink-0">
+          <div className="shrink-0 flex items-center">
             {getTypeIcon()}
           </div>
 
@@ -197,8 +196,8 @@ export default function WorkspaceHeader({
               value={editableTitle.value}
               onChange={(e) => editableTitle.onChange(e.target.value)}
               onBlur={editableTitle.onBlur}
-              className="text-sm font-medium bg-transparent border-none outline-none min-w-0 font-display focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-              style={{ color: 'var(--primary-text)' }}
+              className="text-sm font-medium bg-transparent border-none outline-none min-w-0 font-display focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+              style={{ color: 'var(--dome-text)' }}
               placeholder={editableTitle.placeholder || 'Untitled'}
               aria-label="Resource title"
             />
@@ -206,15 +205,15 @@ export default function WorkspaceHeader({
             <div className="flex items-baseline gap-2 min-w-0">
               <h1
                 className="text-sm font-medium truncate max-w-md font-display"
-                style={{ color: 'var(--primary-text)' }}
+                style={{ color: 'var(--dome-text)' }}
                 title={resource.title}
               >
                 {resource.title}
               </h1>
               {subtitle && (
                 <span
-                  className="text-xs shrink-0 truncate max-w-[120px]"
-                  style={{ color: 'var(--secondary-text)' }}
+                  className="text-xs shrink-0 truncate max-w-[200px] font-normal"
+                  style={{ color: 'var(--dome-text-muted)' }}
                 >
                   {subtitle}
                 </span>
@@ -230,10 +229,10 @@ export default function WorkspaceHeader({
           <button
             type="button"
             onClick={onOpenWorkspacePanel}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-[var(--dome-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
             style={{
-              color: notebookWorkspacePath || notebookVenvPath ? 'var(--primary-text)' : 'var(--secondary-text)',
-              border: '1px solid var(--border)',
+              color: notebookWorkspacePath || notebookVenvPath ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+              border: '1px solid var(--dome-border)',
             }}
             title="Configurar carpeta de trabajo y entorno Python"
           >
@@ -254,28 +253,30 @@ export default function WorkspaceHeader({
         {/* AI index status badge */}
         <IndexStatusBadge resourceId={resource.id} resourceType={resource.type} />
 
-        {/* Panels selector dropdown */}
+        {/* Panels selector — icon + menu only to keep the bar light */}
         <div ref={panelsRef} className="relative">
           <button
+            type="button"
             onClick={() => setPanelsOpen((o) => !o)}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            className="flex items-center gap-1 px-2 min-h-[36px] rounded-lg text-sm transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
             style={{
               background: sourcesPanelOpen || studioPanelOpen || graphPanelOpen || sidePanelOpen
-                ? 'var(--bg-secondary)'
+                ? 'var(--dome-surface)'
                 : 'transparent',
-              border: '1px solid var(--border)',
+              border: '1px solid var(--dome-border)',
               color: sourcesPanelOpen || studioPanelOpen || graphPanelOpen || sidePanelOpen
-                ? 'var(--primary-text)'
-                : 'var(--secondary-text)',
+                ? 'var(--dome-text)'
+                : 'var(--dome-text-muted)',
             }}
-            title="Paneles"
+            title={t('workspace.panels')}
             aria-expanded={panelsOpen}
             aria-haspopup="listbox"
           >
-            <PanelRightOpen size={16} />
-            <span>{t('workspace.panels')}</span>
+            <PanelRightOpen size={16} aria-hidden />
+            <span className="sr-only">{t('workspace.panels')}</span>
             <ChevronDown
               size={14}
+              aria-hidden
               style={{
                 opacity: 0.7,
                 transform: panelsOpen ? 'rotate(180deg)' : 'rotate(0)',
@@ -288,48 +289,48 @@ export default function WorkspaceHeader({
             <div
               className="absolute right-0 top-full mt-1 py-1 min-w-[180px] rounded-lg z-dropdown shadow-lg"
               style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
+                background: 'var(--dome-surface)',
+                border: '1px solid var(--dome-border)',
               }}
             >
               <button
                 onClick={() => { toggleSourcesPanel(); }}
-                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--bg-hover)]"
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
                 style={{
-                  color: 'var(--primary-text)',
+                  color: 'var(--dome-text)',
                 }}
               >
-                <BookOpen size={16} style={{ color: 'var(--secondary-text)' }} />
+                <BookOpen size={16} style={{ color: 'var(--dome-text-muted)' }} />
                 <span className="flex-1">{t('workspace.sources')}</span>
-                {sourcesPanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
+                {sourcesPanelOpen && <Check size={16} style={{ color: 'var(--dome-accent)' }} />}
               </button>
               <button
                 onClick={() => { toggleStudioPanel(); }}
-                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--bg-hover)]"
-                style={{ color: 'var(--primary-text)' }}
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
+                style={{ color: 'var(--dome-text)' }}
               >
-                <Sparkles size={16} style={{ color: 'var(--secondary-text)' }} />
+                <Sparkles size={16} style={{ color: 'var(--dome-text-muted)' }} />
                 <span className="flex-1">{t('workspace.studio')}</span>
-                {studioPanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
+                {studioPanelOpen && <Check size={16} style={{ color: 'var(--dome-accent)' }} />}
               </button>
               <button
                 onClick={() => { toggleGraphPanel(); }}
-                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--bg-hover)]"
-                style={{ color: 'var(--primary-text)' }}
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
+                style={{ color: 'var(--dome-text)' }}
               >
-                <Network size={16} style={{ color: 'var(--secondary-text)' }} />
+                <Network size={16} style={{ color: 'var(--dome-text-muted)' }} />
                 <span className="flex-1">{t('workspace.graph')}</span>
-                {graphPanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
+                {graphPanelOpen && <Check size={16} style={{ color: 'var(--dome-accent)' }} />}
               </button>
-              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+              <div style={{ height: 1, background: 'var(--dome-border)', margin: '4px 0' }} />
               <button
                 onClick={() => { onToggleSidePanel(); }}
-                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--bg-hover)]"
-                style={{ color: 'var(--primary-text)' }}
+                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
+                style={{ color: 'var(--dome-text)' }}
               >
-                <PanelRightOpen size={16} style={{ color: 'var(--secondary-text)' }} />
+                <PanelRightOpen size={16} style={{ color: 'var(--dome-text-muted)' }} />
                 <span className="flex-1">{t('workspace.sidePanel')}</span>
-                {sidePanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
+                {sidePanelOpen && <Check size={16} style={{ color: 'var(--dome-accent)' }} />}
               </button>
             </div>
           )}
@@ -339,30 +340,30 @@ export default function WorkspaceHeader({
         {resource.type === 'ppt' && onPresentationMode && (
           <button
             onClick={onPresentationMode}
-            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--secondary-text)' }}
-            title="Modo presentación"
-            aria-label="Modo presentación"
+            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg transition-all duration-200 hover:bg-[var(--dome-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+            style={{ color: 'var(--dome-text-muted)' }}
+            title={t('workspace.presentation_mode')}
+            aria-label={t('workspace.presentation_mode')}
           >
             <Presentation size={16} />
           </button>
         )}
 
         {/* Separator */}
-        <div className="w-px h-5" style={{ background: 'var(--border)' }} />
+        <div className="w-px h-5" style={{ background: 'var(--dome-border)' }} />
 
         {/* More options menu */}
         <div className="relative">
           <button
             ref={menuButtonRef}
             onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg transition-all duration-200 hover:bg-[var(--bg-secondary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg transition-all duration-200 hover:bg-[var(--dome-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
             style={{
-              background: menuOpen ? 'var(--bg-secondary)' : 'transparent',
-              color: 'var(--secondary-text)',
+              background: menuOpen ? 'var(--dome-surface)' : 'transparent',
+              color: 'var(--dome-text-muted)',
             }}
-            title="More options"
-            aria-label="More options"
+            title={t('workspace.more_options')}
+            aria-label={t('workspace.more_options')}
             aria-expanded={menuOpen}
             aria-haspopup="true"
           >
@@ -378,8 +379,8 @@ export default function WorkspaceHeader({
                 ...getMenuPosition(),
                 zIndex: 'var(--z-max)',
                 minWidth: '200px',
-                background: 'var(--bg)',
-                border: '1px solid var(--border)',
+                background: 'var(--dome-surface)',
+                border: '1px solid var(--dome-border)',
                 borderRadius: '8px',
                 boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
                 padding: '6px',
@@ -398,15 +399,15 @@ export default function WorkspaceHeader({
                   borderRadius: '6px',
                   fontSize: '13px',
                   fontWeight: 500,
-                  color: 'var(--primary-text)',
+                  color: 'var(--dome-text)',
                   width: '100%',
                   border: 'none',
                   textAlign: 'left',
                 }}
                 role="menuitem"
               >
-                <Info size={16} style={{ color: 'var(--secondary-text)' }} />
-                Resource info
+                <Info size={16} style={{ color: 'var(--dome-text-muted)' }} />
+                {t('viewer.resource_info')}
               </button>
 
               {((resource.type === 'note' && (onExportPdf || onExportDocx || onExport)) || (resource.type === 'document' && onExportDocx) || (resource.type === 'ppt' && onExportDocx)) ? (
@@ -414,7 +415,7 @@ export default function WorkspaceHeader({
                   <div
                     style={{
                       height: '1px',
-                      background: 'var(--border)',
+                      background: 'var(--dome-border)',
                       margin: '4px 0',
                     }}
                   />
@@ -433,14 +434,14 @@ export default function WorkspaceHeader({
                         borderRadius: '6px',
                         fontSize: '13px',
                         fontWeight: 500,
-                        color: 'var(--primary-text)',
+                        color: 'var(--dome-text)',
                         width: '100%',
                         border: 'none',
                         textAlign: 'left',
                       }}
                       role="menuitem"
                     >
-                      <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                      <FileDown size={16} style={{ color: 'var(--dome-text-muted)' }} />
                       Export
                     </button>
                   )}
@@ -461,14 +462,14 @@ export default function WorkspaceHeader({
                             borderRadius: '6px',
                             fontSize: '13px',
                             fontWeight: 500,
-                            color: 'var(--primary-text)',
+                            color: 'var(--dome-text)',
                             width: '100%',
                             border: 'none',
                             textAlign: 'left',
                           }}
                           role="menuitem"
                         >
-                          <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                          <FileDown size={16} style={{ color: 'var(--dome-text-muted)' }} />
                           Exportar a PDF
                         </button>
                       )}
@@ -487,14 +488,14 @@ export default function WorkspaceHeader({
                             borderRadius: '6px',
                             fontSize: '13px',
                             fontWeight: 500,
-                            color: 'var(--primary-text)',
+                            color: 'var(--dome-text)',
                             width: '100%',
                             border: 'none',
                             textAlign: 'left',
                           }}
                           role="menuitem"
                         >
-                          <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                          <FileDown size={16} style={{ color: 'var(--dome-text-muted)' }} />
                           Exportar a DOCX
                         </button>
                       )}
@@ -515,14 +516,14 @@ export default function WorkspaceHeader({
                         borderRadius: '6px',
                         fontSize: '13px',
                         fontWeight: 500,
-                        color: 'var(--primary-text)',
+                        color: 'var(--dome-text)',
                         width: '100%',
                         border: 'none',
                         textAlign: 'left',
                       }}
                       role="menuitem"
                     >
-                      <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                      <FileDown size={16} style={{ color: 'var(--dome-text-muted)' }} />
                       Exportar a DOCX
                     </button>
                   )}
@@ -541,14 +542,14 @@ export default function WorkspaceHeader({
                         borderRadius: '6px',
                         fontSize: '13px',
                         fontWeight: 500,
-                        color: 'var(--primary-text)',
+                        color: 'var(--dome-text)',
                         width: '100%',
                         border: 'none',
                         textAlign: 'left',
                       }}
                       role="menuitem"
                     >
-                      <FileDown size={16} style={{ color: 'var(--secondary-text)' }} />
+                      <FileDown size={16} style={{ color: 'var(--dome-text-muted)' }} />
                       Exportar a PPTX
                     </button>
                   )}
@@ -560,7 +561,7 @@ export default function WorkspaceHeader({
                   <div
                     style={{
                       height: '1px',
-                      background: 'var(--border)',
+                      background: 'var(--dome-border)',
                       margin: '4px 0',
                     }}
                   />
@@ -575,15 +576,15 @@ export default function WorkspaceHeader({
                       borderRadius: '6px',
                       fontSize: '13px',
                       fontWeight: 500,
-                      color: 'var(--primary-text)',
+                      color: 'var(--dome-text)',
                       width: '100%',
                       border: 'none',
                       textAlign: 'left',
                     }}
                     role="menuitem"
                   >
-                    <ExternalLink size={16} style={{ color: 'var(--secondary-text)' }} />
-                    Open with default app
+                    <ExternalLink size={16} style={{ color: 'var(--dome-text-muted)' }} />
+                    {t('viewer.open_with_default_app')}
                   </button>
                   <button
                     onClick={handleShowInFinder}
@@ -596,15 +597,15 @@ export default function WorkspaceHeader({
                       borderRadius: '6px',
                       fontSize: '13px',
                       fontWeight: 500,
-                      color: 'var(--primary-text)',
+                      color: 'var(--dome-text)',
                       width: '100%',
                       border: 'none',
                       textAlign: 'left',
                     }}
                     role="menuitem"
                   >
-                    <FolderOpen size={16} style={{ color: 'var(--secondary-text)' }} />
-                    Show in Finder
+                    <FolderOpen size={16} style={{ color: 'var(--dome-text-muted)' }} />
+                    {t('viewer.show_in_finder')}
                   </button>
                 </>
               )}

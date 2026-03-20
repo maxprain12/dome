@@ -213,7 +213,19 @@ export default function ContentRouter() {
       className="flex flex-col flex-1 min-h-0 overflow-hidden"
       style={{ background: 'var(--dome-surface)' }}
     >
-      <TabContent key={activeTab.id} tab={activeTab} />
+      {tabs.map((tab) => (
+        <div
+          key={tab.id}
+          className={
+            tab.id === activeTabId
+              ? 'flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden'
+              : 'hidden'
+          }
+          aria-hidden={tab.id !== activeTabId}
+        >
+          <TabContent tab={tab} />
+        </div>
+      ))}
     </div>
   );
 }

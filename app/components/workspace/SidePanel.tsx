@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown, FileText, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import WorkspaceFilesPanel from './WorkspaceFilesPanel';
@@ -7,6 +7,19 @@ import { type Resource } from '@/types';
 import { useManyStore } from '@/lib/store/useManyStore';
 
 type TabType = 'references' | 'backlinks' | 'search' | 'workspace' | 'pdf';
+
+const TAB_IDS: TabType[] = ['references', 'backlinks', 'search', 'workspace', 'pdf'];
+
+function tabIcon(id: TabType): React.ReactNode {
+  switch (id) {
+    case 'references': return <Link2 size={14} />;
+    case 'backlinks': return <MessageSquare size={14} />;
+    case 'search': return <Search size={14} />;
+    case 'workspace': return <FolderOpen size={14} />;
+    case 'pdf': return <FileText size={14} />;
+    default: return null;
+  }
+}
 
 interface SidePanelProps {
   resourceId: string;
@@ -20,14 +33,6 @@ interface SidePanelProps {
   notebookVenvPath?: string;
   onNotebookVenvPathChange?: (path: string) => Promise<void>;
 }
-
-const TAB_CONFIG: { id: TabType; label: string; icon: React.ReactNode }[] = [
-  { id: 'references', label: 'References', icon: <Link2 size={14} /> },
-  { id: 'backlinks', label: 'Backlinks', icon: <MessageSquare size={14} /> },
-  { id: 'search', label: 'Search', icon: <Search size={14} /> },
-  { id: 'workspace', label: 'Workspace', icon: <FolderOpen size={14} /> },
-  { id: 'pdf', label: 'PDF', icon: <FileText size={14} /> },
-];
 
 export default function SidePanel({
   resourceId,
@@ -53,22 +58,38 @@ export default function SidePanel({
     (resource?.type === 'document' &&
       ((resource?.original_filename || resource?.title || '').toLowerCase().endsWith('.pdf') ||
         resource?.file_mime_type === 'application/pdf'));
-  const tabs = TAB_CONFIG.filter((t) => {
-    if (t.id === 'workspace') return isNotebook;
-    if (t.id === 'pdf') return isPdf;
-    return true;
-  });
+  const tabLabel = (id: TabType) => {
+    const keys: Record<TabType, string> = {
+      references: 'workspace.side_panel_tab_references',
+      backlinks: 'workspace.side_panel_tab_backlinks',
+      search: 'workspace.side_panel_tab_search',
+      workspace: 'workspace.side_panel_tab_workspace',
+      pdf: 'workspace.side_panel_tab_pdf',
+    };
+    return t(keys[id]);
+  };
 
-  // When switching to PDF resource, select PDF tab if current tab is no longer available
+  const tabs = useMemo(
+    () =>
+      TAB_IDS.filter((id) => {
+        if (id === 'workspace') return isNotebook;
+        if (id === 'pdf') return isPdf;
+        return true;
+      }),
+    [isNotebook, isPdf],
+  );
+
+  // Keep active tab valid for current resource (e.g. PDF tab only on PDFs)
   useEffect(() => {
-    if (isPdf && !tabs.some((t) => t.id === activeTab)) {
-      setActiveTab('pdf');
-    }
-  }, [isPdf, activeTab, tabs]);
+    setActiveTab((prev) => {
+      if (tabs.includes(prev)) return prev;
+      return isPdf ? 'pdf' : 'references';
+    });
+  }, [resourceId, isPdf, tabs]);
 
   // When opening panel for a notebook, default to Workspace tab
   useEffect(() => {
-    if (isOpen && isNotebook && tabs.some((t) => t.id === 'workspace')) {
+    if (isOpen && isNotebook && tabs.includes('workspace')) {
       setActiveTab('workspace');
     }
   }, [isOpen, isNotebook, tabs]);
@@ -96,7 +117,7 @@ export default function SidePanel({
 
   if (!isOpen) return null;
 
-  const activeTabConfig = tabs.find((t) => t.id === activeTab) ?? tabs[0];
+  const effectiveTab: TabType = (tabs.includes(activeTab) ? activeTab : tabs[0]) ?? 'references';
 
   return (
     <div
@@ -104,36 +125,36 @@ export default function SidePanel({
       style={{
         width: 'min(30vw, 380px)',
         minWidth: '280px',
-        background: 'var(--bg)',
-        borderColor: 'var(--border)',
+        background: 'var(--dome-bg)',
+        borderColor: 'var(--dome-border)',
       }}
     >
       <div
         className="flex items-center justify-between gap-2 px-4 py-3 border-b shrink-0"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
+        style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
       >
         <div ref={dropdownRef} className="flex-1 min-w-0 relative">
           <button
             type="button"
             onClick={() => setDropdownOpen((o) => !o)}
-            className="flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            className="flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
             style={{
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border)',
-              color: 'var(--primary-text)',
+              background: 'var(--dome-surface)',
+              border: '1px solid var(--dome-border)',
+              color: 'var(--dome-text)',
             }}
             aria-expanded={dropdownOpen}
             aria-haspopup="listbox"
           >
             <span className="flex items-center gap-2 truncate">
-              {activeTabConfig?.icon}
-              {activeTabConfig?.label}
+              {tabIcon(effectiveTab)}
+              {tabLabel(effectiveTab)}
             </span>
             <ChevronDown
               size={16}
               className="shrink-0 transition-transform duration-200"
               style={{
-                color: 'var(--secondary-text)',
+                color: 'var(--dome-text-muted)',
                 transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0)',
               }}
             />
@@ -143,26 +164,26 @@ export default function SidePanel({
             <div
               className="absolute top-full left-0 right-0 mt-1 py-1 rounded-lg z-dropdown shadow-lg"
               style={{
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
+                background: 'var(--dome-surface)',
+                border: '1px solid var(--dome-border)',
               }}
             >
-              {tabs.map((tab) => (
+              {tabs.map((tabId) => (
                 <button
-                  key={tab.id}
+                  key={tabId}
                   type="button"
                   onClick={() => {
-                    setActiveTab(tab.id);
+                    setActiveTab(tabId);
                     setDropdownOpen(false);
                   }}
-                  className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors"
+                  className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
                   style={{
-                    color: activeTab === tab.id ? 'var(--primary-text)' : 'var(--secondary-text)',
-                    background: activeTab === tab.id ? 'var(--translucent)' : 'transparent',
+                    color: effectiveTab === tabId ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+                    background: effectiveTab === tabId ? 'var(--dome-accent-bg)' : 'transparent',
                   }}
                 >
-                  {tab.icon}
-                  {tab.label}
+                  {tabIcon(tabId)}
+                  {tabLabel(tabId)}
                 </button>
               ))}
             </div>
@@ -171,9 +192,9 @@ export default function SidePanel({
 
         <button
           onClick={onClose}
-          className="p-2 rounded-lg shrink-0 transition-all duration-200 hover:bg-[var(--bg-secondary)] opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-          style={{ color: 'var(--secondary-text)' }}
-          aria-label="Close panel"
+          className="p-2 rounded-lg shrink-0 transition-all duration-200 hover:bg-[var(--dome-bg-hover)] opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+          style={{ color: 'var(--dome-text-muted)' }}
+          aria-label={t('workspace.side_panel_close')}
         >
           <X size={16} />
         </button>
@@ -181,16 +202,16 @@ export default function SidePanel({
 
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden relative flex flex-col">
-        {activeTab === 'references' && (
+        {effectiveTab === 'references' && (
           <ReferencesTab resourceId={resourceId} />
         )}
-        {activeTab === 'backlinks' && (
+        {effectiveTab === 'backlinks' && (
           <BacklinksTab resourceId={resourceId} />
         )}
-        {activeTab === 'search' && (
+        {effectiveTab === 'search' && (
           <SearchTab resourceId={resourceId} resource={resource} />
         )}
-        {activeTab === 'workspace' && isNotebook && onNotebookWorkspacePathChange && (
+        {effectiveTab === 'workspace' && isNotebook && onNotebookWorkspacePathChange && (
           <WorkspaceFilesPanel
             workspacePath={notebookWorkspacePath}
             onWorkspacePathChange={onNotebookWorkspacePathChange}
@@ -198,7 +219,7 @@ export default function SidePanel({
             onVenvPathChange={onNotebookVenvPathChange}
           />
         )}
-        {activeTab === 'pdf' && isPdf && <PDFTab />}
+        {effectiveTab === 'pdf' && isPdf && <PDFTab />}
       </div>
     </div>
   );
