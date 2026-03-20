@@ -24,48 +24,40 @@ import type {
   MentionSuggestionItem,
 } from "@/components/editor/components/mention/mention.type";
 
-interface DomeNote {
-  id: string;
-  title: string;
-  icon?: string;
-  slug_id?: string;
-}
-
 const MentionList = forwardRef<any, MentionListProps>((props, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [renderItems, setRenderItems] = useState<MentionSuggestionItem[]>([]);
 
-  // Search local notes via Electron IPC
+  // Search resources (notes, files, etc.) via Electron IPC
   useEffect(() => {
     const query = props.query;
 
-    async function searchNotes() {
+    async function searchResources() {
       const electron = (window as any).electron;
-      if (!electron?.db?.notes?.search) {
+      if (!electron?.db?.resources?.searchForMention) {
         setRenderItems([]);
         return;
       }
 
       try {
-        const projectId = (window as any).__domeCurrentProjectId || "default";
-        const result = await electron.db.notes.search(query || "", projectId);
+        const result = await electron.db.resources.searchForMention(query || "");
 
         if (result?.success && Array.isArray(result.data)) {
-          const notes: DomeNote[] = result.data.slice(0, 10);
+          const rows = result.data.slice(0, 10) as { id: string; title: string; type?: string }[];
 
           const items: MentionSuggestionItem[] = [];
 
-          if (notes.length > 0) {
-            items.push({ entityType: "header", label: "Notas" });
+          if (rows.length > 0) {
+            items.push({ entityType: "header", label: "Recursos" });
             items.push(
-              ...notes.map((note) => ({
+              ...rows.map((r) => ({
                 id: uuid7(),
-                label: note.title || "Sin título",
+                label: r.title || "Sin título",
                 entityType: "page" as const,
-                entityId: note.id,
-                slugId: note.slug_id || note.id,
-                icon: note.icon || null,
+                entityId: r.id,
+                slugId: r.id,
+                icon: null,
               })),
             );
           }
@@ -82,7 +74,7 @@ const MentionList = forwardRef<any, MentionListProps>((props, ref) => {
       }
     }
 
-    searchNotes();
+    searchResources();
   }, [props.query]);
 
   const selectItem = useCallback(

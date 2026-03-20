@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Save, Check, Loader2 } from 'lucide-react';
 import { FullEditor } from '@/components/editor/full-editor';
 import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
@@ -15,7 +15,6 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { contentToPrintHtml } from '@/lib/utils/note-to-html';
 import { type Resource } from '@/types';
 import { useTranslation } from 'react-i18next';
-
 
 interface NoteWorkspaceClientProps {
   resourceId: string;
@@ -38,6 +37,7 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [contentRevision, setContentRevision] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
@@ -45,7 +45,12 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
   const lastSavedContentRef = useRef<string>('');
   const savedFeedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dataSourceRef = useRef<'notes' | 'resources'>('resources');
+  const resourceRef = useRef<Resource | null>(null);
+  const contentRef = useRef<string>('');
+  const titleRef = useRef<string>('');
+  resourceRef.current = resource;
+  contentRef.current = content;
+  titleRef.current = title;
 
   // Prevent ProseMirror scrollIntoView from scrolling the outer container
   useEffect(() => {
@@ -59,100 +64,105 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
     return () => el.removeEventListener('scroll', preventScroll);
   }, []);
 
-  // Load resource - dual-read: try notes (new domain) first, then resources (legacy)
+  const onTitleChangeRef = useRef(onTitleChange);
+  const onUnsavedChangeRef = useRef(onUnsavedChange);
+  onTitleChangeRef.current = onTitleChange;
+  onUnsavedChangeRef.current = onUnsavedChange;
+
+  // Load resource — single source: `resources` (type note)
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setContent('');
     setTitle('');
     setError(null);
+    setContentRevision(0);
 
     async function loadResource() {
-      if (!window.electron?.db) {
-        setError(t('errors.database_unavailable'));
-        setLoading(false);
+      if (!window.electron?.db?.resources) {
+        if (!cancelled) setError(t('errors.database_unavailable'));
+        if (!cancelled) setLoading(false);
         return;
       }
 
       try {
-        let data: { id: string; title: string; content?: string; project_id?: string } | null = null;
-        let source: 'notes' | 'resources' = 'resources';
+        const resResult = await window.electron.db.resources.getById(resourceId);
+        if (cancelled) return;
 
-        if (window.electron.db.notes) {
-          const noteResult = await window.electron.db.notes.getByIdOrSlug(resourceId);
-          if (noteResult?.success && noteResult.data) {
-            const n = noteResult.data as any;
-            data = {
-              id: n.id,
-              title: n.title || '',
-              content: n.content_json || n.text_content || '',
-              project_id: n.project_id,
-            };
-            source = 'notes';
-            dataSourceRef.current = 'notes';
+        if (resResult?.success && resResult.data) {
+          const r = resResult.data as Resource;
+          if (r.type !== 'note') {
+            if (!cancelled) {
+              setError('This resource is not a note.');
+              setLoading(false);
+            }
+            return;
           }
-        }
 
-        if (!data && window.electron.db.resources) {
-          const resResult = await window.electron.db.resources.getById(resourceId);
-          if (resResult?.success && resResult.data) {
-            const r = resResult.data as any;
-            data = {
-              id: r.id,
-              title: r.title || '',
-              content: r.content || '',
-              project_id: r.project_id,
-            };
-            source = 'resources';
-            dataSourceRef.current = 'resources';
-          }
-        }
+          const body = typeof r.content === 'string' ? r.content : '';
+          (window as unknown as { __domeCurrentProjectId?: string }).__domeCurrentProjectId = r.project_id || 'default';
 
-        if (data) {
-          // Expose project ID globally for upload actions
-          (window as any).__domeCurrentProjectId = data.project_id || 'default';
-
-          setResource({
-            ...data,
-            id: data.id,
-            project_id: data.project_id || 'default',
-            type: 'note',
-            created_at: 0,
-            updated_at: 0,
-            _source: source,
-          } as Resource & { _source?: 'notes' | 'resources' });
-          setTitle(data.title || '');
-          setContent(data.content || '');
-          lastSavedContentRef.current = data.content || '';
-          onTitleChange?.(data.title || 'Untitled');
-          onUnsavedChange?.(false);
+          setResource(r);
+          setTitle(r.title || '');
+          setContent(body);
+          lastSavedContentRef.current = body;
+          onTitleChangeRef.current?.(r.title || 'Untitled');
+          onUnsavedChangeRef.current?.(false);
         } else {
           setError('Note not found');
         }
       } catch (err) {
         console.error('Error loading note:', err);
-        setError('Failed to load note');
+        if (!cancelled) setError('Failed to load note');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
     loadResource();
-  }, [resourceId, onTitleChange]);
+    return () => {
+      cancelled = true;
+    };
+  }, [resourceId, t]);
 
-  // Listen for note:updated (e.g. restore from history) to refresh content
+  // External updates (AI tools, sync, other windows). Do not overwrite body while local edits are pending.
   useEffect(() => {
     if (!window.electron?.on) return;
-    const unsub = window.electron.on('note:updated', (payload: { id: string; updates?: Partial<{ title: string; content_json: string; text_content: string }> }) => {
-      if (payload.id !== resourceId) return;
-      const updates = payload.updates;
-      if (updates?.title !== undefined) setTitle(updates.title);
-      if (updates?.content_json !== undefined) {
-        setContent(updates.content_json);
-        lastSavedContentRef.current = updates.content_json;
-      }
-    });
-    return () => { unsub(); };
+    const unsub = window.electron.on(
+      'resource:updated',
+      ({ id, updates }: { id: string; updates: Partial<Resource> }) => {
+        if (id !== resourceId) return;
+        if (updates.title !== undefined) setTitle(updates.title);
+
+        const hasLocalBodyChanges = contentRef.current !== lastSavedContentRef.current;
+        if (updates.content !== undefined && !hasLocalBodyChanges) {
+          const c = typeof updates.content === 'string' ? updates.content : '';
+          setContent(c);
+          lastSavedContentRef.current = c;
+          setContentRevision((rev) => rev + 1);
+        }
+
+        setResource((prev) => {
+          if (!prev) return prev;
+          if (updates.content !== undefined && hasLocalBodyChanges) {
+            const { content: _remoteBody, ...rest } = updates;
+            return { ...prev, ...rest } as Resource;
+          }
+          return { ...prev, ...updates } as Resource;
+        });
+      },
+    );
+    return () => {
+      unsub();
+    };
   }, [resourceId]);
+
+  // Closing the right "inspector" when Studio or Graph opens (single wide rail)
+  useEffect(() => {
+    if (studioPanelOpen || graphPanelOpen) {
+      setIsPanelOpen(false);
+    }
+  }, [studioPanelOpen, graphPanelOpen]);
 
   // Set selected sources to current resource when opening (for Studio generation)
   useEffect(() => {
@@ -161,37 +171,24 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
     }
   }, [resourceId]);
 
-  // Auto-save or manual save content
-  const saveContent = useCallback(async (newContent: string, isManual = false) => {
-    if (!resource) return;
+  const saveContent = useCallback(async (newContent: string, _isManual = false) => {
+    const res = resourceRef.current;
+    if (!res || !window.electron?.db?.resources) return;
     if (newContent === lastSavedContentRef.current) return;
 
-    const fromNotes = dataSourceRef.current === 'notes';
-    if (fromNotes) {
-      if (!window.electron?.db?.notes) return;
-    } else {
-      if (!window.electron?.db?.resources) return;
-    }
+    const titleToPersist = titleRef.current.trim() || res.title;
 
     setIsSaving(true);
     setLastSavedAt(null);
     try {
-      if (fromNotes) {
-        const textContent = newContent.replace(/<[^>]*>/g, ' ').replace(/#{1,6}\s?/g, '').slice(0, 50000);
-        await window.electron.db.notes.update({
-          id: resourceId,
-          content_json: newContent,
-          text_content: textContent,
-        });
-      } else {
-        await window.electron.db.resources.update({
-          id: resourceId,
-          title: resource.title,
-          content: newContent,
-          updated_at: Date.now(),
-        });
-      }
+      await window.electron.db.resources.update({
+        id: resourceId,
+        title: titleToPersist,
+        content: newContent,
+        updated_at: Date.now(),
+      });
       lastSavedContentRef.current = newContent;
+      setResource((prev) => (prev ? { ...prev, title: titleToPersist, content: newContent } : prev));
       setLastSavedAt(Date.now());
       onUnsavedChange?.(false);
       if (savedFeedbackTimeoutRef.current) clearTimeout(savedFeedbackTimeoutRef.current);
@@ -201,9 +198,33 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
     } finally {
       setIsSaving(false);
     }
-  }, [resourceId, resource, onUnsavedChange]);
+  }, [resourceId, onUnsavedChange]);
 
-  // Manual save - triggers immediately with current content
+  // Flush pending debounced save and persist latest content on unmount (tab switch / close)
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      if (savedFeedbackTimeoutRef.current) {
+        clearTimeout(savedFeedbackTimeoutRef.current);
+      }
+      const res = resourceRef.current;
+      const latest = contentRef.current;
+      if (!res || !window.electron?.db?.resources) return;
+      if (latest === lastSavedContentRef.current) return;
+      const titleToPersist = titleRef.current.trim() || res.title;
+      void window.electron.db.resources.update({
+        id: resourceId,
+        title: titleToPersist,
+        content: latest,
+        updated_at: Date.now(),
+      });
+      lastSavedContentRef.current = latest;
+    };
+  }, [resourceId]);
+
   const handleManualSave = useCallback(() => {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -212,48 +233,43 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
     saveContent(content, true);
   }, [content, saveContent]);
 
-  // Debounced save on content change — editor emits Tiptap JSON object
-  const handleContentChange = useCallback((jsonFromEditor: any) => {
-    const serialized = typeof jsonFromEditor === 'string'
-      ? jsonFromEditor
-      : JSON.stringify(jsonFromEditor);
-    setContent(serialized);
-    onUnsavedChange?.(serialized !== lastSavedContentRef.current);
+  const handleContentChange = useCallback(
+    (jsonFromEditor: unknown) => {
+      const serialized =
+        typeof jsonFromEditor === 'string' ? jsonFromEditor : JSON.stringify(jsonFromEditor);
+      setContent(serialized);
+      onUnsavedChange?.(serialized !== lastSavedContentRef.current);
 
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-
-    saveTimeoutRef.current = setTimeout(() => {
-      saveContent(serialized);
-    }, 1000);
-  }, [saveContent, onUnsavedChange]);
-
-  // Save title
-  const handleTitleBlur = useCallback(async () => {
-    if (!resource) return;
-    if (title === resource.title) return;
-
-    const fromNotes = dataSourceRef.current === 'notes';
-    try {
-      if (fromNotes && window.electron?.db?.notes) {
-        await window.electron.db.notes.update({ id: resourceId, title });
-      } else if (window.electron?.db?.resources) {
-        await window.electron.db.resources.update({
-          id: resourceId,
-          title,
-          content: resource.content || null,
-          updated_at: Date.now(),
-        });
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
       }
-      setResource({ ...resource, title });
+
+      saveTimeoutRef.current = setTimeout(() => {
+        saveContent(serialized);
+      }, 1000);
+    },
+    [saveContent, onUnsavedChange],
+  );
+
+  const handleTitleBlur = useCallback(async () => {
+    const res = resourceRef.current;
+    if (!res) return;
+    if (title === res.title) return;
+
+    try {
+      await window.electron.db.resources.update({
+        id: resourceId,
+        title,
+        content: contentRef.current,
+        updated_at: Date.now(),
+      });
+      setResource({ ...res, title });
       onTitleChange?.(title);
     } catch (err) {
       console.error('Error saving title:', err);
     }
-  }, [resourceId, resource, title, onTitleChange]);
+  }, [resourceId, title, onTitleChange]);
 
-  // Export note to PDF
   const handleExportPdf = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron?.note) return;
     const html = contentToPrintHtml(content, title);
@@ -263,7 +279,6 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
     }
   }, [content, title]);
 
-  // Save metadata from modal
   const handleSaveMetadata = useCallback(async (updates: Partial<Resource>): Promise<boolean> => {
     if (!resource || typeof window === 'undefined' || !window.electron) return false;
 
@@ -288,20 +303,34 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
     }
   }, [resource]);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-      if (savedFeedbackTimeoutRef.current) clearTimeout(savedFeedbackTimeoutRef.current);
-    };
+  const handleToggleSidePanel = useCallback(() => {
+    setIsPanelOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        useAppStore.setState({ studioPanelOpen: false, graphPanelOpen: false });
+      }
+      return next;
+    });
   }, []);
+
+  const parsedEditorContent = useMemo(() => {
+    const c = content;
+    if (!c) return null;
+    try {
+      return JSON.parse(c);
+    } catch {
+      return c;
+    }
+  }, [content]);
 
   const hasUnsavedChanges = content !== lastSavedContentRef.current;
 
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
-        <div className="animate-pulse" style={{ color: 'var(--secondary-text)' }}>Loading note...</div>
+        <div className="animate-pulse" style={{ color: 'var(--secondary-text)' }}>
+          Loading note...
+        </div>
       </div>
     );
   }
@@ -311,7 +340,9 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
       <div className="h-full flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--bg)' }}>
         <div style={{ color: 'var(--error)' }}>{error || 'Note not found'}</div>
         <button
-          onClick={() => { if (typeof window !== 'undefined') window.close(); }}
+          onClick={() => {
+            if (typeof window !== 'undefined') window.close();
+          }}
           className="btn btn-primary"
         >
           Close Window
@@ -322,11 +353,10 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
 
   return (
     <div ref={containerRef} className="h-full flex flex-col" style={{ backgroundColor: 'var(--bg)', overflow: 'clip' }}>
-      {/* Shared Header */}
       <WorkspaceHeader
         resource={resource}
         sidePanelOpen={isPanelOpen}
-        onToggleSidePanel={() => setIsPanelOpen(!isPanelOpen)}
+        onToggleSidePanel={handleToggleSidePanel}
         onShowMetadata={() => setShowMetadata(true)}
         onExportPdf={handleExportPdf}
         onExport={() => setShowExportModal(true)}
@@ -354,7 +384,9 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
               <span>{isSaving ? 'Guardando...' : 'Guardar'}</span>
             </button>
             {isSaving && (
-              <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>Guardando automáticamente...</span>
+              <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>
+                Guardando automáticamente...
+              </span>
             )}
             {lastSavedAt && !isSaving && (
               <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--success, #22c55e)' }}>
@@ -366,56 +398,26 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
         }
       />
 
-      {/* Main content */}
-      <div className="flex-1 flex relative min-h-0" style={{ overflow: 'clip' }}>
-        {/* Sources Panel */}
+      <div className="flex-1 flex relative min-h-0 min-w-0" style={{ overflow: 'clip' }}>
         {sourcesPanelOpen && resource && (
-          <SourcesPanel
-            resourceId={resourceId}
-            projectId={resource.project_id}
-          />
+          <SourcesPanel resourceId={resourceId} projectId={resource.project_id} />
         )}
 
-        {/* Editor area */}
-        <div className="flex-1 relative min-h-0" style={{ overflow: 'clip' }}>
-          <div className="h-full overflow-auto">
-            <div className="w-full">
+        <div className="flex-1 relative min-h-0 min-w-0" style={{ overflow: 'clip' }}>
+          <div className="h-full overflow-auto min-w-0">
+            <div className="w-full min-w-0">
               <FullEditor
                 noteId={resourceId}
                 title={title}
-                content={(() => {
-                  const c = content;
-                  if (!c) return null;
-                  try { return JSON.parse(c); } catch { return c; }
-                })()}
+                content={parsedEditorContent}
+                contentRevision={contentRevision}
+                showTitleEditor={false}
                 editable={true}
-                onTitleChange={async (newTitle) => {
-                  setTitle(newTitle);
-                  onTitleChange?.(newTitle);
-                  if (!resource) return;
-                  const fromNotes = dataSourceRef.current === 'notes';
-                  try {
-                    if (fromNotes && window.electron?.db?.notes) {
-                      await window.electron.db.notes.update({ id: resourceId, title: newTitle });
-                    } else if (window.electron?.db?.resources) {
-                      await window.electron.db.resources.update({
-                        id: resourceId,
-                        title: newTitle,
-                        content: resource.content || null,
-                        updated_at: Date.now(),
-                      });
-                    }
-                    setResource({ ...resource, title: newTitle });
-                  } catch (err) {
-                    console.error('Error saving title:', err);
-                  }
-                }}
                 onContentChange={handleContentChange}
               />
             </div>
           </div>
 
-          {/* Studio Output Viewer Overlay */}
           {activeStudioOutput && (
             <StudioOutputViewer
               output={activeStudioOutput}
@@ -424,7 +426,6 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
           )}
         </div>
 
-        {/* Side Panel */}
         <SidePanel
           resourceId={resourceId}
           resource={resource}
@@ -432,18 +433,13 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
           onClose={() => setIsPanelOpen(false)}
         />
 
-        {/* Studio Panel */}
         {studioPanelOpen && resource && (
           <StudioPanel projectId={resource.project_id} resourceId={resource.id} />
         )}
 
-        {/* Graph Panel */}
-        {graphPanelOpen && resource && (
-          <GraphPanel resource={resource} />
-        )}
+        {graphPanelOpen && resource && <GraphPanel resource={resource} />}
       </div>
 
-      {/* Export Modal */}
       {showExportModal && (
         <ExportModal
           open={showExportModal}
@@ -451,12 +447,11 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
           noteId={resourceId}
           title={title}
           content={content}
-          isNoteFromNewDomain={dataSourceRef.current === 'notes'}
+          isNoteFromNewDomain={false}
           onExportPdf={handleExportPdf}
         />
       )}
 
-      {/* Metadata Modal */}
       <MetadataModal
         resource={resource}
         isOpen={showMetadata}

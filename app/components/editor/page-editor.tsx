@@ -30,25 +30,66 @@ import SearchAndReplaceDialog from "@/components/editor/components/search-and-re
 import ColumnsMenu from "@/components/editor/components/columns/columns-menu";
 import { useEditorScroll } from "@/components/editor/hooks/use-editor-scroll";
 import { looksLikeHtml, stringToEditorHtml } from "@/lib/utils/markdown";
+import type { Editor } from "@tiptap/core";
 
 interface PageEditorProps {
   noteId: string;
   editable: boolean;
-  content: any;
-  onContentChange?: (json: any) => void;
+  content: unknown;
+  /** Increment when parent replaces document from outside (sync, IPC). */
+  contentRevision?: number;
+  onContentChange?: (json: unknown) => void;
+}
+
+function applyContentToEditor(editor: Editor, content: unknown) {
+  if (content) {
+    let parsedContent: unknown;
+    let useMarkdown = false;
+    if (typeof content === 'string') {
+      try {
+        parsedContent = JSON.parse(content);
+        if (parsedContent && typeof parsedContent === 'object' && (parsedContent as { type?: string }).type === 'doc') {
+          // Valid Tiptap JSON
+        } else {
+          if (looksLikeHtml(content)) {
+            parsedContent = stringToEditorHtml(content);
+          } else {
+            useMarkdown = true;
+            parsedContent = content;
+          }
+        }
+      } catch {
+        if (looksLikeHtml(content)) {
+          parsedContent = stringToEditorHtml(content);
+        } else {
+          useMarkdown = true;
+          parsedContent = content;
+        }
+      }
+    } else {
+      parsedContent = content;
+    }
+    if (useMarkdown) {
+      editor.commands.setContent(parsedContent as string, { contentType: 'markdown', emitUpdate: false } as any);
+    } else {
+      editor.commands.setContent(parsedContent as any, false as any);
+    }
+  } else {
+    editor.commands.setContent('', false as any);
+  }
 }
 
 function PageEditor({
   noteId,
   editable,
   content,
+  contentRevision = 0,
   onContentChange,
 }: PageEditorProps) {
   const isComponentMounted = useRef(false);
   const editorRef = useRef(null);
   const menuContainerRef = useRef(null);
   const [, setEditor] = useAtom(pageEditorAtom);
-  // Keep onContentChange ref always up-to-date without triggering editor recreation
   const onContentChangeRef = useRef(onContentChange);
   onContentChangeRef.current = onContentChange;
 
@@ -125,7 +166,6 @@ function PageEditor({
         }
       },
       onUpdate({ editor }) {
-        if (editor.isEmpty) return;
         const editorJson = editor.getJSON();
         onContentChangeRef.current?.(editorJson);
       },
@@ -133,48 +173,17 @@ function PageEditor({
     [noteId, editable],
   );
 
-  // Sync content when noteId changes (opening a different note)
+  // Sync body when switching notes or when parent replaces content (e.g. resource:updated).
+  // `content` is read from the render that bumps `contentRevision`; omitting `content` from deps
+  // avoids resetting the doc on every local keystroke (parent updates `content` each time).
   useEffect(() => {
     if (editor && editor.isInitialized) {
       // @ts-ignore
       editor.storage.pageId = noteId;
-      if (content) {
-        let parsedContent: unknown;
-        let useMarkdown = false;
-        if (typeof content === 'string') {
-          try {
-            parsedContent = JSON.parse(content);
-            if (parsedContent && typeof parsedContent === 'object' && (parsedContent as { type?: string }).type === 'doc') {
-              // Valid Tiptap JSON - use as-is
-            } else {
-              if (looksLikeHtml(content)) {
-                parsedContent = stringToEditorHtml(content);
-              } else {
-                useMarkdown = true;
-                parsedContent = content;
-              }
-            }
-          } catch {
-            if (looksLikeHtml(content)) {
-              parsedContent = stringToEditorHtml(content);
-            } else {
-              useMarkdown = true;
-              parsedContent = content;
-            }
-          }
-        } else {
-          parsedContent = content;
-        }
-        if (useMarkdown) {
-          editor.commands.setContent(parsedContent as string, { contentType: 'markdown', emitUpdate: false } as any);
-        } else {
-          editor.commands.setContent(parsedContent as any, false as any);
-        }
-      } else {
-        editor.commands.setContent('', false as any);
-      }
+      applyContentToEditor(editor, content);
     }
-  }, [noteId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- content tracks contentRevision bumps only
+  }, [noteId, contentRevision, editor]);
 
   const editorIsEditable = useEditorState({
     editor,
@@ -184,13 +193,10 @@ function PageEditor({
   });
   const editorIsReady = Boolean(editor && editor.isInitialized);
 
-  // Track if cursor/selection is on a link — used to suppress all other menus
   const isLinkActive = useEditorState({
     editor,
     selector: (ctx) => ctx.editor?.isActive("link") ?? false,
   });
-
-
 
   return (
     <div className="editor-container" style={{ position: "relative" }}>
@@ -225,9 +231,8 @@ function PageEditor({
   );
 }
 
-// Only re-render when noteId or editable change.
-// content prop is only used for initial load (useEffect dep = [noteId]),
-// and onContentChange is handled via ref, so both are safe to ignore here.
 export default memo(PageEditor, (prev, next) =>
-  prev.noteId === next.noteId && prev.editable === next.editable
+  prev.noteId === next.noteId &&
+  prev.editable === next.editable &&
+  prev.contentRevision === next.contentRevision
 );

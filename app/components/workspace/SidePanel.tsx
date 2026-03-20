@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown, FileText, History, Trash2 } from 'lucide-react';
+import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown, FileText, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import WorkspaceFilesPanel from './WorkspaceFilesPanel';
 import PDFTab from './PDFTab';
 import { type Resource } from '@/types';
 import { useManyStore } from '@/lib/store/useManyStore';
 
-type TabType = 'references' | 'backlinks' | 'search' | 'workspace' | 'pdf' | 'history';
+type TabType = 'references' | 'backlinks' | 'search' | 'workspace' | 'pdf';
 
 interface SidePanelProps {
   resourceId: string;
-  resource: Resource & { _source?: 'notes' | 'resources' };
+  resource: Resource;
   isOpen: boolean;
   onClose: () => void;
   /** For notebooks: workspace folder path and change handler */
@@ -24,7 +24,6 @@ interface SidePanelProps {
 const TAB_CONFIG: { id: TabType; label: string; icon: React.ReactNode }[] = [
   { id: 'references', label: 'References', icon: <Link2 size={14} /> },
   { id: 'backlinks', label: 'Backlinks', icon: <MessageSquare size={14} /> },
-  { id: 'history', label: 'History', icon: <History size={14} /> },
   { id: 'search', label: 'Search', icon: <Search size={14} /> },
   { id: 'workspace', label: 'Workspace', icon: <FolderOpen size={14} /> },
   { id: 'pdf', label: 'PDF', icon: <FileText size={14} /> },
@@ -54,12 +53,9 @@ export default function SidePanel({
     (resource?.type === 'document' &&
       ((resource?.original_filename || resource?.title || '').toLowerCase().endsWith('.pdf') ||
         resource?.file_mime_type === 'application/pdf'));
-  const isNote = resource?.type === 'note';
-  const isNoteFromNewDomain = isNote && resource?._source === 'notes';
   const tabs = TAB_CONFIG.filter((t) => {
     if (t.id === 'workspace') return isNotebook;
     if (t.id === 'pdf') return isPdf;
-    if (t.id === 'history') return isNoteFromNewDomain;
     return true;
   });
 
@@ -189,13 +185,10 @@ export default function SidePanel({
           <ReferencesTab resourceId={resourceId} />
         )}
         {activeTab === 'backlinks' && (
-          <BacklinksTab resourceId={resourceId} resource={resource} />
+          <BacklinksTab resourceId={resourceId} />
         )}
         {activeTab === 'search' && (
           <SearchTab resourceId={resourceId} resource={resource} />
-        )}
-        {activeTab === 'history' && isNoteFromNewDomain && (
-          <HistoryTab noteId={resourceId} />
         )}
         {activeTab === 'workspace' && isNotebook && onNotebookWorkspacePathChange && (
           <WorkspaceFilesPanel
@@ -324,20 +317,16 @@ function ReferencesTab({ resourceId }: { resourceId: string }) {
 }
 
 // Backlinks - Recursos/notas que enlazan a este recurso
-function BacklinksTab({ resourceId, resource }: { resourceId: string; resource?: Resource & { _source?: 'notes' | 'resources' } }) {
+function BacklinksTab({ resourceId }: { resourceId: string }) {
   const [backlinks, setBacklinks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadBacklinks() {
       try {
-        const fromNotes = resource?._source === 'notes' && window.electron?.db?.notes;
-        const result = fromNotes
-          ? await window.electron.db.notes.getBacklinks(resourceId)
-          : await window.electron.db.resources.getBacklinks(resourceId);
+        const result = await window.electron.db.resources.getBacklinks(resourceId);
         if (result?.success) {
-          const data = result.data || [];
-          setBacklinks(fromNotes ? data.map((l: { id: string; source_id: string; source_title: string }) => ({ id: l.id, source_id: l.source_id, source_title: l.source_title, source_type: 'note' })) : data);
+          setBacklinks(result.data || []);
         }
       } catch (error) {
         console.error('Error loading backlinks:', error);
@@ -346,7 +335,7 @@ function BacklinksTab({ resourceId, resource }: { resourceId: string; resource?:
       }
     }
     loadBacklinks();
-  }, [resourceId, resource?._source]);
+  }, [resourceId]);
 
   if (isLoading) {
     return (
@@ -408,103 +397,6 @@ function BacklinksTab({ resourceId, resource }: { resourceId: string; resource?:
                 ) : null}
               </div>
             </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// History - Snapshots de la nota (solo dominio notes)
-function HistoryTab({ noteId }: { noteId: string }) {
-  const [history, setHistory] = useState<{ id: string; title: string; created_at: number }[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [restoring, setRestoring] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadHistory() {
-      try {
-        const result = await window.electron.db.notes.getHistory(noteId, 50);
-        if (result?.success) {
-          setHistory((result.data || []).map((h: { id: string; title: string; created_at: number }) => ({ id: h.id, title: h.title, created_at: h.created_at })));
-        }
-      } catch (error) {
-        console.error('Error loading note history:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadHistory();
-  }, [noteId]);
-
-  const handleRestore = async (historyId: string) => {
-    setRestoring(historyId);
-    try {
-      const result = await window.electron.db.notes.restoreFromHistory(historyId);
-      if (result?.success) {
-        setHistory((prev) => prev.filter((h) => h.id !== historyId));
-      }
-    } catch (error) {
-      console.error('Error restoring from history:', error);
-    } finally {
-      setRestoring(null);
-    }
-  };
-
-  const formatDate = (ts: number) => {
-    const d = new Date(ts);
-    const now = new Date();
-    const isToday = d.toDateString() === now.toDateString();
-    return isToday ? d.toLocaleTimeString() : d.toLocaleDateString() + ' ' + d.toLocaleTimeString();
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full" style={{ color: 'var(--secondary-text)' }} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-4 h-full overflow-y-auto">
-      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-        Version History
-      </h3>
-      {history.length === 0 ? (
-        <div className="text-center py-8">
-          <History size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--secondary-text)' }} />
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-            No history yet. Edits will create snapshots.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {history.map((h) => (
-            <div
-              key={h.id}
-              className="flex items-center justify-between gap-2 p-3 rounded-lg"
-              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
-                  {h.title || 'Untitled'}
-                </p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--tertiary-text)' }}>
-                  {formatDate(h.created_at)}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleRestore(h.id)}
-                disabled={restoring === h.id}
-                className="px-2 py-1 rounded text-xs font-medium transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50"
-                style={{ background: 'var(--accent)', color: 'white' }}
-                aria-label={`Restore version from ${formatDate(h.created_at)}`}
-              >
-                {restoring === h.id ? '...' : 'Restore'}
-              </button>
-            </div>
           ))}
         </div>
       )}
