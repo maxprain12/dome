@@ -1,5 +1,6 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { User, Mail, CheckCircle2, AlertCircle } from 'lucide-react';
 import { validateEmail, validateName } from '@/lib/utils/validation';
 
 interface ProfileStepProps {
@@ -17,127 +18,202 @@ export default function ProfileStep({
 }: ProfileStepProps) {
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
-  const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
+  const [touched, setTouched] = useState<{ name?: boolean; email?: boolean }>({});
 
-  const handleNameChange = (value: string) => {
-    setName(value);
-    if (errors.name && validateName(value)) {
-      setErrors((prev) => ({ ...prev, name: undefined }));
-    }
-  };
+  const nameValid = validateName(name);
+  const emailValid = validateEmail(email);
+  const canProceed = nameValid && emailValid;
 
-  const handleEmailChange = (value: string) => {
-    setEmail(value);
-    if (errors.email && validateEmail(value)) {
-      setErrors((prev) => ({ ...prev, email: undefined }));
-    }
-  };
+  const nameError = touched.name && !nameValid ? 'Mínimo 2 caracteres' : undefined;
+  const emailError = touched.email && !emailValid ? 'Email no válido' : undefined;
 
-  const handleNext = () => {
-    const newErrors: { name?: string; email?: string } = {};
+  // Always-up-to-date ref for handleNext — fixes stale closure in event listener
+  const handleNextRef = useRef<() => void>(() => {});
 
-    if (!validateName(name)) {
-      newErrors.name = 'Por favor ingresa un nombre válido (al menos 2 caracteres)';
-    }
-
-    if (!validateEmail(email)) {
-      newErrors.email = 'Por favor ingresa un email válido';
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
+  const handleNext = useCallback(() => {
+    if (!canProceed) {
+      setTouched({ name: true, email: true });
       return;
     }
+    onComplete({ name: name.trim(), email: email.trim() });
+  }, [canProceed, name, email, onComplete]);
 
-    setErrors({});
-    const trimmedEmail = email.trim();
-
-    onComplete({
-      name: name.trim(),
-      email: trimmedEmail,
-    });
-  };
-
-  const canProceed = validateName(name) && validateEmail(email);
+  // Keep ref in sync with latest handleNext
+  handleNextRef.current = handleNext;
 
   // Notify parent of validation state
   useEffect(() => {
-    if (onValidationChange) {
-      onValidationChange(canProceed);
-    }
+    onValidationChange?.(canProceed);
   }, [canProceed, onValidationChange]);
 
-  // Listen for validation trigger from parent
+  // Listen for validation trigger from parent — use ref to avoid stale closure
   useEffect(() => {
-    const handleValidate = () => {
-      if (canProceed) {
-        handleNext();
-      }
-    };
+    const handler = () => handleNextRef.current();
+    window.addEventListener('onboarding:validate', handler);
+    return () => window.removeEventListener('onboarding:validate', handler);
+  }, []); // empty deps: listener is stable, calls current ref
 
-    window.addEventListener('onboarding:validate', handleValidate);
-    return () => {
-      window.removeEventListener('onboarding:validate', handleValidate);
-    };
-  }, [canProceed]);
+  const initials = name.trim()
+    ? name.trim().split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
+    : null;
 
   return (
-    <div className="space-y-6">
-      <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-4" style={{ color: 'var(--dome-text-muted)' }}>
-          Datos personales
-        </h3>
+    <div className="flex flex-col gap-5">
 
-        {/* Name */}
-        <div className="space-y-2 mb-4">
-          <label htmlFor="profile-name" className="block text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-            Nombre completo *
-          </label>
+      {/* Avatar preview */}
+      <div className="flex items-center gap-4">
+        <div
+          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-all"
+          style={{
+            background: initials
+              ? 'linear-gradient(135deg, var(--dome-accent) 0%, #998eec 100%)'
+              : 'var(--dome-bg-hover)',
+            boxShadow: initials ? '0 4px 16px var(--dome-accent)33' : 'none',
+          }}
+        >
+          {initials ? (
+            <span className="text-white font-bold text-lg select-none">{initials}</span>
+          ) : (
+            <User className="w-6 h-6" style={{ color: 'var(--dome-text-muted)' }} />
+          )}
+        </div>
+        <div>
+          <p className="font-semibold text-sm" style={{ color: 'var(--dome-text)' }}>
+            {name.trim() || 'Tu nombre'}
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
+            {email.trim() || 'tu@email.com'}
+          </p>
+        </div>
+      </div>
+
+      {/* Name field */}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="profile-name" className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
+          Nombre completo <span style={{ color: 'var(--dome-accent)' }}>*</span>
+        </label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none" style={{ color: nameError ? 'var(--dome-error, #ef4444)' : nameValid && touched.name ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
+            <User className="w-4 h-4" />
+          </span>
           <input
             id="profile-name"
             type="text"
             value={name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            placeholder="John Doe"
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-            style={{
-              backgroundColor: 'var(--dome-bg-hover)',
-              color: 'var(--dome-text)',
-              border: errors.name ? '1px solid var(--dome-error, #ef4444)' : '1px solid var(--dome-border)',
-            }}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+            placeholder="María García"
             autoFocus
+            className="w-full pl-9 pr-9 py-2.5 rounded-xl text-sm outline-none transition-all"
+            style={{
+              background: 'var(--dome-bg-hover)',
+              color: 'var(--dome-text)',
+              border: nameError
+                ? '1.5px solid var(--dome-error, #ef4444)'
+                : nameValid && touched.name
+                ? '1.5px solid var(--dome-accent)'
+                : '1.5px solid var(--dome-border)',
+              boxShadow: nameError
+                ? '0 0 0 3px rgba(239,68,68,0.1)'
+                : nameValid && touched.name
+                ? '0 0 0 3px var(--dome-accent)18'
+                : 'none',
+            }}
+            onFocus={(e) => {
+              if (!nameError) {
+                e.target.style.borderColor = 'var(--dome-accent)';
+                e.target.style.boxShadow = '0 0 0 3px var(--dome-accent)18';
+              }
+            }}
+            onBlurCapture={(e) => {
+              if (!nameError && !(nameValid && touched.name)) {
+                e.target.style.borderColor = 'var(--dome-border)';
+                e.target.style.boxShadow = 'none';
+              }
+            }}
           />
-          {errors.name ? <p className="text-xs mt-1" style={{ color: 'var(--dome-error, #ef4444)' }}>{errors.name}</p> : null}
+          {touched.name && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2">
+              {nameValid
+                ? <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />
+                : <AlertCircle className="w-4 h-4" style={{ color: 'var(--dome-error, #ef4444)' }} />
+              }
+            </span>
+          )}
         </div>
+        {nameError && (
+          <p className="text-xs flex items-center gap-1" style={{ color: 'var(--dome-error, #ef4444)' }}>
+            <AlertCircle className="w-3 h-3 shrink-0" />{nameError}
+          </p>
+        )}
+      </div>
 
-        {/* Email */}
-        <div className="space-y-2">
-          <label htmlFor="profile-email" className="block text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-            Email *
-          </label>
+      {/* Email field */}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="profile-email" className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
+          Email <span style={{ color: 'var(--dome-accent)' }}>*</span>
+        </label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none" style={{ color: emailError ? 'var(--dome-error, #ef4444)' : emailValid && touched.email ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
+            <Mail className="w-4 h-4" />
+          </span>
           <input
             id="profile-email"
             type="text"
             inputMode="email"
             autoComplete="email"
             value={email}
-            onChange={(e) => handleEmailChange(e.target.value)}
-            placeholder="juan@ejemplo.com"
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+            placeholder="maria@ejemplo.com"
+            className="w-full pl-9 pr-9 py-2.5 rounded-xl text-sm outline-none transition-all"
             style={{
-              backgroundColor: 'var(--dome-bg-hover)',
+              background: 'var(--dome-bg-hover)',
               color: 'var(--dome-text)',
-              border: errors.email ? '1px solid var(--dome-error, #ef4444)' : '1px solid var(--dome-border)',
+              border: emailError
+                ? '1.5px solid var(--dome-error, #ef4444)'
+                : emailValid && touched.email
+                ? '1.5px solid var(--dome-accent)'
+                : '1.5px solid var(--dome-border)',
+              boxShadow: emailError
+                ? '0 0 0 3px rgba(239,68,68,0.1)'
+                : emailValid && touched.email
+                ? '0 0 0 3px var(--dome-accent)18'
+                : 'none',
+            }}
+            onFocus={(e) => {
+              if (!emailError) {
+                e.target.style.borderColor = 'var(--dome-accent)';
+                e.target.style.boxShadow = '0 0 0 3px var(--dome-accent)18';
+              }
+            }}
+            onBlurCapture={(e) => {
+              if (!emailError && !(emailValid && touched.email)) {
+                e.target.style.borderColor = 'var(--dome-border)';
+                e.target.style.boxShadow = 'none';
+              }
             }}
           />
-          {errors.email ? <p className="text-xs mt-1" style={{ color: 'var(--dome-error, #ef4444)' }}>{errors.email}</p> : null}
+          {touched.email && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2">
+              {emailValid
+                ? <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />
+                : <AlertCircle className="w-4 h-4" style={{ color: 'var(--dome-error, #ef4444)' }} />
+              }
+            </span>
+          )}
         </div>
-      </section>
-
-      {/* Hidden button for OnboardingStep to use */}
-      <div style={{ display: 'none' }}>
-        <button onClick={handleNext} disabled={!canProceed} />
+        {emailError && (
+          <p className="text-xs flex items-center gap-1" style={{ color: 'var(--dome-error, #ef4444)' }}>
+            <AlertCircle className="w-3 h-3 shrink-0" />{emailError}
+          </p>
+        )}
       </div>
+
+      {/* Privacy note */}
+      <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+        Tu información se guarda localmente y nunca sale de tu dispositivo.
+      </p>
     </div>
   );
 }

@@ -16,23 +16,23 @@ interface MartinOnboardingProps {
 
 type Step = 'welcome' | 'profile' | 'ai' | 'complete';
 
-const WELCOME_MESSAGE = `Hello! I'm Many, your AI assistant in Dome. 
+const WELCOME_MESSAGE = `¡Hola! Soy Many, tu asistente de IA en Dome.
 
-I'm here to help you set up your account and prepare everything so you can start working with your resources in the best way.
+Estoy aquí para ayudarte a configurar tu cuenta y preparar todo para que puedas empezar a trabajar con tus recursos de la mejor manera.
 
-Let's do this step by step. First, I need to know some basic information about you.`;
+Vamos paso a paso. Primero necesito conocer algunos datos básicos sobre ti.`;
 
-const PROFILE_MESSAGE = `Perfect, now I need you to provide your profile information. This will help me personalize your experience.`;
+const PROFILE_MESSAGE = `Cuéntame un poco sobre ti. Esto me ayudará a personalizar tu experiencia en Dome.`;
 
 const AI_MESSAGE = `Excellent. Now, so I can help you better, I need to configure your AI provider. This will allow me to generate summaries, perform semantic searches, and answer your questions.
 
 You can configure this now or do it later from settings.`;
 
-const COMPLETE_MESSAGE = `Perfect! Everything is now configured. 
+const COMPLETE_MESSAGE = `¡Perfecto! Todo está configurado.
 
-I'm ready to help you work with your resources. If you need to change any settings later, you can do so from settings.
+Estoy listo para ayudarte a trabajar con tus recursos. Si necesitas cambiar algún ajuste más adelante, puedes hacerlo desde configuración.
 
-Welcome to Dome!`;
+¡Bienvenido/a a Dome!`;
 
 export default function MartinOnboarding({
   initialName,
@@ -75,7 +75,7 @@ export default function MartinOnboarding({
       <OnboardingStep
         message={WELCOME_MESSAGE}
         onNext={handleWelcomeNext}
-        nextLabel="Start"
+        nextLabel="Empezar"
         canProceed={true}
       >
         <div className="flex items-center justify-center py-8">
@@ -96,7 +96,7 @@ export default function MartinOnboarding({
           window.dispatchEvent(event);
         }}
         onBack={handleBack}
-        nextLabel="Continue"
+        nextLabel="Continuar"
         canProceed={canProceedProfile}
       >
         <ProfileStep
@@ -116,7 +116,7 @@ export default function MartinOnboarding({
         message={AI_MESSAGE}
         onNext={() => window.dispatchEvent(new CustomEvent('onboarding:finalize'))}
         onBack={handleBack}
-        nextLabel="Finish"
+        nextLabel="Finalizar"
         canProceed={true}
       >
         <AISetupStep onComplete={handleAIComplete} />
