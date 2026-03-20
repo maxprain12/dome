@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import i18n from '@/lib/i18n';
 import { loadPyodideKernel, runPythonCode as runPyodideCode, type PyodideRunResult } from './kernel/PyodideKernel';
 import { runPythonCode as runIPCCode, checkPythonAvailable, type RunPythonOptions } from './kernel/IPCKernel';
 
@@ -24,7 +25,7 @@ export function PyodideProvider({ children }: { children: React.ReactNode }) {
 
   const ensureLoaded = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
     if (isLoaded) return { ok: true };
-    if (isLoading) return { ok: false, error: 'Loading...' };
+    if (isLoading) return { ok: false, error: i18n.t('ui.loading') };
 
     setIsLoading(true);
     setLoadError(null);
@@ -32,7 +33,7 @@ export function PyodideProvider({ children }: { children: React.ReactNode }) {
       if (useIPCKernel) {
         const { available } = await checkPythonAvailable();
         if (!available) {
-          const err = 'Python not found. Install Python 3 and ensure it is in your PATH.';
+          const err = i18n.t('notebook.python_install_instructions');
           setLoadError(err);
           return { ok: false, error: err };
         }
@@ -43,7 +44,7 @@ export function PyodideProvider({ children }: { children: React.ReactNode }) {
       setIsLoaded(true);
       return { ok: true };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to load Python';
+      const msg = err instanceof Error ? err.message : i18n.t('notebook.failed_load_python');
       setLoadError(msg);
       return { ok: false, error: msg };
     } finally {
@@ -57,7 +58,7 @@ export function PyodideProvider({ children }: { children: React.ReactNode }) {
       if (!loaded.ok) {
         return {
           success: false,
-          outputs: [{ output_type: 'error', ename: 'Error', evalue: loaded.error || 'Failed to load', traceback: [] }],
+          outputs: [{ output_type: 'error', ename: 'Error', evalue: loaded.error || i18n.t('notebook.failed_load_python'), traceback: [] }],
           error: loaded.error,
         };
       }

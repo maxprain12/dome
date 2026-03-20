@@ -1,15 +1,13 @@
 'use client';
 
 import { useCallback, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import ReactFlow, {
   Controls,
   Background,
   BackgroundVariant,
   ConnectionMode,
   MarkerType,
-  addEdge,
-  useNodesState,
-  useEdgesState,
   type Connection,
   type Edge,
   type Node,
@@ -18,8 +16,9 @@ import ReactFlow, {
   type OnEdgesChange,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import './workflow-canvas.css';
 import type { CanvasNodeData, TextInputNodeData, DocumentNodeData, ImageNodeData, AgentNodeData, OutputNodeData, SystemAgentRole } from '@/types/canvas';
-import { SYSTEM_AGENT_LIST } from '@/lib/agent-canvas/system-agents';
+import { canvasSystemAgentNameKey } from '@/lib/agent-canvas/canvas-layout';
 import { generateId } from '@/lib/utils';
 import type { ManyAgent } from '@/types';
 import TextInputNode from './nodes/TextInputNode';
@@ -68,6 +67,7 @@ export default function CanvasWorkspace({
   onNodesUpdate,
   onEdgesUpdate,
 }: CanvasWorkspaceProps) {
+  const { t } = useTranslation();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
   const handleNodeClick = useCallback(
@@ -104,17 +104,30 @@ export default function CanvasWorkspace({
       let data: CanvasNodeData;
 
       if (nodeType === 'text-input') {
-        data = { type: 'text-input', label: 'Texto de Entrada', value: '' } as TextInputNodeData;
+        data = { type: 'text-input', label: t('canvas.default_text_input_label'), value: '' } as TextInputNodeData;
       } else if (nodeType === 'document') {
-        data = { type: 'document', label: 'Documento', resourceId: null, resourceTitle: null, resourceContent: null } as DocumentNodeData;
+        data = {
+          type: 'document',
+          label: t('canvas.default_document_label'),
+          resourceId: null,
+          resourceTitle: null,
+          resourceContent: null,
+        } as DocumentNodeData;
       } else if (nodeType === 'image') {
-        data = { type: 'image', label: 'Imagen', resourceId: null, resourceTitle: null, resourceUrl: null } as ImageNodeData;
+        data = {
+          type: 'image',
+          label: t('canvas.default_image_label'),
+          resourceId: null,
+          resourceTitle: null,
+          resourceUrl: null,
+        } as ImageNodeData;
       } else if (nodeType === 'agent') {
         const agentRaw = e.dataTransfer.getData('application/x-canvas-agent');
         const agent = agentRaw ? (JSON.parse(agentRaw) as ManyAgent) : null;
+        const fallback = t('canvas.default_agent_fallback');
         data = {
           type: 'agent',
-          label: agent?.name ?? 'Agente',
+          label: agent?.name ?? fallback,
           agentId: agent?.id ?? null,
           agentName: agent?.name ?? null,
           agentIconIndex: agent?.iconIndex ?? 0,
@@ -124,20 +137,25 @@ export default function CanvasWorkspace({
         } as AgentNodeData;
       } else if (nodeType === 'system-agent') {
         const systemRole = e.dataTransfer.getData('application/x-canvas-system-role') as SystemAgentRole;
-        const sysAgent = SYSTEM_AGENT_LIST.find((a) => a.role === systemRole);
+        const sysName = t(canvasSystemAgentNameKey(systemRole));
         data = {
           type: 'agent',
-          label: sysAgent?.name ?? 'System Agent',
+          label: sysName,
           agentId: null,
           systemAgentRole: systemRole,
-          agentName: sysAgent?.name ?? null,
+          agentName: sysName,
           agentIconIndex: 0,
           status: 'idle',
           outputText: null,
           errorMessage: null,
         } as AgentNodeData;
       } else {
-        data = { type: 'output', label: 'Resultado', content: null, status: 'idle' } as OutputNodeData;
+        data = {
+          type: 'output',
+          label: t('canvas.default_output_label'),
+          content: null,
+          status: 'idle',
+        } as OutputNodeData;
       }
 
       const resolvedNodeTypeKey = nodeType === 'system-agent' ? 'agent' : getNodeTypeKey(nodeType);
@@ -150,32 +168,52 @@ export default function CanvasWorkspace({
 
       onNodesUpdate([...nodes, newNode]);
     },
-    [nodes, onNodesUpdate]
+    [nodes, onNodesUpdate, t]
+  );
+
+  /* Bezier edges — smoother than smoothstep “stairs”; muted stroke reads lighter on the grid */
+  const edgeStyle = useMemo(
+    () => ({
+      stroke: 'var(--dome-text-muted)',
+      strokeWidth: 1.35,
+      opacity: 0.55,
+    }),
+    []
   );
 
   const styledEdges = useMemo<Edge[]>(
     () =>
       edges.map((edge) => ({
         ...edge,
-        type: 'smoothstep',
+        type: 'default',
         animated: false,
-        style: {
-          stroke: 'var(--dome-accent)',
-          strokeWidth: 2,
-          opacity: 0.8,
-        },
+        style: edgeStyle,
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: 'var(--dome-accent)',
-          width: 14,
-          height: 14,
+          color: 'var(--dome-text-muted)',
+          width: 12,
+          height: 12,
         },
       })),
-    [edges]
+    [edges, edgeStyle]
+  );
+
+  const connectionLineStyle = useMemo(
+    () => ({
+      stroke: 'var(--dome-text-muted)',
+      strokeWidth: 1.35,
+      opacity: 0.55,
+    }),
+    []
   );
 
   return (
-    <div ref={reactFlowWrapper} className="flex-1 h-full" onDragOver={handleDragOver} onDrop={handleDrop}>
+    <div
+      ref={reactFlowWrapper}
+      className="workflow-canvas flex-1 h-full min-h-0"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       <ReactFlow
         nodes={nodes}
         edges={styledEdges}
@@ -193,20 +231,24 @@ export default function CanvasWorkspace({
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={['Backspace', 'Delete']}
+        style={{ background: 'transparent' }}
+        connectionLineType="default"
+        connectionLineStyle={connectionLineStyle}
       >
         <Background
-          variant={BackgroundVariant.Dots}
-          gap={24}
+          variant={BackgroundVariant.Lines}
+          gap={32}
           size={1}
           color="var(--dome-border)"
+          style={{ opacity: 0.35 }}
         />
         <Controls
           showInteractive={false}
           style={{
             background: 'var(--dome-surface)',
             border: '1px solid var(--dome-border)',
-            borderRadius: 10,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+            borderRadius: 12,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
           }}
         />
       </ReactFlow>

@@ -3,25 +3,42 @@
 import { useState, useEffect } from 'react';
 import { Handle, Position } from 'reactflow';
 import type { NodeProps } from 'reactflow';
-import { Bot, Loader2, CheckCircle2, AlertCircle, ChevronRight, Search, BookOpen, PenTool, BarChart2 } from 'lucide-react';
+import {
+  Bot,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  ChevronRight,
+  Search,
+  BookOpen,
+  PenTool,
+  BarChart2,
+  Presentation,
+  FolderKanban,
+} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { AgentNodeData, SystemAgentRole } from '@/types/canvas';
 import { SYSTEM_AGENTS } from '@/lib/agent-canvas/system-agents';
+import { canvasSystemAgentDescKey } from '@/lib/agent-canvas/canvas-layout';
 
 const SYSTEM_ROLE_ICONS: Record<SystemAgentRole, React.ElementType> = {
   research: Search,
   library: BookOpen,
   writer: PenTool,
   data: BarChart2,
+  presenter: Presentation,
+  curator: FolderKanban,
 };
 
 const STATUS_COLORS = {
-  idle: { border: 'var(--dome-border)', glow: 'transparent', header: 'var(--dome-accent-bg)', headerBorder: 'var(--border)', textColor: 'var(--dome-accent)', dot: 'var(--dome-accent)' },
-  running: { border: 'var(--dome-accent)', glow: 'var(--dome-accent-bg)', header: 'var(--dome-accent-bg)', headerBorder: 'var(--border)', textColor: 'var(--dome-accent)', dot: 'var(--dome-accent)' },
-  done: { border: 'var(--success)', glow: 'var(--success-bg)', header: 'var(--success-bg)', headerBorder: 'var(--border)', textColor: 'var(--success)', dot: 'var(--success)' },
-  error: { border: 'var(--error)', glow: 'var(--error-bg)', header: 'var(--error-bg)', headerBorder: 'var(--border)', textColor: 'var(--error)', dot: 'var(--error)' },
+  idle: { header: 'var(--dome-bg)', textColor: 'var(--dome-accent)' },
+  running: { header: 'var(--dome-accent-bg)', textColor: 'var(--dome-accent)' },
+  done: { header: 'var(--success-bg)', textColor: 'var(--success)' },
+  error: { header: 'var(--error-bg)', textColor: 'var(--error)' },
 };
 
 export default function AgentNode({ data, selected }: NodeProps<AgentNodeData>) {
+  const { t } = useTranslation();
   const [iconLoadFailed, setIconLoadFailed] = useState(false);
   const colors = STATUS_COLORS[data.status];
 
@@ -52,48 +69,41 @@ export default function AgentNode({ data, selected }: NodeProps<AgentNodeData>) 
 
   const RoleIcon = data.systemAgentRole ? SYSTEM_ROLE_ICONS[data.systemAgentRole] : null;
 
+  const systemDesc =
+    data.systemAgentRole != null ? t(canvasSystemAgentDescKey(data.systemAgentRole)) : '';
+
+  const headerBg =
+    isSystemAgent && systemDef
+      ? `color-mix(in srgb, ${systemDef.color} 12%, var(--dome-bg))`
+      : colors.header;
+
   return (
     <div
-      className="rounded-xl shadow-sm transition-all"
+      className="workflow-node-card rounded-lg overflow-hidden transition-colors"
       style={{
-        width: 260,
-        background: 'var(--dome-surface)',
-        border: `1.5px solid ${selected ? 'var(--dome-accent)' : colors.border}`,
-        boxShadow: selected
-          ? '0 0 0 3px var(--dome-accent-bg)'
-          : data.status !== 'idle'
-          ? `0 0 0 3px ${colors.glow}, 0 2px 8px rgba(0,0,0,0.06)`
-          : '0 2px 8px rgba(0,0,0,0.06)',
-        transition: 'border-color 0.2s, box-shadow 0.2s',
+        width: 220,
+        border: `1px solid ${selected ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
       }}
     >
-      {/* Input handle */}
       <Handle
         type="target"
         position={Position.Top}
-        style={{
-          width: 10,
-          height: 10,
-          background: systemColor,
-          border: '2px solid white',
-          boxShadow: `0 0 0 1px ${systemColor}`,
-        }}
+        className="workflow-node-handle"
+        style={{ background: systemColor }}
       />
 
-      {/* Header */}
       <div
-        className="flex items-center gap-2 px-3 py-2.5"
+        className="workflow-node-header flex items-center gap-1.5 px-2 py-1.5"
         style={{
-          background: isSystemAgent && systemDef ? systemDef.bg : colors.header,
-          borderBottom: `1px solid ${isSystemAgent && systemDef ? `${systemDef.color}30` : colors.headerBorder}`,
+          background: headerBg,
         }}
       >
         <div
-          className="w-6 h-6 rounded-md flex items-center justify-center text-white font-bold text-xs shrink-0"
+          className="w-5 h-5 rounded-md flex items-center justify-center text-white font-bold text-[10px] shrink-0"
           style={{ background: systemColor }}
         >
           {isSystemAgent && RoleIcon ? (
-            <RoleIcon className="w-3.5 h-3.5 text-white" />
+            <RoleIcon className="w-3 h-3 text-white" />
           ) : data.agentIconIndex > 0 && !iconLoadFailed ? (
             <img
               src={`/agents/sprite_${data.agentIconIndex}.png`}
@@ -107,17 +117,17 @@ export default function AgentNode({ data, selected }: NodeProps<AgentNodeData>) 
         </div>
         <div className="flex-1 min-w-0">
           <span
-            className="text-xs font-semibold truncate block"
+            className="text-[11px] font-semibold leading-tight truncate block"
             style={{ color: isSystemAgent && systemDef ? systemDef.color : colors.textColor }}
           >
             {data.label}
           </span>
           {isSystemAgent && systemDef ? (
-            <span className="text-xs truncate block opacity-60" style={{ color: systemDef.color }}>
-              {systemDef.emoji} Sistema Dome
+            <span className="text-[10px] truncate block opacity-60 leading-tight" style={{ color: systemDef.color }}>
+              {systemDef.emoji} {t('canvas.system_agent_badge')}
             </span>
           ) : data.agentName ? (
-            <span className="text-xs truncate block opacity-70" style={{ color: colors.textColor }}>
+            <span className="text-[10px] truncate block opacity-70 leading-tight" style={{ color: colors.textColor }}>
               {data.agentName}
             </span>
           ) : null}
@@ -126,33 +136,33 @@ export default function AgentNode({ data, selected }: NodeProps<AgentNodeData>) 
       </div>
 
       {/* Body — shows output or placeholder */}
-      <div className="p-3 min-h-[60px]">
+      <div className="p-2 min-h-[44px]">
         {data.status === 'idle' && !data.agentId && !data.systemAgentRole && (
           <div
-            className="flex items-center gap-2 text-xs"
+            className="flex items-center gap-1.5 text-[11px]"
             style={{ color: 'var(--dome-text-muted)' }}
           >
-            <Bot className="w-4 h-4 opacity-40" />
-            <span className="italic">Sin agente asignado</span>
+            <Bot className="w-3.5 h-3.5 opacity-40 shrink-0" />
+            <span className="italic leading-snug">{t('canvas.no_agent_assigned')}</span>
           </div>
         )}
-        {data.status === 'idle' && isSystemAgent && systemDef && (
-          <div className="flex items-center gap-2 text-xs" style={{ color: systemDef.color }}>
-            <span className="opacity-60">{systemDef.description}</span>
+        {data.status === 'idle' && isSystemAgent && systemDef && data.systemAgentRole && (
+          <div className="text-[11px] leading-snug" style={{ color: systemDef.color }}>
+            <span className="opacity-70">{systemDesc}</span>
           </div>
         )}
 
         {data.status === 'idle' && data.agentId && (
-          <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            <ChevronRight className="w-3.5 h-3.5 opacity-40" />
-            <span className="italic">Listo para ejecutar</span>
+          <div className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+            <ChevronRight className="w-3 h-3 opacity-40 shrink-0" />
+            <span className="italic leading-snug">{t('canvas.ready_to_execute')}</span>
           </div>
         )}
 
         {data.status === 'running' && (
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <div
-              className="h-2 rounded-full overflow-hidden"
+              className="h-1.5 rounded-full overflow-hidden"
           style={{ background: 'var(--dome-bg)' }}
         >
           <div
@@ -160,12 +170,12 @@ export default function AgentNode({ data, selected }: NodeProps<AgentNodeData>) 
             style={{ width: '60%', background: 'var(--dome-accent)' }}
           />
             </div>
-            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              Procesando...
+            <p className="text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+              {t('canvas.processing')}
             </p>
             {data.outputText && (
               <p
-                className="text-xs line-clamp-3 mt-1"
+                className="text-[11px] line-clamp-3 mt-0.5 leading-snug"
                 style={{ color: 'var(--dome-text-secondary)' }}
               >
                 {data.outputText}
@@ -176,31 +186,25 @@ export default function AgentNode({ data, selected }: NodeProps<AgentNodeData>) 
 
         {data.status === 'done' && data.outputText && (
           <p
-            className="text-xs line-clamp-4"
-            style={{ color: 'var(--dome-text-secondary)', lineHeight: 1.6 }}
+            className="text-[11px] line-clamp-4 leading-snug"
+            style={{ color: 'var(--dome-text-secondary)', lineHeight: 1.45 }}
           >
             {data.outputText}
           </p>
         )}
 
         {data.status === 'error' && (
-          <p className="text-xs" style={{ color: 'var(--error)' }}>
-            {data.errorMessage ?? 'Error desconocido'}
+          <p className="text-[11px] leading-snug" style={{ color: 'var(--error)' }}>
+            {data.errorMessage ?? t('canvas.unknown_error')}
           </p>
         )}
       </div>
 
-      {/* Output handle */}
       <Handle
         type="source"
         position={Position.Bottom}
-        style={{
-          width: 10,
-          height: 10,
-          background: systemColor,
-          border: '2px solid white',
-          boxShadow: `0 0 0 1px ${systemColor}`,
-        }}
+        className="workflow-node-handle"
+        style={{ background: systemColor }}
       />
     </div>
   );

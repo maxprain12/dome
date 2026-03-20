@@ -1,0 +1,58 @@
+/**
+ * Workflow canvas only — scoped under .workflow-canvas so other React Flow views keep default styling.
+ */
+
+.workflow-canvas {
+  position: relative;
+  isolation: isolate;
+  /* Very subtle depth without fighting --dome-bg */
+  background: radial-gradient(
+    ellipse 120% 80% at 50% 35%,
+    color-mix(in srgb, var(--dome-surface) 35%, transparent),
+    var(--dome-bg)
+  );
+}
+
+.workflow-canvas .react-flow {
+  background: transparent;
+}
+
+/* Remove default selected outline/shadow that stacks with our node borders */
+.workflow-canvas .react-flow__node.selectable:focus,
+.workflow-canvas .react-flow__node.selectable:focus-visible {
+  outline: none;
+}
+
+.workflow-canvas .react-flow__node.selected {
+  box-shadow: none !important;
+}
+
+.workflow-canvas .react-flow__handle.workflow-node-handle {
+  width: 8px !important;
+  height: 8px !important;
+  min-width: 8px;
+  min-height: 8px;
+  border: 1px solid var(--dome-surface) !important;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dome-text-muted) 35%, transparent) !important;
+}
+
+.workflow-canvas .react-flow__handle.workflow-node-handle:hover {
+  box-shadow: 0 0 0 2px var(--dome-accent-bg) !important;
+}
+
+.workflow-canvas .react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Flat cards — border only; selection ring is inline on the node */
+.workflow-canvas .workflow-node-card {
+  background: var(--dome-surface);
+  box-shadow: none;
+  border-radius: 10px;
+}
+
+.workflow-canvas .workflow-node-header {
+  background: var(--dome-bg);
+  border-bottom: 1px solid var(--dome-border);
+}

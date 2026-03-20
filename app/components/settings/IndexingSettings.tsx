@@ -82,7 +82,10 @@ export default function IndexingSettings() {
 
     try {
       const result = await window.electron?.invoke?.('pageindex:index-missing');
-      if (!result?.success) { setLastError(result?.error || 'Error al indexar'); setIndexingMissing(false); }
+      if (!result?.success) {
+        setLastError(result?.error || t('settings.indexing.error_index_failed'));
+        setIndexingMissing(false);
+      }
     } catch (e) {
       setLastError(e instanceof Error ? e.message : String(e));
       setIndexingMissing(false);
@@ -102,7 +105,7 @@ export default function IndexingSettings() {
       if (result?.success) {
         setIndexResult({ indexed: result.indexed ?? 0, failed: result.failed ?? 0, total: result.total ?? 0 });
         loadStatus();
-      } else { setLastError(result?.error || 'Error al reindexar'); }
+      } else { setLastError(result?.error || t('settings.indexing.error_reindex_failed')); }
     } catch (e) { setLastError(e instanceof Error ? e.message : String(e)); }
     finally { setReindexingAll(false); }
   };
@@ -119,7 +122,7 @@ export default function IndexingSettings() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>{t('settings.indexing.title')}</h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.indexing.description')}</p>
+        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.indexing.subtitle')}</p>
       </div>
 
       {/* Stats */}
@@ -168,8 +171,10 @@ export default function IndexingSettings() {
         <div className="flex items-center gap-2 p-3 rounded-xl text-sm"
           style={{ backgroundColor: `${DOME_GREEN}12`, border: `1px solid ${DOME_GREEN}30`, color: DOME_GREEN }}>
           <CheckCircle2 className="w-4 h-4 shrink-0" />
-          {indexResult.indexed} {indexResult.indexed === 1 ? t('settings.indexing.result_indexed_one') : t('settings.indexing.result_indexed_many')}
-          {indexResult.failed > 0 && `, ${indexResult.failed} ${t('settings.indexing.result_with_errors')}`}
+          {indexResult.indexed === 1
+            ? t('settings.indexing.result_indexed_one', { count: indexResult.indexed })
+            : t('settings.indexing.result_indexed_many', { count: indexResult.indexed })}
+          {indexResult.failed > 0 && t('settings.indexing.result_with_errors', { count: indexResult.failed })}
         </div>
       )}
 
@@ -200,7 +205,9 @@ export default function IndexingSettings() {
               style={{ backgroundColor: DOME_GREEN }}
             >
               {indexingMissing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
-              {indexingMissing ? t('settings.indexing.indexing_btn') : `${t('settings.indexing.index_pending')} ${pageIndexStatus?.unindexed ?? ''}`}
+              {indexingMissing
+                ? t('settings.indexing.indexing_btn')
+                : t('settings.indexing.index_pending', { count: pageIndexStatus?.unindexed ?? 0 })}
             </button>
           )}
           <button

@@ -14,6 +14,7 @@ import ExportModal from '@/components/export/ExportModal';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { contentToPrintHtml } from '@/lib/utils/note-to-html';
 import { type Resource } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 
 interface NoteWorkspaceClientProps {
@@ -23,6 +24,7 @@ interface NoteWorkspaceClientProps {
 }
 
 export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsavedChange }: NoteWorkspaceClientProps) {
+  const { t } = useTranslation();
   const [resource, setResource] = useState<Resource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export default function NoteWorkspaceClient({ resourceId, onTitleChange, onUnsav
 
     async function loadResource() {
       if (!window.electron?.db) {
-        setError('Database not available');
+        setError(t('errors.database_unavailable'));
         setLoading(false);
         return;
       }

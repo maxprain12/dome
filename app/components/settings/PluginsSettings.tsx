@@ -77,7 +77,7 @@ export default function PluginsSettings() {
       showMessage('success', t('settings.plugins.installed_ok'));
       loadPlugins();
     } else {
-      showMessage('error', r?.error || t('settings.plugins.installed_error'));
+      showMessage('error', r?.error || t('settings.plugins.install_error'));
     }
   };
 
@@ -88,7 +88,7 @@ export default function PluginsSettings() {
       showMessage('success', t('settings.plugins.uninstalled_ok'));
       loadPlugins();
     } else {
-      showMessage('error', r?.error || t('settings.plugins.uninstalled_error'));
+      showMessage('error', r?.error || t('settings.plugins.uninstall_error'));
     }
   };
 
@@ -103,7 +103,7 @@ export default function PluginsSettings() {
       <div>
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>Plugins</h2>
         <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          {t('settings.plugins.description')}
+          {t('settings.plugins.subtitle')}
         </p>
       </div>
 

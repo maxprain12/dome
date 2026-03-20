@@ -433,7 +433,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               style={{ background: 'var(--dome-accent)', color: '#fff', border: 'none', cursor: 'pointer' }}
             >
               <Plus className="w-4 h-4" />
-              Nueva nota
+              {t('folder.newNote')}
             </button>
           </div>
         ) : (

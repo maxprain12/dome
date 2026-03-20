@@ -39,7 +39,7 @@ export default function OutputNode({ data, selected }: NodeProps<OutputNodeData>
         id: generateId(),
         project_id: projectId,
         type: 'note',
-        title: data.label ?? 'Resultado del Workflow',
+        title: data.label ?? t('canvas.workflow_result_note_title'),
         content: data.content,
         created_at: now,
         updated_at: now,
@@ -50,72 +50,44 @@ export default function OutputNode({ data, selected }: NodeProps<OutputNodeData>
     } finally {
       setSaving(false);
     }
-  }, [data.content, data.label, saving, currentProject?.id]);
+  }, [data.content, data.label, saving, currentProject?.id, t]);
 
   return (
     <div
-      className="rounded-xl shadow-sm transition-all"
+      className="workflow-node-card rounded-lg overflow-hidden transition-colors"
       style={{
-        width: 320,
-        background: 'var(--dome-surface)',
-        border: `1.5px solid ${
-          selected
-            ? 'var(--dome-accent)'
-            : isDone
-            ? 'var(--dome-accent)'
-            : 'var(--dome-border)'
-        }`,
-        boxShadow: isDone
-          ? '0 0 0 3px var(--dome-accent-bg), 0 2px 8px rgba(0,0,0,0.06)'
-          : selected
-          ? '0 0 0 3px var(--dome-accent-bg)'
-          : '0 2px 8px rgba(0,0,0,0.06)',
-        transition: 'border-color 0.2s, box-shadow 0.2s',
+        width: 260,
+        border: `1px solid ${selected ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
       }}
     >
-      {/* Input handle */}
       <Handle
         type="target"
         position={Position.Top}
-        style={{
-          width: 10,
-          height: 10,
-          background: 'var(--dome-accent)',
-          border: '2px solid white',
-          boxShadow: '0 0 0 1px var(--dome-accent)',
-        }}
+        className="workflow-node-handle"
+        style={{ background: 'var(--dome-accent)' }}
       />
 
-      {/* Header */}
-      <div
-        className="flex items-center gap-2 px-3 py-2.5"
-        style={{
-          background: isDone ? 'var(--dome-accent-bg)' : 'var(--dome-bg)',
-          borderBottom: `1px solid ${isDone ? 'var(--border)' : 'var(--dome-border)'}`,
-          borderRadius: '10px 10px 0 0',
-        }}
-      >
+      <div className="workflow-node-header flex items-center gap-1.5 px-2 py-1.5">
         <div
-          className="w-6 h-6 rounded-md flex items-center justify-center"
+          className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
           style={{ background: isDone ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}
         >
-          <Terminal className="w-3.5 h-3.5 text-white" />
+          <Terminal className="w-3 h-3 text-white" />
         </div>
         <span
-          className="flex-1 text-xs font-semibold"
-          style={{ color: isDone ? 'var(--dome-accent)' : 'var(--dome-text-secondary)' }}
+          className="flex-1 text-[11px] font-semibold leading-tight truncate"
+          style={{ color: isDone ? 'var(--dome-accent)' : 'var(--dome-text)' }}
         >
           {data.label}
         </span>
-        {isRunning && <Loader2 className="w-3 h-3 animate-spin" style={{ color: 'var(--dome-accent)' }} />}
+        {isRunning && <Loader2 className="w-3 h-3 animate-spin shrink-0" style={{ color: 'var(--dome-accent)' }} />}
         {isDone && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 shrink-0">
             <CheckCircle2 className="w-3 h-3" style={{ color: 'var(--dome-accent)' }} />
-            {/* Copy button */}
             <button
               onClick={handleCopy}
-              className="nodrag p-1 rounded-md transition-colors hover:bg-[var(--dome-accent-bg)]"
-              title="Copiar al portapapeles"
+              className="nodrag p-0.5 rounded transition-colors hover:bg-[var(--dome-accent-bg)]"
+              title={t('canvas.copy_to_clipboard')}
             >
               {copied ? (
                 <Check className="w-3 h-3" style={{ color: 'var(--success)' }} />
@@ -123,12 +95,11 @@ export default function OutputNode({ data, selected }: NodeProps<OutputNodeData>
                 <Copy className="w-3 h-3" style={{ color: 'var(--dome-accent)' }} />
               )}
             </button>
-            {/* Save as resource button */}
             <button
               onClick={handleSave}
               disabled={saving}
-              className="nodrag p-1 rounded-md transition-colors hover:bg-[var(--dome-accent-bg)] disabled:opacity-50"
-              title="Guardar como nota en la biblioteca"
+              className="nodrag p-0.5 rounded transition-colors hover:bg-[var(--dome-accent-bg)] disabled:opacity-50"
+              title={t('canvas.save_as_note')}
             >
               {saving ? (
                 <Loader2 className="w-3 h-3 animate-spin" style={{ color: 'var(--dome-accent)' }} />
@@ -141,21 +112,21 @@ export default function OutputNode({ data, selected }: NodeProps<OutputNodeData>
       </div>
 
       {/* Content */}
-      <div className="p-3" style={{ minHeight: 80 }}>
+      <div className="p-2" style={{ minHeight: 52 }}>
         {!data.content ? (
           <div
-            className="flex flex-col items-center justify-center py-4 gap-2"
+            className="flex flex-col items-center justify-center py-2 gap-1"
             style={{ color: 'var(--dome-text-muted)' }}
           >
-            <Terminal className="w-6 h-6 opacity-20" />
-            <p className="text-xs italic">El resultado aparecerá aquí</p>
+            <Terminal className="w-4 h-4 opacity-25" />
+            <p className="text-[10px] italic text-center px-1 leading-snug">{t('canvas.output_placeholder')}</p>
           </div>
         ) : (
           <div
-            className="nowheel text-xs leading-relaxed overflow-y-auto"
+            className="nowheel text-[11px] leading-snug overflow-y-auto"
             style={{
               color: 'var(--dome-text)',
-              maxHeight: 280,
+              maxHeight: 220,
             }}
           >
             <MarkdownPreview content={data.content} />

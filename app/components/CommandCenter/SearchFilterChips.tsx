@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FileText,
   Image as ImageIcon,
@@ -12,16 +12,16 @@ import {
   Notebook,
 } from 'lucide-react';
 
-const TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode }> = {
-  note: { label: 'Notes', icon: <StickyNote size={12} /> },
-  notebook: { label: 'Notebooks', icon: <Notebook size={12} /> },
-  pdf: { label: 'PDFs', icon: <FileText size={12} /> },
-  document: { label: 'Docs', icon: <File size={12} /> },
-  image: { label: 'Images', icon: <ImageIcon size={12} /> },
-  video: { label: 'Videos', icon: <Video size={12} /> },
-  audio: { label: 'Audio', icon: <Music size={12} /> },
-  url: { label: 'URLs', icon: <Link2 size={12} /> },
-  folder: { label: 'Folders', icon: <FolderOpen size={12} /> },
+const TYPE_ICONS: Record<string, React.ReactNode> = {
+  note: <StickyNote size={12} />,
+  notebook: <Notebook size={12} />,
+  pdf: <FileText size={12} />,
+  document: <File size={12} />,
+  image: <ImageIcon size={12} />,
+  video: <Video size={12} />,
+  audio: <Music size={12} />,
+  url: <Link2 size={12} />,
+  folder: <FolderOpen size={12} />,
 };
 
 interface SearchFilterChipsProps {
@@ -37,6 +37,7 @@ export function SearchFilterChips({
   onToggle,
   onClear,
 }: SearchFilterChipsProps) {
+  const { t } = useTranslation();
   if (availableTypes.length <= 1) return null;
 
   return (
@@ -45,24 +46,25 @@ export function SearchFilterChips({
         <button
           className="filter-chip filter-chip-clear cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           onClick={onClear}
-          aria-label="Show all types"
+          aria-label={t('commandFilter.show_all_types')}
         >
-          All
+          {t('commandFilter.all')}
         </button>
       ) : null}
       {availableTypes.map((type) => {
-        const config = TYPE_CONFIG[type];
-        if (!config) return null;
+        const icon = TYPE_ICONS[type];
+        if (!icon) return null;
+        const label = t(`commandFilter.types.${type}`);
         const isActive = selectedTypes.includes(type);
         return (
           <button
             key={type}
             className={`filter-chip cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${isActive ? 'filter-chip-active' : ''}`}
             onClick={() => onToggle(type)}
-            aria-label={isActive ? `Filter by ${config.label} (active)` : `Filter by ${config.label}`}
+            aria-label={isActive ? t('commandFilter.filter_by_active', { label }) : t('commandFilter.filter_by', { label })}
           >
-            {config.icon}
-            {config.label}
+            {icon}
+            {label}
           </button>
         );
       })}

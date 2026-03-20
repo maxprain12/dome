@@ -1,5 +1,6 @@
-
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { getDateTimeLocaleTag } from '@/lib/i18n';
 import { Copy, Check, RefreshCw, ChevronDown, ChevronRight, BookmarkPlus } from 'lucide-react';
 import ChatToolCard, { ChatToolCardGroup, type ToolCallData } from './ChatToolCard';
 import ReadingIndicator from './ReadingIndicator';
@@ -56,6 +57,7 @@ export default function ChatMessage({
   onClickCitation,
   className = '',
 }: ChatMessageProps) {
+  const { i18n } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [savedAsNote, setSavedAsNote] = useState(false);
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
@@ -97,8 +99,8 @@ export default function ChatMessage({
   // Format timestamp
   const formattedTime = useMemo(() => {
     const date = new Date(message.timestamp);
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  }, [message.timestamp]);
+    return date.toLocaleTimeString(getDateTimeLocaleTag(), { hour: '2-digit', minute: '2-digit' });
+  }, [message.timestamp, i18n.language]);
 
   // Build source references from citation map and message content
   const sourceReferences = useMemo(() => {

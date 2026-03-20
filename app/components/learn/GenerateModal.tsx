@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { X, Wand2, Brain, Map, HelpCircle, BookOpen, MessageCircleQuestion, CalendarRange, Table2, Headphones, Loader2 } from 'lucide-react';
 import type { StudioOutputType } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface GenerateModalProps {
   onClose: () => void;
@@ -14,20 +15,24 @@ interface OutputTypeOption {
   comingSoon?: boolean;
 }
 
-const outputTypes: OutputTypeOption[] = [
-  { type: 'mindmap', label: 'Mind Map', description: 'Mapa de conceptos', icon: <Map size={24} /> },
-  { type: 'flashcards', label: 'Flashcards', description: 'Spaced repetition', icon: <Brain size={24} /> },
-  { type: 'quiz', label: 'Quiz', description: 'Preguntas tipo test', icon: <HelpCircle size={24} /> },
-  { type: 'guide', label: 'Guía', description: 'Guía estructurada', icon: <BookOpen size={24} /> },
-  { type: 'faq', label: 'FAQ', description: 'Preguntas y respuestas', icon: <MessageCircleQuestion size={24} /> },
-  { type: 'timeline', label: 'Línea de tiempo', description: 'Eventos cronológicos', icon: <CalendarRange size={24} /> },
-  { type: 'table', label: 'Tabla', description: 'Datos estructurados', icon: <Table2 size={24} /> },
-  { type: 'audio', label: 'Audio', description: 'Resumen en audio', icon: <Headphones size={24} />, comingSoon: true },
-];
-
 export default function GenerateModal({ onClose }: GenerateModalProps) {
+  const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState<StudioOutputType | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const outputTypes: OutputTypeOption[] = useMemo(
+    () => [
+      { type: 'mindmap', label: t('learn.type_mindmap'), description: t('learn.type_mindmap_desc'), icon: <Map size={24} /> },
+      { type: 'flashcards', label: t('learn.tab_decks'), description: t('learn.type_flashcards_desc'), icon: <Brain size={24} /> },
+      { type: 'quiz', label: t('learn.tab_quizzes'), description: t('learn.type_quiz_desc'), icon: <HelpCircle size={24} /> },
+      { type: 'guide', label: t('learn.tab_guides'), description: t('learn.type_guide_desc'), icon: <BookOpen size={24} /> },
+      { type: 'faq', label: t('learn.tab_faqs'), description: t('learn.type_faq_desc'), icon: <MessageCircleQuestion size={24} /> },
+      { type: 'timeline', label: t('learn.tab_timelines'), description: t('learn.type_timeline_desc'), icon: <CalendarRange size={24} /> },
+      { type: 'table', label: t('learn.tab_tables'), description: t('learn.type_table_desc'), icon: <Table2 size={24} /> },
+      { type: 'audio', label: t('learn.type_audio'), description: t('learn.type_audio_desc'), icon: <Headphones size={24} />, comingSoon: true },
+    ],
+    [t]
+  );
 
   const handleGenerate = async () => {
     if (!selectedType) return;
@@ -51,6 +56,8 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
     }
   };
 
+  const selectedLabel = outputTypes.find((o) => o.type === selectedType)?.label;
+
   return (
     <div
       className="fixed inset-0 flex items-center justify-center p-4 z-50"
@@ -63,7 +70,7 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
       >
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--dome-border)' }}>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
-            Generar contenido
+            {t('learn.generate_title')}
           </h2>
           <button
             onClick={onClose}
@@ -76,7 +83,7 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
 
         <div className="p-5">
           <p className="text-sm mb-4" style={{ color: 'var(--dome-text-muted)' }}>
-            Selecciona el tipo de contenido que quieres generar
+            {t('learn.generate_hint')}
           </p>
 
           <div className="grid grid-cols-2 gap-3 mb-6">
@@ -101,17 +108,17 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
                 </span>
                 {option.comingSoon && (
                   <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--dome-border)' }}>
-                    Pronto
+                    {t('common.coming_soon')}
                   </span>
                 )}
               </button>
             ))}
           </div>
 
-          {selectedType && (
+          {selectedType && selectedLabel && (
             <div className="p-4 rounded-lg mb-4" style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}>
               <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                Se generará un <strong style={{ color: 'var(--dome-text)' }}>{outputTypes.find(o => o.type === selectedType)?.label}</strong> basado en los recursos de tu proyecto.
+                {t('learn.generate_preview', { type: selectedLabel })}
               </p>
             </div>
           )}
@@ -123,7 +130,7 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
           >
-            Cancelar
+            {t('learn.cancel')}
           </button>
           <button
             onClick={handleGenerate}
@@ -137,7 +144,7 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
           >
             {isGenerating && <Loader2 size={16} className="animate-spin" />}
             <Wand2 size={16} />
-            Generar
+            {t('learn.generate_btn')}
           </button>
         </div>
       </div>

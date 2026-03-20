@@ -9,6 +9,7 @@ import { useCanvasStore } from '@/lib/store/useCanvasStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTranslation } from 'react-i18next';
+import { getDateTimeLocaleTag } from '@/lib/i18n';
 
 interface WorkflowLibraryViewProps {
   onShowAutomations?: (workflowId: string, workflowLabel: string) => void;
@@ -58,7 +59,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
     if (result.success) {
       await syncMarketplaceOnWorkflowDelete(id);
       setWorkflows((prev) => prev.filter((w) => w.id !== id));
-      showToast('success', 'Workflow eliminado');
+      showToast('success', t('toast.workflow_deleted'));
       window.dispatchEvent(new CustomEvent('dome:workflows-changed'));
     } else {
       showToast('error', result.error ?? t('toast.workflow_delete_error'));
@@ -67,7 +68,11 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
   };
 
   const formatDate = (ts: number) =>
-    new Date(ts).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+    new Date(ts).toLocaleDateString(getDateTimeLocaleTag(), {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
 
   return (
     <div
@@ -88,10 +93,10 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
           </div>
           <div>
             <h1 className="text-lg font-bold" style={{ color: 'var(--dome-text)' }}>
-              Biblioteca de Workflows
+              {t('canvas.workflow_library')}
             </h1>
             <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              {workflows.length} workflow{workflows.length !== 1 ? 's' : ''} guardado{workflows.length !== 1 ? 's' : ''}
+              {t('canvas.workflows_saved_count', { count: workflows.length })}
             </p>
           </div>
         </div>
@@ -101,7 +106,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
           style={{ background: 'var(--dome-accent)', color: 'white' }}
         >
           <Plus className="w-4 h-4" />
-          Nuevo workflow
+          {t('canvas.new_workflow')}
         </button>
       </div>
 
@@ -118,9 +123,9 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'var(--dome-accent-bg)' }}>
               <FolderOpen className="w-8 h-8" style={{ color: 'var(--dome-accent)' }} />
             </div>
-            <p className="text-sm font-medium">No hay workflows guardados</p>
+            <p className="text-sm font-medium">{t('canvas.no_workflows_saved_title')}</p>
             <p className="text-xs max-w-sm text-center">
-              Crea un nuevo workflow para conectar inputs, agentes y resultados.
+              {t('canvas.no_workflows_saved_desc')}
             </p>
             <button
               onClick={handleNew}
@@ -128,7 +133,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
               style={{ background: 'var(--dome-accent)', color: 'white' }}
             >
               <Plus className="w-4 h-4" />
-              Crear primer workflow
+              {t('canvas.create_first_workflow')}
             </button>
           </div>
         ) : (
@@ -154,7 +159,8 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: 'var(--dome-text)' }}>{wf.name}</p>
                   <p className="text-xs truncate mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-                    {wf.description || `${wf.nodes.length} nodos · ${wf.edges.length} conexiones`}
+                    {wf.description
+                      || t('canvas.nodes_edges_summary', { nodes: wf.nodes.length, edges: wf.edges.length })}
                   </p>
                   <p className="flex items-center gap-1 text-xs mt-2" style={{ color: 'var(--dome-text-muted)' }}>
                     <Clock className="w-3 h-3" />
@@ -167,7 +173,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onShowAutomations(wf.id, wf.name); }}
                       className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)] transition-colors"
-                      title="Automatizaciones"
+                      title={t('agent.automations')}
                     >
                       <Zap className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
                     </button>
@@ -177,7 +183,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
                     onClick={(e) => { e.stopPropagation(); void handleDelete(e, wf.id); }}
                     disabled={deletingId === wf.id}
                     className="p-1.5 rounded-lg hover:bg-[var(--error-bg)] transition-colors"
-                    title="Eliminar"
+                    title={t('common.delete')}
                   >
                     <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--error)' }} />
                   </button>

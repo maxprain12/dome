@@ -2,6 +2,7 @@
 
 import { useMemo, lazy, Suspense } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { StudioOutput } from '@/types';
 
 // Lazy load heavy studio components (bundle-dynamic-imports)
@@ -14,12 +15,15 @@ const DataTable = lazy(() => import('@/components/studio/DataTable'));
 const AudioOverview = lazy(() => import('@/components/studio/AudioOverview'));
 const FlashcardStudyView = lazy(() => import('@/components/flashcards/FlashcardStudyView'));
 
-const StudioOutputFallback = () => (
-  <div className="flex flex-col items-center justify-center h-full p-8" style={{ color: 'var(--tertiary-text)' }}>
-    <Loader2 className="w-8 h-8 animate-spin mb-4" />
-    <span>Loading...</span>
-  </div>
-);
+function StudioOutputFallback() {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col items-center justify-center h-full p-8" style={{ color: 'var(--tertiary-text)' }}>
+      <Loader2 className="w-8 h-8 animate-spin mb-4" />
+      <span>{t('studio.loading')}</span>
+    </div>
+  );
+}
 
 interface StudioOutputViewerProps {
   output: StudioOutput;
@@ -29,6 +33,7 @@ interface StudioOutputViewerProps {
 }
 
 export default function StudioOutputViewer({ output, onClose, overlayContext = 'workspace' }: StudioOutputViewerProps) {
+  const { t } = useTranslation();
   const parsedContent = useMemo(() => {
     if (!output.content) return null;
     try {
@@ -63,16 +68,16 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
             className="text-lg font-medium"
             style={{ color: 'var(--primary-text)' }}
           >
-            Unable to display output
+            {t('studio.unable_to_display')}
           </p>
           <p
             className="text-sm mt-2"
             style={{ color: 'var(--secondary-text)' }}
           >
-            The content for this studio output could not be parsed.
+            {t('studio.content_parse_error')}
           </p>
           <button onClick={onClose} className="btn btn-secondary mt-6">
-            Close
+            {t('ui.close')}
           </button>
         </div>
       );
@@ -95,10 +100,10 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
         return (
           <div className="flex flex-col items-center justify-center h-full p-8">
             <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-              Deck not found. It may have been deleted.
+              {t('studio.deck_not_found')}
             </p>
             <button onClick={onClose} className="btn btn-secondary mt-4">
-              Close
+              {t('ui.close')}
             </button>
           </div>
         );
@@ -106,7 +111,7 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
         return (
           <AudioOverview
             transcript={parsedContent}
-            title={output.title || 'Audio Overview'}
+            title={output.title || t('studio.audio_overview_default')}
             onClose={onClose}
           />
         );
@@ -121,16 +126,16 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
               className="text-lg font-medium"
               style={{ color: 'var(--primary-text)' }}
             >
-              Unsupported output type
+              {t('studio.unsupported_type')}
             </p>
             <p
               className="text-sm mt-2"
               style={{ color: 'var(--secondary-text)' }}
             >
-              The output type &quot;{output.type}&quot; is not yet supported.
+              {t('studio.unsupported_type_hint', { type: output.type })}
             </p>
             <button onClick={onClose} className="btn btn-secondary mt-6">
-              Close
+              {t('ui.close')}
             </button>
           </div>
         );

@@ -1,6 +1,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, Download, Search, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { DataTableData } from '@/types';
 
 interface DataTableProps {
@@ -12,6 +13,7 @@ interface DataTableProps {
 type SortDirection = 'asc' | 'desc' | null;
 
 export default function DataTable({ data, title, onClose }: DataTableProps) {
+  const { t } = useTranslation();
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>(null);
   const [filterText, setFilterText] = useState('');
@@ -80,15 +82,15 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: 'var(--border)' }}>
         <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
-          {title || 'Data Table'}
+          {title || t('studio.data_table')}
         </h3>
         <div className="flex items-center gap-2">
-          <button onClick={handleExportCSV} className="btn btn-ghost p-2 min-h-[44px] flex items-center gap-1 text-xs rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Export CSV" title="Export CSV">
+          <button onClick={handleExportCSV} className="btn btn-ghost p-2 min-h-[44px] flex items-center gap-1 text-xs rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.export_csv_aria')} title={t('studio.export_csv')}>
             <Download size={14} />
             <span>CSV</span>
           </button>
           {onClose && (
-            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close"><X size={16} /></button>
+            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('ui.close')} title={t('ui.close')}><X size={16} /></button>
           )}
         </div>
       </div>
@@ -96,14 +98,14 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
       {/* Filter */}
       <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
         <div className="relative">
-          <label htmlFor="datatable-filter-rows" className="sr-only">Filter rows</label>
+          <label htmlFor="datatable-filter-rows" className="sr-only">{t('studio.filter_rows_label')}</label>
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--tertiary-text)' }} />
           <input
             id="datatable-filter-rows"
             type="text"
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
-            placeholder="Filter rows..."
+            placeholder={t('studio.filter_rows_placeholder')}
             className="w-full pl-8 pr-3 py-1.5 rounded-md text-xs"
             style={{
               background: 'var(--bg-secondary)',
@@ -169,7 +171,7 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
                   className="px-4 py-8 text-center"
                   style={{ color: 'var(--tertiary-text)' }}
                 >
-                  {filterText ? 'No matching rows' : 'No data'}
+                  {filterText ? t('studio.no_matching_rows') : t('studio.no_data')}
                 </td>
               </tr>
             )}
@@ -179,8 +181,8 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
 
       {/* Footer */}
       <div className="px-4 py-2 border-t text-xs" style={{ borderColor: 'var(--border)', color: 'var(--tertiary-text)' }}>
-        {filteredAndSorted.length} of {data.rows.length} rows
-        {filterText && ` (filtered)`}
+        {t('studio.rows_progress', { shown: filteredAndSorted.length, total: data.rows.length })}
+        {filterText ? ` (${t('studio.filtered_hint')})` : ''}
       </div>
     </div>
   );

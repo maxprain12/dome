@@ -19,18 +19,14 @@ import { buildCitationMap } from '@/lib/utils/citations';
 import { collectTeamMcpServerIds } from '@/lib/ai/shared-capabilities';
 import { inferMcpServerForTool, loadMcpServersSetting } from '@/lib/mcp/settings';
 import type { MCPServerConfig } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface AgentTeamChatProps {
   teamId: string;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  thinking: 'El supervisor está analizando la tarea...',
-  delegating: 'Delegando a los agentes del equipo...',
-  synthesizing: 'Sintetizando respuestas...',
-};
-
 export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
+  const { t } = useTranslation();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const [team, setTeam] = useState<AgentTeam | null>(null);
@@ -544,7 +540,13 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
                 />
               </div>
               <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                {STATUS_LABELS[status] ?? 'Procesando...'}
+                {status === 'thinking'
+                  ? t('agentTeam.status_thinking')
+                  : status === 'delegating'
+                    ? t('agentTeam.status_delegating')
+                    : status === 'synthesizing'
+                      ? t('agentTeam.status_synthesizing')
+                      : t('chat.processing')}
               </span>
             </div>
           </div>

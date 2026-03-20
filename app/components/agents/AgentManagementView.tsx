@@ -149,10 +149,10 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
             </div>
             <div>
               <h1 className="text-lg font-bold" style={{ color: 'var(--dome-text)' }}>
-                {t('agent.agent_library')}
+                {t('agents.agent_library')}
               </h1>
               <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                {agents.length === 1 ? t('agent.agents_configured_one', { count: agents.length }) : t('agent.agents_configured_other', { count: agents.length })}
+                {agents.length === 1 ? t('agents.agents_configured_one', { count: agents.length }) : t('agents.agents_configured_other', { count: agents.length })}
               </p>
             </div>
           </div>
@@ -162,7 +162,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               onClick={handleExport}
               disabled={agents.length === 0}
               className="flex items-center justify-center w-9 h-9 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
-              title={t('agent.export_agents')}
+              title={t('agents.export_agents')}
             >
               <Download className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
             </button>
@@ -172,7 +172,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
               className="flex items-center justify-center w-9 h-9 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
-              title={t('agent.import_agents')}
+              title={t('agents.import_agents')}
             >
               {importing
                 ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
@@ -203,9 +203,9 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'var(--dome-accent-bg)' }}>
                 <FolderOpen className="w-8 h-8" style={{ color: 'var(--dome-accent)' }} />
               </div>
-              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('agent.no_agents_yet')}</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('agents.no_agents_yet')}</p>
               <p className="text-xs max-w-sm text-center">
-                {t('agent.no_agents_desc')}
+                {t('agents.no_agents_desc')}
               </p>
               <button
                 onClick={() => setShowNewAgent(true)}
@@ -213,7 +213,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                 style={{ background: 'var(--dome-accent)', color: 'white' }}
               >
                 <Plus className="w-4 h-4" />
-                {t('agent.create_first_agent')}
+                {t('agents.create_first_agent')}
               </button>
             </div>
           ) : (
@@ -263,7 +263,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onShowAutomations(agent.id, agent.name); }}
                         className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)] transition-colors"
-                        title={t('agent.automations')}
+                        title={t('agents.automations')}
                       >
                         <Zap className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
                       </button>
@@ -294,8 +294,8 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
 
       <ConfirmDialog
         isOpen={!!deleteTarget}
-        title={t('agent.delete_agent')}
-        message={deleteTarget ? t('agent.delete_agent_confirm', { name: deleteTarget.name }) : ''}
+        title={t('agents.delete_agent')}
+        message={deleteTarget ? t('agents.delete_agent_confirm', { name: deleteTarget.name }) : ''}
         variant="danger"
         confirmLabel={t('ui.delete')}
         cancelLabel={t('ui.cancel')}

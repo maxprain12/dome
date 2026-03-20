@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FileText,
   File,
@@ -43,6 +44,7 @@ function getTypeIcon(type: string, size = 14) {
 }
 
 export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProps) {
+  const { t } = useTranslation();
   const [resources, setResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -127,14 +129,14 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
           className="text-xs font-semibold uppercase tracking-wider"
           style={{ color: 'var(--secondary-text)' }}
         >
-          Sources
+          {t('workspace.sources')}
         </h3>
         <button
           onClick={handleToggleAll}
           className="flex items-center justify-center w-6 h-6 rounded transition-colors duration-150"
           style={{ color: 'var(--secondary-text)' }}
-          title={allSelected ? 'Deselect all' : 'Select all'}
-          aria-label={allSelected ? 'Deselect all sources' : 'Select all sources'}
+          title={allSelected ? t('ui.deselect_all') : t('ui.select_all')}
+          aria-label={allSelected ? t('ui.deselect_all_sources_aria') : t('ui.select_all_sources_aria')}
         >
           {allSelected ? (
             <CheckSquare size={14} style={{ color: 'var(--accent)' }} />
@@ -151,13 +153,13 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
-              Loading...
+              {t('ui.loading')}
             </p>
           </div>
         ) : resources.length === 0 ? (
           <div className="flex items-center justify-center py-8 px-3">
             <p className="text-xs text-center" style={{ color: 'var(--tertiary-text)' }}>
-              No sources in this project yet.
+              {t('workspace.sources_empty')}
             </p>
           </div>
         ) : (
@@ -187,7 +189,11 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
                     e.currentTarget.style.background = 'transparent';
                   }
                 }}
-                aria-label={isSelected ? `Deselect ${res.title}` : `Select ${res.title}`}
+                aria-label={
+                  isSelected
+                    ? t('workspace.sources_deselect', { title: res.title })
+                    : t('workspace.sources_select', { title: res.title })
+                }
               >
                 {/* Checkbox */}
                 <div className="shrink-0" style={{ color: isSelected ? 'var(--accent)' : 'var(--tertiary-text)' }}>
@@ -236,7 +242,7 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
           }}
         >
           <Plus size={14} />
-          Add source
+          {t('workspace.add_source')}
         </button>
       </div>
     </div>

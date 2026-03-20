@@ -1,6 +1,7 @@
 
 import { useEffect, useRef } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -17,12 +18,15 @@ export function ConfirmDialog({
   isOpen,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   variant = 'default',
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
+  const resolvedConfirm = confirmLabel ?? t('ui.confirm');
+  const resolvedCancel = cancelLabel ?? t('common.cancel');
   const confirmRef = useRef<HTMLButtonElement>(null);
 
   // Focus confirm button when dialog opens
@@ -176,7 +180,7 @@ export function ConfirmDialog({
               (e.target as HTMLButtonElement).style.background = 'transparent';
             }}
           >
-            {cancelLabel}
+            {resolvedCancel}
           </button>
           <button
             ref={confirmRef}
@@ -199,7 +203,7 @@ export function ConfirmDialog({
               (e.target as HTMLButtonElement).style.filter = 'none';
             }}
           >
-            {confirmLabel}
+            {resolvedConfirm}
           </button>
         </div>
       </div>

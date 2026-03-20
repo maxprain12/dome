@@ -202,7 +202,7 @@ export const useTabStore = create<TabStore>((set, get) => {
     },
 
     openChatTab: (sessionId: string, title: string) => {
-      get().openTab({ id: CHAT_TAB_PREFIX + sessionId, type: 'chat', title: title || 'New chat', resourceId: sessionId, pinned: false });
+      get().openTab({ id: CHAT_TAB_PREFIX + sessionId, type: 'chat', title: title.trim(), resourceId: sessionId, pinned: false });
     },
 
     openStudioTab: () => {

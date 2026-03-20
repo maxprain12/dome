@@ -159,7 +159,7 @@ export default function GraphToolbar({
             value={depth}
             onChange={(e) => onDepthChange(parseInt(e.target.value))}
             className="w-16"
-            aria-label="Graph depth"
+            aria-label={t('graph.depth_aria')}
           />
           <span className="text-xs font-medium w-3" style={{ color: 'var(--primary-text)' }}>
             {depth}
@@ -212,9 +212,9 @@ export default function GraphToolbar({
                 }}
                 className="w-full px-3 py-2 text-xs text-left transition-colors hover:bg-[var(--bg-hover)] rounded-t-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{ color: 'var(--primary-text)', background: 'transparent', border: 'none' }}
-                aria-label="Export graph as PNG"
+                aria-label={t('graph.export_png_aria')}
               >
-                Export as PNG
+                {t('graph.export_as_png')}
               </button>
               <button
                 onClick={() => {
@@ -223,9 +223,9 @@ export default function GraphToolbar({
                 }}
                 className="w-full px-3 py-2 text-xs text-left transition-colors hover:bg-[var(--bg-hover)] rounded-b-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{ color: 'var(--primary-text)', background: 'transparent', border: 'none' }}
-                aria-label="Export graph as JSON"
+                aria-label={t('graph.export_json_aria')}
               >
-                Export as JSON
+                {t('graph.export_as_json')}
               </button>
             </div>
           )}
@@ -233,7 +233,7 @@ export default function GraphToolbar({
 
         {/* Stats */}
         <div className="text-xs px-3 py-1.5" style={{ color: 'var(--tertiary-text)' }}>
-          {nodeCount} nodes, {edgeCount} edges
+          {t('graph.nodes_edges_count', { nodeCount, edgeCount })}
         </div>
       </div>
 
@@ -242,7 +242,7 @@ export default function GraphToolbar({
         <div className="px-4 py-3 border-t border-[var(--border)]">
           <div className="flex items-start justify-between mb-3">
             <h3 className="text-xs font-semibold" style={{ color: 'var(--primary-text)' }}>
-              Filter Graph
+              {t('graph.filter_graph')}
             </h3>
             {hasActiveFilters && (
               <button
@@ -261,7 +261,7 @@ export default function GraphToolbar({
             {/* Relation types */}
             <div>
               <label className="text-xs font-medium mb-2 block" style={{ color: 'var(--secondary-text)' }}>
-                Relation Types
+                {t('graph.relation_types')}
               </label>
               <div className="space-y-1.5">
                 {relationTypes.map((type) => (
@@ -284,7 +284,7 @@ export default function GraphToolbar({
             {/* Node types */}
             <div>
               <label className="text-xs font-medium mb-2 block" style={{ color: 'var(--secondary-text)' }}>
-                Node Types
+                {t('graph.node_types')}
               </label>
               <div className="space-y-1.5">
                 {nodeTypes.map((type) => (
@@ -308,7 +308,7 @@ export default function GraphToolbar({
           {/* Weight slider */}
           <div className="mt-4">
             <label htmlFor="graph-min-weight" className="text-xs font-medium mb-2 flex items-center justify-between" style={{ color: 'var(--secondary-text)' }}>
-              <span>Minimum Weight</span>
+              <span>{t('graph.min_weight')}</span>
               <span style={{ color: 'var(--primary-text)' }}>
                 {(filters.minWeight || 0.3).toFixed(1)}
               </span>

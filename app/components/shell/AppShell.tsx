@@ -66,15 +66,15 @@ export default function AppShell() {
     const sessionId = useManyStore.getState().currentSessionId;
     if (sessionId) openChatTab(sessionId, t('shell.new_chat'));
     if (!rightSidebarOpen) setRightSidebarOpen(true);
-  }, [openChatTab, rightSidebarOpen]);
+  }, [openChatTab, rightSidebarOpen, t]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
     const unsub = window.electron.on('dome:open-resource-in-tab', (data: { resourceId: string; resourceType: string; title: string }) => {
-      useTabStore.getState().openResourceTab(data.resourceId, data.resourceType, data.title || 'Resource');
+      useTabStore.getState().openResourceTab(data.resourceId, data.resourceType, data.title || t('app.resource'));
     });
     return () => unsub?.();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;

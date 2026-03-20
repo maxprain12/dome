@@ -38,6 +38,7 @@ import type { ManyAgent } from '@/types';
 import type { CanvasWorkflow } from '@/types/canvas';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTranslation } from 'react-i18next';
+import { getDateTimeLocaleTag } from '@/lib/i18n';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,52 +73,32 @@ type DraftState = {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function formatDate(ts?: number | null) {
-  if (!ts) return 'Nunca';
-  return new Date(ts).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
-
-function statusLabel(s: string) {
-  switch (s) {
-    case 'queued': return 'En cola';
-    case 'running': return 'Ejecutando';
-    case 'waiting_approval': return 'Aprobación';
-    case 'completed': return 'Completado';
-    case 'failed': return 'Fallido';
-    case 'cancelled': return 'Cancelado';
-    default: return s;
-  }
-}
-
-function statusColor(s: string) {
-  switch (s) {
-    case 'completed': return '#10b981';
-    case 'running': return '#3b82f6';
-    case 'failed': return '#ef4444';
-    case 'waiting_approval': return '#f59e0b';
-    default: return '#6b7280';
-  }
+function formatHubDate(ts: number | undefined | null, neverLabel: string) {
+  if (!ts) return neverLabel;
+  return new Date(ts).toLocaleString(getDateTimeLocaleTag(), {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const color = statusColor(status);
+  const color = runStatusColor(status);
   return (
     <span
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
-      style={{ background: color + '20', color }}
+      style={{
+        background: `color-mix(in srgb, ${color} 18%, transparent)`,
+        color,
+      }}
     >
       {status === 'running' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
       {status === 'completed' && <CheckCircle2 className="w-2.5 h-2.5" />}
       {status === 'failed' && <XCircle className="w-2.5 h-2.5" />}
-      {statusLabel(status)}
+      {runStatusLabel(status)}
     </span>
   );
-}
-
-function triggerLabel(t: string) {
-  if (t === 'schedule') return 'Programada';
-  if (t === 'manual') return 'Manual';
-  return 'Contextual';
 }
 
 const EMPTY_DRAFT: DraftState = {
@@ -259,12 +240,12 @@ function AutomationEditDrawer({
               >
                 <option value="daily">{t('automation.daily')}</option>
                 <option value="weekly">{t('automation.weekly')}</option>
-                <option value="cron-lite">Cada N minutos</option>
+                <option value="cron-lite">{t('automation.cadence_interval')}</option>
               </select>
             </div>
             {draft.cadence !== 'cron-lite' && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Hora (0-23)</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.schedule_hour_label')}</label>
                 <input
                   type="number"
                   min={0} max={23}
@@ -277,22 +258,22 @@ function AutomationEditDrawer({
             )}
             {draft.cadence === 'weekly' && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Día</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.weekday_label')}</label>
                 <select
                   value={draft.weekday}
                   onChange={(e) => onDraftChange({ weekday: parseInt(e.target.value) })}
                   className="w-full text-sm rounded-lg border px-3 py-2"
                   style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)', outline: 'none' }}
                 >
-                  {['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].map((d, i) => (
-                    <option key={d} value={i + 1}>{d}</option>
+                  {(['day_mon','day_tue','day_wed','day_thu','day_fri','day_sat','day_sun'] as const).map((dayKey, i) => (
+                    <option key={dayKey} value={i + 1}>{t(`automation.${dayKey}`)}</option>
                   ))}
                 </select>
               </div>
             )}
             {draft.cadence === 'cron-lite' && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Cada (minutos)</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.interval_minutes_label')}</label>
                 <input
                   type="number"
                   min={1}
@@ -308,12 +289,12 @@ function AutomationEditDrawer({
 
         {/* Prompt */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Prompt base</label>
+          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.base_prompt')}</label>
           <textarea
             rows={4}
             value={draft.prompt}
             onChange={(e) => onDraftChange({ prompt: e.target.value })}
-            placeholder="Instrucciones base para la automatización…"
+            placeholder={t('automation.base_prompt_placeholder')}
             className="w-full text-sm rounded-lg border px-3 py-2 resize-none"
             style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
           />
@@ -328,7 +309,7 @@ function AutomationEditDrawer({
             className="w-full text-sm rounded-lg border px-3 py-2"
             style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
           >
-            <option value="chat_only">Solo chat</option>
+            <option value="chat_only">{t('automation.output_chat_only')}</option>
             <option value="note">{t('automation.note')}</option>
             <option value="studio_output">{t('automation.studio')}</option>
             <option value="mixed">{t('automation.mixed')}</option>
@@ -351,7 +332,7 @@ function AutomationEditDrawer({
             style={{ color: 'var(--dome-text)' }}
             onClick={() => onDraftChange({ enabled: !draft.enabled })}
           >
-            {draft.enabled ? 'Activa al guardar' : 'Pausada al guardar'}
+            {draft.enabled ? t('automation.enabled_on_save') : t('automation.paused_on_save')}
           </span>
         </label>
       </div>
@@ -371,10 +352,10 @@ function AutomationEditDrawer({
       >
         <div>
           <p className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
-            {isNew ? 'Nueva automatización' : 'Editar automatización'}
+            {isNew ? t('automation.drawer_new_title') : t('automation.drawer_edit_title')}
           </p>
           <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-            {isNew ? 'Elige un destino y configura el trigger' : draft.title}
+            {isNew ? t('automation.drawer_new_subtitle') : draft.title}
           </p>
         </div>
         <button type="button" onClick={onCancel} className="rounded-lg p-1.5 hover:bg-[var(--dome-surface)]">
@@ -395,7 +376,7 @@ function AutomationEditDrawer({
           className="px-4 py-2 rounded-lg text-xs font-medium transition-colors"
           style={{ background: 'var(--dome-surface)', color: 'var(--dome-text)' }}
         >
-          Cancelar
+          {t('automation.cancel')}
         </button>
         <button
           type="button"
@@ -405,7 +386,7 @@ function AutomationEditDrawer({
           style={{ background: 'var(--dome-accent)', color: '#fff' }}
         >
           {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          {isNew ? 'Crear' : 'Guardar cambios'}
+          {isNew ? t('common.create') : t('automation.save_changes')}
         </button>
       </div>
     </div>
@@ -422,6 +403,15 @@ interface AutomationsTabProps {
 
 function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProps) {
   const { t } = useTranslation();
+  const triggerLabel = useCallback(
+    (trigger: string) =>
+      trigger === 'schedule'
+        ? t('automation.scheduled')
+        : trigger === 'manual'
+          ? t('automation.manual')
+          : t('automation.contextual'),
+    [t],
+  );
   const [automations, setAutomations] = useState<AutomationDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<AutomationFilter>(initialFilter ?? { targetType: 'all' });
@@ -558,9 +548,9 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
             <ChevronLeft size={18} />
           </button>
           <div>
-            <p className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>Nueva automatización</p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>{t('automation.new_page_title')}</p>
             <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-              Elige un destino y configura el trigger
+              {t('automation.new_page_subtitle')}
             </p>
           </div>
         </div>
@@ -591,7 +581,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
             className="px-4 py-2 rounded-lg text-xs font-medium transition-colors"
             style={{ background: 'var(--dome-surface)', color: 'var(--dome-text)' }}
           >
-            Cancelar
+            {t('automation.cancel')}
           </button>
           <button
             type="button"
@@ -601,7 +591,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
             style={{ background: 'var(--dome-accent)', color: '#fff' }}
           >
             {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            Crear automatización
+            {t('automation.create_footer')}
           </button>
         </div>
       </div>
@@ -622,7 +612,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} />
             <input
               type="text"
-              placeholder="Buscar automatizaciones…"
+              placeholder={t('automation.search_automations')}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               className="w-full text-xs rounded-lg border pl-8 pr-3 py-1.5"
@@ -632,20 +622,24 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
 
           {/* Type filter */}
           <div className="flex items-center gap-1">
-            {(['all', 'agent', 'workflow'] as const).map((t) => (
+            {(['all', 'agent', 'workflow'] as const).map((targetKind) => (
               <button
-                key={t}
+                key={targetKind}
                 type="button"
-                onClick={() => setFilter((f) => ({ ...f, targetType: t, targetId: undefined }))}
+                onClick={() => setFilter((f) => ({ ...f, targetType: targetKind, targetId: undefined }))}
                 className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
                 style={{
-                  background: filter.targetType === t ? 'var(--dome-accent)' : 'var(--dome-surface)',
-                  color: filter.targetType === t ? '#fff' : 'var(--dome-text-muted)',
+                  background: filter.targetType === targetKind ? 'var(--dome-accent)' : 'var(--dome-surface)',
+                  color: filter.targetType === targetKind ? '#fff' : 'var(--dome-text-muted)',
                   border: '1px solid',
-                  borderColor: filter.targetType === t ? 'var(--dome-accent)' : 'var(--dome-border)',
+                  borderColor: filter.targetType === targetKind ? 'var(--dome-accent)' : 'var(--dome-border)',
                 }}
               >
-                {t === 'all' ? 'Todas' : t === 'agent' ? 'Agentes' : 'Workflows'}
+                {targetKind === 'all'
+                  ? t('automation.filter_target_all')
+                  : targetKind === 'agent'
+                    ? t('automation.filter_target_agent')
+                    : t('automation.filter_target_workflow')}
               </button>
             ))}
           </div>
@@ -657,7 +651,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shrink-0"
             style={{ background: 'var(--dome-accent)', color: '#fff' }}
           >
-            <Plus className="w-3.5 h-3.5" /> Nueva
+            <Plus className="w-3.5 h-3.5" /> {t('automation.button_new')}
           </button>
         </div>
 
@@ -669,7 +663,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
           >
             <Filter className="w-3 h-3" style={{ color: 'var(--dome-accent)' }} />
             <span style={{ color: 'var(--dome-text)' }}>
-              Filtrando por: <b>{filter.targetLabel}</b>
+              {t('automation.filter_by')} <b>{filter.targetLabel}</b>
             </span>
             <button
               type="button"
@@ -677,7 +671,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
               className="ml-auto"
               style={{ color: 'var(--dome-accent)' }}
             >
-              Quitar filtro
+              {t('automation.clear_filter')}
             </button>
           </div>
         )}
@@ -693,9 +687,9 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
               <div className="rounded-2xl p-4" style={{ background: 'var(--dome-surface)' }}>
                 <Zap className="w-8 h-8" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={1.5} />
               </div>
-              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>Sin automatizaciones</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.no_automations')}</p>
               <p className="text-xs max-w-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                Crea la primera automatización con el botón "Nueva".
+                {t('automation.empty_list_hint')}
               </p>
               <button
                 type="button"
@@ -703,7 +697,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium"
                 style={{ background: 'var(--dome-accent)', color: '#fff' }}
               >
-                <Plus className="w-4 h-4" /> Nueva automatización
+                <Plus className="w-4 h-4" /> {t('automation.empty_create_cta')}
               </button>
             </div>
           ) : (
@@ -738,7 +732,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
                     )}
                     <div className="flex items-center gap-1 mt-1.5 text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
                       <Clock className="w-3 h-3" />
-                      Último run: {formatDate(a.lastRunAt)}
+                      {t('automation.last_run')} {formatHubDate(a.lastRunAt, t('automation.never'))}
                       {a.lastRunStatus && (
                         <span className="ml-1"><StatusBadge status={a.lastRunStatus} /></span>
                       )}
@@ -749,7 +743,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
                   <div className="flex items-center gap-0.5 shrink-0">
                     <button
                       type="button"
-                      title="Editar"
+                      title={t('automation.title_edit')}
                       onClick={() => handleEdit(a)}
                       className="rounded-lg p-1.5 hover:bg-[var(--dome-bg)] transition-colors"
                     >
@@ -757,7 +751,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
                     </button>
                     <button
                       type="button"
-                      title="Ejecutar ahora"
+                      title={t('automation.title_run_now')}
                       onClick={() => void handleRun(a.id)}
                       disabled={runningId === a.id}
                       className="rounded-lg p-1.5 hover:bg-[var(--dome-bg)] transition-colors"
@@ -768,7 +762,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
                     </button>
                     <button
                       type="button"
-                      title="Eliminar"
+                      title={t('automation.title_delete')}
                       onClick={() => void handleDelete(a.id)}
                       className="rounded-lg p-1.5 hover:bg-[var(--dome-bg)] transition-colors"
                     >
@@ -840,6 +834,7 @@ interface RunDetailScreenProps {
 }
 
 function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
+  const { t } = useTranslation();
   const steps = run.steps ?? [];
   const toolSteps = steps.filter((s) => s.stepType === 'tool_call' || s.stepType === 'tool');
   const otherSteps = steps.filter((s) => s.stepType !== 'tool_call' && s.stepType !== 'tool');
@@ -858,6 +853,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
           onClick={onBack}
           className="rounded-lg p-1.5 hover:bg-[var(--bg-hover)] shrink-0 mt-0.5"
           style={{ color: 'var(--tertiary-text)' }}
+          aria-label={t('common.back')}
         >
           <ChevronLeft size={18} />
         </button>
@@ -879,18 +875,18 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
           </div>
           <div className="flex items-center gap-3 mt-1 flex-wrap">
             <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-              Iniciado: {formatRunDate(run.startedAt)}
+              {t('runLog.started')} {formatRunDate(run.startedAt)}
             </span>
             {run.finishedAt && (
               <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-                Fin: {formatRunDate(run.finishedAt)}
+                {t('runLog.finished')} {formatRunDate(run.finishedAt)}
               </span>
             )}
             <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-              Duración: {formatDuration(run.startedAt, run.finishedAt)}
+              {t('runLog.duration')} {formatDuration(run.startedAt, run.finishedAt)}
             </span>
             <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-              {steps.length} paso{steps.length !== 1 ? 's' : ''}
+              {steps.length === 1 ? t('runLog.step_singular') : t('runLog.step_plural', { count: steps.length })}
             </span>
           </div>
         </div>
@@ -915,7 +911,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
             className="rounded-xl border px-4 py-3 text-sm"
             style={{ borderColor: 'var(--error)', background: 'color-mix(in srgb, var(--error) 8%, transparent)', color: 'var(--error)' }}
           >
-            <p className="font-semibold mb-1">Error</p>
+            <p className="font-semibold mb-1">{t('runLog.error_title')}</p>
             <p className="text-xs font-mono">{run.error}</p>
           </div>
         )}
@@ -924,7 +920,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
         {run.outputText && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--tertiary-text)' }}>
-              Respuesta
+              {t('runLog.response')}
             </p>
             <div
               className="rounded-xl border p-5 text-sm"
@@ -939,7 +935,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
         {toolSteps.length > 0 && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--tertiary-text)' }}>
-              Herramientas usadas ({toolSteps.length})
+              {t('runLog.tools_used', { count: toolSteps.length })}
             </p>
             <div className="flex flex-col gap-1">
               {toolSteps.map((step) => (
@@ -953,7 +949,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
         {otherSteps.length > 0 && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--tertiary-text)' }}>
-              Pasos del agente ({otherSteps.length})
+              {t('runLog.agent_steps', { count: otherSteps.length })}
             </p>
             <div className="flex flex-col gap-2">
               {otherSteps.map((step) => (
@@ -982,10 +978,10 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
             {isRunning ? (
               <>
                 <Loader2 size={32} className="animate-spin mb-3" style={{ color: 'var(--accent)' }} />
-                <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Ejecutando…</p>
+                <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>{t('runLog.executing')}</p>
               </>
             ) : (
-              <p className="text-sm" style={{ color: 'var(--tertiary-text)' }}>No hay pasos registrados para este run.</p>
+              <p className="text-sm" style={{ color: 'var(--tertiary-text)' }}>{t('runLog.no_steps')}</p>
             )}
           </div>
         )}
@@ -994,7 +990,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
         {run.summary && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--tertiary-text)' }}>
-              Resumen
+              {t('runLog.summary')}
             </p>
             <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>{run.summary}</p>
           </div>
@@ -1071,19 +1067,37 @@ function RunsTab() {
     }
   };
 
-  const OWNER_FILTERS: { key: RunFilter['ownerType']; label: string }[] = [
-    { key: 'all', label: 'Todos' },
-    { key: 'agent', label: 'Agentes' },
-    { key: 'workflow', label: 'Workflows' },
-  ];
+  const ownerFilters = useMemo(
+    () =>
+      (['all', 'agent', 'workflow'] as const).map((key) => ({
+        key,
+        label:
+          key === 'all'
+            ? t('runLog.filter_owner_all')
+            : key === 'agent'
+              ? t('runLog.filter_owner_agent')
+              : t('runLog.filter_owner_workflow'),
+      })),
+    [t],
+  );
 
-  const STATUS_FILTERS: { key: RunFilter['status']; label: string }[] = [
-    { key: 'all', label: 'Todos' },
-    { key: 'running', label: 'Ejecutando' },
-    { key: 'completed', label: 'Completados' },
-    { key: 'failed', label: 'Fallidos' },
-    { key: 'cancelled', label: 'Cancelados' },
-  ];
+  const statusFilters = useMemo(
+    () =>
+      (['all', 'running', 'completed', 'failed', 'cancelled'] as const).map((key) => ({
+        key,
+        label:
+          key === 'all'
+            ? t('runLog.filter_status_all')
+            : key === 'running'
+              ? t('runLog.filter_status_running')
+              : key === 'completed'
+                ? t('runLog.filter_status_completed')
+                : key === 'failed'
+                  ? t('runLog.filter_status_failed')
+                  : t('runLog.filter_status_cancelled'),
+      })),
+    [t],
+  );
 
   // When a run is selected, show full-screen detail view
   if (selectedRun) {
@@ -1104,7 +1118,7 @@ function RunsTab() {
         >
           <div className="flex items-center gap-2 flex-wrap">
             <Filter className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-            {OWNER_FILTERS.map(({ key, label }) => (
+            {ownerFilters.map(({ key, label }) => (
               <button
                 key={key}
                 type="button"
@@ -1121,17 +1135,26 @@ function RunsTab() {
               </button>
             ))}
             <div className="w-px h-4 mx-1" style={{ background: 'var(--dome-border)' }} />
-            {STATUS_FILTERS.map(({ key, label }) => (
+            {statusFilters.map(({ key, label }) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setFilter((f) => ({ ...f, status: key }))}
                 className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
                 style={{
-                  background: filter.status === key ? statusColor(key === 'all' ? 'completed' : key) + '20' : 'transparent',
-                  color: filter.status === key ? statusColor(key === 'all' ? 'completed' : key) : 'var(--dome-text-muted)',
+                  background:
+                    filter.status === key
+                      ? `color-mix(in srgb, ${runStatusColor(key === 'all' ? 'completed' : key)} 22%, transparent)`
+                      : 'transparent',
+                  color:
+                    filter.status === key
+                      ? runStatusColor(key === 'all' ? 'completed' : key)
+                      : 'var(--dome-text-muted)',
                   border: '1px solid',
-                  borderColor: filter.status === key ? statusColor(key === 'all' ? 'completed' : key) : 'transparent',
+                  borderColor:
+                    filter.status === key
+                      ? runStatusColor(key === 'all' ? 'completed' : key)
+                      : 'transparent',
                 }}
               >
                 {label}
@@ -1139,7 +1162,9 @@ function RunsTab() {
             ))}
           </div>
           <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
-            {filtered.length} {filtered.length === 1 ? 'run' : 'runs'}
+            {filtered.length === 1
+              ? t('runLog.runs_count_one', { count: filtered.length })
+              : t('runLog.runs_count_other', { count: filtered.length })}
           </p>
         </div>
 
@@ -1154,9 +1179,9 @@ function RunsTab() {
               <div className="rounded-2xl p-4" style={{ background: 'var(--dome-surface)' }}>
                 <Activity className="w-8 h-8" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={1.5} />
               </div>
-              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>Sin runs</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('runLog.empty_runs')}</p>
               <p className="text-xs max-w-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                Ejecuta una automatización o inicia un agente para ver los logs aquí.
+                {t('runLog.empty_runs_hint')}
               </p>
             </div>
           ) : (
@@ -1185,8 +1210,10 @@ function RunsTab() {
                       {run.title || run.id}
                     </p>
                     <p className="text-[10px] mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-                      {formatDate(run.updatedAt)}
-                      {run.steps?.length ? ` · ${run.steps.length} pasos` : ''}
+                      {formatHubDate(run.updatedAt, t('runLog.never'))}
+                      {run.steps?.length
+                        ? ` · ${run.steps.length === 1 ? t('runLog.step_singular') : t('runLog.step_plural', { count: run.steps.length })}`
+                        : ''}
                     </p>
                   </div>
 
@@ -1198,7 +1225,7 @@ function RunsTab() {
                       onClick={(e) => void handleDelete(run.id, e)}
                       disabled={deletingId === run.id}
                       className="rounded-lg p-1 hover:bg-[var(--dome-bg)] transition-colors"
-                      title="Eliminar run"
+                      title={t('runLog.delete_run_aria')}
                     >
                       {deletingId === run.id
                         ? <Loader2 className="w-3 h-3 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
@@ -1222,6 +1249,16 @@ interface AutomationsHubViewProps {
 
 export default function AutomationsHubView({ onAgentSelect }: AutomationsHubViewProps) {
   const { t } = useTranslation();
+  const hubTabs = useMemo(
+    () =>
+      [
+        { id: 'agents' as HubTab, label: t('automationHub.tab_agents'), icon: Bot },
+        { id: 'workflows' as HubTab, label: t('automationHub.tab_workflows'), icon: Workflow },
+        { id: 'automations' as HubTab, label: t('automationHub.tab_automations'), icon: Zap },
+        { id: 'runs' as HubTab, label: t('automationHub.tab_runs'), icon: Activity },
+      ] as const,
+    [t],
+  );
   const [activeTab, setActiveTab] = useState<HubTab>('agents');
   const [automationsFilter, setAutomationsFilter] = useState<AutomationFilter | undefined>();
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
@@ -1248,13 +1285,6 @@ export default function AutomationsHubView({ onAgentSelect }: AutomationsHubView
     setActiveTab('automations');
   }, []);
 
-  const TABS = [
-    { id: 'agents' as HubTab, label: 'Agentes', icon: <Bot className="w-4 h-4" strokeWidth={1.5} /> },
-    { id: 'workflows' as HubTab, label: 'Workflows', icon: <Workflow className="w-4 h-4" strokeWidth={1.5} /> },
-    { id: 'automations' as HubTab, label: 'Automatizaciones', icon: <Zap className="w-4 h-4" strokeWidth={1.5} /> },
-    { id: 'runs' as HubTab, label: 'Runs', icon: <Activity className="w-4 h-4" strokeWidth={1.5} /> },
-  ];
-
   const handleTabChange = useCallback((tab: HubTab) => {
     setActiveTab(tab);
     setSelectedAgentId(null);
@@ -1267,8 +1297,9 @@ export default function AutomationsHubView({ onAgentSelect }: AutomationsHubView
         className="flex items-center gap-0 shrink-0 px-2"
         style={{ borderBottom: '1px solid var(--dome-border)', height: 44 }}
       >
-        {TABS.map((tab) => {
+        {hubTabs.map((tab) => {
           const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
           return (
             <button
               key={tab.id}
@@ -1281,7 +1312,7 @@ export default function AutomationsHubView({ onAgentSelect }: AutomationsHubView
                 borderBottom: isActive ? '2px solid var(--dome-accent)' : '2px solid transparent',
               }}
             >
-              {tab.icon}
+              <Icon className="w-4 h-4" strokeWidth={1.5} />
               {tab.label}
             </button>
           );

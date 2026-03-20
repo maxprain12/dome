@@ -233,7 +233,13 @@ export default function AISettingsPanel() {
       if (window.electron?.ai?.testConnection) {
         const result = await window.electron.ai.testConnection();
         setTestResult(result.success
-          ? { success: true, message: `${t('settings.ai.connected_to')} ${result.provider} (${result.model})` }
+          ? {
+              success: true,
+              message: t('settings.ai.connected_to', {
+                provider: result.provider ?? '',
+                model: result.model ?? '',
+              }),
+            }
           : { success: false, message: result.error || t('settings.ai.connection_failed') });
       } else {
         setTestResult({ success: false, message: 'Test no disponible en esta versión' });

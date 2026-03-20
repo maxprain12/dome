@@ -6,6 +6,8 @@
 
 import { useState, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
+import i18n from '@/lib/i18n';
 import {
   FileText,
   Table,
@@ -171,6 +173,7 @@ function ArtifactHeader({
   onCopy: () => void;
   copied: boolean;
 }) {
+  const { t } = useTranslation();
   const styles = ARTIFACT_STYLES[artifact.type];
   const Icon = ARTIFACT_ICONS[artifact.type];
 
@@ -243,17 +246,17 @@ function ArtifactHeader({
         }}
         onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
         onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
-        title="Copy content"
+        title={t('ui.copy_content')}
       >
         {copied ? (
           <>
             <Check style={{ width: 12, height: 12, color: 'var(--success)' }} />
-            <span style={{ color: 'var(--success)' }}>Copied</span>
+            <span style={{ color: 'var(--success)' }}>{t('common.copied')}</span>
           </>
         ) : (
           <>
             <Copy style={{ width: 12, height: 12 }} />
-            <span>Copy</span>
+            <span>{t('common.copy')}</span>
           </>
         )}
       </button>
@@ -263,22 +266,24 @@ function ArtifactHeader({
 
 function getArtifactTitle(artifact: AnyArtifact): string {
   switch (artifact.type) {
-    case 'pdf_summary': return 'Resumen de PDF';
-    case 'table': return 'Tabla de datos';
-    case 'action_items': return 'Elementos de acción';
-    case 'chart': return 'Gráfico';
-    case 'code': return 'Código';
-    case 'list': return 'Lista';
+    case 'pdf_summary': return i18n.t('artifacts.pdf_summary');
+    case 'table': return i18n.t('artifacts.table');
+    case 'action_items': return i18n.t('artifacts.action_items');
+    case 'chart': return i18n.t('artifacts.chart');
+    case 'code': return i18n.t('artifacts.code');
+    case 'list': return i18n.t('artifacts.list');
     case 'created_entity': {
       const e = artifact as CreatedEntityArtifact;
-      return e.entityType === 'agent' ? `Agente: ${e.name}` : `Automatización: ${e.name}`;
+      return e.entityType === 'agent'
+        ? i18n.t('artifacts.agent_named', { name: e.name })
+        : i18n.t('artifacts.automation_named', { name: e.name });
     }
     case 'docling_images': {
       const d = artifact as DoclingImagesArtifact;
-      const title = d.resource_title || d.title || 'Documento';
-      return `Figuras: ${title} (${d.images?.length ?? 0})`;
+      const title = d.resource_title || d.title || i18n.t('artifacts.document');
+      return i18n.t('artifacts.figures_named', { title, count: d.images?.length ?? 0 });
     }
-    default: return 'Contenido';
+    default: return i18n.t('artifacts.content');
   }
 }
 
@@ -301,6 +306,7 @@ function getArtifactContent(artifact: AnyArtifact): ReactNode {
 // =============================================================================
 
 function PDFSummaryContent({ artifact }: { artifact: PDFSummaryArtifact }) {
+  const { t } = useTranslation();
   const [showFull, setShowFull] = useState(false);
   const maxPreviewLength = 800;
   const shouldTruncate = artifact.text.length > maxPreviewLength;
@@ -316,16 +322,16 @@ function PDFSummaryContent({ artifact }: { artifact: PDFSummaryArtifact }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 11, color: 'var(--secondary-text)' }}>
           {artifact.metadata.author && (
             <span>
-              <span style={{ fontWeight: 600 }}>Autor:</span> {artifact.metadata.author}
+              <span style={{ fontWeight: 600 }}>{t('artifacts.author')}:</span> {artifact.metadata.author}
             </span>
           )}
           {artifact.total_pages && (
             <span>
-              <span style={{ fontWeight: 600 }}>Páginas:</span> {artifact.total_pages}
+              <span style={{ fontWeight: 600 }}>{t('artifacts.pages')}:</span> {artifact.total_pages}
             </span>
           )}
           <span>
-            <span style={{ fontWeight: 600 }}>Caracteres:</span> {artifact.chars_extracted.toLocaleString()}
+            <span style={{ fontWeight: 600 }}>{t('artifacts.characters')}:</span> {artifact.chars_extracted.toLocaleString()}
           </span>
         </div>
       )}
@@ -351,7 +357,7 @@ function PDFSummaryContent({ artifact }: { artifact: PDFSummaryArtifact }) {
               textDecoration: 'underline',
             }}
           >
-            {showFull ? 'Show less' : 'Show more'}
+            {showFull ? t('artifacts.show_less') : t('artifacts.show_more')}
           </button>
         )}
       </div>
@@ -371,7 +377,7 @@ function PDFSummaryContent({ artifact }: { artifact: PDFSummaryArtifact }) {
           }}
         >
           <ExternalLink style={{ width: 12, height: 12 }} />
-          Abrir PDF
+          {t('artifacts.open_pdf')}
         </a>
         {artifact.metadata?.page && (
           <a
@@ -387,7 +393,7 @@ function PDFSummaryContent({ artifact }: { artifact: PDFSummaryArtifact }) {
             }}
           >
             <ExternalLink style={{ width: 12, height: 12 }} />
-            Ir a página {artifact.metadata.page}
+            {t('artifacts.go_to_page', { page: artifact.metadata.page })}
           </a>
         )}
       </div>
@@ -447,6 +453,7 @@ function TableContent({ artifact }: { artifact: TableArtifact }) {
 }
 
 function ActionItemsContent({ artifact }: { artifact: ActionItemsArtifact }) {
+  const { t } = useTranslation();
   return (
     <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
       {artifact.items.map((item, idx) => (
@@ -480,7 +487,7 @@ function ActionItemsContent({ artifact }: { artifact: ActionItemsArtifact }) {
             {(item.assignee || item.due_date) && (
               <div style={{ display: 'flex', gap: 8, marginTop: 3, fontSize: 11, color: 'var(--tertiary-text)' }}>
                 {item.assignee && <span>@{item.assignee}</span>}
-                {item.due_date && <span>Due: {item.due_date}</span>}
+                {item.due_date && <span>{t('artifacts.due')} {item.due_date}</span>}
               </div>
             )}
           </div>
@@ -582,6 +589,7 @@ function ListContent({ artifact }: { artifact: ListArtifact }) {
 }
 
 function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact }) {
+  const { t } = useTranslation();
   const [loaded, setLoaded] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -613,7 +621,7 @@ function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact })
           if (res.success && res.data) results[img.image_id] = res.data;
           else if (res.error) errs[img.image_id] = res.error;
         } catch (e) {
-          errs[img.image_id] = e instanceof Error ? e.message : 'Failed to load';
+          errs[img.image_id] = e instanceof Error ? e.message : i18n.t('artifacts.failed_load');
         }
       }
       setLoaded(results);
@@ -660,7 +668,7 @@ function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact })
           }}
         >
           <ExternalLink style={{ width: 12, height: 12 }} />
-          Abrir documento
+          {t('artifacts.open_document')}
         </a>
       )}
       <div
@@ -673,8 +681,8 @@ function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact })
         {artifact.images.map((img, idx) => {
           const dataUrl = loaded[img.image_id];
           const err = errors[img.image_id];
-          const label = img.caption || `Figura ${idx + 1}`;
-          const pageSuffix = img.page_no != null ? ` (p.${img.page_no})` : '';
+          const label = img.caption || t('artifacts.figure', { n: idx + 1 });
+          const pageSuffix = img.page_no != null ? t('artifacts.page_suffix', { page: img.page_no }) : '';
           const isClickable = !!dataUrl;
           return (
             <div
@@ -742,7 +750,7 @@ function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact })
                 <span style={{ fontSize: 11, color: 'var(--error)' }}>{err}</span>
               ) : (
                 <div style={{ minHeight: 140, background: 'var(--bg-tertiary)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--tertiary-text)' }}>
-                  Cargando…
+                  {t('artifacts.loading')}
                 </div>
               )}
             </div>
@@ -758,7 +766,7 @@ function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact })
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Ver figura ampliada"
+            aria-label={t('artifacts.lightbox_aria')}
             style={lightboxStyle}
             onClick={() => setLightboxIndex(null)}
           >
@@ -779,7 +787,7 @@ function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact })
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
-              aria-label="Cerrar"
+              aria-label={t('artifacts.close')}
             >
               <X style={{ width: 24, height: 24 }} />
             </button>
@@ -797,7 +805,7 @@ function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact })
               {lightboxDataUrl ? (
                 <img
                   src={lightboxDataUrl}
-                  alt={lightboxImg.caption || `Figura ${lightboxIndex + 1}`}
+                  alt={lightboxImg.caption || t('artifacts.figure', { n: lightboxIndex + 1 })}
                   style={{
                     maxWidth: '100%',
                     maxHeight: '100%',
@@ -820,8 +828,8 @@ function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact })
                 maxWidth: 600,
               }}
             >
-              {lightboxImg.caption || `Figura ${lightboxIndex + 1}`}
-              {lightboxImg.page_no != null ? ` (p.${lightboxImg.page_no})` : ''}
+              {lightboxImg.caption || t('artifacts.figure', { n: lightboxIndex + 1 })}
+              {lightboxImg.page_no != null ? t('artifacts.page_suffix', { page: lightboxImg.page_no }) : ''}
             </p>
           </div>,
           document.body
@@ -831,6 +839,7 @@ function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact })
 }
 
 function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact }) {
+  const { t } = useTranslation();
   const isAgent = artifact.entityType === 'agent';
   const accentColor = isAgent ? '#8b5cf6' : '#f59e0b';
   const Icon = isAgent ? Bot : Zap;
@@ -894,7 +903,7 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
                 background: accentColor, color: '#fff', border: 'none', cursor: 'pointer',
               }}
             >
-              <MessageCircle style={{ width: 12, height: 12 }} /> Chatear
+              <MessageCircle style={{ width: 12, height: 12 }} /> {t('artifacts.chat')}
             </button>
             <button
               type="button"
@@ -905,7 +914,7 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
                 background: 'var(--bg-hover)', color: 'var(--secondary-text)', border: 'none', cursor: 'pointer',
               }}
             >
-              <ArrowUpRight style={{ width: 12, height: 12 }} /> Ver en Hub
+              <ArrowUpRight style={{ width: 12, height: 12 }} /> {t('artifacts.view_in_hub')}
             </button>
           </>
         ) : (
@@ -919,7 +928,7 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
                 background: accentColor, color: '#fff', border: 'none', cursor: 'pointer',
               }}
             >
-              <Play style={{ width: 12, height: 12 }} /> Ver y ejecutar
+              <Play style={{ width: 12, height: 12 }} /> {t('artifacts.view_and_run')}
             </button>
           </>
         )}
@@ -965,9 +974,15 @@ export default function ArtifactCard({ artifact, onOpenResource: _onOpenResource
       case 'docling_images': {
         const d = artifact as DoclingImagesArtifact;
         contentToCopy = d.images
-          ?.map((img, i) => `${img.caption || `Figura ${i + 1}`}${img.page_no != null ? ` (p.${img.page_no})` : ''}`)
+          ?.map((img, i) =>
+            `${img.caption || i18n.t('artifacts.figure', { n: i + 1 })}${
+              img.page_no != null ? i18n.t('artifacts.page_suffix', { page: img.page_no }) : ''
+            }`
+          )
           .join('\n') ?? '';
-        if (d.resource_id && contentToCopy) contentToCopy += `\n\n[Ver documento](dome://resource/${d.resource_id}/pdf)`;
+        if (d.resource_id && contentToCopy) {
+          contentToCopy += `\n\n${i18n.t('artifacts.view_document_md', { url: `dome://resource/${d.resource_id}/pdf` })}`;
+        }
         break;
       }
       default:

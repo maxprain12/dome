@@ -1,10 +1,12 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Terminal, Clock, CheckCircle2, AlertCircle, Wrench } from 'lucide-react';
 import type { ExecutionLogEntry } from '@/lib/agent-canvas/executor';
 import type { CanvasExecutionStatus } from '@/lib/store/useCanvasStore';
 import type { WorkflowExecution } from '@/types/canvas';
+import { getDateTimeLocaleTag } from '@/lib/i18n';
 
 interface ExecutionLogProps {
   entries: ExecutionLogEntry[];
@@ -43,6 +45,7 @@ export default function ExecutionLog({
   selectedExecutionId = null,
   onSelectExecution,
 }: ExecutionLogProps) {
+  const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const logEndRef = useRef<HTMLDivElement>(null);
@@ -82,7 +85,8 @@ export default function ExecutionLog({
   const hasContent = status === 'running' || entries.length > 0 || history.length > 0;
   if (!hasContent) return null;
 
-  const isRunning = status === 'running';
+  const isLiveRunning = status === 'running';
+  const isRunning = displayStatus === 'running';
   const isDone = displayStatus === 'done';
   const isError = displayStatus === 'error';
 
@@ -90,7 +94,15 @@ export default function ExecutionLog({
   const totalAgents = new Set(displayEntries.map((e) => e.nodeId)).size;
 
   const statusColor = isRunning ? 'var(--dome-accent)' : isDone ? 'var(--success)' : isError ? 'var(--error)' : 'var(--dome-text-muted)';
-  const statusLabel = isRunning ? 'Ejecutando...' : isDone ? 'Completado' : isError ? 'Error' : 'Listo';
+  const statusLabel = isRunning
+    ? t('canvas.exec_status_running')
+    : isDone
+      ? t('canvas.exec_status_done')
+      : isError
+        ? t('canvas.exec_status_error')
+        : t('canvas.exec_status_idle');
+
+  const timeLocale = getDateTimeLocaleTag();
 
   return (
     <div
@@ -108,18 +120,18 @@ export default function ExecutionLog({
         style={{ background: 'var(--dome-bg)' }}
       >
         <div
-          className={`w-2 h-2 rounded-full shrink-0 ${isRunning ? 'animate-pulse' : ''}`}
+          className={`w-2 h-2 rounded-full shrink-0 ${isLiveRunning ? 'animate-pulse' : ''}`}
           style={{ background: statusColor }}
         />
         <span className="text-xs font-semibold" style={{ color: statusColor }}>
           {statusLabel}
         </span>
-        {isRunning && (
+        {isLiveRunning && (
           <span className="text-xs font-mono tabular-nums" style={{ color: 'var(--dome-text-muted)' }}>
             {formatElapsed(elapsed)}
           </span>
         )}
-        {isDone && displayStartTime && !isRunning && (
+        {isDone && displayStartTime && !isLiveRunning && (
           <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
             <Clock className="w-3 h-3 inline mr-0.5 -mt-0.5" />
             {formatElapsedFromRange(displayStartTime, selectedExecution?.finishedAt)}
@@ -127,7 +139,7 @@ export default function ExecutionLog({
         )}
         {totalAgents > 0 && (
           <span className="ml-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            · {completedAgents}/{totalAgents} agentes
+            {t('canvas.exec_agents_count', { completed: completedAgents, total: totalAgents })}
           </span>
         )}
         <div className="flex-1" />
@@ -144,10 +156,10 @@ export default function ExecutionLog({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <option value="">Ejecución actual</option>
+            <option value="">{t('canvas.exec_current_run')}</option>
             {history.map((ex) => (
               <option key={ex.id} value={ex.id}>
-                {new Date(ex.startedAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}{' '}
+                {new Date(ex.startedAt).toLocaleTimeString(timeLocale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}{' '}
                 ({ex.status}) {ex.finishedAt ? formatElapsedFromRange(ex.startedAt, ex.finishedAt) : ''}
               </option>
             ))}
@@ -168,13 +180,13 @@ export default function ExecutionLog({
         >
           {displayEntries.length === 0 && (
             <p className="text-xs italic" style={{ color: 'var(--dome-text-muted)' }}>
-              {status === 'running' ? 'Iniciando workflow...' : 'Sin entradas en esta ejecución'}
+              {status === 'running' ? t('canvas.exec_starting') : t('canvas.exec_no_entries')}
             </p>
           )}
           {displayEntries.map((entry) => {
             const meta = TYPE_STYLES[entry.type];
             const EntryIcon = meta.icon;
-            const time = new Date(entry.timestamp).toLocaleTimeString('es', {
+            const time = new Date(entry.timestamp).toLocaleTimeString(timeLocale, {
               hour: '2-digit',
               minute: '2-digit',
               second: '2-digit',

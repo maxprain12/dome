@@ -10,10 +10,14 @@ import { showToast } from '@/lib/store/useToastStore';
 import AnalyticsProvider from '@/components/analytics/AnalyticsProvider';
 import AppShell from '@/components/shell/AppShell';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
 import PptCapturePage from './pages/PptCapturePage';
 
 function MainApp() {
   const { t } = useTranslation();
+  useEffect(() => {
+    void reconcileLanguageWithOsIfNeeded();
+  }, []);
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
@@ -50,10 +54,10 @@ function MainApp() {
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
     const unsub = window.electron.on('dome:open-resource-in-tab', (data: { resourceId: string; resourceType: string; title: string }) => {
-      useTabStore.getState().openResourceTab(data.resourceId, data.resourceType, data.title || 'Resource');
+      useTabStore.getState().openResourceTab(data.resourceId, data.resourceType, data.title || t('app.resource'));
     });
     return () => unsub?.();
-  }, []);
+  }, [t]);
 
   // PPT background generation notifications
   useEffect(() => {

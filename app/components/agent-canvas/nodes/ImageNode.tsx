@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Handle, Position } from 'reactflow';
 import type { NodeProps } from 'reactflow';
 import { Image, ChevronDown, Search, X } from 'lucide-react';
@@ -17,6 +18,7 @@ interface ImageResource {
 }
 
 export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeData>) {
+  const { t } = useTranslation();
   const updateNode = useCanvasStore((s) => s.updateNode);
   const [showPicker, setShowPicker] = useState(false);
   const [query, setQuery] = useState('');
@@ -74,51 +76,42 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
 
   return (
     <div
-      className="rounded-xl shadow-sm overflow-visible transition-all"
+      className="workflow-node-card rounded-lg overflow-visible transition-colors"
       style={{
-        width: 260,
-        background: 'var(--dome-surface)',
-        border: `1.5px solid ${selected ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
-        boxShadow: selected ? '0 0 0 3px var(--dome-accent-bg)' : '0 2px 8px rgba(0,0,0,0.06)',
+        width: 220,
+        border: `1px solid ${selected ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
         position: 'relative',
       }}
     >
-      {/* Header */}
-      <div
-        className="flex items-center gap-2 px-3 py-2.5"
-        style={{
-          background: 'var(--warning-bg)',
-          borderBottom: '1px solid var(--border)',
-        }}
-      >
+      <div className="workflow-node-header flex items-center gap-1.5 px-2 py-1.5">
         <div
-          className="w-6 h-6 rounded-md flex items-center justify-center"
+          className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
           style={{ background: 'var(--warning)' }}
         >
-          <Image className="w-3.5 h-3.5 text-white" />
+          <Image className="w-3 h-3 text-white" />
         </div>
-        <span className="text-xs font-semibold" style={{ color: 'var(--primary-text)' }}>
+        <span className="text-[11px] font-semibold leading-tight truncate" style={{ color: 'var(--dome-text)' }}>
           {data.label}
         </span>
       </div>
 
       {/* Content */}
-      <div className="p-3">
+      <div className="p-2">
         {data.resourceId ? (
           <div
-            className="flex items-center gap-2 px-3 py-2 rounded-lg"
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded-md"
             style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
           >
             {data.resourceUrl ? (
               <img
                 src={data.resourceUrl}
                 alt={data.resourceTitle ?? ''}
-                className="w-8 h-8 object-cover rounded"
+                className="w-7 h-7 object-cover rounded"
               />
             ) : (
-              <Image className="w-4 h-4 shrink-0" style={{ color: 'var(--warning)' }} />
+              <Image className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--warning)' }} />
             )}
-            <span className="flex-1 text-xs truncate" style={{ color: 'var(--dome-text)' }}>
+            <span className="flex-1 text-[11px] truncate" style={{ color: 'var(--dome-text)' }}>
               {data.resourceTitle}
             </span>
             <button
@@ -132,16 +125,16 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
         ) : (
           <button
             onClick={openPicker}
-            className="nodrag w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all hover:opacity-80"
+            className="nodrag w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[11px] transition-all hover:opacity-80"
             style={{
               background: 'var(--dome-bg)',
               border: '1px dashed var(--dome-border)',
               color: 'var(--dome-text-muted)',
             }}
           >
-            <Search className="w-3.5 h-3.5" />
-            <span>Seleccionar imagen...</span>
-            <ChevronDown className="w-3 h-3 ml-auto" />
+            <Search className="w-3 h-3 shrink-0" />
+            <span className="truncate">{t('canvas.select_image')}</span>
+            <ChevronDown className="w-3 h-3 ml-auto shrink-0" />
           </button>
         )}
       </div>
@@ -163,7 +156,7 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
               <input
                 autoFocus
                 type="text"
-                placeholder="Buscar imagen..."
+                placeholder={t('canvas.picker_search_images')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="nodrag w-full pl-6 pr-2 py-1.5 text-xs rounded-lg outline-none"
@@ -178,7 +171,7 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
           <div className="nodrag nowheel overflow-y-auto p-2" style={{ maxHeight: 160 }}>
             {filtered.length === 0 ? (
               <p className="text-center py-4 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                No hay imágenes en tu biblioteca
+                {t('canvas.no_images_in_library')}
               </p>
             ) : (
               <div className="grid grid-cols-3 gap-1.5">
@@ -211,7 +204,7 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
               className="nodrag w-full text-xs py-1 rounded transition-colors hover:opacity-70"
               style={{ color: 'var(--dome-text-muted)' }}
             >
-              Cancelar
+              {t('common.cancel')}
             </button>
           </div>
         </div>
@@ -221,13 +214,8 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
       <Handle
         type="source"
         position={Position.Bottom}
-        style={{
-          width: 10,
-          height: 10,
-          background: 'var(--warning)',
-          border: '2px solid white',
-          boxShadow: '0 0 0 1px var(--warning)',
-        }}
+        className="workflow-node-handle"
+        style={{ background: 'var(--warning)' }}
       />
     </div>
   );

@@ -36,6 +36,7 @@ const ALLOWED_CHANNELS = {
     // System / auto-launch
     'system:get-login-item',
     'system:set-login-item',
+    'system:get-app-locale',
     'system:quit',
     // Window management
     'window:create',

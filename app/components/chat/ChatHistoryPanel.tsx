@@ -35,12 +35,12 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
   const handleNewChat = () => {
     useManyStore.getState().startNewChat();
     const sessionId = useManyStore.getState().currentSessionId;
-    if (sessionId) openChatTab(sessionId, 'New chat');
+    if (sessionId) openChatTab(sessionId, t('shell.new_chat'));
   };
 
   const handleOpenSession = (session: { id: string; title: string }) => {
     useManyStore.getState().switchSession(session.id);
-    useTabStore.getState().openChatTab(session.id, session.title || 'Chat');
+    useTabStore.getState().openChatTab(session.id, session.title || t('shell.new_chat'));
   };
 
   const handleDeleteSession = (e: React.MouseEvent, sessionId: string) => {

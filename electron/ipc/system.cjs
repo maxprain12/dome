@@ -191,6 +191,16 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     }
   });
 
+  ipcMain.handle('system:get-app-locale', (event) => {
+    try {
+      validateSender(event, windowManager);
+      return app.getLocale();
+    } catch (error) {
+      console.error('[IPC] Error in system:get-app-locale:', error.message);
+      throw error;
+    }
+  });
+
   // Quit the app (used from settings or tray)
   ipcMain.handle('system:quit', (event) => {
     try {

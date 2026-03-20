@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Brain, Map, HelpCircle, BookOpen, MessageCircleQuestion, CalendarRange, Table2, Wand2, Plus, Layers } from 'lucide-react';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -10,18 +11,22 @@ import DeckEditor from './DeckEditor';
 import StudyView from './StudyView';
 import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 
-const TABS: { id: LearnSection; label: string; icon: React.ReactNode }[] = [
-  { id: 'all', label: 'Todo', icon: <Layers className="w-4 h-4" strokeWidth={1.5} /> },
-  { id: 'decks', label: 'Flashcards', icon: <Brain className="w-4 h-4" strokeWidth={1.5} /> },
-  { id: 'mindmaps', label: 'Mind Maps', icon: <Map className="w-4 h-4" strokeWidth={1.5} /> },
-  { id: 'quizzes', label: 'Quizzes', icon: <HelpCircle className="w-4 h-4" strokeWidth={1.5} /> },
-  { id: 'guides', label: 'Guías', icon: <BookOpen className="w-4 h-4" strokeWidth={1.5} /> },
-  { id: 'faqs', label: 'FAQs', icon: <MessageCircleQuestion className="w-4 h-4" strokeWidth={1.5} /> },
-  { id: 'timelines', label: 'Líneas de tiempo', icon: <CalendarRange className="w-4 h-4" strokeWidth={1.5} /> },
-  { id: 'tables', label: 'Tablas', icon: <Table2 className="w-4 h-4" strokeWidth={1.5} /> },
-];
-
 export default function LearnPage() {
+  const { t } = useTranslation();
+  const tabs = useMemo(
+    () =>
+      [
+        { id: 'all' as const, label: t('learn.tab_all'), icon: <Layers className="w-4 h-4" strokeWidth={1.5} /> },
+        { id: 'decks' as const, label: t('learn.tab_decks'), icon: <Brain className="w-4 h-4" strokeWidth={1.5} /> },
+        { id: 'mindmaps' as const, label: t('learn.tab_mindmaps'), icon: <Map className="w-4 h-4" strokeWidth={1.5} /> },
+        { id: 'quizzes' as const, label: t('learn.tab_quizzes'), icon: <HelpCircle className="w-4 h-4" strokeWidth={1.5} /> },
+        { id: 'guides' as const, label: t('learn.tab_guides'), icon: <BookOpen className="w-4 h-4" strokeWidth={1.5} /> },
+        { id: 'faqs' as const, label: t('learn.tab_faqs'), icon: <MessageCircleQuestion className="w-4 h-4" strokeWidth={1.5} /> },
+        { id: 'timelines' as const, label: t('learn.tab_timelines'), icon: <CalendarRange className="w-4 h-4" strokeWidth={1.5} /> },
+        { id: 'tables' as const, label: t('learn.tab_tables'), icon: <Table2 className="w-4 h-4" strokeWidth={1.5} /> },
+      ] satisfies { id: LearnSection; label: string; icon: React.ReactNode }[],
+    [t]
+  );
   const {
     activeSection,
     setActiveSection,
@@ -68,7 +73,7 @@ export default function LearnPage() {
         style={{ borderBottom: '1px solid var(--dome-border)', height: 42 }}
       >
         <span className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
-          Espacio de estudio
+          {t('learn.study_space')}
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -82,7 +87,7 @@ export default function LearnPage() {
             }}
           >
             <Plus className="w-3.5 h-3.5" />
-            Nuevo deck
+            {t('learn.new_deck')}
           </button>
           <button
             type="button"
@@ -91,7 +96,7 @@ export default function LearnPage() {
             style={{ background: 'var(--dome-accent)', color: '#fff' }}
           >
             <Wand2 className="w-3.5 h-3.5" />
-            Generar
+            {t('learn.generate')}
           </button>
         </div>
       </div>
@@ -101,7 +106,7 @@ export default function LearnPage() {
         className="flex items-center shrink-0 overflow-x-auto scrollbar-none"
         style={{ borderBottom: '1px solid var(--dome-border)', height: 38 }}
       >
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = activeSection === tab.id;
           return (
             <button

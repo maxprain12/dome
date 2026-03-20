@@ -1,11 +1,14 @@
 
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface LoadingStateProps {
   message?: string;
 }
 
-export default function LoadingState({ message = 'Loading...' }: LoadingStateProps) {
+export default function LoadingState({ message }: LoadingStateProps) {
+  const { t } = useTranslation();
+  const displayMessage = message ?? t('ui.loading');
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 gap-4">
       <Loader2
@@ -16,7 +19,7 @@ export default function LoadingState({ message = 'Loading...' }: LoadingStatePro
         className="text-sm"
         style={{ color: 'var(--secondary-text)' }}
       >
-        {message}
+        {displayMessage}
       </p>
     </div>
   );

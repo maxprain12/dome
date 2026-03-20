@@ -322,6 +322,23 @@ declare global {
         readAsset: (pluginId: string, relativePath: string) => Promise<{ success: boolean; dataUrl?: string; text?: string; error?: string }>;
       };
 
+      // Marketplace API (catalog sync, plugin zip install from dialog)
+      marketplace: {
+        fetchAll: () => Promise<unknown>;
+        fetchAgents: () => Promise<unknown>;
+        fetchWorkflows: () => Promise<unknown>;
+        fetchMcp: () => Promise<unknown>;
+        fetchSkills: () => Promise<unknown>;
+        fetchPlugins: () => Promise<unknown>;
+        getConfig: () => Promise<unknown>;
+        updateConfig: (config: unknown) => Promise<unknown>;
+        refresh: () => Promise<unknown>;
+        getRateLimit: () => Promise<unknown>;
+        installPlugin: () => Promise<{ success: boolean; error?: string }>;
+        installSkill: () => Promise<unknown>;
+        uninstallSkill: (skillId: string) => Promise<unknown>;
+      };
+
       // Database API
       db: {
         notes: {

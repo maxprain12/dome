@@ -605,13 +605,13 @@ export default function Home() {
           {!isSearchMode && currentFolderId && breadcrumbPath.length > 0 ? (
             <nav
               className="flex items-center gap-1.5 px-4 py-2 mb-2 shrink-0 text-xs"
-              aria-label="Current path"
+              aria-label={t('home.aria_current_path')}
             >
               <button
                 type="button"
                 onClick={handleNavigateToRoot}
                 className="flex items-center gap-1 text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] transition-colors"
-                aria-label="All documents"
+                aria-label={t('home.aria_all_documents')}
               >
                 <HomeIcon size={12} strokeWidth={1.5} />
                 <span>{t('workspace.all')}</span>
@@ -669,7 +669,7 @@ export default function Home() {
 
           {/* Folders Section — hidden in search mode to avoid fake "contents inside folder" */}
           {!isSearchMode && folders.length > 0 ? (
-            <section className="mb-10" aria-label="Folders">
+            <section className="mb-10" aria-label={t('home.aria_folders')}>
               <h2 className="section-header">
                 {currentFolderId ? t('workspace.subfolders') : t('workspace.folders')}
               </h2>
@@ -724,7 +724,7 @@ export default function Home() {
                       type="button"
                       className="folder-menu-trigger folder-item-menu-btn"
                       onClick={(e) => handleFolderMenuToggle(e, folder.id)}
-                      aria-label="Folder options"
+                      aria-label={t('home.aria_folder_options')}
                       aria-expanded={folderMenuOpenId === folder.id}
                     >
                       <MoreVertical size={16} />
@@ -778,7 +778,7 @@ export default function Home() {
           ) : null}
 
           {/* Resources Grid/List */}
-          <section className="mb-6" aria-label="Resources">
+          <section className="mb-6" aria-label={t('home.aria_resources')}>
             <h2 className="section-header">
               {hideMainSearchResults
                 ? t('workspace.recent_resources')
@@ -856,7 +856,7 @@ export default function Home() {
                 <div
                   className="resources-list-header"
                   role="row"
-                  aria-label="Column headers for resource list"
+                  aria-label={t('home.aria_column_headers')}
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '1fr 100px 130px 90px 44px',
@@ -875,7 +875,7 @@ export default function Home() {
                       type="button"
                       className="list-header-btn"
                       onClick={() => setSortBy('title')}
-                      aria-label="Sort by name"
+                      aria-label={t('home.aria_sort_name')}
                     >
                       {t('workspace.name_col')} {sortBy === 'title' ? '▾' : ''}
                     </button>
@@ -886,7 +886,7 @@ export default function Home() {
                       type="button"
                       className="list-header-btn"
                       onClick={() => setSortBy('updated_at')}
-                      aria-label="Sort by modified date"
+                      aria-label={t('home.aria_sort_modified')}
                     >
                       {t('workspace.modified_col')} {sortBy === 'updated_at' ? '▾' : ''}
                     </button>
@@ -895,7 +895,7 @@ export default function Home() {
                   <span role="columnheader" aria-hidden="true" />
                 </div>
               )}
-              <div className={viewMode === 'grid' ? 'resources-grid' : 'resources-list'} role={viewMode === 'list' ? 'grid' : undefined} aria-label={viewMode === 'list' ? 'Resources' : undefined}>
+              <div className={viewMode === 'grid' ? 'resources-grid' : 'resources-list'} role={viewMode === 'list' ? 'grid' : undefined} aria-label={viewMode === 'list' ? t('home.aria_resources') : undefined}>
                 {resourcesToShow.map((resource) => (
                   <ResourceCard
                     key={resource.id}
@@ -1064,7 +1064,7 @@ export default function Home() {
                       <div
                         className="flex flex-wrap gap-2"
                         role="group"
-                        aria-label="Select folder color"
+                        aria-label={t('home.aria_select_folder_color')}
                       >
                         {DEFAULT_FOLDER_COLORS.map((color) => (
                           <button
@@ -1077,7 +1077,7 @@ export default function Home() {
                               borderColor: newFolderColor === color ? 'var(--dome-accent)' : 'var(--border)',
                               transform: newFolderColor === color ? 'scale(1.1)' : 'scale(1)',
                             }}
-                            aria-label={`Select color ${color}`}
+                            aria-label={t('home.aria_select_color_swatch', { color })}
                             title={color}
                           />
                         ))}
@@ -1123,7 +1123,7 @@ export default function Home() {
                     <button
                       onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
                       className="btn btn-ghost p-1.5 rounded-md"
-                      aria-label="Close"
+                      aria-label={t('home.aria_close')}
                     >
                       <X size={20} style={{ color: 'var(--dome-text-secondary)' }} />
                     </button>
@@ -1259,7 +1259,7 @@ export default function Home() {
         {/* Delete Confirmation Dialog */}
         <ConfirmDialog
           isOpen={!!deleteTarget || bulkDeleteIds.length > 0}
-          title="Delete resource"
+          title={t('home.delete_resource')}
           message={
             bulkDeleteIds.length > 1
               ? `Are you sure you want to delete ${bulkDeleteIds.length} items? This action cannot be undone.`

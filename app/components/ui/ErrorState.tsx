@@ -1,5 +1,6 @@
 
 import { AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ErrorStateProps {
   error: string;
@@ -7,6 +8,7 @@ interface ErrorStateProps {
 }
 
 export default function ErrorState({ error, onRetry }: ErrorStateProps) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 gap-4">
       <AlertCircle
@@ -28,7 +30,7 @@ export default function ErrorState({ error, onRetry }: ErrorStateProps) {
             color: 'white',
           }}
         >
-          Try Again
+          {t('ui.try_again')}
         </button>
       )}
     </div>

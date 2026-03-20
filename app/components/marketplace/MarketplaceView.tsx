@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search,
   Store,
@@ -62,42 +62,54 @@ interface UnifiedItem {
   raw: MarketplaceAgent | WorkflowTemplate | MCPManifest | SkillManifest | AvailablePlugin;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const TYPE_META: Record<
-  FilterType,
-  { label: string; Icon: React.ElementType; badge: string; bgColor: string; textColor: string }
-> = {
-  all:       { label: 'Todo',      Icon: Store,     badge: 'Todo',     bgColor: 'var(--dome-surface)',  textColor: 'var(--dome-text-muted)' },
-  agents:    { label: 'Agentes',   Icon: Bot,       badge: 'Agente',   bgColor: '#ede9fe',              textColor: '#7c3aed' },
-  workflows: { label: 'Workflows', Icon: Workflow,  badge: 'Workflow', bgColor: '#d1fae5',              textColor: '#059669' },
-  mcp:       { label: 'MCP',       Icon: FolderCog, badge: 'MCP',      bgColor: '#fef3c7',              textColor: '#d97706' },
-  skills:    { label: 'Skills',    Icon: Sparkles,  badge: 'Skill',    bgColor: '#fce7f3',              textColor: '#db2777' },
-  plugins:   { label: 'Plugins',   Icon: Plug,      badge: 'Plugin',   bgColor: '#e0f2fe',              textColor: '#0284c7' },
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  research:     'Investigación',
-  writing:      'Escritura',
-  coding:       'Código',
-  data:         'Datos',
-  education:    'Educación',
-  productivity: 'Productividad',
-  content:      'Contenido',
-  language:     'Idiomas',
-  marketing:    'Marketing',
-  knowledge:    'Conocimiento',
-  academic:     'Académico',
-  analytics:    'Análisis',
-  learning:     'Aprendizaje',
-  organization: 'Organización',
-  thinking:     'Pensamiento',
-};
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function MarketplaceView() {
   const { t } = useTranslation();
+
+  const typeMeta = useMemo(() => {
+    const row = (
+      type: FilterType,
+      Icon: React.ElementType,
+      bgColor: string,
+      textColor: string,
+    ) => ({
+      label:
+        type === 'all' ? t('marketplace.type_all')
+        : type === 'agents' ? t('marketplace.type_agents')
+        : type === 'workflows' ? t('marketplace.type_workflows')
+        : type === 'mcp' ? t('marketplace.type_mcp')
+        : type === 'skills' ? t('marketplace.type_skills')
+        : t('marketplace.type_plugins'),
+      Icon,
+      badge:
+        type === 'all' ? t('marketplace.badge_all')
+        : type === 'agents' ? t('marketplace.badge_agent')
+        : type === 'workflows' ? t('marketplace.badge_workflow')
+        : type === 'mcp' ? t('marketplace.badge_mcp')
+        : type === 'skills' ? t('marketplace.badge_skill')
+        : t('marketplace.badge_plugin'),
+      bgColor,
+      textColor,
+    });
+    return {
+      all: row('all', Store, 'var(--dome-surface)', 'var(--dome-text-muted)'),
+      agents: row('agents', Bot, '#ede9fe', '#7c3aed'),
+      workflows: row('workflows', Workflow, '#d1fae5', '#059669'),
+      mcp: row('mcp', FolderCog, '#fef3c7', '#d97706'),
+      skills: row('skills', Sparkles, '#fce7f3', '#db2777'),
+      plugins: row('plugins', Plug, '#e0f2fe', '#0284c7'),
+    } satisfies Record<FilterType, { label: string; Icon: React.ElementType; badge: string; bgColor: string; textColor: string }>;
+  }, [t]);
+
+  const categoryLabel = useCallback(
+    (cat: string) => {
+      const key = `marketplace.cat_${cat}` as const;
+      const tr = t(key);
+      return tr !== key ? tr : cat;
+    },
+    [t],
+  );
   // ── Agents ────────────────────────────────────────────
   const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
   const [installedIds, setInstalledIds] = useState<string[]>([]);
@@ -438,12 +450,13 @@ export default function MarketplaceView() {
     if (item.type === 'agents') {
       const agent = item.raw as MarketplaceAgent;
       const isInstalled = installedIds.includes(agent.id);
-      const hasUpdate = !!installedAgentRecords[agent.id]?.version && installedAgentRecords[agent.id].version !== agent.version;
+      const agentInstall = installedAgentRecords[agent.id];
+      const hasUpdate = agentInstall?.version != null && agentInstall.version !== agent.version;
       const isInstalling = installingId === agent.id;
       if (isInstalled && !hasUpdate) {
         return (
           <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#059669' }}>
-            <CheckCircle2 className="w-3.5 h-3.5" /> Instalado
+            <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.installed')}
           </span>
         );
       }
@@ -463,7 +476,8 @@ export default function MarketplaceView() {
     if (item.type === 'workflows') {
       const workflow = item.raw as WorkflowTemplate;
       const isInstalled = installedWorkflowIds.includes(workflow.id);
-      const hasUpdate = !!installedWorkflowRecords[workflow.id]?.version && installedWorkflowRecords[workflow.id].version !== workflow.version;
+      const workflowInstall = installedWorkflowRecords[workflow.id];
+      const hasUpdate = workflowInstall?.version != null && workflowInstall.version !== workflow.version;
       const isInstalling = installingWorkflowId === workflow.id;
       return (
         <button
@@ -484,7 +498,7 @@ export default function MarketplaceView() {
       if (isInstalled) {
         return (
           <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#059669' }}>
-            <CheckCircle2 className="w-3.5 h-3.5" /> Instalado
+            <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.installed')}
           </span>
         );
       }
@@ -496,7 +510,7 @@ export default function MarketplaceView() {
           style={{ background: 'var(--dome-accent)', color: 'white' }}
         >
           <Download className="w-3 h-3" />
-          {installingPlugin ? 'Instalando…' : 'Instalar'}
+          {installingPlugin ? t('marketplace.installing_plugin') : t('marketplace.install_plugin')}
         </button>
       );
     }
@@ -508,7 +522,7 @@ export default function MarketplaceView() {
       if (isInstalled) {
         return (
           <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#059669' }}>
-            <CheckCircle2 className="w-3.5 h-3.5" /> Añadido
+            <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.added')}
           </span>
         );
       }
@@ -520,7 +534,7 @@ export default function MarketplaceView() {
           style={{ background: 'var(--dome-accent)', color: 'white' }}
         >
           <Download className="w-3 h-3" />
-          {isInstalling ? 'Añadiendo…' : 'Añadir'}
+          {isInstalling ? t('marketplace.adding') : t('marketplace.add')}
         </button>
       );
     }
@@ -532,7 +546,7 @@ export default function MarketplaceView() {
       if (isInstalled) {
         return (
           <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#059669' }}>
-            <CheckCircle2 className="w-3.5 h-3.5" /> Activo
+            <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.active')}
           </span>
         );
       }
@@ -544,13 +558,25 @@ export default function MarketplaceView() {
           style={{ background: 'var(--dome-accent)', color: 'white' }}
         >
           <Download className="w-3 h-3" />
-          {isInstalling ? 'Activando…' : 'Activar'}
+          {isInstalling ? t('marketplace.activating') : t('marketplace.activate')}
         </button>
       );
     }
 
     return null;
   }
+
+  const selectedAgentHasUpdate = (() => {
+    if (!selectedAgent) return false;
+    const rec = installedAgentRecords[selectedAgent.id];
+    return rec?.version != null && rec.version !== selectedAgent.version;
+  })();
+
+  const selectedWorkflowHasUpdate = (() => {
+    if (!selectedWorkflow) return false;
+    const rec = installedWorkflowRecords[selectedWorkflow.id];
+    return rec?.version != null && rec.version !== selectedWorkflow.version;
+  })();
 
   // ── Render ────────────────────────────────────────────
   return (
@@ -567,10 +593,12 @@ export default function MarketplaceView() {
             </div>
             <div>
               <h1 className="text-sm font-bold leading-tight" style={{ color: 'var(--dome-text)' }}>
-                Marketplace
+                {t('marketplace.title')}
               </h1>
               <p className="text-[11px] leading-tight" style={{ color: 'var(--dome-text-muted)' }}>
-                {initialLoading ? t('marketplace.loading') : `${allItems.length} recursos disponibles`}
+                {initialLoading
+                  ? t('marketplace.loading')
+                  : t('marketplace.subtitle_count', { count: allItems.length })}
               </p>
             </div>
           </div>
@@ -585,7 +613,7 @@ export default function MarketplaceView() {
             }}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            Actualizar
+            {t('marketplace.refresh')}
           </button>
         </div>
 
@@ -623,11 +651,11 @@ export default function MarketplaceView() {
               className="text-[10px] font-semibold uppercase tracking-wider mb-2 px-2"
               style={{ color: 'var(--dome-text-muted)' }}
             >
-              Tipo
+              {t('marketplace.filter_type')}
             </p>
             <div className="space-y-0.5">
               {(['all', 'agents', 'workflows', 'mcp', 'skills', 'plugins'] as FilterType[]).map((type) => {
-                const { label, Icon } = TYPE_META[type];
+                const { label, Icon } = typeMeta[type];
                 const count = type === 'all' ? allItems.length : (totalByType[type] ?? 0);
                 const isActive = filterType === type;
                 return (
@@ -666,7 +694,7 @@ export default function MarketplaceView() {
                 className="text-[10px] font-semibold uppercase tracking-wider mb-2 px-2"
                 style={{ color: 'var(--dome-text-muted)' }}
               >
-                Categoría
+                {t('marketplace.filter_category')}
               </p>
               <div className="space-y-0.5">
                 <button
@@ -678,7 +706,7 @@ export default function MarketplaceView() {
                     fontWeight: filterCategory === 'all' ? '600' : '500',
                   }}
                 >
-                  Todas
+                  {t('marketplace.category_all')}
                 </button>
                 {availableCategories.map((cat) => (
                   <button
@@ -691,7 +719,7 @@ export default function MarketplaceView() {
                       fontWeight: filterCategory === cat ? '600' : '500',
                     }}
                   >
-                    {CATEGORY_LABELS[cat] ?? cat}
+                    {categoryLabel(cat)}
                   </button>
                 ))}
               </div>
@@ -714,12 +742,12 @@ export default function MarketplaceView() {
             >
               <Search className="w-10 h-10 opacity-20" />
               <p className="text-sm font-medium">{t('marketplace.no_results')}</p>
-              <p className="text-xs">Prueba con otros filtros o términos de búsqueda</p>
+              <p className="text-xs">{t('marketplace.no_results_hint')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 animate-in fade-in duration-150 motion-reduce:animate-none">
               {filteredItems.map((item) => {
-                const meta = TYPE_META[item.type];
+                const meta = typeMeta[item.type];
                 const Icon = meta.Icon;
                 const isClickable = item.type === 'agents' || item.type === 'workflows';
 
@@ -776,7 +804,7 @@ export default function MarketplaceView() {
                         className="text-[11px] truncate"
                         style={{ color: 'var(--dome-text-muted)' }}
                       >
-                        {item.author ?? 'Dome Team'}
+                        {item.author ?? t('marketplace.default_author')}
                       </span>
                       <div className="shrink-0">{renderAction(item)}</div>
                     </div>
@@ -793,10 +821,7 @@ export default function MarketplaceView() {
         <MarketplaceAgentDetail
           agent={selectedAgent}
           isInstalled={installedIds.includes(selectedAgent.id)}
-          hasUpdate={
-            installedAgentRecords[selectedAgent.id]?.version != null &&
-            installedAgentRecords[selectedAgent.id].version !== selectedAgent.version
-          }
+          hasUpdate={selectedAgentHasUpdate}
           isInstalling={installingId === selectedAgent.id}
           onInstall={handleInstallAgent}
           onClose={() => setSelectedAgent(null)}
@@ -806,10 +831,7 @@ export default function MarketplaceView() {
         <WorkflowDetail
           workflow={selectedWorkflow}
           isInstalled={installedWorkflowIds.includes(selectedWorkflow.id)}
-          hasUpdate={
-            installedWorkflowRecords[selectedWorkflow.id]?.version != null &&
-            installedWorkflowRecords[selectedWorkflow.id].version !== selectedWorkflow.version
-          }
+          hasUpdate={selectedWorkflowHasUpdate}
           isInstalling={installingWorkflowId === selectedWorkflow.id}
           onInstall={handleInstallWorkflow}
           onClose={() => setSelectedWorkflow(null)}

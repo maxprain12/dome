@@ -43,7 +43,7 @@ export default function WorkspaceFilesPanel({
     if (!workspacePath?.trim()) return;
     const electron = typeof window !== 'undefined' ? window.electron : undefined;
     if (!electron?.file?.listDirectory) {
-      setError('API de archivos no disponible');
+      setError(t('workspaceFiles.file_api_unavailable'));
       return;
     }
 
@@ -54,16 +54,16 @@ export default function WorkspaceFilesPanel({
       if (result?.success && Array.isArray(result.data)) {
         setEntries(result.data);
       } else {
-        setError(result?.error || 'No se pudo listar el directorio');
+        setError(result?.error || t('workspaceFiles.list_dir_failed'));
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al listar directorio';
+      const msg = err instanceof Error ? err.message : t('workspaceFiles.list_dir_error');
       setError(msg);
       console.error('[WorkspaceFilesPanel] loadEntries error:', err);
     } finally {
       setLoading(false);
     }
-  }, [workspacePath]);
+  }, [workspacePath, t]);
 
   useEffect(() => {
     loadEntries();
@@ -72,7 +72,7 @@ export default function WorkspaceFilesPanel({
   const handleSelectFolder = useCallback(async () => {
     const electron = typeof window !== 'undefined' ? window.electron : undefined;
     if (!electron?.selectFolder) {
-      setError('Selecciona carpeta solo disponible en la app de escritorio (Electron).');
+      setError(t('workspaceFiles.select_folder_desktop_only'));
       return;
     }
 
@@ -94,20 +94,20 @@ export default function WorkspaceFilesPanel({
         }
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al seleccionar carpeta';
+      const msg = err instanceof Error ? err.message : t('workspaceFiles.select_folder_error');
       setError(msg);
       console.error('[WorkspaceFilesPanel] handleSelectFolder error:', err);
     }
-  }, [onWorkspacePathChange]);
+  }, [onWorkspacePathChange, t]);
 
   const handleAddFile = useCallback(async () => {
     if (!workspacePath?.trim()) {
-      setError('Selecciona primero una carpeta de workspace');
+      setError(t('workspaceFiles.pick_workspace_first'));
       return;
     }
     const electron = typeof window !== 'undefined' ? window.electron : undefined;
     if (!electron?.selectFile || !electron?.file?.copyFile) {
-      setError('API de archivos no disponible');
+      setError(t('workspaceFiles.file_api_unavailable'));
       return;
     }
 
@@ -131,16 +131,16 @@ export default function WorkspaceFilesPanel({
       if (result?.success) {
         await loadEntries();
       } else {
-        setError(result?.error || 'No se pudo copiar el archivo');
+        setError(result?.error || t('workspaceFiles.copy_file_failed'));
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al añadir archivo';
+      const msg = err instanceof Error ? err.message : t('workspaceFiles.add_file_error');
       setError(msg);
       console.error('[WorkspaceFilesPanel] handleAddFile error:', err);
     } finally {
       setAddingFile(false);
     }
-  }, [workspacePath, loadEntries]);
+  }, [workspacePath, loadEntries, t]);
 
   const handleCreateVenv = useCallback(async () => {
     const base = workspacePath?.trim() || (await window.electron?.selectFolder?.());
@@ -152,14 +152,14 @@ export default function WorkspaceFilesPanel({
       if (result?.success && result.venvPath) {
         await onVenvPathChange(result.venvPath);
       } else {
-        setError(result?.error || 'No se pudo crear el venv');
+        setError(result?.error || t('workspaceFiles.create_venv_failed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear venv');
+      setError(err instanceof Error ? err.message : t('workspaceFiles.create_venv_error'));
     } finally {
       setVenvCreating(false);
     }
-  }, [workspacePath, onVenvPathChange]);
+  }, [workspacePath, onVenvPathChange, t]);
 
   const handleSelectVenv = useCallback(async () => {
     if (!window.electron?.selectFolder || !onVenvPathChange || !window.electron?.notebook?.checkVenv) return;
@@ -171,12 +171,12 @@ export default function WorkspaceFilesPanel({
       if (check?.valid) {
         await onVenvPathChange(path);
       } else {
-        setError(check?.error || 'No es un venv válido (debe tener bin/python o Scripts/python.exe)');
+        setError(check?.error || t('workspaceFiles.invalid_venv'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al verificar venv');
+      setError(err instanceof Error ? err.message : t('workspaceFiles.verify_venv_error'));
     }
-  }, [onVenvPathChange]);
+  }, [onVenvPathChange, t]);
 
   const handlePipInstall = useCallback(async () => {
     if (!venvPath?.trim() || !pipInput.trim() || !window.electron?.notebook?.pipInstall || !pipInput.trim().split(/\s+/).some(Boolean)) return;
@@ -188,14 +188,14 @@ export default function WorkspaceFilesPanel({
       if (result?.success) {
         setPipInput('');
       } else {
-        setError(result?.error || 'pip install falló');
+        setError(result?.error || t('workspaceFiles.pip_install_failed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al instalar paquetes');
+      setError(err instanceof Error ? err.message : t('workspaceFiles.pip_install_packages_error'));
     } finally {
       setPipInstalling(false);
     }
-  }, [venvPath, pipInput]);
+  }, [venvPath, pipInput, t]);
 
   const handlePipList = useCallback(async () => {
     if (!venvPath?.trim() || !window.electron?.notebook?.pipList) return;
@@ -208,21 +208,21 @@ export default function WorkspaceFilesPanel({
         setPipListOutput(result.stdout);
         setPipListExpanded(true);
       } else {
-        setError(result?.error || 'No se pudo listar paquetes');
+        setError(result?.error || t('workspaceFiles.pip_list_failed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al listar paquetes');
+      setError(err instanceof Error ? err.message : t('workspaceFiles.pip_list_error'));
     } finally {
       setPipListLoading(false);
     }
-  }, [venvPath]);
+  }, [venvPath, t]);
 
   const handlePipInstallFromRequirements = useCallback(async () => {
     if (!venvPath?.trim() || !window.electron?.notebook?.pipInstallFromRequirements || !window.electron?.selectFile) return;
     const paths = await window.electron.selectFile({
       filters: [
-        { name: 'requirements.txt', extensions: ['txt'] },
-        { name: 'Todos los archivos', extensions: ['*'] },
+        { name: t('workspaceFiles.filter_requirements_txt'), extensions: ['txt'] },
+        { name: t('workspaceFiles.filter_all_files'), extensions: ['*'] },
       ],
     });
     if (!paths?.length || !paths[0]) return;
@@ -231,14 +231,14 @@ export default function WorkspaceFilesPanel({
     try {
       const result = await window.electron.notebook.pipInstallFromRequirements(venvPath, paths[0]);
       if (!result?.success) {
-        setError(result?.error || 'pip install -r falló');
+        setError(result?.error || t('workspaceFiles.pip_requirements_failed'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al instalar desde requirements.txt');
+      setError(err instanceof Error ? err.message : t('workspaceFiles.pip_requirements_error'));
     } finally {
       setPipRequirementsInstalling(false);
     }
-  }, [venvPath]);
+  }, [venvPath, t]);
 
   return (
     <div className="h-full flex flex-col min-h-0">
@@ -263,10 +263,10 @@ export default function WorkspaceFilesPanel({
             <FolderGit2 size={28} strokeWidth={1.5} />
           </div>
           <h3 className="text-sm font-semibold mb-1.5" style={{ color: 'var(--primary-text)' }}>
-            Workspace del Notebook
+            {t('workspaceFiles.empty_title')}
           </h3>
           <p className="text-xs max-w-[200px] mb-5 leading-relaxed" style={{ color: 'var(--secondary-text)' }}>
-            Selecciona una carpeta para usar como directorio de trabajo al ejecutar las celdas Python.
+            {t('workspaceFiles.empty_description')}
           </p>
           <button
             type="button"
@@ -278,7 +278,7 @@ export default function WorkspaceFilesPanel({
             }}
           >
             <FolderOpen size={18} />
-            Seleccionar carpeta
+            {t('workspaceFiles.select_folder_btn')}
           </button>
           {error && (
             <p className="mt-3 text-xs max-w-[220px]" style={{ color: 'var(--error)' }}>
@@ -288,7 +288,7 @@ export default function WorkspaceFilesPanel({
           {useElectron && onVenvPathChange && (
             <div className="mt-6 pt-6 border-t w-full max-w-[240px]" style={{ borderColor: 'var(--border)' }}>
               <p className="text-xs font-medium mb-2" style={{ color: 'var(--secondary-text)' }}>
-                Entorno Python
+                {t('workspaceFiles.python_env_heading')}
               </p>
               <div className="flex flex-wrap gap-2 justify-center">
                 <button
@@ -299,7 +299,7 @@ export default function WorkspaceFilesPanel({
                   style={{ background: 'var(--bg-secondary)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
                 >
                   {venvCreating ? <Loader2 size={14} className="animate-spin" /> : <Terminal size={14} />}
-                  {venvCreating ? 'Creando...' : 'Crear venv'}
+                  {venvCreating ? t('workspaceFiles.creating') : t('workspaceFiles.create_venv')}
                 </button>
                 <button
                   type="button"
@@ -308,7 +308,7 @@ export default function WorkspaceFilesPanel({
                   style={{ background: 'var(--bg-secondary)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
                 >
                   <FolderOpen size={14} />
-                  Seleccionar venv
+                  {t('workspaceFiles.select_venv')}
                 </button>
               </div>
             </div>
@@ -320,7 +320,7 @@ export default function WorkspaceFilesPanel({
           <div className="shrink-0">
             <h4 className="text-xs font-semibold flex items-center gap-2 mb-2" style={{ color: 'var(--primary-text)' }}>
               <Folder size={14} style={{ color: 'var(--accent)' }} />
-              Workspace (archivos)
+              {t('workspaceFiles.workspace_files_heading')}
             </h4>
             <div
               className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
@@ -359,7 +359,7 @@ export default function WorkspaceFilesPanel({
               }}
             >
               <FolderOpen size={14} />
-              Cambiar
+              {t('workspaceFiles.change_folder')}
             </button>
             <button
               type="button"
@@ -367,10 +367,10 @@ export default function WorkspaceFilesPanel({
               disabled={addingFile}
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer disabled:cursor-not-allowed"
               style={{ background: 'var(--accent)', color: 'white' }}
-              title="Copiar un archivo al workspace"
+              title={t('workspaceFiles.copy_file_title')}
             >
               <FilePlus size={14} />
-              {addingFile ? 'Añadiendo...' : 'Añadir archivo'}
+              {addingFile ? t('workspaceFiles.adding') : t('workspaceFiles.add_file')}
             </button>
           <button
             type="button"
@@ -407,7 +407,7 @@ export default function WorkspaceFilesPanel({
             >
               <h4 className="text-xs font-semibold flex items-center gap-2" style={{ color: 'var(--primary-text)' }}>
                 <Terminal size={14} style={{ color: 'var(--accent)' }} />
-                Entorno Python
+                {t('workspaceFiles.python_env_heading')}
               </h4>
               {venvPath ? (
                 <>
@@ -431,7 +431,7 @@ export default function WorkspaceFilesPanel({
                       }}
                     >
                       <FolderOpen size={14} />
-                      Cambiar
+                      {t('workspaceFiles.change_folder')}
                     </button>
                     <button
                       type="button"
@@ -443,7 +443,7 @@ export default function WorkspaceFilesPanel({
                         border: '1px solid var(--border)',
                       }}
                     >
-                      Usar sistema
+                      {t('workspaceFiles.use_system_python')}
                     </button>
                     <button
                       type="button"
@@ -457,7 +457,7 @@ export default function WorkspaceFilesPanel({
                       }}
                     >
                       {pipListLoading ? <Loader2 size={14} className="animate-spin" /> : <List size={14} />}
-                      Ver paquetes
+                      {t('workspaceFiles.list_packages')}
                     </button>
                     <button
                       type="button"
@@ -485,9 +485,9 @@ export default function WorkspaceFilesPanel({
                         className="w-full flex items-center justify-between px-3 py-2 text-left text-xs font-medium"
                         style={{ color: 'var(--primary-text)' }}
                       >
-                        Paquetes instalados
+                        {t('workspaceFiles.installed_packages')}
                         <span className="text-[10px]" style={{ color: 'var(--tertiary-text)' }}>
-                          {pipListExpanded ? 'Ocultar' : 'Ver'}
+                          {pipListExpanded ? t('workspaceFiles.hide') : t('workspaceFiles.show')}
                         </span>
                       </button>
                       {pipListExpanded && (
@@ -503,7 +503,7 @@ export default function WorkspaceFilesPanel({
                   <div className="flex gap-2 shrink-0 min-w-0">
                     <input
                       type="text"
-                      placeholder="pip install pandas matplotlib..."
+                      placeholder={t('workspaceFiles.pip_placeholder')}
                       value={pipInput}
                       onChange={(e) => setPipInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handlePipInstall()}
@@ -536,7 +536,7 @@ export default function WorkspaceFilesPanel({
                     style={{ background: 'var(--accent)', color: 'white' }}
                   >
                     {venvCreating ? <Loader2 size={14} className="animate-spin" /> : <Terminal size={14} />}
-                    {venvCreating ? 'Creando...' : 'Crear venv'}
+                    {venvCreating ? t('workspaceFiles.creating') : t('workspaceFiles.create_venv')}
                   </button>
                   <button
                     type="button"
@@ -549,7 +549,7 @@ export default function WorkspaceFilesPanel({
                     }}
                   >
                     <FolderOpen size={14} />
-                    Seleccionar venv
+                    {t('workspaceFiles.select_venv')}
                   </button>
                 </div>
               )}
@@ -566,10 +566,10 @@ export default function WorkspaceFilesPanel({
               <div className="flex flex-col items-center justify-center py-12 px-4">
                 <File size={32} className="mb-2 opacity-30" style={{ color: 'var(--secondary-text)' }} />
                 <p className="text-xs" style={{ color: 'var(--secondary-text)' }}>
-                  Sin archivos en esta carpeta
+                  {t('workspaceFiles.empty_folder_title')}
                 </p>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--tertiary-text)' }}>
-                  Añade archivos con el botón de arriba
+                  {t('workspaceFiles.empty_folder_hint')}
                 </p>
               </div>
             ) : (

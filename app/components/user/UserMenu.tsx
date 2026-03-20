@@ -39,9 +39,7 @@ export default function UserMenu() {
     if (isSigningOut) return;
     
     // Confirm sign out
-    const confirmed = window.confirm(
-      '¿Estás seguro de que deseas cerrar sesión?\n\nEsto restablecerá tu perfil y volverás a ver el asistente de configuración.'
-    );
+    const confirmed = window.confirm(t('userMenu.confirm_sign_out'));
     
     if (!confirmed) {
       setIsOpen(false);
@@ -64,11 +62,11 @@ export default function UserMenu() {
       }
     } catch (error) {
       console.error('Error signing out:', error);
-      window.alert('Error al cerrar sesión. Por favor, intenta de nuevo.');
+      window.alert(t('userMenu.sign_out_error'));
     } finally {
       setIsSigningOut(false);
     }
-  }, [isSigningOut, updateUserProfile, resetOnboarding]);
+  }, [isSigningOut, updateUserProfile, resetOnboarding, t]);
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -76,10 +74,10 @@ export default function UserMenu() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="rounded-full transition-all hover:ring-2 hover:ring-offset-2 hover:ring-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
-        aria-label={`Menú de usuario: ${name || 'User'}`}
+        aria-label={t('userMenu.menu_aria', { name: name || t('userMenu.default_name') })}
         aria-expanded={isOpen}
       >
-        <UserAvatar name={name || 'User'} avatarData={avatarData} avatarPath={avatarPath} size="md" />
+        <UserAvatar name={name || t('userMenu.default_name')} avatarData={avatarData} avatarPath={avatarPath} size="md" />
       </button>
 
       {/* Dropdown Menu */}
@@ -95,13 +93,13 @@ export default function UserMenu() {
           {/* User Info */}
           <div className="px-4 py-3 border-b overflow-hidden" style={{ borderColor: 'var(--border)' }}>
             <div className="flex items-center gap-3 min-w-0">
-              <UserAvatar name={name || 'User'} avatarData={avatarData} avatarPath={avatarPath} size="lg" className="shrink-0" />
+              <UserAvatar name={name || t('userMenu.default_name')} avatarData={avatarData} avatarPath={avatarPath} size="lg" className="shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate" style={{ color: 'var(--primary-text)' }}>
-                  {name || 'User'}
+                  {name || t('userMenu.default_name')}
                 </div>
                 <div className="text-xs truncate" style={{ color: 'var(--secondary-text)' }}>
-                  {email || 'No email set'}
+                  {email || t('userMenu.no_email')}
                 </div>
               </div>
             </div>
@@ -121,7 +119,7 @@ export default function UserMenu() {
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'transparent';
               }}
-              aria-label="Open settings"
+              aria-label={t('userMenu.open_settings')}
             >
               <Settings className="w-4 h-4" />
               <span className="text-sm">{t('userMenu.settings')}</span>
@@ -135,7 +133,7 @@ export default function UserMenu() {
               disabled={isSigningOut}
               className="w-full px-4 py-2 text-left flex items-center gap-3 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2 disabled:opacity-50"
               style={{ color: 'var(--error)' }}
-              aria-label="Sign out"
+              aria-label={t('userMenu.sign_out')}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
               }}

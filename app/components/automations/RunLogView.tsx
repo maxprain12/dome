@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n, { getDateTimeLocaleTag } from '@/lib/i18n';
 import {
   X,
   ChevronDown,
@@ -52,19 +54,6 @@ const TOOL_ICONS: Record<string, any> = {
   image_crop: Image, image_thumbnail: Image,
 };
 
-const TOOL_LABELS: Record<string, string> = {
-  web_search: 'Búsqueda web', web_fetch: 'Obteniendo contenido',
-  resource_create: 'Creando recurso', resource_get: 'Obteniendo recurso',
-  resource_search: 'Buscando recursos', resource_semantic_search: 'Búsqueda semántica',
-  call_research_agent: 'Delegando investigación', call_library_agent: 'Delegando biblioteca',
-  call_writer_agent: 'Delegando escritura', call_data_agent: 'Delegando análisis',
-  pdf_extract_text: 'Extrayendo texto PDF', pdf_summarize: 'Resumiendo PDF',
-  flashcard_create: 'Creando flashcards', generate_quiz: 'Generando quiz',
-  generate_mindmap: 'Generando mapa mental', generate_knowledge_graph: 'Generando grafo',
-  ppt_create: 'Creando presentación', excel_get: 'Leyendo Excel', excel_create: 'Creando Excel',
-  calendar_create_event: 'Creando evento', generate_audio_script: 'Guion de audio',
-};
-
 function getIconForTool(name: string) {
   if (TOOL_ICONS[name]) return TOOL_ICONS[name];
   const n = (name || '').toLowerCase();
@@ -74,7 +63,9 @@ function getIconForTool(name: string) {
 }
 
 function getLabelForTool(name: string): string {
-  if (TOOL_LABELS[name]) return TOOL_LABELS[name];
+  const key = `runLog.tools.${name}`;
+  const translated = i18n.t(key);
+  if (translated !== key) return translated;
   return name.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || name;
 }
 
@@ -138,6 +129,7 @@ export function JsonPrettyPrinter({ value, depth = 0 }: { value: unknown; depth?
 // ─── RunStepCard ─────────────────────────────────────────────────────────────
 
 export function RunStepCard({ step }: { step: PersistentRunStep }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
 
@@ -263,7 +255,7 @@ export function RunStepCard({ step }: { step: PersistentRunStep }) {
                   className="text-[10px] px-1.5 py-0.5 rounded"
                   style={{ background: 'var(--bg-tertiary)', color: 'var(--tertiary-text)' }}
                 >
-                  {showRaw ? 'pretty' : 'raw'}
+                  {showRaw ? t('runLog.view_pretty') : t('runLog.view_raw')}
                 </button>
               )}
               {expanded
@@ -288,11 +280,9 @@ export function RunStepCard({ step }: { step: PersistentRunStep }) {
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
 export function statusLabel(status: string) {
-  const map: Record<string, string> = {
-    queued: 'En cola', running: 'Ejecutando', waiting_approval: 'Esperando',
-    completed: 'Completado', failed: 'Fallido', cancelled: 'Cancelado',
-  };
-  return map[status] ?? status;
+  const key = `runLog.status.${status}`;
+  const translated = i18n.t(key);
+  return translated !== key ? translated : status;
 }
 
 export function statusColor(status: string): string {
@@ -304,12 +294,12 @@ export function statusColor(status: string): string {
 }
 
 export function formatRunDate(ts?: number | null) {
-  if (!ts) return '—';
-  return new Date(ts).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (!ts) return i18n.t('runLog.em_dash');
+  return new Date(ts).toLocaleString(getDateTimeLocaleTag(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 export function formatDuration(startedAt?: number, finishedAt?: number | null): string {
-  if (!startedAt) return '—';
+  if (!startedAt) return i18n.t('runLog.em_dash');
   const end = finishedAt || Date.now();
   const secs = Math.round((end - startedAt) / 1000);
   if (secs < 60) return `${secs}s`;
@@ -325,6 +315,7 @@ interface RunLogViewProps {
 }
 
 export default function RunLogView({ run, onClose }: RunLogViewProps) {
+  const { t } = useTranslation();
   const steps = run.steps ?? [];
   const toolSteps = steps.filter((s) => s.stepType === 'tool_call' || s.stepType === 'tool');
   const otherSteps = steps.filter((s) => s.stepType !== 'tool_call' && s.stepType !== 'tool');
@@ -372,18 +363,18 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
             </div>
             <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-                Iniciado: {formatRunDate(run.startedAt)}
+                {t('runLog.started')} {formatRunDate(run.startedAt)}
               </span>
               {run.finishedAt && (
                 <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-                  Fin: {formatRunDate(run.finishedAt)}
+                  {t('runLog.finished')} {formatRunDate(run.finishedAt)}
                 </span>
               )}
               <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-                Duración: {formatDuration(run.startedAt, run.finishedAt)}
+                {t('runLog.duration')} {formatDuration(run.startedAt, run.finishedAt)}
               </span>
               <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-                {steps.length} paso{steps.length !== 1 ? 's' : ''}
+                {steps.length === 1 ? t('runLog.step_singular') : t('runLog.step_plural', { count: steps.length })}
               </span>
             </div>
           </div>
@@ -392,6 +383,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
             onClick={onClose}
             className="rounded-lg p-2 hover:bg-[var(--bg-hover)] shrink-0"
             style={{ color: 'var(--tertiary-text)' }}
+            aria-label={t('runLog.close_panel')}
           >
             <X size={18} />
           </button>
@@ -413,7 +405,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
           {/* Error */}
           {run.error && (
             <div className="rounded-xl border px-4 py-3 text-sm" style={{ borderColor: 'var(--error)', background: 'color-mix(in srgb, var(--error) 8%, transparent)', color: 'var(--error)' }}>
-              <p className="font-semibold mb-1">Error</p>
+              <p className="font-semibold mb-1">{t('runLog.error_title')}</p>
               <p className="text-xs font-mono">{run.error}</p>
             </div>
           )}
@@ -422,7 +414,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
           {run.outputText && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--tertiary-text)' }}>
-                Respuesta
+                {t('runLog.response')}
               </p>
               <div
                 className="rounded-xl border p-4 text-sm"
@@ -437,7 +429,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
           {toolSteps.length > 0 && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--tertiary-text)' }}>
-                Herramientas usadas ({toolSteps.length})
+                {t('runLog.tools_used', { count: toolSteps.length })}
               </p>
               <div className="space-y-2">
                 {toolSteps.map((step) => (
@@ -451,7 +443,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
           {otherSteps.length > 0 && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--tertiary-text)' }}>
-                Pasos del agente ({otherSteps.length})
+                {t('runLog.agent_steps', { count: otherSteps.length })}
               </p>
               <div className="space-y-2">
                 {otherSteps.map((step) => (
@@ -467,10 +459,10 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
               {isRunning ? (
                 <>
                   <Loader2 size={32} className="animate-spin mb-3" style={{ color: 'var(--accent)' }} />
-                  <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Ejecutando…</p>
+                  <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>{t('runLog.executing')}</p>
                 </>
               ) : (
-                <p className="text-sm" style={{ color: 'var(--tertiary-text)' }}>No hay pasos registrados para este run.</p>
+                <p className="text-sm" style={{ color: 'var(--tertiary-text)' }}>{t('runLog.no_steps')}</p>
               )}
             </div>
           )}
@@ -479,7 +471,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
           {run.summary && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--tertiary-text)' }}>
-                Resumen
+                {t('runLog.summary')}
               </p>
               <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>{run.summary}</p>
             </div>
@@ -500,7 +492,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
             className="text-sm px-3 py-1.5 rounded-lg"
             style={{ background: 'var(--bg-tertiary)', color: 'var(--secondary-text)' }}
           >
-            Cerrar
+            {t('runLog.close')}
           </button>
         </div>
       </div>

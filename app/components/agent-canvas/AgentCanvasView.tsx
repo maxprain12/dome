@@ -23,6 +23,7 @@ import { executeWorkflow, type ExecutionLogEntry } from '@/lib/agent-canvas/exec
 import { showToast } from '@/lib/store/useToastStore';
 import { showPrompt } from '@/lib/store/usePromptStore';
 import { useTranslation } from 'react-i18next';
+import { CANVAS_PALETTE_WIDTH_PX } from '@/lib/agent-canvas/canvas-layout';
 import CanvasToolbar from './CanvasToolbar';
 import CanvasSidebar from './CanvasSidebar';
 import CanvasWorkspace from './CanvasWorkspace';
@@ -113,7 +114,7 @@ function AgentCanvasInner() {
 
   const handleConnect = useCallback(
     (params: Connection | Edge) => {
-      setEdges(addEdge({ ...params, type: 'smoothstep' }, useCanvasStore.getState().edges));
+      setEdges(addEdge({ ...params, type: 'default' }, useCanvasStore.getState().edges));
     },
     [setEdges]
   );
@@ -268,11 +269,11 @@ function AgentCanvasInner() {
   }, [setNodes, setEdges, store]);
 
   const handleRename = useCallback(async () => {
-    const newName = await showPrompt('Nombre del workflow', store.activeWorkflowName);
+    const newName = await showPrompt(t('canvas.rename_workflow_title'), store.activeWorkflowName);
     if (newName?.trim()) {
       store.setWorkflowName(newName.trim());
     }
-  }, [store]);
+  }, [store, t]);
 
   const selectedNode = selectedNodeId
     ? nodes.find((n) => n.id === selectedNodeId) ?? null
@@ -331,22 +332,22 @@ function AgentCanvasInner() {
       {nodes.length === 0 && (
         <div
           className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
-          style={{ left: 220, top: 56 }}
+          style={{ left: CANVAS_PALETTE_WIDTH_PX, top: 56 }}
         >
-          <div className="text-center space-y-3 opacity-40">
+          <div className="text-center space-y-3 max-w-sm px-6 opacity-50">
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto"
+              className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto"
               style={{ background: 'var(--dome-accent-bg)' }}
             >
-              <svg className="w-8 h-8" style={{ color: 'var(--dome-accent)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-7 h-7" style={{ color: 'var(--dome-accent)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
               </svg>
             </div>
             <p className="text-sm font-medium" style={{ color: 'var(--dome-text-secondary)' }}>
-              Arrastra nodos desde el panel izquierdo
+              {t('canvas.empty_canvas_title')}
             </p>
-            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              Conecta inputs → agentes → resultados
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+              {t('canvas.empty_canvas_subtitle')}
             </p>
           </div>
         </div>

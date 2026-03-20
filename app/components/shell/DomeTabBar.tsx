@@ -21,6 +21,7 @@ import {
   FolderOpen,
 } from 'lucide-react';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
+import { getDomeTabDisplayTitle } from '@/lib/dome-tab-title';
 
 function TabIcon({ type }: { type: DomeTab['type'] }) {
   const cls = 'w-3.5 h-3.5 shrink-0';
@@ -57,6 +58,7 @@ interface TabItemProps {
 
 function TabItem({ tab, isActive, onActivate, onClose }: TabItemProps) {
   const { t } = useTranslation();
+  const displayTitle = getDomeTabDisplayTitle(tab, t);
   return (
     <button
       type="button"
@@ -88,7 +90,7 @@ function TabItem({ tab, isActive, onActivate, onClose }: TabItemProps) {
     >
       <TabIcon type={tab.type} />
       <span className="truncate flex-1 text-left" style={{ maxWidth: 120 }}>
-        {tab.title}
+        {displayTitle}
       </span>
       {!tab.pinned && (
         <span
@@ -102,7 +104,7 @@ function TabItem({ tab, isActive, onActivate, onClose }: TabItemProps) {
             height: 16,
             color: 'var(--dome-text-muted)',
           }}
-          aria-label={t('workspace.close_tab', { title: tab.title })}
+          aria-label={t('workspace.close_tab', { title: displayTitle })}
         >
           <X className="w-3 h-3" strokeWidth={2} />
         </span>

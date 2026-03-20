@@ -10,8 +10,12 @@ import CalendarGrid from '@/components/calendar/CalendarGrid';
 import type { EventDateChangePayload } from '@/components/calendar/CalendarGrid';
 import EventModal from '@/components/calendar/EventModal';
 import { useCalendarStore, type CalendarEvent } from '@/lib/store/useCalendarStore';
+import { useTranslation } from 'react-i18next';
+import { getDateTimeLocaleTag } from '@/lib/i18n';
 
 export default function CalendarPage() {
+  const { t } = useTranslation();
+  const dateLocale = getDateTimeLocaleTag();
   const {
     events,
     currentDate,
@@ -139,9 +143,9 @@ export default function CalendarPage() {
           {/* Page header */}
           <div className="flex items-start justify-between shrink-0">
             <div>
-              <h1 className="page-title">Calendario</h1>
+              <h1 className="page-title">{t('calendarPage.title')}</h1>
               <p className="page-subtitle">
-                Tu calendario personal y eventos.
+                {t('calendarPage.subtitle')}
               </p>
             </div>
             <div className="flex items-center gap-2 mt-1">
@@ -151,10 +155,10 @@ export default function CalendarPage() {
                 disabled={syncing}
                 className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-[var(--dome-surface)]"
                 style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
-                title="Sincronizar"
+                title={t('calendarPage.sync')}
               >
                 <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Sincronizar</span>
+                <span className="hidden sm:inline">{t('calendarPage.sync')}</span>
               </button>
               <button
                 type="button"
@@ -167,7 +171,7 @@ export default function CalendarPage() {
                 style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg)' }}
               >
                 <Plus className="w-4 h-4" strokeWidth={2} />
-                Nuevo evento
+                {t('calendarPage.new_event')}
               </button>
             </div>
           </div>
@@ -206,16 +210,16 @@ export default function CalendarPage() {
                 style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
               >
                 <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--dome-text)' }}>
-                  Próximos eventos
+                  {t('calendarPage.upcoming')}
                 </h2>
                 <p className="text-xs mb-4" style={{ color: 'var(--dome-text-muted)' }}>
-                  Próximos 7 días
+                  {t('calendarPage.upcoming_hint')}
                 </p>
 
                 <div className="space-y-2">
                   {upcomingEvents.length === 0 ? (
                     <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                      Sin eventos próximos.
+                      {t('calendarPage.no_upcoming')}
                     </p>
                   ) : (
                     upcomingEvents.map((event) => (
@@ -236,7 +240,7 @@ export default function CalendarPage() {
                               {event.title}
                             </p>
                             <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-                              {new Date(event.start_at).toLocaleString('es', {
+                              {new Date(event.start_at).toLocaleString(dateLocale, {
                                 weekday: 'short', month: 'short', day: 'numeric',
                                 hour: event.all_day ? undefined : '2-digit',
                                 minute: event.all_day ? undefined : '2-digit',

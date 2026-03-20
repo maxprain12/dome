@@ -33,7 +33,11 @@ export default memo(function ManyChatHeader({
 }: ManyChatHeaderProps) {
   const { t } = useTranslation();
   const subtitle =
-    status === 'thinking' ? 'Pensando...' : status === 'speaking' ? 'Respondiendo...' : (loadingHint || providerInfo || contextDescription);
+    status === 'thinking'
+      ? t('many.thinking')
+      : status === 'speaking'
+        ? t('many.speaking')
+        : (loadingHint || providerInfo || contextDescription);
   const showClear = messagesCount > 0 && status !== 'thinking' && status !== 'speaking';
 
   return (
@@ -62,8 +66,8 @@ export default memo(function ManyChatHeader({
             type="button"
             onClick={onClear}
             className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--primary-text)]"
-            title="Borrar chat"
-            aria-label="Borrar historial del chat"
+            title={t('many.clear_chat')}
+            aria-label={t('many.clear_chat_aria')}
           >
             <Trash2 size={16} />
           </button>
@@ -75,7 +79,7 @@ export default memo(function ManyChatHeader({
           type="button"
           onClick={onClose}
           className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--primary-text)]"
-          aria-label="Cerrar chat"
+          aria-label={t('many.close_chat_aria')}
         >
           <X size={18} />
         </button>

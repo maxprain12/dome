@@ -1026,17 +1026,29 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const isDark = theme === 'dark';
 
-  const fetchResources = useCallback(async () => {
+  const fetchResources = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
     if (typeof window === 'undefined' || !window.electron?.db?.resources) return;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const result = await window.electron.db.resources.getAll(500);
       if (result?.success && result.data) setResources(result.data as Resource[]);
     } catch { /* ignore */ }
-    finally { setLoading(false); }
+    finally {
+      if (!silent) setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchResources(); }, [fetchResources]);
+
+  const debouncedSilentRefetchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleDebouncedSilentRefetch = useCallback(() => {
+    if (debouncedSilentRefetchRef.current) clearTimeout(debouncedSilentRefetchRef.current);
+    debouncedSilentRefetchRef.current = setTimeout(() => {
+      debouncedSilentRefetchRef.current = null;
+      void fetchResources({ silent: true });
+    }, 400);
+  }, [fetchResources]);
 
   const getDefaultProjectId = useCallback(() => {
     return resources.find((r) => r.project_id)?.project_id || 'default';
@@ -1056,7 +1068,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       updated_at: now,
     } as any);
     if (result?.success) {
-      await fetchResources();
+      await fetchResources({ silent: true });
       useTabStore.getState().openResourceTab(id, 'note', 'Untitled Note');
     }
   }, [getDefaultProjectId, fetchResources]);
@@ -1076,7 +1088,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       updated_at: now,
     } as any);
     if (result?.success) {
-      await fetchResources();
+      await fetchResources({ silent: true });
       useTabStore.getState().openResourceTab(id, 'notebook', 'Untitled Notebook');
     }
   }, [getDefaultProjectId, fetchResources]);
@@ -1096,7 +1108,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       updated_at: now,
     } as any);
     if (result?.success) {
-      await fetchResources();
+      await fetchResources({ silent: true });
       useTabStore.getState().openResourceTab(id, 'url', title ?? url);
     }
   }, [getDefaultProjectId, fetchResources]);
@@ -1113,7 +1125,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       created_at: now,
       updated_at: now,
     } as any);
-    if (result?.success) fetchResources();
+    if (result?.success) void fetchResources({ silent: true });
   }, [getDefaultProjectId, fetchResources]);
 
   const handleImportFile = useCallback(async () => {
@@ -1131,16 +1143,23 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         : 'document';
       return window.electron.resource.import(fp, projectId, type);
     }));
-    fetchResources();
+    void fetchResources({ silent: true });
   }, [getDefaultProjectId, fetchResources]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron) return;
-    const u1 = window.electron.on('resource:created', fetchResources);
-    const u2 = window.electron.on('resource:updated', fetchResources);
-    const u3 = window.electron.on('resource:deleted', fetchResources);
-    return () => { u1?.(); u2?.(); u3?.(); };
-  }, [fetchResources]);
+    const onCreated = () => { void fetchResources({ silent: true }); };
+    const onDeleted = () => { void fetchResources({ silent: true }); };
+    const u1 = window.electron.on('resource:created', onCreated);
+    const u2 = window.electron.on('resource:updated', scheduleDebouncedSilentRefetch);
+    const u3 = window.electron.on('resource:deleted', onDeleted);
+    return () => {
+      u1?.();
+      u2?.();
+      u3?.();
+      if (debouncedSilentRefetchRef.current) clearTimeout(debouncedSilentRefetchRef.current);
+    };
+  }, [fetchResources, scheduleDebouncedSilentRefetch]);
 
   const navItems = [
     { id: 'library', label: 'Home', icon: <Home className="w-4 h-4" strokeWidth={1.75} />, action: 'section' as const },
@@ -1251,7 +1270,10 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
                   <RefreshCw className="w-4 h-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
                 </div>
               ) : (
-                <FileTree resources={resources} onRefresh={fetchResources} />
+                <FileTree
+                  resources={resources}
+                  onRefresh={() => { void fetchResources({ silent: true }); }}
+                />
               )}
             </div>
           )}

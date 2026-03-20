@@ -30,6 +30,10 @@ export default function CanvasToolbar({
 
   const isRunning = executionStatus === 'running';
 
+  const ghostBtn =
+    'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors border border-transparent hover:border-[var(--dome-border)] hover:bg-[var(--dome-bg)]';
+  const ghostBtnStyle = { color: 'var(--dome-text-secondary)' } as const;
+
   return (
     <div
       className="flex items-center gap-2 px-4 py-2.5 shrink-0"
@@ -39,50 +43,50 @@ export default function CanvasToolbar({
         zIndex: 10,
       }}
     >
-      {/* Workflow name */}
       <button
+        type="button"
         onClick={onRename}
-        className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-sm font-medium transition-colors hover:bg-[var(--dome-accent-bg)] max-w-[200px] truncate"
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-medium transition-colors max-w-[200px] truncate hover:bg-[var(--dome-bg)]"
         style={{ color: 'var(--dome-text)' }}
-        title="Renombrar workflow"
+        title={t('canvas.rename_workflow')}
       >
         <span className="truncate">{activeWorkflowName}</span>
         {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-[var(--dome-accent)] shrink-0" />}
         <Pencil className="w-3 h-3 shrink-0 opacity-40" />
       </button>
 
-      <div className="w-px h-5 mx-1" style={{ background: 'var(--dome-border)' }} />
+      <div className="w-px h-5 mx-0.5 shrink-0" style={{ background: 'var(--dome-border)' }} />
 
-      {/* Run / Stop */}
       {isRunning ? (
         <button
+          type="button"
           onClick={onStop}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
           style={{
             background: 'var(--error-bg)',
             color: 'var(--error)',
-            border: '1px solid var(--error-bg)',
+            border: '1px solid var(--dome-border)',
           }}
         >
           <Square className="w-3.5 h-3.5" />
-          Detener
+          {t('canvas.stop')}
         </button>
       ) : (
         <button
+          type="button"
           onClick={onRun}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-90 active:scale-95"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90 active:opacity-80"
           style={{
             background: 'var(--dome-accent)',
             color: 'white',
-            boxShadow: '0 1px 4px rgba(89, 96, 55, 0.3)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
           }}
         >
           <Play className="w-3.5 h-3.5" />
-          Ejecutar
+          {t('canvas.run')}
         </button>
       )}
 
-      {/* Status indicator */}
       {executionStatus === 'running' && (
         <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--dome-accent)' }}>
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -102,31 +106,20 @@ export default function CanvasToolbar({
         </div>
       )}
 
-      <div className="flex-1" />
+      <div className="flex-1 min-w-2" />
 
-      {/* Volver a biblioteca */}
-      <button
-        onClick={onBackToLibrary}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all hover:opacity-80"
-        style={{
-          background: 'var(--dome-bg)',
-          color: 'var(--dome-text-secondary)',
-          border: '1px solid var(--dome-border)',
-        }}
-        title={t('canvas.back_to_library')}
-      >
+      <button type="button" onClick={onBackToLibrary} className={ghostBtn} style={ghostBtnStyle} title={t('canvas.back_to_library')}>
         <ArrowLeft className="w-3.5 h-3.5" />
         <span>{t('canvas.workflow_library')}</span>
       </button>
 
-      {/* Save */}
       <button
+        type="button"
         onClick={onSave}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all hover:opacity-80"
+        className={ghostBtn}
         style={{
-          background: 'var(--dome-bg)',
           color: isDirty ? 'var(--dome-accent)' : 'var(--dome-text-secondary)',
-          border: `1px solid ${isDirty ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
+          borderColor: isDirty ? 'var(--dome-accent)' : 'transparent',
         }}
         title={t('canvas.save_workflow')}
       >
@@ -134,17 +127,7 @@ export default function CanvasToolbar({
         <span>{t('canvas.save')}</span>
       </button>
 
-      {/* Clear */}
-      <button
-        onClick={onClear}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-all hover:opacity-80"
-        style={{
-          background: 'var(--dome-bg)',
-          color: 'var(--dome-text-muted)',
-          border: '1px solid var(--dome-border)',
-        }}
-        title={t('canvas.clear_canvas')}
-      >
+      <button type="button" onClick={onClear} className={ghostBtn} style={ghostBtnStyle} title={t('canvas.clear_canvas')}>
         <Trash2 className="w-3.5 h-3.5" />
         <span>{t('canvas.clear_canvas')}</span>
       </button>
