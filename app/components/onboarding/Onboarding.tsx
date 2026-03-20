@@ -37,16 +37,16 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     <div
       className="fixed inset-0 flex items-center justify-center"
       style={{
-        zIndex: 'var(--z-modal)',
-        backgroundColor: 'var(--translucent)',
+        zIndex: 9999,
+        backgroundColor: 'rgba(0,0,0,0.5)',
         backdropFilter: 'blur(8px)',
       }}
     >
       <div
-        className="relative rounded-xl shadow-2xl max-w-2xl max-h-[90vh] w-full mx-4 flex flex-col overflow-hidden animate-fade-in"
+        className="relative rounded-2xl shadow-2xl max-w-2xl max-h-[85vh] w-full mx-4 flex flex-col overflow-hidden animate-fade-in"
         style={{
-          backgroundColor: 'var(--bg)',
-          border: '1px solid var(--border)',
+          backgroundColor: 'var(--dome-bg)',
+          border: '1px solid var(--dome-border)',
         }}
       >
         <MartinOnboarding

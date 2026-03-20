@@ -91,6 +91,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "dagre": "^0.8.5",
+    "date-fns": "^4.1.0",
     "diff": "^8.0.3",
     "driver.js": "^1.4.0",
     "electron-ollama": "^0.1.25",

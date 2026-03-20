@@ -683,43 +683,26 @@ a:hover {
 }
 
 /* ============================================
-   SCROLLBAR - Pile Style (Transparent Track)
+   SCROLLBAR - Hidden (content scrollable via trackpad/wheel)
    ============================================ */
 
-::-webkit-scrollbar {
-  width: 11px;
-  height: 11px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 90px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  cursor: pointer;
-  background: var(--base);
-}
-
-/* Firefox scrollbar */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
 }
 
 /* Custom scrollbar class for overlay scroll */
 .scrollbar-overlay {
   overflow-x: hidden;
-  overflow-y: overlay;
+  overflow-y: auto;
 }
 
 /* Reserve space for scrollbar so content is not truncated */
 .scrollbar-gutter-stable {
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
 }
 
 /* ============================================
@@ -941,44 +924,12 @@ a:hover {
   animation: martinPulse 1.5s ease-in-out infinite;
 }
 
-.martin-chat-popover::-webkit-scrollbar {
-  width: 5px;
-}
-
-.martin-chat-popover::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.martin-chat-popover::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
-.martin-chat-popover::-webkit-scrollbar-thumb:hover {
-  background: var(--border-hover);
-}
 
 .many-panel-messages .many-message-group {
   content-visibility: auto;
   contain-intrinsic-size: 0 80px;
 }
 
-.many-panel-messages::-webkit-scrollbar {
-  width: 5px;
-}
-
-.many-panel-messages::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.many-panel-messages::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-
-.many-panel-messages::-webkit-scrollbar-thumb:hover {
-  background: var(--border-hover);
-}
 
 /* ============================================
    FLASHCARD ANIMATIONS

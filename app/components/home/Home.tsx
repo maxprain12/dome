@@ -10,19 +10,12 @@ import { CommandCenter } from '@/components/CommandCenter/CommandCenter';
 import FilterBar from './FilterBar';
 import ResourceCard from './ResourceCard';
 import HomeLayout from './HomeLayout';
-import InlineFolderNav from './InlineFolderNav';
 import DocumentToolbar from './DocumentToolbar';
 import SelectionActionBar from './SelectionActionBar';
 import ContextMenu from './ContextMenu';
-import LearnPage from '@/components/learn/LearnPage';
 import AgentChatView from '@/components/agents/AgentChatView';
-import AgentManagementView from '@/components/agents/AgentManagementView';
-import MarketplaceView from '@/components/marketplace/MarketplaceView';
-import AgentTeamView from '@/components/agent-team/AgentTeamView';
 import AgentTeamChat from '@/components/agent-team/AgentTeamChat';
 import AgentCanvasView from '@/components/agent-canvas/AgentCanvasView';
-import WorkflowLibraryView from '@/components/agent-canvas/WorkflowLibraryView';
-import AutomationsHubView from '@/components/automations/AutomationsHubView';
 import ProjectsDashboard from '@/components/home/ProjectsDashboard';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useResources, type ResourceType, type Resource } from '@/lib/hooks/useResources';
@@ -246,17 +239,20 @@ export default function Home() {
 
   const handleCreateNote = useCallback(async () => {
     try {
-      await createResource({
+      const resource = await createResource({
         type: 'note',
         title: 'Untitled Note',
         project_id: resolvedProjectId,
         content: '',
         folder_id: currentFolderId,
       });
+      if (resource?.id) {
+        openResourceTab(resource.id, 'note', resource.title ?? 'Untitled Note');
+      }
     } catch (err) {
       console.error('Failed to create note:', err);
     }
-  }, [createResource, currentFolderId, resolvedProjectId]);
+  }, [createResource, currentFolderId, resolvedProjectId, openResourceTab]);
 
   const handleCreateNotebook = useCallback(async () => {
     try {
@@ -528,7 +524,7 @@ export default function Home() {
       const agentId = homeSidebarSection.replace(/^agent:/, '');
       return (
         <div className="h-full min-h-0 flex flex-col overflow-hidden">
-          <AgentChatView agentId={agentId} onBack={() => setHomeSidebarSection('automations-hub')} />
+          <AgentChatView agentId={agentId} onBack={() => setHomeSidebarSection('library')} />
         </div>
       );
     }
@@ -548,53 +544,6 @@ export default function Home() {
       );
     }
     switch (homeSidebarSection) {
-      case 'studio':
-      case 'flashcards':
-        return <LearnPage />;
-
-      case 'agents':
-        return (
-          <div className="h-full min-h-0 flex flex-col overflow-hidden">
-            <AgentManagementView onAgentSelect={(id) => setHomeSidebarSection(`agent:${id}`)} />
-          </div>
-        );
-
-      case 'automations-hub':
-        return (
-          <div className="h-full min-h-0 flex flex-col overflow-hidden">
-            <AutomationsHubView onAgentSelect={(id) => setHomeSidebarSection(`agent:${id}`)} />
-          </div>
-        );
-
-      case 'marketplace':
-        return (
-          <div className="h-full min-h-0 flex flex-col overflow-hidden">
-            <MarketplaceView />
-          </div>
-        );
-
-      case 'agent-teams':
-        return (
-          <div className="h-full min-h-0 flex flex-col overflow-hidden relative">
-            <WorkflowLibraryView />
-          </div>
-        );
-
-      case 'chat':
-        return (
-          <div className="dashboard-empty-state">
-            <div className="dashboard-icon-wrapper">
-              <MessageCircle className="dashboard-icon" />
-            </div>
-            <h3 className="dashboard-title">
-              Many Chat
-            </h3>
-            <p className="dashboard-description">
-              Abre un recurso para chatear con Many sobre su contenido.
-            </p>
-          </div>
-        );
-
       case 'projects':
         return (
           <ProjectsDashboard
@@ -604,12 +553,10 @@ export default function Home() {
           />
         );
 
-      case 'recent':
-        return renderLibraryContent();
-
       case 'tags':
         return <TagBrowser />;
 
+      case 'recent':
       case 'library':
       default:
         return renderLibraryContent();
@@ -619,43 +566,10 @@ export default function Home() {
   const setCommandCenterOpen = useAppStore((s) => s.setCommandCenterOpen);
   const setCommandCenterUrlModeRequest = useAppStore((s) => s.setCommandCenterUrlModeRequest);
 
-  const showInlineFolderNav = !isSearchMode && (homeSidebarSection === 'library' || homeSidebarSection === 'recent');
-
   const renderLibraryContent = () => (
     <>
-      <div
-        className={showInlineFolderNav ? 'flex w-full min-w-0' : 'w-full'}
-        style={{ alignItems: 'stretch', overflow: 'hidden' }}
-      >
-        {showInlineFolderNav && (
-          <div
-            className="flex-shrink-0 flex flex-col min-h-0 pt-[140px]"
-            style={{
-              width: 200,
-              // Subtle border or no border depending on preference. 
-              // Using a very subtle border for separation without heaviness
-              borderRight: '1px solid var(--dome-border-subtle, rgba(0,0,0,0.03))',
-            }}
-          >
-            <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-              <InlineFolderNav
-                allFolders={allFolders}
-                currentFolderId={currentFolderId}
-                onFolderSelect={setCurrentFolderId}
-                moveToFolder={moveToFolder}
-                refetch={refetch}
-                onContextMenu={(e, resource) => {
-                  e.preventDefault();
-                  setContextMenu({ resource, x: e.clientX, y: e.clientY });
-                }}
-              />
-            </div>
-          </div>
-        )}
-        <div
-          className={showInlineFolderNav ? 'flex-1 min-w-0 overflow-hidden' : 'w-full'}
-          style={showInlineFolderNav ? { paddingLeft: 32 } : undefined}
-        >
+      <div className="w-full">
+        <div className="w-full">
           {/* Document Toolbar - path bar + quick actions */}
           {!isSearchMode && (
             <DocumentToolbar
@@ -670,7 +584,6 @@ export default function Home() {
                 setCommandCenterUrlModeRequest(true);
               }}
               onCreateFolder={() => setShowNewFolderModal(true)}
-              hidePath={showInlineFolderNav}
             />
           )}
 
@@ -1010,14 +923,7 @@ export default function Home() {
   const isAgentView = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('agent:');
   const isTeamView = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('team:');
   const isWorkflowView = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('workflow:');
-  const isFullscreenView =
-    isAgentView ||
-    isTeamView ||
-    isWorkflowView ||
-    homeSidebarSection === 'agents' ||
-    homeSidebarSection === 'automations-hub' ||
-    homeSidebarSection === 'marketplace' ||
-    homeSidebarSection === 'agent-teams';
+  const isFullscreenView = isAgentView || isTeamView || isWorkflowView;
 
   return (
     <HomeLayout hidePet={isFullscreenView}>
@@ -1034,36 +940,20 @@ export default function Home() {
                 {/* Page header */}
                 <div className="page-header">
                   <h1 className="page-title">
-                    {homeSidebarSection === 'library'
-                      ? 'Recent Resources'
-                      : homeSidebarSection === 'studio'
-                        ? 'Studio'
-                        : homeSidebarSection === 'flashcards'
-                          ? 'Flashcards'
-                          : homeSidebarSection === 'recent'
-                            ? 'Recent Resources'
-                            : homeSidebarSection === 'tags'
-                              ? 'Tags'
-                              : homeSidebarSection === 'chat'
-                                ? 'Many Chat'
-                                : homeSidebarSection === 'projects'
-                                  ? 'Projects'
-                                  : 'Recent Resources'}
+                    {homeSidebarSection === 'tags'
+                      ? 'Tags'
+                      : homeSidebarSection === 'projects'
+                        ? 'Projects'
+                        : currentFolderId && breadcrumbPath.length > 0
+                          ? breadcrumbPath[breadcrumbPath.length - 1]?.title ?? 'Library'
+                          : 'Library'}
                   </h1>
                   <p className="page-subtitle">
-                    {homeSidebarSection === 'library' || homeSidebarSection === 'recent'
-                      ? 'Your recently updated files and links'
-                      : homeSidebarSection === 'studio'
-                        ? 'Genera materiales de estudio con IA desde tus recursos'
-                        : homeSidebarSection === 'flashcards'
-                          ? 'Review your flashcard decks'
-                          : homeSidebarSection === 'tags'
-                            ? 'Browse resources by tag'
-                            : homeSidebarSection === 'chat'
-                              ? 'Chat with Many about your resources'
-                              : homeSidebarSection === 'projects'
-                                ? 'Organize resources by project'
-                                : 'Your recently updated files and links'}
+                    {homeSidebarSection === 'tags'
+                      ? 'Browse resources by tag'
+                      : homeSidebarSection === 'projects'
+                        ? 'Organize resources by project'
+                        : 'Your knowledge base'}
                   </p>
                 </div>
 

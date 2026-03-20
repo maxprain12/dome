@@ -84,13 +84,13 @@ export default function ProfileStep({
   return (
     <div className="space-y-6">
       <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-4" style={{ color: 'var(--secondary-text)' }}>
+        <h3 className="text-xs uppercase tracking-wider font-semibold mb-4" style={{ color: 'var(--dome-text-muted)' }}>
           Datos personales
         </h3>
 
         {/* Name */}
         <div className="space-y-2 mb-4">
-          <label htmlFor="profile-name" className="block text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+          <label htmlFor="profile-name" className="block text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
             Nombre completo *
           </label>
           <input
@@ -99,18 +99,20 @@ export default function ProfileStep({
             value={name}
             onChange={(e) => handleNameChange(e.target.value)}
             placeholder="John Doe"
-            className="input"
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
             style={{
-              borderColor: errors.name ? 'var(--error)' : undefined,
+              backgroundColor: 'var(--dome-bg-hover)',
+              color: 'var(--dome-text)',
+              border: errors.name ? '1px solid var(--dome-error, #ef4444)' : '1px solid var(--dome-border)',
             }}
             autoFocus
           />
-          {errors.name ? <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{errors.name}</p> : null}
+          {errors.name ? <p className="text-xs mt-1" style={{ color: 'var(--dome-error, #ef4444)' }}>{errors.name}</p> : null}
         </div>
 
         {/* Email */}
         <div className="space-y-2">
-          <label htmlFor="profile-email" className="block text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+          <label htmlFor="profile-email" className="block text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
             Email *
           </label>
           <input
@@ -121,12 +123,14 @@ export default function ProfileStep({
             value={email}
             onChange={(e) => handleEmailChange(e.target.value)}
             placeholder="juan@ejemplo.com"
-            className="input"
+            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
             style={{
-              borderColor: errors.email ? 'var(--error)' : undefined,
+              backgroundColor: 'var(--dome-bg-hover)',
+              color: 'var(--dome-text)',
+              border: errors.email ? '1px solid var(--dome-error, #ef4444)' : '1px solid var(--dome-border)',
             }}
           />
-          {errors.email ? <p className="text-xs mt-1" style={{ color: 'var(--error)' }}>{errors.email}</p> : null}
+          {errors.email ? <p className="text-xs mt-1" style={{ color: 'var(--dome-error, #ef4444)' }}>{errors.email}</p> : null}
         </div>
       </section>
 

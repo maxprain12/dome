@@ -1,9 +1,11 @@
-'use client';
 
 import { useState, useEffect } from 'react';
-import { Download, RefreshCw, RotateCw, FileStack } from 'lucide-react';
+import { Download, RefreshCw, RotateCw, FileStack, CheckCircle2, Upload, ArrowDownToLine } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { CitationStyle } from '@/types';
+
+const DOME_GREEN = '#596037';
+const DOME_GREEN_LIGHT = '#E0EAB4';
 
 type UpdaterStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
 
@@ -15,13 +17,59 @@ interface UpdaterState {
 }
 
 const citationStyles: { value: CitationStyle; label: string; description: string }[] = [
-  { value: 'apa', label: 'APA', description: 'American Psychological Association' },
-  { value: 'mla', label: 'MLA', description: 'Modern Language Association' },
-  { value: 'chicago', label: 'Chicago', description: 'Chicago Manual of Style' },
-  { value: 'harvard', label: 'Harvard', description: 'Harvard Referencing' },
-  { value: 'vancouver', label: 'Vancouver', description: 'Vancouver System' },
-  { value: 'ieee', label: 'IEEE', description: 'Institute of Electrical and Electronics Engineers' },
+  { value: 'apa',      label: 'APA',       description: 'American Psychological Association' },
+  { value: 'mla',      label: 'MLA',       description: 'Modern Language Association' },
+  { value: 'chicago',  label: 'Chicago',   description: 'Chicago Manual of Style' },
+  { value: 'harvard',  label: 'Harvard',   description: 'Harvard Referencing' },
+  { value: 'vancouver',label: 'Vancouver', description: 'Vancouver System' },
+  { value: 'ieee',     label: 'IEEE',      description: 'Electrical & Electronics Engineers' },
 ];
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
+      {children}
+    </p>
+  );
+}
+
+function SettingsCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-xl ${className}`} style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
+      {children}
+    </div>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className="relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200"
+      style={{ backgroundColor: checked ? DOME_GREEN : 'var(--dome-border)' }}
+    >
+      <span
+        className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
+        style={{ transform: checked ? 'translateX(16px)' : 'translateX(0)' }}
+      />
+    </button>
+  );
+}
+
+function ToggleRow({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+      <div>
+        <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{label}</p>
+        <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{description}</p>
+      </div>
+      <Toggle checked={checked} onChange={onChange} />
+    </div>
+  );
+}
 
 export default function AdvancedSettings() {
   const { citationStyle, autoSave, autoBackup, updateCitationStyle, updatePreferences } = useAppStore();
@@ -30,9 +78,7 @@ export default function AdvancedSettings() {
   const [notesMigrationStatus, setNotesMigrationStatus] = useState<{ pendingMigrations: number; notes: { id: string; title: string }[] } | null>(null);
   const [notesMigrating, setNotesMigrating] = useState(false);
 
-  useEffect(() => {
-    window.electron?.getAppVersion?.().then((v) => setAppVersion(v || '0.1.0'));
-  }, []);
+  useEffect(() => { window.electron?.getAppVersion?.().then((v) => setAppVersion(v || '0.1.0')); }, []);
 
   useEffect(() => {
     if (!window.electron?.updater?.onStatus) return;
@@ -41,52 +87,21 @@ export default function AdvancedSettings() {
   }, []);
 
   useEffect(() => {
-    async function loadNotesMigrationStatus() {
+    async function loadMigrationStatus() {
       try {
         const r = await window.electron?.migration?.getNotesMigrationStatus?.();
         if (r?.success && r.data) setNotesMigrationStatus(r.data);
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
     }
-    loadNotesMigrationStatus();
+    loadMigrationStatus();
   }, [notesMigrating]);
 
   const handleCheckUpdate = async () => {
-    setUpdaterState((s) => ({ ...s, status: 'checking' }));
+    setUpdaterState(s => ({ ...s, status: 'checking' }));
     try {
-      const result = await window.electron?.updater?.check();
-      const r = result as { status?: string } | null;
-      if (r?.status === 'skipped') {
-        setUpdaterState({ status: 'idle' });
-      }
-    } catch (e) {
-      setUpdaterState({ status: 'error', error: String(e) });
-    }
-  };
-
-  const handleDownloadUpdate = async () => {
-    try {
-      await window.electron?.updater?.download();
-    } catch (e) {
-      setUpdaterState({ status: 'error', error: String(e) });
-    }
-  };
-
-  const handleInstallUpdate = () => {
-    window.electron?.updater?.install();
-  };
-
-  const handleToggleAutoSave = () => {
-    updatePreferences({ autoSave: !autoSave });
-  };
-
-  const handleToggleAutoBackup = () => {
-    updatePreferences({ autoBackup: !autoBackup });
-  };
-
-  const handleCitationStyleChange = (style: CitationStyle) => {
-    updateCitationStyle(style);
+      const result = await window.electron?.updater?.check() as { status?: string } | null;
+      if (result?.status === 'skipped') setUpdaterState({ status: 'idle' });
+    } catch (e) { setUpdaterState({ status: 'error', error: String(e) }); }
   };
 
   const handleMigrateNotes = async () => {
@@ -97,232 +112,210 @@ export default function AdvancedSettings() {
         const status = await window.electron?.migration?.getNotesMigrationStatus?.();
         if (status?.success && status.data) setNotesMigrationStatus(status.data);
       }
-    } finally {
-      setNotesMigrating(false);
-    }
+    } finally { setNotesMigrating(false); }
   };
 
   return (
-    <div className="space-y-12 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-display font-semibold mb-1" style={{ color: 'var(--primary-text)' }}>
-          Advanced
-        </h2>
-        <p className="text-sm opacity-80" style={{ color: 'var(--secondary-text)' }}>
-          Configure advanced settings and preferences
-        </p>
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>Avanzado</h2>
+        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Actualizaciones, preferencias del sistema y datos.</p>
       </div>
 
-      {/* Application Updates */}
-      <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
-          Application Updates
-        </h3>
-        <div className="space-y-4">
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-            Current version: {appVersion}
-          </p>
-          {updaterState.status === 'idle' && (
-            <button onClick={handleCheckUpdate} className="btn btn-secondary flex items-center gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Check for updates
-            </button>
-          )}
-          {updaterState.status === 'checking' && (
-            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Checking for updates...</p>
-          )}
-          {updaterState.status === 'available' && (
-            <div className="space-y-3">
-              <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
-                New version {updaterState.version} available
+      {/* ── Updates ── */}
+      <div>
+        <SectionLabel>Actualizaciones</SectionLabel>
+        <SettingsCard className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>Dome</p>
+              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                Versión actual: <span className="font-mono">{appVersion || '—'}</span>
               </p>
-              <button onClick={handleDownloadUpdate} className="btn btn-primary flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                Download update
-              </button>
             </div>
-          )}
+
+            {updaterState.status === 'idle' && (
+              <button
+                onClick={handleCheckUpdate}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
+              >
+                <RefreshCw className="w-3 h-3" /> Buscar actualizaciones
+              </button>
+            )}
+            {updaterState.status === 'checking' && (
+              <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+                <RefreshCw className="w-3 h-3 animate-spin" /> Verificando...
+              </span>
+            )}
+            {updaterState.status === 'not-available' && (
+              <span className="text-xs flex items-center gap-1.5" style={{ color: DOME_GREEN }}>
+                <CheckCircle2 className="w-3.5 h-3.5" /> Al día
+              </span>
+            )}
+            {updaterState.status === 'available' && (
+              <button
+                onClick={() => window.electron?.updater?.download()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                style={{ backgroundColor: DOME_GREEN }}
+              >
+                <Download className="w-3 h-3" /> Descargar v{updaterState.version}
+              </button>
+            )}
+            {updaterState.status === 'downloaded' && (
+              <button
+                onClick={() => window.electron?.updater?.install()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                style={{ backgroundColor: DOME_GREEN }}
+              >
+                <RotateCw className="w-3 h-3" /> Reiniciar e instalar
+              </button>
+            )}
+            {updaterState.status === 'error' && (
+              <span className="text-xs" style={{ color: 'var(--dome-error, #ef4444)' }}>
+                {updaterState.error || 'Error al verificar'}
+              </span>
+            )}
+          </div>
+
           {updaterState.status === 'downloading' && (
-            <div className="space-y-2">
-              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Downloading... {updaterState.percent?.toFixed(0) ?? 0}%</p>
-              <div className="h-2 rounded-full overflow-hidden bg-[var(--border)]">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Descargando...</span>
+                <span className="text-xs font-medium" style={{ color: DOME_GREEN }}>{updaterState.percent?.toFixed(0) ?? 0}%</span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--dome-border)' }}>
                 <div
-                  className="h-full transition-all duration-300 bg-[var(--accent)]"
-                  style={{ width: `${updaterState.percent ?? 0}%` }}
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{ width: `${updaterState.percent ?? 0}%`, backgroundColor: DOME_GREEN }}
                 />
               </div>
             </div>
           )}
-          {updaterState.status === 'downloaded' && (
-            <div className="space-y-3">
-              <p className="text-sm" style={{ color: 'var(--success)' }}>Update ready to install</p>
-              <button onClick={handleInstallUpdate} className="btn btn-primary flex items-center gap-2">
-                <RotateCw className="w-4 h-4" />
-                Restart to install
-              </button>
-            </div>
-          )}
-          {updaterState.status === 'not-available' && (
-            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>You have the latest version</p>
-          )}
-          {updaterState.status === 'error' && (
-            <p className="text-sm" style={{ color: 'var(--error)' }}>{updaterState.error || 'Update check failed'}</p>
-          )}
-        </div>
-      </section>
+        </SettingsCard>
+      </div>
 
-      {/* System Preferences */}
-      <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
-          System Preferences
-        </h3>
+      {/* ── Preferences ── */}
+      <div>
+        <SectionLabel>Preferencias</SectionLabel>
+        <SettingsCard>
+          <ToggleRow
+            label="Guardado automático"
+            description="Guarda tu trabajo automáticamente mientras escribes"
+            checked={autoSave}
+            onChange={() => updatePreferences({ autoSave: !autoSave })}
+          />
+          <div style={{ height: 1, backgroundColor: 'var(--dome-border)', margin: '0 16px' }} />
+          <ToggleRow
+            label="Backup automático"
+            description="Crea copias de seguridad de tus datos periódicamente"
+            checked={autoBackup}
+            onChange={() => updatePreferences({ autoBackup: !autoBackup })}
+          />
+        </SettingsCard>
+      </div>
 
-        <div className="space-y-4">
-          {/* Auto-Save */}
-          <div className="flex items-center justify-between py-2">
-            <div className="flex-1 pr-8">
-              <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--primary-text)' }}>
-                Auto-Save
-              </h3>
-              <p className="text-xs opacity-80" style={{ color: 'var(--secondary-text)' }}>
-                Automatically save your work as you type
-              </p>
-            </div>
-            <button
-              onClick={handleToggleAutoSave}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoSave ? '' : ''}`}
-              style={{
-                backgroundColor: autoSave ? 'var(--accent)' : 'var(--border)',
-              }}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoSave ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-              />
-            </button>
-          </div>
-
-          {/* Auto-Backup */}
-          <div className="flex items-center justify-between py-2">
-            <div className="flex-1 pr-8">
-              <h3 className="text-sm font-medium mb-1" style={{ color: 'var(--primary-text)' }}>
-                Auto-Backup
-              </h3>
-              <p className="text-xs opacity-80" style={{ color: 'var(--secondary-text)' }}>
-                Automatically create backups of your data
-              </p>
-            </div>
-            <button
-              onClick={handleToggleAutoBackup}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoBackup ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
-                }`}
-              style={{
-                backgroundColor: autoBackup ? 'var(--accent)' : 'var(--border)',
-              }}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoBackup ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-              />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Sync (Export/Import) */}
-      <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
-          Sincronización
-        </h3>
-        <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
-          Exporta o importa tus datos para llevar todo a otro equipo.
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={async () => {
-              const r = await window.electron?.sync?.export?.();
-              if (r?.success) alert('Exportación completada en: ' + r.path);
-              else if (!r?.cancelled) alert('Error: ' + (r?.error || 'Unknown'));
-            }}
-            className="btn btn-secondary"
-          >
-            Exportar datos
-          </button>
-          <button
-            onClick={async () => {
-              const r = await window.electron?.sync?.import?.();
-              if (r?.success) {
-                alert(r.restartRequired ? 'Importación completada. Reinicia Dome para ver los datos.' : 'Importación completada.');
-                if (r.restartRequired) window.location.reload();
-              } else if (!r?.cancelled) alert('Error: ' + (r?.error || 'Unknown'));
-            }}
-            className="btn btn-secondary"
-          >
-            Importar datos
-          </button>
-        </div>
-      </section>
-
-      {/* Notes Migration (legacy resources -> notes domain) */}
-      {typeof window !== 'undefined' && window.electron?.migration?.getNotesMigrationStatus && (
-        <section>
-          <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
-            Notes Migration
-          </h3>
-          <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
-            Migrate legacy notes from the old storage to the new notes domain. This enables the tree view, history, and backlinks.
-          </p>
-          {notesMigrationStatus && notesMigrationStatus.pendingMigrations > 0 ? (
-            <div className="space-y-3">
-              <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
-                {notesMigrationStatus.pendingMigrations} legacy note(s) pending
-              </p>
+      {/* ── Citation style ── */}
+      <div>
+        <SectionLabel>Estilo de citas</SectionLabel>
+        <div className="grid grid-cols-3 gap-2">
+          {citationStyles.map((style) => {
+            const isActive = citationStyle === style.value;
+            return (
               <button
-                onClick={handleMigrateNotes}
-                disabled={notesMigrating}
-                className="btn btn-primary flex items-center gap-2"
+                key={style.value}
+                onClick={() => updateCitationStyle(style.value)}
+                className="p-3 rounded-xl text-left transition-all"
+                style={{
+                  backgroundColor: isActive ? `${DOME_GREEN}10` : 'var(--dome-surface)',
+                  border: isActive ? `2px solid ${DOME_GREEN}` : '2px solid var(--dome-border)',
+                  boxShadow: isActive ? `0 2px 8px ${DOME_GREEN}15` : 'none',
+                }}
               >
-                <FileStack className="w-4 h-4" />
-                {notesMigrating ? 'Migrating...' : 'Migrate notes'}
+                <p className="text-sm font-bold mb-0.5" style={{ color: isActive ? DOME_GREEN : 'var(--dome-text)' }}>
+                  {style.label}
+                </p>
+                <p className="text-[10px] leading-tight" style={{ color: 'var(--dome-text-muted)' }}>
+                  {style.description}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Sync ── */}
+      <div>
+        <SectionLabel>Datos</SectionLabel>
+        <SettingsCard className="p-4 space-y-3">
+          <div>
+            <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>Exportar e importar</p>
+            <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>
+              Mueve todos tus datos a otro equipo o crea una copia de seguridad manual.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  const r = await window.electron?.sync?.export?.();
+                  if (r?.success) alert('Exportación completada en: ' + r.path);
+                  else if (!r?.cancelled) alert('Error: ' + (r?.error || 'Unknown'));
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
+                style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
+              >
+                <ArrowDownToLine className="w-3.5 h-3.5" /> Exportar datos
+              </button>
+              <button
+                onClick={async () => {
+                  const r = await window.electron?.sync?.import?.();
+                  if (r?.success) {
+                    alert(r.restartRequired ? 'Importación completada. Reinicia Dome.' : 'Importación completada.');
+                    if (r.restartRequired) window.location.reload();
+                  } else if (!r?.cancelled) alert('Error: ' + (r?.error || 'Unknown'));
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
+                style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
+              >
+                <Upload className="w-3.5 h-3.5" /> Importar datos
               </button>
             </div>
-          ) : notesMigrationStatus?.pendingMigrations === 0 ? (
-            <p className="text-sm" style={{ color: 'var(--success)' }}>
-              All notes are migrated.
+          </div>
+        </SettingsCard>
+      </div>
+
+      {/* ── Notes migration ── */}
+      {typeof window !== 'undefined' && window.electron?.migration?.getNotesMigrationStatus && (
+        <div>
+          <SectionLabel>Migración</SectionLabel>
+          <SettingsCard className="p-4">
+            <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>Migración de notas</p>
+            <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>
+              Migra notas antiguas al nuevo dominio para habilitar árbol, historial y backlinks.
             </p>
-          ) : null}
-        </section>
-      )}
-
-      {/* Citation Style */}
-      <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6" style={{ color: 'var(--secondary-text)' }}>
-          Citation Style
-        </h3>
-
-        <div className="grid grid-cols-2 gap-3">
-          {citationStyles.map((style) => (
-            <button
-              key={style.value}
-              onClick={() => handleCitationStyleChange(style.value)}
-              className={`p-4 rounded-lg text-left transition-all border ${citationStyle === style.value ? 'bg-blue-50/10' : 'hover:bg-black/5 dark:hover:bg-white/5'
-                }`}
-              style={{
-                backgroundColor: citationStyle === style.value ? 'var(--bg-secondary)' : 'transparent',
-                borderColor: citationStyle === style.value ? 'var(--accent)' : 'var(--border)',
-              }}
-            >
-              <div className="font-medium text-sm mb-1" style={{ color: 'var(--primary-text)' }}>
-                {style.label}
+            {notesMigrationStatus && notesMigrationStatus.pendingMigrations > 0 ? (
+              <div className="flex items-center gap-3">
+                <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                  {notesMigrationStatus.pendingMigrations} nota(s) pendiente(s)
+                </span>
+                <button
+                  onClick={handleMigrateNotes}
+                  disabled={notesMigrating}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white disabled:opacity-50"
+                  style={{ backgroundColor: DOME_GREEN }}
+                >
+                  <FileStack className="w-3.5 h-3.5" />
+                  {notesMigrating ? 'Migrando...' : 'Migrar notas'}
+                </button>
               </div>
-              <div className="text-xs opacity-70" style={{ color: 'var(--secondary-text)' }}>
-                {style.description}
-              </div>
-            </button>
-          ))}
+            ) : notesMigrationStatus?.pendingMigrations === 0 ? (
+              <span className="flex items-center gap-1.5 text-xs" style={{ color: DOME_GREEN }}>
+                <CheckCircle2 className="w-3.5 h-3.5" /> Todas las notas están migradas
+              </span>
+            ) : null}
+          </SettingsCard>
         </div>
-      </section>
+      )}
     </div>
   );
 }

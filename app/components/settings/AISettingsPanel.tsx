@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Gift, Search, Zap } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Gift, Search, Zap, RefreshCw, Lock, HardDrive } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -13,6 +13,11 @@ import {
 import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import ModelSelector from './ModelSelector';
 
+// Dome brand palette
+const DOME_GREEN = '#596037';
+const DOME_GREEN_LIGHT = '#E0EAB4';
+const DOME_GREEN_DARK = '#4A502E';
+
 interface OllamaModel {
   name: string;
   size: number;
@@ -24,6 +29,63 @@ function formatTokens(n: number): string {
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
   return n.toString();
 }
+
+/* ─── Shared primitives ─────────────────────────────── */
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
+      {children}
+    </p>
+  );
+}
+
+function SettingsCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-xl p-4 ${className}`}
+      style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+  return (
+    <label htmlFor={htmlFor} className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+      {children}
+    </label>
+  );
+}
+
+function SettingsInput({
+  id, type = 'text', value, onChange, placeholder, className = '', autoComplete,
+}: {
+  id?: string; type?: string; value: string; onChange: (v: string) => void;
+  placeholder?: string; className?: string; autoComplete?: string;
+}) {
+  return (
+    <input
+      id={id}
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      autoComplete={autoComplete}
+      className={`w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors ${className}`}
+      style={{
+        backgroundColor: 'var(--dome-bg-hover)',
+        color: 'var(--dome-text)',
+        border: '1px solid var(--dome-border)',
+      }}
+      onFocus={(e) => { e.target.style.borderColor = DOME_GREEN; e.target.style.boxShadow = `0 0 0 3px ${DOME_GREEN}15`; }}
+      onBlur={(e) => { e.target.style.borderColor = 'var(--dome-border)'; e.target.style.boxShadow = 'none'; }}
+    />
+  );
+}
+
+/* ─── Main component ─────────────────────────────────── */
 
 export default function AISettingsPanel() {
   const [provider, setProvider] = useState<AIProviderType>('openai');
@@ -45,49 +107,28 @@ export default function AISettingsPanel() {
   const [domeConnected, setDomeConnected] = useState(false);
   const [domeConnecting, setDomeConnecting] = useState(false);
   const [domeQuota, setDomeQuota] = useState<{
-    planId?: string;
-    limit?: number;
-    used?: number;
-    remaining?: number;
-    periodEnd?: number;
-    subscriptionStatus?: string;
+    planId?: string; limit?: number; used?: number; remaining?: number;
+    periodEnd?: number; subscriptionStatus?: string;
   } | null>(null);
-
-  // Ollama-specific state
   const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null);
   const [checkingOllama, setCheckingOllama] = useState(false);
   const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
 
-  // Get current provider's models
-  const currentProviderModels: ModelDefinition[] = useMemo(() => {
-    return PROVIDERS[provider]?.models || [];
-  }, [provider]);
+  const currentProviderModels: ModelDefinition[] = useMemo(() => PROVIDERS[provider]?.models || [], [provider]);
 
-  // Load existing configuration
   useEffect(() => {
     const loadConfig = async () => {
       const config = await getAIConfig();
       if (config) {
-        // Handle legacy 'local' provider by converting to 'ollama'
         const loadedProviderBase = (config.provider as string) === 'local' ? 'ollama' : config.provider;
-        const loadedProvider = loadedProviderBase === 'dome' && !DOME_PROVIDER_ENABLED
-          ? 'openai'
-          : loadedProviderBase;
+        const loadedProvider = loadedProviderBase === 'dome' && !DOME_PROVIDER_ENABLED ? 'openai' : loadedProviderBase;
         setProvider(loadedProvider as AIProviderType);
         setApiKey(config.api_key || '');
-        
-        // Set model with defaults based on provider
         const defaultModel = getDefaultModelId(loadedProvider as AIProviderType);
-
         setModel(config.model || defaultModel);
-
-        // Check if model is in presets, if not enable custom
         const providerModels = PROVIDERS[loadedProvider as AIProviderType]?.models || [];
-        if (config.model && !providerModels.find(m => m.id === config.model)) {
-          setCustomModel(true);
-        }
-        
+        if (config.model && !providerModels.find(m => m.id === config.model)) setCustomModel(true);
         setOllamaBaseURL(config.ollama_base_url || 'http://localhost:11434');
         setBraveSearchApiKey(config.brave_search_api_key || '');
         setOllamaModel(config.ollama_model || 'llama3.2');
@@ -106,14 +147,7 @@ export default function AISettingsPanel() {
       if (connected && window.electron.domeAuth.getQuota) {
         const quotaRes = await window.electron.domeAuth.getQuota();
         if (quotaRes.success && quotaRes.planId) {
-          setDomeQuota({
-            planId: quotaRes.planId,
-            limit: quotaRes.limit,
-            used: quotaRes.used,
-            remaining: quotaRes.remaining,
-            periodEnd: quotaRes.periodEnd,
-            subscriptionStatus: quotaRes.subscriptionStatus,
-          });
+          setDomeQuota({ planId: quotaRes.planId, limit: quotaRes.limit, used: quotaRes.used, remaining: quotaRes.remaining, periodEnd: quotaRes.periodEnd, subscriptionStatus: quotaRes.subscriptionStatus });
         } else {
           setDomeQuota(null);
         }
@@ -126,178 +160,99 @@ export default function AISettingsPanel() {
     }
   }, []);
 
-  useEffect(() => {
-    void refreshDomeSession();
-  }, [refreshDomeSession]);
-
-  // Refresh session when window regains focus (user may have connected via dashboard deep link)
+  useEffect(() => { void refreshDomeSession(); }, [refreshDomeSession]);
   useEffect(() => {
     const onFocus = () => void refreshDomeSession();
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [refreshDomeSession]);
 
-  // Check Ollama availability when provider changes or URL changes
   useEffect(() => {
-    if (provider === 'ollama') {
-      checkOllamaConnection();
-      loadOllamaModels();
-    }
+    if (provider === 'ollama') { checkOllamaConnection(); loadOllamaModels(); }
   }, [provider, ollamaBaseURL]);
 
   const checkOllamaConnection = async () => {
     if (!window.electron) return;
-
     setCheckingOllama(true);
     try {
       await saveAIConfig({ ollama_base_url: ollamaBaseURL });
       const result = await window.electron.ollama.checkAvailability();
       setOllamaAvailable(result.success && result.available === true);
-    } catch (error) {
-      console.error('Error checking Ollama:', error);
-      setOllamaAvailable(false);
-    } finally {
-      setCheckingOllama(false);
-    }
+    } catch { setOllamaAvailable(false); }
+    finally { setCheckingOllama(false); }
   };
 
   const loadOllamaModels = async () => {
     if (!window.electron) return;
-
     setLoadingModels(true);
     try {
       await saveAIConfig({ ollama_base_url: ollamaBaseURL });
       const result = await window.electron.ollama.listModels();
-      if (result.success && Array.isArray(result.models)) {
-        setOllamaModels(result.models);
-      } else {
-        setOllamaModels([]);
-      }
-    } catch (error) {
-      console.error('Error loading Ollama models:', error);
-      setOllamaModels([]);
-    } finally {
-      setLoadingModels(false);
-    }
+      setOllamaModels(result.success && Array.isArray(result.models) ? result.models : []);
+    } catch { setOllamaModels([]); }
+    finally { setLoadingModels(false); }
   };
 
   const handleProviderChange = (newProvider: AIProviderType) => {
     setProvider(newProvider);
     setCustomModel(false);
-    
-    // Set default models for the new provider
-    const defaultModel = getDefaultModelId(newProvider);
-    setModel(defaultModel);
+    setModel(getDefaultModelId(newProvider));
   };
 
   const handleSave = async () => {
-    // Only save settings relevant to the selected provider
     const config: Partial<AISettings> = {
       provider,
       web_search_provider: 'brave',
       brave_search_api_key: braveSearchApiKey.trim(),
     };
-
-    // Provider-specific settings
     switch (provider) {
-      case 'openai':
-        config.api_key = apiKey;
-        config.model = model;
-        config.base_url = ''; // Clear any leftover base_url from other providers (e.g. Minimax)
-        break;
-
-      case 'anthropic':
-        config.api_key = apiKey;
-        config.model = model;
-        config.base_url = '';
-        break;
-
-      case 'google':
-        config.api_key = apiKey;
-        config.model = model;
-        config.base_url = '';
-        break;
-
-      case 'dome':
-        config.model = 'dome/auto';
-        config.base_url = '';
-        break;
-
-      case 'minimax':
-        config.api_key = apiKey;
-        config.model = model;
-        // base_url for minimax is managed by the backend automatically
-        break;
-
-      case 'ollama':
-        config.ollama_base_url = ollamaBaseURL;
-        config.ollama_model = ollamaModel;
-        config.ollama_api_key = ollamaApiKey;
-        break;
+      case 'openai': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
+      case 'anthropic': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
+      case 'google': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
+      case 'dome': config.model = 'dome/auto'; config.base_url = ''; break;
+      case 'minimax': config.api_key = apiKey; config.model = model; break;
+      case 'ollama': config.ollama_base_url = ollamaBaseURL; config.ollama_model = ollamaModel; config.ollama_api_key = ollamaApiKey; break;
     }
-
     try {
       await saveAIConfig(config);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-
-      // Notify other components that AI config has changed
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
-      }
+      window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
     } catch (error) {
       console.error('[AISettings] Error saving config:', error);
     }
   };
 
   const handleTestConnection = async () => {
-    // Save first to ensure latest config is persisted
     await handleSave();
-
     setTesting(true);
     setTestResult(null);
-
     try {
       if (window.electron?.ai?.testConnection) {
         const result = await window.electron.ai.testConnection();
-        if (result.success) {
-          setTestResult({ success: true, message: `Connected to ${result.provider} (${result.model})` });
-        } else {
-          setTestResult({ success: false, message: result.error || 'Connection failed' });
-        }
+        setTestResult(result.success
+          ? { success: true, message: `Conectado a ${result.provider} (${result.model})` }
+          : { success: false, message: result.error || 'La conexión falló' });
       } else {
-        setTestResult({ success: false, message: 'Test connection not available (Electron API missing)' });
+        setTestResult({ success: false, message: 'Test no disponible en esta versión' });
       }
     } catch (error) {
-      console.error('[AISettings] Test connection error:', error);
-      setTestResult({ success: false, message: error instanceof Error ? error.message : 'Unknown error' });
-    } finally {
-      setTesting(false);
-    }
+      setTestResult({ success: false, message: error instanceof Error ? error.message : 'Error desconocido' });
+    } finally { setTesting(false); }
   };
 
   const handleConnectDome = async () => {
-    if (!window.electron?.domeAuth) {
-      setTestResult({ success: false, message: 'Dome OAuth no disponible en esta versión.' });
-      return;
-    }
+    if (!window.electron?.domeAuth) { setTestResult({ success: false, message: 'Dome OAuth no disponible en esta versión.' }); return; }
     setDomeConnecting(true);
     setTestResult(null);
     try {
       const result = await window.electron.domeAuth.openDashboard();
-      if (result.success) {
-        setTestResult({
-          success: true,
-          message: 'Se abrió el dashboard. Inicia sesión y haz click en "Conectar Dome Desktop". Al volver aquí, la conexión se completará.',
-        });
-      } else {
-        setTestResult({ success: false, message: result.error || 'No se pudo abrir el dashboard.' });
-      }
+      setTestResult(result.success
+        ? { success: true, message: 'Dashboard abierto. Inicia sesión y haz clic en "Conectar Dome Desktop".' }
+        : { success: false, message: result.error || 'No se pudo abrir el dashboard.' });
     } catch (error) {
       setTestResult({ success: false, message: error instanceof Error ? error.message : 'Error desconocido' });
-    } finally {
-      setDomeConnecting(false);
-    }
+    } finally { setDomeConnecting(false); }
   };
 
   const handleDisconnectDome = async () => {
@@ -312,292 +267,321 @@ export default function AISettingsPanel() {
   };
 
   const handleTestWebSearch = async () => {
-    await saveAIConfig({
-      web_search_provider: 'brave',
-      brave_search_api_key: braveSearchApiKey.trim(),
-    });
-
+    await saveAIConfig({ web_search_provider: 'brave', brave_search_api_key: braveSearchApiKey.trim() });
     setTestingWebSearch(true);
     setWebSearchResult(null);
-
     try {
       if (!window.electron?.ai?.testWebSearch) {
-        setWebSearchResult({
-          success: false,
-          message: 'La prueba de web search no está disponible en esta versión.',
-        });
+        setWebSearchResult({ success: false, message: 'No disponible en esta versión.' });
         return;
       }
-
       const result = await window.electron.ai.testWebSearch();
-      if (result.success) {
-        setWebSearchResult({
-          success: true,
-          message: result.warning
-            ? `${result.warning} (${result.count ?? 0} resultado(s) de prueba).`
-            : `Brave Search conectado correctamente (${result.count ?? 0} resultado(s) de prueba).`,
-        });
-      } else {
-        setWebSearchResult({
-          success: false,
-          message: result.error || 'No se pudo validar Brave Search.',
-        });
-      }
+      setWebSearchResult(result.success
+        ? { success: true, message: result.warning ? `${result.warning} (${result.count ?? 0} resultado(s)).` : `Brave Search conectado (${result.count ?? 0} resultado(s)).` }
+        : { success: false, message: result.error || 'No se pudo validar Brave Search.' });
     } catch (error) {
-      setWebSearchResult({
-        success: false,
-        message: error instanceof Error ? error.message : 'Error desconocido al probar Brave Search.',
-      });
-    } finally {
-      setTestingWebSearch(false);
-    }
+      setWebSearchResult({ success: false, message: error instanceof Error ? error.message : 'Error desconocido.' });
+    } finally { setTestingWebSearch(false); }
   };
 
-  // Render model badge
-  const renderModelBadges = (modelDef: { reasoning: boolean; input: string[] }, isFree?: boolean, isPrivate?: boolean) => (
-    <span className="flex items-center gap-1.5 ml-2 flex-wrap">
-      {isFree && (
-        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-green-500/10 text-green-600 dark:text-green-400">
-          <Gift className="w-2.5 h-2.5" />
-          Gratis
-        </span>
-      )}
-      {isPrivate && (
-        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-purple-500/10 text-purple-600 dark:text-purple-400">
-          <Shield className="w-2.5 h-2.5" />
-          Privado
-        </span>
-      )}
-      {modelDef.reasoning && (
-        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-orange-500/10 text-orange-600 dark:text-orange-400">
-          <Brain className="w-2.5 h-2.5" />
-          Reasoning
-        </span>
-      )}
-      {modelDef.input.includes('image') && (
-        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
-          <ImageIcon className="w-2.5 h-2.5" />
-          Vision
-        </span>
-      )}
-    </span>
-  );
-
   return (
-    <div className="space-y-12 animate-in fade-in duration-500">
-      {/* Header */}
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Page header */}
       <div>
-        <h2 className="text-xl font-medium mb-1" style={{ color: 'var(--primary-text)' }}>
-          AI Configuration
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>
+          Configuración IA
         </h2>
-        <p className="text-sm opacity-70" style={{ color: 'var(--secondary-text)' }}>
-          Configure your AI provider and assistant
+        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          Elige tu proveedor de inteligencia artificial y configura las claves de acceso.
         </p>
       </div>
 
-      {/* Provider Selection - same order and labels as onboarding */}
-      <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary-text)' }}>
-          Provider
-        </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {AI_PROVIDER_OPTIONS.map((option) => {
-            const Icon = option.icon;
-            const isSelected = provider === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => !option.disabled && handleProviderChange(option.value)}
-                disabled={option.disabled}
-                className={`px-4 py-3 rounded-lg text-left transition-all relative cursor-pointer ${
-                  isSelected ? 'bg-blue-500/10' : 'hover:bg-black/5 dark:hover:bg-white/5'
-                } ${
-                  option.disabled ? 'opacity-60 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent' : ''
-                }`}
-                style={{
-                  color: isSelected ? 'var(--accent)' : 'var(--primary-text)',
-                  border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
-                }}
-              >
-                {option.badge && (
-                  <span
-                    className={`absolute -top-2 -right-2 px-1.5 py-0.5 text-[9px] font-bold rounded ${
-                      option.badgeColor === 'green' ? 'bg-green-500 text-white' : 'bg-purple-500 text-white'
-                    }`}
-                  >
-                    {option.badge}
-                  </span>
-                )}
-                <div className="font-medium flex items-center gap-1.5">
-                  <Icon className="w-4 h-4" />
-                  {option.label}
-                  {option.recommended && (
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-green-500/10 text-green-600 dark:text-green-400">
-                      Recommended
+      {/* ── PROVIDER SELECTION ── */}
+      <div>
+        <SectionLabel>Proveedor</SectionLabel>
+
+        <div className="space-y-2">
+          {/* Dome featured card */}
+          {DOME_PROVIDER_ENABLED && (
+            <button
+              type="button"
+              onClick={() => handleProviderChange('dome')}
+              className="relative w-full p-4 rounded-xl text-left transition-all cursor-pointer overflow-hidden"
+              style={{
+                background: provider === 'dome'
+                  ? `linear-gradient(135deg, ${DOME_GREEN} 0%, ${DOME_GREEN_DARK} 100%)`
+                  : 'var(--dome-surface)',
+                border: provider === 'dome' ? `2px solid ${DOME_GREEN}` : '2px solid var(--dome-border)',
+                boxShadow: provider === 'dome' ? `0 4px 16px ${DOME_GREEN}25` : 'none',
+              }}
+            >
+              {provider === 'dome' && (
+                <div className="absolute inset-0 pointer-events-none opacity-10"
+                  style={{ backgroundImage: `radial-gradient(circle at 80% 50%, ${DOME_GREEN_LIGHT}, transparent 60%)` }}
+                />
+              )}
+              <div className="relative flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.15)' : DOME_GREEN_LIGHT }}>
+                  <Shield className="w-4 h-4" style={{ color: provider === 'dome' ? DOME_GREEN_LIGHT : DOME_GREEN }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-sm font-semibold" style={{ color: provider === 'dome' ? '#fff' : 'var(--dome-text)' }}>
+                      {PROVIDERS.dome.name}
+                    </span>
+                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded tracking-wide"
+                      style={{ backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.2)' : DOME_GREEN_LIGHT, color: provider === 'dome' ? '#fff' : DOME_GREEN }}>
+                      RECOMENDADO
+                    </span>
+                  </div>
+                  <p className="text-xs" style={{ color: provider === 'dome' ? 'rgba(255,255,255,0.7)' : 'var(--dome-text-muted)' }}>
+                    {PROVIDERS.dome.description}. Sin API key propia.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {[{ icon: Lock, label: 'Privado' }, { icon: Zap, label: 'Rápido' }].map(({ icon: Icon, label }) => (
+                    <div key={label} className="flex items-center gap-1 px-2 py-1 rounded-md"
+                      style={{ backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.12)' : `${DOME_GREEN}10`, color: provider === 'dome' ? 'rgba(255,255,255,0.85)' : DOME_GREEN }}>
+                      <Icon className="w-2.5 h-2.5" />
+                      <span className="text-[10px] font-medium">{label}</span>
+                    </div>
+                  ))}
+                  {provider === 'dome' && <CheckCircle2 className="w-4 h-4" style={{ color: DOME_GREEN_LIGHT }} />}
+                </div>
+              </div>
+            </button>
+          )}
+
+          {/* Cloud providers grid */}
+          <div className="grid grid-cols-3 gap-2">
+            {AI_PROVIDER_OPTIONS.filter(o => o.value !== 'dome' && o.value !== 'ollama').map((option) => {
+              const isSelected = provider === option.value;
+              const Icon = option.icon;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => !option.disabled && handleProviderChange(option.value)}
+                  disabled={option.disabled}
+                  className="relative p-3 rounded-xl text-left transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: isSelected ? `${DOME_GREEN}08` : 'transparent',
+                    border: isSelected ? `2px solid ${DOME_GREEN}` : '2px solid var(--dome-border)',
+                    boxShadow: isSelected ? `0 2px 8px ${DOME_GREEN}15` : 'none',
+                  }}
+                >
+                  {option.badge && (
+                    <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 text-[8px] font-bold rounded"
+                      style={{ backgroundColor: DOME_GREEN, color: '#fff' }}>
+                      {option.badge}
                     </span>
                   )}
-                </div>
-                <div className="text-xs opacity-60 mt-0.5">{option.description}</div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+                  <div className="flex flex-col items-start gap-2">
+                    <div className="flex items-center justify-between w-full">
+                      <div className="w-6 h-6 rounded-md flex items-center justify-center"
+                        style={{ backgroundColor: isSelected ? DOME_GREEN_LIGHT : 'var(--dome-bg-hover)' }}>
+                        <Icon className="w-3.5 h-3.5" style={{ color: isSelected ? DOME_GREEN : 'var(--dome-text-muted)' }} />
+                      </div>
+                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold leading-none mb-0.5" style={{ color: 'var(--dome-text)' }}>{option.label}</p>
+                      <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>API key requerida</p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-      {/* API Configuration */}
-      <section className="space-y-6 max-w-lg">
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-6 opacity-60" style={{ color: 'var(--secondary-text)' }}>
-          Configuration
-        </h3>
-
-        {/* API Key for OpenAI, Anthropic, Google, and MiniMax */}
-        {(provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax') && (
-          <div className="group">
-            <label htmlFor="ai-api-key-cloud" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
-              API Key
-            </label>
-            <div className="relative">
-              <input
-                id="ai-api-key-cloud"
-                type={showApiKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || 'Enter API key...'}
-                className="input pr-12"
-              />
+          {/* Ollama local */}
+          {(() => {
+            const ollamaOption = AI_PROVIDER_OPTIONS.find(o => o.value === 'ollama');
+            if (!ollamaOption) return null;
+            const isSelected = provider === 'ollama';
+            const Icon = ollamaOption.icon;
+            return (
               <button
                 type="button"
-                onClick={() => setShowApiKey(!showApiKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100 cursor-pointer"
-                style={{ color: 'var(--secondary-text)' }}
-                aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                onClick={() => handleProviderChange('ollama')}
+                className="relative w-full p-3 rounded-xl text-left transition-all cursor-pointer"
+                style={{
+                  backgroundColor: isSelected ? `${DOME_GREEN}08` : 'transparent',
+                  border: isSelected ? `2px solid ${DOME_GREEN}` : '2px solid var(--dome-border)',
+                  boxShadow: isSelected ? `0 2px 8px ${DOME_GREEN}15` : 'none',
+                }}
               >
-                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: isSelected ? DOME_GREEN_LIGHT : 'var(--dome-bg-hover)' }}>
+                    <Icon className="w-3.5 h-3.5" style={{ color: isSelected ? DOME_GREEN : 'var(--dome-text-muted)' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>{ollamaOption.label}</p>
+                      <span className="px-1.5 py-0.5 text-[9px] font-bold rounded" style={{ backgroundColor: `${DOME_GREEN}15`, color: DOME_GREEN }}>LOCAL</span>
+                    </div>
+                    <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>100% privado, sin datos en la nube</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ backgroundColor: `${DOME_GREEN}10`, color: DOME_GREEN }}>
+                      <HardDrive className="w-2.5 h-2.5" />
+                      <span className="text-[10px] font-medium">Offline</span>
+                    </div>
+                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />}
+                  </div>
+                </div>
               </button>
-            </div>
-            {PROVIDERS[provider]?.docsUrl && (
-              <p className="text-xs mt-1.5 opacity-50" style={{ color: 'var(--secondary-text)' }}>
-                Obtén tu API key en{' '}
-                <a 
-                  href={PROVIDERS[provider].docsUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="underline hover:opacity-80"
-                >
-                  {PROVIDERS[provider].docsUrl}
-                </a>
-              </p>
-            )}
-          </div>
-        )}
+            );
+          })()}
+        </div>
+      </div>
 
-        {/* Model Selection for cloud providers (OpenAI, Anthropic, Google, MiniMax) */}
-        {(provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax') && currentProviderModels.length > 0 && (
-          <>
-            <div className="group">
-              <div className="flex items-center justify-between mb-2">
-                <label htmlFor="ai-model" className="text-sm font-medium opacity-80" style={{ color: 'var(--primary-text)' }}>
-                  Model
-                </label>
+      {/* ── CONFIGURATION ── */}
+      <div>
+        <SectionLabel>Configuración</SectionLabel>
+
+        {/* Cloud API key + model */}
+        {(provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax') && (
+          <SettingsCard className="space-y-4">
+            {/* API Key */}
+            <div>
+              <FieldLabel htmlFor="ai-api-key">API Key</FieldLabel>
+              <div className="relative">
+                <input
+                  id="ai-api-key"
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || 'Introduce tu API key...'}
+                  className="w-full px-3 py-2 pr-10 rounded-lg text-sm outline-none transition-colors"
+                  style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
+                  onFocus={(e) => { e.target.style.borderColor = DOME_GREEN; e.target.style.boxShadow = `0 0 0 3px ${DOME_GREEN}15`; }}
+                  onBlur={(e) => { e.target.style.borderColor = 'var(--dome-border)'; e.target.style.boxShadow = 'none'; }}
+                />
                 <button
                   type="button"
-                  onClick={() => setCustomModel(!customModel)}
-                  className="text-xs font-medium"
-                  style={{ color: 'var(--accent)' }}
+                  onClick={() => setShowApiKey(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity"
+                  style={{ color: 'var(--dome-text-muted)' }}
                 >
-                  {customModel ? 'Use presets' : 'Custom model'}
+                  {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
-              {customModel ? (
-                <input
-                  id="ai-model"
-                  type="text"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  placeholder={getDefaultModelId(provider)}
-                  autoComplete="off"
-                  className="w-full px-0 py-2 bg-transparent border-b text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 transition-colors"
-                  style={{
-                    color: 'var(--primary-text)',
-                    borderColor: 'var(--border)',
-                  }}
-                />
-              ) : (
-                <ModelSelector
-                  models={currentProviderModels}
-                  selectedModelId={model}
-                  onChange={setModel}
-                  showBadges={true}
-                  showDescription={true}
-                  showContextWindow={true}
-                  searchable={currentProviderModels.length > 5}
-                  placeholder="Selecciona un modelo..."
-                  providerType="cloud"
-                />
+              {PROVIDERS[provider]?.docsUrl && (
+                <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+                  Obtén tu key en{' '}
+                  <a href={PROVIDERS[provider].docsUrl} target="_blank" rel="noopener noreferrer"
+                    className="underline hover:opacity-80" style={{ color: DOME_GREEN }}>
+                    {PROVIDERS[provider].docsUrl.replace('https://', '')}
+                  </a>
+                </p>
               )}
             </div>
 
-          </>
+            {/* Model */}
+            {currentProviderModels.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <FieldLabel>Modelo</FieldLabel>
+                  <button
+                    type="button"
+                    onClick={() => setCustomModel(v => !v)}
+                    className="text-[11px] font-medium hover:opacity-80"
+                    style={{ color: DOME_GREEN }}
+                  >
+                    {customModel ? 'Usar presets' : 'Modelo personalizado'}
+                  </button>
+                </div>
+                {customModel ? (
+                  <SettingsInput
+                    value={model}
+                    onChange={setModel}
+                    placeholder={getDefaultModelId(provider)}
+                    autoComplete="off"
+                  />
+                ) : (
+                  <ModelSelector
+                    models={currentProviderModels}
+                    selectedModelId={model}
+                    onChange={setModel}
+                    showBadges={true}
+                    showDescription={true}
+                    showContextWindow={true}
+                    searchable={currentProviderModels.length > 5}
+                    placeholder="Selecciona un modelo..."
+                    providerType="cloud"
+                  />
+                )}
+              </div>
+            )}
+          </SettingsCard>
         )}
 
-        {/* Ollama Configuration */}
+        {/* Ollama config */}
         {provider === 'ollama' && (
-          <div className="space-y-6">
-            {/* Connection Status */}
-            <div className="flex items-center justify-between py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+          <SettingsCard className="space-y-4">
+            {/* Status row */}
+            <div className="flex items-center justify-between p-3 rounded-lg"
+              style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
               <div className="flex items-center gap-2">
-                <span className="text-sm opacity-80" style={{ color: 'var(--primary-text)' }}>
-                  Status
-                </span>
+                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>Estado</span>
                 {checkingOllama ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--secondary-text)' }} />
+                  <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                    <Loader2 className="w-3 h-3 animate-spin" /> Verificando...
+                  </span>
                 ) : ollamaAvailable === true ? (
-                  <div className="flex items-center gap-1 text-green-500">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span className="text-xs font-medium">Connected</span>
-                  </div>
+                  <span className="flex items-center gap-1 text-xs font-medium" style={{ color: DOME_GREEN }}>
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Conectado
+                  </span>
                 ) : ollamaAvailable === false ? (
-                  <div className="flex items-center gap-1 text-red-500">
-                    <XCircle className="w-3.5 h-3.5" />
-                    <span className="text-xs font-medium">Offline</span>
-                  </div>
+                  <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--dome-error, #ef4444)' }}>
+                    <XCircle className="w-3.5 h-3.5" /> Sin conexión
+                  </span>
                 ) : (
-                  <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>Unknown</span>
+                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Sin verificar</span>
                 )}
               </div>
               <button
+                type="button"
                 onClick={checkOllamaConnection}
                 disabled={checkingOllama}
-                className="text-xs font-medium text-blue-500 hover:text-blue-600 disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                style={{ backgroundColor: DOME_GREEN, color: '#fff', border: 'none' }}
               >
-                Check Connection
+                <RefreshCw className={`w-3 h-3 ${checkingOllama ? 'animate-spin' : ''}`} />
+                Probar
               </button>
             </div>
 
-            {/* Ollama Base URL */}
-            <div className="group">
-              <label htmlFor="ai-ollama-base-url" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
-                Base URL
-              </label>
-              <input
-                id="ai-ollama-base-url"
+            {ollamaAvailable === false && (
+              <div className="p-3 rounded-lg text-xs" style={{ backgroundColor: '#f59e0b10', border: '1px solid #f59e0b25', color: '#a37b00' }}>
+                Asegúrate de tener Ollama instalado y en ejecución.{' '}
+                <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline font-medium">Descargar en ollama.ai</a>
+              </div>
+            )}
+
+            {/* Base URL */}
+            <div>
+              <FieldLabel htmlFor="ai-ollama-url">URL base</FieldLabel>
+              <SettingsInput
+                id="ai-ollama-url"
                 type="url"
                 value={ollamaBaseURL}
-                onChange={(e) => setOllamaBaseURL(e.target.value)}
+                onChange={setOllamaBaseURL}
                 placeholder="http://localhost:11434"
-                className="input"
               />
-              <p className="mt-1 text-xs" style={{ color: 'var(--tertiary-text)' }}>
+              <p className="text-[11px] mt-1" style={{ color: 'var(--dome-text-muted)' }}>
                 Para Ollama Cloud usa <code className="font-mono">https://api.ollama.com</code>
               </p>
             </div>
 
-            {/* Ollama API Key (optional, required for cloud) */}
-            <div className="group">
-              <label htmlFor="ai-ollama-api-key" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
-                API Key <span className="font-normal opacity-60">(opcional — requerida para Ollama Cloud)</span>
-              </label>
+            {/* API Key (optional) */}
+            <div>
+              <FieldLabel htmlFor="ai-ollama-api-key">
+                API Key <span className="normal-case font-normal opacity-60">(opcional — Ollama Cloud)</span>
+              </FieldLabel>
               <div className="relative">
                 <input
                   id="ai-ollama-api-key"
@@ -605,51 +589,47 @@ export default function AISettingsPanel() {
                   value={ollamaApiKey}
                   onChange={(e) => setOllamaApiKey(e.target.value)}
                   placeholder="ollama_..."
-                  className="input pr-10"
                   autoComplete="off"
+                  className="w-full px-3 py-2 pr-10 rounded-lg text-sm outline-none"
+                  style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
+                  onFocus={(e) => { e.target.style.borderColor = DOME_GREEN; }}
+                  onBlur={(e) => { e.target.style.borderColor = 'var(--dome-border)'; }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowOllamaApiKey(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity"
-                  aria-label={showOllamaApiKey ? 'Ocultar API key' : 'Mostrar API key'}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity"
                 >
-                  {showOllamaApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  {showOllamaApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
 
-            {/* Ollama Model Selector */}
-            <div className="group">
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium opacity-80" style={{ color: 'var(--primary-text)' }}>
-                  Chat Model
-                </label>
+            {/* Chat model */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <FieldLabel>Modelo de chat</FieldLabel>
                 <button
+                  type="button"
                   onClick={loadOllamaModels}
                   disabled={loadingModels}
-                  className="text-xs font-medium text-blue-500 hover:text-blue-600 disabled:opacity-50"
+                  className="flex items-center gap-1 text-[11px] font-medium hover:opacity-80 disabled:opacity-50"
+                  style={{ color: DOME_GREEN }}
                 >
-                  Refresh
+                  <RefreshCw className={`w-2.5 h-2.5 ${loadingModels ? 'animate-spin' : ''}`} />
+                  Actualizar
                 </button>
               </div>
-
-{ollamaModels.length > 0 ? (
+              {loadingModels ? (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Cargando modelos...</span>
+                </div>
+              ) : ollamaModels.length > 0 ? (
                 <ModelSelector
-                  models={ollamaModels.map((m) => ({
-                    id: m.name,
-                    name: m.name,
-                    description: `${Math.round(m.size / 1024 / 1024 / 1024)}GB`,
-                    reasoning: false,
-                    input: ['text'],
-                    contextWindow: 0,
-                    maxTokens: 0,
-                  }))}
+                  models={ollamaModels.map(m => ({ id: m.name, name: m.name, description: `${Math.round(m.size / 1024 / 1024 / 1024)}GB`, reasoning: false, input: ['text'], contextWindow: 0, maxTokens: 0 }))}
                   selectedModelId={ollamaModel}
-                  onChange={(modelId) => {
-                    console.log('[AISettings] Model selected:', modelId);
-                    setOllamaModel(modelId);
-                  }}
+                  onChange={setOllamaModel}
                   searchable={true}
                   showBadges={false}
                   showDescription={true}
@@ -659,44 +639,38 @@ export default function AISettingsPanel() {
                   providerType="ollama"
                 />
               ) : (
-                <input
-                  type="text"
-                  value={ollamaModel}
-                  onChange={(e) => setOllamaModel(e.target.value)}
-                  placeholder="llama3.2"
-                  aria-label="Ollama model name"
-                  className="input"
-                />
+                <SettingsInput value={ollamaModel} onChange={setOllamaModel} placeholder="llama3.2" />
               )}
             </div>
 
             {/* OCR notice */}
-            <div className="rounded-lg p-3 text-xs" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)' }}>
-              <span className="font-medium" style={{ color: 'var(--primary-text)' }}>OCR en PDFs escaneados:</span>{' '}
-              para indexar PDFs basados en imágenes, el modelo de chat debe soportar visión.
-              Modelos compatibles: <code className="font-mono">llava</code>, <code className="font-mono">moondream2</code>, <code className="font-mono">minicpm-v</code>, <code className="font-mono">glm4v</code>, etc.
+            <div className="rounded-lg p-3 text-xs" style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}>
+              <span className="font-semibold" style={{ color: 'var(--dome-text)' }}>OCR en PDFs escaneados:</span>{' '}
+              el modelo debe soportar visión. Compatibles: <code className="font-mono">llava</code>, <code className="font-mono">minicpm-v</code>, <code className="font-mono">glm4v</code>.
             </div>
-
-          </div>
+          </SettingsCard>
         )}
 
+        {/* Dome provider config */}
         {provider === 'dome' && (
-          <div className="space-y-4">
-            <div className="rounded-lg p-4 border" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
-              <p className="text-sm mb-2" style={{ color: 'var(--primary-text)' }}>
-                Conecta tu cuenta de Dome para activar el provider administrado y el modelo automático <code className="font-mono">dome/auto</code>.
+          <SettingsCard className="space-y-4">
+            <div className="rounded-lg p-4" style={{ backgroundColor: `${DOME_GREEN}08`, border: `1px solid ${DOME_GREEN}25` }}>
+              <p className="text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+                Conecta tu cuenta de Dome
               </p>
-              <p className="text-xs opacity-70" style={{ color: 'var(--secondary-text)' }}>
-                Abre el dashboard, inicia sesión y haz click en &quot;Conectar Dome Desktop&quot;. El plan y la cuota se gestionan en la web.
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+                Activa el proveedor administrado con el modelo automático <code className="font-mono">dome/auto</code>.
+                Abre el dashboard, inicia sesión y haz clic en "Conectar Dome Desktop".
               </p>
             </div>
+
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={handleConnectDome}
                 disabled={domeConnecting}
-                className="px-5 py-2.5 rounded-full text-sm font-medium text-white disabled:opacity-50"
-                style={{ backgroundColor: 'var(--accent)' }}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all disabled:opacity-50"
+                style={{ backgroundColor: DOME_GREEN }}
               >
                 {domeConnecting ? 'Conectando...' : domeConnected ? 'Reconectar' : 'Conectar con Dome'}
               </button>
@@ -704,199 +678,165 @@ export default function AISettingsPanel() {
                 <button
                   type="button"
                   onClick={handleDisconnectDome}
-                  className="px-5 py-2.5 rounded-full text-sm font-medium"
-                  style={{ border: '1px solid var(--border)', color: 'var(--primary-text)' }}
+                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                  style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text)', backgroundColor: 'transparent' }}
                 >
                   Desconectar
                 </button>
               )}
             </div>
-            <div className="text-xs" style={{ color: domeConnected ? 'var(--success, #22c55e)' : 'var(--secondary-text)' }}>
-              Estado: {domeConnected ? 'Conectado' : 'No conectado'}
+
+            <div className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: domeConnected ? DOME_GREEN : 'var(--dome-text-muted)' }} />
+              <span className="text-xs" style={{ color: domeConnected ? DOME_GREEN : 'var(--dome-text-muted)' }}>
+                {domeConnected ? 'Conectado' : 'No conectado'}
+              </span>
             </div>
+
             {domeConnected && domeQuota && domeQuota.planId !== 'unsubscribed' && (
-              <div
-                className="rounded-lg p-4 border flex items-center gap-3"
-                style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-tertiary)' }}
-              >
-                <div className="rounded-full p-2" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--accent)' }}>
-                  <Zap className="w-4 h-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
-                    Uso del periodo
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--secondary-text)' }}>
+              <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>Uso del periodo</span>
+                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
                     {domeQuota.used != null && domeQuota.limit != null
-                      ? `${formatTokens(domeQuota.used)} de ${formatTokens(domeQuota.limit)} tokens (${domeQuota.limit > 0 ? Math.round((domeQuota.used / domeQuota.limit) * 100) : 0}%)`
+                      ? `${formatTokens(domeQuota.used)} / ${formatTokens(domeQuota.limit)}`
                       : '—'}
-                  </p>
-                  <div
-                    className="mt-2 h-1.5 rounded-full overflow-hidden"
-                    style={{ backgroundColor: 'var(--border)' }}
-                  >
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: domeQuota.limit && domeQuota.limit > 0
-                          ? `${Math.min((domeQuota.used ?? 0) / domeQuota.limit * 100, 100)}%`
-                          : '0%',
-                        backgroundColor: 'var(--accent)',
-                      }}
-                    />
-                  </div>
-                  {domeQuota.periodEnd && (
-                    <p className="text-[10px] mt-1 opacity-60" style={{ color: 'var(--secondary-text)' }}>
-                      Renovación: {new Date(domeQuota.periodEnd).toLocaleDateString()}
-                    </p>
-                  )}
+                  </span>
                 </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--dome-border)' }}>
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: domeQuota.limit && domeQuota.limit > 0 ? `${Math.min((domeQuota.used ?? 0) / domeQuota.limit * 100, 100)}%` : '0%',
+                      backgroundColor: DOME_GREEN,
+                    }}
+                  />
+                </div>
+                {domeQuota.periodEnd && (
+                  <p className="text-[10px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+                    Renovación: {new Date(domeQuota.periodEnd).toLocaleDateString()}
+                  </p>
+                )}
               </div>
             )}
-          </div>
+          </SettingsCard>
         )}
+      </div>
 
-        <section className="space-y-4 rounded-2xl border p-5" style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}>
+      {/* ── WEB SEARCH ── */}
+      <div>
+        <SectionLabel>Búsqueda web</SectionLabel>
+        <SettingsCard className="space-y-4">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 rounded-full p-2" style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--accent)' }}>
-              <Search className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: DOME_GREEN_LIGHT }}>
+              <Search className="w-4 h-4" style={{ color: DOME_GREEN }} />
             </div>
-            <div className="min-w-0">
-              <h4 className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
-                Web Search
-              </h4>
-              <p className="mt-1 text-xs leading-5" style={{ color: 'var(--secondary-text)' }}>
-                Las búsquedas web de Many y los agentes usan Brave Search configurado aquí. Si no hay clave, `web_search` intentará una búsqueda por scraping HTML como fallback, pero será menos estable y menos fiable.
+            <div>
+              <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>Brave Search</p>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+                Many y los agentes usan Brave Search para búsquedas en la web. Sin clave, usará scraping HTML como fallback (menos fiable).
               </p>
             </div>
           </div>
 
-          <div className="group">
-            <label htmlFor="brave-search-api-key" className="block text-sm font-medium mb-2 opacity-80" style={{ color: 'var(--primary-text)' }}>
-              Brave Search API Key
-            </label>
+          <div>
+            <FieldLabel htmlFor="brave-search-key">Brave Search API Key</FieldLabel>
             <div className="relative">
               <input
-                id="brave-search-api-key"
+                id="brave-search-key"
                 type={showBraveSearchApiKey ? 'text' : 'password'}
                 value={braveSearchApiKey}
                 onChange={(e) => setBraveSearchApiKey(e.target.value)}
                 placeholder="BSA..."
-                className="input pr-12"
                 autoComplete="off"
+                className="w-full px-3 py-2 pr-10 rounded-lg text-sm outline-none"
+                style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
+                onFocus={(e) => { e.target.style.borderColor = DOME_GREEN; e.target.style.boxShadow = `0 0 0 3px ${DOME_GREEN}15`; }}
+                onBlur={(e) => { e.target.style.borderColor = 'var(--dome-border)'; e.target.style.boxShadow = 'none'; }}
               />
               <button
                 type="button"
-                onClick={() => setShowBraveSearchApiKey((value) => !value)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 opacity-50 hover:opacity-100 cursor-pointer"
-                style={{ color: 'var(--secondary-text)' }}
-                aria-label={showBraveSearchApiKey ? 'Ocultar API key de Brave' : 'Mostrar API key de Brave'}
+                onClick={() => setShowBraveSearchApiKey(v => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
               >
-                {showBraveSearchApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showBraveSearchApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
             </div>
-            <p className="mt-1.5 text-xs" style={{ color: 'var(--tertiary-text)' }}>
-              Consigue una clave gratuita en <a href="https://api.search.brave.com/" target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">api.search.brave.com</a>.
+            <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+              Clave gratuita en{' '}
+              <a href="https://api.search.brave.com/" target="_blank" rel="noopener noreferrer"
+                className="underline hover:opacity-80" style={{ color: DOME_GREEN }}>
+                api.search.brave.com
+              </a>
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={handleTestWebSearch}
               disabled={testingWebSearch}
-              className="px-4 py-2 rounded-full text-sm font-medium disabled:opacity-50"
-              style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+              style={{ backgroundColor: DOME_GREEN, color: '#fff' }}
             >
-              {testingWebSearch ? 'Probando Brave...' : 'Probar Brave Search'}
+              {testingWebSearch ? <><Loader2 className="w-3 h-3 animate-spin" /> Probando...</> : 'Probar Brave Search'}
             </button>
-
-            <div className="text-xs" style={{ color: braveSearchApiKey.trim() ? 'var(--secondary-text)' : 'var(--warning, #f59e0b)' }}>
-              Estado: {braveSearchApiKey.trim() ? 'configurado' : 'sin configurar'}
+            <div className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: braveSearchApiKey.trim() ? DOME_GREEN : '#f59e0b' }} />
+              <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                {braveSearchApiKey.trim() ? 'Configurado' : 'Sin configurar'}
+              </span>
             </div>
           </div>
 
           {webSearchResult && (
-            <div
-              className="rounded-lg px-3 py-2 text-xs"
+            <div className="rounded-lg px-3 py-2 text-xs"
               style={{
-                backgroundColor: webSearchResult.success ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
-                color: webSearchResult.success ? 'var(--success, #22c55e)' : 'var(--error, #ef4444)',
-              }}
-            >
+                backgroundColor: webSearchResult.success ? `${DOME_GREEN}10` : 'rgba(239,68,68,0.08)',
+                color: webSearchResult.success ? DOME_GREEN : 'var(--dome-error, #ef4444)',
+                border: `1px solid ${webSearchResult.success ? `${DOME_GREEN}25` : 'rgba(239,68,68,0.2)'}`,
+              }}>
               {webSearchResult.message}
             </div>
           )}
-        </section>
+        </SettingsCard>
+      </div>
 
-        {/* Save & Test Buttons */}
-        <div className="pt-6 space-y-3">
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={handleSave}
-              className="flex-1 px-6 py-3 text-sm font-medium text-white rounded-full active:opacity-90 transition-all cursor-pointer"
-              style={{
-                backgroundColor: 'var(--accent)',
-              }}
-            >
-              Save Configuration
-            </button>
-            <button
-              type="button"
-              onClick={handleTestConnection}
-              disabled={testing}
-              className="px-5 py-3 text-sm font-medium rounded-full active:opacity-90 transition-all disabled:opacity-50 cursor-pointer"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
-                color: 'var(--primary-text)',
-              }}
-            >
-              {testing ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Testing...
-                </span>
-              ) : (
-                'Test Connection'
-              )}
-            </button>
-          </div>
+      {/* ── ACTIONS ── */}
+      <div className="flex items-center gap-3 pt-2">
+        <button
+          type="button"
+          onClick={handleSave}
+          className="px-5 py-2 rounded-lg text-sm font-medium text-white transition-all"
+          style={{ backgroundColor: DOME_GREEN }}
+        >
+          {saved ? '✓ Guardado' : 'Guardar configuración'}
+        </button>
+        <button
+          type="button"
+          onClick={handleTestConnection}
+          disabled={testing}
+          className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
+          style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+        >
+          {testing ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Probando...</> : 'Probar conexión'}
+        </button>
+      </div>
 
-          {/* Save feedback */}
-          {saved && (
-            <div className="text-center text-sm text-green-600 animate-in fade-in">
-              Configuration saved successfully
-            </div>
-          )}
-
-          {/* Test result indicator */}
-          {testResult && (
-            <div
-              className="flex items-center gap-2 p-3 rounded-lg animate-in fade-in"
-              style={{
-                backgroundColor: testResult.success ? 'rgba(34, 197, 94, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-                border: `1px solid ${testResult.success ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
-              }}
-            >
-              {testResult.success ? (
-                <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
-              ) : (
-                <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
-              )}
-              <span
-                className="text-sm"
-                style={{
-                  color: testResult.success ? 'var(--success, #22c55e)' : 'var(--error, #ef4444)',
-                }}
-              >
-                {testResult.message}
-              </span>
-            </div>
-          )}
+      {testResult && (
+        <div className="flex items-center gap-2 p-3 rounded-lg"
+          style={{
+            backgroundColor: testResult.success ? `${DOME_GREEN}10` : 'rgba(239,68,68,0.08)',
+            border: `1px solid ${testResult.success ? `${DOME_GREEN}25` : 'rgba(239,68,68,0.2)'}`,
+          }}>
+          {testResult.success
+            ? <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: DOME_GREEN }} />
+            : <XCircle className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-error, #ef4444)' }} />}
+          <span className="text-sm" style={{ color: testResult.success ? DOME_GREEN : 'var(--dome-error, #ef4444)' }}>
+            {testResult.message}
+          </span>
         </div>
-      </section>
+      )}
     </div>
   );
 }

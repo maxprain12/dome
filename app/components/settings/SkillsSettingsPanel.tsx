@@ -1,9 +1,11 @@
-'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Save, FileJson } from 'lucide-react';
+import { Plus, Trash2, Save, FileJson, CheckCircle2, AlertCircle } from 'lucide-react';
 import { db } from '@/lib/db/client';
 import { generateId } from '@/lib/utils';
+
+const DOME_GREEN = '#596037';
+const DOME_GREEN_LIGHT = '#E0EAB4';
 
 export interface SkillConfig {
   id: string;
@@ -16,12 +18,41 @@ export interface SkillConfig {
 const FORMAT_EXAMPLE = '[ { "id", "name", "description", "prompt", "enabled" } ]';
 
 function slugify(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, '');
+  return s.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
 }
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
+      {children}
+    </p>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className="relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200"
+      style={{ backgroundColor: checked ? DOME_GREEN : 'var(--dome-border)' }}
+    >
+      <span
+        className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
+        style={{ transform: checked ? 'translateX(16px)' : 'translateX(0)' }}
+      />
+    </button>
+  );
+}
+
+const inputStyle: React.CSSProperties = {
+  backgroundColor: 'var(--dome-bg-hover)',
+  border: '1px solid var(--dome-border)',
+  color: 'var(--dome-text)',
+  outline: 'none',
+};
 
 export default function SkillsSettingsPanel() {
   const [skills, setSkills] = useState<SkillConfig[]>([]);
@@ -65,9 +96,7 @@ export default function SkillsSettingsPanel() {
     }
   }, []);
 
-  useEffect(() => {
-    loadSkills();
-  }, [loadSkills]);
+  useEffect(() => { loadSkills(); }, [loadSkills]);
 
   const saveSkills = async () => {
     if (!db.isAvailable()) return;
@@ -90,10 +119,7 @@ export default function SkillsSettingsPanel() {
   };
 
   const addSkill = () => {
-    setSkills((prev) => [
-      ...prev,
-      { id: generateId(), name: '', description: '', prompt: '', enabled: true },
-    ]);
+    setSkills((prev) => [...prev, { id: generateId(), name: '', description: '', prompt: '', enabled: true }]);
   };
 
   const removeSkill = (index: number) => {
@@ -101,9 +127,7 @@ export default function SkillsSettingsPanel() {
   };
 
   const updateSkill = (index: number, updates: Partial<SkillConfig>) => {
-    setSkills((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, ...updates } : s))
-    );
+    setSkills((prev) => prev.map((s, i) => (i === index ? { ...s, ...updates } : s)));
   };
 
   const handleImport = () => {
@@ -131,15 +155,13 @@ export default function SkillsSettingsPanel() {
       } else {
         setError('No se encontraron skills válidos en el JSON');
       }
-    } catch (e) {
+    } catch {
       setError('JSON inválido. Usa un array de objetos con id, name, description, prompt.');
     }
   };
 
   const handleExport = () => {
-    const blob = new Blob([JSON.stringify(skills, null, 2)], {
-      type: 'application/json',
-    });
+    const blob = new Blob([JSON.stringify(skills, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -150,124 +172,107 @@ export default function SkillsSettingsPanel() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2" style={{ color: 'var(--secondary-text)' }}>
-        <span className="animate-pulse">Cargando...</span>
+      <div className="flex items-center gap-2 text-xs animate-pulse" style={{ color: 'var(--dome-text-muted)' }}>
+        Cargando...
       </div>
     );
   }
 
-  const inputStyle = {
-    borderColor: 'var(--border)',
-    backgroundColor: 'var(--bg)',
-    color: 'var(--text)',
-  };
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Header */}
       <div>
-        <h2 className="text-lg font-semibold" style={{ color: 'var(--text)' }}>
-          Skills
-        </h2>
-        <p className="mt-1 text-sm" style={{ color: 'var(--secondary-text)' }}>
-          Las skills son especializaciones prompt-driven que Many puede usar cuando sea relevante. Añade instrucciones y contexto para dominios concretos (ej. SQL, revisión legal, formatos).
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>Skills</h2>
+        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          Las skills son especializaciones prompt-driven que Many puede usar cuando sea relevante. Añade instrucciones para dominios concretos (SQL, revisión legal, formatos…).
         </p>
       </div>
 
-      {error ? (
-        <div
-          className="rounded-lg px-4 py-3 text-sm"
-          style={{ backgroundColor: 'var(--error-bg)', color: 'var(--error)' }}
-        >
+      {/* Error */}
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
+          style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--dome-error, #ef4444)' }}>
+          <AlertCircle className="w-4 h-4 shrink-0" />
           {error}
         </div>
-      ) : null}
+      )}
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <span className="text-sm font-medium" style={{ color: 'var(--secondary-text)' }}>
-            Skills configuradas
-          </span>
-          <div className="flex items-center gap-2">
+      {/* Skills list */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <SectionLabel>Skills configuradas</SectionLabel>
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={handleExport}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border"
-              style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)' }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
             >
-              <FileJson className="w-4 h-4" />
-              Exportar JSON
+              <FileJson className="w-3.5 h-3.5" />
+              Exportar
             </button>
             <button
               type="button"
-              onClick={() => {
-                setShowImport(true);
-                setError(null);
-                setImportJson('');
-              }}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border"
-              style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)' }}
+              onClick={() => { setShowImport(true); setError(null); setImportJson(''); }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
             >
-              <FileJson className="w-4 h-4" />
-              Importar JSON
+              <FileJson className="w-3.5 h-3.5" />
+              Importar
             </button>
             <button
               type="button"
               onClick={addSkill}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium"
-              style={{ backgroundColor: 'var(--primary-subtle)', color: 'var(--accent)' }}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white transition-all"
+              style={{ backgroundColor: DOME_GREEN }}
             >
-              <Plus className="w-4 h-4" />
-              Añadir
+              <Plus className="w-3.5 h-3.5" />
+              Añadir skill
             </button>
           </div>
         </div>
 
         {skills.length === 0 ? (
           <div
-            className="rounded-lg border border-dashed px-6 py-8 text-center text-sm"
-            style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)' }}
+            className="py-10 rounded-xl border-dashed text-center"
+            style={{ border: '1.5px dashed var(--dome-border)' }}
           >
-            No hay skills. Añade una o importa desde JSON.
+            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>Sin skills. Añade una o importa desde JSON.</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {skills.map((skill, index) => (
               <div
                 key={skill.id}
-                className="rounded-lg border p-4"
-                style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}
+                className="rounded-xl p-4"
+                style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 min-w-0 space-y-3">
+                    {/* Row 1: toggle + name + slug */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={skill.enabled !== false}
-                        onClick={() => updateSkill(index, { enabled: skill.enabled === false })}
-                        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${skill.enabled !== false ? 'bg-[var(--accent)]' : 'bg-[var(--bg-tertiary)]'}`}
-                        title={skill.enabled !== false ? 'Activo' : 'Inactivo'}
-                      >
-                        <span
-                          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-md ring-1 ring-black/5 transition-all duration-200 ease-out ${skill.enabled !== false ? 'left-[calc(100%-1.25rem)]' : 'left-0.5'}`}
-                        />
-                      </button>
+                      <Toggle
+                        checked={skill.enabled !== false}
+                        onChange={() => updateSkill(index, { enabled: skill.enabled === false })}
+                      />
                       <input
                         type="text"
-                        placeholder="Nombre (slug: write_sql, review_legal_doc)"
+                        placeholder="Nombre (ej: write_sql)"
                         value={skill.name}
                         onChange={(e) => updateSkill(index, { name: e.target.value })}
-                        className="rounded-md border px-3 py-2 text-sm w-56 font-mono"
+                        className="rounded-lg px-3 py-1.5 text-xs font-mono w-48"
                         style={inputStyle}
                       />
-                      {skill.name ? (
-                        <span className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+                      {skill.name && (
+                        <span className="text-[10px]" style={{ color: 'var(--dome-text-muted)', opacity: 0.7 }}>
                           slug: {slugify(skill.name) || '(vacío)'}
                         </span>
-                      ) : null}
+                      )}
                     </div>
+
+                    {/* Description */}
                     <div>
-                      <label className="block text-xs mt-1 mb-1" style={{ color: 'var(--secondary-text)' }}>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
                         Descripción (cuándo usarla)
                       </label>
                       <input
@@ -275,32 +280,35 @@ export default function SkillsSettingsPanel() {
                         placeholder="Ej: Experto en SQL. Usa cuando el usuario necesite consultas o análisis de datos."
                         value={skill.description}
                         onChange={(e) => updateSkill(index, { description: e.target.value })}
-                        className="w-full rounded-md border px-3 py-2 text-sm"
+                        className="w-full rounded-lg px-3 py-2 text-xs"
                         style={inputStyle}
                       />
                     </div>
+
+                    {/* Prompt */}
                     <div>
-                      <label className="block text-xs mt-1 mb-1" style={{ color: 'var(--secondary-text)' }}>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
                         Contenido del prompt
                       </label>
                       <textarea
                         placeholder="Instrucciones especializadas, ejemplos, reglas..."
                         value={skill.prompt}
                         onChange={(e) => updateSkill(index, { prompt: e.target.value })}
-                        className="w-full rounded-md border px-3 py-2 text-sm font-mono min-h-[120px] resize-y"
+                        className="w-full rounded-lg px-3 py-2 text-xs font-mono min-h-[100px] resize-y"
                         style={inputStyle}
-                        rows={5}
+                        rows={4}
                       />
                     </div>
                   </div>
+
                   <button
                     type="button"
                     onClick={() => removeSkill(index)}
-                    className="rounded p-2"
-                    style={{ color: 'var(--secondary-text)' }}
-                    aria-label="Eliminar"
+                    className="p-1.5 rounded-lg shrink-0 transition-colors"
+                    style={{ color: 'var(--dome-text-muted)' }}
+                    aria-label="Eliminar skill"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -309,68 +317,68 @@ export default function SkillsSettingsPanel() {
         )}
       </div>
 
-      {showImport ? (
+      {/* Save */}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={saveSkills}
+          disabled={saving}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium text-white transition-all disabled:opacity-50"
+          style={{ backgroundColor: DOME_GREEN }}
+        >
+          <Save className="w-3.5 h-3.5" />
+          {saving ? 'Guardando...' : 'Guardar skills'}
+        </button>
+        {saved && (
+          <span className="flex items-center gap-1.5 text-xs animate-in fade-in" style={{ color: DOME_GREEN }}>
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Guardado
+          </span>
+        )}
+      </div>
+
+      {/* Import modal */}
+      {showImport && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
           onClick={() => setShowImport(false)}
         >
           <div
-            className="rounded-lg border p-6 max-w-2xl w-full max-h-[80vh] flex flex-col"
-            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}
+            className="rounded-xl p-6 max-w-2xl w-full max-h-[80vh] flex flex-col"
+            style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text)' }}>
-              Importar JSON
-            </h3>
-            <p className="text-sm mb-3" style={{ color: 'var(--secondary-text)' }}>
-              Formato: {FORMAT_EXAMPLE}
-            </p>
+            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--dome-text)' }}>Importar JSON</h3>
+            <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>Formato: {FORMAT_EXAMPLE}</p>
             <textarea
               placeholder="Pega tu JSON aquí"
               value={importJson}
               onChange={(e) => setImportJson(e.target.value)}
-              className="flex-1 min-h-[200px] rounded-md border px-3 py-2 text-sm font-mono resize-none"
+              className="flex-1 min-h-[200px] rounded-lg px-3 py-2 text-xs font-mono resize-none"
               style={inputStyle}
             />
             <div className="flex gap-2 mt-4">
               <button
                 type="button"
                 onClick={handleImport}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-white"
-                style={{ backgroundColor: 'var(--accent)' }}
+                className="px-4 py-2 rounded-lg text-xs font-medium text-white"
+                style={{ backgroundColor: DOME_GREEN }}
               >
                 Importar
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowImport(false);
-                  setImportJson('');
-                  setError(null);
-                }}
-                className="rounded-lg px-4 py-2 text-sm font-medium border"
-                style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)' }}
+                onClick={() => { setShowImport(false); setImportJson(''); setError(null); }}
+                className="px-4 py-2 rounded-lg text-xs font-medium"
+                style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
               >
                 Cancelar
               </button>
             </div>
           </div>
         </div>
-      ) : null}
-
-      <div className="flex items-center gap-3 pt-2 flex-wrap">
-        <button
-          type="button"
-          onClick={saveSkills}
-          disabled={saving}
-          className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 text-white"
-          style={{ backgroundColor: 'var(--accent)' }}
-        >
-          <Save className="w-4 h-4" />
-          {saving ? 'Guardando...' : saved ? 'Guardado' : 'Guardar'}
-        </button>
-      </div>
+      )}
     </div>
   );
 }

@@ -1,32 +1,31 @@
 import { useEffect } from 'react';
-import { Brain, Map, HelpCircle, BookOpen, MessageCircleQuestion, CalendarRange, Table2, Headphones } from 'lucide-react';
+import {
+  Brain, Map, HelpCircle, BookOpen, MessageCircleQuestion,
+  CalendarRange, Table2, Headphones, Play, Pencil, Trash2,
+  Sparkles, ChevronRight, FlameKindling,
+} from 'lucide-react';
 import type { StudioOutputType } from '@/types';
 import { useLearnStore } from '@/lib/store/useLearnStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 
-const typeIcons: Record<StudioOutputType, React.ReactNode> = {
-  mindmap: <Map size={20} />,
-  flashcards: <Brain size={20} />,
-  quiz: <HelpCircle size={20} />,
-  guide: <BookOpen size={20} />,
-  faq: <MessageCircleQuestion size={20} />,
-  timeline: <CalendarRange size={20} />,
-  table: <Table2 size={20} />,
-  audio: <Headphones size={20} />,
-  video: <HelpCircle size={20} />,
-  research: <HelpCircle size={20} />,
-};
+// ─── Type config ─────────────────────────────────────────────────────────────
 
-const typeLabels: Record<StudioOutputType, string> = {
-  mindmap: 'Mind Map',
-  flashcards: 'Flashcards',
-  quiz: 'Quiz',
-  guide: 'Guía',
-  faq: 'FAQ',
-  timeline: 'Línea de tiempo',
-  table: 'Tabla',
-  audio: 'Audio',
-  video: 'Video',
-  research: 'Research',
+interface TypeConfig {
+  icon: React.ReactNode;
+  label: string;
+}
+
+const typeConfig: Record<StudioOutputType, TypeConfig> = {
+  mindmap:    { icon: <Map size={14} />,                   label: 'Mind Map' },
+  flashcards: { icon: <Brain size={14} />,                 label: 'Flashcards' },
+  quiz:       { icon: <HelpCircle size={14} />,            label: 'Quiz' },
+  guide:      { icon: <BookOpen size={14} />,              label: 'Guía' },
+  faq:        { icon: <MessageCircleQuestion size={14} />, label: 'FAQ' },
+  timeline:   { icon: <CalendarRange size={14} />,         label: 'Línea de tiempo' },
+  table:      { icon: <Table2 size={14} />,                label: 'Tabla' },
+  audio:      { icon: <Headphones size={14} />,            label: 'Audio' },
+  video:      { icon: <Play size={14} />,                  label: 'Video' },
+  research:   { icon: <Sparkles size={14} />,              label: 'Research' },
 };
 
 const sectionToOutputType: Record<string, StudioOutputType> = {
@@ -37,6 +36,306 @@ const sectionToOutputType: Record<string, StudioOutputType> = {
   timelines: 'timeline',
   tables: 'table',
 };
+
+function formatDate(ts: number) {
+  return new Date(ts).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// ─── Content stats parser ─────────────────────────────────────────────────────
+
+interface ContentStats {
+  stat?: string;   // e.g. "12 preguntas", "5 secciones"
+  preview?: string; // first item title/text preview
+}
+
+function parseContentStats(type: StudioOutputType, content?: string): ContentStats {
+  if (!content) return {};
+  try {
+    const data = JSON.parse(content) as Record<string, unknown>;
+    switch (type) {
+      case 'quiz': {
+        const qs = Array.isArray(data.questions) ? data.questions : [];
+        const first = (qs[0] as { question?: string } | undefined)?.question;
+        return {
+          stat: `${qs.length} pregunta${qs.length !== 1 ? 's' : ''}`,
+          preview: first ? first.slice(0, 90) : undefined,
+        };
+      }
+      case 'guide': {
+        const ss = Array.isArray(data.sections) ? data.sections : [];
+        const first = (ss[0] as { title?: string } | undefined)?.title;
+        return {
+          stat: `${ss.length} sección${ss.length !== 1 ? 'es' : ''}`,
+          preview: first,
+        };
+      }
+      case 'faq': {
+        const ps = Array.isArray(data.pairs) ? data.pairs : [];
+        const first = (ps[0] as { question?: string } | undefined)?.question;
+        return {
+          stat: `${ps.length} pregunta${ps.length !== 1 ? 's' : ''}`,
+          preview: first ? first.slice(0, 90) : undefined,
+        };
+      }
+      case 'timeline': {
+        const evs = Array.isArray(data.events) ? data.events : [];
+        const first = evs[0] as { date?: string; title?: string } | undefined;
+        return {
+          stat: `${evs.length} evento${evs.length !== 1 ? 's' : ''}`,
+          preview: first ? `${first.date ?? ''} · ${first.title ?? ''}`.trim().replace(/^·\s*/, '') : undefined,
+        };
+      }
+      case 'table': {
+        const cols = Array.isArray(data.columns) ? data.columns.length : 0;
+        const rows = Array.isArray(data.rows) ? data.rows.length : 0;
+        return { stat: `${cols} col${cols !== 1 ? 's' : ''} · ${rows} fila${rows !== 1 ? 's' : ''}` };
+      }
+      case 'mindmap': {
+        const nodes = Array.isArray(data.nodes) ? data.nodes.length : 0;
+        return { stat: `${nodes} nodo${nodes !== 1 ? 's' : ''}` };
+      }
+      default:
+        return {};
+    }
+  } catch {
+    return {};
+  }
+}
+
+// ─── Empty State ─────────────────────────────────────────────────────────────
+
+function EmptyState({ section }: { section: string }) {
+  const messages: Record<string, { title: string; desc: string }> = {
+    all: { title: 'Tu espacio de estudio está vacío', desc: 'Genera contenido con IA o crea un deck de flashcards para empezar.' },
+    decks: { title: 'Sin decks de flashcards', desc: 'Crea un deck y añade tarjetas para practicar con repetición espaciada.' },
+    mindmaps: { title: 'Sin mind maps', desc: 'Genera un mapa mental desde cualquier recurso de tu biblioteca.' },
+    quizzes: { title: 'Sin quizzes', desc: 'Crea un quiz para poner a prueba tu conocimiento.' },
+    guides: { title: 'Sin guías de estudio', desc: 'Genera guías detalladas con IA desde tus documentos.' },
+    faqs: { title: 'Sin FAQs', desc: 'Genera preguntas frecuentes desde tus recursos.' },
+    timelines: { title: 'Sin líneas de tiempo', desc: 'Visualiza secuencias cronológicas con IA.' },
+    tables: { title: 'Sin tablas', desc: 'Genera tablas comparativas desde tus documentos.' },
+  };
+  const { title, desc } = messages[section] ?? messages.all;
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[400px] p-12 text-center">
+      <div
+        className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+        style={{ background: 'var(--dome-accent-bg)' }}
+      >
+        <Brain size={28} style={{ color: 'var(--dome-accent)' }} />
+      </div>
+      <h2 className="text-base font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
+        {title}
+      </h2>
+      <p className="text-sm max-w-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+        {desc}
+      </p>
+    </div>
+  );
+}
+
+// ─── Section header ───────────────────────────────────────────────────────────
+
+function SectionLabel({ count, label }: { count: number; label: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-4">
+      <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
+        {label}
+      </span>
+      <span
+        className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full"
+        style={{ background: 'var(--dome-accent-bg)', color: 'var(--dome-accent)' }}
+      >
+        {count}
+      </span>
+    </div>
+  );
+}
+
+// ─── Deck Card ────────────────────────────────────────────────────────────────
+
+function DeckCard({
+  deck,
+  stats,
+  onStudy,
+  onEdit,
+  onDelete,
+}: {
+  deck: { id: string; title: string; description?: string; card_count: number };
+  stats?: { total: number; due_cards: number; mastered_cards: number };
+  onStudy: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const hasDue = (stats?.due_cards ?? 0) > 0;
+  const masteredPct = stats?.total ? Math.round((stats.mastered_cards / stats.total) * 100) : 0;
+  const total = stats?.total ?? deck.card_count;
+
+  return (
+    <div
+      className="group relative flex flex-col rounded-lg border transition-all duration-150 hover:border-[var(--dome-accent)]"
+      style={{ background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
+    >
+      <div className="flex flex-col flex-1 p-4 gap-3">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Brain size={12} style={{ color: 'var(--dome-text-muted)' }} />
+              <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
+                Flashcards
+              </span>
+            </div>
+            <h3 className="font-medium text-sm leading-snug line-clamp-2" style={{ color: 'var(--dome-text)' }}>
+              {deck.title}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={onEdit}
+              className="p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+              style={{ color: 'var(--dome-text-muted)' }}
+              title="Editar"
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              onClick={onDelete}
+              className="p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+              style={{ color: 'var(--dome-text-muted)' }}
+              title="Eliminar"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        </div>
+
+        {/* Stats inline */}
+        <div className="flex items-center gap-3 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+          <span><span className="font-semibold" style={{ color: 'var(--dome-text)' }}>{total}</span> tarjetas</span>
+          {stats && (
+            <>
+              <span style={{ color: 'var(--dome-border)' }}>·</span>
+              <span>
+                <span className="font-semibold" style={{ color: hasDue ? 'var(--dome-accent)' : 'var(--dome-text)' }}>
+                  {stats.due_cards}
+                </span>{' '}por revisar
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* Progress bar */}
+        {stats && stats.total > 0 && (
+          <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--dome-border)' }}>
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${masteredPct}%`, background: 'var(--dome-accent)' }}
+            />
+          </div>
+        )}
+
+        {/* Study action */}
+        <button
+          onClick={onStudy}
+          className="flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium transition-all border"
+          style={hasDue ? {
+            background: 'var(--dome-accent-bg)',
+            borderColor: 'var(--dome-accent)',
+            color: 'var(--dome-accent)',
+          } : {
+            background: 'transparent',
+            borderColor: 'var(--dome-border)',
+            color: 'var(--dome-text-muted)',
+          }}
+        >
+          {hasDue ? <><FlameKindling size={12} /> Estudiar · {stats?.due_cards}</> : <>✓ Al día</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Studio Output Card ───────────────────────────────────────────────────────
+
+function OutputCard({
+  output,
+  onOpen,
+  onDelete,
+}: {
+  output: { id: string; title: string; type: StudioOutputType; content?: string; created_at: number; updated_at: number };
+  onOpen: () => void;
+  onDelete: () => void;
+}) {
+  const config = typeConfig[output.type] ?? typeConfig.guide;
+  const { stat, preview } = parseContentStats(output.type, output.content);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      className="group relative flex flex-col rounded-lg border transition-all duration-150 hover:border-[var(--dome-accent)] cursor-pointer"
+      style={{ background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
+    >
+      <div className="flex flex-col flex-1 p-4 gap-3">
+        {/* Type label + title */}
+        <div>
+          <div className="flex items-center gap-1.5 mb-1">
+            <span style={{ color: 'var(--dome-text-muted)' }}>{config.icon}</span>
+            <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
+              {config.label}
+            </span>
+          </div>
+          <h3 className="font-medium text-sm leading-snug line-clamp-2" style={{ color: 'var(--dome-text)' }}>
+            {output.title}
+          </h3>
+        </div>
+
+        {/* Content preview */}
+        {(stat || preview) && (
+          <div className="text-[11px] leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+            {stat && (
+              <span className="font-medium" style={{ color: 'var(--dome-text)' }}>
+                {stat}
+              </span>
+            )}
+            {preview && (
+              <span className="line-clamp-2">
+                {stat ? ' · ' : ''}{preview}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex items-center justify-between mt-auto pt-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
+          <span className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+            {formatDate(output.updated_at)}
+          </span>
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="text-[11px] font-medium" style={{ color: 'var(--dome-accent)' }}>Abrir</span>
+            <ChevronRight size={11} style={{ color: 'var(--dome-accent)' }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Delete on hover */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        className="absolute top-2.5 right-2.5 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ color: 'var(--dome-text-muted)' }}
+        title="Eliminar"
+      >
+        <Trash2 size={12} />
+      </button>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ContentGrid() {
   const {
@@ -50,18 +349,16 @@ export default function ContentGrid() {
     deleteDeck,
     deleteStudioOutput,
   } = useLearnStore();
+  const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
 
   // Load stats for visible decks
   useEffect(() => {
     const decksToLoad = (activeSection === 'all' || activeSection === 'decks') ? decks : [];
     for (const deck of decksToLoad) {
-      if (!deckStats[deck.id]) {
-        loadDeckStats(deck.id);
-      }
+      if (!deckStats[deck.id]) loadDeckStats(deck.id);
     }
   }, [activeSection, decks, deckStats, loadDeckStats]);
 
-  // Determine what to show
   const showDecks = activeSection === 'all' || activeSection === 'decks';
   const outputTypeFilter = sectionToOutputType[activeSection];
   const showOutputs = activeSection === 'all' || !!outputTypeFilter;
@@ -74,168 +371,48 @@ export default function ContentGrid() {
   const isEmpty = visibleDecks.length === 0 && visibleOutputs.length === 0;
 
   if (isEmpty) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <div
-          className="w-16 h-16 rounded-full flex items-center justify-center mb-4"
-          style={{ background: 'var(--dome-accent-bg)' }}
-        >
-          <Brain size={32} style={{ color: 'var(--dome-accent)' }} />
-        </div>
-        <h2 className="text-lg font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
-          {activeSection === 'all' ? 'Aún no hay contenido' : 'No hay items en esta sección'}
-        </h2>
-        <p className="text-sm max-w-sm" style={{ color: 'var(--dome-text-muted)' }}>
-          Crea un nuevo deck de flashcards o genera contenido de estudio con IA.
-        </p>
-      </div>
-    );
+    return <EmptyState section={activeSection} />;
   }
 
+  const showBothSections = visibleDecks.length > 0 && visibleOutputs.length > 0 && activeSection === 'all';
+
   return (
-    <div className="p-6">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Flashcard decks */}
-        {visibleDecks.map((deck) => {
-          const stats = deckStats[deck.id];
-          return (
-            <div
-              key={deck.id}
-              className="group relative rounded-lg border p-5 transition-all hover:shadow-md"
-              style={{
-                background: 'var(--dome-surface)',
-                borderColor: 'var(--dome-border)',
-              }}
-            >
-              <div className="flex items-start gap-4">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: 'var(--dome-accent-bg)' }}
-                >
-                  <Brain size={20} style={{ color: 'var(--dome-accent)' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-sm truncate" style={{ color: 'var(--dome-text)' }}>
-                    {deck.title}
-                  </h3>
-                  {deck.description && (
-                    <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--dome-text-muted)' }}>
-                      {deck.description}
-                    </p>
-                  )}
-                </div>
-              </div>
+    <div className="p-6 pb-10">
+      {/* Decks section */}
+      {visibleDecks.length > 0 && (
+        <div className={showBothSections ? 'mb-8' : ''}>
+          {showBothSections && <SectionLabel count={visibleDecks.length} label="Decks de Flashcards" />}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {visibleDecks.map((deck) => (
+              <DeckCard
+                key={deck.id}
+                deck={deck}
+                stats={deckStats[deck.id]}
+                onStudy={() => startStudy(deck.id)}
+                onEdit={() => setDeckEditorOpen(true, deck.id)}
+                onDelete={() => confirm('¿Eliminar este deck?') && deleteDeck(deck.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
-              <div className="flex items-center gap-4 mt-4 pt-4 border-t" style={{ borderColor: 'var(--dome-border)' }}>
-                {stats ? (
-                  <>
-                    <div className="text-xs">
-                      <span style={{ color: 'var(--dome-text-muted)' }}>Total</span>
-                      <span className="ml-1 font-medium" style={{ color: 'var(--dome-text)' }}>{stats.total}</span>
-                    </div>
-                    <div className="text-xs">
-                      <span style={{ color: 'var(--dome-text-muted)' }}>Por revisar</span>
-                      <span className="ml-1 font-medium" style={{ color: 'var(--warning)' }}>{stats.due_cards}</span>
-                    </div>
-                    <div className="text-xs">
-                      <span style={{ color: 'var(--dome-text-muted)' }}>Dominadas</span>
-                      <span className="ml-1 font-medium" style={{ color: 'var(--success)' }}>{stats.mastered_cards}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                    {deck.card_count} tarjetas
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 mt-4">
-                {(stats?.due_cards ?? 0) > 0 ? (
-                  <button
-                    onClick={() => startStudy(deck.id)}
-                    className="flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all"
-                    style={{
-                      background: 'var(--dome-accent)',
-                      color: 'white',
-                    }}
-                  >
-                    Estudiar ({stats?.due_cards})
-                  </button>
-                ) : (
-                  <div
-                    className="flex-1 py-2 px-3 rounded-lg text-sm font-medium text-center"
-                    style={{
-                      background: 'var(--dome-bg)',
-                      color: 'var(--dome-text-muted)',
-                    }}
-                  >
-                    Todo listo
-                  </div>
-                )}
-                <button
-                  onClick={() => setDeckEditorOpen(true, deck.id)}
-                  className="py-2 px-3 rounded-lg text-sm transition-all"
-                  style={{
-                    background: 'var(--dome-bg)',
-                    color: 'var(--dome-text-muted)',
-                  }}
-                >
-                  Editar
-                </button>
-              </div>
-
-              <button
-                onClick={() => confirm('¿Eliminar este deck?') && deleteDeck(deck.id)}
-                className="absolute top-3 right-3 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ background: 'var(--error-bg)', color: 'var(--error)' }}
-              >
-                ×
-              </button>
-            </div>
-          );
-        })}
-
-        {/* Studio outputs (mindmaps, quizzes, guides, faqs, timelines, tables, etc.) */}
-        {visibleOutputs.map((output) => {
-          const icon = typeIcons[output.type] ?? <Brain size={20} />;
-          const label = typeLabels[output.type] ?? output.type;
-          return (
-            <div
-              key={output.id}
-              className="group relative rounded-lg border p-5 transition-all hover:shadow-md"
-              style={{
-                background: 'var(--dome-surface)',
-                borderColor: 'var(--dome-border)',
-              }}
-            >
-              <div className="flex items-start gap-4">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: 'var(--dome-accent-bg)', color: 'var(--dome-accent)' }}
-                >
-                  {icon}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium mb-0.5" style={{ color: 'var(--dome-accent)' }}>
-                    {label}
-                  </p>
-                  <h3 className="font-medium text-sm truncate" style={{ color: 'var(--dome-text)' }}>
-                    {output.title}
-                  </h3>
-                </div>
-              </div>
-
-              <button
-                onClick={() => confirm('¿Eliminar este contenido?') && deleteStudioOutput(output.id)}
-                className="absolute top-3 right-3 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{ background: 'var(--error-bg)', color: 'var(--error)' }}
-              >
-                ×
-              </button>
-            </div>
-          );
-        })}
-      </div>
+      {/* Studio outputs section */}
+      {visibleOutputs.length > 0 && (
+        <div>
+          {showBothSections && <SectionLabel count={visibleOutputs.length} label="Contenido generado" />}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {visibleOutputs.map((output) => (
+              <OutputCard
+                key={output.id}
+                output={output}
+                onOpen={() => setActiveStudioOutput(output)}
+                onDelete={() => confirm('¿Eliminar este contenido?') && deleteStudioOutput(output.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

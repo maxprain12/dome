@@ -53,10 +53,10 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
     <div className="flex flex-col items-center justify-center min-h-[400px] px-8">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--primary-text)' }}>
+          <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--dome-text)' }}>
             Welcome to Dome
           </h1>
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
             Let's get started by setting up your profile
           </p>
         </div>
@@ -66,7 +66,7 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
             <label
               htmlFor="name"
               className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--primary-text)' }}
+              style={{ color: 'var(--dome-text)' }}
             >
               Full Name
             </label>
@@ -76,16 +76,16 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
               placeholder="John Doe"
-              className="w-full px-4 py-2.5 rounded-lg text-sm"
+              className="w-full px-4 py-2.5 rounded-lg text-sm outline-none"
               style={{
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--primary-text)',
-                border: errors.name ? '1px solid #ef4444' : '1px solid var(--border)',
+                backgroundColor: 'var(--dome-bg-hover)',
+                color: 'var(--dome-text)',
+                border: errors.name ? '1px solid var(--dome-error, #ef4444)' : '1px solid var(--dome-border)',
               }}
               autoFocus
             />
             {errors.name && (
-              <p className="text-xs text-red-500 mt-1">{errors.name}</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--dome-error, #ef4444)' }}>{errors.name}</p>
             )}
           </div>
 
@@ -93,7 +93,7 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
             <label
               htmlFor="email"
               className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--primary-text)' }}
+              style={{ color: 'var(--dome-text)' }}
             >
               Email Address
             </label>
@@ -103,15 +103,15 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
               value={email}
               onChange={(e) => handleEmailChange(e.target.value)}
               placeholder="john@example.com"
-              className="w-full px-4 py-2.5 rounded-lg text-sm"
+              className="w-full px-4 py-2.5 rounded-lg text-sm outline-none"
               style={{
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--primary-text)',
-                border: errors.email ? '1px solid #ef4444' : '1px solid var(--border)',
+                backgroundColor: 'var(--dome-bg-hover)',
+                color: 'var(--dome-text)',
+                border: errors.email ? '1px solid var(--dome-error, #ef4444)' : '1px solid var(--dome-border)',
               }}
             />
             {errors.email && (
-              <p className="text-xs text-red-500 mt-1">{errors.email}</p>
+              <p className="text-xs mt-1" style={{ color: 'var(--dome-error, #ef4444)' }}>{errors.email}</p>
             )}
           </div>
 
@@ -119,14 +119,16 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
             type="submit"
             className="w-full py-2.5 rounded-lg font-medium text-sm text-white transition-colors"
             style={{
-              backgroundColor: 'var(--accent)',
+              backgroundColor: 'var(--dome-accent)',
+              border: 'none',
+              cursor: 'pointer',
             }}
           >
             Continue
           </button>
         </form>
 
-        <p className="text-xs text-center mt-6" style={{ color: 'var(--secondary-text)' }}>
+        <p className="text-xs text-center mt-6" style={{ color: 'var(--dome-text-muted)' }}>
           This information is stored locally and never shared
         </p>
       </div>

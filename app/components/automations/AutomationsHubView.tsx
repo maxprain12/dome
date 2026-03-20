@@ -7,7 +7,10 @@ import {
   Filter, Search,
 } from 'lucide-react';
 import AgentManagementView from '@/components/agents/AgentManagementView';
+import AgentChatView from '@/components/agents/AgentChatView';
+import AgentCanvasView from '@/components/agent-canvas/AgentCanvasView';
 import WorkflowLibraryView from '@/components/agent-canvas/WorkflowLibraryView';
+import { useAppStore } from '@/lib/store/useAppStore';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import ChatToolCard, { type ToolCallData } from '@/components/chat/ChatToolCard';
 import {
@@ -1216,6 +1219,10 @@ interface AutomationsHubViewProps {
 export default function AutomationsHubView({ onAgentSelect }: AutomationsHubViewProps) {
   const [activeTab, setActiveTab] = useState<HubTab>('agents');
   const [automationsFilter, setAutomationsFilter] = useState<AutomationFilter | undefined>();
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+
+  const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
+  const isWorkflowCanvasActive = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('workflow:');
 
   // Pre-load agents & workflows for the edit drawer
   const [agents, setAgents] = useState<ManyAgent[]>([]);
@@ -1243,6 +1250,11 @@ export default function AutomationsHubView({ onAgentSelect }: AutomationsHubView
     { id: 'runs' as HubTab, label: 'Runs', icon: <Activity className="w-4 h-4" strokeWidth={1.5} /> },
   ];
 
+  const handleTabChange = useCallback((tab: HubTab) => {
+    setActiveTab(tab);
+    setSelectedAgentId(null);
+  }, []);
+
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {/* Secondary nav bar */}
@@ -1256,7 +1268,7 @@ export default function AutomationsHubView({ onAgentSelect }: AutomationsHubView
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className="flex items-center gap-2 px-4 h-full text-xs font-medium transition-colors relative"
               style={{
                 color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)',
@@ -1275,17 +1287,28 @@ export default function AutomationsHubView({ onAgentSelect }: AutomationsHubView
       <div className="flex-1 min-h-0 overflow-hidden">
         {activeTab === 'agents' && (
           <div className="h-full min-h-0 flex flex-col overflow-hidden">
-            <AgentManagementView
-              onAgentSelect={onAgentSelect}
-              onShowAutomations={(id, label) => handleShowAutomations('agent', id, label)}
-            />
+            {selectedAgentId ? (
+              <AgentChatView
+                agentId={selectedAgentId}
+                onBack={() => setSelectedAgentId(null)}
+              />
+            ) : (
+              <AgentManagementView
+                onAgentSelect={(id) => { setSelectedAgentId(id); onAgentSelect?.(id); }}
+                onShowAutomations={(id, label) => handleShowAutomations('agent', id, label)}
+              />
+            )}
           </div>
         )}
         {activeTab === 'workflows' && (
           <div className="h-full min-h-0 flex flex-col overflow-hidden relative">
-            <WorkflowLibraryView
-              onShowAutomations={(id, label) => handleShowAutomations('workflow', id, label)}
-            />
+            {isWorkflowCanvasActive ? (
+              <AgentCanvasView />
+            ) : (
+              <WorkflowLibraryView
+                onShowAutomations={(id, label) => handleShowAutomations('workflow', id, label)}
+              />
+            )}
           </div>
         )}
         {activeTab === 'automations' && (

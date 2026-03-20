@@ -42,6 +42,7 @@ function TabIcon({ type }: { type: DomeTab['type'] }) {
     case 'marketplace': return <Store className={cls} strokeWidth={sw} />;
     case 'agents': return <Zap className={cls} strokeWidth={sw} />;
     case 'folder': return <FolderOpen className={cls} strokeWidth={sw} />;
+    case 'learn': return <BookOpen className={cls} strokeWidth={sw} />;
     default: return <File className={cls} strokeWidth={sw} />;
   }
 }

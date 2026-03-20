@@ -369,6 +369,7 @@ interface TreeNodeProps {
   expandedIds: Set<string>;
   onToggle: (id: string) => void;
   onSelect: (node: TreeNodeData) => void;
+  onOpenFolder: (folderId: string, title: string) => void;
   renameId: string | null;
   dragOverId: string | null;
   onContextMenu: (e: React.MouseEvent, r: Resource) => void;
@@ -382,7 +383,7 @@ interface TreeNodeProps {
 }
 
 function TreeNode({
-  node, depth, expandedIds, onToggle, onSelect, renameId, dragOverId,
+  node, depth, expandedIds, onToggle, onSelect, onOpenFolder, renameId, dragOverId,
   onContextMenu, onRenameCommit, onRenameCancel,
   onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
 }: TreeNodeProps) {
@@ -401,8 +402,12 @@ function TreeNode({
 
   const handleClick = () => {
     if (isRenaming) return;
-    if (isFolder) onToggle(node.id);
-    else onSelect(node);
+    if (isFolder) {
+      onToggle(node.id);
+      onOpenFolder(node.id, node.name);
+    } else {
+      onSelect(node);
+    }
   };
 
   const handleRenameKeyDown = (e: React.KeyboardEvent) => {
@@ -504,6 +509,7 @@ function TreeNode({
               expandedIds={expandedIds}
               onToggle={onToggle}
               onSelect={onSelect}
+              onOpenFolder={onOpenFolder}
               renameId={renameId}
               dragOverId={dragOverId}
               onContextMenu={onContextMenu}
@@ -553,7 +559,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragEnterCountRef = useRef<Record<string, number>>({});
 
-  const { openResourceTab } = useTabStore.getState();
+  const { openResourceTab, openFolderTab } = useTabStore.getState();
   const folders = resources.filter((r) => r.type === 'folder');
 
   const handleToggle = useCallback((id: string) => {
@@ -563,6 +569,10 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
   const handleSelect = useCallback((node: TreeNodeData) => {
     if (node.resource) openResourceTab(node.id, node.type, node.name);
   }, [openResourceTab]);
+
+  const handleOpenFolder = useCallback((folderId: string, title: string) => {
+    openFolderTab(folderId, title);
+  }, [openFolderTab]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, r: Resource) => {
     e.preventDefault();
@@ -601,14 +611,21 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
   }, [deleteResource, onRefresh]);
 
   const handleNewFolderConfirm = useCallback(async (name: string, parentId: string | null) => {
-    await window.electron?.db?.resources?.create({
+    const now = Date.now();
+    const result = await window.electron?.db?.resources?.create({
+      id: `res_${now}_${Math.random().toString(36).substr(2, 9)}`,
       type: 'folder',
       title: name,
       folder_id: parentId,
       project_id: (resources[0]?.project_id) || 'default',
+      content: null,
+      created_at: now,
+      updated_at: now,
     } as any);
-    if (parentId) setExpandedIds((prev) => new Set(prev).add(parentId));
-    onRefresh();
+    if (result?.success) {
+      if (parentId) setExpandedIds((prev) => new Set(prev).add(parentId));
+      onRefresh();
+    }
   }, [resources, onRefresh]);
 
   // Drag-and-drop handlers
@@ -695,6 +712,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
               expandedIds={expandedIds}
               onToggle={handleToggle}
               onSelect={handleSelect}
+              onOpenFolder={handleOpenFolder}
               renameId={renameId}
               dragOverId={dragOverId}
               onContextMenu={handleContextMenu}
@@ -933,52 +951,77 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   }, [resources]);
 
   const handleCreateNote = useCallback(async () => {
-    if (!window.electron?.db?.notes) return;
-    const result = await window.electron.db.notes.create({ project_id: getDefaultProjectId(), title: 'Untitled Note' });
-    if (result?.success && result.data?.id) {
+    if (!window.electron?.db?.resources) return;
+    const now = Date.now();
+    const id = `res_${now}_${Math.random().toString(36).substr(2, 9)}`;
+    const result = await window.electron.db.resources.create({
+      id,
+      type: 'note',
+      title: 'Untitled Note',
+      project_id: getDefaultProjectId(),
+      content: '',
+      created_at: now,
+      updated_at: now,
+    } as any);
+    if (result?.success) {
       await fetchResources();
-      useTabStore.getState().openResourceTab(result.data.id, 'note', 'Untitled Note');
+      useTabStore.getState().openResourceTab(id, 'note', 'Untitled Note');
     }
   }, [getDefaultProjectId, fetchResources]);
 
   const handleCreateNotebook = useCallback(async () => {
     if (!window.electron?.db?.resources) return;
+    const now = Date.now();
+    const id = `res_${now}_${Math.random().toString(36).substr(2, 9)}`;
     const cells = [{ id: crypto.randomUUID(), type: 'code', source: '', outputs: [] }];
     const result = await window.electron.db.resources.create({
+      id,
       type: 'notebook',
       title: 'Untitled Notebook',
       project_id: getDefaultProjectId(),
       content: JSON.stringify({ cells }),
+      created_at: now,
+      updated_at: now,
     } as any);
-    if (result?.success && result.data?.id) {
+    if (result?.success) {
       await fetchResources();
-      useTabStore.getState().openResourceTab(result.data.id, 'notebook', 'Untitled Notebook');
+      useTabStore.getState().openResourceTab(id, 'notebook', 'Untitled Notebook');
     }
   }, [getDefaultProjectId, fetchResources]);
 
   const handleAddUrl = useCallback(async (url: string) => {
     if (!window.electron?.db?.resources) return;
+    const now = Date.now();
+    const id = `res_${now}_${Math.random().toString(36).substr(2, 9)}`;
     const title = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
     const result = await window.electron.db.resources.create({
+      id,
       type: 'url',
       title,
       project_id: getDefaultProjectId(),
       content: url,
+      created_at: now,
+      updated_at: now,
     } as any);
-    if (result?.success && result.data?.id) {
+    if (result?.success) {
       await fetchResources();
-      useTabStore.getState().openResourceTab(result.data.id, 'url', title ?? url);
+      useTabStore.getState().openResourceTab(id, 'url', title ?? url);
     }
   }, [getDefaultProjectId, fetchResources]);
 
   const handleNewFolderAtRoot = useCallback(async (name: string) => {
-    await window.electron?.db?.resources?.create({
+    const now = Date.now();
+    const result = await window.electron?.db?.resources?.create({
+      id: `res_${now}_${Math.random().toString(36).substr(2, 9)}`,
       type: 'folder',
       title: name,
       folder_id: null,
       project_id: getDefaultProjectId(),
+      content: null,
+      created_at: now,
+      updated_at: now,
     } as any);
-    fetchResources();
+    if (result?.success) fetchResources();
   }, [getDefaultProjectId, fetchResources]);
 
   const handleImportFile = useCallback(async () => {

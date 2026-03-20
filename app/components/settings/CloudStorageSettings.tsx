@@ -1,8 +1,10 @@
-'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Cloud, HardDrive, Trash2, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Cloud, HardDrive, Trash2, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { showToast } from '@/lib/store/useToastStore';
+
+const DOME_GREEN = '#596037';
+const DOME_GREEN_LIGHT = '#E0EAB4';
 
 interface CloudAccount {
   provider: 'google' | 'onedrive';
@@ -16,10 +18,21 @@ const PROVIDER_LABELS: Record<string, string> = {
   onedrive: 'OneDrive',
 };
 
-const PROVIDER_ICONS: Record<string, React.ReactNode> = {
-  google: <Cloud size={18} style={{ color: '#4285f4' }} />,
-  onedrive: <HardDrive size={18} style={{ color: '#0078d4' }} />,
-};
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
+      {children}
+    </p>
+  );
+}
+
+function SettingsCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-xl ${className}`} style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
+      {children}
+    </div>
+  );
+}
 
 export default function CloudStorageSettings() {
   const [accounts, setAccounts] = useState<CloudAccount[]>([]);
@@ -42,13 +55,12 @@ export default function CloudStorageSettings() {
   useEffect(() => {
     loadAccounts();
 
-    // Listen for OAuth callback results
     const cleanup = window.electron?.cloud?.onAuthResult?.((data: { success: boolean; provider: string; email?: string; error?: string }) => {
       if (data.success) {
-        showToast('success', `${PROVIDER_LABELS[data.provider] ?? data.provider} connected as ${data.email}`);
+        showToast('success', `${PROVIDER_LABELS[data.provider] ?? data.provider} conectado como ${data.email}`);
         loadAccounts();
       } else {
-        showToast('error', data.error || 'Connection failed');
+        showToast('error', data.error || 'Error de conexión');
       }
       setConnecting(null);
     });
@@ -64,12 +76,11 @@ export default function CloudStorageSettings() {
         ? await window.electron.cloud.authGoogle()
         : await window.electron.cloud.authOneDrive();
       if (!result.success) {
-        showToast('error', result.error || 'Failed to start OAuth flow');
+        showToast('error', result.error || 'Error al iniciar OAuth');
         setConnecting(null);
       }
-      // Success: onAuthResult listener will handle the callback
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Unknown error');
+      showToast('error', err instanceof Error ? err.message : 'Error desconocido');
       setConnecting(null);
     }
   };
@@ -79,13 +90,13 @@ export default function CloudStorageSettings() {
     try {
       const result = await window.electron.cloud.disconnect(accountId);
       if (result.success) {
-        showToast('success', 'Account disconnected');
+        showToast('success', 'Cuenta desconectada');
         setAccounts((prev) => prev.filter((a) => a.accountId !== accountId));
       } else {
-        showToast('error', result.error || 'Failed to disconnect');
+        showToast('error', result.error || 'Error al desconectar');
       }
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Unknown error');
+      showToast('error', err instanceof Error ? err.message : 'Error desconocido');
     }
   };
 
@@ -93,161 +104,128 @@ export default function CloudStorageSettings() {
   const onedriveConnected = accounts.some((a) => a.provider === 'onedrive');
 
   return (
-    <div style={{ maxWidth: 600 }}>
-      <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--primary-text)', marginBottom: 4 }}>
-        Cloud Storage
-      </h2>
-      <p style={{ fontSize: 13, color: 'var(--secondary-text)', marginBottom: 24 }}>
-        Connect Google Drive or OneDrive to browse and import files directly into Dome.
-      </p>
-
-      {/* Setup notice */}
-      <div
-        style={{
-          background: 'var(--bg-secondary)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          padding: '12px 16px',
-          marginBottom: 24,
-          display: 'flex',
-          gap: 10,
-          alignItems: 'flex-start',
-        }}
-      >
-        <AlertCircle size={16} style={{ color: 'var(--accent)', flexShrink: 0, marginTop: 1 }} />
-        <p style={{ fontSize: 12, color: 'var(--secondary-text)', margin: 0, lineHeight: 1.5 }}>
-          To use cloud storage, set the environment variables{' '}
-          <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: 3 }}>
-            DOME_GOOGLE_DRIVE_CLIENT_ID
-          </code>{' '}
-          /{' '}
-          <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: 3 }}>
-            DOME_GOOGLE_DRIVE_CLIENT_SECRET
-          </code>{' '}
-          for Google Drive, and{' '}
-          <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: 3 }}>
-            DOME_ONEDRIVE_CLIENT_ID
-          </code>{' '}
-          for OneDrive. Register <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: 3 }}>dome://oauth/callback</code> as redirect URI in your OAuth app.
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Header */}
+      <div>
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>Cloud Storage</h2>
+        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          Conecta Google Drive o OneDrive para explorar e importar archivos directamente en Dome.
         </p>
       </div>
 
+      {/* Setup notice */}
+      <SettingsCard className="p-4">
+        <div className="flex gap-3">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: DOME_GREEN }} />
+          <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+            Para usar almacenamiento en la nube, configura las variables de entorno{' '}
+            <code className="px-1 py-0.5 rounded text-[10px]" style={{ backgroundColor: 'var(--dome-bg-hover)', fontFamily: 'monospace' }}>
+              DOME_GOOGLE_DRIVE_CLIENT_ID
+            </code>{' '}
+            /{' '}
+            <code className="px-1 py-0.5 rounded text-[10px]" style={{ backgroundColor: 'var(--dome-bg-hover)', fontFamily: 'monospace' }}>
+              DOME_GOOGLE_DRIVE_CLIENT_SECRET
+            </code>{' '}
+            para Google Drive, y{' '}
+            <code className="px-1 py-0.5 rounded text-[10px]" style={{ backgroundColor: 'var(--dome-bg-hover)', fontFamily: 'monospace' }}>
+              DOME_ONEDRIVE_CLIENT_ID
+            </code>{' '}
+            para OneDrive. Registra{' '}
+            <code className="px-1 py-0.5 rounded text-[10px]" style={{ backgroundColor: 'var(--dome-bg-hover)', fontFamily: 'monospace' }}>
+              dome://oauth/callback
+            </code>{' '}
+            como redirect URI en tu app OAuth.
+          </p>
+        </div>
+      </SettingsCard>
+
       {/* Connected accounts */}
       {loading ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--tertiary-text)', fontSize: 13 }}>
-          <RefreshCw size={14} className="animate-spin" /> Loading accounts…
+        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando cuentas...
         </div>
-      ) : accounts.length > 0 ? (
-        <div style={{ marginBottom: 24 }}>
-          <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-text)', marginBottom: 12 }}>
-            Connected accounts
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      ) : accounts.length > 0 && (
+        <div>
+          <SectionLabel>Cuentas conectadas</SectionLabel>
+          <div className="space-y-2">
             {accounts.map((account) => (
-              <div
-                key={account.accountId}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 14px',
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {PROVIDER_ICONS[account.provider]}
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--primary-text)' }}>
-                      {PROVIDER_LABELS[account.provider] ?? account.provider}
+              <SettingsCard key={account.accountId} className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: DOME_GREEN_LIGHT }}
+                    >
+                      {account.provider === 'google'
+                        ? <Cloud className="w-4 h-4" style={{ color: DOME_GREEN }} />
+                        : <HardDrive className="w-4 h-4" style={{ color: DOME_GREEN }} />
+                      }
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--secondary-text)' }}>{account.email}</div>
+                    <div>
+                      <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+                        {PROVIDER_LABELS[account.provider] ?? account.provider}
+                      </p>
+                      <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{account.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />
+                    <button
+                      onClick={() => handleDisconnect(account.accountId)}
+                      className="p-1.5 rounded-lg transition-colors"
+                      style={{ color: 'var(--dome-text-muted)' }}
+                      title="Desconectar"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <CheckCircle2 size={14} style={{ color: '#22c55e' }} />
-                  <button
-                    onClick={() => handleDisconnect(account.accountId)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: 'var(--tertiary-text)',
-                      padding: '4px',
-                      borderRadius: 4,
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                    title="Disconnect"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
+              </SettingsCard>
             ))}
           </div>
         </div>
-      ) : null}
+      )}
 
       {/* Connect buttons */}
-      <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-text)', marginBottom: 12 }}>
-        {accounts.length > 0 ? 'Add another account' : 'Connect a cloud account'}
-      </h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <button
-          onClick={() => handleConnect('google')}
-          disabled={connecting === 'google'}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '10px 16px',
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            cursor: connecting === 'google' ? 'not-allowed' : 'pointer',
-            opacity: connecting === 'google' ? 0.7 : 1,
-            color: 'var(--primary-text)',
-            fontSize: 13,
-            fontWeight: 500,
-            textAlign: 'left',
-          }}
-        >
-          {connecting === 'google' ? (
-            <RefreshCw size={16} className="animate-spin" style={{ color: '#4285f4' }} />
-          ) : (
-            <Cloud size={16} style={{ color: '#4285f4' }} />
-          )}
-          {googleConnected ? 'Connect another Google Drive account' : 'Connect Google Drive'}
-        </button>
+      <div>
+        <SectionLabel>{accounts.length > 0 ? 'Añadir otra cuenta' : 'Conectar cuenta cloud'}</SectionLabel>
+        <div className="space-y-2">
+          <button
+            onClick={() => handleConnect('google')}
+            disabled={connecting === 'google'}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all disabled:opacity-60"
+            style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+          >
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
+              {connecting === 'google'
+                ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: DOME_GREEN }} />
+                : <Cloud className="w-4 h-4" style={{ color: DOME_GREEN }} />
+              }
+            </div>
+            <div>
+              <p className="text-sm font-medium">{googleConnected ? 'Conectar otra cuenta de Google Drive' : 'Conectar Google Drive'}</p>
+              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>OAuth 2.0 seguro</p>
+            </div>
+          </button>
 
-        <button
-          onClick={() => handleConnect('onedrive')}
-          disabled={connecting === 'onedrive'}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            padding: '10px 16px',
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            cursor: connecting === 'onedrive' ? 'not-allowed' : 'pointer',
-            opacity: connecting === 'onedrive' ? 0.7 : 1,
-            color: 'var(--primary-text)',
-            fontSize: 13,
-            fontWeight: 500,
-            textAlign: 'left',
-          }}
-        >
-          {connecting === 'onedrive' ? (
-            <RefreshCw size={16} className="animate-spin" style={{ color: '#0078d4' }} />
-          ) : (
-            <HardDrive size={16} style={{ color: '#0078d4' }} />
-          )}
-          {onedriveConnected ? 'Connect another OneDrive account' : 'Connect OneDrive'}
-        </button>
+          <button
+            onClick={() => handleConnect('onedrive')}
+            disabled={connecting === 'onedrive'}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all disabled:opacity-60"
+            style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+          >
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
+              {connecting === 'onedrive'
+                ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: DOME_GREEN }} />
+                : <HardDrive className="w-4 h-4" style={{ color: DOME_GREEN }} />
+              }
+            </div>
+            <div>
+              <p className="text-sm font-medium">{onedriveConnected ? 'Conectar otra cuenta de OneDrive' : 'Conectar OneDrive'}</p>
+              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Microsoft OAuth</p>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   );

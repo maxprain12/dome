@@ -20,7 +20,7 @@ export interface CalendarEvent {
   updated_at: number;
 }
 
-export type CalendarViewMode = 'month' | 'week' | 'day';
+export type CalendarViewMode = 'month' | 'week' | 'day' | 'year';
 
 interface CalendarState {
   events: CalendarEvent[];

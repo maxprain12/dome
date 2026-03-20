@@ -1,4 +1,5 @@
 
+import { useRef, useEffect } from 'react';
 import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2, Wand2, Database, Cloud } from 'lucide-react';
 
 type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced' | 'indexing' | 'cloud';
@@ -9,123 +10,105 @@ interface SettingsLayoutProps {
   children: React.ReactNode;
 }
 
-interface SidebarItem {
+const DOME_GREEN = '#596037';
+const DOME_GREEN_LIGHT = '#E0EAB4';
+
+interface Tab {
   id: SettingsSection;
   label: string;
   icon: React.ReactNode;
 }
 
-const sidebarItems: SidebarItem[] = [
-  {
-    id: 'general',
-    label: 'General',
-    icon: <User className="w-4 h-4" />,
-  },
-  {
-    id: 'appearance',
-    label: 'Appearance',
-    icon: <Palette className="w-4 h-4" />,
-  },
-  {
-    id: 'ai',
-    label: 'AI Configuration',
-    icon: <Brain className="w-4 h-4" />,
-  },
-  {
-    id: 'whatsapp',
-    label: 'WhatsApp',
-    icon: <MessageCircle className="w-4 h-4" />,
-  },
-  {
-    id: 'mcp',
-    label: 'MCP',
-    icon: <Plug2 className="w-4 h-4" />,
-  },
-  {
-    id: 'skills',
-    label: 'Skills',
-    icon: <Wand2 className="w-4 h-4" />,
-  },
-  {
-    id: 'plugins',
-    label: 'Plugins',
-    icon: <Puzzle className="w-4 h-4" />,
-  },
-  {
-    id: 'advanced',
-    label: 'Advanced',
-    icon: <SettingsIcon className="w-4 h-4" />,
-  },
-  {
-    id: 'indexing',
-    label: 'Indexación',
-    icon: <Database className="w-4 h-4" />,
-  },
-  {
-    id: 'cloud',
-    label: 'Cloud Storage',
-    icon: <Cloud className="w-4 h-4" />,
-  },
+const tabs: Tab[] = [
+  { id: 'general',    label: 'General',     icon: <User className="w-3.5 h-3.5" /> },
+  { id: 'appearance', label: 'Apariencia',  icon: <Palette className="w-3.5 h-3.5" /> },
+  { id: 'ai',         label: 'IA',          icon: <Brain className="w-3.5 h-3.5" /> },
+  { id: 'skills',     label: 'Skills',      icon: <Wand2 className="w-3.5 h-3.5" /> },
+  { id: 'whatsapp',   label: 'WhatsApp',    icon: <MessageCircle className="w-3.5 h-3.5" /> },
+  { id: 'mcp',        label: 'MCP',         icon: <Plug2 className="w-3.5 h-3.5" /> },
+  { id: 'cloud',      label: 'Cloud',       icon: <Cloud className="w-3.5 h-3.5" /> },
+  { id: 'plugins',    label: 'Plugins',     icon: <Puzzle className="w-3.5 h-3.5" /> },
+  { id: 'indexing',   label: 'Indexación',  icon: <Database className="w-3.5 h-3.5" /> },
+  { id: 'advanced',   label: 'Avanzado',    icon: <SettingsIcon className="w-3.5 h-3.5" /> },
 ];
 
 export default function SettingsLayout({ activeSection, onSectionChange, children }: SettingsLayoutProps) {
+  const activeTabRef = useRef<HTMLButtonElement>(null);
+
+  // Scroll active tab into view when it changes
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({ inline: 'nearest', behavior: 'smooth', block: 'nearest' });
+  }, [activeSection]);
+
   return (
-    <div className="min-h-screen flex" style={{ backgroundColor: 'var(--bg)' }}>
-      {/* Sidebar */}
+    <div className="flex flex-col h-screen" style={{ backgroundColor: 'var(--dome-bg)' }}>
+
+      {/* ── Sticky header ── */}
       <div
-        className="w-64 border-r flex flex-col pt-8" // Added pt-8 for safe zone (traffic lights)
-        style={{
-          borderColor: 'var(--border)',
-          backgroundColor: 'var(--bg-secondary)',
-        }}
+        className="shrink-0 sticky top-0 z-10"
+        style={{ backgroundColor: 'var(--dome-bg)', borderBottom: '1px solid var(--dome-border)' }}
       >
-        {/* Header */}
-        <div className="px-6 py-5">
-          <h1 className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--secondary-text)' }}>
-            Settings
+        {/* Title row */}
+        <div className="px-6 pt-5 pb-3 flex items-center gap-2.5">
+          <div
+            className="w-5 h-5 rounded flex items-center justify-center"
+            style={{ backgroundColor: DOME_GREEN }}
+          >
+            <SettingsIcon className="w-3 h-3" style={{ color: DOME_GREEN_LIGHT }} />
+          </div>
+          <h1 className="text-sm font-bold tracking-wide" style={{ color: 'var(--dome-text)' }}>
+            Ajustes
           </h1>
         </div>
 
-        <nav className="flex-1 px-3 space-y-0.5" aria-label="Settings sections">
-          {sidebarItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onSectionChange(item.id)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-secondary)]"
-              style={{
-                backgroundColor: activeSection === item.id ? 'var(--primary-subtle)' : 'transparent',
-                color: activeSection === item.id ? 'var(--accent)' : 'var(--secondary-text)',
-              }}
-              onMouseEnter={(e) => {
-                if (activeSection !== item.id) {
-                  e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activeSection !== item.id) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
-            >
-              <span className="shrink-0 opacity-90" style={{ color: activeSection === item.id ? 'var(--accent)' : 'var(--secondary-text)' }}>
-                {item.icon}
-              </span>
-              <span>{item.label}</span>
-            </button>
-          ))}
+        {/* Tab strip */}
+        <nav
+          className="flex items-end gap-0.5 px-4 overflow-x-auto"
+          style={{ scrollbarWidth: 'none' }}
+          aria-label="Settings tabs"
+        >
+          {tabs.map((tab) => {
+            const isActive = activeSection === tab.id;
+            return (
+              <button
+                key={tab.id}
+                ref={isActive ? activeTabRef : undefined}
+                type="button"
+                onClick={() => onSectionChange(tab.id)}
+                className="relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors shrink-0"
+                style={{
+                  color: isActive ? DOME_GREEN : 'var(--dome-text-muted)',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)';
+                }}
+              >
+                <span style={{ color: isActive ? DOME_GREEN : 'inherit' }}>{tab.icon}</span>
+                {tab.label}
+                {/* Active underline */}
+                {isActive && (
+                  <span
+                    className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full"
+                    style={{ backgroundColor: DOME_GREEN }}
+                  />
+                )}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        {/* Top padding for drag region/safe zone interaction */}
-        <div className="h-8 w-full app-drag-region shrink-0" />
-
-        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar scrollbar-gutter-stable">
-          <div className="max-w-3xl mx-auto pl-8 pr-12 pt-4 pb-20">
-            {children}
-          </div>
+      {/* ── Scrollable content ── */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="max-w-2xl mx-auto px-8 py-8 pb-20">
+          {children}
         </div>
       </div>
     </div>

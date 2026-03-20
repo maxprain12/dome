@@ -1,9 +1,45 @@
-'use client';
 
 import { useState, useEffect } from 'react';
-import { FolderOpen, Trash2, Power } from 'lucide-react';
+import { FolderOpen, Trash2, Power, CheckCircle2, AlertCircle, Puzzle } from 'lucide-react';
 import type { DomePluginInfo } from '@/types/plugin';
 import PluginRuntimeModal from './PluginRuntimeModal';
+
+const DOME_GREEN = '#596037';
+const DOME_GREEN_LIGHT = '#E0EAB4';
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
+      {children}
+    </p>
+  );
+}
+
+function SettingsCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-xl ${className}`} style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
+      {children}
+    </div>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className="relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200"
+      style={{ backgroundColor: checked ? DOME_GREEN : 'var(--dome-border)' }}
+    >
+      <span
+        className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
+        style={{ transform: checked ? 'translateX(16px)' : 'translateX(0)' }}
+      />
+    </button>
+  );
+}
 
 export default function PluginsSettings() {
   const [plugins, setPlugins] = useState<DomePluginInfo[]>([]);
@@ -61,135 +97,123 @@ export default function PluginsSettings() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
+      {/* Header */}
       <div>
-        <h2 className="text-xl font-display font-semibold mb-1" style={{ color: 'var(--primary-text)' }}>
-          Plugins
-        </h2>
-        <p className="text-sm opacity-80" style={{ color: 'var(--secondary-text)' }}>
-          Gestiona los plugins instalados en Dome. Instala nuevos plugins desde el Marketplace.
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>Plugins</h2>
+        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          Gestiona los plugins instalados en Dome. Instala nuevos desde el Marketplace.
         </p>
       </div>
 
+      {/* Feedback */}
       {message && (
-        <p
-          className="text-sm py-2 px-3 rounded-lg"
+        <div
+          className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
           style={{
-            color: message.type === 'success' ? 'var(--success)' : 'var(--error)',
-            backgroundColor: message.type === 'success' ? 'var(--success-bg)' : 'var(--error-bg)',
+            backgroundColor: message.type === 'success' ? `${DOME_GREEN}12` : 'rgba(239,68,68,0.08)',
+            border: `1px solid ${message.type === 'success' ? `${DOME_GREEN}30` : 'rgba(239,68,68,0.2)'}`,
+            color: message.type === 'success' ? DOME_GREEN : 'var(--dome-error, #ef4444)',
           }}
         >
+          {message.type === 'success'
+            ? <CheckCircle2 className="w-4 h-4 shrink-0" />
+            : <AlertCircle className="w-4 h-4 shrink-0" />
+          }
           {message.text}
-        </p>
+        </div>
       )}
 
       {/* Installed plugins */}
-      <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-4" style={{ color: 'var(--secondary-text)' }}>
-          Plugins instalados
-        </h3>
+      <div>
+        <SectionLabel>Plugins instalados</SectionLabel>
         {loading ? (
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Cargando...</p>
+          <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Cargando...</p>
         ) : plugins.length === 0 ? (
-          <div
-            className="py-10 rounded-xl flex flex-col items-center gap-3 border"
-            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}
-          >
-            <Power className="w-8 h-8 opacity-20" style={{ color: 'var(--secondary-text)' }} />
-            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-              No hay plugins instalados
-            </p>
-            <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
-              Explora el Marketplace para descubrir plugins
-            </p>
-          </div>
+          <SettingsCard className="py-10 flex flex-col items-center gap-3">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center opacity-30" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
+              <Puzzle className="w-6 h-6" style={{ color: 'var(--dome-text-muted)' }} />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>Sin plugins instalados</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>Explora el Marketplace para descubrir plugins</p>
+            </div>
+          </SettingsCard>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {plugins.map((p) => (
-              <div
-                key={p.id}
-                className="p-4 rounded-lg border flex items-center justify-between"
-                style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-medium" style={{ color: 'var(--primary-text)' }}>{p.name}</span>
-                    <span
-                      className="shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
-                      style={{
-                        backgroundColor: p.enabled ? 'var(--accent-subtle)' : 'var(--bg-tertiary)',
-                        color: p.enabled ? 'var(--accent)' : 'var(--tertiary-text)',
-                      }}
-                    >
-                      {p.enabled ? 'Activo' : 'Inactivo'}
-                    </span>
+              <SettingsCard key={p.id} className="px-4 py-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{p.name}</span>
+                      <span
+                        className="shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium"
+                        style={{
+                          backgroundColor: p.enabled ? `${DOME_GREEN}15` : 'var(--dome-bg-hover)',
+                          color: p.enabled ? DOME_GREEN : 'var(--dome-text-muted)',
+                        }}
+                      >
+                        {p.enabled ? 'Activo' : 'Inactivo'}
+                      </span>
+                      {p.type && (
+                        <span
+                          className="shrink-0 px-1.5 py-0.5 rounded-full text-[10px]"
+                          style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}
+                        >
+                          {p.type}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                      {p.description} · v{p.version} · {p.author}
+                    </p>
                   </div>
-                  <div className="text-xs" style={{ color: 'var(--secondary-text)' }}>
-                    {p.description} · v{p.version} · {p.author}
-                  </div>
-                  {p.type && (
-                    <span
-                      className="inline-block mt-1.5 rounded-full px-2 py-0.5 text-[10px]"
-                      style={{ backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)' }}
-                    >
-                      {p.type}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 ml-4 shrink-0">
-                  {p.type === 'view' && p.enabled && (
-                    <button
-                      type="button"
-                      onClick={() => setRuntimePlugin(p)}
-                      className="rounded-md px-2.5 py-1 text-xs font-medium hover:bg-[var(--bg-hover)]"
-                      style={{ color: 'var(--accent)' }}
-                    >
-                      Abrir
-                    </button>
-                  )}
-                  {/* Toggle activo/inactivo */}
-                  <button
-                    type="button"
-                    onClick={() => handleToggleEnabled(p.id, !p.enabled)}
-                    className="relative w-10 h-5 rounded-full transition-colors"
-                    style={{
-                      backgroundColor: p.enabled ? 'var(--accent)' : 'var(--bg-tertiary)',
-                    }}
-                    title={p.enabled ? 'Desactivar' : 'Activar'}
-                    aria-label={p.enabled ? 'Desactivar plugin' : 'Activar plugin'}
-                  >
-                    <span
-                      className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
-                      style={{ transform: p.enabled ? 'translateX(1.25rem)' : 'translateX(0.125rem)' }}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {p.type === 'view' && p.enabled && (
+                      <button
+                        type="button"
+                        onClick={() => setRuntimePlugin(p)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
+                        style={{ color: DOME_GREEN, backgroundColor: `${DOME_GREEN}10` }}
+                      >
+                        Abrir
+                      </button>
+                    )}
+                    <Toggle
+                      checked={p.enabled}
+                      onChange={() => handleToggleEnabled(p.id, !p.enabled)}
                     />
-                  </button>
-                  <button
-                    onClick={() => handleUninstall(p.id)}
-                    className="p-1.5 rounded hover:bg-[var(--error-bg)] transition-colors"
-                    style={{ color: 'var(--error)' }}
-                    title="Desinstalar"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    <button
+                      onClick={() => handleUninstall(p.id)}
+                      className="p-1.5 rounded-lg transition-colors"
+                      style={{ color: 'var(--dome-text-muted)' }}
+                      title="Desinstalar"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </SettingsCard>
             ))}
           </div>
         )}
-      </section>
+      </div>
 
       {/* Install from folder */}
-      <section>
-        <h3 className="text-xs uppercase tracking-wider font-semibold mb-3" style={{ color: 'var(--secondary-text)' }}>
-          Instalar plugin
-        </h3>
-        <button onClick={handleInstall} className="btn btn-secondary flex items-center gap-2">
-          <FolderOpen className="w-4 h-4" />
+      <div>
+        <SectionLabel>Instalar plugin</SectionLabel>
+        <button
+          onClick={handleInstall}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all"
+          style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+        >
+          <FolderOpen className="w-3.5 h-3.5" />
           Instalar desde carpeta
         </button>
-        <p className="text-xs mt-2" style={{ color: 'var(--tertiary-text)' }}>
-          Selecciona una carpeta que contenga <code>manifest.json</code>. También puedes instalar desde el Marketplace.
+        <p className="text-[11px] mt-2" style={{ color: 'var(--dome-text-muted)', opacity: 0.7 }}>
+          Selecciona una carpeta que contenga <code style={{ fontFamily: 'monospace' }}>manifest.json</code>. También puedes instalar desde el Marketplace.
         </p>
-      </section>
+      </div>
 
       {runtimePlugin && (
         <PluginRuntimeModal
