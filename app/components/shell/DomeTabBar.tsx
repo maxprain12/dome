@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Home,
   Settings,
@@ -55,6 +56,7 @@ interface TabItemProps {
 }
 
 function TabItem({ tab, isActive, onActivate, onClose }: TabItemProps) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
@@ -100,7 +102,7 @@ function TabItem({ tab, isActive, onActivate, onClose }: TabItemProps) {
             height: 16,
             color: 'var(--dome-text-muted)',
           }}
-          aria-label={`Cerrar ${tab.title}`}
+          aria-label={t('workspace.close_tab', { title: tab.title })}
         >
           <X className="w-3 h-3" strokeWidth={2} />
         </span>
@@ -114,6 +116,7 @@ interface DomeTabBarProps {
 }
 
 export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
+  const { t } = useTranslation();
   const { tabs, activeTabId, activateTab, closeTab } = useTabStore();
 
   return (
@@ -145,7 +148,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
           color: 'var(--dome-text-muted)',
           borderRight: '1px solid var(--dome-border)',
         }}
-        title="Nueva conversación"
+        title={t('workspace.new_conversation')}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
           (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)';

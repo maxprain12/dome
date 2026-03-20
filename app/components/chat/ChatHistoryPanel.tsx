@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Search, X, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 
@@ -20,6 +21,7 @@ interface ChatHistoryPanelProps {
 }
 
 export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
+  const { t } = useTranslation();
   const sessions = useManyStore((s) => s.sessions);
   const currentSessionId = useManyStore((s) => s.currentSessionId);
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,7 +67,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
             onClick={handleNewChat}
             className="flex items-center justify-center rounded transition-colors"
             style={{ width: 26, height: 26, color: 'var(--dome-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-            title="Nuevo chat"
+            title={t('chat.newChat')}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
           >
@@ -96,7 +98,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar..."
+              placeholder={t('chat.searchPlaceholder')}
               className="flex-1 bg-transparent outline-none border-none"
               style={{ fontSize: 11.5, color: 'var(--dome-text)', caretColor: 'var(--dome-accent)' }}
             />
@@ -108,7 +110,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
       <div className="flex-1 overflow-y-auto py-1">
         {filteredSessions.length === 0 ? (
           <p className="text-center py-8 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            {searchQuery ? 'Sin resultados' : 'No hay chats'}
+            {searchQuery ? t('chat.noResults') : t('chat.noChats')}
           </p>
         ) : (
           filteredSessions.map((session) => {
@@ -129,7 +131,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
                   className="flex-1 truncate"
                   style={{ fontSize: 12.5, color: isActive ? 'var(--dome-text)' : 'var(--dome-text-secondary)', fontWeight: isActive ? 500 : 400 }}
                 >
-                  {session.title || 'New chat'}
+                  {session.title || t('chat.newChat')}
                 </span>
                 <span
                   className="shrink-0 group-hover:hidden"

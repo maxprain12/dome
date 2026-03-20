@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Gift, Search, Zap, RefreshCw, Lock, HardDrive } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
@@ -88,6 +89,7 @@ function SettingsInput({
 /* ─── Main component ─────────────────────────────────── */
 
 export default function AISettingsPanel() {
+  const { t } = useTranslation();
   const [provider, setProvider] = useState<AIProviderType>('openai');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gpt-5.2');
@@ -231,8 +233,8 @@ export default function AISettingsPanel() {
       if (window.electron?.ai?.testConnection) {
         const result = await window.electron.ai.testConnection();
         setTestResult(result.success
-          ? { success: true, message: `Conectado a ${result.provider} (${result.model})` }
-          : { success: false, message: result.error || 'La conexión falló' });
+          ? { success: true, message: `${t('settings.ai.connected_to')} ${result.provider} (${result.model})` }
+          : { success: false, message: result.error || t('settings.ai.connection_failed') });
       } else {
         setTestResult({ success: false, message: 'Test no disponible en esta versión' });
       }
@@ -289,16 +291,16 @@ export default function AISettingsPanel() {
       {/* Page header */}
       <div>
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>
-          Configuración IA
+          {t('settings.ai.title')}
         </h2>
         <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          Elige tu proveedor de inteligencia artificial y configura las claves de acceso.
+          {t('settings.ai.subtitle')}
         </p>
       </div>
 
       {/* ── PROVIDER SELECTION ── */}
       <div>
-        <SectionLabel>Proveedor</SectionLabel>
+        <SectionLabel>{t('settings.ai.provider')}</SectionLabel>
 
         <div className="space-y-2">
           {/* Dome featured card */}
@@ -332,15 +334,15 @@ export default function AISettingsPanel() {
                     </span>
                     <span className="px-1.5 py-0.5 text-[9px] font-bold rounded tracking-wide"
                       style={{ backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.2)' : DOME_GREEN_LIGHT, color: provider === 'dome' ? '#fff' : DOME_GREEN }}>
-                      RECOMENDADO
+                      {t('settings.ai.recommended')}
                     </span>
                   </div>
                   <p className="text-xs" style={{ color: provider === 'dome' ? 'rgba(255,255,255,0.7)' : 'var(--dome-text-muted)' }}>
-                    {PROVIDERS.dome.description}. Sin API key propia.
+                    {`${PROVIDERS.dome.description}. ${t('settings.ai.no_own_key')}.`}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {[{ icon: Lock, label: 'Privado' }, { icon: Zap, label: 'Rápido' }].map(({ icon: Icon, label }) => (
+                  {[{ icon: Lock, label: t('settings.ai.private') }, { icon: Zap, label: t('settings.ai.fast') }].map(({ icon: Icon, label }) => (
                     <div key={label} className="flex items-center gap-1 px-2 py-1 rounded-md"
                       style={{ backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.12)' : `${DOME_GREEN}10`, color: provider === 'dome' ? 'rgba(255,255,255,0.85)' : DOME_GREEN }}>
                       <Icon className="w-2.5 h-2.5" />
@@ -387,7 +389,7 @@ export default function AISettingsPanel() {
                     </div>
                     <div>
                       <p className="text-xs font-semibold leading-none mb-0.5" style={{ color: 'var(--dome-text)' }}>{option.label}</p>
-                      <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>API key requerida</p>
+                      <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.api_key_required')}</p>
                     </div>
                   </div>
                 </button>
@@ -420,9 +422,9 @@ export default function AISettingsPanel() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <p className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>{ollamaOption.label}</p>
-                      <span className="px-1.5 py-0.5 text-[9px] font-bold rounded" style={{ backgroundColor: `${DOME_GREEN}15`, color: DOME_GREEN }}>LOCAL</span>
+                      <span className="px-1.5 py-0.5 text-[9px] font-bold rounded" style={{ backgroundColor: `${DOME_GREEN}15`, color: DOME_GREEN }}>{t('settings.ai.local_badge')}</span>
                     </div>
-                    <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>100% privado, sin datos en la nube</p>
+                    <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.private_local')}</p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ backgroundColor: `${DOME_GREEN}10`, color: DOME_GREEN }}>
@@ -440,7 +442,7 @@ export default function AISettingsPanel() {
 
       {/* ── CONFIGURATION ── */}
       <div>
-        <SectionLabel>Configuración</SectionLabel>
+        <SectionLabel>{t('settings.ai.configuration')}</SectionLabel>
 
         {/* Cloud API key + model */}
         {(provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax') && (
@@ -471,7 +473,7 @@ export default function AISettingsPanel() {
               </div>
               {PROVIDERS[provider]?.docsUrl && (
                 <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                  Obtén tu key en{' '}
+                  {t('settings.ai.free_key_at')}{' '}
                   <a href={PROVIDERS[provider].docsUrl} target="_blank" rel="noopener noreferrer"
                     className="underline hover:opacity-80" style={{ color: DOME_GREEN }}>
                     {PROVIDERS[provider].docsUrl.replace('https://', '')}
@@ -484,14 +486,14 @@ export default function AISettingsPanel() {
             {currentProviderModels.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <FieldLabel>Modelo</FieldLabel>
+                  <FieldLabel>{t('settings.ai.model')}</FieldLabel>
                   <button
                     type="button"
                     onClick={() => setCustomModel(v => !v)}
                     className="text-[11px] font-medium hover:opacity-80"
                     style={{ color: DOME_GREEN }}
                   >
-                    {customModel ? 'Usar presets' : 'Modelo personalizado'}
+                    {customModel ? t('settings.ai.use_presets') : t('settings.ai.custom_model')}
                   </button>
                 </div>
                 {customModel ? (
@@ -510,7 +512,7 @@ export default function AISettingsPanel() {
                     showDescription={true}
                     showContextWindow={true}
                     searchable={currentProviderModels.length > 5}
-                    placeholder="Selecciona un modelo..."
+                    placeholder={t('settings.ai.model')}
                     providerType="cloud"
                   />
                 )}
@@ -529,18 +531,18 @@ export default function AISettingsPanel() {
                 <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>Estado</span>
                 {checkingOllama ? (
                   <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                    <Loader2 className="w-3 h-3 animate-spin" /> Verificando...
+                    <Loader2 className="w-3 h-3 animate-spin" /> {t('settings.ai.status_checking')}
                   </span>
                 ) : ollamaAvailable === true ? (
                   <span className="flex items-center gap-1 text-xs font-medium" style={{ color: DOME_GREEN }}>
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Conectado
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {t('settings.ai.status_connected')}
                   </span>
                 ) : ollamaAvailable === false ? (
                   <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--dome-error, #ef4444)' }}>
-                    <XCircle className="w-3.5 h-3.5" /> Sin conexión
+                    <XCircle className="w-3.5 h-3.5" /> {t('settings.ai.status_disconnected')}
                   </span>
                 ) : (
-                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Sin verificar</span>
+                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.status_unverified')}</span>
                 )}
               </div>
               <button
@@ -551,20 +553,20 @@ export default function AISettingsPanel() {
                 style={{ backgroundColor: DOME_GREEN, color: '#fff', border: 'none' }}
               >
                 <RefreshCw className={`w-3 h-3 ${checkingOllama ? 'animate-spin' : ''}`} />
-                Probar
+                {t('settings.ai.test_btn')}
               </button>
             </div>
 
             {ollamaAvailable === false && (
               <div className="p-3 rounded-lg text-xs" style={{ backgroundColor: '#f59e0b10', border: '1px solid #f59e0b25', color: '#a37b00' }}>
-                Asegúrate de tener Ollama instalado y en ejecución.{' '}
-                <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline font-medium">Descargar en ollama.ai</a>
+                {t('settings.ai.ollama_install')}{' '}
+                <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline font-medium">ollama.ai</a>
               </div>
             )}
 
             {/* Base URL */}
             <div>
-              <FieldLabel htmlFor="ai-ollama-url">URL base</FieldLabel>
+              <FieldLabel htmlFor="ai-ollama-url">{t('settings.ai.base_url')}</FieldLabel>
               <SettingsInput
                 id="ai-ollama-url"
                 type="url"
@@ -608,7 +610,7 @@ export default function AISettingsPanel() {
             {/* Chat model */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <FieldLabel>Modelo de chat</FieldLabel>
+                <FieldLabel>{t('settings.ai.chat_model')}</FieldLabel>
                 <button
                   type="button"
                   onClick={loadOllamaModels}
@@ -617,13 +619,13 @@ export default function AISettingsPanel() {
                   style={{ color: DOME_GREEN }}
                 >
                   <RefreshCw className={`w-2.5 h-2.5 ${loadingModels ? 'animate-spin' : ''}`} />
-                  Actualizar
+                  {t('settings.ai.refresh')}
                 </button>
               </div>
               {loadingModels ? (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
-                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Cargando modelos...</span>
+                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.loading_models')}</span>
                 </div>
               ) : ollamaModels.length > 0 ? (
                 <ModelSelector
@@ -634,7 +636,7 @@ export default function AISettingsPanel() {
                   showBadges={false}
                   showDescription={true}
                   showContextWindow={false}
-                  placeholder="Selecciona modelo Ollama..."
+                  placeholder={t('settings.ai.chat_model')}
                   disabled={loadingModels}
                   providerType="ollama"
                 />
@@ -656,11 +658,10 @@ export default function AISettingsPanel() {
           <SettingsCard className="space-y-4">
             <div className="rounded-lg p-4" style={{ backgroundColor: `${DOME_GREEN}08`, border: `1px solid ${DOME_GREEN}25` }}>
               <p className="text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
-                Conecta tu cuenta de Dome
+                {t('settings.ai.dome_connect_title')}
               </p>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-                Activa el proveedor administrado con el modelo automático <code className="font-mono">dome/auto</code>.
-                Abre el dashboard, inicia sesión y haz clic en "Conectar Dome Desktop".
+                {t('settings.ai.dome_connect_desc')}
               </p>
             </div>
 
@@ -672,7 +673,7 @@ export default function AISettingsPanel() {
                 className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all disabled:opacity-50"
                 style={{ backgroundColor: DOME_GREEN }}
               >
-                {domeConnecting ? 'Conectando...' : domeConnected ? 'Reconectar' : 'Conectar con Dome'}
+                {domeConnecting ? t('settings.ai.connecting') : domeConnected ? t('settings.ai.reconnect') : t('settings.ai.connect_dome')}
               </button>
               {domeConnected && (
                 <button
@@ -681,7 +682,7 @@ export default function AISettingsPanel() {
                   className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
                   style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text)', backgroundColor: 'transparent' }}
                 >
-                  Desconectar
+                  {t('settings.ai.disconnect')}
                 </button>
               )}
             </div>
@@ -689,14 +690,14 @@ export default function AISettingsPanel() {
             <div className="flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: domeConnected ? DOME_GREEN : 'var(--dome-text-muted)' }} />
               <span className="text-xs" style={{ color: domeConnected ? DOME_GREEN : 'var(--dome-text-muted)' }}>
-                {domeConnected ? 'Conectado' : 'No conectado'}
+                {domeConnected ? t('settings.ai.status_connected') : t('settings.ai.status_disconnected')}
               </span>
             </div>
 
             {domeConnected && domeQuota && domeQuota.planId !== 'unsubscribed' && (
               <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>Uso del periodo</span>
+                  <span className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>{t('settings.ai.usage_period')}</span>
                   <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
                     {domeQuota.used != null && domeQuota.limit != null
                       ? `${formatTokens(domeQuota.used)} / ${formatTokens(domeQuota.limit)}`
@@ -714,7 +715,7 @@ export default function AISettingsPanel() {
                 </div>
                 {domeQuota.periodEnd && (
                   <p className="text-[10px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                    Renovación: {new Date(domeQuota.periodEnd).toLocaleDateString()}
+                    {t('settings.ai.renewal')}: {new Date(domeQuota.periodEnd).toLocaleDateString()}
                   </p>
                 )}
               </div>
@@ -725,7 +726,7 @@ export default function AISettingsPanel() {
 
       {/* ── WEB SEARCH ── */}
       <div>
-        <SectionLabel>Búsqueda web</SectionLabel>
+        <SectionLabel>{t('settings.ai.brave_search_title')}</SectionLabel>
         <SettingsCard className="space-y-4">
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: DOME_GREEN_LIGHT }}>
@@ -734,13 +735,13 @@ export default function AISettingsPanel() {
             <div>
               <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>Brave Search</p>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-                Many y los agentes usan Brave Search para búsquedas en la web. Sin clave, usará scraping HTML como fallback (menos fiable).
+                {t('settings.ai.brave_search_desc')}
               </p>
             </div>
           </div>
 
           <div>
-            <FieldLabel htmlFor="brave-search-key">Brave Search API Key</FieldLabel>
+            <FieldLabel htmlFor="brave-search-key">{t('settings.ai.brave_search_key_label')}</FieldLabel>
             <div className="relative">
               <input
                 id="brave-search-key"
@@ -763,7 +764,7 @@ export default function AISettingsPanel() {
               </button>
             </div>
             <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-              Clave gratuita en{' '}
+              {t('settings.ai.free_key_at')}{' '}
               <a href="https://api.search.brave.com/" target="_blank" rel="noopener noreferrer"
                 className="underline hover:opacity-80" style={{ color: DOME_GREEN }}>
                 api.search.brave.com
@@ -779,12 +780,12 @@ export default function AISettingsPanel() {
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
               style={{ backgroundColor: DOME_GREEN, color: '#fff' }}
             >
-              {testingWebSearch ? <><Loader2 className="w-3 h-3 animate-spin" /> Probando...</> : 'Probar Brave Search'}
+              {testingWebSearch ? <><Loader2 className="w-3 h-3 animate-spin" /> {t('settings.ai.testing')}</> : t('settings.ai.test_brave')}
             </button>
             <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: braveSearchApiKey.trim() ? DOME_GREEN : '#f59e0b' }} />
               <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                {braveSearchApiKey.trim() ? 'Configurado' : 'Sin configurar'}
+                {braveSearchApiKey.trim() ? t('settings.ai.configured') : t('settings.ai.not_configured')}
               </span>
             </div>
           </div>
@@ -810,7 +811,7 @@ export default function AISettingsPanel() {
           className="px-5 py-2 rounded-lg text-sm font-medium text-white transition-all"
           style={{ backgroundColor: DOME_GREEN }}
         >
-          {saved ? '✓ Guardado' : 'Guardar configuración'}
+          {saved ? t('settings.ai.saved_config') : t('settings.ai.save_config')}
         </button>
         <button
           type="button"
@@ -819,7 +820,7 @@ export default function AISettingsPanel() {
           className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
           style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
         >
-          {testing ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Probando...</> : 'Probar conexión'}
+          {testing ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('settings.ai.testing')}</> : t('settings.ai.test_connection')}
         </button>
       </div>
 

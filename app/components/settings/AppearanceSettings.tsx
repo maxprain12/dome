@@ -1,5 +1,6 @@
 
 import { Sun, Moon, Monitor } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const DOME_GREEN = '#596037';
 const DOME_GREEN_LIGHT = '#E0EAB4';
@@ -20,29 +21,34 @@ function SettingsCard({ children, className = '' }: { children: React.ReactNode;
   );
 }
 
-const themes = [
-  { value: 'light', label: 'Claro', icon: Sun, description: 'Blanco limpio con verdes académicos' },
-  { value: 'system', label: 'Sistema', icon: Monitor, description: 'Sigue la preferencia del sistema operativo' },
-  { value: 'dark', label: 'Oscuro', icon: Moon, description: 'Próximamente' },
-];
-
 export default function AppearanceSettings() {
+  const { t } = useTranslation();
   // Only light mode is supported currently
   const currentTheme = 'light';
+
+  const themes = [
+    { value: 'light', labelKey: 'settings.appearance.light', icon: Sun, descKey: 'settings.appearance.light_desc' },
+    { value: 'system', labelKey: 'settings.appearance.system', icon: Monitor, descKey: 'settings.appearance.system_desc' },
+    { value: 'dark', labelKey: 'settings.appearance.dark', icon: Moon, descKey: 'settings.appearance.dark_desc' },
+  ];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
       <div>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>Apariencia</h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Personaliza cómo se ve Dome.</p>
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>
+          {t('settings.appearance.title')}
+        </h2>
+        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          {t('settings.appearance.subtitle')}
+        </p>
       </div>
 
       {/* ── Theme ── */}
       <div>
-        <SectionLabel>Tema</SectionLabel>
+        <SectionLabel>{t('settings.appearance.theme')}</SectionLabel>
         <div className="grid grid-cols-3 gap-2">
-          {themes.map(({ value, label, icon: Icon, description }) => {
+          {themes.map(({ value, labelKey, icon: Icon, descKey }) => {
             const isActive = currentTheme === value;
             const isDisabled = value === 'dark' || value === 'system';
             return (
@@ -63,31 +69,35 @@ export default function AppearanceSettings() {
                   <Icon className="w-4 h-4" style={{ color: isActive ? DOME_GREEN : 'var(--dome-text-muted)' }} />
                 </div>
                 <p className="text-xs font-semibold mb-0.5" style={{ color: isActive ? DOME_GREEN : 'var(--dome-text)' }}>
-                  {label}
+                  {t(labelKey)}
                 </p>
                 <p className="text-[10px] leading-tight" style={{ color: 'var(--dome-text-muted)' }}>
-                  {description}
+                  {t(descKey)}
                 </p>
               </button>
             );
           })}
         </div>
         <p className="text-[11px] mt-2" style={{ color: 'var(--dome-text-muted)', opacity: 0.7 }}>
-          El tema oscuro y la sincronización con el sistema estarán disponibles próximamente.
+          {t('settings.appearance.dark_notice')}
         </p>
       </div>
 
       {/* ── Customization placeholder ── */}
       <div>
-        <SectionLabel>Personalización</SectionLabel>
+        <SectionLabel>{t('settings.appearance.customization')}</SectionLabel>
         <SettingsCard className="p-4">
           <div className="flex items-center gap-3 opacity-40">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
               <div className="w-4 h-4 rounded-full" style={{ backgroundColor: DOME_GREEN_LIGHT }} />
             </div>
             <div>
-              <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Opciones avanzadas de personalización</p>
-              <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>Próximamente — fuentes, densidad, colores de acento</p>
+              <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>
+                {t('settings.appearance.custom_label')}
+              </p>
+              <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
+                {t('settings.appearance.custom_desc')}
+              </p>
             </div>
           </div>
         </SettingsCard>

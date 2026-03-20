@@ -8,6 +8,7 @@ import type { ManyAgent } from '@/types';
 import { showToast } from '@/lib/store/useToastStore';
 import AgentOnboarding from './AgentOnboarding';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useTranslation } from 'react-i18next';
 
 interface AgentManagementViewProps {
   onAgentSelect?: (agentId: string) => void;
@@ -15,6 +16,7 @@ interface AgentManagementViewProps {
 }
 
 export default function AgentManagementView({ onAgentSelect, onShowAutomations }: AgentManagementViewProps) {
+  const { t } = useTranslation();
   const [agents, setAgents] = useState<ManyAgent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [editingAgent, setEditingAgent] = useState<ManyAgent | null>(null);
@@ -45,14 +47,14 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
   const handleEditComplete = useCallback((agent: ManyAgent) => {
     setEditingAgent(null);
     setAgents((prev) => prev.map((a) => (a.id === agent.id ? agent : a)));
-    showToast('success', 'Agente actualizado');
+    showToast('success', t('toast.agent_updated'));
     notifyAgentsChanged();
   }, [notifyAgentsChanged]);
 
   const handleNewComplete = useCallback((agent: ManyAgent) => {
     setShowNewAgent(false);
     setAgents((prev) => [agent, ...prev]);
-    showToast('success', 'Agente creado');
+    showToast('success', t('toast.agent_created'));
     notifyAgentsChanged();
     onAgentSelect?.(agent.id);
   }, [onAgentSelect, notifyAgentsChanged]);
@@ -65,15 +67,15 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
     if (result.success) {
       setAgents((prev) => prev.filter((a) => a.id !== deleteTarget.id));
       setDeleteTarget(null);
-      showToast('success', 'Agente eliminado');
+      showToast('success', t('toast.agent_deleted'));
       notifyAgentsChanged();
     } else {
-      showToast('error', result.error || 'Error al eliminar');
+      showToast('error', result.error || t('toast.agent_delete_error'));
     }
   }, [deleteTarget, notifyAgentsChanged]);
 
   const handleExport = useCallback(() => {
-    if (agents.length === 0) { showToast('error', 'No hay agentes para exportar'); return; }
+    if (agents.length === 0) { showToast('error', t('toast.no_agents_to_export')); return; }
     const json = exportAgentsConfig(agents);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -82,8 +84,8 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
     a.download = `dome-agents-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast('success', `${agents.length} agente${agents.length !== 1 ? 's' : ''} exportado${agents.length !== 1 ? 's' : ''}`);
-  }, [agents]);
+    showToast('success', t('toast.agents_exported', { count: agents.length }));
+  }, [agents, t]);
 
   const handleImportFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -95,17 +97,17 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
       const result = await importAgentsConfig(text);
       if (result.success && result.data) {
         setAgents((prev) => [...prev, ...result.data!]);
-        showToast('success', `${result.data.length} agente${result.data.length !== 1 ? 's' : ''} importado${result.data.length !== 1 ? 's' : ''}`);
+        showToast('success', t('toast.agents_exported', { count: result.data.length }));
         notifyAgentsChanged();
       } else {
-        showToast('error', result.error || 'Error al importar');
+        showToast('error', result.error || t('toast.agent_import_error'));
       }
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Error al importar');
+      showToast('error', err instanceof Error ? err.message : t('toast.agent_import_error'));
     } finally {
       setImporting(false);
     }
-  }, [notifyAgentsChanged]);
+  }, [notifyAgentsChanged, t]);
 
   if (editingAgent) {
     return (
@@ -147,10 +149,10 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
             </div>
             <div>
               <h1 className="text-lg font-bold" style={{ color: 'var(--dome-text)' }}>
-                Biblioteca de Agentes
+                {t('agent.agent_library')}
               </h1>
               <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                {agents.length} agente{agents.length !== 1 ? 's' : ''} configurado{agents.length !== 1 ? 's' : ''}
+                {agents.length === 1 ? t('agent.agents_configured_one', { count: agents.length }) : t('agent.agents_configured_other', { count: agents.length })}
               </p>
             </div>
           </div>
@@ -160,7 +162,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               onClick={handleExport}
               disabled={agents.length === 0}
               className="flex items-center justify-center w-9 h-9 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
-              title="Exportar agentes"
+              title={t('agent.export_agents')}
             >
               <Download className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
             </button>
@@ -170,7 +172,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               onClick={() => fileInputRef.current?.click()}
               disabled={importing}
               className="flex items-center justify-center w-9 h-9 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
-              title="Importar agentes"
+              title={t('agent.import_agents')}
             >
               {importing
                 ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
@@ -183,7 +185,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               style={{ background: 'var(--dome-accent)', color: 'white' }}
             >
               <Plus className="w-4 h-4" />
-              Nuevo agente
+              {t('ui.add')}
             </button>
           </div>
         </div>
@@ -201,9 +203,9 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'var(--dome-accent-bg)' }}>
                 <FolderOpen className="w-8 h-8" style={{ color: 'var(--dome-accent)' }} />
               </div>
-              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>No hay agentes todavía</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('agent.no_agents_yet')}</p>
               <p className="text-xs max-w-sm text-center">
-                Crea agentes especializados con instrucciones, herramientas y conexiones personalizadas.
+                {t('agent.no_agents_desc')}
               </p>
               <button
                 onClick={() => setShowNewAgent(true)}
@@ -211,7 +213,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                 style={{ background: 'var(--dome-accent)', color: 'white' }}
               >
                 <Plus className="w-4 h-4" />
-                Crear mi primer agente
+                {t('agent.create_first_agent')}
               </button>
             </div>
           ) : (
@@ -261,7 +263,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onShowAutomations(agent.id, agent.name); }}
                         className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)] transition-colors"
-                        title="Automatizaciones"
+                        title={t('agent.automations')}
                       >
                         <Zap className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
                       </button>
@@ -270,7 +272,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setEditingAgent(agent); }}
                       className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)] transition-colors"
-                      title="Editar"
+                      title={t('ui.edit')}
                     >
                       <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} />
                     </button>
@@ -278,7 +280,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setDeleteTarget(agent); }}
                       className="p-1.5 rounded-lg hover:bg-[var(--error-bg)] transition-colors"
-                      title="Eliminar"
+                      title={t('ui.delete')}
                     >
                       <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--error)' }} />
                     </button>
@@ -292,11 +294,11 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
 
       <ConfirmDialog
         isOpen={!!deleteTarget}
-        title="Eliminar agente"
-        message={deleteTarget ? `¿Eliminar "${deleteTarget.name}"? Esta acción no se puede deshacer.` : ''}
+        title={t('agent.delete_agent')}
+        message={deleteTarget ? t('agent.delete_agent_confirm', { name: deleteTarget.name }) : ''}
         variant="danger"
-        confirmLabel="Eliminar"
-        cancelLabel="Cancelar"
+        confirmLabel={t('ui.delete')}
+        cancelLabel={t('ui.cancel')}
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />

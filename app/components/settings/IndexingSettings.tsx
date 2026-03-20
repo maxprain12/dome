@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, CheckCircle2, AlertCircle, BookOpen, RefreshCw } from 'lucide-react';
 
 const DOME_GREEN = '#596037';
@@ -38,6 +39,7 @@ function SettingsCard({ children, className = '' }: { children: React.ReactNode;
 }
 
 export default function IndexingSettings() {
+  const { t } = useTranslation();
   const [pageIndexStatus, setPageIndexStatus] = useState<PageIndexStatus | null>(null);
   const [indexingMissing, setIndexingMissing] = useState(false);
   const [reindexingAll, setReindexingAll] = useState(false);
@@ -116,19 +118,19 @@ export default function IndexingSettings() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>Indexación</h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Gestiona el índice de documentos para búsqueda semántica.</p>
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>{t('settings.indexing.title')}</h2>
+        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.indexing.description')}</p>
       </div>
 
       {/* Stats */}
       {pageIndexStatus?.success && (
         <div>
-          <SectionLabel>Estado del índice</SectionLabel>
+          <SectionLabel>{t('settings.indexing.section_status')}</SectionLabel>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { label: 'Totales', value: pageIndexStatus.total_indexable, color: DOME_GREEN },
-              { label: 'Indexados', value: pageIndexStatus.indexed_documents, color: DOME_GREEN },
-              { label: 'Pendientes', value: pageIndexStatus.unindexed, color: pageIndexStatus.unindexed > 0 ? '#a37b00' : DOME_GREEN },
+              { label: t('settings.indexing.total'), value: pageIndexStatus.total_indexable, color: DOME_GREEN },
+              { label: t('settings.indexing.indexed'), value: pageIndexStatus.indexed_documents, color: DOME_GREEN },
+              { label: t('settings.indexing.pending'), value: pageIndexStatus.unindexed, color: pageIndexStatus.unindexed > 0 ? '#a37b00' : DOME_GREEN },
             ].map(({ label, value, color }) => (
               <SettingsCard key={label} className="p-4">
                 <p className="text-2xl font-bold" style={{ color }}>{value}</p>
@@ -138,7 +140,7 @@ export default function IndexingSettings() {
           </div>
           {lastIndexedDate && (
             <p className="text-[11px] mt-2" style={{ color: 'var(--dome-text-muted)', opacity: 0.7 }}>
-              Última indexación: {lastIndexedDate}
+              {t('settings.indexing.last_indexed')}: {lastIndexedDate}
             </p>
           )}
         </div>
@@ -149,7 +151,7 @@ export default function IndexingSettings() {
         <SettingsCard className="p-4 space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-xs truncate max-w-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              {indexProgress.status === 'indexing' && indexProgress.title ? `Indexando: ${indexProgress.title}` : 'Preparando...'}
+              {indexProgress.status === 'indexing' && indexProgress.title ? `${t('settings.indexing.progress_indexing')}: ${indexProgress.title}` : t('settings.indexing.progress_preparing')}
             </p>
             <span className="text-xs font-medium" style={{ color: DOME_GREEN }}>
               {indexProgress.current} / {indexProgress.total}
@@ -166,8 +168,8 @@ export default function IndexingSettings() {
         <div className="flex items-center gap-2 p-3 rounded-xl text-sm"
           style={{ backgroundColor: `${DOME_GREEN}12`, border: `1px solid ${DOME_GREEN}30`, color: DOME_GREEN }}>
           <CheckCircle2 className="w-4 h-4 shrink-0" />
-          {indexResult.indexed} {indexResult.indexed === 1 ? 'documento indexado' : 'documentos indexados'}
-          {indexResult.failed > 0 && `, ${indexResult.failed} con errores`}
+          {indexResult.indexed} {indexResult.indexed === 1 ? t('settings.indexing.result_indexed_one') : t('settings.indexing.result_indexed_many')}
+          {indexResult.failed > 0 && `, ${indexResult.failed} ${t('settings.indexing.result_with_errors')}`}
         </div>
       )}
 
@@ -181,13 +183,13 @@ export default function IndexingSettings() {
 
       {/* Actions */}
       <div>
-        <SectionLabel>Acciones</SectionLabel>
+        <SectionLabel>{t('settings.indexing.section_actions')}</SectionLabel>
         <div className="flex flex-wrap gap-2">
           {pageIndexStatus?.unindexed === 0 && !indexingMissing && !indexResult ? (
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs"
               style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}>
               <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />
-              Todos los documentos están indexados
+              {t('settings.indexing.all_indexed')}
             </div>
           ) : (
             <button
@@ -198,7 +200,7 @@ export default function IndexingSettings() {
               style={{ backgroundColor: DOME_GREEN }}
             >
               {indexingMissing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
-              {indexingMissing ? 'Indexando...' : `Indexar ${pageIndexStatus?.unindexed ?? ''} pendientes`}
+              {indexingMissing ? t('settings.indexing.indexing_btn') : `${t('settings.indexing.index_pending')} ${pageIndexStatus?.unindexed ?? ''}`}
             </button>
           )}
           <button
@@ -209,7 +211,7 @@ export default function IndexingSettings() {
             style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
           >
             {reindexingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-            {reindexingAll ? 'Reindexando...' : 'Reindexar todos'}
+            {reindexingAll ? t('settings.indexing.reindexing') : t('settings.indexing.reindex_all')}
           </button>
         </div>
       </div>

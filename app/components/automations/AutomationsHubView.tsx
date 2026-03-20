@@ -37,6 +37,7 @@ import { getWorkflows } from '@/lib/agent-canvas/api';
 import type { ManyAgent } from '@/types';
 import type { CanvasWorkflow } from '@/types/canvas';
 import { showToast } from '@/lib/store/useToastStore';
+import { useTranslation } from 'react-i18next';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -152,13 +153,14 @@ interface AutomationEditDrawerProps {
 function AutomationEditDrawer({
   draft, agents, workflows, isNew, saving, onDraftChange, onSave, onCancel, embedded,
 }: AutomationEditDrawerProps) {
+  const { t } = useTranslation();
   const formFields = (
     <div className={embedded ? 'flex flex-col gap-4' : 'flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4'}>
 
         {/* Target — only shown when creating */}
         {isNew && (
           <div className="flex flex-col gap-2">
-            <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Destino</label>
+            <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.destination')}</label>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -170,7 +172,7 @@ function AutomationEditDrawer({
                   color: draft.targetType === 'agent' ? '#fff' : 'var(--dome-text-muted)',
                 }}
               >
-                <Bot className="w-3.5 h-3.5" /> Agente
+                <Bot className="w-3.5 h-3.5" /> {t('automation.agent')}
               </button>
               <button
                 type="button"
@@ -182,7 +184,7 @@ function AutomationEditDrawer({
                   color: draft.targetType === 'workflow' ? '#fff' : 'var(--dome-text-muted)',
                 }}
               >
-                <Workflow className="w-3.5 h-3.5" /> Workflow
+                <Workflow className="w-3.5 h-3.5" /> {t('automation.workflow')}
               </button>
             </div>
             <select
@@ -194,7 +196,7 @@ function AutomationEditDrawer({
                 color: 'var(--dome-text)', outline: 'none',
               }}
             >
-              <option value="">Selecciona {draft.targetType === 'agent' ? 'un agente' : 'un workflow'}...</option>
+              <option value="">{t('automation.select_agent_or_workflow', { type: draft.targetType === 'agent' ? t('automation.agent') : t('automation.workflow') })}</option>
               {draft.targetType === 'agent'
                 ? agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)
                 : workflows.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)
@@ -205,12 +207,12 @@ function AutomationEditDrawer({
 
         {/* Title */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Nombre</label>
+          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.name')}</label>
           <input
             type="text"
             value={draft.title}
             onChange={(e) => onDraftChange({ title: e.target.value })}
-            placeholder="Ej. Briefing diario"
+            placeholder={t('automation.name_placeholder')}
             className="w-full text-sm rounded-lg border px-3 py-2"
             style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
           />
@@ -218,12 +220,12 @@ function AutomationEditDrawer({
 
         {/* Description */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Descripción</label>
+          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.description')}</label>
           <input
             type="text"
             value={draft.description}
             onChange={(e) => onDraftChange({ description: e.target.value })}
-            placeholder="Para qué sirve esta automatización"
+            placeholder={t('automation.description_placeholder')}
             className="w-full text-sm rounded-lg border px-3 py-2"
             style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
           />
@@ -231,16 +233,16 @@ function AutomationEditDrawer({
 
         {/* Trigger */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Trigger</label>
+          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.trigger')}</label>
           <select
             value={draft.triggerType}
             onChange={(e) => onDraftChange({ triggerType: e.target.value as DraftState['triggerType'] })}
             className="w-full text-sm rounded-lg border px-3 py-2"
             style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
           >
-            <option value="manual">Manual</option>
-            <option value="schedule">Programada</option>
-            <option value="contextual">Contextual</option>
+            <option value="manual">{t('automation.manual')}</option>
+            <option value="schedule">{t('automation.scheduled')}</option>
+            <option value="contextual">{t('automation.contextual')}</option>
           </select>
         </div>
 
@@ -248,15 +250,15 @@ function AutomationEditDrawer({
         {draft.triggerType === 'schedule' && (
           <div className="flex flex-col gap-3 rounded-xl p-3" style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Cadencia</label>
+              <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.cadence')}</label>
               <select
                 value={draft.cadence}
                 onChange={(e) => onDraftChange({ cadence: e.target.value as DraftState['cadence'] })}
                 className="w-full text-sm rounded-lg border px-3 py-2"
                 style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)', outline: 'none' }}
               >
-                <option value="daily">Diaria</option>
-                <option value="weekly">Semanal</option>
+                <option value="daily">{t('automation.daily')}</option>
+                <option value="weekly">{t('automation.weekly')}</option>
                 <option value="cron-lite">Cada N minutos</option>
               </select>
             </div>
@@ -319,7 +321,7 @@ function AutomationEditDrawer({
 
         {/* Output mode */}
         <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Salida</label>
+          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.output')}</label>
           <select
             value={draft.outputMode}
             onChange={(e) => onDraftChange({ outputMode: e.target.value as AutomationOutputMode })}
@@ -327,9 +329,9 @@ function AutomationEditDrawer({
             style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
           >
             <option value="chat_only">Solo chat</option>
-            <option value="note">Nota</option>
-            <option value="studio_output">Studio</option>
-            <option value="mixed">Mixta</option>
+            <option value="note">{t('automation.note')}</option>
+            <option value="studio_output">{t('automation.studio')}</option>
+            <option value="mixed">{t('automation.mixed')}</option>
           </select>
         </div>
 
@@ -419,6 +421,7 @@ interface AutomationsTabProps {
 }
 
 function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProps) {
+  const { t } = useTranslation();
   const [automations, setAutomations] = useState<AutomationDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<AutomationFilter>(initialFilter ?? { targetType: 'all' });
@@ -502,11 +505,11 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
         inputTemplate: { prompt: draft.prompt.trim() },
         outputMode: draft.outputMode,
       });
-      showToast('success', draft.id ? 'Automatización actualizada' : 'Automatización creada');
+      showToast('success', draft.id ? t('toast.automation_updated') : t('toast.automation_created'));
       setFormMode('hidden');
       await load();
     } catch {
-      showToast('error', 'No se pudo guardar');
+      showToast('error', t('toast.automation_save_error'));
     } finally {
       setSaving(false);
     }
@@ -516,10 +519,10 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
     setRunningId(id);
     try {
       await runAutomationNow(id);
-      showToast('success', 'Automatización iniciada');
+      showToast('success', t('toast.automation_started'));
       await load();
     } catch {
-      showToast('error', 'Error al ejecutar');
+      showToast('error', t('toast.automation_run_error'));
     } finally {
       setRunningId(null);
     }
@@ -527,7 +530,7 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
 
   const handleDelete = async (id: string) => {
     await deleteAutomation(id);
-    showToast('success', 'Eliminada');
+    showToast('success', t('toast.automation_deleted'));
     setAutomations((prev) => prev.filter((a) => a.id !== id));
   };
 
@@ -1014,6 +1017,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
 // ─── Runs Tab ─────────────────────────────────────────────────────────────────
 
 function RunsTab() {
+  const { t } = useTranslation();
   const [allRuns, setAllRuns] = useState<PersistentRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRun, setSelectedRun] = useState<PersistentRun | null>(null);
@@ -1061,7 +1065,7 @@ function RunsTab() {
       if (selectedRun?.id === runId) setSelectedRun(null);
       setAllRuns((prev) => prev.filter((r) => r.id !== runId));
     } catch {
-      showToast('error', 'No se pudo eliminar el run');
+      showToast('error', t('toast.run_delete_error'));
     } finally {
       setDeletingId(null);
     }
@@ -1217,6 +1221,7 @@ interface AutomationsHubViewProps {
 }
 
 export default function AutomationsHubView({ onAgentSelect }: AutomationsHubViewProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<HubTab>('agents');
   const [automationsFilter, setAutomationsFilter] = useState<AutomationFilter | undefined>();
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);

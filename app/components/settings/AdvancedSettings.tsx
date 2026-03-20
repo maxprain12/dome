@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { Download, RefreshCw, RotateCw, FileStack, CheckCircle2, Upload, ArrowDownToLine } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { CitationStyle } from '@/types';
 
@@ -17,12 +18,12 @@ interface UpdaterState {
 }
 
 const citationStyles: { value: CitationStyle; label: string; description: string }[] = [
-  { value: 'apa',      label: 'APA',       description: 'American Psychological Association' },
-  { value: 'mla',      label: 'MLA',       description: 'Modern Language Association' },
-  { value: 'chicago',  label: 'Chicago',   description: 'Chicago Manual of Style' },
-  { value: 'harvard',  label: 'Harvard',   description: 'Harvard Referencing' },
-  { value: 'vancouver',label: 'Vancouver', description: 'Vancouver System' },
-  { value: 'ieee',     label: 'IEEE',      description: 'Electrical & Electronics Engineers' },
+  { value: 'apa',       label: 'APA',       description: 'American Psychological Association' },
+  { value: 'mla',       label: 'MLA',       description: 'Modern Language Association' },
+  { value: 'chicago',   label: 'Chicago',   description: 'Chicago Manual of Style' },
+  { value: 'harvard',   label: 'Harvard',   description: 'Harvard Referencing' },
+  { value: 'vancouver', label: 'Vancouver', description: 'Vancouver System' },
+  { value: 'ieee',      label: 'IEEE',      description: 'Electrical & Electronics Engineers' },
 ];
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -72,6 +73,7 @@ function ToggleRow({ label, description, checked, onChange }: { label: string; d
 }
 
 export default function AdvancedSettings() {
+  const { t } = useTranslation();
   const { citationStyle, autoSave, autoBackup, updateCitationStyle, updatePreferences } = useAppStore();
   const [updaterState, setUpdaterState] = useState<UpdaterState>({ status: 'idle' });
   const [appVersion, setAppVersion] = useState<string>('');
@@ -119,19 +121,23 @@ export default function AdvancedSettings() {
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
       <div>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>Avanzado</h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Actualizaciones, preferencias del sistema y datos.</p>
+        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>
+          {t('settings.advanced.title')}
+        </h2>
+        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          {t('settings.advanced.subtitle')}
+        </p>
       </div>
 
       {/* ── Updates ── */}
       <div>
-        <SectionLabel>Actualizaciones</SectionLabel>
+        <SectionLabel>{t('settings.advanced.updates')}</SectionLabel>
         <SettingsCard className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>Dome</p>
               <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                Versión actual: <span className="font-mono">{appVersion || '—'}</span>
+                {t('settings.advanced.current_version')}: <span className="font-mono">{appVersion || '—'}</span>
               </p>
             </div>
 
@@ -141,17 +147,17 @@ export default function AdvancedSettings() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                 style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
               >
-                <RefreshCw className="w-3 h-3" /> Buscar actualizaciones
+                <RefreshCw className="w-3 h-3" /> {t('settings.advanced.check_updates')}
               </button>
             )}
             {updaterState.status === 'checking' && (
               <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                <RefreshCw className="w-3 h-3 animate-spin" /> Verificando...
+                <RefreshCw className="w-3 h-3 animate-spin" /> {t('settings.advanced.checking')}
               </span>
             )}
             {updaterState.status === 'not-available' && (
               <span className="text-xs flex items-center gap-1.5" style={{ color: DOME_GREEN }}>
-                <CheckCircle2 className="w-3.5 h-3.5" /> Al día
+                <CheckCircle2 className="w-3.5 h-3.5" /> {t('settings.advanced.up_to_date')}
               </span>
             )}
             {updaterState.status === 'available' && (
@@ -160,7 +166,7 @@ export default function AdvancedSettings() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
                 style={{ backgroundColor: DOME_GREEN }}
               >
-                <Download className="w-3 h-3" /> Descargar v{updaterState.version}
+                <Download className="w-3 h-3" /> {t('settings.advanced.download_version', { version: updaterState.version })}
               </button>
             )}
             {updaterState.status === 'downloaded' && (
@@ -169,12 +175,12 @@ export default function AdvancedSettings() {
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
                 style={{ backgroundColor: DOME_GREEN }}
               >
-                <RotateCw className="w-3 h-3" /> Reiniciar e instalar
+                <RotateCw className="w-3 h-3" /> {t('settings.advanced.restart_install')}
               </button>
             )}
             {updaterState.status === 'error' && (
               <span className="text-xs" style={{ color: 'var(--dome-error, #ef4444)' }}>
-                {updaterState.error || 'Error al verificar'}
+                {updaterState.error || t('settings.advanced.error_update')}
               </span>
             )}
           </div>
@@ -182,7 +188,7 @@ export default function AdvancedSettings() {
           {updaterState.status === 'downloading' && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Descargando...</span>
+                <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.advanced.downloading')}</span>
                 <span className="text-xs font-medium" style={{ color: DOME_GREEN }}>{updaterState.percent?.toFixed(0) ?? 0}%</span>
               </div>
               <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--dome-border)' }}>
@@ -198,18 +204,18 @@ export default function AdvancedSettings() {
 
       {/* ── Preferences ── */}
       <div>
-        <SectionLabel>Preferencias</SectionLabel>
+        <SectionLabel>{t('settings.advanced.preferences')}</SectionLabel>
         <SettingsCard>
           <ToggleRow
-            label="Guardado automático"
-            description="Guarda tu trabajo automáticamente mientras escribes"
+            label={t('settings.advanced.auto_save')}
+            description={t('settings.advanced.auto_save_desc')}
             checked={autoSave}
             onChange={() => updatePreferences({ autoSave: !autoSave })}
           />
           <div style={{ height: 1, backgroundColor: 'var(--dome-border)', margin: '0 16px' }} />
           <ToggleRow
-            label="Backup automático"
-            description="Crea copias de seguridad de tus datos periódicamente"
+            label={t('settings.advanced.auto_backup')}
+            description={t('settings.advanced.auto_backup_desc')}
             checked={autoBackup}
             onChange={() => updatePreferences({ autoBackup: !autoBackup })}
           />
@@ -218,7 +224,7 @@ export default function AdvancedSettings() {
 
       {/* ── Citation style ── */}
       <div>
-        <SectionLabel>Estilo de citas</SectionLabel>
+        <SectionLabel>{t('settings.advanced.citation_style')}</SectionLabel>
         <div className="grid grid-cols-3 gap-2">
           {citationStyles.map((style) => {
             const isActive = citationStyle === style.value;
@@ -245,39 +251,41 @@ export default function AdvancedSettings() {
         </div>
       </div>
 
-      {/* ── Sync ── */}
+      {/* ── Data ── */}
       <div>
-        <SectionLabel>Datos</SectionLabel>
+        <SectionLabel>{t('settings.advanced.data')}</SectionLabel>
         <SettingsCard className="p-4 space-y-3">
           <div>
-            <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>Exportar e importar</p>
+            <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>
+              {t('settings.advanced.export_import')}
+            </p>
             <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>
-              Mueve todos tus datos a otro equipo o crea una copia de seguridad manual.
+              {t('settings.advanced.export_import_desc')}
             </p>
             <div className="flex gap-2">
               <button
                 onClick={async () => {
                   const r = await window.electron?.sync?.export?.();
-                  if (r?.success) alert('Exportación completada en: ' + r.path);
-                  else if (!r?.cancelled) alert('Error: ' + (r?.error || 'Unknown'));
+                  if (r?.success) alert(t('settings.advanced.export_completed', { path: r.path }));
+                  else if (!r?.cancelled) alert('Error: ' + (r?.error || t('common.unknown_error')));
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
                 style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
               >
-                <ArrowDownToLine className="w-3.5 h-3.5" /> Exportar datos
+                <ArrowDownToLine className="w-3.5 h-3.5" /> {t('settings.advanced.export_data')}
               </button>
               <button
                 onClick={async () => {
                   const r = await window.electron?.sync?.import?.();
                   if (r?.success) {
-                    alert(r.restartRequired ? 'Importación completada. Reinicia Dome.' : 'Importación completada.');
+                    alert(r.restartRequired ? t('settings.advanced.import_restart') : t('settings.advanced.import_completed'));
                     if (r.restartRequired) window.location.reload();
-                  } else if (!r?.cancelled) alert('Error: ' + (r?.error || 'Unknown'));
+                  } else if (!r?.cancelled) alert('Error: ' + (r?.error || t('common.unknown_error')));
                 }}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
                 style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
               >
-                <Upload className="w-3.5 h-3.5" /> Importar datos
+                <Upload className="w-3.5 h-3.5" /> {t('settings.advanced.import_data')}
               </button>
             </div>
           </div>
@@ -287,16 +295,18 @@ export default function AdvancedSettings() {
       {/* ── Notes migration ── */}
       {typeof window !== 'undefined' && window.electron?.migration?.getNotesMigrationStatus && (
         <div>
-          <SectionLabel>Migración</SectionLabel>
+          <SectionLabel>{t('settings.advanced.migration')}</SectionLabel>
           <SettingsCard className="p-4">
-            <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>Migración de notas</p>
+            <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>
+              {t('settings.advanced.notes_migration_title')}
+            </p>
             <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>
-              Migra notas antiguas al nuevo dominio para habilitar árbol, historial y backlinks.
+              {t('settings.advanced.notes_migration_desc')}
             </p>
             {notesMigrationStatus && notesMigrationStatus.pendingMigrations > 0 ? (
               <div className="flex items-center gap-3">
                 <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                  {notesMigrationStatus.pendingMigrations} nota(s) pendiente(s)
+                  {t('settings.advanced.pending_notes', { count: notesMigrationStatus.pendingMigrations })}
                 </span>
                 <button
                   onClick={handleMigrateNotes}
@@ -305,12 +315,12 @@ export default function AdvancedSettings() {
                   style={{ backgroundColor: DOME_GREEN }}
                 >
                   <FileStack className="w-3.5 h-3.5" />
-                  {notesMigrating ? 'Migrando...' : 'Migrar notas'}
+                  {notesMigrating ? t('settings.advanced.migrating') : t('settings.advanced.migrate_notes')}
                 </button>
               </div>
             ) : notesMigrationStatus?.pendingMigrations === 0 ? (
               <span className="flex items-center gap-1.5 text-xs" style={{ color: DOME_GREEN }}>
-                <CheckCircle2 className="w-3.5 h-3.5" /> Todas las notas están migradas
+                <CheckCircle2 className="w-3.5 h-3.5" /> {t('settings.advanced.all_migrated')}
               </span>
             ) : null}
           </SettingsCard>

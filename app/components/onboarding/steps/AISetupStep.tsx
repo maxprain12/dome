@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ComponentType } from 'react';
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Shield, Sparkles, Globe, Cpu, Zap, Lock, Wifi, HardDrive } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
@@ -31,6 +32,7 @@ const DOME_GREEN_HOVER = '#4A502E';
 const DOME_GREEN_DARK = '#3B4025';
 
 export default function AISetupStep({ onComplete }: AISetupStepProps) {
+  const { t } = useTranslation();
   const [provider, setProvider] = useState<OnboardingProviderType>(DOME_PROVIDER_ENABLED ? 'dome' : 'openai');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gpt-4o');
@@ -87,7 +89,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
       onComplete();
     } catch (error) {
       console.error('[AISetupStep] Error al guardar:', error);
-      setSaveError(error instanceof Error ? error.message : 'Error saving configuration');
+      setSaveError(error instanceof Error ? error.message : t('onboarding.error_saving_config'));
     }
   };
 
@@ -234,23 +236,23 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                       color: provider === 'dome' ? '#fff' : DOME_GREEN,
                     }}
                   >
-                    RECOMENDADO
+                    {t('onboarding.recommended')}
                   </span>
                 </div>
                 <p
                   className="text-xs"
                   style={{ color: provider === 'dome' ? 'rgba(255,255,255,0.75)' : 'var(--dome-text-muted)' }}
                 >
-                  {PROVIDERS.dome.description}. Sin necesidad de API key propia.
+                  {PROVIDERS.dome.description}. {t('onboarding.no_api_key_needed')}
                 </p>
               </div>
 
               {/* Features & checkmark */}
-              <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0">
                 <div className="flex gap-1.5">
                   {[
-                    { icon: Lock, label: 'Privado' },
-                    { icon: Zap, label: 'Rápido' },
+                    { icon: Lock, label: t('onboarding.private') },
+                    { icon: Zap, label: t('onboarding.fast') },
                   ].map(({ icon: Icon, label }) => (
                     <div
                       key={label}
@@ -314,7 +316,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                       {option.label}
                     </p>
                     <p className="text-[10px] leading-tight" style={{ color: 'var(--dome-text-muted)' }}>
-                      API key requerida
+                      {t('onboarding.api_key_required')}
                     </p>
                   </div>
                 </div>
@@ -365,7 +367,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                     </span>
                   </div>
                   <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
-                    100% privado, sin datos en la nube
+                    {t('onboarding.local_private')}
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -377,7 +379,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                     }}
                   >
                     <HardDrive className="w-2.5 h-2.5" />
-                    <span className="text-[10px] font-medium">Offline</span>
+                    <span className="text-[10px] font-medium">{t('onboarding.offline')}</span>
                   </div>
                   {isSelected && (
                     <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />
@@ -399,7 +401,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             border: provider === 'skip' ? `1px solid ${DOME_GREEN}40` : '1px solid transparent',
           }}
         >
-          Configurar más tarde →
+            {t('onboarding.configure_later')} →
         </button>
       </div>
 
@@ -411,14 +413,14 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
         >
           <div>
             <label htmlFor="api-key" className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
-              API Key
+              {t('onboarding.api_key')}
             </label>
             <input
               id="api-key"
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || 'Introduce tu API key...'}
+              placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || t('onboarding.enter_api_key')}
               className="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-colors"
               style={{
                 backgroundColor: 'var(--dome-bg-hover)',
@@ -430,7 +432,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             />
             {PROVIDERS[provider]?.docsUrl && (
               <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                Obtén tu key en{' '}
+                {t('onboarding.get_key_at')}{' '}
                 <a
                   href={PROVIDERS[provider].docsUrl}
                   target="_blank"
@@ -446,7 +448,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
 
           <div>
             <label className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
-              Modelo
+              {t('onboarding.model')}
             </label>
             <ModelSelector
               models={currentProviderModels.slice(0, 6)}
@@ -456,7 +458,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               showDescription={false}
               showContextWindow={false}
               searchable={currentProviderModels.length > 5}
-              placeholder="Selecciona un modelo..."
+              placeholder={t('onboarding.select_model')}
               providerType="cloud"
             />
           </div>
@@ -476,24 +478,24 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}
           >
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>Estado</span>
+              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>{t('onboarding.status')}</span>
               {checkingOllama ? (
                 <div className="flex items-center gap-1.5">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
-                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Verificando...</span>
+                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('onboarding.verifying')}</span>
                 </div>
               ) : ollamaAvailable === true ? (
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />
-                  <span className="text-xs font-medium" style={{ color: DOME_GREEN }}>Conectado</span>
+                  <span className="text-xs font-medium" style={{ color: DOME_GREEN }}>{t('onboarding.connected')}</span>
                 </div>
               ) : ollamaAvailable === false ? (
                 <div className="flex items-center gap-1.5" style={{ color: '#ef4444' }}>
                   <XCircle className="w-3.5 h-3.5" />
-                  <span className="text-xs font-medium">No disponible</span>
+                  <span className="text-xs font-medium">{t('onboarding.not_available')}</span>
                 </div>
               ) : (
-                <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Sin verificar</span>
+                <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('onboarding.not_verified')}</span>
               )}
             </div>
             <button
@@ -510,22 +512,22 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               }}
             >
               <RefreshCw className={`w-3 h-3 ${checkingOllama ? 'animate-spin' : ''}`} />
-              Probar conexión
+              {t('onboarding.test_connection')}
             </button>
           </div>
 
           {ollamaAvailable === false && (
             <div className="p-3 rounded-lg" style={{ backgroundColor: '#f59e0b10', border: '1px solid #f59e0b25', color: '#a37b00' }}>
               <p className="text-xs">
-                Asegúrate de tener Ollama instalado y en ejecución.{' '}
-                <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline font-medium">Descargar en ollama.ai</a>
+                {t('onboarding.ollama_install_hint')}{' '}
+                <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline font-medium">{t('onboarding.download_ollama')}</a>
               </p>
             </div>
           )}
 
           <div>
             <label htmlFor="ollama-url" className="block text-xs font-semibold mb-1.5 uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
-              URL de Ollama
+              {t('onboarding.ollama_url')}
             </label>
             <input
               id="ollama-url"
@@ -543,7 +545,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
-                Modelo de chat
+                {t('onboarding.chat_model')}
               </label>
               <button
                 type="button"
@@ -553,13 +555,13 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 style={{ color: DOME_GREEN, cursor: loadingModels ? 'not-allowed' : 'pointer', opacity: loadingModels ? 0.6 : 1 }}
               >
                 <RefreshCw className={`w-3 h-3 ${loadingModels ? 'animate-spin' : ''}`} />
-                Actualizar lista
+                {t('onboarding.refresh_list')}
               </button>
             </div>
             {loadingModels ? (
               <div className="flex items-center gap-2 p-3 rounded-lg" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
-                <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Cargando modelos...</span>
+                <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('onboarding.loading_models')}</span>
               </div>
             ) : ollamaModels.length > 0 ? (
               <ModelSelector
@@ -578,7 +580,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 showBadges={false}
                 showDescription={true}
                 showContextWindow={false}
-                placeholder="Selecciona modelo..."
+                placeholder={t('onboarding.select_model')}
                 providerType="ollama"
               />
             ) : (

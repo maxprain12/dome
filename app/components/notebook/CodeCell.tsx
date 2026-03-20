@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { Play, Loader2, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { usePyodide } from '@/lib/notebook/PyodideProvider';
 import CodeCellEditor from './CodeCellEditor';
 import type { NotebookCodeCell, NotebookOutput } from '@/types';
@@ -31,6 +32,7 @@ export default function CodeCell({
   onRun: externalRun,
   onKeyDown: externalKeyDown,
 }: CodeCellProps) {
+  const { t } = useTranslation();
   const [isRunning, setIsRunning] = useState(false);
   const { runPython, isLoaded, isLoading, loadError, ensureLoaded } = usePyodide();
 
@@ -185,7 +187,7 @@ export default function CodeCell({
             color: 'white',
           }}
           title="Run cell (Shift+Enter)"
-          aria-label="Ejecutar celda"
+          aria-label={t('notebook.run_cell')}
           aria-busy={isRunning || isLoading}
         >
           {isRunning || isLoading ? (
@@ -207,7 +209,7 @@ export default function CodeCell({
           onChange={onChange}
           onRun={handleRun}
           editable={editable}
-          placeholder="# Escribe código Python... (Shift+Enter to run)"
+          placeholder={t('notebook.code_placeholder')}
           className="flex-1"
         />
       </div>
@@ -222,7 +224,7 @@ export default function CodeCell({
           }}
         >
           <Info size={16} className="shrink-0" style={{ color: 'var(--accent)' }} />
-          <span>Haz clic en Run para cargar el runtime de Python (~10s la primera vez).</span>
+          <span>{t('notebook.python_runtime_hint')}</span>
         </div>
       )}
       {isLoading && (
@@ -235,7 +237,7 @@ export default function CodeCell({
           }}
         >
           <Loader2 size={16} className="animate-spin shrink-0" style={{ color: 'var(--accent)' }} />
-          <span>Cargando runtime de Python...</span>
+          <span>{t('notebook.loading_python')}</span>
         </div>
       )}
       {loadError && (

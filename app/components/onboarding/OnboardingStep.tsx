@@ -1,6 +1,7 @@
 
 import { useImperativeHandle, forwardRef } from 'react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import ManyAvatar from '@/components/many/ManyAvatar';
 
 interface OnboardingStepProps {
@@ -24,12 +25,14 @@ const OnboardingStep = forwardRef<OnboardingStepRef, OnboardingStepProps>(
       children,
       onNext,
       onBack,
-      nextLabel = 'Continuar',
-      backLabel = 'Atrás',
+      nextLabel,
+      backLabel,
       canProceed = true,
     },
     ref
   ) => {
+    const { t } = useTranslation();
+
     useImperativeHandle(ref, () => ({
       triggerNext: () => {
         if (canProceed && onNext) {
@@ -71,7 +74,7 @@ const OnboardingStep = forwardRef<OnboardingStepRef, OnboardingStepProps>(
               border: onBack ? '1px solid var(--dome-border)' : 'none',
             }}
           >
-            {backLabel}
+            {backLabel ?? t('onboarding.back_label')}
           </button>
           <button
             onClick={onNext}
@@ -82,7 +85,7 @@ const OnboardingStep = forwardRef<OnboardingStepRef, OnboardingStepProps>(
               color: canProceed && onNext ? '#fff' : 'var(--dome-text-muted)',
             }}
           >
-            {nextLabel}
+            {nextLabel ?? t('onboarding.continue')}
           </button>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { Send, StopCircle, Plug2 } from 'lucide-react';
 import { getToolById } from '@/lib/agents/catalog';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
+import { useTranslation } from 'react-i18next';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -51,7 +52,7 @@ export default memo(function AgentChatInput({
   isLoading,
   onSend,
   onAbort,
-  placeholder = 'Escribe un mensaje...',
+  placeholder,
   mcpServerIds,
   toolIds,
   disabledMcpIds,
@@ -60,6 +61,7 @@ export default memo(function AgentChatInput({
   onToggleTool,
   hasAgentFunctions,
 }: AgentChatInputProps) {
+  const { t } = useTranslation();
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -161,11 +163,11 @@ export default memo(function AgentChatInput({
                       ? 'bg-[var(--dome-bg)] text-[var(--dome-text)]'
                       : 'text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)] hover:text-[var(--dome-text)]'
                     }`}
-                  title="Funciones del agente"
+                  title="Agent Functions"
                   style={{ border: showDropdown || (hasMcp && mcpServerIds.some((id) => !disabledMcpIds.has(id))) || (hasTools && toolIds.some((id) => !disabledToolIds.has(id))) ? '1px solid var(--dome-border)' : '1px solid transparent' }}
                 >
                   <Plug2 size={13} strokeWidth={2} />
-                  <span className="hidden sm:inline">Funciones</span>
+                  <span className="hidden sm:inline">Functions</span>
                 </button>
 
                 {showDropdown &&
@@ -187,7 +189,7 @@ export default memo(function AgentChatInput({
                       {hasMcp && (
                         <div className="px-3 py-1">
                           <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                            MCP
+                            {t('agent.mcp_servers')}
                           </div>
                           <McpCapabilitiesSection
                             serverIds={mcpServerIds}
@@ -202,7 +204,7 @@ export default memo(function AgentChatInput({
                       {hasTools && (
                         <div className="px-3 py-1">
                           <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                            Herramientas
+                            Tools
                           </div>
                           <div className="space-y-1">
                             {toolIds.map((id) => {
@@ -241,7 +243,7 @@ export default memo(function AgentChatInput({
                   color: '#ef4444',
                   backgroundColor: 'transparent',
                 }}
-                title="Detener"
+                title="Stop"
               >
                 <div className="w-3.5 h-3.5 border-2 border-current rounded-sm flex items-center justify-center">
                   <div className="w-1.5 h-1.5 bg-current rounded-sm" />
@@ -257,7 +259,7 @@ export default memo(function AgentChatInput({
                   background: input.trim() ? 'var(--dome-text)' : 'transparent',
                   color: input.trim() ? 'var(--dome-bg)' : 'var(--dome-text-muted)'
                 }}
-                title="Enviar"
+                title={t('chat.send')}
               >
                 <Send size={14} strokeWidth={2.5} />
               </button>

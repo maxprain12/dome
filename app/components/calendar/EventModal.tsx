@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
 
 function toLocalISO(d: Date) {
@@ -35,6 +36,7 @@ export default function EventModal({
   onSave,
   onDelete,
 }: EventModalProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState(event?.title ?? '');
   const [description, setDescription] = useState(event?.description ?? '');
   const [location, setLocation] = useState(event?.location ?? '');
@@ -77,7 +79,7 @@ export default function EventModal({
 
   const handleDelete = async () => {
     if (!event || !onDelete) return;
-    if (!confirm('¿Eliminar este evento?')) return;
+    if (!confirm(t('common.delete_confirm'))) return;
     setDeleting(true);
     try {
       await onDelete(event.id);
@@ -100,7 +102,7 @@ export default function EventModal({
       >
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--dome-border)' }}>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
-            {event ? 'Editar evento' : 'Nuevo evento'}
+            {event ? t('common.edit') : t('common.new')} evento
           </h2>
           <button
             type="button"
@@ -115,7 +117,7 @@ export default function EventModal({
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
-              Título
+              {t('common.name')}
             </label>
             <input
               type="text"
@@ -134,7 +136,7 @@ export default function EventModal({
 
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
-              Ubicación
+              {t('common.location')}
             </label>
             <input
               type="text"
@@ -238,7 +240,7 @@ export default function EventModal({
 
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
-              Descripción
+              {t('common.description')}
             </label>
             <textarea
               value={description}
@@ -261,7 +263,7 @@ export default function EventModal({
               className="px-4 py-2 rounded-lg font-medium disabled:opacity-50"
               style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg)' }}
             >
-              {saving ? 'Guardando...' : 'Guardar'}
+              {saving ? t('common.saving') : t('common.save')}
             </button>
             {event && onDelete && (
               <button
@@ -271,7 +273,7 @@ export default function EventModal({
                 className="px-4 py-2 rounded-lg font-medium disabled:opacity-50"
                 style={{ background: 'var(--dome-error-bg)', color: 'var(--dome-error)' }}
               >
-                {deleting ? 'Eliminando...' : 'Eliminar'}
+                {deleting ? 'Eliminando...' : t('common.delete')}
               </button>
             )}
             <button
@@ -280,7 +282,7 @@ export default function EventModal({
               className="px-4 py-2 rounded-lg font-medium"
               style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
             >
-              Cancelar
+              {t('common.cancel')}
             </button>
           </div>
         </form>

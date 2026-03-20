@@ -33,6 +33,7 @@ import {
   Link,
   Upload,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import type { Resource } from '@/lib/hooks/useResources';
@@ -147,6 +148,7 @@ interface ContextMenuProps {
 }
 
 function ContextMenu({ state, onClose, onRename, onMove, onColorChange, onDelete, onNewFolder }: ContextMenuProps) {
+  const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
   const [showColors, setShowColors] = useState(false);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
@@ -284,7 +286,7 @@ function ContextMenu({ state, onClose, onRename, onMove, onColorChange, onDelete
                       {FOLDER_COLOR_OPTIONS.find((o) => o.value === currentColor)?.label ?? 'Personalizado'}
                     </span>
                   ) : (
-                    <span style={{ fontSize: 11, color: 'var(--dome-text-muted)' }}>Sin color</span>
+                    <span style={{ fontSize: 11, color: 'var(--dome-text-muted)' }}>{t('ui.no_color')}</span>
                   )}
                 </div>
               </div>
@@ -338,6 +340,7 @@ function MoveFolderModal({ resource, allFolders, onConfirm, onClose }: {
   resource: Resource; allFolders: Resource[];
   onConfirm: (folderId: string | null) => void; onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<string | null>(resource.folder_id ?? null);
   const available = allFolders.filter((f) => f.id !== resource.id);
 
@@ -356,7 +359,7 @@ function MoveFolderModal({ resource, allFolders, onConfirm, onClose }: {
             style={{ background: selected === null ? 'var(--dome-bg-hover)' : 'transparent', border: 'none', cursor: 'pointer', fontSize: 12.5, color: 'var(--dome-text)' }}
             onClick={() => setSelected(null)}>
             <Hash className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-            <span className="flex-1">Sin carpeta (raíz)</span>
+            <span className="flex-1">{t('ui.no_folder_root')}</span>
             {selected === null && <Check className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />}
           </button>
           {available.map((f) => (
@@ -373,8 +376,8 @@ function MoveFolderModal({ resource, allFolders, onConfirm, onClose }: {
           ))}
         </div>
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t" style={{ borderColor: 'var(--dome-border)' }}>
-          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>Cancelar</button>
-          <button type="button" onClick={() => { onConfirm(selected); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'white' }}>Mover</button>
+          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('common.cancel')}</button>
+          <button type="button" onClick={() => { onConfirm(selected); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'white' }}>{t('common.move')}</button>
         </div>
       </div>
     </div>
@@ -387,21 +390,22 @@ function MoveFolderModal({ resource, allFolders, onConfirm, onClose }: {
 function DeleteConfirmModal({ resource, onConfirm, onClose }: {
   resource: Resource; onConfirm: () => void; onClose: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="fixed inset-0 z-[9998] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="rounded-xl shadow-xl border p-5 flex flex-col gap-3" style={{ width: 290, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}>
         <div>
           <p className="font-medium text-sm mb-1" style={{ color: 'var(--dome-text)' }}>
-            ¿Eliminar {resource.type === 'folder' ? 'carpeta' : 'recurso'}?
+            {t('ui.delete_confirm', { type: resource.type === 'folder' ? 'folder' : 'resource' })}
           </p>
           <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            "{resource.title}"{resource.type === 'folder' ? ' y todo su contenido serán eliminados.' : ' será eliminado permanentemente.'}
+            {resource.type === 'folder' ? t('ui.delete_content_warning') : t('ui.delete_warning')}
           </p>
         </div>
         <div className="flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>Cancelar</button>
-          <button type="button" onClick={() => { onConfirm(); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-error, #ef4444)', border: 'none', cursor: 'pointer', color: 'white' }}>Eliminar</button>
+          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
+          <button type="button" onClick={() => { onConfirm(); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-error, #ef4444)', border: 'none', cursor: 'pointer', color: 'white' }}>{t('ui.delete')}</button>
         </div>
       </div>
     </div>
@@ -414,6 +418,7 @@ function DeleteConfirmModal({ resource, onConfirm, onClose }: {
 function NewFolderModal({ parentId, onConfirm, onClose }: {
   parentId: string | null; onConfirm: (name: string, parentId: string | null) => void; onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
@@ -424,14 +429,14 @@ function NewFolderModal({ parentId, onConfirm, onClose }: {
     <div className="fixed inset-0 z-[9998] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="rounded-xl shadow-xl border p-5 flex flex-col gap-3" style={{ width: 280, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}>
-        <p className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>Nueva carpeta</p>
+        <p className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>{t('ui.new_folder')}</p>
         <input ref={inputRef} type="text" value={name} onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onClose(); }}
-          placeholder="Nombre de la carpeta" className="rounded-md px-3 py-2 text-sm outline-none"
+          placeholder={t('ui.folder_name')} className="rounded-md px-3 py-2 text-sm outline-none"
           style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }} />
         <div className="flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>Cancelar</button>
-          <button type="button" onClick={submit} disabled={!name.trim()} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'white', opacity: name.trim() ? 1 : 0.5 }}>Crear</button>
+          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
+          <button type="button" onClick={submit} disabled={!name.trim()} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'white', opacity: name.trim() ? 1 : 0.5 }}>{t('ui.create')}</button>
         </div>
       </div>
     </div>
@@ -631,6 +636,7 @@ interface FileTreeProps {
 }
 
 function FileTree({ resources, onRefresh }: FileTreeProps) {
+  const { t } = useTranslation();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [ctxMenu, setCtxMenu] = useState<CtxState>({ visible: false, x: 0, y: 0, resource: null });
@@ -774,7 +780,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
           <Search className="w-3 h-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={2} />
           <input
             type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar..." className="flex-1 bg-transparent outline-none border-none"
+            placeholder={t('workspace.search_resources')} className="flex-1 bg-transparent outline-none border-none"
             style={{ fontSize: 11, color: 'var(--dome-text)', caretColor: 'var(--dome-accent)' }}
           />
         </div>
@@ -784,7 +790,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
       <div className="flex-1 overflow-y-auto px-2 pb-2">
         {filteredTree.length === 0 ? (
           <p className="text-center py-4" style={{ fontSize: 11, color: 'var(--dome-text-muted)' }}>
-            {q ? 'Sin resultados' : 'No hay recursos'}
+            {t('ui.no_results')}
           </p>
         ) : (
           filteredTree.map((node) => (
@@ -821,14 +827,14 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
         >
-          <FolderPlus className="w-3 h-3" /><span>Nueva carpeta</span>
+          <FolderPlus className="w-3 h-3" /><span>{t('ui.new_folder')}</span>
         </button>
         <button
           type="button"
           onClick={onRefresh}
           className="flex items-center gap-1.5 px-2 py-1 rounded transition-colors"
           style={{ fontSize: 11, color: 'var(--dome-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-          title="Actualizar"
+            title={t('ui.refresh')}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
         >
@@ -867,6 +873,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
 // URL input modal
 // ---------------------------------------------------------------------------
 function UrlInputModal({ onConfirm, onClose }: { onConfirm: (url: string) => void; onClose: () => void }) {
+  const { t } = useTranslation();
   const [url, setUrl] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { inputRef.current?.focus(); }, []);
@@ -880,7 +887,7 @@ function UrlInputModal({ onConfirm, onClose }: { onConfirm: (url: string) => voi
     <div className="fixed inset-0 z-[9998] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="rounded-xl shadow-xl border p-5 flex flex-col gap-3" style={{ width: 320, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}>
-        <p className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>Añadir URL</p>
+        <p className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>{t('ui.add_url')}</p>
         <input
           ref={inputRef}
           type="url"
@@ -892,8 +899,8 @@ function UrlInputModal({ onConfirm, onClose }: { onConfirm: (url: string) => voi
           style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
         />
         <div className="flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>Cancelar</button>
-          <button type="button" onClick={submit} disabled={!url.trim()} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'white', opacity: url.trim() ? 1 : 0.5 }}>Añadir</button>
+          <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
+          <button type="button" onClick={submit} disabled={!url.trim()} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'white', opacity: url.trim() ? 1 : 0.5 }}>{t('ui.add')}</button>
         </div>
       </div>
     </div>
@@ -914,6 +921,7 @@ interface AddResourceMenuProps {
 }
 
 function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddUrl, onImportFile }: AddResourceMenuProps) {
+  const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -992,6 +1000,7 @@ interface UnifiedSidebarProps {
 }
 
 export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: UnifiedSidebarProps) {
+  const { t } = useTranslation();
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [workspaceOpen, setWorkspaceOpen] = useState(true);

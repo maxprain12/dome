@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
 import { useManyStore } from '@/lib/store/useManyStore';
 
@@ -30,9 +31,10 @@ function Loading() {
 }
 
 function NoResource() {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-1 items-center justify-center h-full" style={{ color: 'var(--dome-text-muted)' }}>
-      <p className="text-sm">No resource selected</p>
+      <p className="text-sm">{t('common.noResourceSelected')}</p>
     </div>
   );
 }

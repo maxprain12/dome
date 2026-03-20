@@ -8,12 +8,14 @@ import { syncMarketplaceOnWorkflowDelete } from '@/lib/marketplace/api';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
+import { useTranslation } from 'react-i18next';
 
 interface WorkflowLibraryViewProps {
   onShowAutomations?: (workflowId: string, workflowLabel: string) => void;
 }
 
 export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibraryViewProps) {
+  const { t } = useTranslation();
   const [workflows, setWorkflows] = useState<CanvasWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
       showToast('success', 'Workflow eliminado');
       window.dispatchEvent(new CustomEvent('dome:workflows-changed'));
     } else {
-      showToast('error', result.error ?? 'Error al eliminar');
+      showToast('error', result.error ?? t('toast.workflow_delete_error'));
     }
     setDeletingId(null);
   };

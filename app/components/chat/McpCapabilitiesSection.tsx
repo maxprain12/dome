@@ -9,6 +9,7 @@ import {
 } from '@/lib/mcp/settings';
 import { showToast } from '@/lib/store/useToastStore';
 import type { MCPServerConfig } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface McpCapabilitiesSectionProps {
   serverIds?: string[];
@@ -21,6 +22,7 @@ export default function McpCapabilitiesSection({
   disabledServerIds,
   onToggleServer,
 }: McpCapabilitiesSectionProps) {
+  const { t } = useTranslation();
   const [servers, setServers] = useState<MCPServerConfig[]>([]);
   const [savingServerId, setSavingServerId] = useState<string | null>(null);
 
@@ -49,7 +51,7 @@ export default function McpCapabilitiesSection({
       setServers(nextServers);
       const result = await saveMcpServersSetting(nextServers);
       if (!result.success) {
-        showToast('error', result.error || 'No se pudo actualizar la configuración MCP');
+        showToast('error', result.error || t('toast.mcp_config_update_error'));
       }
       setSavingServerId(null);
     },

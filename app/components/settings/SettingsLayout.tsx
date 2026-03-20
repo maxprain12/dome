@@ -1,8 +1,9 @@
 
 import { useRef, useEffect } from 'react';
-import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2, Wand2, Database, Cloud } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2, Wand2, Database, Cloud, Globe } from 'lucide-react';
 
-type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced' | 'indexing' | 'cloud';
+type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced' | 'indexing' | 'cloud' | 'language';
 
 interface SettingsLayoutProps {
   activeSection: SettingsSection;
@@ -15,27 +16,27 @@ const DOME_GREEN_LIGHT = '#E0EAB4';
 
 interface Tab {
   id: SettingsSection;
-  label: string;
   icon: React.ReactNode;
 }
 
-const tabs: Tab[] = [
-  { id: 'general',    label: 'General',     icon: <User className="w-3.5 h-3.5" /> },
-  { id: 'appearance', label: 'Apariencia',  icon: <Palette className="w-3.5 h-3.5" /> },
-  { id: 'ai',         label: 'IA',          icon: <Brain className="w-3.5 h-3.5" /> },
-  { id: 'skills',     label: 'Skills',      icon: <Wand2 className="w-3.5 h-3.5" /> },
-  { id: 'whatsapp',   label: 'WhatsApp',    icon: <MessageCircle className="w-3.5 h-3.5" /> },
-  { id: 'mcp',        label: 'MCP',         icon: <Plug2 className="w-3.5 h-3.5" /> },
-  { id: 'cloud',      label: 'Cloud',       icon: <Cloud className="w-3.5 h-3.5" /> },
-  { id: 'plugins',    label: 'Plugins',     icon: <Puzzle className="w-3.5 h-3.5" /> },
-  { id: 'indexing',   label: 'Indexación',  icon: <Database className="w-3.5 h-3.5" /> },
-  { id: 'advanced',   label: 'Avanzado',    icon: <SettingsIcon className="w-3.5 h-3.5" /> },
+const TAB_DEFS: Tab[] = [
+  { id: 'general',    icon: <User className="w-3.5 h-3.5" /> },
+  { id: 'appearance', icon: <Palette className="w-3.5 h-3.5" /> },
+  { id: 'ai',         icon: <Brain className="w-3.5 h-3.5" /> },
+  { id: 'skills',     icon: <Wand2 className="w-3.5 h-3.5" /> },
+  { id: 'whatsapp',   icon: <MessageCircle className="w-3.5 h-3.5" /> },
+  { id: 'mcp',        icon: <Plug2 className="w-3.5 h-3.5" /> },
+  { id: 'cloud',      icon: <Cloud className="w-3.5 h-3.5" /> },
+  { id: 'plugins',    icon: <Puzzle className="w-3.5 h-3.5" /> },
+  { id: 'indexing',   icon: <Database className="w-3.5 h-3.5" /> },
+  { id: 'advanced',   icon: <SettingsIcon className="w-3.5 h-3.5" /> },
+  { id: 'language',   icon: <Globe className="w-3.5 h-3.5" /> },
 ];
 
 export default function SettingsLayout({ activeSection, onSectionChange, children }: SettingsLayoutProps) {
+  const { t } = useTranslation();
   const activeTabRef = useRef<HTMLButtonElement>(null);
 
-  // Scroll active tab into view when it changes
   useEffect(() => {
     activeTabRef.current?.scrollIntoView({ inline: 'nearest', behavior: 'smooth', block: 'nearest' });
   }, [activeSection]);
@@ -57,7 +58,7 @@ export default function SettingsLayout({ activeSection, onSectionChange, childre
             <SettingsIcon className="w-3 h-3" style={{ color: DOME_GREEN_LIGHT }} />
           </div>
           <h1 className="text-sm font-bold tracking-wide" style={{ color: 'var(--dome-text)' }}>
-            Ajustes
+            {t('settings.title')}
           </h1>
         </div>
 
@@ -67,7 +68,7 @@ export default function SettingsLayout({ activeSection, onSectionChange, childre
           style={{ scrollbarWidth: 'none' }}
           aria-label="Settings tabs"
         >
-          {tabs.map((tab) => {
+          {TAB_DEFS.map((tab) => {
             const isActive = activeSection === tab.id;
             return (
               <button
@@ -91,7 +92,7 @@ export default function SettingsLayout({ activeSection, onSectionChange, childre
                 }}
               >
                 <span style={{ color: isActive ? DOME_GREEN : 'inherit' }}>{tab.icon}</span>
-                {tab.label}
+                {t(`settings.tabs.${tab.id}`)}
                 {/* Active underline */}
                 {isActive && (
                   <span

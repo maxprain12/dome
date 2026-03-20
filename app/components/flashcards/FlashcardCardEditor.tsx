@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { Trash2, GripVertical } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { Flashcard } from '@/types';
 
 interface FlashcardCardEditorProps {
@@ -11,6 +12,7 @@ interface FlashcardCardEditorProps {
 }
 
 export default function FlashcardCardEditor({ card, index, onUpdate, onDelete }: FlashcardCardEditorProps) {
+  const { t } = useTranslation();
   const [question, setQuestion] = useState(card.question);
   const [answer, setAnswer] = useState(card.answer);
   const [difficulty, setDifficulty] = useState(card.difficulty);
@@ -59,7 +61,7 @@ export default function FlashcardCardEditor({ card, index, onUpdate, onDelete }:
               className="text-[11px] font-semibold uppercase tracking-wider mb-1 block"
               style={{ color: 'var(--tertiary-text)' }}
             >
-              Pregunta
+              {t('flashcard.question', 'Pregunta')}
             </label>
             <textarea
               value={question}
@@ -67,7 +69,7 @@ export default function FlashcardCardEditor({ card, index, onUpdate, onDelete }:
               onBlur={handleBlur}
               className="input resize-none text-sm"
               rows={2}
-              placeholder="Escribe la pregunta..."
+              placeholder={t('flashcard.write_question', 'Escribe la pregunta...')}
             />
           </div>
 
@@ -77,7 +79,7 @@ export default function FlashcardCardEditor({ card, index, onUpdate, onDelete }:
               className="text-[11px] font-semibold uppercase tracking-wider mb-1 block"
               style={{ color: 'var(--tertiary-text)' }}
             >
-              Respuesta
+              {t('flashcard.answer', 'Respuesta')}
             </label>
             <textarea
               value={answer}
@@ -85,7 +87,7 @@ export default function FlashcardCardEditor({ card, index, onUpdate, onDelete }:
               onBlur={handleBlur}
               className="input resize-none text-sm"
               rows={2}
-              placeholder="Escribe la respuesta..."
+              placeholder={t('flashcard.write_answer', 'Escribe la respuesta...')}
             />
           </div>
 
@@ -108,7 +110,7 @@ export default function FlashcardCardEditor({ card, index, onUpdate, onDelete }:
                       : '1px solid transparent',
                   }}
                 >
-                  {level === 'easy' ? 'Facil' : level === 'medium' ? 'Media' : 'Dificil'}
+                  {level === 'easy' ? t('flashcard.easy', 'Facil') : level === 'medium' ? t('flashcard.medium', 'Media') : t('flashcard.difficult', 'Dificil')}
                 </button>
               ))}
             </div>
@@ -116,7 +118,7 @@ export default function FlashcardCardEditor({ card, index, onUpdate, onDelete }:
             <button
               onClick={() => onDelete(card.id)}
               className="btn btn-ghost p-1.5 rounded-md transition-colors hover:bg-[rgba(239,68,68,0.1)]"
-              aria-label="Eliminar tarjeta"
+              aria-label={t('ui.delete', 'Eliminar tarjeta')}
             >
               <Trash2 className="w-4 h-4" style={{ color: 'var(--error, #ef4444)' }} />
             </button>

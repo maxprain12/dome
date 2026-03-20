@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
 import { X, Flame, CheckCircle, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 
 export default function StudyView() {
+  const { t } = useTranslation();
   const {
     dueCards,
     currentCardIndex,
@@ -61,24 +63,24 @@ export default function StudyView() {
           </div>
 
           <h1 className="text-2xl font-bold mb-2" style={{ color: 'var(--dome-text)' }}>
-            Sesión completada
+            {t('flashcard.session_complete', 'Sesión completada')}
           </h1>
           <p className="text-sm mb-8" style={{ color: 'var(--dome-text-muted)' }}>
-            Has estudiado {totalCards} tarjetas
+            {t('flashcard.studied_cards_count', 'Has estudiado {{count}} tarjetas', { count: totalCards })}
           </p>
 
           <div className="grid grid-cols-3 gap-4 mb-8">
             <div className="p-4 rounded-lg" style={{ background: 'var(--dome-surface)' }}>
               <div className="text-2xl font-bold" style={{ color: 'var(--success)' }}>{sessionCorrect}</div>
-              <div className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Correctas</div>
+              <div className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('flashcard.correct', 'Correctas')}</div>
             </div>
             <div className="p-4 rounded-lg" style={{ background: 'var(--dome-surface)' }}>
               <div className="text-2xl font-bold" style={{ color: 'var(--error)' }}>{sessionIncorrect}</div>
-              <div className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Incorrectas</div>
+              <div className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('flashcard.incorrect', 'Incorrectas')}</div>
             </div>
             <div className="p-4 rounded-lg" style={{ background: 'var(--dome-surface)' }}>
               <div className="text-2xl font-bold" style={{ color: 'var(--dome-accent)' }}>{accuracy}%</div>
-              <div className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Precisión</div>
+              <div className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('flashcard.accuracy', 'Precisión')}</div>
             </div>
           </div>
 
@@ -87,7 +89,7 @@ export default function StudyView() {
             className="w-full py-3 rounded-lg font-medium"
             style={{ background: 'var(--dome-accent)', color: 'white' }}
           >
-            Volver al deck
+            {t('flashcard.back_to_deck', 'Volver al deck')}
           </button>
         </div>
       </div>
@@ -147,19 +149,19 @@ export default function StudyView() {
               {!isCardFlipped ? (
                 <>
                   <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--dome-text-muted)' }}>
-                    Pregunta
+                    {t('flashcard.question', 'Pregunta')}
                   </p>
                   <p className="text-xl font-medium" style={{ color: 'var(--dome-text)' }}>
                     {currentCard?.question}
                   </p>
                   <p className="text-sm mt-4" style={{ color: 'var(--dome-text-muted)' }}>
-                    Toca para ver la respuesta
+                    {t('flashcard.tap_to_answer', 'Toca para ver la respuesta')}
                   </p>
                 </>
               ) : (
                 <>
                   <p className="text-xs uppercase tracking-wide mb-2" style={{ color: 'var(--dome-accent)' }}>
-                    Respuesta
+                    {t('flashcard.answer', 'Respuesta')}
                   </p>
                   <p className="text-xl font-medium" style={{ color: 'var(--dome-text)' }}>
                     {currentCard?.answer}
@@ -172,7 +174,7 @@ export default function StudyView() {
           {isCardFlipped && (
             <div className="mt-6 space-y-3">
               <p className="text-sm text-center mb-4" style={{ color: 'var(--dome-text-muted)' }}>
-                ¿Qué tan bien recordaste?
+                {t('flashcard.how_well_remembered', '¿Qué tan bien recordaste?')}
               </p>
               <div className="grid grid-cols-4 gap-3">
                 <button
@@ -184,7 +186,7 @@ export default function StudyView() {
                     color: 'var(--error)',
                   }}
                 >
-                  <span className="text-xs">Otra vez</span>
+                  <span className="text-xs">{t('flashcard.again', 'Otra vez')}</span>
                   <span className="text-sm font-medium">1</span>
                 </button>
                 <button
@@ -196,7 +198,7 @@ export default function StudyView() {
                     color: 'var(--warning)',
                   }}
                 >
-                  <span className="text-xs">Difícil</span>
+                  <span className="text-xs">{t('flashcard.difficult', 'Difícil')}</span>
                   <span className="text-sm font-medium">2</span>
                 </button>
                 <button
@@ -208,7 +210,7 @@ export default function StudyView() {
                     color: 'var(--success)',
                   }}
                 >
-                  <span className="text-xs">Bien</span>
+                  <span className="text-xs">{t('flashcard.good', 'Bien')}</span>
                   <span className="text-sm font-medium">3</span>
                 </button>
                 <button
@@ -220,7 +222,7 @@ export default function StudyView() {
                     color: 'var(--success)',
                   }}
                 >
-                  <span className="text-xs">Fácil</span>
+                  <span className="text-xs">{t('flashcard.easy', 'Fácil')}</span>
                   <span className="text-sm font-medium">4</span>
                 </button>
               </div>

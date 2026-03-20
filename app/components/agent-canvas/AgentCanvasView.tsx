@@ -22,6 +22,7 @@ import { generateId } from '@/lib/utils';
 import { executeWorkflow, type ExecutionLogEntry } from '@/lib/agent-canvas/executor';
 import { showToast } from '@/lib/store/useToastStore';
 import { showPrompt } from '@/lib/store/usePromptStore';
+import { useTranslation } from 'react-i18next';
 import CanvasToolbar from './CanvasToolbar';
 import CanvasSidebar from './CanvasSidebar';
 import CanvasWorkspace from './CanvasWorkspace';
@@ -29,6 +30,7 @@ import PropertiesPanel from './PropertiesPanel';
 import ExecutionLog from './ExecutionLog';
 
 function AgentCanvasInner() {
+  const { t } = useTranslation();
   const store = useCanvasStore();
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
   const nodes = useCanvasStore((s) => s.nodes);
@@ -136,7 +138,7 @@ function AgentCanvasInner() {
     if (store.executionStatus === 'running') return;
     const { nodes: storeNodes, edges: storeEdges } = useCanvasStore.getState();
     if (storeNodes.length === 0) {
-      showToast('error', 'El canvas está vacío');
+      showToast('error', t('toast.canvas_empty'));
       return;
     }
     const executionId = generateId();
@@ -200,7 +202,7 @@ function AgentCanvasInner() {
         await saveExecution(execution);
         setExecutionHistory((prev) => [execution, ...prev]);
       }
-      showToast('error', 'Error durante la ejecución del workflow');
+      showToast('error', t('toast.workflow_execution_error'));
     }
   }, [store.executionStatus]);
 
@@ -212,7 +214,7 @@ function AgentCanvasInner() {
   const handleSave = useCallback(async () => {
     const { nodes: storeNodes, edges: storeEdges } = useCanvasStore.getState();
     if (storeNodes.length === 0) {
-      showToast('error', 'No hay nodos en el canvas');
+      showToast('error', t('toast.no_nodes_in_canvas'));
       return;
     }
 
@@ -238,9 +240,9 @@ function AgentCanvasInner() {
       });
       if (result.success) {
         store.markClean();
-        showToast('success', 'Workflow guardado');
+        showToast('success', t('toast.workflow_saved'));
       } else {
-        showToast('error', result.error ?? 'Error al guardar');
+        showToast('error', result.error ?? t('toast.workflow_save_error'));
       }
     } else {
       const result = await createWorkflow({
@@ -251,9 +253,9 @@ function AgentCanvasInner() {
       });
       if (result.success && result.data) {
         store.setActiveWorkflow(result.data);
-        showToast('success', 'Workflow guardado');
+        showToast('success', t('toast.workflow_saved'));
       } else {
-        showToast('error', result.error ?? 'Error al guardar');
+        showToast('error', result.error ?? t('toast.workflow_save_error'));
       }
     }
   }, [store]);

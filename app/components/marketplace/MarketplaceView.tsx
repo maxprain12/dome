@@ -42,6 +42,7 @@ import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 import { getWorkflow } from '@/lib/agent-canvas/api';
+import { useTranslation } from 'react-i18next';
 import MarketplaceAgentDetail from './MarketplaceAgentDetail';
 import WorkflowDetail from './WorkflowDetail';
 
@@ -96,6 +97,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function MarketplaceView() {
+  const { t } = useTranslation();
   // ── Agents ────────────────────────────────────────────
   const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
   const [installedIds, setInstalledIds] = useState<string[]>([]);
@@ -211,9 +213,9 @@ export default function MarketplaceView() {
 
   // ── Handlers ──────────────────────────────────────────
   const handleRefresh = async () => {
-    showToast('info', 'Actualizando marketplace...');
+    showToast('info', t('tabs.marketplace'));
     await refresh();
-    showToast('success', 'Marketplace actualizado');
+    showToast('success', t('common.success'));
   };
 
   const handleInstallAgent = async (agent: MarketplaceAgent) => {
@@ -228,12 +230,12 @@ export default function MarketplaceView() {
         showToast(
           'success',
           previousVersion && previousVersion !== agent.version
-            ? `"${agent.name}" actualizado`
-            : `"${agent.name}" instalado correctamente`
+            ? `"${agent.name}" ${t('common.success')}`
+            : `"${agent.name}" ${t('common.success')}`
         );
         setSelectedAgent(null);
       } else {
-        showToast('error', result.error ?? 'Error al instalar el agente');
+        showToast('error', result.error ?? t('common.error'));
       }
     } finally {
       setInstallingId(null);
@@ -284,10 +286,10 @@ export default function MarketplaceView() {
         };
         loadWorkflow(canvasWorkflow);
         setSelectedWorkflow(null);
-        showToast('success', hasUpdate ? `Workflow "${workflow.name}" actualizado` : `Workflow "${workflow.name}" instalado correctamente`);
+        showToast('success', hasUpdate ? t('toast.workflow_updated', { name: workflow.name }) : t('toast.workflow_installed', { name: workflow.name }));
         setSection(`workflow:${result.data.id}`);
       } else {
-        showToast('error', result.error ?? 'Error al instalar el workflow');
+        showToast('error', result.error ?? t('toast.workflow_install_error'));
       }
     } finally {
       setInstallingWorkflowId(null);
@@ -301,7 +303,7 @@ export default function MarketplaceView() {
       const current = await loadMcpServersSetting();
       const alreadyExists = current.some((s) => s.name.toLowerCase() === manifest.name.toLowerCase());
       if (alreadyExists) {
-        showToast('info', `"${manifest.name}" ya está configurado`);
+        showToast('info', t('toast.mcp_already_configured', { name: manifest.name }));
         return;
       }
       const newServer: MCPServerConfig = {
@@ -316,9 +318,9 @@ export default function MarketplaceView() {
       const result = await saveMcpServersSetting(updated);
       if (result.success) {
         setInstalledMcpNames((prev) => new Set([...prev, manifest.name.toLowerCase()]));
-        showToast('success', `"${manifest.name}" añadido a tu configuración MCP`);
+        showToast('success', t('toast.mcp_added', { name: manifest.name }));
       } else {
-        showToast('error', result.error ?? 'Error al instalar el servidor MCP');
+        showToast('error', result.error ?? t('toast.mcp_install_error'));
       }
     } finally {
       setInstallingMcpId(null);
@@ -330,7 +332,7 @@ export default function MarketplaceView() {
     setInstallingSkillId(skill.id);
     try {
       if (installedSkillIds.has(skill.id)) {
-        showToast('info', `"${skill.name}" ya está activo`);
+        showToast('info', t('toast.skill_already_active', { name: skill.name }));
         return;
       }
       // Load current ai_skills list (SkillConfig format)
@@ -352,9 +354,9 @@ export default function MarketplaceView() {
       const result = await db.setSetting('ai_skills', JSON.stringify(updated));
       if (result.success) {
         setInstalledSkillIds((prev) => new Set([...prev, skill.id]));
-        showToast('success', `"${skill.name}" añadido a tus skills`);
+        showToast('success', t('toast.skill_added', { name: skill.name }));
       } else {
-        showToast('error', 'Error al activar el skill');
+        showToast('error', t('toast.skill_activate_error'));
       }
     } finally {
       setInstallingSkillId(null);
@@ -453,7 +455,7 @@ export default function MarketplaceView() {
           style={{ background: 'var(--dome-accent)', color: 'white' }}
         >
           <Download className="w-3 h-3" />
-          {isInstalling ? 'Instalando…' : hasUpdate ? 'Actualizar' : 'Instalar'}
+          {isInstalling ? t('marketplace.installing') : hasUpdate ? t('marketplace.update') : t('marketplace.install')}
         </button>
       );
     }
@@ -471,7 +473,7 @@ export default function MarketplaceView() {
           style={{ background: 'var(--dome-accent)', color: 'white' }}
         >
           <Download className="w-3 h-3" />
-          {isInstalling ? 'Instalando…' : hasUpdate ? 'Actualizar' : isInstalled ? 'Abrir' : 'Instalar'}
+          {isInstalling ? t('marketplace.installing') : hasUpdate ? t('marketplace.update') : isInstalled ? t('marketplace.open') : t('marketplace.install')}
         </button>
       );
     }
@@ -568,7 +570,7 @@ export default function MarketplaceView() {
                 Marketplace
               </h1>
               <p className="text-[11px] leading-tight" style={{ color: 'var(--dome-text-muted)' }}>
-                {initialLoading ? 'Cargando…' : `${allItems.length} recursos disponibles`}
+                {initialLoading ? t('marketplace.loading') : `${allItems.length} recursos disponibles`}
               </p>
             </div>
           </div>
@@ -595,7 +597,7 @@ export default function MarketplaceView() {
           />
           <input
             type="text"
-            placeholder="Buscar agentes, workflows, skills, MCP…"
+            placeholder={t('marketplace.search_placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-xl text-sm outline-none transition-all"
@@ -711,7 +713,7 @@ export default function MarketplaceView() {
               style={{ color: 'var(--dome-text-muted)' }}
             >
               <Search className="w-10 h-10 opacity-20" />
-              <p className="text-sm font-medium">Sin resultados</p>
+              <p className="text-sm font-medium">{t('marketplace.no_results')}</p>
               <p className="text-xs">Prueba con otros filtros o términos de búsqueda</p>
             </div>
           ) : (

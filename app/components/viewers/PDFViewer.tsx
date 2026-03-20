@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink, FileText, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/types';
 import { db } from '@/lib/db/client';
 import { useInteractions } from '@/lib/hooks/useInteractions';
@@ -22,6 +23,7 @@ interface PDFViewerProps {
 type ZoomMode = 'fit-width' | 'fit-page' | 'custom';
 
 function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
+  const { t } = useTranslation();
   const [pdfDocument, setPdfDocument] = useState<PDFDocumentProxy | null>(null);
   const [pages, setPages] = useState<PDFPageProxy[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -150,12 +152,12 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
     const unsub = window.electron.docling.onProgress((event: { resourceId: string; status: string; progress?: number }) => {
       if (event.resourceId !== resource.id) return;
       const labels: Record<string, string> = {
-        converting: 'Convirtiendo…',
-        storing_images: 'Guardando imágenes…',
-        updating_resource: 'Actualizando…',
-        indexing: 'Indexando…',
-        done: 'Listo',
-        error: 'Error',
+        converting: t('viewer.converting'),
+        storing_images: t('viewer.storing_images'),
+        updating_resource: t('viewer.updating_resource'),
+        indexing: t('viewer.indexing'),
+        done: t('viewer.done'),
+        error: t('viewer.error'),
       };
       setDoclingProgress(labels[event.status] ?? event.status);
       if (event.status === 'done' || event.status === 'error') {
@@ -308,7 +310,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   const handleDoclingConvert = useCallback(async () => {
     if (!window.electron?.docling?.convertResource || doclingConverting) return;
     setDoclingConverting(true);
-    setDoclingProgress('Convirtiendo…');
+    setDoclingProgress(t('viewer.converting'));
     try {
       const result = await window.electron.docling.convertResource(resource.id);
       if (!result?.success) {
@@ -425,7 +427,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
             }}
           >
             <ExternalLink size={16} />
-            {isOpeningExternal ? 'Opening...' : 'Open in External Viewer'}
+            {isOpeningExternal ? t('viewer.opening') : t('viewer.open_external_viewer')}
           </button>
         )}
       </div>
@@ -445,8 +447,8 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
             disabled={currentPage <= 1}
             className="p-1.5 rounded disabled:opacity-40"
             style={{ color: 'var(--secondary-text)' }}
-            title="Página anterior"
-            aria-label="Página anterior"
+            title={t('viewer.previous_page')}
+            aria-label={t('viewer.previous_page')}
           >
             <ChevronLeft size={16} />
           </button>
@@ -461,8 +463,8 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
             disabled={!pdfDocument || currentPage >= pdfDocument.numPages}
             className="p-1.5 rounded disabled:opacity-40"
             style={{ color: 'var(--secondary-text)' }}
-            title="Página siguiente"
-            aria-label="Página siguiente"
+            title={t('viewer.next_page')}
+            aria-label={t('viewer.next_page')}
           >
             <ChevronRight size={16} />
           </button>
@@ -474,8 +476,8 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
               disabled={doclingConverting}
               className="p-1.5 rounded text-sm flex items-center gap-1"
               style={{ color: 'var(--secondary-text)' }}
-              aria-label="Convertir con Docling"
-              title="Convertir PDF a markdown con Docling (mejora indexación para IA)"
+              aria-label={t('viewer.convert_docling')}
+              title={t('viewer.convert_hint')}
             >
               {doclingConverting ? (
                 <>
@@ -491,8 +493,8 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
             onClick={handleOpenExternal}
             className="p-1.5 rounded text-sm"
             style={{ color: 'var(--secondary-text)' }}
-            aria-label="Abrir externo"
-            title="Abrir en visor externo"
+            aria-label={t('viewer.open_external')}
+            title={t('viewer.open_external')}
           >
             <ExternalLink size={16} />
           </button>

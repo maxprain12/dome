@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, Save, FileJson, CheckCircle2, AlertCircle } from 'lucide-react';
 import { db } from '@/lib/db/client';
 import { generateId } from '@/lib/utils';
@@ -55,6 +56,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function SkillsSettingsPanel() {
+  const { t } = useTranslation();
   const [skills, setSkills] = useState<SkillConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -153,10 +155,10 @@ export default function SkillsSettingsPanel() {
         setImportJson('');
         setError(null);
       } else {
-        setError('No se encontraron skills válidos en el JSON');
+        setError(t('settings.skills.error_no_skills'));
       }
     } catch {
-      setError('JSON inválido. Usa un array de objetos con id, name, description, prompt.');
+      setError(t('settings.skills.error_invalid_json'));
     }
   };
 
@@ -200,7 +202,7 @@ export default function SkillsSettingsPanel() {
       {/* Skills list */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <SectionLabel>Skills configuradas</SectionLabel>
+          <SectionLabel>{t('settings.skills.section_configured')}</SectionLabel>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -209,7 +211,7 @@ export default function SkillsSettingsPanel() {
               style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
             >
               <FileJson className="w-3.5 h-3.5" />
-              Exportar
+              {t('settings.skills.export')}
             </button>
             <button
               type="button"
@@ -218,7 +220,7 @@ export default function SkillsSettingsPanel() {
               style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
             >
               <FileJson className="w-3.5 h-3.5" />
-              Importar
+              {t('settings.skills.import')}
             </button>
             <button
               type="button"
@@ -227,7 +229,7 @@ export default function SkillsSettingsPanel() {
               style={{ backgroundColor: DOME_GREEN }}
             >
               <Plus className="w-3.5 h-3.5" />
-              Añadir skill
+              {t('settings.skills.add')}
             </button>
           </div>
         </div>
@@ -237,7 +239,7 @@ export default function SkillsSettingsPanel() {
             className="py-10 rounded-xl border-dashed text-center"
             style={{ border: '1.5px dashed var(--dome-border)' }}
           >
-            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>Sin skills. Añade una o importa desde JSON.</p>
+            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.skills.empty')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -257,7 +259,7 @@ export default function SkillsSettingsPanel() {
                       />
                       <input
                         type="text"
-                        placeholder="Nombre (ej: write_sql)"
+                        placeholder={t('settings.skills.name_placeholder')}
                         value={skill.name}
                         onChange={(e) => updateSkill(index, { name: e.target.value })}
                         className="rounded-lg px-3 py-1.5 text-xs font-mono w-48"
@@ -265,7 +267,7 @@ export default function SkillsSettingsPanel() {
                       />
                       {skill.name && (
                         <span className="text-[10px]" style={{ color: 'var(--dome-text-muted)', opacity: 0.7 }}>
-                          slug: {slugify(skill.name) || '(vacío)'}
+                          slug: {slugify(skill.name) || t('settings.skills.slug_empty')}
                         </span>
                       )}
                     </div>
@@ -273,11 +275,11 @@ export default function SkillsSettingsPanel() {
                     {/* Description */}
                     <div>
                       <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-                        Descripción (cuándo usarla)
+                        {t('settings.skills.description_label')}
                       </label>
                       <input
                         type="text"
-                        placeholder="Ej: Experto en SQL. Usa cuando el usuario necesite consultas o análisis de datos."
+                        placeholder={t('settings.skills.description_placeholder')}
                         value={skill.description}
                         onChange={(e) => updateSkill(index, { description: e.target.value })}
                         className="w-full rounded-lg px-3 py-2 text-xs"
@@ -288,10 +290,10 @@ export default function SkillsSettingsPanel() {
                     {/* Prompt */}
                     <div>
                       <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-                        Contenido del prompt
+                        {t('settings.skills.prompt_label')}
                       </label>
                       <textarea
-                        placeholder="Instrucciones especializadas, ejemplos, reglas..."
+                        placeholder={t('settings.skills.prompt_placeholder')}
                         value={skill.prompt}
                         onChange={(e) => updateSkill(index, { prompt: e.target.value })}
                         className="w-full rounded-lg px-3 py-2 text-xs font-mono min-h-[100px] resize-y"
@@ -306,7 +308,7 @@ export default function SkillsSettingsPanel() {
                     onClick={() => removeSkill(index)}
                     className="p-1.5 rounded-lg shrink-0 transition-colors"
                     style={{ color: 'var(--dome-text-muted)' }}
-                    aria-label="Eliminar skill"
+                    aria-label={t('settings.skills.delete_skill')}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -327,12 +329,12 @@ export default function SkillsSettingsPanel() {
           style={{ backgroundColor: DOME_GREEN }}
         >
           <Save className="w-3.5 h-3.5" />
-          {saving ? 'Guardando...' : 'Guardar skills'}
+          {saving ? t('settings.skills.saving') : t('settings.skills.save')}
         </button>
         {saved && (
           <span className="flex items-center gap-1.5 text-xs animate-in fade-in" style={{ color: DOME_GREEN }}>
             <CheckCircle2 className="w-3.5 h-3.5" />
-            Guardado
+            {t('settings.skills.saved')}
           </span>
         )}
       </div>
@@ -349,10 +351,10 @@ export default function SkillsSettingsPanel() {
             style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--dome-text)' }}>Importar JSON</h3>
-            <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>Formato: {FORMAT_EXAMPLE}</p>
+            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--dome-text)' }}>{t('settings.skills.import_title')}</h3>
+            <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.skills.import_format', { format: FORMAT_EXAMPLE })}</p>
             <textarea
-              placeholder="Pega tu JSON aquí"
+              placeholder={t('settings.skills.import_placeholder')}
               value={importJson}
               onChange={(e) => setImportJson(e.target.value)}
               className="flex-1 min-h-[200px] rounded-lg px-3 py-2 text-xs font-mono resize-none"
@@ -365,7 +367,7 @@ export default function SkillsSettingsPanel() {
                 className="px-4 py-2 rounded-lg text-xs font-medium text-white"
                 style={{ backgroundColor: DOME_GREEN }}
               >
-                Importar
+                {t('settings.skills.import_btn')}
               </button>
               <button
                 type="button"
@@ -373,7 +375,7 @@ export default function SkillsSettingsPanel() {
                 className="px-4 py-2 rounded-lg text-xs font-medium"
                 style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
             </div>
           </div>

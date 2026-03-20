@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FolderOpen, FilePlus, Folder, File, RefreshCw, FolderGit2, Terminal, Package, Loader2, List, FileText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface WorkspaceFilesPanelProps {
   workspacePath: string | undefined;
@@ -25,6 +26,7 @@ export default function WorkspaceFilesPanel({
   venvPath,
   onVenvPathChange,
 }: WorkspaceFilesPanelProps) {
+  const { t } = useTranslation();
   const [entries, setEntries] = useState<DirEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -370,22 +372,22 @@ export default function WorkspaceFilesPanel({
               <FilePlus size={14} />
               {addingFile ? 'Añadiendo...' : 'Añadir archivo'}
             </button>
-            <button
-              type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); loadEntries(); }}
-              disabled={loading}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:bg-[var(--bg-hover)] disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
-              style={{
-                background: 'var(--bg-secondary)',
-                color: 'var(--primary-text)',
-                border: '1px solid var(--border)',
-              }}
-              aria-label="Actualizar listado"
-              title="Refrescar lista de archivos"
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin shrink-0' : 'shrink-0'} />
-              <span>{loading ? 'Actualizando...' : 'Actualizar'}</span>
-            </button>
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); loadEntries(); }}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:bg-[var(--bg-hover)] disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
+            style={{
+              background: 'var(--bg-secondary)',
+              color: 'var(--primary-text)',
+              border: '1px solid var(--border)',
+            }}
+            aria-label={t('workspaceFiles.refresh')}
+            title={t('workspaceFiles.refreshFiles')}
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin shrink-0' : 'shrink-0'} />
+            <span>{loading ? t('workspaceFiles.updating') : t('workspaceFiles.refresh')}</span>
+          </button>
           </div>
 
           {error && (
@@ -469,7 +471,7 @@ export default function WorkspaceFilesPanel({
                       }}
                     >
                       {pipRequirementsInstalling ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
-                      requirements.txt
+                      {t('workspaceFiles.requirements')}
                     </button>
                   </div>
                   {pipListOutput && (
@@ -520,7 +522,7 @@ export default function WorkspaceFilesPanel({
                       style={{ background: 'var(--accent)', color: 'white' }}
                     >
                       {pipInstalling ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
-                      Instalar
+                      {t('workspaceFiles.install')}
                     </button>
                   </div>
                 </>

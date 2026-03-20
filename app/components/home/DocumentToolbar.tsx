@@ -10,6 +10,7 @@ import {
   Home as HomeIcon,
   Plus,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/lib/hooks/useResources';
 
 interface DocumentToolbarProps {
@@ -36,6 +37,7 @@ export default function DocumentToolbar({
   onCreateFolder,
   hidePath = false,
 }: DocumentToolbarProps) {
+  const { t } = useTranslation();
   const handleUploadClick = async () => {
     if (typeof window !== 'undefined' && window.electron?.selectFiles) {
       const filePaths = await window.electron.selectFiles({
@@ -63,10 +65,10 @@ export default function DocumentToolbar({
             type="button"
             onClick={onNavigateToRoot}
             className="flex items-center gap-1.5 px-1.5 py-1 text-sm font-medium text-[var(--dome-text-secondary)] hover:text-[var(--dome-text)] hover:bg-[var(--dome-bg-secondary)] rounded-md transition-colors"
-            aria-label="All documents"
+            aria-label={t('toolbar.all')}
           >
             <HomeIcon size={14} />
-            <span className="hidden sm:inline">All</span>
+            <span className="hidden sm:inline">{t('toolbar.all')}</span>
           </button>
 
           {breadcrumbPath.length > 0 && (
@@ -105,12 +107,12 @@ export default function DocumentToolbar({
 
       {/* Quick actions */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <ToolbarButton onClick={onCreateNote} icon={<FileText size={16} />} label="Note" variant="primary" />
+        <ToolbarButton onClick={onCreateNote} icon={<FileText size={16} />} label={t('toolbar.note')} variant="primary" />
         <div className="h-4 w-px bg-[var(--dome-border)] mx-1" />
-        <ToolbarButton onClick={onCreateNotebook} icon={<Notebook size={16} />} label="Notebook" />
-        <ToolbarButton onClick={handleUploadClick} icon={<Upload size={16} />} label="Import" />
-        <ToolbarButton onClick={handleAddUrlClick} icon={<Link2 size={16} />} label="Link" />
-        <ToolbarButton onClick={onCreateFolder} icon={<FolderOpen size={16} />} label="Folder" />
+        <ToolbarButton onClick={onCreateNotebook} icon={<Notebook size={16} />} label={t('toolbar.notebook')} />
+        <ToolbarButton onClick={handleUploadClick} icon={<Upload size={16} />} label={t('toolbar.import')} />
+        <ToolbarButton onClick={handleAddUrlClick} icon={<Link2 size={16} />} label={t('toolbar.link')} />
+        <ToolbarButton onClick={onCreateFolder} icon={<FolderOpen size={16} />} label={t('toolbar.folder')} />
       </div>
     </div>
   );

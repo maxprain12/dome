@@ -1,6 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { CheckCircle2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { validateEmail, validateName } from '@/lib/utils/validation';
 import { getAnalyticsEnabled, setAnalyticsEnabled } from '@/lib/settings';
@@ -34,6 +35,7 @@ function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.R
 }
 
 export default function GeneralSettings() {
+  const { t } = useTranslation();
   const { name, email, updateUserProfile, loadUserProfile } = useUserStore();
   const [localName, setLocalName] = useState(name);
   const [localEmail, setLocalEmail] = useState(email);
@@ -53,8 +55,8 @@ export default function GeneralSettings() {
 
   const handleSave = () => {
     const newErrors: { name?: string; email?: string } = {};
-    if (!validateName(localName)) newErrors.name = 'Introduce un nombre válido (mínimo 2 caracteres)';
-    if (!validateEmail(localEmail)) newErrors.email = 'Introduce una dirección de email válida';
+    if (!validateName(localName)) newErrors.name = t('settings.general.error_name');
+    if (!validateEmail(localEmail)) newErrors.email = t('settings.general.error_email');
     if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     setErrors({});
     updateUserProfile({ name: localName.trim(), email: localEmail.trim() });
@@ -76,20 +78,20 @@ export default function GeneralSettings() {
       {/* Page header */}
       <div>
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>
-          General
+          {t('settings.general.title')}
         </h2>
         <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          Gestiona tu perfil y preferencias de la cuenta.
+          {t('settings.general.subtitle')}
         </p>
       </div>
 
       {/* Profile */}
       <div>
-        <SectionLabel>Perfil</SectionLabel>
+        <SectionLabel>{t('settings.general.profile')}</SectionLabel>
         <SettingsCard>
           <div className="space-y-4">
             <div>
-              <FieldLabel htmlFor="user-name">Nombre completo</FieldLabel>
+              <FieldLabel htmlFor="user-name">{t('settings.general.full_name')}</FieldLabel>
               <input
                 id="user-name"
                 type="text"
@@ -98,7 +100,7 @@ export default function GeneralSettings() {
                   setLocalName(e.target.value);
                   if (errors.name && validateName(e.target.value)) setErrors(p => ({ ...p, name: undefined }));
                 }}
-                placeholder="Nombre Apellido"
+                placeholder={t('settings.general.name_placeholder')}
                 autoComplete="name"
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors"
                 style={{
@@ -113,7 +115,7 @@ export default function GeneralSettings() {
             </div>
 
             <div>
-              <FieldLabel htmlFor="user-email">Email</FieldLabel>
+              <FieldLabel htmlFor="user-email">{t('settings.general.email')}</FieldLabel>
               <input
                 id="user-email"
                 type="text"
@@ -123,7 +125,7 @@ export default function GeneralSettings() {
                   setLocalEmail(e.target.value);
                   if (errors.email && validateEmail(e.target.value)) setErrors(p => ({ ...p, email: undefined }));
                 }}
-                placeholder="nombre@ejemplo.com"
+                placeholder={t('settings.general.email_placeholder')}
                 autoComplete="email"
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors"
                 style={{
@@ -144,12 +146,12 @@ export default function GeneralSettings() {
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all"
                 style={{ backgroundColor: DOME_GREEN }}
               >
-                Guardar cambios
+                {t('settings.general.save_changes')}
               </button>
               {isSaved && (
                 <span className="flex items-center gap-1.5 text-xs animate-in fade-in" style={{ color: DOME_GREEN }}>
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  Guardado
+                  {t('settings.general.saved')}
                 </span>
               )}
             </div>
@@ -159,7 +161,7 @@ export default function GeneralSettings() {
 
       {/* Privacy */}
       <div>
-        <SectionLabel>Privacidad</SectionLabel>
+        <SectionLabel>{t('settings.general.privacy')}</SectionLabel>
         <SettingsCard>
           <label className="flex items-start gap-4 cursor-pointer">
             {/* Custom toggle */}
@@ -179,10 +181,10 @@ export default function GeneralSettings() {
             </button>
             <div>
               <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-                Compartir datos de uso anónimos
+                {t('settings.general.analytics_label')}
               </p>
               <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-                Ayuda a mejorar Dome entendiendo cómo se usa la app. Los datos son completamente anónimos.
+                {t('settings.general.analytics_description')}
               </p>
             </div>
           </label>

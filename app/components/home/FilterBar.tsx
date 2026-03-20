@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Filter, Grid3X3, List, Calendar, Tag, FileText, Image as ImageIcon, Video, Music, Link2, File, FolderOpen, Notebook, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import type { ResourceType } from '@/types';
 
@@ -16,19 +17,6 @@ interface FilterBarProps {
   onCreateFolder?: () => void;
 }
 
-const RESOURCE_TYPES: { type: ResourceType; label: string; icon: React.ReactNode }[] = [
-  { type: 'note', label: 'Notes', icon: <FileText size={14} /> },
-  { type: 'notebook', label: 'Notebooks', icon: <Notebook size={14} /> },
-  { type: 'image', label: 'Images', icon: <ImageIcon size={14} /> },
-  { type: 'video', label: 'Videos', icon: <Video size={14} /> },
-  { type: 'audio', label: 'Audio', icon: <Music size={14} /> },
-  { type: 'pdf', label: 'PDFs', icon: <File size={14} /> },
-  { type: 'url', label: 'Links', icon: <Link2 size={14} /> },
-  { type: 'document', label: 'Docs', icon: <File size={14} /> },
-  { type: 'excel', label: 'Excel', icon: <File size={14} /> },
-  { type: 'ppt', label: 'Presentations', icon: <File size={14} /> },
-];
-
 export function FilterBar({
   selectedTypes,
   onTypesChange,
@@ -38,7 +26,21 @@ export function FilterBar({
   onViewModeChange,
   onCreateFolder,
 }: FilterBarProps) {
+  const { t } = useTranslation();
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+
+  const RESOURCE_TYPES: { type: ResourceType; label: string; icon: React.ReactNode }[] = [
+    { type: 'note', label: t('filter.types.notes'), icon: <FileText size={14} /> },
+    { type: 'notebook', label: t('filter.types.notebooks'), icon: <Notebook size={14} /> },
+    { type: 'image', label: t('filter.types.images'), icon: <ImageIcon size={14} /> },
+    { type: 'video', label: t('filter.types.videos'), icon: <Video size={14} /> },
+    { type: 'audio', label: t('filter.types.audio'), icon: <Music size={14} /> },
+    { type: 'pdf', label: t('filter.types.pdfs'), icon: <File size={14} /> },
+    { type: 'url', label: t('filter.types.links'), icon: <Link2 size={14} /> },
+    { type: 'document', label: t('filter.types.docs'), icon: <File size={14} /> },
+    { type: 'excel', label: t('filter.types.excel'), icon: <File size={14} /> },
+    { type: 'ppt', label: t('filter.types.presentations'), icon: <File size={14} /> },
+  ];
 
   const toggleType = (type: ResourceType) => {
     if (selectedTypes.includes(type)) {
@@ -59,17 +61,17 @@ export function FilterBar({
       <div className="filter-bar-left">
         {/* Sort dropdown */}
         <div className="sort-dropdown">
-          <label htmlFor="filter-sort-select" className="sr-only">Ordenar por</label>
+          <label htmlFor="filter-sort-select" className="sr-only">{t('filter.sort_by')}</label>
           <select
             id="filter-sort-select"
             value={sortBy}
             onChange={(e) => onSortByChange(e.target.value as any)}
             className="sort-select"
-            aria-label="Ordenar por"
+            aria-label={t('filter.sort_by')}
           >
-            <option value="updated_at">Recently Updated</option>
-            <option value="created_at">Date Created</option>
-            <option value="title">Alphabetical</option>
+            <option value="updated_at">{t('filter.sort.recently_updated')}</option>
+            <option value="created_at">{t('filter.sort.date_created')}</option>
+            <option value="title">{t('filter.sort.alphabetical')}</option>
           </select>
         </div>
 
@@ -78,10 +80,10 @@ export function FilterBar({
           <button
             className={`filter-btn min-h-[44px] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${activeFilterCount > 0 ? 'active' : ''}`}
             onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-            aria-label="Filtrar por tipo"
+            aria-label={t('filter.filter_by_type')}
           >
             <Filter size={16} />
-            <span>Filter</span>
+            <span>{t('filter.filter')}</span>
             {activeFilterCount > 0 ? (
               <span className="filter-count">{activeFilterCount}</span>
             ) : null}
@@ -90,10 +92,10 @@ export function FilterBar({
           {showFilterDropdown && (
             <div className="filter-dropdown">
               <div className="filter-dropdown-header">
-                <span>Filter by Type</span>
+                <span>{t('filter.filter_by_type')}</span>
                 {activeFilterCount > 0 ? (
-                  <button className="clear-btn cursor-pointer" onClick={clearFilters} aria-label="Clear all filters">
-                    Clear all
+                  <button className="clear-btn cursor-pointer" onClick={clearFilters} aria-label={t('filter.clear_all')}>
+                    {t('filter.clear_all')}
                   </button>
                 ) : null}
               </div>
@@ -141,9 +143,9 @@ export function FilterBar({
       <div className="filter-bar-right">
         {/* Create Folder button */}
         {onCreateFolder && (
-          <button className="create-folder-btn min-h-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" onClick={onCreateFolder} aria-label="Create new folder">
+          <button className="create-folder-btn min-h-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" onClick={onCreateFolder} aria-label={t('filter.new_folder')}>
             <FolderOpen size={16} />
-            <span>New folder</span>
+            <span>{t('filter.new_folder')}</span>
           </button>
         )}
 
@@ -152,7 +154,7 @@ export function FilterBar({
           <button
             className={`view-btn min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${viewMode === 'grid' ? 'active' : ''}`}
             onClick={() => onViewModeChange('grid')}
-            aria-label="Grid view"
+            aria-label={t('filter.grid_view')}
             aria-pressed={viewMode === 'grid'}
           >
             <Grid3X3 size={16} />
@@ -160,7 +162,7 @@ export function FilterBar({
           <button
             className={`view-btn min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${viewMode === 'list' ? 'active' : ''}`}
             onClick={() => onViewModeChange('list')}
-            aria-label="List view"
+            aria-label={t('filter.list_view')}
             aria-pressed={viewMode === 'list'}
           >
             <List size={16} />

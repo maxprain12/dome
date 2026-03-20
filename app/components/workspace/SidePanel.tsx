@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown, FileText, History, Trash2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import WorkspaceFilesPanel from './WorkspaceFilesPanel';
 import PDFTab from './PDFTab';
 import { type Resource } from '@/types';
@@ -39,6 +40,7 @@ export default function SidePanel({
   notebookVenvPath,
   onNotebookVenvPathChange,
 }: SidePanelProps) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>(() =>
     resource?.type === 'notebook' ? 'workspace' : 'references'
   );
@@ -524,6 +526,7 @@ const LINK_TYPES = [
 
 // Búsqueda de recursos para enlazar - with live debounced search
 function SearchTab({ resourceId }: { resourceId: string; resource: Resource }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -634,7 +637,7 @@ function SearchTab({ resourceId }: { resourceId: string; resource: Resource }) {
           type="text"
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
-          placeholder="Type to search resources..."
+          placeholder={t('sidePanel.searchPlaceholder')}
           autoFocus
           className="w-full pl-9 pr-3 py-2 text-sm rounded-lg outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           style={{
@@ -694,7 +697,7 @@ function SearchTab({ resourceId }: { resourceId: string; resource: Resource }) {
         </div>
       ) : query && !isSearching ? (
         <div className="text-center py-6">
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>No resources found</p>
+          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>{t('sidePanel.noResourcesFound')}</p>
         </div>
       ) : !query ? (
         <div className="text-center py-6">

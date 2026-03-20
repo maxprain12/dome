@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePromptStore } from '@/lib/store/usePromptStore';
+import { useTranslation } from 'react-i18next';
 import { X, Send } from 'lucide-react';
 
 export default function PromptModal() {
+  const { t } = useTranslation();
   const { isOpen, message, defaultValue, handleSubmit, handleCancel } = usePromptStore();
   const [value, setValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -81,7 +83,7 @@ export default function PromptModal() {
             className="text-sm font-semibold"
             style={{ color: 'var(--primary-text)', letterSpacing: '-0.01em' }}
           >
-            Input
+            {t('promptModal.input')}
           </h2>
           <button
             onClick={handleCancel}
@@ -135,7 +137,7 @@ export default function PromptModal() {
               e.currentTarget.style.borderColor = 'var(--border)';
               e.currentTarget.style.boxShadow = 'none';
             }}
-            placeholder="Type here..."
+            placeholder={t('promptModal.typeHere')}
           />
 
           {/* Actions */}
@@ -156,7 +158,7 @@ export default function PromptModal() {
                 (e.currentTarget as HTMLElement).style.background = 'var(--bg-secondary)';
               }}
             >
-              Cancel
+              {t('promptModal.cancel')}
             </button>
             <button
               type="submit"
@@ -178,7 +180,7 @@ export default function PromptModal() {
               }}
             >
               <Send size={14} />
-              Accept
+              {t('promptModal.accept')}
             </button>
           </div>
         </form>

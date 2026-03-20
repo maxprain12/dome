@@ -1,6 +1,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { X, RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useFlashcardStore } from '@/lib/store/useFlashcardStore';
 import FlashcardCard from './FlashcardCard';
 import FlashcardSwipeContainer from './FlashcardSwipeContainer';
@@ -20,6 +21,7 @@ const OVERLAY_TOP = {
 } as const;
 
 export default function FlashcardStudyView({ deckId, onClose, overlayContext = 'workspace' }: FlashcardStudyViewProps) {
+  const { t } = useTranslation();
   const overlayTop = OVERLAY_TOP[overlayContext];
   const {
     currentDeck,
@@ -138,12 +140,12 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
           style={{ borderBottom: '1px solid var(--border)' }}
         >
           <h2 className="text-lg font-semibold" style={{ color: 'var(--primary-text)' }}>
-            {currentDeck?.title || 'Flashcards'}
+            {currentDeck?.title || t('flashcard.deck', 'Flashcards')}
           </h2>
           <button
             onClick={onClose}
             className="btn btn-ghost p-2 rounded-lg"
-            aria-label="Cerrar"
+            aria-label={t('ui.close', 'Cerrar')}
           >
             <X className="w-5 h-5" style={{ color: 'var(--secondary-text)' }} />
           </button>
@@ -160,16 +162,16 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
             className="text-xl font-semibold mb-2"
             style={{ color: 'var(--primary-text)' }}
           >
-            No hay tarjetas pendientes
+            {t('flashcard.no_cards_pending', 'No hay tarjetas pendientes')}
           </h3>
           <p
             className="text-sm mb-6"
             style={{ color: 'var(--secondary-text)' }}
           >
-            Todas las tarjetas han sido revisadas. Vuelve mas tarde para repasar.
+            {t('flashcard.all_cards_reviewed', 'Todas las tarjetas han sido revisadas. Vuelve mas tarde para repasar.')}
           </p>
           <button onClick={onClose} className="btn btn-primary px-6 py-2.5">
-            Volver
+            {t('ui.back', 'Volver')}
           </button>
         </div>
       </div>
@@ -195,12 +197,12 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
           style={{ borderBottom: '1px solid var(--border)' }}
         >
           <h2 className="text-lg font-semibold" style={{ color: 'var(--primary-text)' }}>
-            {currentDeck?.title || 'Flashcards'}
+            {currentDeck?.title || t('flashcard.deck', 'Flashcards')}
           </h2>
           <button
             onClick={handleClose}
             className="btn btn-ghost p-2 rounded-lg"
-            aria-label="Cerrar"
+            aria-label={t('ui.close', 'Cerrar')}
           >
             <X className="w-5 h-5" style={{ color: 'var(--secondary-text)' }} />
           </button>
@@ -240,7 +242,7 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
       >
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold" style={{ color: 'var(--primary-text)' }}>
-            {currentDeck?.title || 'Flashcards'}
+            {currentDeck?.title || t('flashcard.deck', 'Flashcards')}
           </h2>
           {sessionStreak >= 3 && (
             <span
@@ -250,14 +252,14 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
                 color: 'var(--warning, #f59e0b)',
               }}
             >
-              Racha: {sessionStreak}
+              {t('flashcard.streak', 'Racha')}: {sessionStreak}
             </span>
           )}
         </div>
         <button
           onClick={handleClose}
           className="btn btn-ghost p-2 rounded-lg"
-          aria-label="Cerrar"
+          aria-label={t('ui.close', 'Cerrar')}
         >
           <X className="w-5 h-5" style={{ color: 'var(--secondary-text)' }} />
         </button>
@@ -304,7 +306,7 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
               onClick={flipCard}
               className="btn btn-primary px-8 py-3 text-sm font-medium"
             >
-              Mostrar respuesta
+              {t('flashcard.show_answer', 'Mostrar respuesta')}
             </button>
           </div>
         ) : (
@@ -318,7 +320,7 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
                 color: 'var(--error, #ef4444)',
               }}
             >
-              <span className="text-sm font-semibold">Otra vez</span>
+              <span className="text-sm font-semibold">{t('flashcard.again', 'Otra vez')}</span>
               <span className="text-[10px] opacity-70">1</span>
             </button>
             <button
@@ -330,7 +332,7 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
                 color: 'var(--warning, #f59e0b)',
               }}
             >
-              <span className="text-sm font-semibold">Dificil</span>
+              <span className="text-sm font-semibold">{t('flashcard.difficult', 'Dificil')}</span>
               <span className="text-[10px] opacity-70">2</span>
             </button>
             <button
@@ -342,7 +344,7 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
                 color: 'var(--success, #10b981)',
               }}
             >
-              <span className="text-sm font-semibold">Bien</span>
+              <span className="text-sm font-semibold">{t('flashcard.good', 'Bien')}</span>
               <span className="text-[10px] opacity-70">3</span>
             </button>
             <button
@@ -354,7 +356,7 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
                 color: 'var(--success, #10b981)',
               }}
             >
-              <span className="text-sm font-semibold">Facil</span>
+              <span className="text-sm font-semibold">{t('flashcard.easy', 'Facil')}</span>
               <span className="text-[10px] opacity-70">4</span>
             </button>
           </div>
@@ -366,8 +368,8 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
           style={{ color: 'var(--tertiary-text)' }}
         >
           {!isCardFlipped
-            ? 'Pulsa Espacio para voltear'
-            : 'Desliza o usa las teclas 1-4 para responder'}
+            ? t('flashcard.press_space_flip', 'Pulsa Espacio para voltear')
+            : t('flashcard.swipe_or_keys', 'Desliza o usa las teclas 1-4 para responder')}
         </p>
       </div>
     </div>

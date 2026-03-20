@@ -1,6 +1,7 @@
 'use client';
 
 import { FolderInput, Trash2, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface SelectionActionBarProps {
   count: number;
@@ -15,6 +16,7 @@ export default function SelectionActionBar({
   onDelete,
   onDeselect,
 }: SelectionActionBarProps) {
+  const { t } = useTranslation();
   if (count === 0) return null;
 
   return (
@@ -41,35 +43,35 @@ export default function SelectionActionBar({
           color: 'var(--dome-text)',
         }}
       >
-        {count} {count === 1 ? 'item' : 'items'} selected
+        {t(count === 1 ? 'selection.items_selected_one' : 'selection.items_selected_other', { count })}
       </span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <button
           type="button"
           onClick={onMove}
           className="selection-action-btn"
-          aria-label="Move to folder"
+          aria-label={t('selection.move')}
         >
           <FolderInput size={16} />
-          <span>Move</span>
+          <span>{t('selection.move')}</span>
         </button>
         <button
           type="button"
           onClick={onDelete}
           className="selection-action-btn selection-action-btn-danger"
-          aria-label="Delete selected"
+          aria-label={t('selection.delete')}
         >
           <Trash2 size={16} />
-          <span>Delete</span>
+          <span>{t('selection.delete')}</span>
         </button>
         <button
           type="button"
           onClick={onDeselect}
           className="selection-action-btn"
-          aria-label="Deselect all"
+          aria-label={t('selection.deselect')}
         >
           <X size={16} />
-          <span>Deselect</span>
+          <span>{t('selection.deselect')}</span>
         </button>
       </div>
     </div>

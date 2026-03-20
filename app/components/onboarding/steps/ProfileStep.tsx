@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { User, Mail, CheckCircle2, AlertCircle } from 'lucide-react';
 import { validateEmail, validateName } from '@/lib/utils/validation';
 
@@ -16,6 +17,7 @@ export default function ProfileStep({
   onComplete,
   onValidationChange,
 }: ProfileStepProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
   const [touched, setTouched] = useState<{ name?: boolean; email?: boolean }>({});
@@ -24,8 +26,8 @@ export default function ProfileStep({
   const emailValid = validateEmail(email);
   const canProceed = nameValid && emailValid;
 
-  const nameError = touched.name && !nameValid ? 'Mínimo 2 caracteres' : undefined;
-  const emailError = touched.email && !emailValid ? 'Email no válido' : undefined;
+  const nameError = touched.name && !nameValid ? t('onboarding.name_min_length') : undefined;
+  const emailError = touched.email && !emailValid ? t('onboarding.email_invalid') : undefined;
 
   // Always-up-to-date ref for handleNext — fixes stale closure in event listener
   const handleNextRef = useRef<() => void>(() => {});
@@ -79,18 +81,18 @@ export default function ProfileStep({
         </div>
         <div>
           <p className="font-semibold text-sm" style={{ color: 'var(--dome-text)' }}>
-            {name.trim() || 'Tu nombre'}
+            {name.trim() || t('onboarding.your_name')}
           </p>
           <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-            {email.trim() || 'tu@email.com'}
+            {email.trim() || t('onboarding.your_email')}
           </p>
         </div>
       </div>
 
       {/* Name field */}
-      <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
         <label htmlFor="profile-name" className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
-          Nombre completo <span style={{ color: 'var(--dome-accent)' }}>*</span>
+          {t('onboarding.full_name')} <span style={{ color: 'var(--dome-accent)' }}>*</span>
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none" style={{ color: nameError ? 'var(--dome-error, #ef4444)' : nameValid && touched.name ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
@@ -102,7 +104,7 @@ export default function ProfileStep({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={() => setTouched((t) => ({ ...t, name: true }))}
-            placeholder="María García"
+            placeholder={t('onboarding.full_name_placeholder')}
             autoFocus
             className="w-full pl-9 pr-9 py-2.5 rounded-xl text-sm outline-none transition-all"
             style={{
@@ -149,9 +151,9 @@ export default function ProfileStep({
       </div>
 
       {/* Email field */}
-      <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1.5">
         <label htmlFor="profile-email" className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
-          Email <span style={{ color: 'var(--dome-accent)' }}>*</span>
+          {t('onboarding.email_address')} <span style={{ color: 'var(--dome-accent)' }}>*</span>
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none" style={{ color: emailError ? 'var(--dome-error, #ef4444)' : emailValid && touched.email ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
@@ -165,7 +167,7 @@ export default function ProfileStep({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => setTouched((t) => ({ ...t, email: true }))}
-            placeholder="maria@ejemplo.com"
+            placeholder={t('onboarding.email_placeholder')}
             className="w-full pl-9 pr-9 py-2.5 rounded-xl text-sm outline-none transition-all"
             style={{
               background: 'var(--dome-bg-hover)',
@@ -212,7 +214,7 @@ export default function ProfileStep({
 
       {/* Privacy note */}
       <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-        Tu información se guarda localmente y nunca sale de tu dispositivo.
+        {t('onboarding.privacy_note')}
       </p>
     </div>
   );

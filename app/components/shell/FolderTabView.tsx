@@ -5,6 +5,7 @@ import {
   Image, Music, Video, Plus, Home, ChevronRight, FileQuestion,
   MoreVertical, Trash2, Pencil, X, Check, Presentation,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useResources, type Resource } from '@/lib/hooks/useResources';
 import { useTabStore } from '@/lib/store/useTabStore';
 
@@ -88,6 +89,7 @@ function FileRow({
   onDelete: () => void;
   onRename: (newTitle: string) => void;
 }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -157,7 +159,7 @@ function FileRow({
           className="flex-1 text-left text-[13px] font-medium truncate hover:underline underline-offset-2 min-w-0"
           style={{ color: 'var(--dome-text)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
-          {file.title || 'Sin título'}
+          {file.title || t('folder.untitled')}
         </button>
       )}
 
@@ -200,7 +202,7 @@ function FileRow({
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
               >
-                <Pencil className="w-3 h-3" /> Renombrar
+                <Pencil className="w-3 h-3" /> {t('folder.rename')}
               </button>
               <button
                 type="button"
@@ -210,7 +212,7 @@ function FileRow({
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
               >
-                <Trash2 className="w-3 h-3" /> Eliminar
+                <Trash2 className="w-3 h-3" /> {t('folder.delete')}
               </button>
             </div>
           )}
@@ -223,6 +225,7 @@ function FileRow({
 // ─── NewFolderInline ──────────────────────────────────────────────────────────
 
 function NewFolderInline({ onConfirm, onCancel }: { onConfirm: (name: string) => void; onCancel: () => void }) {
+  const { t } = useTranslation();
   const [value, setValue] = useState('');
   return (
     <div className="flex items-center gap-2 p-3 rounded-xl" style={{ border: '1px dashed var(--dome-border)', background: 'var(--dome-surface)' }}>
@@ -231,7 +234,7 @@ function NewFolderInline({ onConfirm, onCancel }: { onConfirm: (name: string) =>
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="Nombre de la carpeta"
+        placeholder={t('folder.folderNamePlaceholder')}
         autoFocus
         onKeyDown={(e) => {
           if (e.key === 'Enter' && value.trim()) onConfirm(value.trim());
@@ -253,6 +256,7 @@ function NewFolderInline({ onConfirm, onCancel }: { onConfirm: (name: string) =>
 // ─── FolderTabView ────────────────────────────────────────────────────────────
 
 export default function FolderTabView({ folderId, folderTitle }: FolderTabViewProps) {
+  const { t } = useTranslation();
   const [creatingFolder, setCreatingFolder] = useState(false);
 
   const {
@@ -334,7 +338,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}
           >
             <Home className="w-3 h-3" />
-            <span>Inicio</span>
+            <span>{t('common.home')}</span>
           </button>
           {breadcrumb.map((folder) => (
             <>
@@ -402,7 +406,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               style={{ background: 'var(--dome-accent)', color: '#fff', border: 'none', cursor: 'pointer' }}
             >
               <Plus className="w-3.5 h-3.5" />
-              Nueva nota
+              {t('folder.newNote')}
             </button>
           </div>
         </div>
@@ -417,9 +421,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               <FolderOpen className="w-8 h-8" style={{ color: 'var(--dome-text-muted)', opacity: 0.4 }} />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>Carpeta vacía</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('folder.emptyFolder')}</p>
               <p className="text-xs mt-1" style={{ color: 'var(--dome-text-muted)' }}>
-                Crea una nota o añade archivos aquí
+                {t('folder.emptyFolderHint')}
               </p>
             </div>
             <button

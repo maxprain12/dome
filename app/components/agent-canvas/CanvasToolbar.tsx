@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslation } from 'react-i18next';
 import { Play, Square, Save, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, ArrowLeft } from 'lucide-react';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 
@@ -20,6 +21,7 @@ export default function CanvasToolbar({
   onBackToLibrary,
   onRename,
 }: CanvasToolbarProps) {
+  const { t } = useTranslation();
   const { executionStatus, activeWorkflowName, isDirty } = useCanvasStore((s) => ({
     executionStatus: s.executionStatus,
     activeWorkflowName: s.activeWorkflowName,
@@ -84,19 +86,19 @@ export default function CanvasToolbar({
       {executionStatus === 'running' && (
         <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--dome-accent)' }}>
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          <span>Ejecutando workflow...</span>
+          <span>{t('canvas.running_workflow')}</span>
         </div>
       )}
       {executionStatus === 'done' && (
         <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--success)' }}>
           <CheckCircle2 className="w-3.5 h-3.5" />
-          <span>Completado</span>
+          <span>{t('canvas.completed')}</span>
         </div>
       )}
       {executionStatus === 'error' && (
         <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--error)' }}>
           <AlertCircle className="w-3.5 h-3.5" />
-          <span>Error en ejecución</span>
+          <span>{t('canvas.execution_error')}</span>
         </div>
       )}
 
@@ -111,10 +113,10 @@ export default function CanvasToolbar({
           color: 'var(--dome-text-secondary)',
           border: '1px solid var(--dome-border)',
         }}
-        title="Volver a biblioteca de workflows"
+        title={t('canvas.back_to_library')}
       >
         <ArrowLeft className="w-3.5 h-3.5" />
-        <span>Biblioteca</span>
+        <span>{t('canvas.workflow_library')}</span>
       </button>
 
       {/* Save */}
@@ -126,10 +128,10 @@ export default function CanvasToolbar({
           color: isDirty ? 'var(--dome-accent)' : 'var(--dome-text-secondary)',
           border: `1px solid ${isDirty ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
         }}
-        title="Guardar workflow"
+        title={t('canvas.save_workflow')}
       >
         <Save className="w-3.5 h-3.5" />
-        <span>Guardar</span>
+        <span>{t('canvas.save')}</span>
       </button>
 
       {/* Clear */}
@@ -141,10 +143,10 @@ export default function CanvasToolbar({
           color: 'var(--dome-text-muted)',
           border: '1px solid var(--dome-border)',
         }}
-        title="Limpiar canvas"
+        title={t('canvas.clear_canvas')}
       >
         <Trash2 className="w-3.5 h-3.5" />
-        <span>Limpiar</span>
+        <span>{t('canvas.clear_canvas')}</span>
       </button>
     </div>
   );

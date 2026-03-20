@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { type Resource } from '@/types';
 import { processUrlResource } from '@/lib/web/processor';
 import LoadingState from '@/components/ui/LoadingState';
@@ -10,6 +11,7 @@ interface URLViewerProps {
 }
 
 function URLViewerComponent({ resource }: URLViewerProps) {
+  const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +89,7 @@ function URLViewerComponent({ resource }: URLViewerProps) {
   }, [url]);
 
   if (isLoading && !error) {
-    return <LoadingState message="Loading URL..." />;
+    return <LoadingState message={t('viewer.loading_url')} />;
   }
 
   if (error && !url) {
@@ -125,7 +127,7 @@ function URLViewerComponent({ resource }: URLViewerProps) {
           {(processingStatus === 'processing' || isProcessing) && (
             <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--secondary-text)' }}>
               <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-              <span>Processing...</span>
+              <span>{t('viewer.processing')}</span>
             </div>
           )}
 
@@ -140,10 +142,10 @@ function URLViewerComponent({ resource }: URLViewerProps) {
                 color: 'var(--primary-text)',
                 border: '1px solid var(--border)',
               }}
-              aria-label="Reprocess content"
+              aria-label={t('viewer.reprocess_content')}
             >
               <RefreshCw className="w-4 h-4 shrink-0" />
-              Reprocess
+              {t('viewer.reprocess')}
             </button>
           )}
         </div>
@@ -157,11 +159,11 @@ function URLViewerComponent({ resource }: URLViewerProps) {
             color: 'var(--primary-text)',
             border: '1px solid var(--border)',
           }}
-          aria-label="Open in Browser"
-          title="Open in Browser"
+          aria-label={t('viewer.open_in_browser')}
+          title={t('viewer.open_in_browser')}
         >
           <ExternalLink className="w-4 h-4 shrink-0" aria-hidden />
-          Open in Browser
+          {t('viewer.open_in_browser')}
         </button>
       </div>
 
@@ -195,7 +197,7 @@ function URLViewerComponent({ resource }: URLViewerProps) {
                     }}
                   >
                     <h2 className="text-xl font-semibold mb-3" style={{ color: 'var(--primary-text)' }}>
-                      Full Content
+                      {t('viewer.full_content')}
                     </h2>
                     <div
                       className="text-sm leading-relaxed whitespace-pre-wrap"
@@ -216,36 +218,36 @@ function URLViewerComponent({ resource }: URLViewerProps) {
                     }}
                   >
                     <h2 className="text-xl font-semibold mb-3" style={{ color: 'var(--primary-text)' }}>
-                      Metadata
+                      {t('viewer.metadata')}
                     </h2>
                     <dl className="space-y-2 text-sm">
                       {safeStr(metadata.title) && (
                         <>
-                          <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>Title:</dt>
+                          <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>{t('viewer.title')}:</dt>
                           <dd style={{ color: 'var(--secondary-text)' }}>{safeStr(metadata.title)}</dd>
                         </>
                       )}
                       {safeStr(metadata.description) && (
                         <>
-                          <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>Description:</dt>
+                          <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>{t('viewer.description')}:</dt>
                           <dd style={{ color: 'var(--secondary-text)' }}>{safeStr(metadata.description)}</dd>
                         </>
                       )}
                       {safeStr(metadata.author) && (
                         <>
-                          <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>Author:</dt>
+                          <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>{t('viewer.author')}:</dt>
                           <dd style={{ color: 'var(--secondary-text)' }}>{safeStr(metadata.author)}</dd>
                         </>
                       )}
                       {safeDate(metadata.published_date) && (
                         <>
-                          <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>Published:</dt>
+                          <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>{t('viewer.published')}:</dt>
                           <dd style={{ color: 'var(--secondary-text)' }}>{safeDate(metadata.published_date)}</dd>
                         </>
                       )}
                       {url && (
                         <>
-                          <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>URL:</dt>
+                          <dt className="font-medium" style={{ color: 'var(--primary-text)' }}>{t('viewer.url')}:</dt>
                           <dd>
                             <a
                               href={url}
@@ -265,22 +267,22 @@ function URLViewerComponent({ resource }: URLViewerProps) {
                 {!scrapedContent && (
                   <div className="text-center py-12">
                     <p style={{ color: 'var(--secondary-text)' }}>
-                      No processed content available. Click "Reprocess" to extract content.
+                      {t('viewer.no_content')}
                     </p>
                   </div>
                 )}
               </div>
           ) : processingStatus === 'processing' || isProcessing ? (
-            <LoadingState message="Processing content..." />
+            <LoadingState message={t('viewer.processing_content')} />
           ) : (
             <div className="flex items-center justify-center py-16">
               <div className="text-center max-w-md">
                 <AlertCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--warning)' }} />
                 <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--primary-text)' }}>
-                  Content Not Processed
+                  {t('viewer.content_not_processed')}
                 </h3>
                 <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
-                  This URL resource hasn't been processed yet. Click the button below to extract content.
+                  {t('viewer.content_not_processed_desc')}
                 </p>
                 <button
                   type="button"
@@ -290,9 +292,9 @@ function URLViewerComponent({ resource }: URLViewerProps) {
                   style={{
                     backgroundColor: 'var(--accent)',
                   }}
-                  aria-label="Process content now"
+                  aria-label={t('viewer.process_now')}
                 >
-                  {isProcessing ? 'Processing...' : 'Process Now'}
+                  {isProcessing ? t('viewer.processing') : t('viewer.process_now')}
                 </button>
               </div>
             </div>

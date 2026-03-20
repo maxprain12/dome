@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Brain, Loader2, AlertCircle, HelpCircle, RefreshCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { IndexingStatus, ResourceIndexStatus } from '@/lib/db/pageindex';
 import { getResourceIndexStatus, indexResource } from '@/lib/db/pageindex';
 
@@ -10,13 +11,8 @@ interface IndexStatusBadgeProps {
 
 const POLL_INTERVAL_MS = 2000;
 
-const DOCLING_STEP_LABELS: Record<string, string> = {
-  converting: 'Convirtiendo con Docling…',
-  storing_images: 'Guardando imágenes…',
-  updating_resource: 'Actualizando documento…',
-};
-
 export default function IndexStatusBadge({ resourceId, resourceType }: IndexStatusBadgeProps) {
+  const { t } = useTranslation();
   const [statusData, setStatusData] = useState<ResourceIndexStatus | null>(null);
   const [doclingPhase, setDoclingPhase] = useState<{ status: string; progress: number } | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
@@ -91,7 +87,7 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
   const handleRetry = async () => {
     if (isRetrying) return;
     setIsRetrying(true);
-    setStatusData(prev => prev ? { ...prev, status: 'pending', progress: 0, step: 'Reintentando…' } : null);
+    setStatusData(prev => prev ? { ...prev, status: 'pending', progress: 0, step: t('viewer.retrying') } : null);
     await indexResource(resourceId);
     setIsRetrying(false);
     // Poll for progress
@@ -106,7 +102,7 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
 
   // Docling phase takes priority (conversion before indexing)
   if (doclingPhase) {
-    const stepLabel = DOCLING_STEP_LABELS[doclingPhase.status] ?? 'Convirtiendo…';
+    const stepLabel = t(`viewer.docling_${doclingPhase.status}`) ?? t('viewer.converting');
     return (
       <div className="index-status-badge index-status-processing">
         <Loader2 size={12} className="index-status-spinner" />
@@ -125,9 +121,9 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
   if (status === 'none') {
     // Document not indexed yet — show a subtle hint
     return (
-      <div className="index-status-badge index-status-none" title="Este documento aún no ha sido indexado para IA">
+      <div className="index-status-badge index-status-none" title={t('viewer.not_indexed_title')}>
         <HelpCircle size={12} />
-        <span>Sin indexar para IA</span>
+        <span>{t('viewer.not_indexed')}</span>
       </div>
     );
   }
@@ -136,7 +132,7 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
     return (
       <div className="index-status-badge index-status-processing">
         <Loader2 size={12} className="index-status-spinner" />
-        <span>{step || 'Indexando…'}</span>
+        <span>{step || t('viewer.indexing')}</span>
         {status === 'processing' && progress > 0 && (
           <span className="index-status-progress">{progress}%</span>
         )}
@@ -146,23 +142,23 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
 
   if (status === 'done') {
     return (
-      <div className="index-status-badge index-status-done" title="El documento está indexado y la IA puede leerlo">
+      <div className="index-status-badge index-status-done" title={t('viewer.ready_for_ai_title')}>
         <Brain size={12} />
-        <span>Listo para IA</span>
+        <span>{t('viewer.ready_for_ai')}</span>
       </div>
     );
   }
 
   if (status === 'error') {
     return (
-      <div className="index-status-badge index-status-error" title={error || 'Error al indexar'}>
+      <div className="index-status-badge index-status-error" title={error || t('viewer.indexing_error_title')}>
         <AlertCircle size={12} />
-        <span>Error al indexar</span>
+        <span>{t('viewer.indexing_error')}</span>
         <button
           className="index-status-retry"
           onClick={handleRetry}
           disabled={isRetrying}
-          title="Reintentar indexado"
+          title={t('viewer.retry_indexing')}
         >
           <RefreshCw size={11} />
         </button>

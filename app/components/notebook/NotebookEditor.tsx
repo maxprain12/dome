@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { Play, SkipForward, FastForward, Download, Upload, X, Code2, FileText, GripVertical, Trash2, Terminal } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import CodeCell from './CodeCell';
 import MarkdownCell from './MarkdownCell';
 import { usePyodide } from '@/lib/notebook/PyodideProvider';
@@ -29,6 +30,7 @@ function getCodeCellIndices(cells: NotebookCell[]): number[] {
 const useIPCKernel = typeof window !== 'undefined' && !!window.electron?.notebook;
 
 export default function NotebookEditor({ content, onChange, editable = true, title = 'notebook', workingDirectory, venvPath }: NotebookEditorProps) {
+  const { t } = useTranslation();
   const nb = parseNotebookContent(content);
   const { runPython } = usePyodide();
   const [selectedCellIndex, setSelectedCellIndex] = useState(0);
@@ -60,14 +62,14 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
         type === 'code'
           ? ({
               cell_type: 'code',
-              source: '# Escribe código aquí\n',
+              source: `${t('notebook.code_placeholder')}\n`,
               outputs: [],
               execution_count: null,
               metadata: {},
             } as NotebookCodeCell)
           : ({
               cell_type: 'markdown',
-              source: 'Escribe markdown aquí...',
+              source: t('notebook.markdown_placeholder'),
               metadata: {},
             } as NotebookMarkdownCell);
 
@@ -218,7 +220,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
       const paths = await window.electron.selectFile({
         filters: [
           { name: 'Jupyter Notebook', extensions: ['ipynb'] },
-          { name: 'Todos los archivos', extensions: ['*'] },
+          { name: t('notebook.all_files'), extensions: ['*'] },
         ],
       });
       if (paths?.length && paths[0]) {
@@ -230,10 +232,10 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
             if (normalized) {
               onChange(JSON.stringify(normalized));
             } else {
-              console.warn('Import: el archivo no tiene formato de notebook válido (cells)');
+              console.warn(t('notebook.import_invalid_notebook'));
             }
           } catch {
-            console.warn('Import: el archivo no es un JSON de notebook válido');
+            console.warn(t('notebook.import_invalid_json'));
           }
         } else {
           console.warn('Import failed:', result?.error);
@@ -280,47 +282,44 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
           className={btnPrimary}
           style={{ background: 'var(--accent)', color: 'white' }}
           title="Run cell (Shift+Enter)"
-          aria-label="Ejecutar celda actual"
+          aria-label={t('notebook.run_cell')}
         >
           <Play size={14} />
-          Run cell
         </button>
         <button
           type="button"
           onClick={handleRunAbove}
           className={btnSecondary}
           title="Run all cells above"
-          aria-label="Ejecutar celdas superiores"
+          aria-label={t('notebook.run_above')}
         >
           <SkipForward size={14} />
-          Run above
         </button>
         <button
           type="button"
           onClick={handleRunAll}
           className={btnSecondary}
           title="Run all cells"
-          aria-label="Ejecutar todas las celdas"
+          aria-label={t('notebook.run_all')}
         >
           <FastForward size={14} />
-          Run all
         </button>
         <span className="w-px h-6 bg-[var(--border)] self-stretch" aria-hidden />
         <button
           type="button"
           onClick={() => handleAddCell('code', -1)}
           className={btnSecondary}
-          aria-label="Añadir celda de código"
+          aria-label={t('notebook.add_code_cell')}
         >
-          + Code
+          <Code2 size={14} />
         </button>
         <button
           type="button"
           onClick={() => handleAddCell('markdown', -1)}
           className={btnSecondary}
-          aria-label="Añadir celda markdown"
+          aria-label={t('notebook.add_markdown_cell')}
         >
-          + Markdown
+          <FileText size={14} />
         </button>
         <span className="w-px h-6 bg-[var(--border)] self-stretch" aria-hidden />
         <button
@@ -328,20 +327,18 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
           onClick={handleExport}
           className={btnSecondary}
           title="Export as .ipynb"
-          aria-label="Exportar como archivo ipynb"
+          aria-label={t('notebook.export_ipynb')}
         >
           <Download size={14} />
-          Export
         </button>
         <button
           type="button"
           onClick={handleImport}
           className={btnSecondary}
           title="Import .ipynb"
-          aria-label="Importar archivo ipynb"
+          aria-label={t('notebook.import_ipynb')}
         >
           <Upload size={14} />
-          Import
         </button>
         {useIPCKernel && pythonInfo && (
           <>
@@ -353,7 +350,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
                 color: pythonInfo.available ? 'var(--secondary-text)' : 'var(--error)',
                 border: '1px solid var(--border)',
               }}
-              title={pythonInfo.path || 'Python no encontrado'}
+              title={pythonInfo.path || t('notebook.python_not_found')}
             >
               <Terminal size={12} />
               {pythonInfo.available ? (
@@ -362,7 +359,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
                   {venvPath ? ' (venv)' : ''}
                 </span>
               ) : (
-                <span>Python no disponible</span>
+                <span>{t('notebook.python_unavailable')}</span>
               )}
             </div>
           </>
@@ -426,8 +423,8 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
                 borderColor: 'var(--border)',
                 color: 'var(--tertiary-text)',
               }}
-              title="Mantén pulsado para arrastrar y mover la celda"
-              aria-label="Arrastrar para reordenar celda"
+              title={t('notebook.drag_to_reorder')}
+              aria-label={t('notebook.drag_to_reorder')}
             >
               <GripVertical size={18} />
             </button>
@@ -440,8 +437,8 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
                 borderColor: 'var(--border)',
                 color: 'var(--accent)',
               }}
-              title="Añadir celda de código debajo"
-              aria-label="Añadir celda de código debajo"
+              title={t('notebook.add_cell_below')}
+              aria-label={t('notebook.add_cell_below')}
             >
               <Code2 size={18} />
             </button>
@@ -454,8 +451,8 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
                 borderColor: 'var(--border)',
                 color: 'var(--accent)',
               }}
-              title="Añadir celda markdown debajo"
-              aria-label="Añadir celda markdown debajo"
+              title={t('notebook.add_cell_below')}
+              aria-label={t('notebook.add_cell_below')}
             >
               <FileText size={18} />
             </button>
@@ -469,8 +466,8 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
                   borderColor: 'var(--border)',
                   color: 'var(--error)',
                 }}
-                title="Eliminar celda"
-                aria-label="Eliminar celda"
+                title={t('notebook.delete_cell')}
+                aria-label={t('notebook.delete_cell')}
               >
                 <Trash2 size={16} />
               </button>
@@ -492,7 +489,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
                 setSelectedCellIndex(idx);
               }
             }}
-            aria-label={`Celda ${idx + 1} de ${nb.cells.length}`}
+            aria-label={t('notebook.cell_label', { current: idx + 1, total: nb.cells.length })}
           >
             {cell.cell_type === 'code' ? (
               <CodeCell
@@ -519,7 +516,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
 
       {nb.cells.length === 0 && (
         <p className="text-sm py-8" style={{ color: 'var(--tertiary)' }}>
-          No hay celdas. Añade una celda de código o markdown para empezar.
+          {t('notebook.empty_notebook')}
         </p>
       )}
     </div>

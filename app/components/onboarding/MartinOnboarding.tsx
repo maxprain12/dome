@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import OnboardingStep from './OnboardingStep';
 import ProfileStep from './steps/ProfileStep';
 import AISetupStep from './steps/AISetupStep';
@@ -16,29 +17,12 @@ interface MartinOnboardingProps {
 
 type Step = 'welcome' | 'profile' | 'ai' | 'complete';
 
-const WELCOME_MESSAGE = `¡Hola! Soy Many, tu asistente de IA en Dome.
-
-Estoy aquí para ayudarte a configurar tu cuenta y preparar todo para que puedas empezar a trabajar con tus recursos de la mejor manera.
-
-Vamos paso a paso. Primero necesito conocer algunos datos básicos sobre ti.`;
-
-const PROFILE_MESSAGE = `Cuéntame un poco sobre ti. Esto me ayudará a personalizar tu experiencia en Dome.`;
-
-const AI_MESSAGE = `Excellent. Now, so I can help you better, I need to configure your AI provider. This will allow me to generate summaries, perform semantic searches, and answer your questions.
-
-You can configure this now or do it later from settings.`;
-
-const COMPLETE_MESSAGE = `¡Perfecto! Todo está configurado.
-
-Estoy listo para ayudarte a trabajar con tus recursos. Si necesitas cambiar algún ajuste más adelante, puedes hacerlo desde configuración.
-
-¡Bienvenido/a a Dome!`;
-
 export default function MartinOnboarding({
   initialName,
   initialEmail,
   onComplete,
 }: MartinOnboardingProps) {
+  const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState<Step>('welcome');
   const [profileData, setProfileData] = useState<{
     name: string;
@@ -73,9 +57,9 @@ export default function MartinOnboarding({
   if (currentStep === 'welcome') {
     return (
       <OnboardingStep
-        message={WELCOME_MESSAGE}
+        message={t('onboarding.welcome_message')}
         onNext={handleWelcomeNext}
-        nextLabel="Empezar"
+        nextLabel={t('onboarding.start')}
         canProceed={true}
       >
         <div className="flex items-center justify-center py-8">
@@ -89,14 +73,13 @@ export default function MartinOnboarding({
   if (currentStep === 'profile') {
     return (
       <OnboardingStep
-        message={PROFILE_MESSAGE}
+        message={t('onboarding.profile_message')}
         onNext={() => {
-          // Trigger validation in ProfileStep
           const event = new CustomEvent('onboarding:validate');
           window.dispatchEvent(event);
         }}
         onBack={handleBack}
-        nextLabel="Continuar"
+        nextLabel={t('onboarding.continue')}
         canProceed={canProceedProfile}
       >
         <ProfileStep
@@ -113,10 +96,10 @@ export default function MartinOnboarding({
   if (currentStep === 'ai') {
     return (
       <OnboardingStep
-        message={AI_MESSAGE}
+        message={t('onboarding.ai_message')}
         onNext={() => window.dispatchEvent(new CustomEvent('onboarding:finalize'))}
         onBack={handleBack}
-        nextLabel="Finalizar"
+        nextLabel={t('onboarding.finalize')}
         canProceed={true}
       >
         <AISetupStep onComplete={handleAIComplete} />
@@ -124,9 +107,9 @@ export default function MartinOnboarding({
     );
   }
 
-  // Complete step (shouldn't reach here, but just in case)
+  // Complete step
   return (
-    <OnboardingStep message={COMPLETE_MESSAGE} canProceed={false}>
+    <OnboardingStep message={t('onboarding.complete_message')} canProceed={false}>
       <div className="flex items-center justify-center py-8">
         <ManyAvatar size="xl" />
       </div>

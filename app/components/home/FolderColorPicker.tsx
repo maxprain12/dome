@@ -1,6 +1,7 @@
 'use client';
 
 import { memo, useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { HexColorPicker, HexColorInput } from 'react-colorful';
 import { Check } from 'lucide-react';
 
@@ -33,6 +34,7 @@ interface FolderColorPickerProps {
 }
 
 export default memo(function FolderColorPicker({ value, onSave }: FolderColorPickerProps) {
+  const { t } = useTranslation();
   const initialColor = normalizeHex(value);
   const [localColor, setLocalColor] = useState(initialColor);
 
@@ -94,10 +96,10 @@ export default memo(function FolderColorPicker({ value, onSave }: FolderColorPic
           backgroundColor: 'var(--dome-accent)',
           color: 'white',
         }}
-        aria-label="Guardar color"
+        aria-label={t('ui.save')}
       >
         <Check size={14} />
-        Guardar
+        {t('ui.save')}
       </button>
     </div>
   );

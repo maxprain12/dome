@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Download, RotateCw, X } from 'lucide-react';
 
 type UpdaterStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
@@ -15,6 +16,7 @@ interface UpdaterState {
 const SHOW_STATUSES: UpdaterStatus[] = ['available', 'downloading', 'downloaded'];
 
 export default function UpdateAlertBanner() {
+  const { t } = useTranslation();
   const [updaterState, setUpdaterState] = useState<UpdaterState>({ status: 'idle' });
   const [dismissedStatus, setDismissedStatus] = useState<UpdaterStatus | null>(null);
 
@@ -111,7 +113,7 @@ export default function UpdateAlertBanner() {
         type="button"
         onClick={handleDismiss}
         className="shrink-0 p-1 rounded hover:bg-[rgba(255,255,255,0.2)] transition-colors"
-        aria-label="Cerrar"
+        aria-label={t('common.close')}
       >
         <X className="w-4 h-4" />
       </button>

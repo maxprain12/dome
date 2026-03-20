@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import ThemeProvider from '@/components/ui/ThemeProvider';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { StudioOutput } from '@/types';
@@ -12,6 +13,7 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import PptCapturePage from './pages/PptCapturePage';
 
 function MainApp() {
+  const { t } = useTranslation();
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
@@ -60,14 +62,14 @@ function MainApp() {
       'ppt:created',
       (data: { resource: { id: string; title: string }; title: string }) => {
         const name = data?.resource?.title || data?.title || 'Presentación';
-        showToast('success', `✅ "${name}" lista — ya aparece en tu biblioteca`);
+        showToast('success', `✅ ${t('app.ppt_created', { name })}`);
       }
     );
     const unsubFailed = window.electron.on(
       'ppt:creation-failed',
       (data: { title: string; error?: string }) => {
         const name = data?.title || 'Presentación';
-        showToast('error', `❌ Error al crear "${name}": ${data?.error || 'Error desconocido'}`);
+        showToast('error', `❌ ${t('app.ppt_failed', { name, error: data?.error || t('common.unknown_error') })}`);
       }
     );
     return () => {

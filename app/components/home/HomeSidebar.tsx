@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Home, Tag, Settings, HelpCircle, WalletCards, Sparkles, Bot, Calendar, Store, Zap } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { getManyAgents } from '@/lib/agents/api';
@@ -30,6 +31,7 @@ interface HomeSidebarProps {
 }
 
 export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const activeSection = useAppStore((s) => s.homeSidebarSection);
@@ -76,14 +78,14 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
   );
 
   const allNavItems: NavItem[] = [
-    { id: 'library', label: 'Library', icon: <Home className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'library' },
-    { id: 'calendar', label: 'Calendario', icon: <Calendar className="w-5 h-5" strokeWidth={1.5} />, action: 'navigate', path: '/calendar' },
-    { id: 'studio', label: 'Studio', icon: <Sparkles className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'studio' },
-    { id: 'flashcards', label: 'Flashcards', icon: <WalletCards className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'flashcards' },
-    { id: 'tags', label: 'Tags', icon: <Tag className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'tags' },
+    { id: 'library', label: t('nav.library'), icon: <Home className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'library' },
+    { id: 'calendar', label: t('nav.calendar'), icon: <Calendar className="w-5 h-5" strokeWidth={1.5} />, action: 'navigate', path: '/calendar' },
+    { id: 'studio', label: t('nav.studio'), icon: <Sparkles className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'studio' },
+    { id: 'flashcards', label: t('nav.flashcards'), icon: <WalletCards className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'flashcards' },
+    { id: 'tags', label: t('nav.tags'), icon: <Tag className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'tags' },
     {
       id: 'automations-hub',
-      label: 'Agentes & Flows',
+      label: t('nav.agents_flows'),
       icon: <Zap className="w-5 h-5" strokeWidth={1.5} />,
       action: 'section',
       section: 'automations-hub',
@@ -94,7 +96,7 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
         s.toString().startsWith('agent:') ||
         s.toString().startsWith('workflow:'),
     },
-    { id: 'marketplace', label: 'Marketplace', icon: <Store className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'marketplace' },
+    { id: 'marketplace', label: t('nav.marketplace'), icon: <Store className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'marketplace' },
   ];
 
   const getIsActive = (item: NavItem) => {
@@ -186,14 +188,14 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
             }
           }}
           className="flex items-center justify-center w-[40px] h-[40px] rounded-lg opacity-80 hover:opacity-100 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)] transition-colors duration-200"
-          title="Ajustes"
+          title={t('settings.settings')}
         >
           <Settings className="w-5 h-5" strokeWidth={1.5} />
         </button>
         <button
           onClick={() => startDomeTour()}
           className="flex items-center justify-center w-[40px] h-[40px] rounded-lg opacity-80 hover:opacity-100 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)] transition-colors duration-200"
-          title="Ayuda y Tour"
+          title={t('common.help_tour')}
         >
           <HelpCircle className="w-5 h-5" strokeWidth={1.5} />
         </button>

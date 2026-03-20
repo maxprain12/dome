@@ -4,6 +4,7 @@ import {
   CalendarRange, Table2, Headphones, Play, Pencil, Trash2,
   Sparkles, ChevronRight, FlameKindling,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { StudioOutputType } from '@/types';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -12,20 +13,21 @@ import { useAppStore } from '@/lib/store/useAppStore';
 
 interface TypeConfig {
   icon: React.ReactNode;
-  label: string;
+  labelKey: string;
+  fallbackLabel: string;
 }
 
-const typeConfig: Record<StudioOutputType, TypeConfig> = {
-  mindmap:    { icon: <Map size={14} />,                   label: 'Mind Map' },
-  flashcards: { icon: <Brain size={14} />,                 label: 'Flashcards' },
-  quiz:       { icon: <HelpCircle size={14} />,            label: 'Quiz' },
-  guide:      { icon: <BookOpen size={14} />,              label: 'Guía' },
-  faq:        { icon: <MessageCircleQuestion size={14} />, label: 'FAQ' },
-  timeline:   { icon: <CalendarRange size={14} />,         label: 'Línea de tiempo' },
-  table:      { icon: <Table2 size={14} />,                label: 'Tabla' },
-  audio:      { icon: <Headphones size={14} />,            label: 'Audio' },
-  video:      { icon: <Play size={14} />,                  label: 'Video' },
-  research:   { icon: <Sparkles size={14} />,              label: 'Research' },
+const typeConfigBase: Record<StudioOutputType, TypeConfig> = {
+  mindmap:    { icon: <Map size={14} />,                   labelKey: 'content.mind_map', fallbackLabel: 'Mind Map' },
+  flashcards: { icon: <Brain size={14} />,                  labelKey: 'flashcard.flashcards', fallbackLabel: 'Flashcards' },
+  quiz:       { icon: <HelpCircle size={14} />,             labelKey: 'content.quiz', fallbackLabel: 'Quiz' },
+  guide:      { icon: <BookOpen size={14} />,               labelKey: 'content.guide', fallbackLabel: 'Guía' },
+  faq:        { icon: <MessageCircleQuestion size={14} />,  labelKey: 'content.faq', fallbackLabel: 'FAQ' },
+  timeline:   { icon: <CalendarRange size={14} />,          labelKey: 'content.timeline', fallbackLabel: 'Línea de tiempo' },
+  table:      { icon: <Table2 size={14} />,                  labelKey: 'content.table', fallbackLabel: 'Tabla' },
+  audio:      { icon: <Headphones size={14} />,             labelKey: 'content.audio', fallbackLabel: 'Audio' },
+  video:      { icon: <Play size={14} />,                   labelKey: 'content.video', fallbackLabel: 'Video' },
+  research:   { icon: <Sparkles size={14} />,               labelKey: 'content.research', fallbackLabel: 'Research' },
 };
 
 const sectionToOutputType: Record<string, StudioOutputType> = {
@@ -105,17 +107,20 @@ function parseContentStats(type: StudioOutputType, content?: string): ContentSta
 // ─── Empty State ─────────────────────────────────────────────────────────────
 
 function EmptyState({ section }: { section: string }) {
-  const messages: Record<string, { title: string; desc: string }> = {
-    all: { title: 'Tu espacio de estudio está vacío', desc: 'Genera contenido con IA o crea un deck de flashcards para empezar.' },
-    decks: { title: 'Sin decks de flashcards', desc: 'Crea un deck y añade tarjetas para practicar con repetición espaciada.' },
-    mindmaps: { title: 'Sin mind maps', desc: 'Genera un mapa mental desde cualquier recurso de tu biblioteca.' },
-    quizzes: { title: 'Sin quizzes', desc: 'Crea un quiz para poner a prueba tu conocimiento.' },
-    guides: { title: 'Sin guías de estudio', desc: 'Genera guías detalladas con IA desde tus documentos.' },
-    faqs: { title: 'Sin FAQs', desc: 'Genera preguntas frecuentes desde tus recursos.' },
-    timelines: { title: 'Sin líneas de tiempo', desc: 'Visualiza secuencias cronológicas con IA.' },
-    tables: { title: 'Sin tablas', desc: 'Genera tablas comparativas desde tus documentos.' },
+  const { t } = useTranslation();
+  const messages: Record<string, { titleKey: string; titleFallback: string; descKey: string; descFallback: string }> = {
+    all: { titleKey: 'empty.all_title', titleFallback: 'Tu espacio de estudio está vacío', descKey: 'empty.all_desc', descFallback: 'Genera contenido con IA o crea un deck de flashcards para empezar.' },
+    decks: { titleKey: 'empty.decks_title', titleFallback: 'Sin decks de flashcards', descKey: 'empty.decks_desc', descFallback: 'Crea un deck y añade tarjetas para practicar con repetición espaciada.' },
+    mindmaps: { titleKey: 'empty.mindmaps_title', titleFallback: 'Sin mind maps', descKey: 'empty.mindmaps_desc', descFallback: 'Genera un mapa mental desde cualquier recurso de tu biblioteca.' },
+    quizzes: { titleKey: 'empty.quizzes_title', titleFallback: 'Sin quizzes', descKey: 'empty.quizzes_desc', descFallback: 'Crea un quiz para poner a prueba tu conocimiento.' },
+    guides: { titleKey: 'empty.guides_title', titleFallback: 'Sin guías de estudio', descKey: 'empty.guides_desc', descFallback: 'Genera guías detalladas con IA desde tus documentos.' },
+    faqs: { titleKey: 'empty.faqs_title', titleFallback: 'Sin FAQs', descKey: 'empty.faqs_desc', descFallback: 'Genera preguntas frecuentes desde tus recursos.' },
+    timelines: { titleKey: 'empty.timelines_title', titleFallback: 'Sin líneas de tiempo', descKey: 'empty.timelines_desc', descFallback: 'Visualiza secuencias cronológicas con IA.' },
+    tables: { titleKey: 'empty.tables_title', titleFallback: 'Sin tablas', descKey: 'empty.tables_desc', descFallback: 'Genera tablas comparativas desde tus documentos.' },
   };
-  const { title, desc } = messages[section] ?? messages.all;
+  const msg = messages[section] ?? messages['all']!;
+  const title = t(msg.titleKey, msg.titleFallback);
+  const desc = t(msg.descKey, msg.descFallback);
 
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[400px] p-12 text-center">
@@ -168,6 +173,7 @@ function DeckCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation();
   const hasDue = (stats?.due_cards ?? 0) > 0;
   const masteredPct = stats?.total ? Math.round((stats.mastered_cards / stats.total) * 100) : 0;
   const total = stats?.total ?? deck.card_count;
@@ -184,7 +190,7 @@ function DeckCard({
             <div className="flex items-center gap-1.5 mb-1">
               <Brain size={12} style={{ color: 'var(--dome-text-muted)' }} />
               <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
-                Flashcards
+                {t('flashcard.flashcards', 'Flashcards')}
               </span>
             </div>
             <h3 className="font-medium text-sm leading-snug line-clamp-2" style={{ color: 'var(--dome-text)' }}>
@@ -196,7 +202,7 @@ function DeckCard({
               onClick={onEdit}
               className="p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100"
               style={{ color: 'var(--dome-text-muted)' }}
-              title="Editar"
+              title={t('ui.edit', 'Editar')}
             >
               <Pencil size={13} />
             </button>
@@ -204,7 +210,7 @@ function DeckCard({
               onClick={onDelete}
               className="p-1.5 rounded-md transition-colors opacity-0 group-hover:opacity-100"
               style={{ color: 'var(--dome-text-muted)' }}
-              title="Eliminar"
+              title={t('ui.delete', 'Eliminar')}
             >
               <Trash2 size={13} />
             </button>
@@ -213,14 +219,14 @@ function DeckCard({
 
         {/* Stats inline */}
         <div className="flex items-center gap-3 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
-          <span><span className="font-semibold" style={{ color: 'var(--dome-text)' }}>{total}</span> tarjetas</span>
+          <span><span className="font-semibold" style={{ color: 'var(--dome-text)' }}>{total}</span> {t('flashcard.cards', 'tarjetas')}</span>
           {stats && (
             <>
               <span style={{ color: 'var(--dome-border)' }}>·</span>
               <span>
                 <span className="font-semibold" style={{ color: hasDue ? 'var(--dome-accent)' : 'var(--dome-text)' }}>
                   {stats.due_cards}
-                </span>{' '}por revisar
+                </span>{' '}{t('flashcard.to_review', 'por revisar')}
               </span>
             </>
           )}
@@ -250,7 +256,7 @@ function DeckCard({
             color: 'var(--dome-text-muted)',
           }}
         >
-          {hasDue ? <><FlameKindling size={12} /> Estudiar · {stats?.due_cards}</> : <>✓ Al día</>}
+          {hasDue ? <><FlameKindling size={12} /> {t('flashcard.study', 'Estudiar')} · {stats?.due_cards}</> : <>✓ {t('flashcard.up_to_date', 'Al día')}</>}
         </button>
       </div>
     </div>
@@ -268,7 +274,8 @@ function OutputCard({
   onOpen: () => void;
   onDelete: () => void;
 }) {
-  const config = typeConfig[output.type] ?? typeConfig.guide;
+  const { t } = useTranslation();
+  const config = typeConfigBase[output.type] ?? typeConfigBase.guide;
   const { stat, preview } = parseContentStats(output.type, output.content);
 
   return (
@@ -286,7 +293,7 @@ function OutputCard({
           <div className="flex items-center gap-1.5 mb-1">
             <span style={{ color: 'var(--dome-text-muted)' }}>{config.icon}</span>
             <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
-              {config.label}
+              {t(config.labelKey, config.fallbackLabel)}
             </span>
           </div>
           <h3 className="font-medium text-sm leading-snug line-clamp-2" style={{ color: 'var(--dome-text)' }}>
@@ -316,7 +323,7 @@ function OutputCard({
             {formatDate(output.updated_at)}
           </span>
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="text-[11px] font-medium" style={{ color: 'var(--dome-accent)' }}>Abrir</span>
+            <span className="text-[11px] font-medium" style={{ color: 'var(--dome-accent)' }}>{t('ui.open', 'Abrir')}</span>
             <ChevronRight size={11} style={{ color: 'var(--dome-accent)' }} />
           </div>
         </div>
@@ -327,7 +334,7 @@ function OutputCard({
         onClick={(e) => { e.stopPropagation(); onDelete(); }}
         className="absolute top-2.5 right-2.5 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
         style={{ color: 'var(--dome-text-muted)' }}
-        title="Eliminar"
+        title={t('ui.delete', 'Eliminar')}
       >
         <Trash2 size={12} />
       </button>
@@ -338,6 +345,7 @@ function OutputCard({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ContentGrid() {
+  const { t } = useTranslation();
   const {
     activeSection,
     decks,
@@ -381,7 +389,7 @@ export default function ContentGrid() {
       {/* Decks section */}
       {visibleDecks.length > 0 && (
         <div className={showBothSections ? 'mb-8' : ''}>
-          {showBothSections && <SectionLabel count={visibleDecks.length} label="Decks de Flashcards" />}
+          {showBothSections && <SectionLabel count={visibleDecks.length} label={t('flashcard.decks_section', 'Decks de Flashcards')} />}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {visibleDecks.map((deck) => (
               <DeckCard
@@ -390,7 +398,7 @@ export default function ContentGrid() {
                 stats={deckStats[deck.id]}
                 onStudy={() => startStudy(deck.id)}
                 onEdit={() => setDeckEditorOpen(true, deck.id)}
-                onDelete={() => confirm('¿Eliminar este deck?') && deleteDeck(deck.id)}
+                onDelete={() => confirm(t('flashcard.confirm_delete_deck', '¿Eliminar este deck?')) && deleteDeck(deck.id)}
               />
             ))}
           </div>
@@ -400,14 +408,14 @@ export default function ContentGrid() {
       {/* Studio outputs section */}
       {visibleOutputs.length > 0 && (
         <div>
-          {showBothSections && <SectionLabel count={visibleOutputs.length} label="Contenido generado" />}
+          {showBothSections && <SectionLabel count={visibleOutputs.length} label={t('content.generated_content', 'Contenido generado')} />}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {visibleOutputs.map((output) => (
               <OutputCard
                 key={output.id}
                 output={output}
                 onOpen={() => setActiveStudioOutput(output)}
-                onDelete={() => confirm('¿Eliminar este contenido?') && deleteStudioOutput(output.id)}
+                onDelete={() => confirm(t('content.confirm_delete_content', '¿Eliminar este contenido?')) && deleteStudioOutput(output.id)}
               />
             ))}
           </div>

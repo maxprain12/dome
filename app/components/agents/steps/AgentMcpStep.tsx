@@ -10,6 +10,7 @@ import {
 } from '@/lib/mcp/settings';
 import { showToast } from '@/lib/store/useToastStore';
 import type { MCPServerConfig } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface AgentMcpStepProps {
   selectedIds: string[];
@@ -17,6 +18,7 @@ interface AgentMcpStepProps {
 }
 
 export default function AgentMcpStep({ selectedIds, onChange }: AgentMcpStepProps) {
+  const { t } = useTranslation();
   const [servers, setServers] = useState<MCPServerConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingServerName, setSavingServerName] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export default function AgentMcpStep({ selectedIds, onChange }: AgentMcpStepProp
     setServers(nextServers);
     const result = await saveMcpServersSetting(nextServers);
     if (!result.success) {
-      showToast('error', result.error || 'No se pudo actualizar la configuración MCP');
+      showToast('error', result.error || t('toast.mcp_config_update_error'));
     }
     setSavingServerName(null);
   };

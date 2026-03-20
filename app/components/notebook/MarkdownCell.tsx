@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import { useTextareaAutoResize } from '@/lib/hooks/useTextareaAutoResize';
+import { useTranslation } from 'react-i18next';
 
 interface MarkdownCellProps {
   source: string | string[];
@@ -31,6 +32,7 @@ const proseComponents: Components = {
 };
 
 export default function MarkdownCell({ source, onChange, editable = false }: MarkdownCellProps) {
+  const { t } = useTranslation();
   const content = sourceToString(source);
   const textareaRef = useTextareaAutoResize(content);
 
@@ -46,7 +48,7 @@ export default function MarkdownCell({ source, onChange, editable = false }: Mar
           color: 'var(--primary-text)',
           fieldSizing: 'content',
         } as React.CSSProperties}
-        placeholder="Escribe markdown aquí..."
+        placeholder={t('notebook.markdown_placeholder')}
       />
     );
   }

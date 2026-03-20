@@ -1,6 +1,7 @@
 
 import { useState, useCallback } from 'react';
 import { Plus, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface CreateDeckModalProps {
   onClose: () => void;
@@ -8,6 +9,7 @@ interface CreateDeckModalProps {
 }
 
 export default function CreateDeckModal({ onClose, onCreated }: CreateDeckModalProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -48,7 +50,7 @@ export default function CreateDeckModal({ onClose, onCreated }: CreateDeckModalP
             className="text-lg font-semibold font-display"
             style={{ color: 'var(--primary-text)' }}
           >
-            Crear nuevo mazo
+            {t('flashcard.create_new_deck', 'Crear nuevo mazo')}
           </h3>
         </div>
 
@@ -58,13 +60,13 @@ export default function CreateDeckModal({ onClose, onCreated }: CreateDeckModalP
               className="text-xs font-semibold mb-1.5 block"
               style={{ color: 'var(--secondary-text)' }}
             >
-              Titulo
+              {t('flashcard.title', 'Titulo')}
             </label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ej: Vocabulario de Biologia..."
+              placeholder={t('flashcard.deck_name_placeholder', 'Ej: Vocabulario de Biologia...')}
               className="input"
               autoFocus
               onKeyDown={(e) => {
@@ -79,12 +81,12 @@ export default function CreateDeckModal({ onClose, onCreated }: CreateDeckModalP
               className="text-xs font-semibold mb-1.5 block"
               style={{ color: 'var(--secondary-text)' }}
             >
-              Descripcion (opcional)
+              {t('flashcard.description_optional', 'Descripcion (opcional)')}
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe el contenido del mazo..."
+              placeholder={t('flashcard.deck_description_placeholder', 'Describe el contenido del mazo...')}
               className="input resize-none"
               rows={3}
             />
@@ -97,13 +99,13 @@ export default function CreateDeckModal({ onClose, onCreated }: CreateDeckModalP
               color: 'var(--secondary-text)',
             }}
           >
-            También puedes pedirle a Many que cree flashcards automáticamente desde cualquier documento.
+            {t('flashcard.ai_create_info', 'También puedes pedirle a Many que cree flashcards automáticamente desde cualquier documento.')}
           </div>
         </div>
 
         <div className="modal-footer">
           <button onClick={onClose} className="btn btn-ghost">
-            Cancelar
+            {t('ui.cancel', 'Cancelar')}
           </button>
           <button
             onClick={handleCreate}
@@ -115,7 +117,7 @@ export default function CreateDeckModal({ onClose, onCreated }: CreateDeckModalP
             ) : (
               <Plus className="w-4 h-4" />
             )}
-            Crear mazo
+            {t('flashcard.create_deck', 'Crear mazo')}
           </button>
         </div>
       </div>

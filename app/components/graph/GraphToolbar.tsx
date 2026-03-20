@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Search, SlidersHorizontal, Layout, Download, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { GraphLayoutType, GraphFilterOptions } from '@/types';
 
 interface GraphToolbarProps {
@@ -27,6 +28,7 @@ export default function GraphToolbar({
   onExportPNG,
   onExportJSON,
 }: GraphToolbarProps) {
+  const { t } = useTranslation();
   const [showFilters, setShowFilters] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [searchQuery, setSearchQuery] = useState(filters.searchQuery || '');
@@ -108,7 +110,7 @@ export default function GraphToolbar({
       <div className="flex items-center gap-2 px-4 py-3">
         {/* Search */}
         <div className="flex-1 relative">
-          <label htmlFor="graph-search-nodes" className="sr-only">Search nodes</label>
+          <label htmlFor="graph-search-nodes" className="sr-only">{t('graph.search_nodes')}</label>
           <Search
             size={14}
             className="absolute left-3 top-1/2 -translate-y-1/2"
@@ -119,7 +121,7 @@ export default function GraphToolbar({
             type="text"
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search nodes..."
+            placeholder={t('graph.search_nodes')}
             className="w-full pl-9 pr-3 py-1.5 text-xs rounded-md border border-[var(--border)] outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{
               background: 'var(--bg)',
@@ -148,7 +150,7 @@ export default function GraphToolbar({
         {/* Depth slider */}
         <div className="flex items-center gap-2 px-3 py-1 rounded-md border border-[var(--border)]" style={{ background: 'var(--bg)' }}>
           <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>
-            Depth:
+            {t('graph.depth')}
           </span>
           <input
             type="range"
@@ -172,11 +174,11 @@ export default function GraphToolbar({
             background: showFilters ? 'var(--bg-hover)' : 'var(--bg)',
             color: hasActiveFilters ? 'var(--accent)' : 'var(--secondary-text)',
           }}
-          aria-label="Filter graph"
+          aria-label={t('filter.filter')}
           aria-expanded={showFilters}
         >
           <SlidersHorizontal size={14} />
-          Filters
+          {t('filter.filter')}
           {hasActiveFilters && (
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--accent)' }} />
           )}
@@ -191,11 +193,11 @@ export default function GraphToolbar({
               background: showExport ? 'var(--bg-hover)' : 'var(--bg)',
               color: 'var(--secondary-text)',
             }}
-            aria-label="Export graph"
+            aria-label={t('canvas.export')}
             aria-expanded={showExport}
           >
             <Download size={14} />
-            Export
+            {t('canvas.export')}
           </button>
 
           {showExport && (
@@ -247,10 +249,10 @@ export default function GraphToolbar({
                 onClick={clearFilters}
                 className="text-xs flex items-center gap-1 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 rounded"
                 style={{ color: 'var(--accent)', background: 'transparent', border: 'none' }}
-                aria-label="Clear all filters"
+                aria-label={t('filter.clear_all')}
               >
                 <X size={12} />
-                Clear all
+                {t('filter.clear_all')}
               </button>
             )}
           </div>
@@ -322,8 +324,8 @@ export default function GraphToolbar({
               className="w-full"
             />
             <div className="flex justify-between text-[10px] mt-1" style={{ color: 'var(--tertiary-text)' }}>
-              <span>Weak</span>
-              <span>Strong</span>
+              <span>{t('graph.weak')}</span>
+              <span>{t('graph.strong')}</span>
             </div>
           </div>
         </div>

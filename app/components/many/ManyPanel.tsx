@@ -33,6 +33,7 @@ import { db } from '@/lib/db/client';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
+import { useTranslation } from 'react-i18next';
 import {
   abortRun,
   getActiveRunBySession,
@@ -102,6 +103,7 @@ interface ManyPanelProps {
 }
 
 export default function ManyPanel({ width, onClose, isVisible, isFullscreen = false }: ManyPanelProps) {
+  const { t } = useTranslation();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const {
@@ -869,22 +871,22 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
   const handleSaveAsNote = useCallback(async (content: string) => {
     try {
-      const firstLine = content.split('\n')[0]?.trim().slice(0, 80) || 'Nota del chat';
+      const firstLine = content.split('\n')[0]?.trim().slice(0, 80) || t('toast.chat_note_default_title');
       const title = firstLine.replace(/^#+\s*/, '');
       const result = await db.createResource({
         project_id: 'default',
         type: 'note',
-        title: title || 'Nota del chat',
+        title: title || t('toast.chat_note_default_title'),
         content,
       });
       if (result.success && result.data) {
         window.dispatchEvent(new Event('dome:resources-changed'));
         window.electron?.workspace?.open?.(result.data.id, 'note');
-        showToast('success', 'Saved as note');
+        showToast('success', t('toast.saved_as_note'));
       }
     } catch (err) {
       console.error('Save as note error:', err);
-      showToast('error', 'Failed to save as note');
+      showToast('error', t('toast.save_note_error'));
     }
   }, []);
 

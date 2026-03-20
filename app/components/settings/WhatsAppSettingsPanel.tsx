@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   MessageCircle,
   RefreshCw,
@@ -52,6 +53,7 @@ function SettingsCard({ children, className = '' }: { children: React.ReactNode;
 }
 
 export default function WhatsAppSettingsPanel() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
   const [allowlist, setAllowlist] = useState<string[]>([]);
   const [newNumber, setNewNumber] = useState('');
@@ -131,7 +133,7 @@ export default function WhatsAppSettingsPanel() {
   };
 
   const handleLogout = async () => {
-    if (!confirm('¿Seguro que quieres cerrar sesión? Tendrás que escanear el QR de nuevo.')) return;
+    if (!confirm(t('settings.whatsapp.logout_confirm'))) return;
     setIsLoading(true);
     try {
       await window.electron.invoke('whatsapp:logout');
@@ -170,10 +172,10 @@ export default function WhatsAppSettingsPanel() {
   };
 
   const stateConfig = {
-    connected: { label: 'Conectado', color: WA_GREEN, bg: `${WA_GREEN}15` },
-    pending: { label: 'Esperando escaneo', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-    needs_qr: { label: 'Sin sesión', color: 'var(--dome-text-muted)', bg: 'var(--dome-bg-hover)' },
-    disconnected: { label: 'Desconectado', color: 'var(--dome-text-muted)', bg: 'var(--dome-bg-hover)' },
+    connected: { label: t('settings.whatsapp.state_connected'), color: WA_GREEN, bg: `${WA_GREEN}15` },
+    pending: { label: t('settings.whatsapp.state_pending'), color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+    needs_qr: { label: t('settings.whatsapp.state_needs_qr'), color: 'var(--dome-text-muted)', bg: 'var(--dome-bg-hover)' },
+    disconnected: { label: t('settings.whatsapp.state_disconnected'), color: 'var(--dome-text-muted)', bg: 'var(--dome-bg-hover)' },
   };
 
   const cfg = stateConfig[connectionState];
@@ -190,7 +192,7 @@ export default function WhatsAppSettingsPanel() {
 
       {/* Connection card */}
       <div>
-        <SectionLabel>Estado de conexión</SectionLabel>
+        <SectionLabel>{t('settings.whatsapp.section_connection')}</SectionLabel>
         <SettingsCard>
           {/* Status header */}
           <div
@@ -216,12 +218,12 @@ export default function WhatsAppSettingsPanel() {
                   {connectionState === 'connected' && status?.selfId
                     ? `+${status.selfId.split('@')[0]?.split(':')[0] ?? ''}`
                     : connectionState === 'pending'
-                      ? 'Escanea el código QR con tu teléfono'
+                      ? t('settings.whatsapp.hint_scan_qr')
                       : connectionState === 'needs_qr'
-                        ? 'Vincula tu WhatsApp para empezar'
+                        ? t('settings.whatsapp.hint_link_whatsapp')
                         : status?.hasAuth
-                          ? 'Sesión guardada — pulsa conectar'
-                          : 'Sin sesión activa'}
+                          ? t('settings.whatsapp.hint_session_saved')
+                          : t('settings.whatsapp.hint_no_session')}
                 </p>
               </div>
             </div>
@@ -232,7 +234,7 @@ export default function WhatsAppSettingsPanel() {
               {connectionState === 'connected' ? <Check className="w-3 h-3" />
                 : connectionState === 'pending' ? <RefreshCw className="w-3 h-3 animate-spin" />
                 : <X className="w-3 h-3" />}
-              {connectionState === 'connected' ? 'Activo' : connectionState === 'pending' ? 'Pendiente' : 'Inactivo'}
+              {connectionState === 'connected' ? t('settings.whatsapp.badge_active') : connectionState === 'pending' ? t('settings.whatsapp.badge_pending') : t('settings.whatsapp.badge_inactive')}
             </span>
           </div>
 
@@ -243,9 +245,9 @@ export default function WhatsAppSettingsPanel() {
                 <QRCodeSVG value={status.qrCode} size={200} level="M" includeMargin={false} bgColor="white" fgColor="#111111" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>Escanea con WhatsApp</p>
+                <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('settings.whatsapp.qr_title')}</p>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-                  WhatsApp → Menú → Dispositivos vinculados → Vincular dispositivo
+                  {t('settings.whatsapp.qr_instructions')}
                 </p>
               </div>
             </div>
@@ -257,8 +259,8 @@ export default function WhatsAppSettingsPanel() {
               <div className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: `${DOME_GREEN}08`, border: `1px solid ${DOME_GREEN}20` }}>
                 <Smartphone className="w-4 h-4 shrink-0" style={{ color: DOME_GREEN }} />
                 <div>
-                  <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Sesión guardada</p>
-                  <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>Puedes reconectar sin escanear el QR.</p>
+                  <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('settings.whatsapp.session_saved')}</p>
+                  <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.whatsapp.reconnect')}</p>
                 </div>
               </div>
             </div>
@@ -286,7 +288,7 @@ export default function WhatsAppSettingsPanel() {
                   style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
                 >
                   <Power className="w-3.5 h-3.5" />
-                  Pausar
+                  {t('settings.whatsapp.pause')}
                 </button>
                 <button
                   onClick={handleLogout}
@@ -295,7 +297,7 @@ export default function WhatsAppSettingsPanel() {
                   style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--dome-error, #ef4444)' }}
                 >
                   <LogOut className="w-3.5 h-3.5" />
-                  Cerrar sesión
+                  {t('settings.whatsapp.logout')}
                 </button>
               </>
             ) : (
@@ -306,7 +308,7 @@ export default function WhatsAppSettingsPanel() {
                 style={{ backgroundColor: WA_GREEN }}
               >
                 {isLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />}
-                {connectionState === 'needs_qr' || connectionState === 'pending' ? 'Conectar' : 'Reconectar'}
+                {connectionState === 'needs_qr' || connectionState === 'pending' ? t('settings.whatsapp.connect') : t('settings.whatsapp.reconnect')}
               </button>
             )}
             <button
@@ -314,7 +316,7 @@ export default function WhatsAppSettingsPanel() {
               disabled={isLoading}
               className="ml-auto flex items-center justify-center w-8 h-8 rounded-lg transition-all"
               style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}
-              title="Actualizar estado"
+              title={t('settings.whatsapp.refresh')}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -324,7 +326,7 @@ export default function WhatsAppSettingsPanel() {
 
       {/* Allowlist */}
       <div>
-        <SectionLabel>Números autorizados</SectionLabel>
+        <SectionLabel>{t('settings.whatsapp.section_allowlist')}</SectionLabel>
         <SettingsCard>
           <div className="p-4" style={{ borderBottom: '1px solid var(--dome-border)' }}>
             <div className="flex items-center gap-3">
@@ -333,8 +335,10 @@ export default function WhatsAppSettingsPanel() {
               </div>
               <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
                 {allowlist.length === 0
-                  ? 'Sin restricciones — acepta todos los mensajes'
-                  : `${allowlist.length} número${allowlist.length !== 1 ? 's' : ''} autorizado${allowlist.length !== 1 ? 's' : ''}`}
+                  ? t('settings.whatsapp.allowlist_no_restrictions')
+                  : allowlist.length === 1
+                    ? t('settings.whatsapp.allowlist_count_one', { count: allowlist.length })
+                    : t('settings.whatsapp.allowlist_count_many', { count: allowlist.length })}
               </p>
             </div>
           </div>
@@ -347,8 +351,8 @@ export default function WhatsAppSettingsPanel() {
                 value={newNumber}
                 onChange={(e) => setNewNumber(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddNumber()}
-                placeholder="+34 612 345 678"
-                aria-label="Número de teléfono"
+                placeholder={t('settings.whatsapp.phone_placeholder')}
+                aria-label={t('settings.whatsapp.phone_label')}
                 className="flex-1 px-3 py-2 rounded-lg text-xs"
                 style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)', outline: 'none' }}
               />
@@ -359,7 +363,7 @@ export default function WhatsAppSettingsPanel() {
                 style={{ backgroundColor: DOME_GREEN }}
               >
                 <Plus className="w-3.5 h-3.5" />
-                Añadir
+                {t('settings.whatsapp.add_number')}
               </button>
             </div>
 
@@ -392,7 +396,7 @@ export default function WhatsAppSettingsPanel() {
             ) : (
               <div className="py-6 text-center rounded-xl" style={{ border: '1.5px dashed var(--dome-border)' }}>
                 <Shield className="w-7 h-7 mx-auto mb-2 opacity-30" style={{ color: 'var(--dome-text-muted)' }} />
-                <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Lista vacía — todos los mensajes son aceptados</p>
+                <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.whatsapp.empty_list')}</p>
               </div>
             )}
           </div>
@@ -407,7 +411,7 @@ export default function WhatsAppSettingsPanel() {
             className="w-full px-4 py-3.5 flex items-center justify-between"
             style={{ color: 'var(--dome-text)' }}
           >
-            <p className="text-sm font-medium">Cómo usar WhatsApp con Dome</p>
+            <p className="text-sm font-medium">{t('settings.whatsapp.instructions_title')}</p>
             <ChevronDown
               className="w-4 h-4 transition-transform duration-200"
               style={{ color: 'var(--dome-text-muted)', transform: showInstructions ? 'rotate(180deg)' : 'rotate(0deg)' }}
@@ -422,9 +426,9 @@ export default function WhatsAppSettingsPanel() {
                 </p>
                 <ul className="space-y-2">
                   {[
-                    { icon: null, cmd: '/nota', desc: 'Crear una nota rápida' },
-                    { icon: null, cmd: '/url', desc: 'Guardar un enlace como recurso' },
-                    { icon: null, cmd: '/pregunta', desc: 'Consultar a Many' },
+                    { icon: null, cmd: '/nota', desc: t('settings.whatsapp.cmd_note') },
+                    { icon: null, cmd: '/url', desc: t('settings.whatsapp.cmd_url') },
+                    { icon: null, cmd: '/pregunta', desc: t('settings.whatsapp.cmd_question') },
                   ].map(({ cmd, desc }) => (
                     <li key={cmd} className="flex items-start gap-2">
                       <code className="px-1.5 py-0.5 rounded text-[10px] shrink-0 font-mono" style={{ backgroundColor: 'var(--dome-surface)', color: DOME_GREEN }}>

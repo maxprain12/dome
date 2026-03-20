@@ -1,6 +1,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useClickOutside } from '@/lib/hooks/useClickOutside';
 import { FolderOpen, Plus, Loader2, CheckCircle2, AlertCircle, ChevronRight, Home as HomeIcon, X, Tags as TagsIcon, MessageCircle, MoreVertical, Pencil, Trash2, ExternalLink, FolderInput, Globe } from 'lucide-react';
@@ -53,6 +54,7 @@ function getSearchSnippetForResource(
 }
 
 export default function Home() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const { name } = useUserStore();
   const searchQuery = useAppStore((s) => s.searchQuery);
@@ -241,13 +243,13 @@ export default function Home() {
     try {
       const resource = await createResource({
         type: 'note',
-        title: 'Untitled Note',
+        title: t('workspace.untitled_note'),
         project_id: resolvedProjectId,
         content: '',
         folder_id: currentFolderId,
       });
       if (resource?.id) {
-        openResourceTab(resource.id, 'note', resource.title ?? 'Untitled Note');
+        openResourceTab(resource.id, 'note', resource.title ?? t('workspace.untitled_note'));
       }
     } catch (err) {
       console.error('Failed to create note:', err);
@@ -258,7 +260,7 @@ export default function Home() {
     try {
       const nb = await createResource({
         type: 'notebook',
-        title: 'Untitled Notebook',
+        title: t('workspace.untitled_notebook'),
         project_id: resolvedProjectId,
         content: serializeNotebookContent({
           nbformat: 4,
@@ -300,7 +302,7 @@ export default function Home() {
 
       const result = await createResource({
         type: resourceType as ResourceType,
-        title: type === 'youtube' ? 'YouTube Video' : 'Web Article',
+        title: type === 'youtube' ? t('workspace.youtube_video') : t('workspace.web_article'),
         project_id: resolvedProjectId,
         content: url,
         folder_id: currentFolderId,
@@ -469,7 +471,7 @@ export default function Home() {
   const handleResourceRename = useCallback(
     async (resource: Resource) => {
       setContextMenu(null);
-      const newName = await showPrompt('Nuevo nombre', resource.title);
+      const newName = await showPrompt(t('workspace.new_name'), resource.title);
       if (newName?.trim()) {
         await updateResource(resource.id, { title: newName.trim() });
       }
@@ -612,7 +614,7 @@ export default function Home() {
                 aria-label="All documents"
               >
                 <HomeIcon size={12} strokeWidth={1.5} />
-                <span>All</span>
+                <span>{t('workspace.all')}</span>
               </button>
               {breadcrumbPath.map((folder, index) => {
                 const isLast = index === breadcrumbPath.length - 1;
@@ -669,7 +671,7 @@ export default function Home() {
           {!isSearchMode && folders.length > 0 ? (
             <section className="mb-10" aria-label="Folders">
               <h2 className="section-header">
-                {currentFolderId ? 'Subfolders' : 'Folders'}
+                {currentFolderId ? t('workspace.subfolders') : t('workspace.folders')}
               </h2>
               <div className="folder-grid">
                 {folders.map((folder) => (
@@ -738,7 +740,7 @@ export default function Home() {
                       >
                         <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
                           <span className="text-xs font-medium block mb-2" style={{ color: 'var(--secondary-text)' }}>
-                            Folder color
+                            {t('workspace.folder_color')}
                           </span>
                           <FolderColorPicker
                             value={(folder.metadata?.color as string) ?? '#596037'}
@@ -754,7 +756,7 @@ export default function Home() {
                           onClick={() => handleFolderRenameStart(folder)}
                         >
                           <Pencil size={16} />
-                          Rename
+                          {t('common.rename')}
                         </button>
                         <button
                           type="button"
@@ -765,7 +767,7 @@ export default function Home() {
                           }}
                         >
                           <Trash2 size={16} />
-                          Delete
+                          {t('common.delete')}
                         </button>
                       </div>
                     ) : null}
@@ -779,18 +781,18 @@ export default function Home() {
           <section className="mb-6" aria-label="Resources">
             <h2 className="section-header">
               {hideMainSearchResults
-                ? 'Recent Resources'
+                ? t('workspace.recent_resources')
                 : isSearchMode
-                  ? `Coincidencias para "${searchQuery}"`
+                  ? t('workspace.search_results', { query: searchQuery })
                   : currentFolderId
-                    ? 'Contents'
-                    : homeSidebarSection === 'recent' ? 'Recientes' : 'Recent Resources'}
+                    ? t('workspace.contents')
+                    : homeSidebarSection === 'recent' ? t('workspace.recent') : t('workspace.recent_resources')}
             </h2>
           </section>
 
           {hideMainSearchResults ? (
             <p className="text-sm py-8" style={{ color: 'var(--dome-text-secondary)' }}>
-              Los resultados aparecen en el buscador. Cierra la búsqueda para verlos aquí.
+              {t('workspace.search_hint')}
             </p>
           ) : !isSearchMode && isLoading ? (
             <div className="min-h-[480px]" aria-busy="true">
@@ -808,12 +810,12 @@ export default function Home() {
 
           {!hideMainSearchResults && !isSearchMode && error ? (
             <div className="error-container">
-              <p className="error-message">Error al cargar los recursos</p>
+              <p className="error-message">{t('workspace.error_loading')}</p>
               <button
                 onClick={refetch}
                 className="btn btn-secondary text-sm try-again-btn"
               >
-                Reintentar
+                {t('workspace.retry')}
               </button>
             </div>
           ) : null}
@@ -821,7 +823,7 @@ export default function Home() {
           {!hideMainSearchResults && isSearchMode && resourcesToShow.length === 0 ? (
             <div className="no-matches-container">
               <p className="no-matches-text">
-                No hay coincidencias para &quot;{searchQuery}&quot;
+                {t('workspace.no_matches', { query: searchQuery })}
               </p>
             </div>
           ) : null}
@@ -830,12 +832,12 @@ export default function Home() {
             <div className="empty-folder-state">
               <FolderOpen className="empty-folder-icon" aria-hidden="true" />
               <p className="empty-folder-title">
-                {currentFolderId ? 'Esta carpeta está vacía' : 'Aún no hay recursos'}
+                {currentFolderId ? t('workspace.empty_folder') : t('workspace.no_resources_yet')}
               </p>
               <p className="empty-folder-description">
                 {currentFolderId
-                  ? 'Arrastra aquí o usa el toolbar para añadir'
-                  : 'Arrastra archivos o usa el toolbar para añadir tu primer recurso'}
+                  ? t('workspace.drop_to_add')
+                  : t('workspace.drop_to_add_first')}
               </p>
             </div>
           ) : null}
@@ -875,10 +877,10 @@ export default function Home() {
                       onClick={() => setSortBy('title')}
                       aria-label="Sort by name"
                     >
-                      Name {sortBy === 'title' ? '▾' : ''}
+                      {t('workspace.name_col')} {sortBy === 'title' ? '▾' : ''}
                     </button>
                   </span>
-                  <span role="columnheader">Type</span>
+                  <span role="columnheader">{t('workspace.type_col')}</span>
                   <span role="columnheader">
                     <button
                       type="button"
@@ -886,10 +888,10 @@ export default function Home() {
                       onClick={() => setSortBy('updated_at')}
                       aria-label="Sort by modified date"
                     >
-                      Modified {sortBy === 'updated_at' ? '▾' : ''}
+                      {t('workspace.modified_col')} {sortBy === 'updated_at' ? '▾' : ''}
                     </button>
                   </span>
-                  <span role="columnheader">Size</span>
+                  <span role="columnheader">{t('workspace.size_col')}</span>
                   <span role="columnheader" aria-hidden="true" />
                 </div>
               )}
@@ -1037,17 +1039,17 @@ export default function Home() {
                 >
                   <div className="modal-header">
                     <h3 id="new-folder-title" className="text-lg font-semibold font-display" style={{ color: 'var(--dome-text)' }}>
-                      Create New Folder
+                      {t('ui.new_folder')}
                     </h3>
                   </div>
                   <div className="modal-body">
-                    <label htmlFor="new-folder-name" className="sr-only">Folder name</label>
+                    <label htmlFor="new-folder-name" className="sr-only">{t('ui.folder_name')}</label>
                     <input
                       id="new-folder-name"
                       type="text"
                       value={newFolderName}
                       onChange={(e) => setNewFolderName(e.target.value)}
-                      placeholder="Folder name..."
+                      placeholder={t('ui.folder_name')}
                       className="input mb-4"
                       autoFocus
                       onKeyDown={(e) => {
@@ -1057,7 +1059,7 @@ export default function Home() {
                     />
                     <div className="mb-4">
                       <label className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text-secondary)' }}>
-                        Folder color
+                        {t('ui.folder_color')}
                       </label>
                       <div
                         className="flex flex-wrap gap-2"
@@ -1084,7 +1086,7 @@ export default function Home() {
                   </div>
                   <div className="modal-footer">
                     <button onClick={() => setShowNewFolderModal(false)} className="btn btn-ghost">
-                      Cancel
+                      {t('ui.cancel')}
                     </button>
                     <button
                       onClick={handleCreateFolder}
@@ -1092,7 +1094,7 @@ export default function Home() {
                       className="btn btn-primary"
                     >
                       <Plus size={16} className="inline mr-1" />
-                      Create Folder
+                      {t('ui.create_folder')}
                     </button>
                   </div>
                 </div>
@@ -1115,8 +1117,8 @@ export default function Home() {
                   <div className="modal-header">
                     <h3 id="move-resource-title" className="text-lg font-semibold font-display" style={{ color: 'var(--dome-text)' }}>
                       {moveTargetIds.length > 1
-                        ? `Move ${moveTargetIds.length} items`
-                        : `Move "${resourceToMove?.title ?? 'item'}"`}
+                        ? t('ui.move_items', { count: moveTargetIds.length })
+                        : t('ui.move_item', { name: resourceToMove?.title ?? 'item' })}
                     </h3>
                     <button
                       onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
@@ -1135,7 +1137,7 @@ export default function Home() {
                       >
                         <HomeIcon className="w-5 h-5" style={{ color: 'var(--dome-accent)' }} />
                         <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-                          Move to Root
+                          {t('ui.move_to_root')}
                         </span>
                       </button>
                     )}
@@ -1143,7 +1145,7 @@ export default function Home() {
 
                     {allFolders.length === 0 ? (
                       <p className="text-sm text-center py-4" style={{ color: 'var(--dome-text-secondary)' }}>
-                        No folders yet. Create a folder first.
+                        {t('ui.no_folders_yet')}
                       </p>
                     ) : (
                       <div className="space-y-1">
@@ -1167,7 +1169,7 @@ export default function Home() {
                               </span>
                               {moveTargetIds.length === 1 && folder.id === resourceToMove?.folder_id ? (
                                 <span className="ml-auto text-xs" style={{ color: 'var(--dome-text-secondary)' }}>
-                                  (current)
+                                  {t('ui.current')}
                                 </span>
                               ) : null}
                             </button>
@@ -1181,7 +1183,7 @@ export default function Home() {
                       onClick={() => { setShowMoveModal(false); setResourceToMove(null); setMoveTargetIds([]); }}
                       className="btn btn-ghost"
                     >
-                      Cancel
+                      {t('ui.cancel')}
                     </button>
                   </div>
                 </div>
@@ -1200,7 +1202,7 @@ export default function Home() {
                   // Open action — all types
                   items.push({
                     id: 'open',
-                    label: r.type === 'folder' ? 'Open folder' : 'Open',
+                    label: r.type === 'folder' ? t('common.open_folder') : t('common.open'),
                     icon: <ExternalLink size={14} />,
                     onClick: () => r.type === 'folder' ? setCurrentFolderId(r.id) : handleResourceSelect(r),
                   });
@@ -1209,7 +1211,7 @@ export default function Home() {
                   if (r.type === 'url' && r.metadata?.url) {
                     items.push({
                       id: 'open-browser',
-                      label: 'Open in Browser',
+                      label: t('common.open_browser'),
                       icon: <Globe size={14} />,
                       onClick: () => {
                         if (window.electron) {

@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { validateEmail, validateName } from '@/lib/utils/validation';
 
 interface WelcomeStepProps {
@@ -9,6 +10,7 @@ interface WelcomeStepProps {
 }
 
 export default function WelcomeStep({ initialName = '', initialEmail = '', onComplete }: WelcomeStepProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
   const [errors, setErrors] = useState<{ name?: string; email?: string }>({});
@@ -19,11 +21,11 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
     const newErrors: { name?: string; email?: string } = {};
 
     if (!validateName(name)) {
-      newErrors.name = 'Please enter a valid name (at least 2 characters)';
+      newErrors.name = t('onboarding.name_min_length');
     }
 
     if (!validateEmail(email)) {
-      newErrors.email = 'Please enter a valid email address';
+      newErrors.email = t('onboarding.email_invalid');
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -54,10 +56,10 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--dome-text)' }}>
-            Welcome to Dome
+            {t('onboarding.welcome_title')}
           </h1>
           <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-            Let's get started by setting up your profile
+            {t('onboarding.welcome_subtitle')}
           </p>
         </div>
 
@@ -68,14 +70,14 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
               className="block text-sm font-medium mb-2"
               style={{ color: 'var(--dome-text)' }}
             >
-              Full Name
+              {t('onboarding.full_name')}
             </label>
             <input
               type="text"
               id="name"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="John Doe"
+              placeholder={t('onboarding.full_name_placeholder')}
               className="w-full px-4 py-2.5 rounded-lg text-sm outline-none"
               style={{
                 backgroundColor: 'var(--dome-bg-hover)',
@@ -95,14 +97,14 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
               className="block text-sm font-medium mb-2"
               style={{ color: 'var(--dome-text)' }}
             >
-              Email Address
+              {t('onboarding.email_address')}
             </label>
             <input
               type="email"
               id="email"
               value={email}
               onChange={(e) => handleEmailChange(e.target.value)}
-              placeholder="john@example.com"
+              placeholder={t('onboarding.email_placeholder')}
               className="w-full px-4 py-2.5 rounded-lg text-sm outline-none"
               style={{
                 backgroundColor: 'var(--dome-bg-hover)',
@@ -124,12 +126,12 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
               cursor: 'pointer',
             }}
           >
-            Continue
+            {t('common.continue')}
           </button>
         </form>
 
         <p className="text-xs text-center mt-6" style={{ color: 'var(--dome-text-muted)' }}>
-          This information is stored locally and never shared
+          {t('onboarding.privacy_note')}
         </p>
       </div>
     </div>

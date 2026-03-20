@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Tag, ChevronLeft, Loader2, FileText, Video, Music, FileImage, Globe, Folder } from 'lucide-react';
 
 interface TagWithCount {
@@ -51,6 +52,7 @@ function ResourceTypeIcon({ type }: { type: string }) {
 }
 
 export default function TagBrowser() {
+  const { t } = useTranslation();
   const [tags, setTags] = useState<TagWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTag, setSelectedTag] = useState<TagWithCount | null>(null);
@@ -125,7 +127,7 @@ export default function TagBrowser() {
             style={{ color: 'var(--secondary-text)', background: 'none', border: 'none', cursor: 'pointer' }}
           >
             <ChevronLeft size={16} />
-            All tags
+            {t('tags.all')}
           </button>
           <div
             className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium"
@@ -150,7 +152,7 @@ export default function TagBrowser() {
             </div>
           ) : tagResources.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>No resources with this tag</p>
+              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>{t('tags.no_resources')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -173,7 +175,7 @@ export default function TagBrowser() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
-                      {res.title || 'Untitled'}
+                      {res.title || t('common.untitled')}
                     </p>
                     <p className="text-xs capitalize mt-0.5" style={{ color: 'var(--tertiary-text)' }}>
                       {res.type}
@@ -193,9 +195,9 @@ export default function TagBrowser() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-3 px-6 text-center">
         <Tag size={36} style={{ color: 'var(--secondary-text)', opacity: 0.3 }} />
-        <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>No tags yet</p>
+        <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>{t('tags.no_tags')}</p>
         <p className="text-xs" style={{ color: 'var(--secondary-text)' }}>
-          Tags from your resources will appear here. You can tag resources from the resource editor.
+          {t('tags.no_tags_desc')}
         </p>
       </div>
     );

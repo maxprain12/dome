@@ -9,6 +9,7 @@ import type { ParsedCitation } from '@/lib/utils/citations';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { useTranslation } from 'react-i18next';
 
 /** UUID v4 pattern for resource IDs */
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -183,6 +184,7 @@ function processTextWithCitations(
 }
 
 export default function MarkdownRenderer({ content, citationMap, onClickCitation }: MarkdownRendererProps) {
+  const { t } = useTranslation();
   const hasCitations = citationMap && citationMap.size > 0;
   const navigate = useNavigate();
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
@@ -203,26 +205,26 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
   const handleOpenExternalUrl = useCallback(async (href: string) => {
     const electron = typeof window !== 'undefined' ? window.electron : null;
     if (!electron?.invoke) {
-      showToast('error', 'Los enlaces solo funcionan en la aplicación de escritorio.');
+      showToast('error', t('toast.links_desktop_only'));
       return;
     }
 
     try {
       const result = await electron.invoke('open-external-url', href);
       if (result && typeof result === 'object' && 'success' in result && !result.success) {
-        showToast('error', getResultError(result as IpcResult, 'No se pudo abrir el enlace externo.'));
+        showToast('error', getResultError(result as IpcResult, t('toast.external_link_error')));
       }
     } catch (err) {
       console.error('[MarkdownRenderer] Failed to open external URL:', err);
-      showToast('error', 'No se pudo abrir el enlace externo.');
+      showToast('error', t('toast.external_link_error'));
     }
-  }, []);
+  }, [t]);
 
   const handleDomeHref = useCallback(
     async (href: string) => {
       const electron = typeof window !== 'undefined' ? window.electron : null;
       if (!electron?.invoke) {
-        showToast('error', 'Los enlaces solo funcionan en la aplicación de escritorio.');
+        showToast('error', t('toast.links_desktop_only'));
         return;
       }
 
@@ -244,12 +246,12 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
             if (lookup?.success && lookup.data) {
               resourceType = (lookup.data as { type?: string }).type || 'note';
             } else {
-              showToast('error', getResultError(lookup, 'No se encontró el recurso enlazado.'));
+              showToast('error', getResultError(lookup, t('toast.resource_not_found')));
               return;
             }
           } catch (err) {
             console.error('[MarkdownRenderer] Failed to resolve resource type:', err);
-            showToast('error', 'No se encontró el recurso enlazado.');
+            showToast('error', t('toast.resource_not_found'));
             return;
           }
         }
@@ -266,7 +268,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           let resolvedType = 'note';
 
           if (!electron.db?.resources) {
-            showToast('error', 'No se pudo resolver el enlace interno.');
+            showToast('error', t('toast.internal_link_error'));
             return;
           }
 
@@ -293,7 +295,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
               results[0];
 
             if (!match) {
-              showToast('error', getResultError(lookup, 'No se encontró el recurso enlazado.'));
+              showToast('error', getResultError(lookup, t('toast.resource_not_found')));
               return;
             }
 
@@ -309,7 +311,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           useTabStore.getState().openResourceTab(resolvedId, resolvedType, 'Recurso');
         } catch (err) {
           console.error('[MarkdownRenderer] Failed to resolve wikilink:', err);
-          showToast('error', 'No se pudo resolver el enlace interno.');
+          showToast('error', t('toast.internal_link_error'));
         }
         return;
       }
@@ -318,14 +320,14 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
       if (studioMatch) {
         const studioOutputId = studioMatch[1];
         if (!electron.db?.studio?.getById) {
-          showToast('error', 'No se pudo abrir la salida de Studio.');
+          showToast('error', t('toast.studio_output_error'));
           return;
         }
 
         try {
           const result = await electron.db.studio.getById(studioOutputId);
           if (!result?.success || !result.data) {
-            showToast('error', getResultError(result, 'No se pudo abrir la salida de Studio.'));
+            showToast('error', getResultError(result, t('toast.studio_output_error')));
             return;
           }
 
@@ -342,11 +344,11 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           navigate('/');
         } catch (err) {
           console.error('[MarkdownRenderer] Failed to open studio output:', err);
-          showToast('error', 'No se pudo abrir la salida de Studio.');
+          showToast('error', t('toast.studio_output_error'));
         }
       }
     },
-    [addStudioOutput, navigate, openFolderInCurrentWindow, setActiveStudioOutput, setCurrentProject, setHomeSidebarSection]
+    [addStudioOutput, navigate, openFolderInCurrentWindow, setActiveStudioOutput, setCurrentProject, setHomeSidebarSection, t]
   );
 
   const components: Components = useMemo(() => {

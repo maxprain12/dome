@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CalendarDays, FolderOpen, Layers3, Plus, Sparkles, WalletCards, MessageCircle } from 'lucide-react';
 import { db, type Project, type Resource } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
+import { useTranslation } from 'react-i18next';
 
 type DashboardStats = {
   resourceCount: number;
@@ -34,6 +35,7 @@ export default function ProjectsDashboard({
   onSelectProject,
   onOpenProjectLibrary,
 }: ProjectsDashboardProps) {
+  const { t } = useTranslation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
@@ -164,28 +166,28 @@ export default function ProjectsDashboard({
         description: newProjectDescription.trim() || undefined,
       });
       if (!result.success || !result.data) {
-        throw new Error(result.error || 'No se pudo crear el proyecto');
+        throw new Error(result.error || t('projects.create_error'));
       }
       setNewProjectName('');
       setNewProjectDescription('');
       onSelectProject(result.data);
-      showToast('success', 'Proyecto creado');
+      showToast('success', t('projects.created'));
       await loadProjects();
     } catch (error) {
       console.error('[ProjectsDashboard] Error creating project:', error);
-      showToast('error', error instanceof Error ? error.message : 'Error al crear proyecto');
+      showToast('error', error instanceof Error ? error.message : t('toast.project_create_error'));
     } finally {
       setCreating(false);
     }
-  }, [loadProjects, newProjectDescription, newProjectName, onSelectProject]);
+  }, [loadProjects, newProjectDescription, newProjectName, onSelectProject, t]);
 
   const cards = [
-    { label: 'Recursos', value: selectedProjectStats.resourceCount, icon: Layers3 },
-    { label: 'Notas', value: selectedProjectStats.noteCount, icon: FolderOpen },
-    { label: 'Studio', value: selectedProjectStats.studioCount, icon: Sparkles },
-    { label: 'Flashcards', value: selectedProjectStats.dueFlashcards, icon: WalletCards },
-    { label: 'Agenda 7d', value: selectedProjectStats.upcomingEvents, icon: CalendarDays },
-    { label: 'Chats', value: selectedProjectStats.recentChats, icon: MessageCircle },
+    { label: t('projects.resources'), value: selectedProjectStats.resourceCount, icon: Layers3 },
+    { label: t('projects.notes'), value: selectedProjectStats.noteCount, icon: FolderOpen },
+    { label: t('projects.studio'), value: selectedProjectStats.studioCount, icon: Sparkles },
+    { label: t('projects.flashcards'), value: selectedProjectStats.dueFlashcards, icon: WalletCards },
+    { label: t('projects.agenda_7d'), value: selectedProjectStats.upcomingEvents, icon: CalendarDays },
+    { label: t('projects.chats'), value: selectedProjectStats.recentChats, icon: MessageCircle },
   ];
 
   return (
@@ -194,9 +196,9 @@ export default function ProjectsDashboard({
         <div className="mx-auto flex max-w-6xl flex-col gap-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-3xl font-semibold text-[var(--dome-text)]">Projects</h2>
+              <h2 className="text-3xl font-semibold text-[var(--dome-text)]">{t('projects.title')}</h2>
               <p className="mt-1 text-sm text-[var(--dome-text-muted)]">
-                Selecciona un proyecto para enfocar biblioteca, Studio y seguimiento.
+                {t('projects.subtitle')}
               </p>
             </div>
             <div className="flex gap-2">
@@ -206,14 +208,14 @@ export default function ProjectsDashboard({
                 className="rounded-lg border px-3 py-2 text-sm text-[var(--dome-text-muted)] hover:bg-[var(--dome-surface)]"
                 style={{ borderColor: 'var(--dome-border)' }}
               >
-                Ver todo
+                {t('projects.view_all')}
               </button>
               <button
                 type="button"
                 onClick={onOpenProjectLibrary}
                 className="rounded-lg bg-[var(--dome-accent)] px-3 py-2 text-sm font-medium text-[var(--dome-accent-fg)]"
               >
-                Abrir biblioteca
+                {t('projects.open_library')}
               </button>
             </div>
           </div>
@@ -248,9 +250,9 @@ export default function ProjectsDashboard({
             >
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-semibold text-[var(--dome-text)]">Tus proyectos</h3>
+                  <h3 className="text-lg font-semibold text-[var(--dome-text)]">{t('projects.your_projects')}</h3>
                   <p className="text-sm text-[var(--dome-text-muted)]">
-                    {currentProject ? `Proyecto activo: ${currentProject.name}` : 'Sin filtro activo'}
+                    {currentProject ? t('projects.active_project', { name: currentProject.name }) : t('projects.no_filter')}
                   </p>
                 </div>
               </div>
@@ -258,11 +260,11 @@ export default function ProjectsDashboard({
               <div className="space-y-3">
                 {loading ? (
                   <div className="rounded-xl border border-dashed p-6 text-sm text-[var(--dome-text-muted)]" style={{ borderColor: 'var(--dome-border)' }}>
-                    Cargando proyectos...
+                    {t('projects.loading')}
                   </div>
                 ) : projects.length === 0 ? (
                   <div className="rounded-xl border border-dashed p-6 text-sm text-[var(--dome-text-muted)]" style={{ borderColor: 'var(--dome-border)' }}>
-                    Todavía no hay proyectos creados.
+                    {t('projects.empty')}
                   </div>
                 ) : (
                   projects.map((project) => {
@@ -282,10 +284,10 @@ export default function ProjectsDashboard({
                         <div>
                           <p className="font-medium text-[var(--dome-text)]">{project.name}</p>
                           <p className="mt-1 text-sm text-[var(--dome-text-muted)]">
-                            {project.description?.trim() || 'Sin descripción'}
+                            {project.description?.trim() || t('projects.no_description')}
                           </p>
                           <p className="mt-2 text-xs text-[var(--dome-text-muted)]">
-                            {projectResources.length} recurso{projectResources.length === 1 ? '' : 's'}
+                            {projectResources.length} {t('projects.resource', { count: projectResources.length })}
                           </p>
                         </div>
                         <ArrowRight className="h-4 w-4 text-[var(--dome-text-muted)]" />
@@ -301,9 +303,9 @@ export default function ProjectsDashboard({
               style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
             >
               <div className="mb-4">
-                <h3 className="text-lg font-semibold text-[var(--dome-text)]">Nuevo proyecto</h3>
+                <h3 className="text-lg font-semibold text-[var(--dome-text)]">{t('projects.new_project')}</h3>
                 <p className="text-sm text-[var(--dome-text-muted)]">
-                  Crea un contenedor real para recursos, outputs y seguimiento.
+                  {t('projects.new_project_desc')}
                 </p>
               </div>
 
@@ -311,14 +313,14 @@ export default function ProjectsDashboard({
                 <input
                   value={newProjectName}
                   onChange={(event) => setNewProjectName(event.target.value)}
-                  placeholder="Nombre del proyecto"
+                  placeholder={t('projects.project_name')}
                   className="w-full rounded-xl border bg-[var(--dome-bg)] px-3 py-2 text-sm text-[var(--dome-text)] outline-none"
                   style={{ borderColor: 'var(--dome-border)' }}
                 />
                 <textarea
                   value={newProjectDescription}
                   onChange={(event) => setNewProjectDescription(event.target.value)}
-                  placeholder="Descripción breve"
+                  placeholder={t('projects.brief_description')}
                   rows={4}
                   className="w-full resize-none rounded-xl border bg-[var(--dome-bg)] px-3 py-2 text-sm text-[var(--dome-text)] outline-none"
                   style={{ borderColor: 'var(--dome-border)' }}
@@ -330,7 +332,7 @@ export default function ProjectsDashboard({
                   className="inline-flex items-center gap-2 rounded-xl bg-[var(--dome-accent)] px-4 py-2 text-sm font-medium text-[var(--dome-accent-fg)] disabled:opacity-60"
                 >
                   <Plus className="h-4 w-4" />
-                  {creating ? 'Creando...' : 'Crear proyecto'}
+                  {creating ? t('projects.creating') : t('projects.create_project')}
                 </button>
               </div>
             </section>

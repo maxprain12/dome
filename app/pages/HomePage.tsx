@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Home from '@/components/home/Home';
 import Onboarding from '@/components/onboarding/Onboarding';
 import { useUserStore } from '@/lib/store/useUserStore';
@@ -9,6 +10,7 @@ import { initializeApp } from '@/lib/init';
 const INIT_TIMEOUT_MS = 10000;
 
 export default function HomePage() {
+  const { t } = useTranslation();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
@@ -118,10 +120,10 @@ export default function HomePage() {
       >
         <div className="text-center animate-slide-up">
           <div className="text-lg font-medium mb-2 font-display" style={{ color: 'var(--primary-text)' }}>
-            Loading Dome...
+            {t('app.loading')}
           </div>
           <div className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-            Initializing your workspace
+            {t('app.initializing')}
           </div>
           {/* Debug info - shows what step we're on */}
           <div className="text-xs mt-4 opacity-50" style={{ color: 'var(--secondary-text)' }}>
@@ -140,7 +142,7 @@ export default function HomePage() {
           className="fixed top-0 left-0 right-0 px-4 py-2 text-center text-sm"
           style={{ background: 'var(--warning)', color: 'var(--bg)', zIndex: 'var(--z-fixed)' }}
         >
-          Dome started with limited functionality. Some features may not work. ({initError})
+          {t('app.limited_functionality')} ({initError})
         </div>
       )}
       <Home />

@@ -22,6 +22,7 @@ import { buildCitationMap } from '@/lib/utils/citations';
 import AgentChatInput from './AgentChatInput';
 import { ChevronLeft } from 'lucide-react';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
+import { useTranslation } from 'react-i18next';
 import {
   abortRun,
   getActiveRunBySession,
@@ -55,40 +56,41 @@ interface AgentChatViewProps {
 }
 
 const THINKING_LABELS = [
-  'Analizando solicitud...',
-  'Buscando información...',
-  'Consultando fuentes...',
-  'Procesando datos...',
-  'Preparando respuesta...',
-  'Trabajando en ello...',
+  'Analyzing request...',
+  'Searching for information...',
+  'Consulting sources...',
+  'Processing data...',
+  'Preparing response...',
+  'Working on it...',
 ];
 
 const TOOL_LABELS: Record<string, string> = {
-  ppt_create: 'Creando presentación...',
-  ppt_get_slides: 'Leyendo diapositivas...',
-  ppt_export: 'Exportando presentación...',
-  resource_get: 'Leyendo documento...',
-  resource_list: 'Listando recursos...',
-  resource_search: 'Buscando recursos...',
-  resource_semantic_search: 'Búsqueda semántica...',
-  resource_create: 'Creando recurso...',
-  resource_update: 'Actualizando recurso...',
-  get_library_overview: 'Explorando biblioteca...',
-  web_search: 'Buscando en la web...',
-  web_fetch: 'Leyendo página web...',
-  deep_research: 'Investigando en profundidad...',
-  excel_get: 'Leyendo hoja de cálculo...',
-  excel_create: 'Creando hoja de cálculo...',
-  notebook_get: 'Leyendo notebook...',
-  notebook_add_cell: 'Añadiendo celda...',
-  call_data_agent: 'Agente de datos trabajando...',
-  call_writer_agent: 'Agente escritor trabajando...',
-  call_research_agent: 'Agente de investigación trabajando...',
-  call_library_agent: 'Agente de biblioteca trabajando...',
-  pdf_annotation_create: 'Creando anotación en PDF...',
+  ppt_create: 'Creating presentation...',
+  ppt_get_slides: 'Reading slides...',
+  ppt_export: 'Exporting presentation...',
+  resource_get: 'Reading document...',
+  resource_list: 'Listing resources...',
+  resource_search: 'Searching resources...',
+  resource_semantic_search: 'Semantic search...',
+  resource_create: 'Creating resource...',
+  resource_update: 'Updating resource...',
+  get_library_overview: 'Exploring library...',
+  web_search: 'Searching the web...',
+  web_fetch: 'Reading web page...',
+  deep_research: 'Investigating deeply...',
+  excel_get: 'Reading spreadsheet...',
+  excel_create: 'Creating spreadsheet...',
+  notebook_get: 'Reading notebook...',
+  notebook_add_cell: 'Adding cell...',
+  call_data_agent: 'Data agent working...',
+  call_writer_agent: 'Writer agent working...',
+  call_research_agent: 'Research agent working...',
+  call_library_agent: 'Library agent working...',
+  pdf_annotation_create: 'Creating PDF annotation...',
 };
 
 export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
+  const { t } = useTranslation();
   const [agent, setAgent] = useState<ManyAgent | null>(null);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -185,7 +187,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         timestamp: run.updatedAt || Date.now(),
         isStreaming: run.status !== 'waiting_approval',
         toolCalls: prev?.toolCalls || [],
-        streamingLabel: prev?.streamingLabel || 'Procesando en background...',
+        streamingLabel: prev?.streamingLabel || t('chat.running_background'),
       }));
       return;
     }
@@ -244,7 +246,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
                 timestamp: Date.now(),
                 isStreaming: true,
                 toolCalls: [],
-                streamingLabel: 'Procesando en background...',
+                streamingLabel: t('chat.running_background'),
               },
         );
       } else if (payload.type === 'thinking' && payload.text) {
@@ -426,7 +428,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
       if (!config) {
         addMessage({
           role: 'assistant',
-          content: 'AI no está configurado. Ve a **Ajustes > AI** para configurar un proveedor.',
+          content: t('chat.no_ai_config'),
         });
         return;
       }
@@ -449,7 +451,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           timestamp: Date.now(),
           isStreaming: true,
           toolCalls: [],
-          streamingLabel: 'Procesando...',
+          streamingLabel: t('ui.loading'),
         });
 
         const threadId = `agent_${agentId}_${Date.now()}`;
@@ -532,8 +534,8 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
       } else {
         console.error('[AgentChat] Error:', err);
-        const msg = err instanceof Error ? err.message : 'Error desconocido';
-        addMessage({ role: 'assistant', content: `Lo siento, hubo un problema: ${msg}` });
+        const msg = err instanceof Error ? err.message : t('common.unknown_error');
+        addMessage({ role: 'assistant', content: t('chat.error_prefix', { msg }) });
         showToast('error', msg);
       }
     } finally {
@@ -601,16 +603,16 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   }, [chatMessages, streamingMessage]);
 
   const handleClear = useCallback(() => {
-    if (window.confirm('¿Borrar todo el historial del chat?')) {
+    if (window.confirm(t('chat.clear_confirm'))) {
       clearMessages();
-      showToast('info', 'Chat vaciado');
+      showToast('info', t('agent.chat_cleared'));
     }
-  }, [clearMessages]);
+  }, [clearMessages, t]);
 
   if (!agent) {
     return (
-      <div className="flex items-center justify-center h-full" style={{ color: 'var(--secondary-text)' }}>
-        Cargando agente...
+        <div className="flex items-center justify-center h-full" style={{ color: 'var(--secondary-text)' }}>
+        {t('ui.loading')}
       </div>
     );
   }
@@ -630,7 +632,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
               type="button"
               onClick={onBack}
               className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-[var(--dome-surface)] transition-colors shrink-0"
-              title="Volver"
+              title={t('agent.back')}
             >
               <ChevronLeft className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
             </button>
@@ -660,9 +662,9 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
             onClick={handleClear}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all"
             style={{ color: 'var(--dome-text-muted)', background: 'var(--dome-bg)' }}
-            title="Vaciar chat"
+            title={t('agent.clear_chat')}
           >
-            Vaciar chat
+            {t('agent.clear_chat')}
           </button>
         </div>
       </header>
@@ -689,7 +691,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
                 {agent.name}
               </h2>
               <p className="text-sm mt-1 max-w-md" style={{ color: 'var(--dome-text-muted)' }}>
-                {agent.description || 'Chatea con tu agente especializado.'}
+                {agent.description || t('agent.empty_chat')}
               </p>
             </div>
           </div>
@@ -713,7 +715,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
                 <div className="flex items-center gap-2 rounded-2xl rounded-tl-md bg-[var(--bg-secondary)] px-4 py-3">
                   <ReadingIndicator className="opacity-60" style={{ color: 'var(--secondary-text)' }} />
                   <span className="text-[13px]" style={{ color: 'var(--secondary-text)' }}>
-                    Pensando...
+                    {t('chat.thinking')}
                   </span>
                 </div>
               </div>

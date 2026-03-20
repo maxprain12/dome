@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   Trash2,
@@ -87,6 +88,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function MCPSettingsPanel() {
+  const { t } = useTranslation();
   const [servers, setServers] = useState<MCPServerConfig[]>([]);
   const [mcpEnabled, setMcpEnabled] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -107,7 +109,7 @@ export default function MCPSettingsPanel() {
       const loadedServers = await loadMcpServersSetting();
       setServers(loadedServers.map((server) => ({ ...server, enabled: server.enabled !== false })));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar configuración');
+      setError(err instanceof Error ? err.message : t('settings.mcp.error_load'));
       setServers([]);
     } finally {
       setLoading(false);
@@ -140,10 +142,10 @@ export default function MCPSettingsPanel() {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
       } else {
-        setError(result.error || 'Error al guardar');
+        setError(result.error || t('settings.mcp.error_load'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar');
+      setError(err instanceof Error ? err.message : t('settings.mcp.error_load'));
     } finally {
       setSaving(false);
     }
@@ -162,10 +164,10 @@ export default function MCPSettingsPanel() {
         setImportJson('');
         setError(null);
       } else {
-        setError('No se encontraron servidores válidos en el JSON');
+        setError(t('settings.mcp.error_no_servers'));
       }
     } catch {
-      setError('JSON inválido. Usa el formato mcpServers o array.');
+      setError(t('settings.mcp.error_invalid_json'));
     }
   };
 
@@ -215,7 +217,7 @@ export default function MCPSettingsPanel() {
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-xs animate-pulse" style={{ color: 'var(--dome-text-muted)' }}>
-        Cargando...
+        {t('settings.mcp.loading')}
       </div>
     );
   }
@@ -226,7 +228,7 @@ export default function MCPSettingsPanel() {
       <div>
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>MCP</h2>
         <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          Model Context Protocol — configura servidores MCP, descubre sus tools y define cuáles quedan activas globalmente para Many, agentes y equipos.
+          {t('settings.mcp.subtitle')}
         </p>
       </div>
 
@@ -241,12 +243,12 @@ export default function MCPSettingsPanel() {
 
       {/* Global toggle */}
       <div>
-        <SectionLabel>Global</SectionLabel>
+        <SectionLabel>{t('settings.mcp.section_global')}</SectionLabel>
         <SettingsCard>
           <div className="flex items-center justify-between px-4 py-3.5">
             <div>
-              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>MCP habilitado</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>Activa o desactiva todos los servidores MCP globalmente</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('settings.mcp.mcp_enabled')}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.mcp.mcp_enabled_desc')}</p>
             </div>
             <Toggle checked={mcpEnabled} onChange={handleMcpEnabledToggle} />
           </div>
@@ -256,7 +258,7 @@ export default function MCPSettingsPanel() {
       {/* Servers */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <SectionLabel>Servidores</SectionLabel>
+          <SectionLabel>{t('settings.mcp.section_servers')}</SectionLabel>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -265,7 +267,7 @@ export default function MCPSettingsPanel() {
               style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
             >
               <FileJson className="w-3.5 h-3.5" />
-              Importar JSON
+              {t('settings.mcp.import_json')}
             </button>
             <button
               type="button"
@@ -274,14 +276,14 @@ export default function MCPSettingsPanel() {
               style={{ backgroundColor: DOME_GREEN }}
             >
               <Plus className="w-3.5 h-3.5" />
-              Añadir servidor
+              {t('settings.mcp.add_server')}
             </button>
           </div>
         </div>
 
         {servers.length === 0 ? (
           <div className="py-10 rounded-xl text-center" style={{ border: '1.5px dashed var(--dome-border)' }}>
-            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>Sin servidores MCP. Añade uno o importa JSON.</p>
+            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.mcp.no_servers')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -297,7 +299,7 @@ export default function MCPSettingsPanel() {
                       />
                       <input
                         type="text"
-                        placeholder="Nombre"
+                        placeholder={t('settings.mcp.field_name')}
                         value={server.name}
                         onChange={(e) => updateServer(index, { name: e.target.value })}
                         className="rounded-lg px-3 py-1.5 text-xs w-40"
@@ -318,9 +320,9 @@ export default function MCPSettingsPanel() {
                         className="rounded-lg px-3 py-1.5 text-xs"
                         style={inputStyle}
                       >
-                        <option value="stdio">stdio</option>
-                        <option value="http">HTTP (Streamable)</option>
-                        <option value="sse">SSE (legacy)</option>
+                        <option value="stdio">{t('settings.mcp.type_stdio')}</option>
+                        <option value="http">{t('settings.mcp.type_http')}</option>
+                        <option value="sse">{t('settings.mcp.type_sse')}</option>
                       </select>
                     </div>
 
@@ -332,7 +334,7 @@ export default function MCPSettingsPanel() {
                             <Server className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
                             <input
                               type="text"
-                              placeholder="Comando"
+                              placeholder={t('settings.mcp.field_command')}
                               value={server.command || ''}
                               onChange={(e) => updateServer(index, { command: e.target.value })}
                               className="rounded-lg px-3 py-1.5 text-xs w-24 font-mono"
@@ -341,7 +343,7 @@ export default function MCPSettingsPanel() {
                           </div>
                           <input
                             type="text"
-                            placeholder="Args (ej: -y @pkg/server)"
+                            placeholder={t('settings.mcp.field_args')}
                             value={(server.args || []).join(' ')}
                             onChange={(e) => updateServer(index, { args: parseArgsInput(e.target.value) })}
                             className="flex-1 min-w-0 rounded-lg px-3 py-1.5 text-xs font-mono"
@@ -406,7 +408,9 @@ export default function MCPSettingsPanel() {
                       <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
                         style={{ backgroundColor: `${DOME_GREEN}12`, border: `1px solid ${DOME_GREEN}30`, color: DOME_GREEN }}>
                         <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                        Conectado · {serverTestResult[index]!.toolCount} herramienta{serverTestResult[index]!.toolCount !== 1 ? 's' : ''} disponible{serverTestResult[index]!.toolCount !== 1 ? 's' : ''}
+                        {serverTestResult[index]!.toolCount === 1
+                          ? t('settings.mcp.connected_tools_one', { count: serverTestResult[index]!.toolCount })
+                          : t('settings.mcp.connected_tools_many', { count: serverTestResult[index]!.toolCount })}
                       </div>
                     )}
                     {serverTestStatus[index] === 'error' && serverTestResult[index]?.error && (
@@ -421,8 +425,8 @@ export default function MCPSettingsPanel() {
                       <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
                         <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
                           <div>
-                            <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>Tools activas globalmente</p>
-                            <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>Se reutilizan en Many, agentes y equipos.</p>
+                            <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('settings.mcp.tools_active_globally')}</p>
+                            <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.mcp.tools_reused')}</p>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <button
@@ -431,7 +435,7 @@ export default function MCPSettingsPanel() {
                               className="rounded-lg px-2 py-1 text-[11px] font-medium"
                               style={{ backgroundColor: `${DOME_GREEN}15`, color: DOME_GREEN }}
                             >
-                              Activar todas
+                              {t('settings.mcp.enable_all')}
                             </button>
                             <button
                               type="button"
@@ -439,7 +443,7 @@ export default function MCPSettingsPanel() {
                               className="rounded-lg px-2 py-1 text-[11px] font-medium"
                               style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
                             >
-                              Desactivar todas
+                              {t('settings.mcp.disable_all')}
                             </button>
                           </div>
                         </div>
@@ -482,7 +486,7 @@ export default function MCPSettingsPanel() {
                           ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           : <Wifi className="w-3.5 h-3.5" />
                         }
-                        {serverTestStatus[index] === 'testing' ? 'Descubriendo...' : 'Probar y descubrir tools'}
+                        {serverTestStatus[index] === 'testing' ? t('settings.mcp.discovering') : t('settings.mcp.test_discover')}
                       </button>
                     )}
                   </div>
@@ -492,7 +496,7 @@ export default function MCPSettingsPanel() {
                     onClick={() => removeServer(index)}
                     className="p-1.5 rounded-lg shrink-0 transition-colors"
                     style={{ color: 'var(--dome-text-muted)' }}
-                    aria-label="Eliminar servidor"
+                    aria-label={t('settings.mcp.delete_server')}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -513,12 +517,12 @@ export default function MCPSettingsPanel() {
           style={{ backgroundColor: DOME_GREEN }}
         >
           <Save className="w-3.5 h-3.5" />
-          {saving ? 'Guardando...' : 'Guardar configuración'}
+          {saving ? t('settings.mcp.saving') : t('settings.mcp.save_config')}
         </button>
         {saved && (
           <span className="flex items-center gap-1.5 text-xs animate-in fade-in" style={{ color: DOME_GREEN }}>
             <CheckCircle2 className="w-3.5 h-3.5" />
-            Guardado
+            {t('settings.mcp.saved')}
           </span>
         )}
       </div>
@@ -535,10 +539,10 @@ export default function MCPSettingsPanel() {
             style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--dome-text)' }}>Importar JSON</h3>
-            <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>Formato: {FORMAT_EXAMPLE}</p>
+            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--dome-text)' }}>{t('settings.mcp.import_title')}</h3>
+            <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.mcp.import_format', { format: FORMAT_EXAMPLE })}</p>
             <textarea
-              placeholder="Pega tu JSON aquí"
+              placeholder={t('settings.mcp.import_placeholder')}
               value={importJson}
               onChange={(e) => setImportJson(e.target.value)}
               className="flex-1 min-h-[200px] rounded-lg px-3 py-2 text-xs font-mono resize-none"
@@ -551,7 +555,7 @@ export default function MCPSettingsPanel() {
                 className="px-4 py-2 rounded-lg text-xs font-medium text-white"
                 style={{ backgroundColor: DOME_GREEN }}
               >
-                Importar
+                {t('settings.mcp.import_btn')}
               </button>
               <button
                 type="button"
@@ -559,7 +563,7 @@ export default function MCPSettingsPanel() {
                 className="px-4 py-2 rounded-lg text-xs font-medium"
                 style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
               >
-                Cancelar
+                {t('common.cancel')}
               </button>
             </div>
           </div>

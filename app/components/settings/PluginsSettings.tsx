@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FolderOpen, Trash2, Power, CheckCircle2, AlertCircle, Puzzle } from 'lucide-react';
 import type { DomePluginInfo } from '@/types/plugin';
 import PluginRuntimeModal from './PluginRuntimeModal';
@@ -42,6 +43,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 }
 
 export default function PluginsSettings() {
+  const { t } = useTranslation();
   const [plugins, setPlugins] = useState<DomePluginInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -72,21 +74,21 @@ export default function PluginsSettings() {
     const r = await window.electron?.plugins?.installFromFolder?.();
     if (r?.cancelled) return;
     if (r?.success) {
-      showMessage('success', 'Plugin instalado correctamente');
+      showMessage('success', t('settings.plugins.installed_ok'));
       loadPlugins();
     } else {
-      showMessage('error', r?.error || 'Error al instalar');
+      showMessage('error', r?.error || t('settings.plugins.installed_error'));
     }
   };
 
   const handleUninstall = async (id: string) => {
-    if (!confirm('¿Desinstalar este plugin?')) return;
+    if (!confirm(t('settings.plugins.uninstall_confirm'))) return;
     const r = await window.electron?.plugins?.uninstall?.(id);
     if (r?.success) {
-      showMessage('success', 'Plugin desinstalado');
+      showMessage('success', t('settings.plugins.uninstalled_ok'));
       loadPlugins();
     } else {
-      showMessage('error', r?.error || 'Error al desinstalar');
+      showMessage('error', r?.error || t('settings.plugins.uninstalled_error'));
     }
   };
 
@@ -101,7 +103,7 @@ export default function PluginsSettings() {
       <div>
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>Plugins</h2>
         <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          Gestiona los plugins instalados en Dome. Instala nuevos desde el Marketplace.
+          {t('settings.plugins.description')}
         </p>
       </div>
 
@@ -125,17 +127,17 @@ export default function PluginsSettings() {
 
       {/* Installed plugins */}
       <div>
-        <SectionLabel>Plugins instalados</SectionLabel>
+        <SectionLabel>{t('settings.plugins.section_installed')}</SectionLabel>
         {loading ? (
-          <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Cargando...</p>
+          <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.plugins.loading')}</p>
         ) : plugins.length === 0 ? (
           <SettingsCard className="py-10 flex flex-col items-center gap-3">
             <div className="w-12 h-12 rounded-xl flex items-center justify-center opacity-30" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
               <Puzzle className="w-6 h-6" style={{ color: 'var(--dome-text-muted)' }} />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>Sin plugins instalados</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>Explora el Marketplace para descubrir plugins</p>
+              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('settings.plugins.empty_title')}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.plugins.empty_desc')}</p>
             </div>
           </SettingsCard>
         ) : (
@@ -153,7 +155,7 @@ export default function PluginsSettings() {
                           color: p.enabled ? DOME_GREEN : 'var(--dome-text-muted)',
                         }}
                       >
-                        {p.enabled ? 'Activo' : 'Inactivo'}
+                        {p.enabled ? t('settings.plugins.status_active') : t('settings.plugins.status_inactive')}
                       </span>
                       {p.type && (
                         <span
@@ -176,7 +178,7 @@ export default function PluginsSettings() {
                         className="px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
                         style={{ color: DOME_GREEN, backgroundColor: `${DOME_GREEN}10` }}
                       >
-                        Abrir
+                        {t('settings.plugins.open')}
                       </button>
                     )}
                     <Toggle
@@ -201,17 +203,17 @@ export default function PluginsSettings() {
 
       {/* Install from folder */}
       <div>
-        <SectionLabel>Instalar plugin</SectionLabel>
+        <SectionLabel>{t('settings.plugins.section_install')}</SectionLabel>
         <button
           onClick={handleInstall}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-all"
           style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
         >
           <FolderOpen className="w-3.5 h-3.5" />
-          Instalar desde carpeta
+          {t('settings.plugins.install_from_folder')}
         </button>
         <p className="text-[11px] mt-2" style={{ color: 'var(--dome-text-muted)', opacity: 0.7 }}>
-          Selecciona una carpeta que contenga <code style={{ fontFamily: 'monospace' }}>manifest.json</code>. También puedes instalar desde el Marketplace.
+          {t('settings.plugins.install_hint')}
         </p>
       </div>
 

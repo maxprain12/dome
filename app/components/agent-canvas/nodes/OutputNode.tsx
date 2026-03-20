@@ -8,8 +8,10 @@ import type { OutputNodeData } from '@/types/canvas';
 import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { generateId } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 export default function OutputNode({ data, selected }: NodeProps<OutputNodeData>) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
   const currentProject = useAppStore((s) => s.currentProject);
@@ -23,7 +25,7 @@ export default function OutputNode({ data, selected }: NodeProps<OutputNodeData>
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      showToast('error', 'No se pudo copiar al portapapeles');
+      showToast('error', t('toast.clipboard_copy_error'));
     }
   }, [data.content]);
 
@@ -42,9 +44,9 @@ export default function OutputNode({ data, selected }: NodeProps<OutputNodeData>
         created_at: now,
         updated_at: now,
       });
-      showToast('success', 'Guardado en la biblioteca');
+      showToast('success', t('toast.saved_to_library'));
     } catch {
-      showToast('error', 'No se pudo guardar el recurso');
+      showToast('error', t('toast.resource_save_error'));
     } finally {
       setSaving(false);
     }

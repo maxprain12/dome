@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ManyAgent } from '@/types';
 import { createManyAgent, updateManyAgent } from '@/lib/agents/api';
 import { showToast } from '@/lib/store/useToastStore';
@@ -15,15 +16,6 @@ type Step = 'name' | 'instructions' | 'tools' | 'mcp' | 'skills' | 'icon';
 
 const STEP_ORDER: Step[] = ['name', 'instructions', 'tools', 'mcp', 'skills', 'icon'];
 
-const STEP_LABELS: Record<Step, string> = {
-  name: 'Nombre',
-  instructions: 'Instrucciones',
-  tools: 'Herramientas',
-  mcp: 'MCP',
-  skills: 'Skills',
-  icon: 'Icono',
-};
-
 interface AgentOnboardingProps {
   onComplete: (agent: ManyAgent) => void;
   onCancel: () => void;
@@ -32,6 +24,7 @@ interface AgentOnboardingProps {
 }
 
 export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: AgentOnboardingProps) {
+  const { t } = useTranslation();
   const isEditMode = !!initialAgent;
   const [currentStep, setCurrentStep] = useState<Step>('name');
   const [name, setName] = useState(initialAgent?.name ?? '');
@@ -75,10 +68,10 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
             iconIndex,
           });
           if (result.success && result.data) {
-            showToast('success', 'Agente actualizado correctamente');
+            showToast('success', t('agents.edit_agent'));
             onComplete(result.data);
           } else {
-            showToast('error', result.error || 'Error al actualizar agente');
+            showToast('error', result.error || t('common.error'));
           }
         } else {
           const result = await createManyAgent({
@@ -91,14 +84,14 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
             iconIndex,
           });
           if (result.success && result.data) {
-            showToast('success', 'Agente creado correctamente');
+            showToast('success', t('agents.new_agent'));
             onComplete(result.data);
           } else {
-            showToast('error', result.error || 'Error al crear agente');
+            showToast('error', result.error || t('common.error'));
           }
         }
       } catch (err) {
-        showToast('error', err instanceof Error ? err.message : 'Error al guardar agente');
+        showToast('error', err instanceof Error ? err.message : t('common.error'));
       } finally {
         setSaving(false);
       }
@@ -139,13 +132,13 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
         iconIndex,
       });
       if (result.success && result.data) {
-        showToast('success', 'Agente actualizado correctamente');
+        showToast('success', t('agents.edit_agent'));
         onComplete(result.data);
       } else {
-        showToast('error', result.error || 'Error al actualizar agente');
+        showToast('error', result.error || t('common.error'));
       }
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Error al guardar agente');
+      showToast('error', err instanceof Error ? err.message : t('common.error'));
     } finally {
       setSaving(false);
     }
@@ -160,7 +153,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
           style={{ borderColor: 'var(--border)' }}
         >
           <h2 className="text-base font-semibold" style={{ color: 'var(--primary-text)' }}>
-            Editar agente
+            {t('agents.edit_agent')}
           </h2>
           <button
             type="button"
@@ -168,14 +161,14 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
             className="text-sm px-2 py-1 rounded hover:bg-[var(--bg-hover)]"
             style={{ color: 'var(--secondary-text)' }}
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-8">
           <section>
             <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-              Información básica
+              {t('onboarding.step_name')}
             </h3>
             <AgentNameStep
               initialName={name}
@@ -187,7 +180,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
 
           <section>
             <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-              Instrucciones del sistema
+              {t('onboarding.step_instructions')}
             </h3>
             <AgentInstructionsStep
               initialInstructions={systemInstructions}
@@ -197,28 +190,28 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
 
           <section>
             <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-              Herramientas
+              {t('onboarding.step_tools')}
             </h3>
             <AgentToolsStep selectedIds={toolIds} onChange={setToolIds} />
           </section>
 
           <section>
             <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-              MCP
+              {t('onboarding.step_mcp')}
             </h3>
             <AgentMcpStep selectedIds={mcpServerIds} onChange={setMcpServerIds} />
           </section>
 
           <section>
             <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-              Skills
+              {t('onboarding.step_skills')}
             </h3>
             <AgentSkillsStep selectedIds={skillIds} onChange={setSkillIds} />
           </section>
 
           <section>
             <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-              Icono
+              {t('onboarding.step_icon')}
             </h3>
             <AgentIconStep selectedIndex={iconIndex} onChange={setIconIndex} />
           </section>
@@ -238,7 +231,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
               border: '1px solid var(--border)',
             }}
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -249,12 +242,21 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
               backgroundColor: !canProceed || saving ? 'var(--bg-tertiary)' : 'var(--accent)',
             }}
           >
-            {saving ? 'Guardando...' : 'Guardar'}
+            {saving ? t('common.saving') : t('common.save')}
           </button>
         </div>
       </div>
     );
   }
+
+  const STEP_LABELS: Record<Step, string> = {
+    name: t('onboarding.step_name'),
+    instructions: t('onboarding.step_instructions'),
+    tools: t('onboarding.step_tools'),
+    mcp: t('onboarding.step_mcp'),
+    skills: t('onboarding.step_skills'),
+    icon: t('onboarding.step_icon'),
+  };
 
   // Wizard por etapas para creación
   return (
@@ -264,7 +266,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
         style={{ borderColor: 'var(--border)' }}
       >
         <h2 className="text-base font-semibold" style={{ color: 'var(--primary-text)' }}>
-          Nuevo agente
+          {t('agents.new_agent')}
         </h2>
         <div className="flex items-center gap-2">
           <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>
@@ -276,7 +278,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
             className="text-sm px-2 py-1 rounded"
             style={{ color: 'var(--secondary-text)' }}
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
         </div>
       </div>
@@ -342,7 +344,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
             border: '1px solid var(--border)',
           }}
         >
-          {stepIndex === 0 ? 'Cancelar' : 'Atrás'}
+          {stepIndex === 0 ? t('common.cancel') : t('common.back')}
         </button>
         <button
           type="button"
@@ -353,7 +355,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
             backgroundColor: (currentStep === 'name' && !canProceed) || saving ? 'var(--bg-tertiary)' : 'var(--accent)',
           }}
         >
-          {saving ? 'Guardando...' : isLastStep ? 'Crear agente' : 'Continuar'}
+          {saving ? t('common.saving') : isLastStep ? t('agents.new_agent') : t('onboarding.continue')}
         </button>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { Trash2, Eye, Loader2, X, FileText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useStudioGenerate } from '@/lib/hooks/useStudioGenerate';
 import { useStudioOutputs } from '@/lib/hooks/useStudioOutputs';
@@ -28,6 +29,7 @@ interface StudioPanelProps {
 }
 
 export default function StudioPanel({ projectId: projectIdProp, resourceId }: StudioPanelProps = {}) {
+  const { t } = useTranslation();
   const currentProject = useAppStore((s) => s.currentProject);
   const studioOutputs = useAppStore((s) => s.studioOutputs);
   const setStudioOutputs = useAppStore((s) => s.setStudioOutputs);
@@ -132,7 +134,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
           className="text-xs font-semibold uppercase tracking-wider"
           style={{ color: 'var(--secondary-text)' }}
         >
-          Studio
+          {t('studio.title')}
         </h3>
         <button
           onClick={() => useAppStore.getState().toggleStudioPanel()}

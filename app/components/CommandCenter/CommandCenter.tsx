@@ -13,6 +13,7 @@ import {
     Globe,
     Check,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { SearchResults } from './SearchResults';
 import { SearchFilterChips } from './SearchFilterChips';
@@ -109,6 +110,7 @@ export function CommandCenter({
     const inputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const [, startTransition] = useTransition();
+    const { t } = useTranslation();
     const {
         setSearchQuery,
         searchResults,
@@ -515,7 +517,7 @@ export function CommandCenter({
                             )}
                         </div>
 
-                        <label htmlFor="command-center-search" className="sr-only">Search or add URL</label>
+                        <label htmlFor="command-center-search" className="sr-only">{t('ui.search')}</label>
                         <input
                             id="command-center-search"
                             ref={inputRef}
@@ -524,11 +526,11 @@ export function CommandCenter({
                             onChange={handleInputChange}
                             onFocus={handleFocus}
                             onBlur={handleBlur}
-                            placeholder={urlMode ? 'https://example.com or YouTube URL' : PLACEHOLDER_SUGGESTIONS[placeholderIndex]}
+                            placeholder={urlMode ? t('command.please_enter_url') : PLACEHOLDER_SUGGESTIONS[placeholderIndex]}
                             className={`command-center-input ${urlMode ? 'url-mode' : ''}`}
                             autoComplete="off"
                             spellCheck={false}
-                            aria-label={urlMode ? 'URL or YouTube link' : 'Search resources'}
+                            aria-label={urlMode ? t('command.add_url') : t('ui.search')}
                         />
 
                         <div className="command-center-actions">
@@ -538,12 +540,12 @@ export function CommandCenter({
                                     {detectedUrlType === 'youtube' ? (
                                         <>
                                             <Youtube size={14} />
-                                            <span>YouTube</span>
+                                            <span>{t('command.youtube')}</span>
                                         </>
                                     ) : (
                                         <>
                                             <Globe size={14} />
-                                            <span>Article</span>
+                                            <span>{t('command.article')}</span>
                                         </>
                                     )}
                                 </div>
@@ -554,10 +556,10 @@ export function CommandCenter({
                                 <button
                                     className="url-submit-btn"
                                     onClick={handleSubmitUrl}
-                                    aria-label="Add URL"
+                                    aria-label={t('command.add_url')}
                                 >
                                     <Check size={16} />
-                                    <span>Add</span>
+                                    <span>{t('ui.add')}</span>
                                 </button>
                             ) : null}
 
@@ -565,7 +567,7 @@ export function CommandCenter({
                             {!urlMode && query.length > 0 ? (
                                 <div className={`ai-mode-indicator ${isSearching ? 'active' : ''}`}>
                                     <Sparkles size={14} />
-                                    <span>AI</span>
+                                    <span>{t('command.ai')}</span>
                                 </div>
                             ) : null}
 
@@ -581,7 +583,7 @@ export function CommandCenter({
                                             setSearchResults(null);
                                         }
                                     }}
-                                    aria-label={urlMode ? "Cancel" : "Clear search"}
+                                    aria-label={urlMode ? t('ui.cancel') : t('command.clear_search')}
                                 >
                                     <X size={16} />
                                 </button>
@@ -601,12 +603,12 @@ export function CommandCenter({
                                 <div className="url-input-feedback">
                                     <div className="url-feedback-header">
                                         <Link2 size={16} />
-                                        <span>Add Web Resource</span>
+                                        <span>{t('command.add_web_resource')}</span>
                                     </div>
                                     <div className="url-feedback-content">
                                         {!isUrlValid && urlInput.length > 8 ? (
                                             <div className="url-feedback-hint error">
-                                                Please enter a valid URL starting with http:// or https://
+                                                {t('command.please_enter_url')}
                                             </div>
                                         ) : null}
                                         {isUrlValid ? (
@@ -614,12 +616,12 @@ export function CommandCenter({
                                                 {detectedUrlType === 'youtube' ? (
                                                     <>
                                                         <Youtube size={16} />
-                                                        <span>YouTube video detected - will extract video info</span>
+                                                        <span>{t('command.youtube_detected')}</span>
                                                     </>
                                                 ) : (
                                                     <>
                                                         <Globe size={16} />
-                                                        <span>Web article - will extract content</span>
+                                                        <span>{t('command.article_detected')}</span>
                                                     </>
                                                 )}
                                             </div>
@@ -629,7 +631,7 @@ export function CommandCenter({
                                                 className="url-action-btn secondary"
                                                 onClick={handleExitUrlMode}
                                             >
-                                                Cancel
+                                                {t('ui.cancel')}
                                             </button>
                                             <button
                                                 className="url-action-btn primary"
@@ -637,7 +639,7 @@ export function CommandCenter({
                                                 disabled={!isUrlValid}
                                             >
                                                 <Check size={16} />
-                                                Add Resource
+                                                {t('ui.add')}
                                             </button>
                                         </div>
                                     </div>
@@ -647,48 +649,48 @@ export function CommandCenter({
                             {/* Quick actions when no query and not in URL mode */}
                             {!query && !urlMode ? (
                                 <div className="quick-actions">
-                                    <div className="quick-actions-label">Quick Actions</div>
+                                    <div className="quick-actions-label">{t('command.clear_search')}</div>
                                     <div className="quick-actions-grid">
                                         <button
                                             className="quick-action-btn"
                                             onClick={() => handleQuickAction('note')}
-                                            title="Nueva nota"
-                                            aria-label="Crear nueva nota"
+                                            title={t('command.new_note')}
+                                            aria-label={t('command.new_note')}
                                         >
                                             <FileText size={24} strokeWidth={2} />
-                                            <span className="quick-action-label">Nota</span>
+                                            <span className="quick-action-label">{t('command.new_note')}</span>
                                         </button>
                                         <button
                                             className="quick-action-btn"
                                             onClick={() => handleQuickAction('notebook')}
-                                            title="Nuevo cuaderno"
-                                            aria-label="Crear nuevo cuaderno"
+                                            title={t('command.new_notebook')}
+                                            aria-label={t('command.new_notebook')}
                                         >
                                             <Notebook size={24} strokeWidth={2} />
-                                            <span className="quick-action-label">Cuaderno</span>
+                                            <span className="quick-action-label">{t('command.new_notebook')}</span>
                                         </button>
                                         <button
                                             className="quick-action-btn"
                                             onClick={() => handleQuickAction('upload')}
-                                            title="Subir archivos"
-                                            aria-label="Subir archivos"
+                                            title={t('command.upload_files')}
+                                            aria-label={t('command.upload_files')}
                                         >
                                             <Upload size={24} strokeWidth={2} />
-                                            <span className="quick-action-label">Archivos</span>
+                                            <span className="quick-action-label">{t('command.upload_files')}</span>
                                         </button>
                                         <button
                                             className="quick-action-btn"
                                             onClick={() => handleQuickAction('url')}
-                                            title="Añadir URL"
-                                            aria-label="Añadir URL o enlace"
+                                            title={t('command.add_url')}
+                                            aria-label={t('command.add_url')}
                                         >
                                             <Link2 size={24} strokeWidth={2} />
-                                            <span className="quick-action-label">URL</span>
+                                            <span className="quick-action-label">{t('command.add_url')}</span>
                                         </button>
                                     </div>
                                     <div className="ai-hint">
                                         <Sparkles size={14} />
-                                        <span>Type naturally to search with AI or use / for commands</span>
+                                        <span>{t('command.ai')}</span>
                                     </div>
                                 </div>
                             ) : null}
@@ -722,8 +724,8 @@ export function CommandCenter({
                             {!urlMode && query && !isSearching && !hasResults ? (
                                 <div className="no-results">
                                     <Search size={32} className="no-results-icon" />
-                                    <p>No results found for "{query}"</p>
-                                    <span>Try a different search term or ask AI</span>
+                                    <p>{t('command.no_results', { query })}</p>
+                                    <span>{t('command.ai')}</span>
                                 </div>
                             ) : null}
                         </div>
@@ -735,8 +737,8 @@ export function CommandCenter({
                     <div className="drop-overlay">
                         <div className="drop-overlay-content">
                             <Upload size={48} />
-                            <p>Drop files or URLs here</p>
-                            <span>Images, PDFs, Audio, Documents</span>
+                            <p>{t('command.upload_files')}</p>
+                            <span>{t('command.upload_files')}</span>
                         </div>
                     </div>
                 ) : null}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   startOfDay, addDays, addWeeks, addMonths, addYears,
@@ -649,6 +650,7 @@ export default function CalendarGrid({
   onEventClick,
   onEventDateChange,
 }: CalendarGridProps) {
+  const { t } = useTranslation();
   const handlePrev = useCallback(
     () => onCurrentDateChange(navigateDate(currentDate, viewMode, -1)),
     [currentDate, viewMode, onCurrentDateChange],
@@ -677,7 +679,7 @@ export default function CalendarGrid({
             onClick={handlePrev}
             className="p-1.5 rounded-lg hover:bg-[var(--dome-surface)] transition-colors"
             style={{ color: 'var(--dome-text)' }}
-            aria-label="Anterior"
+            aria-label={t('common.back')}
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -686,7 +688,7 @@ export default function CalendarGrid({
             onClick={handleNext}
             className="p-1.5 rounded-lg hover:bg-[var(--dome-surface)] transition-colors"
             style={{ color: 'var(--dome-text)' }}
-            aria-label="Siguiente"
+            aria-label={t('common.next')}
           >
             <ChevronRight className="w-4 h-4" />
           </button>

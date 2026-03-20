@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 import type { Flashcard, FlashcardDeck } from '@/types';
@@ -16,6 +17,7 @@ interface EditableCard {
 }
 
 export default function DeckEditor({ onClose }: DeckEditorProps) {
+  const { t } = useTranslation();
   const { editingDeckId, decks, loadDecks } = useLearnStore();
   const [deck, setDeck] = useState<FlashcardDeck | null>(null);
   const [cards, setCards] = useState<EditableCard[]>([]);
@@ -59,7 +61,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
     const card = cards[index];
     if (!card) return;
     if (card.id && !card.isNew) {
-      if (confirm('¿Eliminar esta tarjeta?')) {
+      if (confirm(t('common.confirm'))) {
         await window.electron.db.flashcards.deleteCard(card.id);
       } else {
         return;
@@ -133,7 +135,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
       >
         <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ borderColor: 'var(--dome-border)' }}>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
-            Editar Deck
+            {t('common.edit')} Deck
           </h2>
           <button
             onClick={onClose}
@@ -169,6 +171,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
                 Descripción
               </label>
+
               <textarea
                 value={deck.description || ''}
                 onChange={(e) => setDeck({ ...deck, description: e.target.value })}

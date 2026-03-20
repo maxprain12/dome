@@ -1,10 +1,12 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Settings, LogOut, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/lib/store/useUserStore';
 import UserAvatar from './UserAvatar';
 
 export default function UserMenu() {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -122,7 +124,7 @@ export default function UserMenu() {
               aria-label="Open settings"
             >
               <Settings className="w-4 h-4" />
-              <span className="text-sm">Settings</span>
+              <span className="text-sm">{t('userMenu.settings')}</span>
             </button>
 
             {/* Divider */}
@@ -142,7 +144,7 @@ export default function UserMenu() {
               }}
             >
               <LogOut className="w-4 h-4" />
-              <span className="text-sm">{isSigningOut ? 'Cerrando sesión…' : 'Sign Out'}</span>
+              <span className="text-sm">{isSigningOut ? t('userMenu.signingOut') : t('userMenu.signOut')}</span>
             </button>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Trash2, X, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import ManyIcon from './ManyIcon';
 import type { ManyChatSession } from '@/lib/store/useManyStore';
 
@@ -30,6 +31,7 @@ export default memo(function ManyChatHeader({
   onClose,
   loadingHint,
 }: ManyChatHeaderProps) {
+  const { t } = useTranslation();
   const subtitle =
     status === 'thinking' ? 'Pensando...' : status === 'speaking' ? 'Respondiendo...' : (loadingHint || providerInfo || contextDescription);
   const showClear = messagesCount > 0 && status !== 'thinking' && status !== 'speaking';
@@ -40,7 +42,7 @@ export default memo(function ManyChatHeader({
         <ManyIcon size={20} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[14px] font-medium text-[var(--primary-text)]">Many</div>
+        <div className="text-[14px] font-medium text-[var(--primary-text)]">{t('many.many')}</div>
         <div className="truncate text-[11px] text-[var(--tertiary-text)]">{subtitle}</div>
       </div>
 
@@ -49,8 +51,8 @@ export default memo(function ManyChatHeader({
           type="button"
           onClick={onStartNewChat}
           className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--primary-text)]"
-          title="Nuevo chat"
-          aria-label="Nuevo chat"
+          title={t('many.newChat')}
+          aria-label={t('many.newChat')}
         >
           <Plus size={18} />
         </button>

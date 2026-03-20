@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Cloud, HardDrive, Trash2, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { showToast } from '@/lib/store/useToastStore';
 
@@ -35,6 +36,7 @@ function SettingsCard({ children, className = '' }: { children: React.ReactNode;
 }
 
 export default function CloudStorageSettings() {
+  const { t } = useTranslation();
   const [accounts, setAccounts] = useState<CloudAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -57,10 +59,10 @@ export default function CloudStorageSettings() {
 
     const cleanup = window.electron?.cloud?.onAuthResult?.((data: { success: boolean; provider: string; email?: string; error?: string }) => {
       if (data.success) {
-        showToast('success', `${PROVIDER_LABELS[data.provider] ?? data.provider} conectado como ${data.email}`);
+        showToast('success', t('settings.cloud.toast_connected', { provider: PROVIDER_LABELS[data.provider] ?? data.provider, email: data.email }));
         loadAccounts();
       } else {
-        showToast('error', data.error || 'Error de conexión');
+        showToast('error', data.error || t('settings.cloud.toast_error'));
       }
       setConnecting(null);
     });
@@ -76,11 +78,11 @@ export default function CloudStorageSettings() {
         ? await window.electron.cloud.authGoogle()
         : await window.electron.cloud.authOneDrive();
       if (!result.success) {
-        showToast('error', result.error || 'Error al iniciar OAuth');
+        showToast('error', result.error || t('settings.cloud.toast_error'));
         setConnecting(null);
       }
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Error desconocido');
+      showToast('error', err instanceof Error ? err.message : t('settings.cloud.toast_error'));
       setConnecting(null);
     }
   };
@@ -90,13 +92,13 @@ export default function CloudStorageSettings() {
     try {
       const result = await window.electron.cloud.disconnect(accountId);
       if (result.success) {
-        showToast('success', 'Cuenta desconectada');
+        showToast('success', t('settings.cloud.toast_disconnected'));
         setAccounts((prev) => prev.filter((a) => a.accountId !== accountId));
       } else {
-        showToast('error', result.error || 'Error al desconectar');
+        showToast('error', result.error || t('settings.cloud.toast_disconnect_error'));
       }
     } catch (err) {
-      showToast('error', err instanceof Error ? err.message : 'Error desconocido');
+      showToast('error', err instanceof Error ? err.message : t('settings.cloud.toast_disconnect_error'));
     }
   };
 
@@ -118,23 +120,7 @@ export default function CloudStorageSettings() {
         <div className="flex gap-3">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: DOME_GREEN }} />
           <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-            Para usar almacenamiento en la nube, configura las variables de entorno{' '}
-            <code className="px-1 py-0.5 rounded text-[10px]" style={{ backgroundColor: 'var(--dome-bg-hover)', fontFamily: 'monospace' }}>
-              DOME_GOOGLE_DRIVE_CLIENT_ID
-            </code>{' '}
-            /{' '}
-            <code className="px-1 py-0.5 rounded text-[10px]" style={{ backgroundColor: 'var(--dome-bg-hover)', fontFamily: 'monospace' }}>
-              DOME_GOOGLE_DRIVE_CLIENT_SECRET
-            </code>{' '}
-            para Google Drive, y{' '}
-            <code className="px-1 py-0.5 rounded text-[10px]" style={{ backgroundColor: 'var(--dome-bg-hover)', fontFamily: 'monospace' }}>
-              DOME_ONEDRIVE_CLIENT_ID
-            </code>{' '}
-            para OneDrive. Registra{' '}
-            <code className="px-1 py-0.5 rounded text-[10px]" style={{ backgroundColor: 'var(--dome-bg-hover)', fontFamily: 'monospace' }}>
-              dome://oauth/callback
-            </code>{' '}
-            como redirect URI en tu app OAuth.
+            {t('settings.cloud.setup_notice')}
           </p>
         </div>
       </SettingsCard>
@@ -142,11 +128,11 @@ export default function CloudStorageSettings() {
       {/* Connected accounts */}
       {loading ? (
         <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Cargando cuentas...
+          <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('settings.cloud.loading_accounts')}
         </div>
       ) : accounts.length > 0 && (
         <div>
-          <SectionLabel>Cuentas conectadas</SectionLabel>
+          <SectionLabel>{t('settings.cloud.section_connected')}</SectionLabel>
           <div className="space-y-2">
             {accounts.map((account) => (
               <SettingsCard key={account.accountId} className="px-4 py-3">
@@ -174,7 +160,7 @@ export default function CloudStorageSettings() {
                       onClick={() => handleDisconnect(account.accountId)}
                       className="p-1.5 rounded-lg transition-colors"
                       style={{ color: 'var(--dome-text-muted)' }}
-                      title="Desconectar"
+                      title={t('settings.cloud.disconnect')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -188,7 +174,7 @@ export default function CloudStorageSettings() {
 
       {/* Connect buttons */}
       <div>
-        <SectionLabel>{accounts.length > 0 ? 'Añadir otra cuenta' : 'Conectar cuenta cloud'}</SectionLabel>
+        <SectionLabel>{accounts.length > 0 ? t('settings.cloud.section_add') : t('settings.cloud.section_connect')}</SectionLabel>
         <div className="space-y-2">
           <button
             onClick={() => handleConnect('google')}
@@ -203,8 +189,8 @@ export default function CloudStorageSettings() {
               }
             </div>
             <div>
-              <p className="text-sm font-medium">{googleConnected ? 'Conectar otra cuenta de Google Drive' : 'Conectar Google Drive'}</p>
-              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>OAuth 2.0 seguro</p>
+              <p className="text-sm font-medium">{googleConnected ? t('settings.cloud.connect_google_another') : t('settings.cloud.connect_google')}</p>
+              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.cloud.oauth_google')}</p>
             </div>
           </button>
 
@@ -221,8 +207,8 @@ export default function CloudStorageSettings() {
               }
             </div>
             <div>
-              <p className="text-sm font-medium">{onedriveConnected ? 'Conectar otra cuenta de OneDrive' : 'Conectar OneDrive'}</p>
-              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Microsoft OAuth</p>
+              <p className="text-sm font-medium">{onedriveConnected ? t('settings.cloud.connect_onedrive_another') : t('settings.cloud.connect_onedrive')}</p>
+              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.cloud.oauth_microsoft')}</p>
             </div>
           </button>
         </div>

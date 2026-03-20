@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import DomeTabBar from './DomeTabBar';
 import ContentRouter from './ContentRouter';
 import ManyPanel from '@/components/many/ManyPanel';
@@ -29,6 +30,7 @@ function readInt(key: string, fallback: number, min: number, max: number): numbe
 }
 
 export default function AppShell() {
+  const { t } = useTranslation();
   const [manyWidth, setManyWidth] = useState(MANY_DEFAULT);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const manyWidthRef = useRef(manyWidth);
@@ -62,7 +64,7 @@ export default function AppShell() {
   const handleNewChat = useCallback(() => {
     useManyStore.getState().startNewChat();
     const sessionId = useManyStore.getState().currentSessionId;
-    if (sessionId) openChatTab(sessionId, 'New chat');
+    if (sessionId) openChatTab(sessionId, t('shell.new_chat'));
     if (!rightSidebarOpen) setRightSidebarOpen(true);
   }, [openChatTab, rightSidebarOpen]);
 
@@ -148,7 +150,7 @@ export default function AppShell() {
                 border: 'none',
                 cursor: 'pointer',
               }}
-              title={leftSidebarCollapsed ? 'Open sidebar' : 'Close sidebar'}
+              title={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -182,7 +184,7 @@ export default function AppShell() {
               borderLeft: '1px solid var(--dome-border)',
               cursor: 'pointer',
             }}
-            title={rightSidebarOpen ? 'Close right panel' : 'Open right panel'}
+            title={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
           >
             {/* Panel-right icon */}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, ChevronLeft, ZoomIn, ZoomOut, List, Image, Highlighter, StickyNote } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { usePDFViewerStore } from '@/lib/store/usePDFViewerStore';
 import PDFOutline from '../viewers/pdf/PDFOutline';
 import PDFThumbnails from '../viewers/pdf/PDFThumbnails';
@@ -8,26 +9,27 @@ import PDFNotesList from '../viewers/pdf/PDFNotesList';
 
 type SectionId = 'toc' | 'thumbnails' | 'highlights' | 'notes';
 
-const SECTION_CONFIG: Array<{ id: SectionId; label: string; icon: React.ReactNode }> = [
-  { id: 'toc', label: 'Índice', icon: <List size={12} /> },
-  { id: 'thumbnails', label: 'Páginas', icon: <Image size={12} /> },
-  { id: 'highlights', label: 'Resaltados', icon: <Highlighter size={12} /> },
-  { id: 'notes', label: 'Notas', icon: <StickyNote size={12} /> },
-];
-
 const COLORS = ['#ffeb3b', '#4caf50', '#2196f3', '#f44336', '#ff9800', '#9c27b0'];
 
 export default function PDFTab() {
+  const { t } = useTranslation();
   const pdfState = usePDFViewerStore((s) => s.pdfState);
   const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(
     new Set(['toc', 'thumbnails'])
   );
 
+  const SECTION_CONFIG: Array<{ id: SectionId; label: string; icon: React.ReactNode }> = [
+    { id: 'toc', label: t('viewer.toc'), icon: <List size={12} /> },
+    { id: 'thumbnails', label: t('viewer.pages'), icon: <Image size={12} /> },
+    { id: 'highlights', label: t('viewer.highlights'), icon: <Highlighter size={12} /> },
+    { id: 'notes', label: t('viewer.notes'), icon: <StickyNote size={12} /> },
+  ];
+
   if (!pdfState) {
     return (
       <div className="p-4 text-center">
         <p className="text-sm" style={{ color: 'var(--tertiary-text)' }}>
-          Cargando PDF...
+          {t('viewer.loading_pdf')}
         </p>
       </div>
     );
@@ -55,7 +57,7 @@ export default function PDFTab() {
           disabled={pdfState.currentPage <= 1}
           className="p-1 rounded disabled:opacity-40"
           style={{ color: 'var(--secondary-text)' }}
-          aria-label="Página anterior"
+          aria-label={t('viewer.previous_page')}
         >
           <ChevronLeft size={14} />
         </button>
@@ -68,7 +70,7 @@ export default function PDFTab() {
           disabled={pdfState.currentPage >= pdfState.totalPages}
           className="p-1 rounded disabled:opacity-40"
           style={{ color: 'var(--secondary-text)' }}
-          aria-label="Página siguiente"
+          aria-label={t('viewer.next_page')}
         >
           <ChevronRight size={14} />
         </button>
@@ -78,7 +80,7 @@ export default function PDFTab() {
           onClick={pdfState.onZoomOut}
           className="p-1 rounded"
           style={{ color: 'var(--secondary-text)' }}
-          aria-label="Zoom out"
+          aria-label={t('viewer.zoom_out')}
         >
           <ZoomOut size={14} />
         </button>
@@ -90,7 +92,7 @@ export default function PDFTab() {
           onClick={pdfState.onZoomIn}
           className="p-1 rounded"
           style={{ color: 'var(--secondary-text)' }}
-          aria-label="Zoom in"
+          aria-label={t('viewer.zoom_in')}
         >
           <ZoomIn size={14} />
         </button>
@@ -109,8 +111,8 @@ export default function PDFTab() {
             background: pdfState.activeTool === 'highlight' ? 'var(--bg-tertiary)' : 'transparent',
             color: pdfState.activeTool === 'highlight' ? 'var(--accent)' : 'var(--secondary-text)',
           }}
-          title="Resaltar"
-          aria-label="Resaltar"
+          title={t('viewer.highlight')}
+          aria-label={t('viewer.highlight')}
         >
           <Highlighter size={14} />
         </button>
@@ -122,8 +124,8 @@ export default function PDFTab() {
             background: pdfState.activeTool === 'note' ? 'var(--bg-tertiary)' : 'transparent',
             color: pdfState.activeTool === 'note' ? 'var(--accent)' : 'var(--secondary-text)',
           }}
-          title="Nota"
-          aria-label="Nota"
+          title={t('viewer.note')}
+          aria-label={t('viewer.note')}
         >
           <StickyNote size={14} />
         </button>
@@ -139,7 +141,7 @@ export default function PDFTab() {
                   background: c,
                   borderColor: pdfState.color === c ? 'var(--accent)' : 'var(--border)',
                 }}
-                aria-label={`Color ${c}`}
+                aria-label={`${t('viewer.color')} ${c}`}
               />
             ))}
           </div>

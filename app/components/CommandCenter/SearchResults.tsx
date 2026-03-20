@@ -1,5 +1,7 @@
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from 'i18next';
 import { getResourceTypeLabel } from '@/lib/utils';
 import {
   FileText,
@@ -41,6 +43,7 @@ const STUDIO_TYPE_ICONS: Record<string, React.ReactNode> = {
 };
 
 export function SearchResults({ results, query, isLoading, onSelect, onStudioOutputSelect }: SearchResultsProps) {
+  const { t } = useTranslation();
   const getResourceIcon = (type: string) => {
     switch (type) {
       case 'note':
@@ -142,7 +145,7 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
       {/* Resources section */}
       {hasResources && (
         <div className="results-section">
-          <div className="section-label">Resources</div>
+          <div className="section-label">{t('command.resources')}</div>
           <div className="results-list">
             {results.resources.slice(0, 10).map((resource) => (
               <button
@@ -177,21 +180,21 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
       {/* Studio outputs section (study materials) */}
       {hasStudioOutputs && onStudioOutputSelect && (
         <div className="results-section">
-          <div className="section-label">Material de estudio</div>
+          <div className="section-label">{t('command.resources')}</div>
           <div className="results-list">
             {results.studioOutputs!.slice(0, 5).map((output) => (
               <button
                 key={output.id}
                 className="result-item content-visibility-auto cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 onClick={() => onStudioOutputSelect(output)}
-                aria-label={`Open ${output.title || 'Sin título'}`}
+                aria-label={`Open ${output.title || t('ui.untitled')}`}
               >
                 <div className="result-icon" data-type={output.type}>
                   {STUDIO_TYPE_ICONS[output.type] || <FileText size={16} />}
                 </div>
                 <div className="result-content">
                   <div className="result-title">
-                    {highlightMatch(output.title || 'Sin título', query)}
+                    {highlightMatch(output.title || t('ui.untitled'), query)}
                   </div>
                   <div className="result-type">{output.type}</div>
                 </div>
@@ -204,7 +207,7 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
       {/* Interactions section (notes, annotations, chat) */}
       {hasInteractions && (
         <div className="results-section">
-          <div className="section-label">Notes & Annotations</div>
+          <div className="section-label">{t('command.notes_annotations')}</div>
           <div className="results-list">
             {results.interactions.slice(0, 5).map((interaction) => {
               const metadata = parseJsonField<{ type?: string }>(interaction.metadata);
@@ -277,10 +280,10 @@ function parseJsonField<T = Record<string, unknown>>(val: unknown): T {
 
 function getAnnotationBadgeLabel(interactionType: string, metadata?: { type?: string }): string {
   if (interactionType === 'annotation' && metadata?.type === 'highlight') return 'Highlight';
-  if (interactionType === 'annotation' && metadata?.type === 'note') return 'Nota';
-  if (interactionType === 'note') return 'Nota';
+  if (interactionType === 'annotation' && metadata?.type === 'note') return i18n.t('command.new_note');
+  if (interactionType === 'note') return i18n.t('command.new_note');
   if (interactionType === 'chat') return 'Chat';
-  return interactionType || 'Nota';
+  return interactionType || i18n.t('command.new_note');
 }
 
 function getInteractionSnippet(

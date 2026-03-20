@@ -23,6 +23,7 @@ import {
   FileDown,
   Presentation,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
 
@@ -69,6 +70,7 @@ export default function WorkspaceHeader({
   notebookWorkspacePath,
   notebookVenvPath,
 }: WorkspaceHeaderProps) {
+  const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelsOpen, setPanelsOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -271,7 +273,7 @@ export default function WorkspaceHeader({
             aria-haspopup="listbox"
           >
             <PanelRightOpen size={16} />
-            <span>Paneles</span>
+            <span>{t('workspace.panels')}</span>
             <ChevronDown
               size={14}
               style={{
@@ -298,7 +300,7 @@ export default function WorkspaceHeader({
                 }}
               >
                 <BookOpen size={16} style={{ color: 'var(--secondary-text)' }} />
-                <span className="flex-1">Sources</span>
+                <span className="flex-1">{t('workspace.sources')}</span>
                 {sourcesPanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
               </button>
               <button
@@ -307,7 +309,7 @@ export default function WorkspaceHeader({
                 style={{ color: 'var(--primary-text)' }}
               >
                 <Sparkles size={16} style={{ color: 'var(--secondary-text)' }} />
-                <span className="flex-1">Studio</span>
+                <span className="flex-1">{t('workspace.studio')}</span>
                 {studioPanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
               </button>
               <button
@@ -316,7 +318,7 @@ export default function WorkspaceHeader({
                 style={{ color: 'var(--primary-text)' }}
               >
                 <Network size={16} style={{ color: 'var(--secondary-text)' }} />
-                <span className="flex-1">Graph</span>
+                <span className="flex-1">{t('workspace.graph')}</span>
                 {graphPanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
               </button>
               <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
@@ -326,7 +328,7 @@ export default function WorkspaceHeader({
                 style={{ color: 'var(--primary-text)' }}
               >
                 <PanelRightOpen size={16} style={{ color: 'var(--secondary-text)' }} />
-                <span className="flex-1">Panel lateral</span>
+                <span className="flex-1">{t('workspace.sidePanel')}</span>
                 {sidePanelOpen && <Check size={16} style={{ color: 'var(--accent)' }} />}
               </button>
             </div>

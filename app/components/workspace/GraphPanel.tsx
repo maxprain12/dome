@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef, useTransition } from 'react';
 import { X, Loader2, AlertCircle, RefreshCw, GitBranch, Link2, ExternalLink } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import GraphViewer from '@/components/graph/GraphViewer';
 import GraphToolbar from '@/components/graph/GraphToolbar';
@@ -21,6 +22,7 @@ interface SelectedNodeInfo {
 }
 
 export default function GraphPanel({ resource }: GraphPanelProps) {
+  const { t } = useTranslation();
   const graphPanelOpen = useAppStore((s) => s.graphPanelOpen);
   const toggleGraphPanel = useAppStore((s) => s.toggleGraphPanel);
   const currentProject = useAppStore((s) => s.currentProject);
@@ -272,7 +274,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <GitBranch size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
           <span className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
-            Knowledge Graph
+            {t('workspace.graph')}
           </span>
           {graphState && (
             <span className="text-xs ml-1 shrink-0" style={{ color: 'var(--tertiary-text)' }}>
@@ -286,7 +288,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
             disabled={isGenerating}
             className="p-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
             style={{ color: 'var(--secondary-text)' }}
-            title="Regenerate graph"
+            title={t('graph.regenerate_graph')}
           >
             <RefreshCw size={15} className={isGenerating ? 'animate-spin' : ''} />
           </button>
@@ -294,7 +296,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
             onClick={toggleGraphPanel}
             className="p-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{ color: 'var(--secondary-text)' }}
-            aria-label="Close graph panel"
+            aria-label={t('graph.close_graph_panel')}
           >
             <X size={16} />
           </button>
@@ -327,7 +329,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
                   className="text-sm px-4 py-2 rounded-lg transition-colors"
                   style={{ background: 'var(--accent)', color: 'white' }}
                 >
-                  Try Again
+                  {t('common.retry')}
                 </button>
               </div>
             </div>
@@ -389,16 +391,16 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
                       color: 'white',
                       opacity: linkingStatus === 'linking' ? 0.7 : 1,
                     }}
-                    title="Link this resource to the current document"
+                    title={t('graph.link_resource')}
                   >
                     <Link2 size={12} />
-                    {linkingStatus === 'done' ? 'Linked!' : linkingStatus === 'error' ? 'Error' : 'Link'}
+                    {linkingStatus === 'done' ? t('common.done') : linkingStatus === 'error' ? t('common.error') : t('graph.link_resource')}
                   </button>
                   <button
                     onClick={handleOpenSelectedResource}
                     className="p-1.5 rounded-lg transition-colors hover:bg-[var(--bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                     style={{ color: 'var(--secondary-text)' }}
-                    title="Open this resource"
+                    title={t('graph.open_resource')}
                   >
                     <ExternalLink size={14} />
                   </button>

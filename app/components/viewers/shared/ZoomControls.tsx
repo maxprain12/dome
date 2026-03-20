@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ZoomControlsProps {
   zoom: number;
@@ -21,6 +22,7 @@ function ZoomControlsComponent({
   maxZoom = 4,
   showPercentage = true,
 }: ZoomControlsProps) {
+  const { t } = useTranslation();
   const isMinZoom = zoom <= minZoom;
   const isMaxZoom = zoom >= maxZoom;
 
@@ -33,8 +35,8 @@ function ZoomControlsComponent({
         style={{
           color: 'var(--secondary-text)',
         }}
-        title="Zoom Out"
-        aria-label="Zoom out"
+        title={t('viewer.zoom_out')}
+        aria-label={t('viewer.zoom_out')}
       >
         <ZoomOut size={18} />
       </button>
@@ -55,8 +57,8 @@ function ZoomControlsComponent({
         style={{
           color: 'var(--secondary-text)',
         }}
-        title="Zoom In"
-        aria-label="Zoom in"
+        title={t('viewer.zoom_in')}
+        aria-label={t('viewer.zoom_in')}
       >
         <ZoomIn size={18} />
       </button>
@@ -67,8 +69,8 @@ function ZoomControlsComponent({
         style={{
           color: 'var(--secondary-text)',
         }}
-        title="Reset Zoom"
-        aria-label="Reset zoom"
+        title={t('viewer.reset_zoom')}
+        aria-label={t('viewer.reset_zoom')}
       >
         <Maximize2 size={18} />
       </button>
