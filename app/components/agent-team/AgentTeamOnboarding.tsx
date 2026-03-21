@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, X, Users, Cpu, FileText, Image } from 'lucide-react';
+import { ChevronRight, ChevronLeft, X, Users, Cpu, FileText, Image, Check } from 'lucide-react';
 import type { ManyAgent, AgentTeam } from '@/types';
 import { getManyAgents } from '@/lib/agents/api';
 import { createAgentTeam } from '@/lib/agent-team/api';
@@ -152,7 +152,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                     : 'var(--dome-text-muted)',
               }}
             >
-              {i < currentStepIndex ? '✓' : i + 1}
+              {i < currentStepIndex ? <Check size={12} /> : i + 1}
             </div>
             <span
               className="text-xs hidden sm:inline"
@@ -263,7 +263,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                           color: 'white',
                         }}
                       >
-                        {selected && <span className="text-xs">✓</span>}
+                        {selected && <Check size={12} />}
                       </div>
                     </button>
                   );

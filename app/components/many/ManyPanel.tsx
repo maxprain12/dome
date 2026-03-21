@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type ElementType } from 'react';
+import { Search, FolderOpen, ClipboardList, Bot, BarChart2, Calendar, Mail } from 'lucide-react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import ManyChatHeader from './ManyChatHeader';
@@ -1060,11 +1061,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           {/* Quick prompt pills */}
           <div className="flex flex-col items-center gap-3 w-full max-w-2xl">
             <div className="flex flex-wrap justify-center gap-2">
-              {[
-                { icon: '🔍', label: 'Buscar en mi biblioteca' },
-                { icon: '📁', label: 'Organizar recursos' },
-                { icon: '📋', label: 'Preparar reunión' },
-              ].map(({ icon, label }) => (
+              {([
+                { Icon: Search, label: 'Buscar en mi biblioteca' },
+                { Icon: FolderOpen, label: 'Organizar recursos' },
+                { Icon: ClipboardList, label: 'Preparar reunión' },
+              ] as { Icon: ElementType; label: string }[]).map(({ Icon, label }) => (
                 <button
                   key={label}
                   type="button"
@@ -1074,18 +1075,18 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-hover)'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
                 >
-                  <span>{icon}</span>
+                  <Icon size={14} />
                   {label}
                 </button>
               ))}
             </div>
             <div className="flex flex-wrap justify-center gap-2">
-              {[
-                { icon: '🤖', label: 'Estrategia con IA' },
-                { icon: '📊', label: 'Crear tabla' },
-                { icon: '📅', label: 'Reporte semanal' },
-                { icon: '✉️', label: 'Redactar email' },
-              ].map(({ icon, label }) => (
+              {([
+                { Icon: Bot, label: 'Estrategia con IA' },
+                { Icon: BarChart2, label: 'Crear tabla' },
+                { Icon: Calendar, label: 'Reporte semanal' },
+                { Icon: Mail, label: 'Redactar email' },
+              ] as { Icon: ElementType; label: string }[]).map(({ Icon, label }) => (
                 <button
                   key={label}
                   type="button"
@@ -1095,7 +1096,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-hover)'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
                 >
-                  <span>{icon}</span>
+                  <Icon size={14} />
                   {label}
                 </button>
               ))}

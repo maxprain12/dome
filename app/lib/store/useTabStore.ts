@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export type TabType =
   | 'home'
+  | 'note'
   | 'notebook'
   | 'resource'
   | 'url'
@@ -25,6 +26,7 @@ export interface DomeTab {
   title: string;
   resourceId?: string;
   pinned?: boolean;
+  color?: string;
 }
 
 export const HOME_TAB_ID = 'home';
@@ -87,7 +89,8 @@ interface TabStore {
   openTagsTab: () => void;
   openMarketplaceTab: () => void;
   openAgentsTab: () => void;
-  openFolderTab: (folderId: string, title: string) => void;
+  openFolderTab: (folderId: string, title: string, color?: string) => void;
+  updateTab: (tabId: string, updates: Partial<Pick<DomeTab, 'title' | 'color'>>) => void;
 }
 
 export const useTabStore = create<TabStore>((set, get) => {
@@ -176,6 +179,7 @@ export const useTabStore = create<TabStore>((set, get) => {
 
     openResourceTab: (resourceId, resourceType, title) => {
       const typeMap: Record<string, TabType> = {
+        note: 'note',
         notebook: 'notebook',
         url: 'url',
         youtube: 'youtube',
@@ -227,8 +231,21 @@ export const useTabStore = create<TabStore>((set, get) => {
       get().openTab({ id: AGENTS_TAB_ID, type: 'agents', title: 'Agentes & Flows', pinned: false });
     },
 
-    openFolderTab: (folderId, title) => {
-      get().openTab({ id: FOLDER_TAB_PREFIX + folderId, type: 'folder', title, resourceId: folderId });
+    openFolderTab: (folderId, title, color) => {
+      const tabId = FOLDER_TAB_PREFIX + folderId;
+      const existing = get().tabs.find((t) => t.id === tabId);
+      if (existing) {
+        get().activateTab(tabId);
+        return;
+      }
+      get().openTab({ id: tabId, type: 'folder', title, resourceId: folderId, color });
+    },
+
+    updateTab: (tabId, updates) => {
+      const { tabs, activeTabId } = get();
+      const newTabs = tabs.map((t) => t.id === tabId ? { ...t, ...updates } : t);
+      set({ tabs: newTabs });
+      saveTabs(newTabs, activeTabId);
     },
   };
 });

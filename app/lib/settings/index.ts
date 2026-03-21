@@ -106,9 +106,8 @@ export async function getAppPreferences(): Promise<AppPreferences> {
     }
   }
 
-  // Only light mode is supported - map dark/auto to light
   return {
-    theme: 'light',
+    theme: (themeResult.data as 'light' | 'dark' | 'auto') || 'light',
     autoSave: autoSaveResult.data === 'true' || autoSaveResult.data === undefined,
     autoBackup: autoBackupResult.data === 'true' || autoBackupResult.data === undefined,
     citationStyle: (citationStyleResult.data as CitationStyle) || 'apa',
@@ -118,7 +117,7 @@ export async function getAppPreferences(): Promise<AppPreferences> {
 
 export async function saveAppPreferences(preferences: Partial<AppPreferences>): Promise<void> {
   if (preferences.theme !== undefined) {
-    await db.setSetting('app_theme', 'light');
+    await db.setSetting('app_theme', preferences.theme);
   }
 
   if (preferences.autoSave !== undefined) {
@@ -139,8 +138,7 @@ export async function saveAppPreferences(preferences: Partial<AppPreferences>): 
 }
 
 export async function setTheme(theme: 'light' | 'dark' | 'auto'): Promise<void> {
-  // Only light mode is supported - always save light
-  await db.setSetting('app_theme', 'light');
+  await db.setSetting('app_theme', theme);
 }
 
 export async function setCitationStyle(style: CitationStyle): Promise<void> {

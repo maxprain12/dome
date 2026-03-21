@@ -9,6 +9,7 @@ const WorkspaceClient = lazy(() => import('@/workspace/[[...params]]/client'));
 const NotebookWorkspaceClient = lazy(() => import('@/workspace/notebook/[[...params]]/client'));
 const URLWorkspaceClient = lazy(() => import('@/workspace/url/client'));
 const YouTubeWorkspaceClient = lazy(() => import('@/workspace/youtube/client'));
+const NoteWorkspaceClient = lazy(() => import('@/workspace/note/[[...params]]/client'));
 const PptWorkspaceClient = lazy(() => import('@/workspace/ppt/client'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
@@ -57,6 +58,16 @@ function TabContent({ tab }: { tab: DomeTab }) {
       return (
         <Suspense fallback={<Loading />}>
           <HomePage />
+        </Suspense>
+      );
+
+    case 'note':
+      if (!tab.resourceId) return <NoResource />;
+      return (
+        <Suspense fallback={<Loading />}>
+          <div className="flex flex-col h-full overflow-hidden">
+            <NoteWorkspaceClient resourceId={tab.resourceId} />
+          </div>
         </Suspense>
       );
 

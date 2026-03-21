@@ -84,6 +84,18 @@ export default function AppShell() {
     return () => unsub?.();
   }, []);
 
+  // Close any open tab whose resource was deleted
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron?.on) return;
+    const unsub = window.electron.on('resource:deleted', ({ id }: { id: string }) => {
+      const { tabs, closeTab } = useTabStore.getState();
+      tabs.forEach((tab) => {
+        if (tab.resourceId === id) closeTab(tab.id);
+      });
+    });
+    return () => unsub?.();
+  }, []);
+
   useEffect(() => {
     if (isChatTab && !rightSidebarOpen) {
       setRightSidebarOpen(true);

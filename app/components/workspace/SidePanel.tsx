@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown, FileText, Trash2 } from 'lucide-react';
+import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown, FileText, Trash2, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import WorkspaceFilesPanel from './WorkspaceFilesPanel';
 import PDFTab from './PDFTab';
@@ -598,7 +598,7 @@ function SearchTab({ resourceId }: { resourceId: string; resource: Resource }) {
                   }}
                   aria-label={isLinked ? 'Already linked' : `Link to ${result.title || 'Untitled'}`}
                 >
-                  {isLinking ? '...' : isLinked ? '✓ Linked' : 'Link'}
+                  {isLinking ? '...' : isLinked ? <><Check size={12} className="inline mr-1" />Linked</> : 'Link'}
                 </button>
               </div>
             );

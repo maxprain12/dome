@@ -141,11 +141,13 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     }
   });
 
-  // Theme - Only light mode is supported
+  // Theme
   ipcMain.handle('get-theme', (event) => {
     try {
       validateSender(event, windowManager);
-      return 'light';
+      const source = nativeTheme.themeSource;
+      if (source === 'system') return 'auto';
+      return source; // 'light' | 'dark'
     } catch (error) {
       console.error('[IPC] Error in get-theme:', error.message);
       throw error;
@@ -155,9 +157,11 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   ipcMain.handle('set-theme', (event, theme) => {
     try {
       validateSender(event, windowManager);
-      // Always force light mode - dark and auto are disabled
-      nativeTheme.themeSource = 'light';
-      return 'light';
+      if (!['light', 'dark', 'auto'].includes(theme)) {
+        throw new Error(`Invalid theme: ${theme}`);
+      }
+      nativeTheme.themeSource = theme === 'auto' ? 'system' : theme;
+      return theme;
     } catch (error) {
       console.error('[IPC] Error in set-theme:', error.message);
       throw error;
@@ -165,7 +169,8 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   });
 
   nativeTheme.on('updated', () => {
-    windowManager.broadcast('theme-changed', { theme: 'light' });
+    const resolved = nativeTheme.shouldUseDarkColors ? 'dark' : 'light';
+    windowManager.broadcast('theme-changed', { theme: resolved });
   });
 
   // Auto-launch (start with system)

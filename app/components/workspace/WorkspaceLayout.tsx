@@ -180,8 +180,8 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
         case 'ppt':
           return (
             <div className="flex flex-col items-center justify-center h-full p-8">
-              <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
-              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+              <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--dome-accent)' }} />
+              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
                 Abriendo presentación...
               </p>
             </div>
@@ -205,8 +205,8 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
 
           return (
             <div className="flex flex-col items-center justify-center h-full p-8">
-              <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
-              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+              <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--dome-accent)' }} />
+              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
                 Redirecting to {resource.type} viewer...
               </p>
             </div>
@@ -215,11 +215,11 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
         default:
           return (
             <div className="flex flex-col items-center justify-center h-full p-8">
-              <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--tertiary-text)' }} />
-              <p className="text-lg font-medium" style={{ color: 'var(--primary-text)' }}>
+              <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--dome-text-muted)' }} />
+              <p className="text-lg font-medium" style={{ color: 'var(--dome-text)' }}>
                 Unsupported file type
               </p>
-              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
                 This resource type ({resource.type}) cannot be previewed in the workspace.
               </p>
             </div>
@@ -231,7 +231,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
       <Suspense
         fallback={
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
           </div>
         }
       >
@@ -244,14 +244,14 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
     return (
       <div
         className="flex items-center justify-center min-h-full animate-in"
-        style={{ background: 'var(--bg)' }}
+        style={{ background: 'var(--dome-bg)' }}
       >
         <div className="flex flex-col items-center gap-5 animate-slide-up">
           <Loader2
             className="w-10 h-10 animate-spin"
-            style={{ color: 'var(--accent)' }}
+            style={{ color: 'var(--dome-accent)' }}
           />
-          <p className="text-sm font-medium" style={{ color: 'var(--secondary-text)' }}>
+          <p className="text-sm font-medium" style={{ color: 'var(--dome-text-muted)' }}>
             Loading workspace...
           </p>
         </div>
@@ -263,14 +263,14 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
     return (
       <div
         className="flex flex-col items-center justify-center min-h-full p-8 animate-in"
-        style={{ background: 'var(--bg)' }}
+        style={{ background: 'var(--dome-bg)' }}
       >
         <div className="flex flex-col items-center gap-5 animate-slide-up">
-          <AlertCircle className="w-16 h-16 shrink-0" style={{ color: 'var(--error)' }} />
-          <h1 className="text-xl font-display font-semibold text-center" style={{ color: 'var(--primary-text)' }}>
+          <AlertCircle className="w-16 h-16 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+          <h1 className="text-xl font-display font-semibold text-center" style={{ color: 'var(--dome-text)' }}>
             Failed to load resource
           </h1>
-          <p className="text-sm text-center mb-6 max-w-md" style={{ color: 'var(--secondary-text)' }}>
+          <p className="text-sm text-center mb-6 max-w-md" style={{ color: 'var(--dome-text-muted)' }}>
             {error ?? 'The requested resource could not be found.'}
           </p>
           <button
@@ -285,7 +285,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
       {/* Header */}
       <WorkspaceHeader
         resource={resource}

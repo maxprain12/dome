@@ -1,4 +1,3 @@
-@import './components/editor/styles/index.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -200,6 +199,127 @@
   --dome-sidebar-bg: #f0f0ed;
 }
 
+:root[data-theme="dark"] {
+  /* Safe Area Insets */
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+
+  --text: #E8E8E8;
+  --background: #121212;
+  --primary: #A4AD7A;
+  --secondary: #3A4020;
+  --accent: #A4AD7A;
+  --accent-hover: #B8C090;
+
+  --primary-text: #E8E8E8;
+  --secondary-text: #A0A0A0;
+  --tertiary-text: #787878;
+
+  --bg: #121212;
+  --bg-secondary: #1E1E1E;
+  --bg-tertiary: #2A2A2A;
+  --bg-hover: #333333;
+  --bg-color-secondary-hover: #2A2A2A;
+
+  --border: #333333;
+  --border-hover: #444444;
+
+  --base: #A4AD7A;
+  --base-text: #121212;
+  --base-hover: #B8C090;
+  --base-active: #C8D0A8;
+
+  --success: #A4AD7A;
+  --success-bg: #2A2E1A;
+  --warning: #E6C47A;
+  --warning-bg: #2E2A18;
+  --error: #E88585;
+  --error-bg: #2E1E1E;
+  --info: #7B9DD0;
+  --info-bg: #1A2030;
+
+  --primary-light: #2A2E1A;
+
+  --translucent: rgba(164, 173, 122, 0.15);
+  --bg-translucent: rgba(18, 18, 18, 0.85);
+
+  /* Sidebar & Layout */
+  --sidebar-width: 56px;
+  --sidebar-collapsed-width: 56px;
+  --nav-height: 56px;
+  --header-height: 68px;
+  --app-header-height: 44px;
+  --app-header-total: calc(var(--app-header-height) + var(--safe-area-inset-top));
+  --workspace-header-height: 56px;
+  --overlay-top-offset: calc(var(--safe-area-inset-top) + var(--workspace-header-height));
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3);
+
+  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-jetbrains-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), 'Courier New', monospace;
+
+  --transition-fast: 120ms ease-in-out;
+  --transition-base: 220ms ease-in-out;
+  --transition-slow: 300ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-full: 9999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --z-local: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+  --z-tooltip: 700;
+  --z-toast: 800;
+  --z-max: 9999;
+
+  --border-focus: var(--accent);
+  --focus-ring: 0 0 0 3px var(--translucent);
+
+  --dome-bg: var(--bg);
+  --dome-surface: var(--bg-secondary);
+  --dome-border: var(--border);
+  --dome-text: var(--primary-text);
+  --dome-text-secondary: var(--secondary-text);
+  --dome-text-muted: var(--tertiary-text);
+  --dome-accent: var(--accent);
+  --dome-accent-hover: var(--accent-hover);
+  --dome-accent-bg: var(--translucent);
+  --dome-error: var(--error);
+  --dome-bg-hover: var(--bg-hover);
+  --dome-logo-filter: invert(1) brightness(1.2);
+  --tertiary: var(--tertiary-text);
+  --brand-accent: var(--accent);
+  --brand-secondary: var(--secondary);
+
+  --dome-sidebar-bg: #181818;
+}
+
 /* ============================================
    BASE STYLES
    ============================================ */
@@ -208,11 +328,13 @@
   box-sizing: border-box;
 }
 
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
 html {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color-scheme: light;
   height: 100%;
   overflow: clip;
 }

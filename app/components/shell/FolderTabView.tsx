@@ -1,9 +1,10 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import {
-  FolderOpen, Folder, FileText, BookOpen, Globe, File as FileIcon,
+  FolderOpen, Folder, FileText, FileEdit, BookOpen, Globe, File as FileIcon,
   Image, Music, Video, Plus, Home, ChevronRight, FileQuestion,
-  MoreVertical, Trash2, Pencil, X, Check, Presentation,
+  MoreVertical, Trash2, Pencil, X, Check, Presentation, Upload, Link2, ChevronDown,
+  Palette,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useResources, type Resource } from '@/lib/hooks/useResources';
@@ -26,6 +27,7 @@ function getFolderColor(folder: Resource): string {
 function ResourceTypeIcon({ type, className }: { type: string; className?: string }) {
   const cls = className ?? 'w-4 h-4 shrink-0';
   switch (type) {
+    case 'note':     return <FileEdit className={cls} />;
     case 'notebook': return <BookOpen className={cls} />;
     case 'url':      return <Globe className={cls} />;
     case 'image':    return <Image className={cls} />;
@@ -38,49 +40,247 @@ function ResourceTypeIcon({ type, className }: { type: string; className?: strin
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  notebook: 'Cuaderno', url: 'URL',
+  note: 'Nota', notebook: 'Cuaderno', url: 'URL',
   pdf: 'PDF', image: 'Imagen', video: 'Video',
   audio: 'Audio', document: 'Documento', ppt: 'Presentación',
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  notebook: '#3b82f6', url: '#10b981',
+  note: '#7c6fcd', notebook: '#3b82f6', url: '#10b981',
   pdf: '#ef4444', image: '#f59e0b', video: '#ec4899', audio: '#8b5cf6', ppt: '#d47b3f',
 };
 
+// ─── ColorPickerPopover ───────────────────────────────────────────────────────
+
+const SWATCHES = [
+  '#596037', '#6d7a42', '#7d8b52', '#8a9668',
+  '#7b76d0', '#998eec', '#3b82f6', '#22c55e',
+  '#f97316', '#ef4444', '#ec4899', '#6b7280',
+];
+
+function ColorPickerPopover({
+  pos, currentColor, onSave, onClose,
+}: {
+  pos: { top: number; left: number };
+  currentColor: string;
+  onSave: (color: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="fixed z-[9999] rounded-xl shadow-lg p-2.5"
+      style={{ top: pos.top, left: pos.left, background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <div className="grid grid-cols-6 gap-1.5">
+        {SWATCHES.map((color) => (
+          <button
+            key={color}
+            type="button"
+            onClick={() => { onSave(color); onClose(); }}
+            className="w-6 h-6 rounded-md transition-all hover:scale-110"
+            style={{
+              backgroundColor: color,
+              border: currentColor.toLowerCase() === color.toLowerCase()
+                ? '2px solid var(--dome-accent)'
+                : '2px solid transparent',
+              outline: currentColor.toLowerCase() === color.toLowerCase()
+                ? '1px solid var(--dome-accent)'
+                : 'none',
+              outlineOffset: 1,
+              cursor: 'pointer',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── SubfolderCard ────────────────────────────────────────────────────────────
 
-function SubfolderCard({ folder, onClick }: { folder: Resource; onClick: () => void }) {
+function SubfolderCard({
+  folder, onClick, onRename, onDelete, onChangeColor,
+}: {
+  folder: Resource;
+  onClick: () => void;
+  onRename: (newTitle: string) => void;
+  onDelete: () => void;
+  onChangeColor: (color: string) => void;
+}) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(folder.title ?? '');
+  const [colorPickerPos, setColorPickerPos] = useState<{ top: number; left: number } | null>(null);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
+  const renameRef = useRef<HTMLInputElement>(null);
   const color = getFolderColor(folder);
-  return (
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (renaming) renameRef.current?.focus();
+  }, [renaming]);
+
+  const commitRename = () => {
+    if (renameValue.trim() && renameValue.trim() !== folder.title) {
+      onRename(renameValue.trim());
+    }
+    setRenaming(false);
+  };
+
+  const openMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!menuOpen && menuBtnRef.current) {
+      const rect = menuBtnRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setMenuOpen((v) => !v);
+  };
+
+  const openColorPicker = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setMenuOpen(false);
+    if (menuBtnRef.current) {
+      const rect = menuBtnRef.current.getBoundingClientRect();
+      setColorPickerPos({ top: rect.bottom + 4, left: Math.max(4, rect.right - 220) });
+    }
+  };
+
+  const menuItem = (icon: React.ReactNode, label: string, action: () => void, danger = false) => (
     <button
       type="button"
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="flex items-center gap-2.5 p-3 rounded-xl text-left transition-all"
+      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); action(); }}
+      className="flex items-center gap-2 w-full px-3 py-2 text-xs text-left"
+      style={{ color: danger ? '#ef4444' : 'var(--dome-text)', background: 'none', border: 'none', cursor: 'pointer' }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+    >
+      {icon} {label}
+    </button>
+  );
+
+  return (
+    <div
+      className="relative flex flex-col rounded-xl transition-all"
       style={{
         background: hovered ? 'var(--dome-bg-hover)' : 'var(--dome-surface)',
         border: `1px solid ${hovered ? color : 'var(--dome-border)'}`,
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => { setHovered(false); }}
     >
-      <Folder className="w-4 h-4 shrink-0" style={{ color }} />
-      <span className="text-sm font-medium truncate" style={{ color: 'var(--dome-text)' }}>
-        {folder.title}
-      </span>
-    </button>
+      {/* Main clickable area */}
+      {renaming ? (
+        <div className="flex items-center gap-2 px-3 py-2.5">
+          <Folder className="w-4 h-4 shrink-0" style={{ color }} />
+          <input
+            ref={renameRef}
+            type="text"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitRename();
+              if (e.key === 'Escape') { setRenaming(false); setRenameValue(folder.title ?? ''); }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 min-w-0 text-sm outline-none rounded px-1.5 py-0.5"
+            style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-accent)', color: 'var(--dome-text)' }}
+          />
+          <button type="button" onClick={(e) => { e.stopPropagation(); commitRename(); }}
+            style={{ color: 'var(--dome-accent)', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <Check className="w-3.5 h-3.5" />
+          </button>
+          <button type="button" onClick={(e) => { e.stopPropagation(); setRenaming(false); setRenameValue(folder.title ?? ''); }}
+            style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onClick}
+          className="flex items-center gap-2.5 px-3 py-2.5 text-left w-full"
+          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+        >
+          <Folder className="w-4 h-4 shrink-0" style={{ color }} />
+          <span className="text-sm font-medium truncate flex-1 min-w-0" style={{ color: 'var(--dome-text)' }}>
+            {folder.title}
+          </span>
+        </button>
+      )}
+
+      {/* 3-dot menu button */}
+      {!renaming && (hovered || menuOpen) && (
+        <div className="absolute top-1.5 right-1.5">
+          <button
+            ref={menuBtnRef}
+            type="button"
+            onClick={openMenu}
+            className="flex items-center justify-center w-5 h-5 rounded-md transition-colors"
+            style={{ color: 'var(--dome-text-muted)', background: menuOpen ? 'var(--dome-bg-hover)' : 'none', border: 'none', cursor: 'pointer' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
+            onMouseLeave={(e) => { if (!menuOpen) (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+          >
+            <MoreVertical className="w-3 h-3" />
+          </button>
+
+          {menuOpen && menuPos && (
+            <div
+              className="fixed z-[9999] rounded-lg shadow-lg py-1 min-w-[150px]"
+              style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', top: menuPos.top, right: menuPos.right }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {menuItem(<Pencil className="w-3 h-3" />, t('folder.rename'), () => { setRenaming(true); setRenameValue(folder.title ?? ''); })}
+              {menuItem(<Palette className="w-3 h-3" />, t('folder.changeColor', 'Cambiar color'), () => {
+                if (menuBtnRef.current) {
+                  const rect = menuBtnRef.current.getBoundingClientRect();
+                  setColorPickerPos({ top: rect.bottom + 4, left: Math.max(4, rect.right - 220) });
+                }
+              })}
+              <div style={{ height: 1, background: 'var(--dome-border)', margin: '3px 0' }} />
+              {menuItem(<Trash2 className="w-3 h-3" />, t('folder.delete'), onDelete, true)}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Color picker popover */}
+      {colorPickerPos && (
+        <ColorPickerPopover
+          pos={colorPickerPos}
+          currentColor={color.startsWith('#') ? color : '#596037'}
+          onSave={onChangeColor}
+          onClose={() => setColorPickerPos(null)}
+        />
+      )}
+    </div>
   );
 }
 
 // ─── FileRow ──────────────────────────────────────────────────────────────────
 
 function FileRow({
-  file,
-  isLast,
-  onOpen,
-  onDelete,
-  onRename,
+  file, isLast, onOpen, onDelete, onRename,
 }: {
   file: Resource;
   isLast: boolean;
@@ -118,7 +318,7 @@ function FileRow({
 
   return (
     <div
-      className="flex items-center gap-3 px-4 py-2.5 transition-colors relative group"
+      className="flex items-center gap-3 px-4 py-2.5 transition-colors relative"
       style={{
         borderBottom: isLast ? undefined : '1px solid var(--dome-border)',
         background: hovered ? 'var(--dome-bg-hover)' : 'var(--dome-surface)',
@@ -126,15 +326,11 @@ function FileRow({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setMenuOpen(false); }}
     >
-      {/* Color dot */}
       <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: typeColor }} />
-
-      {/* Type icon */}
       <div style={{ color: typeColor }}>
         <ResourceTypeIcon type={file.type} />
       </div>
 
-      {/* Title / rename input */}
       {renaming ? (
         <div className="flex-1 flex items-center gap-2 min-w-0">
           <input
@@ -147,16 +343,12 @@ function FileRow({
             }}
             autoFocus
             className="flex-1 text-[13px] font-medium rounded px-2 py-0.5 outline-none"
-            style={{
-              background: 'var(--dome-bg)',
-              border: '1px solid var(--dome-accent)',
-              color: 'var(--dome-text)',
-            }}
+            style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-accent)', color: 'var(--dome-text)' }}
           />
-          <button type="button" onClick={commitRename} style={{ color: 'var(--dome-accent)' }}>
+          <button type="button" onClick={commitRename} style={{ color: 'var(--dome-accent)', background: 'none', border: 'none', cursor: 'pointer' }}>
             <Check className="w-3.5 h-3.5" />
           </button>
-          <button type="button" onClick={() => setRenaming(false)} style={{ color: 'var(--dome-text-muted)' }}>
+          <button type="button" onClick={() => setRenaming(false)} style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -171,22 +363,19 @@ function FileRow({
         </button>
       )}
 
-      {/* Type badge */}
       <span
-        className="text-[10px] px-1.5 py-0.5 rounded-md shrink-0"
+        className="text-[10px] px-1.5 py-0.5 rounded-md shrink-0 font-medium"
         style={{ background: `${typeColor}18`, color: typeColor }}
       >
         {typeLabel}
       </span>
 
-      {/* Date */}
       {timeAgo && (
         <span className="text-[11px] shrink-0 tabular-nums" style={{ color: 'var(--dome-text-muted)' }}>
           {timeAgo}
         </span>
       )}
 
-      {/* Actions menu */}
       {hovered && !renaming && (
         <div className="shrink-0">
           <button
@@ -200,7 +389,7 @@ function FileRow({
               }
               setMenuOpen((v) => !v);
             }}
-            className="flex items-center justify-center rounded transition-colors p-0.5"
+            className="flex items-center justify-center rounded p-0.5"
             style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
           >
             <MoreVertical className="w-3.5 h-3.5" />
@@ -208,18 +397,13 @@ function FileRow({
           {menuOpen && menuPos && (
             <div
               className="fixed z-[9999] rounded-lg shadow-lg py-1 min-w-[130px]"
-              style={{
-                background: 'var(--dome-surface)',
-                border: '1px solid var(--dome-border)',
-                top: menuPos.top,
-                right: menuPos.right,
-              }}
+              style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
                 onClick={() => { setMenuOpen(false); setRenaming(true); setRenameValue(file.title ?? ''); }}
-                className="flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors text-left"
+                className="flex items-center gap-2 w-full px-3 py-2 text-xs text-left"
                 style={{ color: 'var(--dome-text)', background: 'none', border: 'none', cursor: 'pointer' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
@@ -229,7 +413,7 @@ function FileRow({
               <button
                 type="button"
                 onClick={() => { setMenuOpen(false); onDelete(); }}
-                className="flex items-center gap-2 w-full px-3 py-2 text-xs transition-colors text-left"
+                className="flex items-center gap-2 w-full px-3 py-2 text-xs text-left"
                 style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
@@ -249,28 +433,135 @@ function FileRow({
 function NewFolderInline({ onConfirm, onCancel }: { onConfirm: (name: string) => void; onCancel: () => void }) {
   const { t } = useTranslation();
   const [value, setValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const handleConfirm = () => { if (value.trim()) onConfirm(value.trim()); };
+
   return (
-    <div className="flex items-center gap-2 p-3 rounded-xl" style={{ border: '1px dashed var(--dome-border)', background: 'var(--dome-surface)' }}>
-      <Folder className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder={t('folder.folderNamePlaceholder')}
-        autoFocus
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && value.trim()) onConfirm(value.trim());
-          if (e.key === 'Escape') onCancel();
+    <div
+      className="flex flex-col w-full rounded-xl overflow-hidden"
+      style={{ border: '1.5px dashed var(--dome-border)', background: 'var(--dome-surface)' }}
+    >
+      <div className="flex items-center gap-2 px-3 py-2.5 min-w-0">
+        <Folder className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={t('folder.folderNamePlaceholder')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleConfirm();
+            if (e.key === 'Escape') onCancel();
+          }}
+          className="text-sm outline-none bg-transparent flex-1 min-w-0 truncate"
+          style={{ color: 'var(--dome-text)', border: 'none', padding: 0 }}
+        />
+      </div>
+      <div
+        className="flex items-center justify-end gap-1 px-2 py-1.5"
+        style={{ borderTop: '1px solid var(--dome-border)' }}
+      >
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={!value.trim()}
+          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors disabled:opacity-40"
+          style={{ color: 'var(--dome-accent)', background: 'none', border: 'none', cursor: value.trim() ? 'pointer' : 'default' }}
+          onMouseEnter={(e) => { if (value.trim()) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(124,111,205,0.1)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+        >
+          <Check className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors"
+          style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── AddMenu ─────────────────────────────────────────────────────────────────
+
+function AddMenu({ onNewNote, onNewFolder, onUpload, onAddUrl }: {
+  onNewNote: () => void;
+  onNewFolder: () => void;
+  onUpload: () => void;
+  onAddUrl: () => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node) &&
+          btnRef.current && !btnRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  const item = (icon: React.ReactNode, label: string, onClick: () => void, color?: string) => (
+    <button
+      type="button"
+      onClick={() => { setOpen(false); onClick(); }}
+      className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-left transition-colors"
+      style={{ color: color ?? 'var(--dome-text)', background: 'none', border: 'none', cursor: 'pointer' }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="relative">
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
+        style={{
+          background: 'var(--dome-accent)',
+          color: '#fff',
+          border: 'none',
+          cursor: 'pointer',
+          boxShadow: '0 2px 8px rgba(124,111,205,0.35)',
         }}
-        className="flex-1 text-sm outline-none bg-transparent"
-        style={{ color: 'var(--dome-text)' }}
-      />
-      <button type="button" onClick={() => value.trim() && onConfirm(value.trim())} style={{ color: 'var(--dome-accent)', background: 'none', border: 'none', cursor: 'pointer' }}>
-        <Check className="w-3.5 h-3.5" />
+      >
+        <Plus className="w-3.5 h-3.5" />
+        {t('folder.addBtn', 'Añadir')}
+        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      <button type="button" onClick={onCancel} style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
-        <X className="w-3.5 h-3.5" />
-      </button>
+
+      {open && (
+        <div
+          ref={menuRef}
+          className="absolute right-0 top-full mt-1.5 z-[9999] rounded-xl shadow-xl py-1.5 min-w-[200px]"
+          style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+        >
+          {item(<FileText className="w-4 h-4" style={{ color: '#7c6fcd' }} />, t('toolbar.note', 'Nueva nota'), onNewNote)}
+          {item(<Upload className="w-4 h-4" style={{ color: '#3b82f6' }} />, t('toolbar.import', 'Subir archivo'), onUpload)}
+          {item(<Link2 className="w-4 h-4" style={{ color: '#10b981' }} />, t('toolbar.link', 'Añadir enlace'), onAddUrl)}
+          <div className="my-1" style={{ height: 1, background: 'var(--dome-border)' }} />
+          {item(<Folder className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />, t('folder.newFolderBtn', 'Nueva carpeta'), onNewFolder)}
+        </div>
+      )}
     </div>
   );
 }
@@ -280,6 +571,14 @@ function NewFolderInline({ onConfirm, onCancel }: { onConfirm: (name: string) =>
 export default function FolderTabView({ folderId, folderTitle }: FolderTabViewProps) {
   const { t } = useTranslation();
   const [creatingFolder, setCreatingFolder] = useState(false);
+
+  // Current folder header editing
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleValue, setTitleValue] = useState('');
+  const [headerHovered, setHeaderHovered] = useState(false);
+  const [colorPickerPos, setColorPickerPos] = useState<{ top: number; left: number } | null>(null);
+  const colorBtnRef = useRef<HTMLButtonElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const {
     folders: subfolders,
@@ -292,7 +591,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     getBreadcrumbPath,
   } = useResources({ folderId, sortBy: 'updated_at', sortOrder: 'desc' });
 
-  const { openResourceTab, openFolderTab, activateTab } = useTabStore();
+  const { openResourceTab, openFolderTab, activateTab, updateTab } = useTabStore();
 
   const currentFolder = getFolderById(folderId);
   const breadcrumb = useMemo(
@@ -300,17 +599,81 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     [folderId, getBreadcrumbPath],
   );
   const folderColor = currentFolder ? getFolderColor(currentFolder) : 'var(--dome-accent)';
+  const folderColorHex = folderColor.startsWith('#') ? folderColor : null;
+
+  // Sync stored color to tab on mount and whenever it changes
+  useEffect(() => {
+    if (folderColorHex) updateTab(`folder:${folderId}`, { color: folderColorHex });
+  }, [folderId, folderColorHex, updateTab]);
+
+  useEffect(() => {
+    if (editingTitle) titleInputRef.current?.focus();
+  }, [editingTitle]);
+
+  const startEditTitle = () => {
+    setTitleValue(currentFolder?.title ?? folderTitle);
+    setEditingTitle(true);
+  };
+
+  const commitTitle = async () => {
+    const trimmed = titleValue.trim();
+    if (trimmed && trimmed !== (currentFolder?.title ?? folderTitle)) {
+      await updateResource(folderId, { title: trimmed });
+      updateTab(`folder:${folderId}`, { title: trimmed });
+    }
+    setEditingTitle(false);
+  };
+
+  const handleCurrentFolderColor = async (color: string) => {
+    const currentMeta = (currentFolder?.metadata as Record<string, unknown>) ?? {};
+    await updateResource(folderId, { metadata: { ...currentMeta, color } });
+    updateTab(`folder:${folderId}`, { color });
+    setColorPickerPos(null);
+  };
+
+  const openCurrentFolderColorPicker = () => {
+    if (colorBtnRef.current) {
+      const rect = colorBtnRef.current.getBoundingClientRect();
+      setColorPickerPos({ top: rect.bottom + 8, left: rect.left });
+    }
+  };
 
   const handleCreateFolder = useCallback(async (name: string) => {
-    await createResource({
-      type: 'folder',
-      title: name,
-      project_id: 'default',
-      content: '',
-      folder_id: folderId,
-    });
+    await createResource({ type: 'folder', title: name, project_id: 'default', content: '', folder_id: folderId });
     setCreatingFolder(false);
   }, [createResource, folderId]);
+
+  const handleNewNote = useCallback(async () => {
+    if (!window.electron?.db?.resources?.create) return;
+    const now = Date.now();
+    const res = {
+      id: `res_${now}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'note' as const,
+      title: t('dashboard.untitled_note', 'Nota sin título'),
+      content: '',
+      project_id: 'default',
+      folder_id: folderId,
+      created_at: now,
+      updated_at: now,
+    };
+    const result = await window.electron.db.resources.create(res);
+    if (result.success && result.data) {
+      openResourceTab(result.data.id, 'note', result.data.title);
+    }
+  }, [folderId, t, openResourceTab]);
+
+  const handleUpload = useCallback(async () => {
+    if (!window.electron?.selectFiles || !window.electron?.resource?.importMultiple) return;
+    const paths = await window.electron.selectFiles({ properties: ['openFile', 'multiSelections'] });
+    if (paths?.length) await window.electron.resource.importMultiple(paths, 'default', folderId);
+  }, [folderId]);
+
+  const handleAddUrl = useCallback(() => {
+    const url = prompt(t('command.please_enter_url', 'Introduce una URL'));
+    if (url && window.electron?.invoke) {
+      window.electron.invoke('resource:import', { url, projectId: 'default', folderId }).catch(console.error);
+    }
+  }, [folderId, t]);
 
   const handleDeleteFile = useCallback(async (id: string) => {
     if (!window.confirm(t('folder.confirmDelete'))) return;
@@ -321,13 +684,26 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     await updateResource(id, { title: newTitle });
   }, [updateResource]);
 
+  const handleSubfolderRename = useCallback(async (id: string, newTitle: string) => {
+    await updateResource(id, { title: newTitle });
+    updateTab(`folder:${id}`, { title: newTitle });
+  }, [updateResource, updateTab]);
+
+  const handleSubfolderDelete = useCallback(async (id: string) => {
+    if (!window.confirm(t('folder.confirmDeleteFolder', '¿Eliminar esta carpeta y todo su contenido?'))) return;
+    await deleteResource(id);
+  }, [deleteResource, t]);
+
+  const handleSubfolderColor = useCallback(async (id: string, color: string, folder: Resource) => {
+    const currentMeta = (folder.metadata as Record<string, unknown>) ?? {};
+    await updateResource(id, { metadata: { ...currentMeta, color } });
+    updateTab(`folder:${id}`, { color });
+  }, [updateResource, updateTab]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full" style={{ color: 'var(--dome-text-muted)' }}>
-        <div
-          className="w-5 h-5 border-2 rounded-full animate-spin"
-          style={{ borderColor: 'var(--dome-border)', borderTopColor: 'var(--dome-accent)' }}
-        />
+        <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--dome-border)', borderTopColor: 'var(--dome-accent)' }} />
       </div>
     );
   }
@@ -338,7 +714,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
       <div className="max-w-4xl mx-auto w-full px-8 py-6 flex flex-col gap-6">
 
-        {/* Breadcrumb */}
+        {/* ── Breadcrumb ── */}
         <nav className="flex items-center gap-1 flex-wrap" style={{ fontSize: 12, color: 'var(--dome-text-muted)' }}>
           <button
             type="button"
@@ -355,7 +731,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               <button
                 key={folder.id}
                 type="button"
-                onClick={() => openFolderTab(folder.id, folder.title)}
+                onClick={() => openFolderTab(folder.id, folder.title, getFolderColor(folder))}
                 className="hover:text-[var(--dome-text)] transition-colors truncate"
                 style={{ maxWidth: 120, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}
                 title={folder.title}
@@ -365,77 +741,147 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
             </>
           ))}
           {breadcrumb.length > 0 && <ChevronRight className="w-3 h-3 shrink-0" />}
-          <span style={{ color: 'var(--dome-text)' }}>
-            {currentFolder?.title ?? folderTitle}
-          </span>
+          <span style={{ color: 'var(--dome-text)' }}>{currentFolder?.title ?? folderTitle}</span>
         </nav>
 
-        {/* Folder header */}
-        <div className="flex items-start justify-between gap-4">
+        {/* ── Folder header ── */}
+        <div
+          className="flex items-start justify-between gap-4"
+          onMouseEnter={() => setHeaderHovered(true)}
+          onMouseLeave={() => setHeaderHovered(false)}
+        >
           <div className="flex items-center gap-3">
-            <div
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-              style={{ background: `${folderColor}20` }}
+            {/* Clickable color icon */}
+            <button
+              ref={colorBtnRef}
+              type="button"
+              onClick={openCurrentFolderColorPicker}
+              title={t('folder.changeColor', 'Cambiar color')}
+              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all"
+              style={{
+                background: folderColorHex ? `${folderColorHex}20` : 'var(--dome-bg-hover)',
+                border: 'none',
+                cursor: 'pointer',
+                outline: colorPickerPos ? `2px solid ${folderColor}` : 'none',
+                outlineOffset: 2,
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = folderColorHex ? `${folderColorHex}35` : 'var(--dome-bg-hover)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = folderColorHex ? `${folderColorHex}20` : 'var(--dome-bg-hover)'; }}
             >
               <FolderOpen className="w-6 h-6" style={{ color: folderColor }} />
-            </div>
+            </button>
+
             <div>
-              <h1 className="text-xl font-semibold" style={{ color: 'var(--dome-text)' }}>
-                {currentFolder?.title ?? folderTitle}
-              </h1>
+              {editingTitle ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={titleInputRef}
+                    type="text"
+                    value={titleValue}
+                    onChange={(e) => setTitleValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitTitle();
+                      if (e.key === 'Escape') setEditingTitle(false);
+                    }}
+                    className="text-xl font-semibold outline-none rounded-lg px-2 py-0.5"
+                    style={{ color: 'var(--dome-text)', background: 'var(--dome-bg)', border: '1.5px solid var(--dome-accent)' }}
+                  />
+                  <button type="button" onClick={commitTitle}
+                    className="flex items-center justify-center w-7 h-7 rounded-md"
+                    style={{ color: 'var(--dome-accent)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button type="button" onClick={() => setEditingTitle(false)}
+                    className="flex items-center justify-center w-7 h-7 rounded-md"
+                    style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 group">
+                  <h1 className="text-xl font-semibold" style={{ color: 'var(--dome-text)' }}>
+                    {currentFolder?.title ?? folderTitle}
+                  </h1>
+                  {headerHovered && (
+                    <button
+                      type="button"
+                      onClick={startEditTitle}
+                      title={t('folder.rename')}
+                      className="flex items-center justify-center w-6 h-6 rounded-md transition-colors opacity-60 hover:opacity-100"
+                      style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
               <p className="text-sm mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
                 {t('folder.itemCount', { count: subfolders.length + files.length })}
-                {subfolders.length > 0 && ` ${t('folder.subfolderCount', { count: subfolders.length })}`}
+                {subfolders.length > 0 && ` · ${t('folder.subfolderCount', { count: subfolders.length })}`}
               </p>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setCreatingFolder(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-              style={{
-                background: 'var(--dome-surface)',
-                border: '1px solid var(--dome-border)',
-                color: 'var(--dome-text)',
-                cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-accent)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-border)'; }}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              {t('folder.newFolderBtn')}
-            </button>
-          </div>
+          {/* ── Actions ── */}
+          <AddMenu
+            onNewNote={handleNewNote}
+            onNewFolder={() => setCreatingFolder(true)}
+            onUpload={handleUpload}
+            onAddUrl={handleAddUrl}
+          />
         </div>
 
-        {/* Empty state */}
+        {/* ── Current folder color picker popover ── */}
+        {colorPickerPos && (
+          <ColorPickerPopover
+            pos={colorPickerPos}
+            currentColor={folderColorHex ?? '#596037'}
+            onSave={handleCurrentFolderColor}
+            onClose={() => setColorPickerPos(null)}
+          />
+        )}
+
+        {/* ── Empty state ── */}
         {isEmpty ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center"
-              style={{ background: 'var(--dome-surface)' }}
-            >
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'var(--dome-surface)' }}>
               <FolderOpen className="w-8 h-8" style={{ color: 'var(--dome-text-muted)', opacity: 0.4 }} />
             </div>
             <div className="text-center">
               <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('folder.emptyFolder')}</p>
-              <p className="text-xs mt-1" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('folder.emptyFolderHint')}
-              </p>
+              <p className="text-xs mt-1" style={{ color: 'var(--dome-text-muted)' }}>{t('folder.emptyFolderHint')}</p>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <button
+                type="button"
+                onClick={handleNewNote}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                style={{ background: 'var(--dome-accent)', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(124,111,205,0.3)' }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {t('toolbar.note', 'Nueva nota')}
+              </button>
+              <button
+                type="button"
+                onClick={handleUpload}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+                style={{ background: 'var(--dome-surface)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-accent)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-border)'; }}
+              >
+                <Upload className="w-3.5 h-3.5" />
+                {t('toolbar.import', 'Subir archivo')}
+              </button>
             </div>
           </div>
         ) : (
           <>
-            {/* Subfolders */}
+            {/* ── Subfolders ── */}
             {(subfolders.length > 0 || creatingFolder) && (
               <section>
-                <h2
-                  className="text-[11px] font-semibold uppercase tracking-widest mb-3"
-                  style={{ color: 'var(--dome-text-muted)' }}
-                >
+                <h2 className="text-[11px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)' }}>
                   {t('folder.foldersHeading')}
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -443,32 +889,26 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     <SubfolderCard
                       key={folder.id}
                       folder={folder}
-                      onClick={() => openFolderTab(folder.id, folder.title)}
+                      onClick={() => openFolderTab(folder.id, folder.title, getFolderColor(folder))}
+                      onRename={(newTitle) => handleSubfolderRename(folder.id, newTitle)}
+                      onDelete={() => handleSubfolderDelete(folder.id)}
+                      onChangeColor={(color) => handleSubfolderColor(folder.id, color, folder)}
                     />
                   ))}
                   {creatingFolder && (
-                    <NewFolderInline
-                      onConfirm={handleCreateFolder}
-                      onCancel={() => setCreatingFolder(false)}
-                    />
+                    <NewFolderInline onConfirm={handleCreateFolder} onCancel={() => setCreatingFolder(false)} />
                   )}
                 </div>
               </section>
             )}
 
-            {/* Files */}
+            {/* ── Files ── */}
             {files.length > 0 && (
               <section>
-                <h2
-                  className="text-[11px] font-semibold uppercase tracking-widest mb-3"
-                  style={{ color: 'var(--dome-text-muted)' }}
-                >
+                <h2 className="text-[11px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)' }}>
                   {t('folder.filesHeading')}
                 </h2>
-                <div
-                  className="rounded-xl border overflow-hidden"
-                  style={{ borderColor: 'var(--dome-border)' }}
-                >
+                <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--dome-border)' }}>
                   {files.map((file, idx) => (
                     <FileRow
                       key={file.id}
@@ -482,18 +922,10 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                 </div>
               </section>
             )}
+
           </>
         )}
 
-        {/* Show new folder inline even in empty state when triggered */}
-        {isEmpty && creatingFolder && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            <NewFolderInline
-              onConfirm={handleCreateFolder}
-              onCancel={() => setCreatingFolder(false)}
-            />
-          </div>
-        )}
       </div>
     </div>
   );

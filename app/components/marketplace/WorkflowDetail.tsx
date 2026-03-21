@@ -213,7 +213,7 @@ export default function WorkflowDetail({
               <ul className="space-y-1.5">
                 {workflow.useCases.map((useCase, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--dome-text-secondary)' }}>
-                    <span className="shrink-0 mt-0.5" style={{ color: 'var(--dome-accent)' }}>→</span>
+                    <ArrowRight size={13} className="shrink-0 mt-0.5" style={{ color: 'var(--dome-accent)' }} />
                     {useCase}
                   </li>
                 ))}

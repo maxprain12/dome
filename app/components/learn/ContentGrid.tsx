@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import {
   Brain, Map, HelpCircle, BookOpen, MessageCircleQuestion,
   CalendarRange, Table2, Headphones, Play, Pencil, Trash2,
-  Sparkles, ChevronRight, FlameKindling,
+  Sparkles, ChevronRight, FlameKindling, Check,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { StudioOutputType } from '@/types';
@@ -256,7 +256,7 @@ function DeckCard({
             color: 'var(--dome-text-muted)',
           }}
         >
-          {hasDue ? <><FlameKindling size={12} /> {t('flashcard.study', 'Estudiar')} · {stats?.due_cards}</> : <>✓ {t('flashcard.up_to_date', 'Al día')}</>}
+          {hasDue ? <><FlameKindling size={12} /> {t('flashcard.study', 'Estudiar')} · {stats?.due_cards}</> : <><Check size={12} /> {t('flashcard.up_to_date', 'Al día')}</>}
         </button>
       </div>
     </div>

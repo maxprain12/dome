@@ -66,14 +66,14 @@ function MainApp() {
       'ppt:created',
       (data: { resource: { id: string; title: string }; title: string }) => {
         const name = data?.resource?.title || data?.title || 'Presentación';
-        showToast('success', `✅ ${t('app.ppt_created', { name })}`);
+        showToast('success', t('app.ppt_created', { name }));
       }
     );
     const unsubFailed = window.electron.on(
       'ppt:creation-failed',
       (data: { title: string; error?: string }) => {
         const name = data?.title || 'Presentación';
-        showToast('error', `❌ ${t('app.ppt_failed', { name, error: data?.error || t('common.unknown_error') })}`);
+        showToast('error', t('app.ppt_failed', { name, error: data?.error || t('common.unknown_error') }));
       }
     );
     return () => {

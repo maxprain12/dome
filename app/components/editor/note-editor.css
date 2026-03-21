@@ -1,0 +1,302 @@
+/* ─── Wrapper ─────────────────────────────────────────────────────────────── */
+.note-editor-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+/* ─── Editor content area ─────────────────────────────────────────────────── */
+.note-editor-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  cursor: text;
+}
+
+.note-editor-content .tiptap {
+  min-height: 100%;
+  padding: 24px 32px 80px;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--dome-text);
+  font-family: inherit;
+}
+
+/* ─── Placeholder ─────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--dome-text-muted);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+/* ─── Typography ──────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 1.5rem 0 0.75rem;
+  color: var(--dome-text);
+  letter-spacing: -0.02em;
+}
+
+.note-editor-content .tiptap h2 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 1.25rem 0 0.5rem;
+  color: var(--dome-text);
+}
+
+.note-editor-content .tiptap h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 1rem 0 0.4rem;
+  color: var(--dome-text);
+}
+
+.note-editor-content .tiptap p {
+  margin: 0 0 0.5rem;
+}
+
+.note-editor-content .tiptap p:last-child {
+  margin-bottom: 0;
+}
+
+.note-editor-content .tiptap strong {
+  font-weight: 600;
+}
+
+.note-editor-content .tiptap em {
+  font-style: italic;
+}
+
+.note-editor-content .tiptap u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.note-editor-content .tiptap s {
+  text-decoration: line-through;
+  color: var(--dome-text-muted);
+}
+
+/* ─── Links ───────────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap a {
+  color: var(--dome-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.note-editor-content .tiptap a:hover {
+  opacity: 0.8;
+}
+
+/* ─── Lists ───────────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap ul,
+.note-editor-content .tiptap ol {
+  margin: 0.25rem 0 0.75rem;
+  padding-left: 1.5rem;
+}
+
+.note-editor-content .tiptap li {
+  margin-bottom: 0.2rem;
+}
+
+.note-editor-content .tiptap li > p {
+  margin: 0;
+}
+
+/* ─── Task list ───────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0.25rem;
+}
+
+.note-editor-content .tiptap ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.note-editor-content .tiptap ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+  cursor: pointer;
+}
+
+.note-editor-content .tiptap ul[data-type="taskList"] li > label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--dome-accent);
+  cursor: pointer;
+}
+
+.note-editor-content .tiptap ul[data-type="taskList"] li > div {
+  flex: 1;
+}
+
+.note-editor-content .tiptap ul[data-type="taskList"] li[data-checked="true"] > div > p {
+  color: var(--dome-text-muted);
+  text-decoration: line-through;
+}
+
+/* ─── Blockquote ──────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap blockquote {
+  border-left: 3px solid var(--dome-accent);
+  margin: 0.75rem 0;
+  padding: 0.4rem 1rem;
+  color: var(--dome-text-secondary);
+  font-style: italic;
+  background: var(--dome-bg-secondary);
+  border-radius: 0 6px 6px 0;
+}
+
+/* ─── Code inline ─────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.875em;
+  padding: 0.15em 0.4em;
+  background: var(--dome-bg-tertiary);
+  border-radius: 4px;
+  color: var(--dome-text);
+  border: 1px solid var(--dome-border);
+}
+
+/* ─── Code block ──────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap pre {
+  background: var(--dome-bg-tertiary);
+  border: 1px solid var(--dome-border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+
+.note-editor-content .tiptap pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+/* ─── Highlight ───────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap mark {
+  background-color: #fef08a;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0.05em 0.15em;
+}
+
+/* ─── Horizontal rule ─────────────────────────────────────────────────────── */
+.note-editor-content .tiptap hr {
+  border: none;
+  border-top: 1px solid var(--dome-border);
+  margin: 1.5rem 0;
+}
+
+/* ─── Images ──────────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 0.5rem 0;
+}
+
+.note-editor-content .tiptap img.ProseMirror-selectednode {
+  outline: 2px solid var(--dome-accent);
+}
+
+/* ─── Tables ──────────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75rem 0;
+  overflow: hidden;
+  border-radius: 8px;
+  border: 1px solid var(--dome-border);
+}
+
+.note-editor-content .tiptap th,
+.note-editor-content .tiptap td {
+  border: 1px solid var(--dome-border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  min-width: 60px;
+  position: relative;
+}
+
+.note-editor-content .tiptap th {
+  background: var(--dome-bg-secondary);
+  font-weight: 600;
+  font-size: 0.85em;
+  color: var(--dome-text-secondary);
+}
+
+.note-editor-content .tiptap .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(var(--dome-accent-rgb, 107, 99, 208), 0.12);
+  pointer-events: none;
+}
+
+/* ─── Bubble menu ─────────────────────────────────────────────────────────── */
+.note-bubble-menu {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 4px;
+  background: var(--dome-surface);
+  border: 1px solid var(--dome-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.note-bubble-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--dome-text-secondary);
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+
+.note-bubble-btn:hover {
+  background: var(--dome-bg-hover);
+  color: var(--dome-text);
+}
+
+.note-bubble-btn.active {
+  background: var(--dome-accent);
+  color: #fff;
+}
+
+.note-bubble-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--dome-border);
+  margin: 0 2px;
+}
+
+/* ─── Selection ───────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap ::selection {
+  background: rgba(107, 99, 208, 0.2);
+}
+
+/* ─── Focus ring (accessibility) ─────────────────────────────────────────── */
+.note-editor-content .tiptap:focus-visible {
+  outline: none;
+}

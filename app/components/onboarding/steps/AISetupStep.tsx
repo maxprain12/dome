@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComponentType } from 'react';
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Shield, Sparkles, Globe, Cpu, Zap, Lock, Wifi, HardDrive } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Shield, Sparkles, Globe, Cpu, Zap, Lock, Wifi, HardDrive, ArrowRight } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -401,7 +401,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             border: provider === 'skip' ? `1px solid ${DOME_GREEN}40` : '1px solid transparent',
           }}
         >
-            {t('onboarding.configure_later')} →
+            {t('onboarding.configure_later')} <ArrowRight size={14} className="inline ml-1" />
         </button>
       </div>
 

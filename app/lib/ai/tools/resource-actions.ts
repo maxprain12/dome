@@ -35,8 +35,12 @@ const ResourceCreateSchema = Type.Object({
   type: Type.Optional(
     Type.String({
       description:
-        "Resource type: 'notebook' | 'url' | 'folder'. " +
-        "notebook: Python cells. url: metadata.url required. folder: title only. Default: 'folder'.",
+        "Resource type: 'note' | 'notebook' | 'url' | 'folder'. " +
+        "note: Markdown text content (most common). " +
+        "notebook: Python cells (use cells[] param). " +
+        "url: webpage saved by URL (metadata.url required). " +
+        "folder: container for organizing resources. " +
+        "Default: 'note'.",
     }),
   ),
   content: Type.Optional(
@@ -185,7 +189,7 @@ export function createResourceCreateTool(): AnyAgentTool {
   return {
     label: 'Crear Recurso',
     name: 'resource_create',
-    description: 'Create resource. Types: notebook, url, folder. Use folder_id to place in folder.',
+    description: 'Create a resource. Default type is "note". Types: note (Markdown text), notebook (Python cells), url (webpage), folder (container). Use folder_id to place in a specific folder.',
     parameters: ResourceCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -198,7 +202,7 @@ export function createResourceCreateTool(): AnyAgentTool {
 
         const params = args as Record<string, unknown>;
         const title = readStringParam(params, 'title', { required: true });
-        const type = (readStringParam(params, 'type') || 'folder').toLowerCase();
+        const type = (readStringParam(params, 'type') || 'note').toLowerCase();
         let content = readStringParam(params, 'content');
         const cells = params.cells as Array<{ cell_type: string; source: string }> | undefined;
         const metadata = params.metadata as Record<string, unknown> | undefined;
@@ -209,7 +213,7 @@ export function createResourceCreateTool(): AnyAgentTool {
           return jsonResult({ status: 'error', error: 'Title is required.' });
         }
 
-        const validTypes = ['notebook', 'url', 'folder'];
+        const validTypes = ['notebook', 'url', 'folder', 'note'];
         // Redirect legacy 'document' type to 'url'
         const normalizedType = type === 'document' ? 'url' : type;
         if (!validTypes.includes(normalizedType)) {
@@ -233,6 +237,8 @@ export function createResourceCreateTool(): AnyAgentTool {
           if (typeof url === 'string' && url.trim()) {
             content = content || '';
           }
+        } else if (normalizedType === 'note') {
+          content = content || '';
         } else if (normalizedType === 'folder') {
           content = '';
         } else {

@@ -244,7 +244,7 @@ export const useAppStore = create<AppState>((set) => ({
       shortcuts: prefs.shortcuts,
     });
 
-    // Sync theme with Electron on load (always light)
+    // Sync theme with Electron on load
     if (typeof window !== 'undefined' && window.electron) {
       window.electron.setTheme(prefs.theme);
     }

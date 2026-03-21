@@ -6,6 +6,7 @@ import {
   Calendar,
   MessageCircle,
   FileText,
+  FileEdit,
   BookOpen,
   Globe,
   Youtube,
@@ -23,14 +24,15 @@ import {
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
 import { getDomeTabDisplayTitle } from '@/lib/dome-tab-title';
 
-function TabIcon({ type }: { type: DomeTab['type'] }) {
+function TabIcon({ tab }: { tab: DomeTab }) {
   const cls = 'w-3.5 h-3.5 shrink-0';
   const sw = 1.75;
-  switch (type) {
+  switch (tab.type) {
     case 'home': return <Home className={cls} strokeWidth={sw} />;
     case 'settings': return <Settings className={cls} strokeWidth={sw} />;
     case 'calendar': return <Calendar className={cls} strokeWidth={sw} />;
     case 'chat': return <MessageCircle className={cls} strokeWidth={sw} />;
+    case 'note': return <FileEdit className={cls} strokeWidth={sw} />;
     case 'notebook': return <BookOpen className={cls} strokeWidth={sw} />;
     case 'url': return <Globe className={cls} strokeWidth={sw} />;
     case 'youtube': return <Youtube className={cls} strokeWidth={sw} />;
@@ -41,7 +43,7 @@ function TabIcon({ type }: { type: DomeTab['type'] }) {
     case 'tags': return <Tag className={cls} strokeWidth={sw} />;
     case 'marketplace': return <Store className={cls} strokeWidth={sw} />;
     case 'agents': return <Zap className={cls} strokeWidth={sw} />;
-    case 'folder': return <FolderOpen className={cls} strokeWidth={sw} />;
+    case 'folder': return <FolderOpen className={cls} strokeWidth={sw} style={tab.color ? { color: tab.color } : undefined} />;
     case 'learn': return <BookOpen className={cls} strokeWidth={sw} />;
     default: return <File className={cls} strokeWidth={sw} />;
   }
@@ -57,6 +59,8 @@ interface TabItemProps {
 function TabItem({ tab, isActive, onActivate, onClose }: TabItemProps) {
   const { t } = useTranslation();
   const displayTitle = getDomeTabDisplayTitle(tab, t);
+  const folderColor = tab.type === 'folder' && tab.color ? tab.color : null;
+  const accentColor = folderColor ?? 'var(--dome-accent)';
   return (
     <button
       type="button"
@@ -69,15 +73,21 @@ function TabItem({ tab, isActive, onActivate, onClose }: TabItemProps) {
         fontSize: 12,
         fontWeight: 500,
         color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-        background: isActive ? 'var(--dome-surface)' : 'transparent',
+        background: isActive
+          ? folderColor
+            ? `${folderColor}12`
+            : 'var(--dome-surface)'
+          : 'transparent',
         borderRight: '1px solid var(--dome-border)',
-        borderBottom: isActive ? '2px solid var(--dome-accent)' : '2px solid transparent',
+        borderBottom: isActive ? `2px solid ${accentColor}` : '2px solid transparent',
         cursor: 'pointer',
         userSelect: 'none',
       }}
       onMouseEnter={(e) => {
         if (!isActive) {
-          (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
+          (e.currentTarget as HTMLButtonElement).style.background = folderColor
+            ? `${folderColor}0d`
+            : 'var(--dome-bg-hover)';
         }
       }}
       onMouseLeave={(e) => {
@@ -86,7 +96,7 @@ function TabItem({ tab, isActive, onActivate, onClose }: TabItemProps) {
         }
       }}
     >
-      <TabIcon type={tab.type} />
+      <TabIcon tab={tab} />
       <span className="truncate flex-1 text-left" style={{ maxWidth: 120 }}>
         {displayTitle}
       </span>

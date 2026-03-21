@@ -1,24 +1,22 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
 import {
   Info,
-  PanelRightOpen,
   FileText,
   Video,
   Music,
   Image,
   FileEdit,
-  File,
   Folder,
   Notebook,
-  MoreHorizontal,
   ExternalLink,
   FolderOpen,
   BookOpen,
   Sparkles,
   Network,
-  ChevronDown,
-  Check,
+  PanelRight,
+  MoreHorizontal,
   FileDown,
   Presentation,
 } from 'lucide-react';
@@ -45,12 +43,90 @@ interface WorkspaceHeaderProps {
   onExportDocx?: () => void | Promise<void>;
   onExport?: () => void;
   onPresentationMode?: () => void;
-  /** For notebooks: opens panel with Workspace tab focused */
   onOpenWorkspacePanel?: () => void;
-  /** For notebooks: workspace folder path (for status display) */
   notebookWorkspacePath?: string;
-  /** For notebooks: Python venv path (for status display) */
   notebookVenvPath?: string;
+}
+
+// ── Type metadata ──────────────────────────────────────────────────────────
+interface TypeMeta {
+  icon: React.ReactNode;
+  color: string;
+  bg: string;
+  label: string;
+}
+
+function getTypeMeta(type: string): TypeMeta {
+  const base = { size: 13, strokeWidth: 2 };
+  switch (type) {
+    case 'note':     return { icon: <FileEdit {...base} />,   color: 'var(--dome-accent)',   bg: 'var(--dome-accent-bg)',  label: 'Nota' };
+    case 'pdf':      return { icon: <FileText {...base} />,   color: '#E85C4A',              bg: 'rgba(232,92,74,0.1)',    label: 'PDF' };
+    case 'video':    return { icon: <Video {...base} />,      color: '#7C6FCD',              bg: 'rgba(124,111,205,0.1)',  label: 'Video' };
+    case 'audio':    return { icon: <Music {...base} />,      color: '#9B6FCD',              bg: 'rgba(155,111,205,0.1)', label: 'Audio' };
+    case 'image':    return { icon: <Image {...base} />,      color: '#3BA68D',              bg: 'rgba(59,166,141,0.1)',   label: 'Imagen' };
+    case 'notebook': return { icon: <Notebook {...base} />,   color: '#4A90D9',              bg: 'rgba(74,144,217,0.1)',   label: 'Notebook' };
+    case 'ppt':      return { icon: <Presentation {...base}/>, color: '#E8924A',             bg: 'rgba(232,146,74,0.1)',   label: 'Presentación' };
+    case 'url':      return { icon: <ExternalLink {...base} />, color: '#4A90D9',            bg: 'rgba(74,144,217,0.1)',   label: 'URL' };
+    case 'excel':    return { icon: <FileText {...base} />,   color: '#3BA668',              bg: 'rgba(59,166,104,0.1)',   label: 'Excel' };
+    default:         return { icon: <Folder {...base} />,     color: 'var(--dome-text-muted)', bg: 'var(--dome-bg-hover)', label: 'Recurso' };
+  }
+}
+
+// ── Small icon button ──────────────────────────────────────────────────────
+function HeaderIconBtn({
+  icon,
+  label,
+  active = false,
+  activeColor,
+  onClick,
+  forwardRef,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+  activeColor?: string;
+  onClick: () => void;
+  forwardRef?: React.RefObject<HTMLButtonElement | null>;
+}) {
+  return (
+    <button
+      ref={forwardRef}
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      aria-pressed={active}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        border: 'none',
+        cursor: 'pointer',
+        transition: 'all 120ms ease-in-out',
+        background: active ? (activeColor ? `${activeColor}18` : 'var(--dome-accent-bg)') : 'transparent',
+        color: active ? (activeColor ?? 'var(--dome-accent)') : 'var(--dome-text-muted)',
+        flexShrink: 0,
+      }}
+      onMouseEnter={(e) => {
+        if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--dome-bg-hover)';
+        (e.currentTarget as HTMLElement).style.color = active ? (activeColor ?? 'var(--dome-accent)') : 'var(--dome-text)';
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.background = active ? (activeColor ? `${activeColor}18` : 'var(--dome-accent-bg)') : 'transparent';
+        (e.currentTarget as HTMLElement).style.color = active ? (activeColor ?? 'var(--dome-accent)') : 'var(--dome-text-muted)';
+      }}
+    >
+      {icon}
+    </button>
+  );
+}
+
+// ── Divider ────────────────────────────────────────────────────────────────
+function HDivider() {
+  return <div style={{ width: 1, height: 18, background: 'var(--dome-border)', margin: '0 2px', flexShrink: 0 }} />;
 }
 
 export default function WorkspaceHeader({
@@ -61,9 +137,7 @@ export default function WorkspaceHeader({
   editableTitle,
   savingIndicator,
   subtitle,
-  onExportPdf,
   onExportDocx,
-  onExport,
   onPresentationMode,
   onOpenWorkspacePanel,
   notebookWorkspacePath,
@@ -71,439 +145,322 @@ export default function WorkspaceHeader({
 }: WorkspaceHeaderProps) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [panelsOpen, setPanelsOpen] = useState(false);
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const panelsRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
 
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
-  const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
-  const graphPanelOpen = useAppStore((s) => s.graphPanelOpen);
+  const studioPanelOpen  = useAppStore((s) => s.studioPanelOpen);
+  const graphPanelOpen   = useAppStore((s) => s.graphPanelOpen);
   const toggleSourcesPanel = useAppStore((s) => s.toggleSourcesPanel);
-  const toggleStudioPanel = useAppStore((s) => s.toggleStudioPanel);
-  const toggleGraphPanel = useAppStore((s) => s.toggleGraphPanel);
+  const toggleStudioPanel  = useAppStore((s) => s.toggleStudioPanel);
+  const toggleGraphPanel   = useAppStore((s) => s.toggleGraphPanel);
 
   const hasFile = !!(resource.internal_path || resource.file_path);
+  const typeMeta = getTypeMeta(resource.type);
+  const isWindows = typeof window !== 'undefined' && (window.electron as any)?.isWindows;
 
-  // Close menu on click outside
+  // Close menu on outside click / Escape
   useEffect(() => {
-    if (!menuOpen && !panelsOpen) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      const inMenu = menuRef.current?.contains(target) || menuButtonRef.current?.contains(target);
-      const inPanels = panelsRef.current?.contains(target);
-      if (!inMenu) setMenuOpen(false);
-      if (!inPanels) setPanelsOpen(false);
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuOpen, panelsOpen]);
-
-  // Close menu on Escape
-  useEffect(() => {
-    if (!menuOpen && !panelsOpen) return;
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+    if (!menuOpen) return;
+    const down = (e: MouseEvent) => {
+      if (!menuRef.current?.contains(e.target as Node) && !menuBtnRef.current?.contains(e.target as Node)) {
         setMenuOpen(false);
-        setPanelsOpen(false);
       }
     };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [menuOpen, panelsOpen]);
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', down);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key); };
+  }, [menuOpen]);
+
+  const openMenu = useCallback(() => {
+    if (!menuBtnRef.current) return;
+    const r = menuBtnRef.current.getBoundingClientRect();
+    setMenuPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+    setMenuOpen((o) => !o);
+  }, []);
 
   const handleOpenExternal = useCallback(async () => {
     setMenuOpen(false);
-    if (typeof window === 'undefined' || !window.electron) return;
+    if (!window.electron) return;
     try {
-      const result = await window.electron.resource.getFilePath(resource.id);
-      if (result.success && result.data) {
-        await window.electron.openPath(result.data);
-      }
-    } catch (err) {
-      console.error('Failed to open file:', err);
-    }
+      const res = await window.electron.resource.getFilePath(resource.id);
+      if (res.success && res.data) await window.electron.openPath(res.data);
+    } catch (err) { console.error(err); }
   }, [resource.id]);
 
   const handleShowInFinder = useCallback(async () => {
     setMenuOpen(false);
-    if (typeof window === 'undefined' || !window.electron) return;
+    if (!window.electron) return;
     try {
-      const result = await window.electron.resource.getFilePath(resource.id);
-      if (result.success && result.data) {
-        await window.electron.showItemInFolder(result.data);
-      }
-    } catch (err) {
-      console.error('Failed to show in folder:', err);
-    }
+      const res = await window.electron.resource.getFilePath(resource.id);
+      if (res.success && res.data) await window.electron.showItemInFolder(res.data);
+    } catch (err) { console.error(err); }
   }, [resource.id]);
-
-  const handleShowInfo = useCallback(() => {
-    setMenuOpen(false);
-    onShowMetadata();
-  }, [onShowMetadata]);
-
-  const getTypeIcon = () => {
-    const iconProps = { size: 18, className: 'shrink-0' };
-    switch (resource.type) {
-      case 'pdf': return <FileText {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
-      case 'video': return <Video {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
-      case 'audio': return <Music {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
-      case 'image': return <Image {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
-      case 'notebook': return <Notebook {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
-      case 'ppt': return <Presentation {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
-      case 'url': return <ExternalLink {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
-      default: return <Folder {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
-    }
-  };
-
-  // Calculate dropdown position from button ref
-  const getMenuPosition = () => {
-    if (!menuButtonRef.current) return { top: 0, right: 0 };
-    const rect = menuButtonRef.current.getBoundingClientRect();
-    return {
-      top: rect.bottom + 4,
-      right: window.innerWidth - rect.right,
-    };
-  };
-
-  const isWindows = typeof window !== 'undefined' && window.electron?.isWindows;
 
   return (
     <header
-      className={`flex items-center justify-between px-4 py-3 border-b app-region-drag shrink-0${isWindows ? ' win-titlebar-padding' : ''}`}
+      className={`app-region-drag shrink-0${isWindows ? ' win-titlebar-padding' : ''}`}
       style={{
-        background: 'var(--dome-bg)',
-        borderColor: 'var(--dome-border)',
-        minHeight: '56px',
-        paddingTop: 'calc(12px + var(--safe-area-inset-top))',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 0,
+        background: 'var(--dome-surface)',
+        borderBottom: '1px solid var(--dome-border)',
+        minHeight: 52,
+        paddingTop: `calc(10px + var(--safe-area-inset-top))`,
+        paddingBottom: 10,
+        paddingLeft: 16,
+        paddingRight: 12,
       }}
     >
-      {/* Left section */}
-      <div className="flex items-center gap-3 min-w-0 app-region-no-drag">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="shrink-0 flex items-center">
-            {getTypeIcon()}
-          </div>
+      {/* ── Left: type badge + title + saving ─────────────────────────── */}
+      <div className="app-region-no-drag flex items-center gap-2.5 min-w-0 flex-1 mr-3">
+        {/* Type badge */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 28,
+            height: 28,
+            borderRadius: 7,
+            background: typeMeta.bg,
+            color: typeMeta.color,
+            flexShrink: 0,
+            border: `1px solid ${typeMeta.color}26`,
+          }}
+          title={typeMeta.label}
+        >
+          {typeMeta.icon}
+        </div>
 
+        {/* Title */}
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
           {editableTitle ? (
             <input
               type="text"
               value={editableTitle.value}
               onChange={(e) => editableTitle.onChange(e.target.value)}
               onBlur={editableTitle.onBlur}
-              className="text-sm font-medium bg-transparent border-none outline-none min-w-0 font-display focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
-              style={{ color: 'var(--dome-text)' }}
-              placeholder={editableTitle.placeholder || 'Untitled'}
-              aria-label="Resource title"
+              placeholder={editableTitle.placeholder ?? 'Sin título'}
+              aria-label="Título del recurso"
+              style={{
+                flex: 1,
+                minWidth: 0,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                fontSize: 13,
+                fontWeight: 500,
+                color: 'var(--dome-text)',
+                fontFamily: 'var(--font-sans)',
+                padding: '2px 4px',
+                borderRadius: 4,
+                letterSpacing: '-0.01em',
+              }}
+              onFocus={(e) => {
+                (e.currentTarget).style.background = 'var(--dome-bg-hover)';
+              }}
+              onBlurCapture={(e) => {
+                (e.currentTarget).style.background = 'transparent';
+              }}
             />
           ) : (
             <div className="flex items-baseline gap-2 min-w-0">
               <h1
-                className="text-sm font-medium truncate max-w-md font-display"
-                style={{ color: 'var(--dome-text)' }}
                 title={resource.title}
+                style={{
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: 'var(--dome-text)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: 400,
+                  letterSpacing: '-0.01em',
+                }}
               >
                 {resource.title}
               </h1>
               {subtitle && (
-                <span
-                  className="text-xs shrink-0 truncate max-w-[200px] font-normal"
-                  style={{ color: 'var(--dome-text-muted)' }}
-                >
+                <span style={{ fontSize: 11, color: 'var(--dome-text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                   {subtitle}
                 </span>
               )}
             </div>
           )}
 
-          {savingIndicator}
+          {/* Saving indicator slot */}
+          {savingIndicator && <div className="flex-shrink-0">{savingIndicator}</div>}
         </div>
 
-        {/* Notebook: workspace/venv status and quick access */}
+        {/* Notebook workspace button */}
         {resource.type === 'notebook' && onOpenWorkspacePanel && (
           <button
             type="button"
             onClick={onOpenWorkspacePanel}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all hover:bg-[var(--dome-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
             style={{
-              color: notebookWorkspacePath || notebookVenvPath ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 26,
+              padding: '0 8px',
+              borderRadius: 6,
               border: '1px solid var(--dome-border)',
+              background: 'transparent',
+              fontSize: 11,
+              fontWeight: 500,
+              color: notebookWorkspacePath || notebookVenvPath ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+              cursor: 'pointer',
+              flexShrink: 0,
+              whiteSpace: 'nowrap',
             }}
             title="Configurar carpeta de trabajo y entorno Python"
           >
-            <FolderOpen size={14} />
-            {notebookWorkspacePath || notebookVenvPath ? (
-              <span className="truncate max-w-[140px]">
-                {notebookWorkspacePath ? 'Carpeta configurada' : notebookVenvPath ? 'Venv configurado' : 'Configurar'}
-              </span>
-            ) : (
-              <span>Configurar workspace</span>
-            )}
+            <FolderOpen size={12} />
+            <span>
+              {notebookWorkspacePath ? 'Carpeta' : notebookVenvPath ? 'Venv' : 'Workspace'}
+            </span>
           </button>
         )}
       </div>
 
-      {/* Right section */}
-      <div className="flex items-center gap-2 app-region-no-drag">
-        {/* AI index status badge */}
+      {/* ── Right: panels + tools ─────────────────────────────────────── */}
+      <div className="app-region-no-drag flex items-center gap-0.5 flex-shrink-0">
+        {/* AI index status */}
         <IndexStatusBadge resourceId={resource.id} resourceType={resource.type} />
 
-        {/* Panels selector — icon + menu only to keep the bar light */}
-        <div ref={panelsRef} className="relative">
-          <button
-            type="button"
-            onClick={() => setPanelsOpen((o) => !o)}
-            className="flex items-center gap-1 px-2 min-h-[36px] rounded-lg text-sm transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
-            style={{
-              background: sourcesPanelOpen || studioPanelOpen || graphPanelOpen || sidePanelOpen
-                ? 'var(--dome-surface)'
-                : 'transparent',
-              border: '1px solid var(--dome-border)',
-              color: sourcesPanelOpen || studioPanelOpen || graphPanelOpen || sidePanelOpen
-                ? 'var(--dome-text)'
-                : 'var(--dome-text-muted)',
-            }}
-            title={t('workspace.panels')}
-            aria-expanded={panelsOpen}
-            aria-haspopup="listbox"
-          >
-            <PanelRightOpen size={16} aria-hidden />
-            <span className="sr-only">{t('workspace.panels')}</span>
-            <ChevronDown
-              size={14}
-              aria-hidden
-              style={{
-                opacity: 0.7,
-                transform: panelsOpen ? 'rotate(180deg)' : 'rotate(0)',
-                transition: 'transform 0.2s',
-              }}
-            />
-          </button>
+        <HDivider />
 
-          {panelsOpen && (
-            <div
-              className="absolute right-0 top-full mt-1 py-1 min-w-[180px] rounded-lg z-dropdown shadow-lg"
-              style={{
-                background: 'var(--dome-surface)',
-                border: '1px solid var(--dome-border)',
-              }}
-            >
-              <button
-                onClick={() => { toggleSourcesPanel(); }}
-                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
-                style={{
-                  color: 'var(--dome-text)',
-                }}
-              >
-                <BookOpen size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                <span className="flex-1">{t('workspace.sources')}</span>
-                {sourcesPanelOpen && <Check size={16} style={{ color: 'var(--dome-accent)' }} />}
-              </button>
-              <button
-                onClick={() => { toggleStudioPanel(); }}
-                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
-                style={{ color: 'var(--dome-text)' }}
-              >
-                <Sparkles size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                <span className="flex-1">{t('workspace.studio')}</span>
-                {studioPanelOpen && <Check size={16} style={{ color: 'var(--dome-accent)' }} />}
-              </button>
-              <button
-                onClick={() => { toggleGraphPanel(); }}
-                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
-                style={{ color: 'var(--dome-text)' }}
-              >
-                <Network size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                <span className="flex-1">{t('workspace.graph')}</span>
-                {graphPanelOpen && <Check size={16} style={{ color: 'var(--dome-accent)' }} />}
-              </button>
-              <div style={{ height: 1, background: 'var(--dome-border)', margin: '4px 0' }} />
-              <button
-                onClick={() => { onToggleSidePanel(); }}
-                className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
-                style={{ color: 'var(--dome-text)' }}
-              >
-                <PanelRightOpen size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                <span className="flex-1">{t('workspace.sidePanel')}</span>
-                {sidePanelOpen && <Check size={16} style={{ color: 'var(--dome-accent)' }} />}
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Panel toggle buttons */}
+        <HeaderIconBtn
+          icon={<BookOpen size={14} strokeWidth={2} />}
+          label={t('workspace.sources')}
+          active={sourcesPanelOpen}
+          onClick={toggleSourcesPanel}
+        />
+        <HeaderIconBtn
+          icon={<Sparkles size={14} strokeWidth={2} />}
+          label={t('workspace.studio')}
+          active={studioPanelOpen}
+          activeColor="#9B6FCD"
+          onClick={toggleStudioPanel}
+        />
+        <HeaderIconBtn
+          icon={<Network size={14} strokeWidth={2} />}
+          label={t('workspace.graph')}
+          active={graphPanelOpen}
+          activeColor="#4A90D9"
+          onClick={toggleGraphPanel}
+        />
+        <HeaderIconBtn
+          icon={<PanelRight size={14} strokeWidth={2} />}
+          label={t('workspace.sidePanel')}
+          active={sidePanelOpen}
+          onClick={onToggleSidePanel}
+        />
 
-        {/* Presentation mode (slides only) */}
+        <HDivider />
+
+        {/* Presentation mode */}
         {resource.type === 'ppt' && onPresentationMode && (
-          <button
+          <HeaderIconBtn
+            icon={<Presentation size={14} strokeWidth={2} />}
+            label={t('workspace.presentation_mode')}
             onClick={onPresentationMode}
-            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg transition-all duration-200 hover:bg-[var(--dome-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
-            style={{ color: 'var(--dome-text-muted)' }}
-            title={t('workspace.presentation_mode')}
-            aria-label={t('workspace.presentation_mode')}
-          >
-            <Presentation size={16} />
-          </button>
+          />
         )}
 
-        {/* Separator */}
-        <div className="w-px h-5" style={{ background: 'var(--dome-border)' }} />
-
-        {/* More options menu */}
-        <div className="relative">
-          <button
-            ref={menuButtonRef}
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-lg transition-all duration-200 hover:bg-[var(--dome-bg-hover)] focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
-            style={{
-              background: menuOpen ? 'var(--dome-surface)' : 'transparent',
-              color: 'var(--dome-text-muted)',
-            }}
-            title={t('workspace.more_options')}
-            aria-label={t('workspace.more_options')}
-            aria-expanded={menuOpen}
-            aria-haspopup="true"
-          >
-            <MoreHorizontal size={16} />
-          </button>
-
-          {menuOpen && (
-            <div
-              ref={menuRef}
-              className="dropdown-menu"
-              style={{
-                position: 'fixed',
-                ...getMenuPosition(),
-                zIndex: 'var(--z-max)',
-                minWidth: '200px',
-                background: 'var(--dome-surface)',
-                border: '1px solid var(--dome-border)',
-                borderRadius: '8px',
-                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-                padding: '6px',
-                animation: 'dropdown-appear 0.15s ease-out',
-              }}
-              role="menu"
-            >
-              <button
-                onClick={handleShowInfo}
-                className="dropdown-item"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: 'var(--dome-text)',
-                  width: '100%',
-                  border: 'none',
-                  textAlign: 'left',
-                }}
-                role="menuitem"
-              >
-                <Info size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                {t('viewer.resource_info')}
-              </button>
-
-              {(resource.type === 'ppt' && onExportDocx) ? (
-                <>
-                  <div
-                    style={{
-                      height: '1px',
-                      background: 'var(--dome-border)',
-                      margin: '4px 0',
-                    }}
-                  />
-                  {resource.type === 'ppt' && onExportDocx && (
-                    <button
-                      onClick={async () => {
-                        setMenuOpen(false);
-                        await onExportDocx();
-                      }}
-                      className="dropdown-item"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        fontSize: '13px',
-                        fontWeight: 500,
-                        color: 'var(--dome-text)',
-                        width: '100%',
-                        border: 'none',
-                        textAlign: 'left',
-                      }}
-                      role="menuitem"
-                    >
-                      <FileDown size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                      Exportar a PPTX
-                    </button>
-                  )}
-                </>
-              ) : null}
-
-              {hasFile && (
-                <>
-                  <div
-                    style={{
-                      height: '1px',
-                      background: 'var(--dome-border)',
-                      margin: '4px 0',
-                    }}
-                  />
-                  <button
-                    onClick={handleOpenExternal}
-                    className="dropdown-item"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '10px 12px',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      color: 'var(--dome-text)',
-                      width: '100%',
-                      border: 'none',
-                      textAlign: 'left',
-                    }}
-                    role="menuitem"
-                  >
-                    <ExternalLink size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                    {t('viewer.open_with_default_app')}
-                  </button>
-                  <button
-                    onClick={handleShowInFinder}
-                    className="dropdown-item"
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      padding: '10px 12px',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      color: 'var(--dome-text)',
-                      width: '100%',
-                      border: 'none',
-                      textAlign: 'left',
-                    }}
-                    role="menuitem"
-                  >
-                    <FolderOpen size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                    {t('viewer.show_in_finder')}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
+        {/* More options */}
+        <HeaderIconBtn
+          icon={<MoreHorizontal size={14} strokeWidth={2} />}
+          label={t('workspace.more_options')}
+          active={menuOpen}
+          forwardRef={menuBtnRef}
+          onClick={openMenu}
+        />
       </div>
+
+      {/* ── Dropdown menu (portal) ─────────────────────────────────────── */}
+      {menuOpen && ReactDOM.createPortal(
+        <div
+          ref={menuRef}
+          style={{
+            position: 'fixed',
+            top: menuPos.top,
+            right: menuPos.right,
+            zIndex: 'var(--z-max)' as any,
+            minWidth: 196,
+            background: 'var(--dome-surface)',
+            border: '1px solid var(--dome-border)',
+            borderRadius: 10,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+            padding: 6,
+            animation: 'dropdown-appear 0.12s ease-out',
+          }}
+          role="menu"
+        >
+          <MenuItem icon={<Info size={14} />} label={t('viewer.resource_info')} onClick={() => { setMenuOpen(false); onShowMetadata(); }} />
+
+          {resource.type === 'ppt' && onExportDocx && (
+            <>
+              <MenuDivider />
+              <MenuItem
+                icon={<FileDown size={14} />}
+                label="Exportar a PPTX"
+                onClick={async () => { setMenuOpen(false); await onExportDocx(); }}
+              />
+            </>
+          )}
+
+          {hasFile && (
+            <>
+              <MenuDivider />
+              <MenuItem icon={<ExternalLink size={14} />} label={t('viewer.open_with_default_app')} onClick={handleOpenExternal} />
+              <MenuItem icon={<FolderOpen size={14} />} label={t('viewer.show_in_finder')} onClick={handleShowInFinder} />
+            </>
+          )}
+        </div>,
+        document.body,
+      )}
     </header>
   );
+}
+
+function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 9,
+        width: '100%',
+        padding: '8px 10px',
+        border: 'none',
+        borderRadius: 6,
+        background: hovered ? 'var(--dome-bg-hover)' : 'transparent',
+        cursor: 'pointer',
+        textAlign: 'left',
+        fontSize: 12.5,
+        fontWeight: 500,
+        color: 'var(--dome-text)',
+        transition: 'background 80ms',
+      }}
+    >
+      <span style={{ color: 'var(--dome-text-muted)', display: 'flex' }}>{icon}</span>
+      {label}
+    </button>
+  );
+}
+
+function MenuDivider() {
+  return <div style={{ height: 1, background: 'var(--dome-border)', margin: '4px 0' }} />;
 }
