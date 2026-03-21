@@ -34,7 +34,6 @@ function TabIcon({ type }: { type: DomeTab['type'] }) {
     case 'notebook': return <BookOpen className={cls} strokeWidth={sw} />;
     case 'url': return <Globe className={cls} strokeWidth={sw} />;
     case 'youtube': return <Youtube className={cls} strokeWidth={sw} />;
-    case 'docx': return <FileText className={cls} strokeWidth={sw} />;
     case 'ppt': return <Presentation className={cls} strokeWidth={sw} />;
     case 'resource': return <File className={cls} strokeWidth={sw} />;
     case 'studio': return <Sparkles className={cls} strokeWidth={sw} />;

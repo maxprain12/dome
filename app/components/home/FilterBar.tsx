@@ -36,7 +36,6 @@ export function FilterBar({
     { type: 'audio', label: t('filter.types.audio'), icon: <Music size={14} /> },
     { type: 'pdf', label: t('filter.types.pdfs'), icon: <File size={14} /> },
     { type: 'url', label: t('filter.types.links'), icon: <Link2 size={14} /> },
-    { type: 'document', label: t('filter.types.docs'), icon: <File size={14} /> },
     { type: 'excel', label: t('filter.types.excel'), icon: <File size={14} /> },
     { type: 'ppt', label: t('filter.types.presentations'), icon: <File size={14} /> },
   ];

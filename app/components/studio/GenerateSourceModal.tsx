@@ -31,8 +31,6 @@ function getTypeIcon(type: string, size = 14) {
       return <Image {...props} />;
     case 'url':
       return <Link2 {...props} />;
-    case 'document':
-      return <File {...props} />;
     default:
       return <File {...props} />;
   }

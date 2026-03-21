@@ -17,7 +17,6 @@ function getNodeStyle(nodeType: GraphNodeData['type'], resourceType?: string): N
   if (nodeType === 'resource' || nodeType === 'study_material') {
     switch (resourceType) {
       case 'pdf':
-      case 'document':
         return { color: '#e85d4a', bg: '#fff1f0' };
       case 'video':
         return { color: '#f59e0b', bg: '#fffbeb' };
@@ -54,7 +53,6 @@ function getNodeIcon(nodeType: GraphNodeData['type'], resourceType?: string) {
   if (nodeType === 'resource') {
     switch (resourceType) {
       case 'pdf':
-      case 'document':
         return <FileText size={size} />;
       case 'video':
         return <Video size={size} />;

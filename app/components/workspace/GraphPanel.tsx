@@ -179,7 +179,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
 
   const handleOpenSelectedResource = async () => {
     if (!selectedNode?.resourceId) return;
-    const resourceType = (selectedNode as any)?.resourceType ?? 'document';
+    const resourceType = (selectedNode as any)?.resourceType ?? 'url';
     try {
       await window.electron.workspace.open(selectedNode.resourceId, resourceType);
     } catch (err) {

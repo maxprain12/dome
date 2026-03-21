@@ -71,7 +71,7 @@ export default function ChatMessage({
       if (!citation?.sourceId) return;
       useTabStore.getState().openResourceTab(
         citation.sourceId,
-        citation.resourceType || 'document',
+        citation.resourceType || 'url',
         'Recurso'
       );
     };

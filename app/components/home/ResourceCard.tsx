@@ -60,29 +60,19 @@ export default memo(function ResourceCard({
   selectedResourceIds,
   onContextMenu,
 }: ResourceCardProps) {
-  // Detect document sub-type for type-specific icons and colors
-  const getDocumentSubType = (): 'docx' | 'xlsx' | 'csv' | 'txt' | 'generic' => {
+  // Detect excel sub-type for type-specific icons and colors
+  const getExcelSubType = (): 'xlsx' | 'csv' | 'generic' => {
     if (resource.type === 'excel') return 'xlsx';
-    if (resource.type !== 'document') return 'generic';
-    const filename = (resource.original_filename || resource.title || '').toLowerCase();
-    const mime = resource.file_mime_type || '';
-    if (filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword')) return 'docx';
-    if (filename.endsWith('.xlsx') || filename.endsWith('.xls') || mime.includes('spreadsheetml') || mime.includes('ms-excel')) return 'xlsx';
-    if (filename.endsWith('.csv') || mime === 'text/csv') return 'csv';
-    if (filename.endsWith('.txt') || filename.endsWith('.md') || mime.startsWith('text/')) return 'txt';
     return 'generic';
   };
 
-  const docSubType = getDocumentSubType();
+  const excelSubType = getExcelSubType();
 
   const getIcon = () => {
-    // Document sub-type specific icons (includes excel)
-    if (resource.type === 'document' || resource.type === 'excel') {
-      switch (docSubType) {
-        case 'docx': return <FileText className="w-5 h-5" strokeWidth={1.5} />;
+    // Excel sub-type specific icons
+    if (resource.type === 'excel') {
+      switch (excelSubType) {
         case 'xlsx': return <FileSpreadsheet className="w-5 h-5" strokeWidth={1.5} />;
-        case 'csv': return <Table2 className="w-5 h-5" strokeWidth={1.5} />;
-        case 'txt': return <FileType className="w-5 h-5" strokeWidth={1.5} />;
         default: return <File className="w-5 h-5" strokeWidth={1.5} />;
       }
     }
@@ -101,12 +91,9 @@ export default memo(function ResourceCard({
   };
 
   const getTypeColor = () => {
-    if (resource.type === 'document' || resource.type === 'excel') {
-      switch (docSubType) {
-        case 'docx': return '#2b579a';
+    if (resource.type === 'excel') {
+      switch (excelSubType) {
         case 'xlsx': return '#217346';
-        case 'csv': return '#00838f';
-        case 'txt': return '#6b7280';
         default: return 'var(--tertiary-text)';
       }
     }

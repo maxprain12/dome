@@ -34,7 +34,6 @@ function ResourceTypeIcon({ type }: { type: string }) {
   const size = 13;
   switch (type) {
     case 'pdf':
-    case 'document':
       return <FileText size={size} />;
     case 'video':
       return <Video size={size} />;
@@ -92,7 +91,7 @@ export default function TagBrowser() {
 
   const handleOpenResource = async (resource: TagResource) => {
     try {
-      await window.electron.workspace.open(resource.id, resource.type || 'document');
+      await window.electron.workspace.open(resource.id, resource.type || 'url');
     } catch (err) {
       console.error('Error opening resource:', err);
     }

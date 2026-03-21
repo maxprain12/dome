@@ -21,7 +21,7 @@ export async function uploadAttachmentAction(
       const result = await electron.resource.import(
         filePath,
         projectId,
-        "document",
+        "url",
         file.name,
       );
 

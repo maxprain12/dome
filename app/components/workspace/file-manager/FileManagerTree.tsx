@@ -28,7 +28,7 @@ type TreeNodeData = {
   id: string;
   name: string;
   path: string;
-  type: 'folder' | 'notebook' | 'url' | 'youtube' | 'pdf' | 'document' | 'image' | 'audio' | 'video' | 'ppt' | 'file';
+  type: 'folder' | 'notebook' | 'url' | 'youtube' | 'pdf' | 'image' | 'audio' | 'video' | 'ppt' | 'file';
   children?: TreeNodeData[];
 };
 
@@ -47,7 +47,6 @@ function getResourceIcon(type: string, className: string = "w-4 h-4") {
     case 'video':
       return <Video className={className} strokeWidth={1.75} />;
     case 'pdf':
-    case 'document':
       return <File className={className} strokeWidth={1.75} />;
     case 'image':
       return <Image className={className} strokeWidth={1.75} />;
@@ -388,7 +387,7 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
         const fileName = prompt('File name:');
         if (fileName) {
           await window.electron?.db?.resources?.create({
-            type: 'document',
+            type: 'url',
             title: fileName,
             folder_id: node.type === 'folder' ? node.id : node.path === 'root' ? null : undefined,
           });

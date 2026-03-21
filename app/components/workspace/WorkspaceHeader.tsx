@@ -153,7 +153,6 @@ export default function WorkspaceHeader({
       case 'audio': return <Music {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
       case 'image': return <Image {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
       case 'notebook': return <Notebook {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
-      case 'document': return <File {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
       case 'ppt': return <Presentation {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
       case 'url': return <ExternalLink {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
       default: return <Folder {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
@@ -409,7 +408,7 @@ export default function WorkspaceHeader({
                 {t('viewer.resource_info')}
               </button>
 
-              {((resource.type === 'document' && onExportDocx) || (resource.type === 'ppt' && onExportDocx)) ? (
+              {(resource.type === 'ppt' && onExportDocx) ? (
                 <>
                   <div
                     style={{
@@ -418,32 +417,6 @@ export default function WorkspaceHeader({
                       margin: '4px 0',
                     }}
                   />
-                  {resource.type === 'document' && onExportDocx && (
-                    <button
-                      onClick={async () => {
-                        setMenuOpen(false);
-                        await onExportDocx();
-                      }}
-                      className="dropdown-item"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        fontSize: '13px',
-                        fontWeight: 500,
-                        color: 'var(--dome-text)',
-                        width: '100%',
-                        border: 'none',
-                        textAlign: 'left',
-                      }}
-                      role="menuitem"
-                    >
-                      <FileDown size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                      Exportar a DOCX
-                    </button>
-                  )}
                   {resource.type === 'ppt' && onExportDocx && (
                     <button
                       onClick={async () => {

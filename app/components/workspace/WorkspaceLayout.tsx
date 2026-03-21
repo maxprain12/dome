@@ -67,29 +67,13 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
     loadResource();
   }, [resourceId]);
 
-  // Detect ppt/docx resources and replace tab type so ContentRouter mounts the correct component
+  // Detect ppt resources and replace tab type so ContentRouter mounts the correct component
   useEffect(() => {
     if (!resource) return;
     if (resource.type === 'ppt') {
       const { activeTabId, replaceTabType } = useTabStore.getState();
       replaceTabType(activeTabId, 'ppt');
       return;
-    }
-    if (resource.type === 'document') {
-      const filename = (resource.original_filename || resource.title || '').toLowerCase();
-      const mime = resource.file_mime_type || '';
-      const isPptx = filename.endsWith('.pptx') || filename.endsWith('.ppt') || mime.includes('presentationml') || mime.includes('ms-powerpoint');
-      if (isPptx) {
-        const { activeTabId, replaceTabType } = useTabStore.getState();
-        replaceTabType(activeTabId, 'ppt');
-        return;
-      }
-      const isDocx = filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword') || !resource.internal_path;
-      if (isDocx) {
-        const { activeTabId, replaceTabType } = useTabStore.getState();
-        replaceTabType(activeTabId, 'docx');
-        return;
-      }
     }
   }, [resource]);
 
@@ -202,71 +186,6 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
               </p>
             </div>
           );
-        case 'document': {
-          if (isDocumentPdf(resource)) {
-            return <PDFViewer resource={resource} initialPage={initialPage} />;
-          }
-
-          const filename = (resource.original_filename || resource.title || '').toLowerCase();
-          const mime = resource.file_mime_type || '';
-          const isPptx = filename.endsWith('.pptx') || filename.endsWith('.ppt') || mime.includes('presentationml') || mime.includes('ms-powerpoint');
-
-          // PPTX / PPT — tab type will be replaced by useEffect
-          if (isPptx) {
-            return (
-              <div className="flex flex-col items-center justify-center h-full p-8">
-                <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
-                <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-                  Abriendo presentación...
-                </p>
-              </div>
-            );
-          }
-
-          const isDocx = filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword') || !resource.internal_path;
-
-          // DOCX / DOC — tab type will be replaced by useEffect
-          if (isDocx) {
-            return (
-              <div className="flex flex-col items-center justify-center h-full p-8">
-                <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
-                <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-                  Abriendo documento...
-                </p>
-              </div>
-            );
-          }
-
-          // XLSX / XLS
-          if (filename.endsWith('.xlsx') || filename.endsWith('.xls') || mime.includes('spreadsheetml') || mime.includes('ms-excel')) {
-            return <SpreadsheetViewer resource={resource} />;
-          }
-
-          // CSV
-          if (filename.endsWith('.csv') || mime === 'text/csv') {
-            return <SpreadsheetViewer resource={resource} />;
-          }
-
-          // Fallback for unsupported document types
-          return (
-            <div className="flex flex-col items-center justify-center h-full p-8">
-              <File className="w-16 h-16 mb-4" style={{ color: 'var(--tertiary-text)' }} />
-              <p className="text-lg font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
-                {resource.original_filename || resource.title}
-              </p>
-              <p className="text-sm mb-6" style={{ color: 'var(--secondary-text)' }}>
-                This document type cannot be previewed. Open it with your default application.
-              </p>
-              <button
-                onClick={handleOpenExternally}
-                className="btn btn-primary flex items-center gap-2"
-              >
-                <ExternalLink size={16} />
-                Open with default app
-              </button>
-            </div>
-          );
-        }
         case 'url':
         case 'notebook': {
           const metadata = typeof resource.metadata === 'string'

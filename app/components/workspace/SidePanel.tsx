@@ -53,11 +53,7 @@ export default function SidePanel({
   const { setContext } = useManyStore();
 
   const isNotebook = resource?.type === 'notebook';
-  const isPdf =
-    resource?.type === 'pdf' ||
-    (resource?.type === 'document' &&
-      ((resource?.original_filename || resource?.title || '').toLowerCase().endsWith('.pdf') ||
-        resource?.file_mime_type === 'application/pdf'));
+  const isPdf = resource?.type === 'pdf';
   const tabLabel = (id: TabType) => {
     const keys: Record<TabType, string> = {
       references: 'workspace.side_panel_tab_references',

@@ -87,7 +87,7 @@ export interface AgentTeam {
 }
 
 // Tipos de recursos
-export type ResourceType = 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook' | 'excel' | 'ppt';
+export type ResourceType = 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'folder' | 'notebook' | 'excel' | 'ppt';
 
 export interface Resource {
   id: string;

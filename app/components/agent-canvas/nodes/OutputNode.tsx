@@ -38,7 +38,7 @@ export default function OutputNode({ data, selected }: NodeProps<OutputNodeData>
       await window.electron?.invoke('db:resources:create', {
         id: generateId(),
         project_id: projectId,
-        type: 'document',
+        type: 'url',
         title: data.label ?? t('canvas.workflow_result_note_title'),
         content: data.content,
         created_at: now,

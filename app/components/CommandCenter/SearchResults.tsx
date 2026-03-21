@@ -49,7 +49,6 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
       case 'notebook':
         return <Notebook size={16} />;
       case 'pdf':
-      case 'document':
         return <File size={16} />;
       case 'image':
         return <ImageIcon size={16} />;

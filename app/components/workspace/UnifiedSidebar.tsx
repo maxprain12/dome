@@ -47,8 +47,7 @@ function getResourceIcon(type: string) {
     case 'url': return <Globe className="w-3.5 h-3.5" strokeWidth={1.75} />;
     case 'youtube':
     case 'video': return <Video className="w-3.5 h-3.5" strokeWidth={1.75} />;
-    case 'pdf':
-    case 'document': return <File className="w-3.5 h-3.5" strokeWidth={1.75} />;
+    case 'pdf': return <File className="w-3.5 h-3.5" strokeWidth={1.75} />;
     case 'image': return <Image className="w-3.5 h-3.5" strokeWidth={1.75} />;
     case 'audio': return <Music className="w-3.5 h-3.5" strokeWidth={1.75} />;
     case 'ppt': return <Presentation className="w-3.5 h-3.5" strokeWidth={1.75} />;
@@ -99,7 +98,7 @@ function getFolderColor(resource: Resource): string {
 interface TreeNodeData {
   id: string;
   name: string;
-  type: 'folder' | 'notebook' | 'url' | 'youtube' | 'pdf' | 'document' | 'image' | 'audio' | 'video' | 'ppt' | 'file';
+  type: 'folder' | 'notebook' | 'url' | 'youtube' | 'pdf' | 'image' | 'audio' | 'video' | 'ppt' | 'file';
   children?: TreeNodeData[];
   resource?: Resource;
 }
@@ -1118,7 +1117,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         : ['jpg','jpeg','png','gif','webp','svg'].includes(ext) ? 'image'
         : ['pptx','ppt'].includes(ext) ? 'ppt'
         : ['ipynb'].includes(ext) ? 'notebook'
-        : 'document';
+        : 'url';
       return window.electron.resource.import(fp, projectId, type);
     }));
     void fetchResources({ silent: true });
