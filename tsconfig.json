@@ -30,9 +30,6 @@
       "@/lib/*": [
         "./app/lib/*"
       ],
-      "@docmost/editor-ext": [
-        "./app/lib/dome-editor/index.ts"
-      ]
     },
     "plugins": [
       {

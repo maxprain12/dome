@@ -16,9 +16,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Database**: SQLite via **better-sqlite3** (NOT bun:sqlite — Electron runs on Node.js)
 - **Vector DB**: LanceDB for semantic search
 - **AI**: LangChain + LangGraph for agent workflows; multi-provider (OpenAI, Anthropic, Google, Ollama)
-- **Editor**: Tiptap (Dome-native extensions in `app/lib/dome-editor/`)
 - **State**: Zustand stores + Jotai atoms
 - **Styling**: Tailwind CSS + CSS Variables + Mantine UI components
+- **i18n**: react-i18next, translations in `app/lib/i18n.ts` (en/es/fr/pt)
 - **Language**: TypeScript (strict mode)
 
 ## Development Commands
@@ -141,7 +141,7 @@ dome/
 │   ├── App.tsx                 # Root React component with Routes
 │   ├── pages/                  # React Router pages
 │   ├── components/             # React components by feature
-│   │   ├── editor/             # Tiptap editor and extensions
+│   │   ├── shell/              # Single-window shell (AppShell, DomeTabBar, ContentRouter)
 │   │   ├── viewers/            # PDF, Video, Audio, Image viewers
 │   │   ├── chat/               # Chat message rendering (ChatMessage, ChatToolCard)
 │   │   ├── many/               # "Many" AI assistant panel (ManyPanel, ManyFloatingButton)
@@ -155,7 +155,6 @@ dome/
 │   │   └── CommandCenter/      # Cmd+K search palette
 │   │
 │   ├── lib/
-│   │   ├── dome-editor/        # Dome's Tiptap extensions (MIT licensed)
 │   │   ├── ai/                 # AI client and provider adapters
 │   │   │   ├── client.ts       # Main AI client (unified interface, multi-provider)
 │   │   │   ├── providers/      # Per-provider implementations
@@ -192,13 +191,6 @@ dome/
 windowManager.create('resource-viewer', { width: 900, height: 700 }, '/resource/123');
 ```
 
-### Dome Editor Library
-
-All Tiptap extensions are in `app/lib/dome-editor/` (Dome-owned, MIT licensed). Aliased via `vite.config.ts` and `tsconfig.json`.
-
-- `verbatimModuleSyntax: true` in tsconfig means ALL type-only imports MUST use `import type { }`
-- If you get "does not provide export X" dev-server errors, change `import { X }` → `import type { X }` when X is a TS type/interface
-
 ### AI Integration
 
 Multi-provider client with unified interface. Provider adapters in `app/lib/ai/providers/`. Tools defined in `app/lib/ai/tools/`. Heavy AI work (LangGraph agents, web search, MCP tool calls) runs in the main process via IPC.
@@ -218,6 +210,37 @@ import { createAIClient } from '@/lib/ai/client';
 ### Automations & Run Engine
 
 `electron/automation-service.cjs` manages scheduled/triggered automation rules. `electron/run-engine.cjs` executes individual agent runs (used by both automations and the Runs UI). Run state is persisted to SQLite and surfaced in `app/components/automations/RunLogView.tsx` via `runs` IPC domain.
+
+### Shell & Tab System
+
+Dome uses a single-window shell (`app/components/shell/AppShell.tsx`) with a browser-like tab bar. All major views (resources, settings, calendar, chat, agents, etc.) open as tabs — **not new Electron windows**.
+
+Tab state is managed by `useTabStore` (`app/lib/store/useTabStore.ts`). To open a view as a tab, call the appropriate store action:
+
+```typescript
+import { useTabStore } from '@/lib/store/useTabStore';
+
+const { openResourceTab, openSettingsTab, openAgentsTab } = useTabStore();
+openResourceTab(resourceId, title);   // opens resource viewer tab
+openSettingsTab();                     // opens settings tab
+```
+
+`ContentRouter` (`app/components/shell/ContentRouter.tsx`) maps `tab.type` to the correct component.
+
+### Internationalization (i18n)
+
+Uses `react-i18next`. All translations live inline in `app/lib/i18n.ts` (4 languages: en, es, fr, pt). Language is persisted to `localStorage` key `dome:language`, defaulting to `es`.
+
+```typescript
+import { useTranslation } from 'react-i18next';
+
+function MyComponent() {
+  const { t } = useTranslation();
+  return <span>{t('some.key')}</span>;
+}
+```
+
+Add new translation keys to all four language objects in `app/lib/i18n.ts`.
 
 ### Plugin System
 
