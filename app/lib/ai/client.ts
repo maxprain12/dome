@@ -897,7 +897,6 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
 
   if (toolsEnabled) {
     prompt += promptTemplates.martin.tools;
-    prompt += '\n\n' + promptTemplates.martin.noteFormat;
   }
 
   if (resourceContext) {
@@ -931,9 +930,6 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
     }
     if (isDocument && toolsEnabled) {
       prompt += '\n\n' + promptTemplates.martin.documentContext;
-    }
-    if (isNote && toolsEnabled) {
-      prompt += '\n\n' + promptTemplates.martin.noteContext;
     }
   }
 

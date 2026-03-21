@@ -574,7 +574,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         );
       },
 
-      // Blockquote — styled as a note box, not italic
+      // Blockquote — styled with background, not italic
       blockquote: ({ children }) => (
         <blockquote
           style={{

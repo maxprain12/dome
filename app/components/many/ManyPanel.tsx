@@ -76,7 +76,7 @@ const APP_SECTION_GUIDE = `## Dome App Sections
 - Home > Workflows: run agent teams and workflow automations.
 - Home > Marketplace: explore installable assets, workflows, and agents.
 - Calendar: view and manage events.
-- Workspace: open and edit a specific resource such as a note, notebook, PDF, DOCX, PPT, URL, video, or audio.
+- Workspace: open and edit a specific resource such as a document, notebook, PDF, DOCX, PPT, URL, video, or audio.
 
 ## Navigation Guidance
 - If the user asks how to do something in Dome, explain the path step by step using the real section names above.
