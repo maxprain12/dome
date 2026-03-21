@@ -244,7 +244,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           try {
             const lookup = await electron.db.resources.getById(resourceId);
             if (lookup?.success && lookup.data) {
-              resourceType = (lookup.data as { type?: string }).type || 'note';
+              resourceType = (lookup.data as { type?: string }).type || 'document';
             } else {
               showToast('error', getResultError(lookup, t('toast.resource_not_found')));
               return;
@@ -256,7 +256,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           }
         }
 
-        useTabStore.getState().openResourceTab(resourceId, resourceType || 'note', 'Recurso');
+        useTabStore.getState().openResourceTab(resourceId, resourceType || 'document', 'Recurso');
         return;
       }
 
@@ -265,7 +265,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         const resolveSlug = decodeURIComponent(resolveMatch[1]);
         try {
           let resolvedId: string | null = null;
-          let resolvedType = 'note';
+          let resolvedType = 'document';
 
           if (!electron.db?.resources) {
             showToast('error', t('toast.internal_link_error'));
@@ -276,7 +276,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
             const lookup = await electron.db.resources.getById(resolveSlug);
             if (lookup?.success && lookup.data) {
               resolvedId = (lookup.data as { id: string }).id;
-              resolvedType = (lookup.data as { type?: string }).type || 'note';
+              resolvedType = (lookup.data as { type?: string }).type || 'document';
             }
           }
 
@@ -300,7 +300,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
             }
 
             resolvedId = (match as { id: string }).id;
-            resolvedType = (match as { type?: string }).type || 'note';
+            resolvedType = (match as { type?: string }).type || 'document';
           }
 
           if (resolvedType === 'folder') {

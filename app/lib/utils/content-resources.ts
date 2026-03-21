@@ -1,5 +1,5 @@
 /**
- * Extract resource IDs from note content (ProseMirror JSON or markdown).
+ * Extract resource IDs from content (ProseMirror JSON or markdown).
  * Used for backlinks, export attachments, etc.
  */
 export function extractResourceIdsFromContent(content: string | null | undefined): string[] {

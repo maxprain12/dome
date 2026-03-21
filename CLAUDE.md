@@ -93,7 +93,7 @@ IPC handlers are organized in `electron/ipc/` (one file per domain). All channel
 3. **Whitelist** (`electron/preload.cjs`): Add channel to ALLOWED_CHANNELS
 4. **Renderer** (`app/`): Call via `window.electron.invoke('channel', args)`
 
-IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`, `calendar`, `chat`, `cloud-storage`, `database`, `dome-auth`, `files`, `flashcards`, `graph`, `images`, `interactions`, `links`, `marketplace`, `mcp`, `migration`, `note-export`, `notebook`, `ollama`, `pageindex`, `personality`, `plugins`, `resources`, `runs`, `storage`, `studio`, `sync`, `system`, `tags`, `updater`, `web`, `whatsapp`, `window`.
+IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`, `calendar`, `chat`, `cloud-storage`, `database`, `dome-auth`, `files`, `flashcards`, `graph`, `images`, `interactions`, `links`, `marketplace`, `mcp`, `migration`, `notebook`, `ollama`, `pageindex`, `personality`, `plugins`, `resources`, `runs`, `storage`, `studio`, `sync`, `system`, `tags`, `updater`, `web`, `whatsapp`, `window`.
 
 ### Database Architecture
 

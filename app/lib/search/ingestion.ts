@@ -23,7 +23,7 @@ export async function ingestResource(
   _options: Record<string, unknown> = {}
 ): Promise<IngestionResult> {
   try {
-    if (!['pdf', 'note', 'document', 'url', 'notebook'].includes(metadata.type)) {
+    if (!['pdf', 'document', 'url', 'notebook'].includes(metadata.type)) {
       return { success: true, chunksProcessed: 0 };
     }
 

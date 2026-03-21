@@ -35,14 +35,14 @@ const ResourceCreateSchema = Type.Object({
   type: Type.Optional(
     Type.String({
       description:
-        "Resource type: 'note' | 'notebook' | 'url' | 'folder'. " +
-        "note: text/HTML content. notebook: Python cells. url: metadata.url required. folder: title only. Default: 'note'.",
+        "Resource type: 'notebook' | 'url' | 'folder'. " +
+        "notebook: Python cells. url: metadata.url required. folder: title only. Default: 'folder'.",
     }),
   ),
   content: Type.Optional(
     Type.String({
       description:
-        'Content: for note = text or HTML. For notebook = JSON string of NotebookContent, or omit and use cells instead.',
+        'Content: for url = text/HTML. For notebook = JSON string of NotebookContent, or omit and use cells instead.',
     }),
   ),
   cells: Type.Optional(
@@ -117,7 +117,7 @@ const ResourceDeleteSchema = Type.Object({
 
 const ResourceMoveToFolderSchema = Type.Object({
   resource_id: Type.String({
-    description: 'The ID of the resource (note, document, pdf, etc.) to move.',
+    description: 'The ID of the resource (document, pdf, etc.) to move.',
   }),
   folder_id: Type.Union([
     Type.String({ description: 'Target folder ID to move the resource into.' }),
@@ -185,7 +185,7 @@ export function createResourceCreateTool(): AnyAgentTool {
   return {
     label: 'Crear Recurso',
     name: 'resource_create',
-    description: 'Create resource. Types: note, notebook, url, folder. Use folder_id to place in folder.',
+    description: 'Create resource. Types: notebook, url, folder. Use folder_id to place in folder.',
     parameters: ResourceCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -198,7 +198,7 @@ export function createResourceCreateTool(): AnyAgentTool {
 
         const params = args as Record<string, unknown>;
         const title = readStringParam(params, 'title', { required: true });
-        const type = (readStringParam(params, 'type') || 'note').toLowerCase();
+        const type = (readStringParam(params, 'type') || 'folder').toLowerCase();
         let content = readStringParam(params, 'content');
         const cells = params.cells as Array<{ cell_type: string; source: string }> | undefined;
         const metadata = params.metadata as Record<string, unknown> | undefined;
@@ -209,9 +209,9 @@ export function createResourceCreateTool(): AnyAgentTool {
           return jsonResult({ status: 'error', error: 'Title is required.' });
         }
 
-        const validTypes = ['note', 'notebook', 'url', 'folder'];
-        // Redirect legacy 'document' type to 'note'
-        const normalizedType = type === 'document' ? 'note' : type;
+        const validTypes = ['notebook', 'url', 'folder'];
+        // Redirect legacy 'document' type to 'url'
+        const normalizedType = type === 'document' ? 'url' : type;
         if (!validTypes.includes(normalizedType)) {
           return jsonResult({
             status: 'error',

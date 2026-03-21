@@ -16,7 +16,7 @@ import { jsonResult, readStringParam, readNumberParam } from './common';
 
 const DEFAULT_INTERACTION_LIMIT = 50;
 const MAX_INTERACTION_LIMIT = 200;
-const INTERACTION_TYPES = ['note', 'annotation', 'chat'] as const;
+const INTERACTION_TYPES = ['annotation', 'chat'] as const;
 type InteractionType = typeof INTERACTION_TYPES[number];
 
 // =============================================================================
@@ -39,7 +39,7 @@ const InteractionListSchema = Type.Object({
   }),
   type: Type.Optional(
     Type.String({
-      description: "Filter by interaction type: 'note', 'annotation', or 'chat'.",
+      description: "Filter by interaction type: 'annotation' or 'chat'.",
     }),
   ),
   limit: Type.Optional(
@@ -209,13 +209,13 @@ export function createProjectGetTool(): AnyAgentTool {
 }
 
 /**
- * Create a tool to list interactions (notes, annotations, chat) for a resource.
+ * Create a tool to list interactions (annotations, chat) for a resource.
  */
 export function createInteractionListTool(): AnyAgentTool {
   return {
     label: 'Listar Interacciones',
     name: 'interaction_list',
-    description: 'List notes, annotations, and chat for a resource.',
+    description: 'List annotations and chat for a resource.',
     parameters: InteractionListSchema,
     execute: async (_toolCallId, args) => {
       try {

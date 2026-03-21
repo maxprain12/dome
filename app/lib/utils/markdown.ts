@@ -4,7 +4,7 @@ import TurndownService from 'turndown';
 marked.setOptions({ gfm: true, breaks: true });
 
 /**
- * Heuristically detect if the string looks like HTML (legacy note format).
+ * Heuristically detect if the string looks like HTML.
  */
 export function looksLikeHtml(text: string): boolean {
   if (!text || typeof text !== 'string') return false;

@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect, useMemo, useTransition } from 'react';
 import { generateId } from '@/lib/utils';
 
-export type InteractionType = 'note' | 'annotation' | 'chat';
+export type InteractionType = 'annotation' | 'chat';
 
 export interface Interaction {
   id: string;
@@ -22,7 +22,6 @@ export interface ParsedInteraction extends Omit<Interaction, 'position_data' | '
 
 interface UseInteractionsResult {
   interactions: ParsedInteraction[];
-  notes: ParsedInteraction[];
   annotations: ParsedInteraction[];
   chatMessages: ParsedInteraction[];
   isLoading: boolean;
@@ -268,10 +267,6 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
   }, [resourceId, interactions]);
 
   // Filter by type (memoized to avoid new array references on every render)
-  const notes = useMemo(
-    () => interactions.filter((i) => i.type === 'note'),
-    [interactions]
-  );
   const annotations = useMemo(
     () => interactions.filter((i) => i.type === 'annotation'),
     [interactions]
@@ -283,7 +278,6 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
 
   return {
     interactions,
-    notes,
     annotations,
     chatMessages,
     isLoading,

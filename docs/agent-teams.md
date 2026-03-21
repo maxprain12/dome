@@ -128,7 +128,7 @@ El chat de Agent Teams es similar al de Many pero con indicadores de qué agente
 const { sessionId } = await window.electron.invoke('agent-team:chat', {
   teamId: 'my-team',
   message: 'Investiga X y escribe un artículo',
-  context: { pathname: '/workspace/note/123', resourceTitle: 'Mi nota' },
+  context: { pathname: '/workspace/docx/123', resourceTitle: 'Mi documento' },
 });
 
 // Escuchar chunks

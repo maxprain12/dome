@@ -20,7 +20,7 @@ const DEFAULT_LIST_LIMIT = 20;
 const MAX_LIST_LIMIT = 100;
 const DEFAULT_MAX_CONTENT_LENGTH = 10000;
 
-const RESOURCE_TYPES = ['note', 'notebook', 'pdf', 'video', 'audio', 'image', 'url', 'folder', 'excel'] as const;
+const RESOURCE_TYPES = ['notebook', 'pdf', 'video', 'audio', 'image', 'url', 'folder', 'excel'] as const;
 type ResourceType = typeof RESOURCE_TYPES[number];
 
 // =============================================================================
@@ -38,7 +38,7 @@ const ResourceSearchSchema = Type.Object({
   ),
   type: Type.Optional(
     Type.String({
-      description: 'Filter by resource type: note, pdf, video, audio, image, url, folder.',
+      description: 'Filter by resource type: pdf, video, audio, image, url, folder.',
     }),
   ),
   limit: Type.Optional(
@@ -79,7 +79,7 @@ const ResourceListSchema = Type.Object({
   ),
   type: Type.Optional(
     Type.String({
-      description: 'Filter by resource type: note, pdf, video, audio, image, url, folder.',
+      description: 'Filter by resource type: pdf, video, audio, image, url, folder.',
     }),
   ),
   limit: Type.Optional(
@@ -98,7 +98,7 @@ const ResourceListSchema = Type.Object({
 
 const ResourceGetSectionSchema = Type.Object({
   resource_id: Type.String({
-    description: 'The ID of the resource (indexed PDF or note).',
+    description: 'The ID of the resource (indexed PDF).',
   }),
   node_id: Type.String({
     description: 'PageIndex node_id (e.g. "0004") from structure or search results.',
@@ -315,7 +315,7 @@ export function createResourceGetSectionTool(): AnyAgentTool {
   return {
     label: 'Obtener Sección',
     name: 'resource_get_section',
-    description: 'Get the content (summary) of a specific section of an indexed PDF or note by node_id. Use after get_document_structure or resource_semantic_search.',
+    description: 'Get the content (summary) of a specific section of an indexed PDF by node_id. Use after get_document_structure or resource_semantic_search.',
     parameters: ResourceGetSectionSchema,
     execute: async (_toolCallId, args) => {
       try {

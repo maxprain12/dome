@@ -152,7 +152,6 @@ export default function WorkspaceHeader({
       case 'video': return <Video {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
       case 'audio': return <Music {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
       case 'image': return <Image {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
-      case 'note': return <FileEdit {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
       case 'notebook': return <Notebook {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
       case 'document': return <File {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
       case 'ppt': return <Presentation {...iconProps} style={{ color: 'var(--dome-text-muted)' }} />;
@@ -410,7 +409,7 @@ export default function WorkspaceHeader({
                 {t('viewer.resource_info')}
               </button>
 
-              {((resource.type === 'note' && (onExportPdf || onExportDocx || onExport)) || (resource.type === 'document' && onExportDocx) || (resource.type === 'ppt' && onExportDocx)) ? (
+              {((resource.type === 'document' && onExportDocx) || (resource.type === 'ppt' && onExportDocx)) ? (
                 <>
                   <div
                     style={{
@@ -419,88 +418,6 @@ export default function WorkspaceHeader({
                       margin: '4px 0',
                     }}
                   />
-                  {resource.type === 'note' && onExport && (
-                    <button
-                      onClick={() => {
-                        setMenuOpen(false);
-                        onExport();
-                      }}
-                      className="dropdown-item"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        padding: '10px 12px',
-                        borderRadius: '6px',
-                        fontSize: '13px',
-                        fontWeight: 500,
-                        color: 'var(--dome-text)',
-                        width: '100%',
-                        border: 'none',
-                        textAlign: 'left',
-                      }}
-                      role="menuitem"
-                    >
-                      <FileDown size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                      Export
-                    </button>
-                  )}
-                  {resource.type === 'note' && (onExportPdf || onExportDocx) && (
-                    <>
-                      {onExportPdf && (
-                        <button
-                          onClick={async () => {
-                            setMenuOpen(false);
-                            await onExportPdf();
-                          }}
-                          className="dropdown-item"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            padding: '10px 12px',
-                            borderRadius: '6px',
-                            fontSize: '13px',
-                            fontWeight: 500,
-                            color: 'var(--dome-text)',
-                            width: '100%',
-                            border: 'none',
-                            textAlign: 'left',
-                          }}
-                          role="menuitem"
-                        >
-                          <FileDown size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                          Exportar a PDF
-                        </button>
-                      )}
-                      {onExportDocx && (
-                        <button
-                          onClick={async () => {
-                            setMenuOpen(false);
-                            await onExportDocx();
-                          }}
-                          className="dropdown-item"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            padding: '10px 12px',
-                            borderRadius: '6px',
-                            fontSize: '13px',
-                            fontWeight: 500,
-                            color: 'var(--dome-text)',
-                            width: '100%',
-                            border: 'none',
-                            textAlign: 'left',
-                          }}
-                          role="menuitem"
-                        >
-                          <FileDown size={16} style={{ color: 'var(--dome-text-muted)' }} />
-                          Exportar a DOCX
-                        </button>
-                      )}
-                    </>
-                  )}
                   {resource.type === 'document' && onExportDocx && (
                     <button
                       onClick={async () => {

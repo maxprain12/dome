@@ -6,7 +6,6 @@ import { useManyStore } from '@/lib/store/useManyStore';
 
 // Lazy-load heavy workspace components
 const WorkspaceClient = lazy(() => import('@/workspace/[[...params]]/client'));
-const NoteWorkspaceClient = lazy(() => import('@/workspace/note/[[...params]]/client'));
 const NotebookWorkspaceClient = lazy(() => import('@/workspace/notebook/[[...params]]/client'));
 const URLWorkspaceClient = lazy(() => import('@/workspace/url/client'));
 const YouTubeWorkspaceClient = lazy(() => import('@/workspace/youtube/client'));
@@ -59,16 +58,6 @@ function TabContent({ tab }: { tab: DomeTab }) {
       return (
         <Suspense fallback={<Loading />}>
           <HomePage />
-        </Suspense>
-      );
-
-    case 'note':
-      if (!tab.resourceId) return <NoResource />;
-      return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-hidden">
-            <NoteWorkspaceClient resourceId={tab.resourceId} />
-          </div>
         </Suspense>
       );
 
@@ -202,6 +191,16 @@ function TabContent({ tab }: { tab: DomeTab }) {
   }
 }
 
+/**
+ * Tab types that keep their component mounted even when not active (hidden behind CSS).
+ * These tabs have expensive stateful UI (chat streams, live feeds) that must survive
+ * switching away. All other tabs ("content tabs") are unmounted when inactive and
+ * remounted fresh on activation — exactly like DenchClaw's workspace model.
+ */
+const PERSISTENT_TAB_TYPES = new Set([
+  'home', 'chat', 'learn', 'tags', 'marketplace', 'agents', 'settings', 'calendar',
+]);
+
 export default function ContentRouter() {
   const { tabs, activeTabId } = useTabStore();
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -213,19 +212,22 @@ export default function ContentRouter() {
       className="flex flex-col flex-1 min-h-0 overflow-hidden"
       style={{ background: 'var(--dome-surface)' }}
     >
-      {tabs.map((tab) => (
-        <div
-          key={tab.id}
-          className={
-            tab.id === activeTabId
-              ? 'flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden'
-              : 'hidden'
-          }
-          aria-hidden={tab.id !== activeTabId}
-        >
-          <TabContent tab={tab} />
-        </div>
-      ))}
+      {tabs.map((tab) => {
+        const isActive = tab.id === activeTabId;
+        const isPersistent = PERSISTENT_TAB_TYPES.has(tab.type);
+        return (
+          <div
+            key={tab.id}
+            className={isActive ? 'flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden' : 'hidden'}
+            aria-hidden={!isActive}
+          >
+            {/* Content tabs (notes, files, folders) unmount when inactive so every
+                activation gets a fresh load from the DB — the DenchClaw pattern.
+                Persistent tabs (chat, home, …) stay mounted to preserve streaming state. */}
+            {(isActive || isPersistent) && <TabContent tab={tab} />}
+          </div>
+        );
+      })}
     </div>
   );
 }

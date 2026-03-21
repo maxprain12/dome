@@ -310,7 +310,6 @@ function AutomationEditDrawer({
             style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
           >
             <option value="chat_only">{t('automation.output_chat_only')}</option>
-            <option value="note">{t('automation.note')}</option>
             <option value="studio_output">{t('automation.studio')}</option>
             <option value="mixed">{t('automation.mixed')}</option>
           </select>

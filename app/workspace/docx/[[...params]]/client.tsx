@@ -12,7 +12,6 @@ import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import MetadataModal from '@/components/workspace/MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { looksLikeHtml, htmlToMarkdown } from '@/lib/utils/markdown';
-import { contentToHtmlBody } from '@/lib/utils/note-to-html';
 import { type Resource } from '@/types';
 
 /**

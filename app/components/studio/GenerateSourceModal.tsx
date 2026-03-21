@@ -21,8 +21,6 @@ import { type Resource } from '@/types';
 function getTypeIcon(type: string, size = 14) {
   const props = { size, className: 'shrink-0' };
   switch (type) {
-    case 'note':
-      return <FileText {...props} />;
     case 'pdf':
       return <File {...props} />;
     case 'video':

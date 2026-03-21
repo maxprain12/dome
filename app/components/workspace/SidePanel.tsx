@@ -299,7 +299,7 @@ function ReferencesTab({ resourceId }: { resourceId: string }) {
                 type="button"
                 className="flex-1 text-left min-w-0 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 rounded"
                 onClick={() => {
-                  window.electron.workspace.open(link.target_id, link.target_type || link.type || 'note');
+                  window.electron.workspace.open(link.target_id, link.target_type || link.type);
                 }}
                 aria-label={`Open ${link.target_title || 'Untitled'}`}
               >
@@ -387,7 +387,7 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
               className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-[var(--bg-hover)] w-full text-left focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
               onClick={() => {
-                window.electron.workspace.open(link.source_id, link.source_type || 'note');
+                window.electron.workspace.open(link.source_id, link.source_type);
               }}
               aria-label={`Open ${link.source_title || 'Untitled'}`}
             >

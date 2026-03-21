@@ -202,7 +202,7 @@ export default function Home() {
     }
 
     // Open resource as a tab in the same window
-    openResourceTab(resource.id, resource.type || 'note', resource.title || 'Resource');
+    openResourceTab(resource.id, resource.type, resource.title || 'Resource');
   }, [isSearchMode, openResourceTab]);
 
   const handleResourceClick = useCallback(
@@ -238,23 +238,6 @@ export default function Home() {
     },
     [resourcesToShow, handleResourceSelect]
   );
-
-  const handleCreateNote = useCallback(async () => {
-    try {
-      const resource = await createResource({
-        type: 'note',
-        title: t('workspace.untitled_note'),
-        project_id: resolvedProjectId,
-        content: '',
-        folder_id: currentFolderId,
-      });
-      if (resource?.id) {
-        openResourceTab(resource.id, 'note', resource.title ?? t('workspace.untitled_note'));
-      }
-    } catch (err) {
-      console.error('Failed to create note:', err);
-    }
-  }, [createResource, currentFolderId, resolvedProjectId, openResourceTab]);
 
   const handleCreateNotebook = useCallback(async () => {
     try {
@@ -578,7 +561,6 @@ export default function Home() {
               breadcrumbPath={breadcrumbPath}
               onNavigateToRoot={handleNavigateToRoot}
               onNavigateToFolder={handleNavigateToFolder}
-              onCreateNote={handleCreateNote}
               onCreateNotebook={handleCreateNotebook}
               onImportFiles={handleImportFiles}
               onAddUrl={() => {
@@ -593,7 +575,6 @@ export default function Home() {
           <div className="mb-10">
             <CommandCenter
               onResourceSelect={handleResourceSelect}
-              onCreateNote={handleCreateNote}
               onCreateNotebook={handleCreateNotebook}
               onUpload={handleUpload}
               onImportFiles={handleImportFiles}

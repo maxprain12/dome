@@ -88,7 +88,6 @@ export default memo(function ResourceCard({
     }
 
     switch (resource.type) {
-      case 'note': return <FileText className="w-5 h-5" strokeWidth={1.5} />;
       case 'notebook': return <Notebook className="w-5 h-5" strokeWidth={1.5} />;
       case 'pdf': return <File className="w-5 h-5" strokeWidth={1.5} />;
       case 'video': return <Video className="w-5 h-5" strokeWidth={1.5} />;
@@ -112,7 +111,6 @@ export default memo(function ResourceCard({
       }
     }
     switch (resource.type) {
-      case 'note': return 'var(--accent)';
       case 'notebook': return 'var(--success)';
       case 'ppt': return '#D24726';
       case 'image': return 'var(--brand-accent)';

@@ -131,7 +131,7 @@ const AutomationCreateSchema = Type.Object({
   })),
   schedule: ScheduleSchema,
   outputMode: Type.Optional(Type.String({
-    description: 'Output mode: "chat_only" | "note" | "studio_output" | "mixed". Default: chat_only.',
+    description: 'Output mode: "chat_only" | "studio_output" | "mixed". Default: chat_only.',
   })),
   enabled: Type.Optional(Type.Boolean({
     description: 'Whether the automation is active immediately. Default: true.',
@@ -155,7 +155,7 @@ export function createAutomationCreateTool(): AnyAgentTool {
         const targetId = readStringParam(params, 'targetId', { required: true });
         const triggerType = (readStringParam(params, 'triggerType') ?? 'manual') as 'manual' | 'schedule' | 'contextual';
         const prompt = readStringParam(params, 'prompt') ?? '';
-        const outputMode = (readStringParam(params, 'outputMode') ?? 'chat_only') as 'chat_only' | 'note' | 'studio_output' | 'mixed';
+        const outputMode = (readStringParam(params, 'outputMode') ?? 'chat_only') as 'chat_only' | 'studio_output' | 'mixed';
         const enabled = typeof params.enabled === 'boolean' ? params.enabled : true;
 
         let schedule: { cadence?: string; hour?: number; weekday?: number | null; intervalMinutes?: number | null } | null = null;

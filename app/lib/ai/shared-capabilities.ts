@@ -60,9 +60,6 @@ export function getUiLocationDescription(pathname: string, homeSidebarSection?: 
   if (pathname === '/calendar') {
     return { location: 'Calendar', description: 'viewing or managing calendar events' };
   }
-  if (pathname.startsWith('/workspace/note/')) {
-    return { location: 'Note Editor', description: 'editing a note' };
-  }
   if (pathname.startsWith('/workspace/notebook')) {
     return { location: 'Notebook Workspace', description: 'editing a notebook with cells and code' };
   }

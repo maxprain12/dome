@@ -31,7 +31,6 @@ function TabIcon({ type }: { type: DomeTab['type'] }) {
     case 'settings': return <Settings className={cls} strokeWidth={sw} />;
     case 'calendar': return <Calendar className={cls} strokeWidth={sw} />;
     case 'chat': return <MessageCircle className={cls} strokeWidth={sw} />;
-    case 'note': return <FileText className={cls} strokeWidth={sw} />;
     case 'notebook': return <BookOpen className={cls} strokeWidth={sw} />;
     case 'url': return <Globe className={cls} strokeWidth={sw} />;
     case 'youtube': return <Youtube className={cls} strokeWidth={sw} />;

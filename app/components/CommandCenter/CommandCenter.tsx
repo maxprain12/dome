@@ -24,7 +24,6 @@ import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 
 interface CommandCenterProps {
     onResourceSelect?: (resource: any) => void;
-    onCreateNote?: () => void;
     onCreateNotebook?: () => void;
     onUpload?: (files: File[]) => void;
     onImportFiles?: (filePaths: string[]) => void;
@@ -87,7 +86,6 @@ const PLACEHOLDER_SUGGESTIONS = [
 
 export function CommandCenter({
     onResourceSelect,
-    onCreateNote,
     onCreateNotebook,
     onUpload,
     onImportFiles,
@@ -411,10 +409,6 @@ export function CommandCenter({
 
     const handleQuickAction = useCallback((action: string) => {
         switch (action) {
-            case 'note':
-                if (onCreateNote) onCreateNote();
-                setIsExpanded(false);
-                break;
             case 'notebook':
                 if (onCreateNotebook) onCreateNotebook();
                 setIsExpanded(false);
@@ -457,7 +451,7 @@ export function CommandCenter({
                 setTimeout(() => inputRef.current?.focus(), 50);
                 break;
         }
-    }, [onCreateNote, onImportFiles]);
+    }, [onImportFiles]);
 
     const handleExitUrlMode = useCallback(() => {
         setUrlMode(false);
@@ -651,15 +645,6 @@ export function CommandCenter({
                                 <div className="quick-actions">
                                     <div className="quick-actions-label">{t('command.clear_search')}</div>
                                     <div className="quick-actions-grid">
-                                        <button
-                                            className="quick-action-btn"
-                                            onClick={() => handleQuickAction('note')}
-                                            title={t('command.new_note')}
-                                            aria-label={t('command.new_note')}
-                                        >
-                                            <FileText size={24} strokeWidth={2} />
-                                            <span className="quick-action-label">{t('command.new_note')}</span>
-                                        </button>
                                         <button
                                             className="quick-action-btn"
                                             onClick={() => handleQuickAction('notebook')}

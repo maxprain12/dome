@@ -2,7 +2,7 @@
 
 export type AutomationTargetType = 'many' | 'agent' | 'workflow';
 export type AutomationTriggerType = 'manual' | 'schedule' | 'contextual';
-export type AutomationOutputMode = 'chat_only' | 'note' | 'studio_output' | 'mixed';
+export type AutomationOutputMode = 'chat_only' | 'studio_output' | 'mixed';
 export type PersistentRunStatus =
   | 'queued'
   | 'running'

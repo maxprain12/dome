@@ -29,7 +29,6 @@ AI Chat is available globally via **MartinFloatingButton** (Many); the SidePanel
 ### Routing
 
 - **Generic**: `app/workspace/[[...params]]/` — client resolves params to resourceId and renders WorkspaceLayout(resourceId).
-- **Note**: `app/workspace/note/[[...params]]/` — note-specific workspace (same layout, resource type note).
 - **URL**: `app/workspace/url/[[...params]]/` — URL resource workspace (same layout, resource type url).
 - Each route has `page.tsx`, `client.tsx`, `wrapper.tsx`; wrapper loads resource and renders WorkspaceLayout or redirects.
 
@@ -78,8 +77,7 @@ Note: AI Chat was removed from SidePanel; use MartinFloatingButton (Many) for ch
 
 ## Functionality
 
-- **Single-resource workspace**: One resourceId per layout; viewer by type (PDF, video, audio, image, URL, note).
-- **Notes**: Create/edit/delete notes (interactions type 'note') for the resource.
+- **Single-resource workspace**: One resourceId per layout; viewer by type (PDF, video, audio, image, URL, document).
 - **Annotations**: List and jump to annotations (with position_data) for the resource.
 - **AI Chat**: Many chat with resource context and optional tools (see ai-chat.md).
 - **Metadata**: View and edit resource fields and metadata in modal.
@@ -95,7 +93,6 @@ Note: AI Chat was removed from SidePanel; use MartinFloatingButton (Many) for ch
 | `app/workspace/[[...params]]/page.tsx` | Route page |
 | `app/workspace/[[...params]]/client.tsx` | Client component; resolves resourceId, renders WorkspaceLayout |
 | `app/workspace/[[...params]]/wrapper.tsx` | Wrapper for loading/redirect |
-| `app/workspace/note/[[...params]]/` | Note workspace route (same pattern) |
 | `app/workspace/url/[[...params]]/` | URL workspace route (same pattern) |
 | `app/components/workspace/WorkspaceLayout.tsx` | Layout: header, viewer, side panel, metadata modal; resource load and resource:updated |
 | `app/components/workspace/WorkspaceHeader.tsx` | Title, back, metadata button, panel toggle |

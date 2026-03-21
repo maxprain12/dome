@@ -70,7 +70,7 @@ interface Project {
 interface Resource {
   id: string;
   project_id: string;
-  type: 'note' | 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook';
+  type: 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook';
   title: string;
   content?: string;
   // Legacy external file path (deprecated)
@@ -129,7 +129,7 @@ interface MigrationResult {
   }>;
 }
 
-type InteractionType = 'note' | 'annotation' | 'chat';
+type InteractionType = 'annotation' | 'chat';
 
 interface ResourceInteraction {
   id: string;
@@ -341,15 +341,6 @@ declare global {
 
       // Database API
       db: {
-        notes: {
-          getByIdOrSlug: (idOrSlug: string) => Promise<DBResponse<import("@/types").Note>>;
-          update: (data: { id: string; title?: string; content_json?: string | null; text_content?: string | null; updated_at?: number; parent_note_id?: string | null; position?: string }) => Promise<DBResponse<import("@/types").Note>>;
-          search: (query: string, projectId: string) => Promise<DBResponse<import("@/types").Note[]>>;
-          getChildren: (noteId: string) => Promise<DBResponse<import("@/types").Note[]>>;
-          getByProject: (projectId: string) => Promise<DBResponse<import("@/types").Note[]>>;
-          delete: (id: string) => Promise<DBResponse<void>>;
-          create: (data: { id?: string; project_id: string; title: string; parent_note_id?: string | null; icon?: string | null; content_json?: string | null; position?: string }) => Promise<DBResponse<import("@/types").Note>>;
-        };
         projects: {
           create: (project: any) => Promise<DBResponse<Project>>;
           getAll: () => Promise<DBResponse<Project[]>>;
@@ -555,22 +546,6 @@ declare global {
         }) => Promise<{ success: boolean; resource?: Resource; error?: string; duplicate?: { id: string; title: string; projectId?: string } }>;
       };
 
-      // Note Export API
-      note: {
-        exportToPdf: (params: { html: string; title?: string }) => Promise<{
-          success?: boolean;
-          path?: string;
-          canceled?: boolean;
-          error?: string;
-        }>;
-        exportToDocx: (params: { html: string; title?: string }) => Promise<{
-          success?: boolean;
-          path?: string;
-          canceled?: boolean;
-          error?: string;
-        }>;
-      };
-
       // Storage Management API
       storage: {
         getUsage: () => Promise<DBResponse<StorageUsage>>;
@@ -582,10 +557,6 @@ declare global {
       migration: {
         migrateResources: () => Promise<DBResponse<MigrationResult>>;
         getStatus: () => Promise<DBResponse<MigrationStatus>>;
-        migrateNotesToDomain: () => Promise<DBResponse<MigrationResult>>;
-        getNotesMigrationStatus: () => Promise<
-          DBResponse<{ pendingMigrations: number; notes: { id: string; title: string }[] }>
-        >;
       };
 
       // Web Scraping API
@@ -925,7 +896,7 @@ declare global {
           interactionList: (
             resourceId: string,
             options?: {
-              type?: 'note' | 'annotation' | 'chat';
+              type?: 'annotation' | 'chat';
               limit?: number;
             }
           ) => Promise<{

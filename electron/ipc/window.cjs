@@ -91,9 +91,7 @@ async function openWorkspaceForResource(resourceId, resourceType, options = {}, 
   }
 
   let route;
-  if (resourceType === 'note') {
-    route = `/workspace/note?id=${resourceId}`;
-  } else if (resourceType === 'url') {
+  if (resourceType === 'url') {
     let metadata = {};
     try {
       metadata = resource.metadata ? JSON.parse(resource.metadata) : {};

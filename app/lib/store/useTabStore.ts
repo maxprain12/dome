@@ -2,7 +2,6 @@ import { create } from 'zustand';
 
 export type TabType =
   | 'home'
-  | 'note'
   | 'notebook'
   | 'resource'
   | 'url'
@@ -177,7 +176,6 @@ export const useTabStore = create<TabStore>((set, get) => {
 
     openResourceTab: (resourceId, resourceType, title) => {
       const typeMap: Record<string, TabType> = {
-        note: 'note',
         notebook: 'notebook',
         url: 'url',
         youtube: 'youtube',

@@ -25,7 +25,6 @@ const flashcardsHandlers = require('./flashcards.cjs');
 const studioHandlers = require('./studio.cjs');
 const audioHandlers = require('./audio.cjs');
 const notebookHandlers = require('./notebook.cjs');
-const noteExportHandlers = require('./note-export.cjs');
 const updaterHandlers = require('./updater.cjs');
 const syncHandlers = require('./sync.cjs');
 const pluginsHandlers = require('./plugins.cjs');
@@ -99,7 +98,6 @@ function registerAll(deps) {
   studioHandlers.register({ ipcMain, windowManager, database, validateSender });
   audioHandlers.register({ ipcMain, windowManager, database, ttsService });
   notebookHandlers.register({ ipcMain, windowManager, notebookPython });
-  noteExportHandlers.register({ ipcMain, windowManager, docxConverter, database, fileStorage });
   updaterHandlers.register({ ipcMain, windowManager, validateSender });
   syncHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender, sanitizePath });
   pluginsHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });

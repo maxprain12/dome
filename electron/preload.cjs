@@ -73,24 +73,6 @@ const ALLOWED_CHANNELS = {
     'db:resources:searchForMention',
     'db:resources:getBacklinks',
     'db:resources:uploadFile',
-    // Database - Notes (Docmost-style)
-    'db:notes:create',
-    'db:notes:getById',
-    'db:notes:getByIdOrSlug',
-    'db:notes:update',
-    'db:notes:remove',
-    'db:notes:restore',
-    'db:notes:getRoot',
-    'db:notes:getByProject',
-    'db:notes:getChildren',
-    'db:notes:getDeleted',
-    'db:notes:search',
-    'db:notes:getBacklinks',
-    'db:notes:getHistory',
-    'db:notes:restoreFromHistory',
-    'db:notes:move',
-    'db:notes:getBreadcrumbs',
-    'db:notes:duplicate',
     // Database - Interactions
     'db:interactions:create',
     'db:interactions:getByResource',
@@ -150,13 +132,6 @@ const ALLOWED_CHANNELS = {
     'resource:writeExcelContent',
     'resource:saveDocxFromHtml',
     'resource:export',
-    'note:exportToPdf',
-    'note:exportToDocx',
-    'note:exportToMarkdown',
-    'note:exportToHtml',
-    'note:getTreeForExport',
-    'note:saveExportZip',
-    'note:createExportZip',
     'resource:delete',
     'resource:regenerateThumbnail',
     'resource:setThumbnail',
@@ -180,8 +155,6 @@ const ALLOWED_CHANNELS = {
     // Migration
     'migration:migrateResources',
     'migration:getStatus',
-    'migration:migrateNotesToDomain',
-    'migration:getNotesMigrationStatus',
     // Web scraping
     'web:scrape',
     'web:get-youtube-thumbnail',
@@ -775,29 +748,6 @@ const electronHandler = {
         ipcRenderer.invoke('db:resources:uploadFile', { filePath, projectId, type, title }),
     },
 
-    // Notes (Docmost-style domain)
-    notes: {
-      create: (note) => ipcRenderer.invoke('db:notes:create', note),
-      getById: (id) => ipcRenderer.invoke('db:notes:getById', id),
-      getByIdOrSlug: (idOrSlug) => ipcRenderer.invoke('db:notes:getByIdOrSlug', idOrSlug),
-      update: (note) => ipcRenderer.invoke('db:notes:update', note),
-      remove: (noteId) => ipcRenderer.invoke('db:notes:remove', noteId),
-      restore: (noteId) => ipcRenderer.invoke('db:notes:restore', noteId),
-      getRoot: (projectId) => ipcRenderer.invoke('db:notes:getRoot', projectId),
-      getByProject: (projectId) => ipcRenderer.invoke('db:notes:getByProject', projectId),
-      getChildren: (parentNoteId) => ipcRenderer.invoke('db:notes:getChildren', parentNoteId),
-      getDeleted: (projectId) => ipcRenderer.invoke('db:notes:getDeleted', projectId),
-      search: (query, projectId) => ipcRenderer.invoke('db:notes:search', { query, projectId }),
-      getBacklinks: (noteId) => ipcRenderer.invoke('db:notes:getBacklinks', noteId),
-      getHistory: (noteId, limit) => ipcRenderer.invoke('db:notes:getHistory', noteId, limit),
-      restoreFromHistory: (historyId) => ipcRenderer.invoke('db:notes:restoreFromHistory', historyId),
-      move: (noteId, parentNoteId, index) =>
-        ipcRenderer.invoke('db:notes:move', { noteId, parentNoteId, index }),
-      getBreadcrumbs: (noteId) => ipcRenderer.invoke('db:notes:getBreadcrumbs', noteId),
-      duplicate: (noteId, projectId, parentNoteId) =>
-        ipcRenderer.invoke('db:notes:duplicate', { noteId, projectId, parentNoteId }),
-    },
-
     // Resource Interactions (notes, annotations, chat)
     interactions: {
       create: (interaction) => ipcRenderer.invoke('db:interactions:create', interaction),
@@ -1045,19 +995,6 @@ const electronHandler = {
   },
 
   // ============================================
-  // NOTE EXPORT API
-  // ============================================
-  note: {
-    exportToPdf: (params) => ipcRenderer.invoke('note:exportToPdf', params),
-    exportToDocx: (params) => ipcRenderer.invoke('note:exportToDocx', params),
-    exportToMarkdown: (params) => ipcRenderer.invoke('note:exportToMarkdown', params),
-    exportToHtml: (params) => ipcRenderer.invoke('note:exportToHtml', params),
-    getTreeForExport: (params) => ipcRenderer.invoke('note:getTreeForExport', params),
-    saveExportZip: (params) => ipcRenderer.invoke('note:saveExportZip', params),
-    createExportZip: (params) => ipcRenderer.invoke('note:createExportZip', params),
-  },
-
-  // ============================================
   // STORAGE MANAGEMENT API
   // ============================================
   storage: {
@@ -1114,12 +1051,6 @@ const electronHandler = {
 
     // Get migration status (legacy file paths)
     getStatus: () => ipcRenderer.invoke('migration:getStatus'),
-
-    // Migrate legacy notes (resources type=note) to notes domain
-    migrateNotesToDomain: () => ipcRenderer.invoke('migration:migrateNotesToDomain'),
-
-    // Get notes migration status
-    getNotesMigrationStatus: () => ipcRenderer.invoke('migration:getNotesMigrationStatus'),
   },
 
   // ============================================

@@ -1,14 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, CalendarDays, FolderOpen, Layers3, Plus, Sparkles, WalletCards, MessageCircle } from 'lucide-react';
+import { ArrowRight, CalendarDays, Layers3, Plus, Sparkles, WalletCards, MessageCircle } from 'lucide-react';
 import { db, type Project, type Resource } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTranslation } from 'react-i18next';
 
 type DashboardStats = {
   resourceCount: number;
-  noteCount: number;
   studioCount: number;
   dueFlashcards: number;
   upcomingEvents: number;
@@ -23,7 +22,6 @@ type ProjectsDashboardProps = {
 
 const EMPTY_STATS: DashboardStats = {
   resourceCount: 0,
-  noteCount: 0,
   studioCount: 0,
   dueFlashcards: 0,
   upcomingEvents: 0,
@@ -105,7 +103,6 @@ export default function ProjectsDashboard({
 
       setStats({
         resourceCount: scopedResources.length,
-        noteCount: scopedResources.filter((resource: Resource) => resource.type === 'note').length,
         studioCount,
         dueFlashcards,
         upcomingEvents,
@@ -150,7 +147,6 @@ export default function ProjectsDashboard({
     return {
       ...stats,
       resourceCount: projectResources.length,
-      noteCount: projectResources.filter((resource) => resource.type === 'note').length,
     };
   }, [currentProject, resources, stats]);
 
@@ -183,7 +179,6 @@ export default function ProjectsDashboard({
 
   const cards = [
     { label: t('projects.resources'), value: selectedProjectStats.resourceCount, icon: Layers3 },
-    { label: t('projects.notes'), value: selectedProjectStats.noteCount, icon: FolderOpen },
     { label: t('projects.studio'), value: selectedProjectStats.studioCount, icon: Sparkles },
     { label: t('projects.flashcards'), value: selectedProjectStats.dueFlashcards, icon: WalletCards },
     { label: t('projects.agenda_7d'), value: selectedProjectStats.upcomingEvents, icon: CalendarDays },

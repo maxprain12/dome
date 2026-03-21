@@ -152,6 +152,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const pendingApprovalRef = useRef<HTMLDivElement>(null);
   const hitlDecisionsRef = useRef<Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }> | null>(null);
   const isSubmittingRef = useRef(false);
+  // Ref so the onRunUpdated listener always calls the latest refreshSessionFromDb
+  // without re-registering the listener every time currentSession changes.
+  const refreshSessionFromDbRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
   const currentSession = useMemo(
     () => sessions.find((session) => session.id === currentSessionId) ?? null,
     [sessions, currentSessionId],
@@ -253,13 +256,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     };
   }, [currentSessionId, currentSession, hydrateSession]);
 
-  const refreshSessionFromDb = useCallback(async () => {
+  const refreshSessionFromDb = useCallback(async (): Promise<boolean> => {
     if (!currentSessionId || !db.isAvailable()) {
-      return;
+      return false;
     }
     const result = await db.getChatSession(currentSessionId);
     if (!result.success || !result.data) {
-      return;
+      return false;
     }
     hydrateSession({
       id: currentSessionId,
@@ -274,7 +277,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       })),
       createdAt: currentSession?.createdAt ?? result.data.messages[0]?.created_at ?? Date.now(),
     } satisfies ManyChatSession);
+    return true;
   }, [currentSession, currentSessionId, hydrateSession]);
+  refreshSessionFromDbRef.current = refreshSessionFromDb;
 
   const applyRunSnapshot = useCallback((run: PersistentRun | null) => {
     if (!run) {
@@ -350,13 +355,42 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       if (run.id !== activeRunId) {
         return;
       }
-      applyRunSnapshot(run);
       if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+        // Clear non-message state immediately
         setActiveRunId(null);
-        void refreshSessionFromDb();
+        setIsLoading(false);
+        setStatus('idle');
+        setPendingApproval(null);
+        // Keep the assistant response visible until DB messages are loaded.
+        // If streamingMessage is null (e.g. cleared by a re-mount), reconstruct
+        // it from the run data so the conversation never appears blank.
+        setStreamingMessage((prev) => {
+          if (prev) return { ...prev, isStreaming: false };
+          const toolCalls = Array.isArray(run.metadata?.toolCalls)
+            ? (run.metadata.toolCalls as ToolCallData[])
+            : [];
+          if (!run.outputText && toolCalls.length === 0) return null;
+          return {
+            id: `run-${run.id}`,
+            role: 'assistant',
+            content: run.outputText || '',
+            timestamp: run.updatedAt || Date.now(),
+            isStreaming: false,
+            toolCalls,
+          };
+        });
+        // Use ref so this listener is not re-registered every time currentSession
+        // changes (which would create a window where the event could be missed).
+        void refreshSessionFromDbRef.current().then((hydrated) => {
+          if (hydrated) setStreamingMessage(null);
+        }).catch(() => {
+          setStreamingMessage(null);
+        });
         if (run.status === 'completed') {
           window.dispatchEvent(new Event('dome:resources-changed'));
         }
+      } else {
+        applyRunSnapshot(run);
       }
     });
     const unsubChunk = onRunChunk((payload) => {
@@ -370,7 +404,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             : {
                 id: `run-${payload.runId}`,
                 role: 'assistant',
-                content: payload.text,
+                content: payload.text ?? '',
                 timestamp: Date.now(),
                 isStreaming: true,
                 toolCalls: [],
@@ -380,30 +414,29 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       } else if (payload.type === 'thinking' && payload.text) {
         setStreamingMessage((prev) => (prev ? { ...prev, thinking: `${prev.thinking || ''}${payload.text}` } : prev));
       } else if (payload.type === 'tool_call' && payload.toolCall) {
+        const tc = payload.toolCall;
         const args = (() => {
           try {
-            return typeof payload.toolCall?.arguments === 'string'
-              ? JSON.parse(payload.toolCall.arguments)
-              : {};
+            return typeof tc.arguments === 'string' ? JSON.parse(tc.arguments) : {};
           } catch {
             return {};
           }
         })();
         setStreamingMessage((prev) => {
-          const nextToolCalls = [
+          const nextToolCalls: ToolCallData[] = [
             ...(prev?.toolCalls || []),
             {
-              id: payload.toolCall.id,
-              name: payload.toolCall.name,
+              id: tc.id,
+              name: tc.name,
               arguments: args,
-              status: 'running',
+              status: 'running' as const,
             },
           ];
           return prev
             ? {
                 ...prev,
                 toolCalls: nextToolCalls,
-                streamingLabel: `${STREAMING_LABELS[payload.toolCall.name || ''] || payload.toolCall.name || 'Herramienta'}...`,
+                streamingLabel: `${STREAMING_LABELS[tc.name || ''] || tc.name || 'Herramienta'}...`,
               }
             : {
                 id: `run-${payload.runId}`,
@@ -412,7 +445,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                 timestamp: Date.now(),
                 isStreaming: true,
                 toolCalls: nextToolCalls,
-                streamingLabel: `${payload.toolCall.name}...`,
+                streamingLabel: `${tc.name}...`,
               };
         });
       } else if (payload.type === 'tool_result' && payload.toolCallId) {
@@ -442,7 +475,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       unsubUpdated();
       unsubChunk();
     };
-  }, [activeRunId, applyRunSnapshot, refreshSessionFromDb]);
+  }, [activeRunId, applyRunSnapshot]);
 
   const setMcpEnabled = useCallback(async (value: boolean) => {
     setMcpEnabledState(value);
@@ -869,27 +902,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     if (abortController) abortController.abort();
   }, [abortController, activeRunId]);
 
-  const handleSaveAsNote = useCallback(async (content: string) => {
-    try {
-      const firstLine = content.split('\n')[0]?.trim().slice(0, 80) || t('toast.chat_note_default_title');
-      const title = firstLine.replace(/^#+\s*/, '');
-      const result = await db.createResource({
-        project_id: 'default',
-        type: 'note',
-        title: title || t('toast.chat_note_default_title'),
-        content,
-      });
-      if (result.success && result.data) {
-        window.dispatchEvent(new Event('dome:resources-changed'));
-        window.electron?.workspace?.open?.(result.data.id, 'note');
-        showToast('success', t('toast.saved_as_note'));
-      }
-    } catch (err) {
-      console.error('Save as note error:', err);
-      showToast('error', t('toast.save_note_error'));
-    }
-  }, []);
-
   const handleRegenerate = useCallback(
     async (messageId: string) => {
       const messageIndex = messages.findIndex((m) => m.id === messageId);
@@ -920,7 +932,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           content: m.content,
           timestamp: m.timestamp,
           toolCalls,
-          citationMap: buildCitationMap(toolCalls),
+          citationMap: buildCitationMap(toolCalls as Array<{ name: string; result: any }> | undefined),
           thinking: m.thinking,
         };
       }),
@@ -929,7 +941,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
   const messageGroups = useMemo(() => {
     const liveStreamingMessage = streamingMessage
-      ? { ...streamingMessage, citationMap: buildCitationMap(streamingMessage.toolCalls) }
+      ? { ...streamingMessage, citationMap: buildCitationMap(streamingMessage.toolCalls as Array<{ name: string; result: any }> | undefined) }
       : null;
     const all = liveStreamingMessage ? [...chatMessages, liveStreamingMessage] : chatMessages;
     return groupMessagesByRole(all);
@@ -1126,7 +1138,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                   className="many-message-group"
                   messages={group}
                   onRegenerate={handleRegenerate}
-                  onSaveAsNote={handleSaveAsNote}
                 />
               ))}
               {isLoading && !streamingMessage ? (

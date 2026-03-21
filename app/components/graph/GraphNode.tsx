@@ -29,7 +29,6 @@ function getNodeStyle(nodeType: GraphNodeData['type'], resourceType?: string): N
         return { color: '#6366f1', bg: '#eef2ff' };
       case 'folder':
         return { color: '#f59e0b', bg: '#fffbeb' };
-      case 'note':
       default:
         if (nodeType === 'study_material') return { color: '#059669', bg: '#f0fdf4' };
         return { color: '#7b76d0', bg: '#f5f3ff' };

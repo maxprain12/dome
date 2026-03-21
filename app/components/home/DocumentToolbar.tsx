@@ -17,7 +17,6 @@ interface DocumentToolbarProps {
   breadcrumbPath: Resource[];
   onNavigateToRoot: () => void;
   onNavigateToFolder: (folderId: string) => void;
-  onCreateNote: () => void;
   onCreateNotebook: () => void;
   onImportFiles: (filePaths: string[]) => void;
   onAddUrl: () => void;
@@ -30,7 +29,6 @@ export default function DocumentToolbar({
   breadcrumbPath,
   onNavigateToRoot,
   onNavigateToFolder,
-  onCreateNote,
   onCreateNotebook,
   onImportFiles,
   onAddUrl,
@@ -107,8 +105,6 @@ export default function DocumentToolbar({
 
       {/* Quick actions */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <ToolbarButton onClick={onCreateNote} icon={<FileText size={16} />} label={t('toolbar.note')} variant="primary" />
-        <div className="h-4 w-px bg-[var(--dome-border)] mx-1" />
         <ToolbarButton onClick={onCreateNotebook} icon={<Notebook size={16} />} label={t('toolbar.notebook')} />
         <ToolbarButton onClick={handleUploadClick} icon={<Upload size={16} />} label={t('toolbar.import')} />
         <ToolbarButton onClick={handleAddUrlClick} icon={<Link2 size={16} />} label={t('toolbar.link')} />

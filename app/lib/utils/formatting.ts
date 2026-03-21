@@ -220,7 +220,6 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 /** User-friendly label for resource type (e.g. ppt -> Slides) */
 export function getResourceTypeLabel(type: string): string {
   const labels: Record<string, string> = {
-    note: 'Note',
     pdf: 'PDF',
     video: 'Video',
     audio: 'Audio',

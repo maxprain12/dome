@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
-  note: <StickyNote size={12} />,
   notebook: <Notebook size={12} />,
   pdf: <FileText size={12} />,
   document: <File size={12} />,

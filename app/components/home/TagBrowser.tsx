@@ -92,7 +92,7 @@ export default function TagBrowser() {
 
   const handleOpenResource = async (resource: TagResource) => {
     try {
-      await window.electron.workspace.open(resource.id, resource.type || 'note');
+      await window.electron.workspace.open(resource.id, resource.type || 'document');
     } catch (err) {
       console.error('Error opening resource:', err);
     }

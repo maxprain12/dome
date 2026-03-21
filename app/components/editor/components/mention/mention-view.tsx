@@ -14,7 +14,7 @@ export default function MentionView(props: NodeViewProps) {
     e.preventDefault();
     const noteId = entityId || slugId;
     if (noteId) {
-      navigate(`/workspace/note?id=${noteId}`);
+      navigate(`/workspace?id=${noteId}`);
     }
   };
 

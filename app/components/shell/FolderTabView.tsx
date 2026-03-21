@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import {
   FolderOpen, Folder, FileText, BookOpen, Globe, File as FileIcon,
@@ -26,7 +26,6 @@ function getFolderColor(folder: Resource): string {
 function ResourceTypeIcon({ type, className }: { type: string; className?: string }) {
   const cls = className ?? 'w-4 h-4 shrink-0';
   switch (type) {
-    case 'note':     return <FileText className={cls} />;
     case 'notebook': return <BookOpen className={cls} />;
     case 'url':      return <Globe className={cls} />;
     case 'image':    return <Image className={cls} />;
@@ -39,13 +38,13 @@ function ResourceTypeIcon({ type, className }: { type: string; className?: strin
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  note: 'Nota', notebook: 'Cuaderno', url: 'URL',
+  notebook: 'Cuaderno', url: 'URL',
   pdf: 'PDF', image: 'Imagen', video: 'Video',
   audio: 'Audio', document: 'Documento', ppt: 'Presentación',
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  note: '#7b76d0', notebook: '#3b82f6', url: '#10b981',
+  notebook: '#3b82f6', url: '#10b981',
   pdf: '#ef4444', image: '#f59e0b', video: '#ec4899', audio: '#8b5cf6', ppt: '#d47b3f',
 };
 
@@ -92,8 +91,17 @@ function FileRow({
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(file.title ?? '');
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menuOpen]);
 
   const typeColor = TYPE_COLORS[file.type] ?? 'var(--dome-text-muted)';
   const typeLabel = TYPE_LABELS[file.type] ?? file.type;
@@ -180,19 +188,33 @@ function FileRow({
 
       {/* Actions menu */}
       {hovered && !renaming && (
-        <div className="relative shrink-0">
+        <div className="shrink-0">
           <button
+            ref={menuBtnRef}
             type="button"
-            onClick={(e) => { e.stopPropagation(); setMenuOpen((v) => !v); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!menuOpen && menuBtnRef.current) {
+                const rect = menuBtnRef.current.getBoundingClientRect();
+                setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+              }
+              setMenuOpen((v) => !v);
+            }}
             className="flex items-center justify-center rounded transition-colors p-0.5"
             style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
           >
             <MoreVertical className="w-3.5 h-3.5" />
           </button>
-          {menuOpen && (
+          {menuOpen && menuPos && (
             <div
-              className="absolute right-0 z-50 rounded-lg shadow-lg py-1 min-w-[130px]"
-              style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', top: '100%', marginTop: 4 }}
+              className="fixed z-[9999] rounded-lg shadow-lg py-1 min-w-[130px]"
+              style={{
+                background: 'var(--dome-surface)',
+                border: '1px solid var(--dome-border)',
+                top: menuPos.top,
+                right: menuPos.right,
+              }}
+              onMouseDown={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
@@ -279,19 +301,6 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   );
   const folderColor = currentFolder ? getFolderColor(currentFolder) : 'var(--dome-accent)';
 
-  const handleCreateNote = useCallback(async () => {
-    const resource = await createResource({
-      type: 'note',
-      title: 'Untitled Note',
-      project_id: 'default',
-      content: '',
-      folder_id: folderId,
-    });
-    if (resource?.id) {
-      openResourceTab(resource.id, 'note', resource.title ?? 'Untitled Note');
-    }
-  }, [createResource, folderId, openResourceTab]);
-
   const handleCreateFolder = useCallback(async (name: string) => {
     await createResource({
       type: 'folder',
@@ -304,9 +313,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   }, [createResource, folderId]);
 
   const handleDeleteFile = useCallback(async (id: string) => {
-    if (!window.confirm('¿Eliminar este archivo?')) return;
+    if (!window.confirm(t('folder.confirmDelete'))) return;
     await deleteResource(id);
-  }, [deleteResource]);
+  }, [deleteResource, t]);
 
   const handleRenameFile = useCallback(async (id: string, newTitle: string) => {
     await updateResource(id, { title: newTitle });
@@ -375,8 +384,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                 {currentFolder?.title ?? folderTitle}
               </h1>
               <p className="text-sm mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-                {subfolders.length + files.length} elemento{subfolders.length + files.length !== 1 ? 's' : ''}
-                {subfolders.length > 0 && ` · ${subfolders.length} carpeta${subfolders.length !== 1 ? 's' : ''}`}
+                {t('folder.itemCount', { count: subfolders.length + files.length })}
+                {subfolders.length > 0 && ` ${t('folder.subfolderCount', { count: subfolders.length })}`}
               </p>
             </div>
           </div>
@@ -397,16 +406,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-border)'; }}
             >
               <Plus className="w-3.5 h-3.5" />
-              Carpeta
-            </button>
-            <button
-              type="button"
-              onClick={handleCreateNote}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
-              style={{ background: 'var(--dome-accent)', color: '#fff', border: 'none', cursor: 'pointer' }}
-            >
-              <Plus className="w-3.5 h-3.5" />
-              {t('folder.newNote')}
+              {t('folder.newFolderBtn')}
             </button>
           </div>
         </div>
@@ -426,15 +426,6 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                 {t('folder.emptyFolderHint')}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleCreateNote}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium mt-2"
-              style={{ background: 'var(--dome-accent)', color: '#fff', border: 'none', cursor: 'pointer' }}
-            >
-              <Plus className="w-4 h-4" />
-              {t('folder.newNote')}
-            </button>
           </div>
         ) : (
           <>
@@ -445,7 +436,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                   className="text-[11px] font-semibold uppercase tracking-widest mb-3"
                   style={{ color: 'var(--dome-text-muted)' }}
                 >
-                  Carpetas
+                  {t('folder.foldersHeading')}
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                   {subfolders.map((folder) => (
@@ -472,7 +463,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                   className="text-[11px] font-semibold uppercase tracking-widest mb-3"
                   style={{ color: 'var(--dome-text-muted)' }}
                 >
-                  Archivos
+                  {t('folder.filesHeading')}
                 </h2>
                 <div
                   className="rounded-xl border overflow-hidden"
@@ -483,7 +474,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                       key={file.id}
                       file={file}
                       isLast={idx === files.length - 1}
-                      onOpen={() => openResourceTab(file.id, file.type ?? 'note', file.title ?? 'Sin título')}
+                      onOpen={() => openResourceTab(file.id, file.type, file.title ?? 'Sin título')}
                       onDelete={() => handleDeleteFile(file.id)}
                       onRename={(newTitle) => handleRenameFile(file.id, newTitle)}
                     />

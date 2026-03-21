@@ -31,7 +31,7 @@ export default function DocumentNode({ id, data, selected }: NodeProps<DocumentN
       if (Array.isArray(resourcesList)) {
         setResources(
           resourcesList
-            .filter((r: ResourceOption) => ['note', 'pdf', 'document', 'url'].includes(r.type))
+            .filter((r: ResourceOption) => ['pdf', 'document', 'url'].includes(r.type))
             .map((r: ResourceOption) => ({
               id: r.id,
               title: r.title,

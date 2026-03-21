@@ -30,7 +30,6 @@ export function FilterBar({
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
   const RESOURCE_TYPES: { type: ResourceType; label: string; icon: React.ReactNode }[] = [
-    { type: 'note', label: t('filter.types.notes'), icon: <FileText size={14} /> },
     { type: 'notebook', label: t('filter.types.notebooks'), icon: <Notebook size={14} /> },
     { type: 'image', label: t('filter.types.images'), icon: <ImageIcon size={14} /> },
     { type: 'video', label: t('filter.types.videos'), icon: <Video size={14} /> },

@@ -43,7 +43,6 @@ import type { Resource } from '@/lib/hooks/useResources';
 // ---------------------------------------------------------------------------
 function getResourceIcon(type: string) {
   switch (type) {
-    case 'note': return <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />;
     case 'notebook': return <BookOpen className="w-3.5 h-3.5" strokeWidth={1.75} />;
     case 'url': return <Globe className="w-3.5 h-3.5" strokeWidth={1.75} />;
     case 'youtube':
@@ -100,7 +99,7 @@ function getFolderColor(resource: Resource): string {
 interface TreeNodeData {
   id: string;
   name: string;
-  type: 'folder' | 'note' | 'notebook' | 'url' | 'youtube' | 'pdf' | 'document' | 'image' | 'audio' | 'video' | 'ppt' | 'file';
+  type: 'folder' | 'notebook' | 'url' | 'youtube' | 'pdf' | 'document' | 'image' | 'audio' | 'video' | 'ppt' | 'file';
   children?: TreeNodeData[];
   resource?: Resource;
 }
@@ -195,7 +194,7 @@ function ContextMenu({ state, onClose, onRename, onMove, onColorChange, onDelete
       {/* Resource label */}
       <div className="px-3 pt-2.5 pb-1.5" style={{ borderBottom: '1px solid var(--dome-border)' }}>
         <p className="truncate" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--dome-text-muted)' }}>
-          {isFolder ? 'Carpeta' : r.type === 'note' ? 'Nota' : r.type === 'notebook' ? 'Cuaderno' : r.type === 'url' ? 'URL' : r.type === 'pdf' ? 'PDF' : 'Archivo'}
+          {isFolder ? 'Carpeta' : r.type === 'notebook' ? 'Cuaderno' : r.type === 'url' ? 'URL' : r.type === 'pdf' ? 'PDF' : 'Archivo'}
         </p>
         <p className="truncate mt-0.5" style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--dome-text)' }}>{r.title}</p>
       </div>
@@ -914,13 +913,12 @@ interface AddResourceMenuProps {
   x: number;
   y: number;
   onClose: () => void;
-  onCreateNote: () => void;
   onCreateNotebook: () => void;
   onAddUrl: () => void;
   onImportFile: () => void;
 }
 
-function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddUrl, onImportFile }: AddResourceMenuProps) {
+function AddResourceMenu({ x, y, onClose, onCreateNotebook, onAddUrl, onImportFile }: AddResourceMenuProps) {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -939,7 +937,6 @@ function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddU
   };
 
   const ITEMS = [
-    { icon: <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Nota', action: onCreateNote },
     { icon: <NotebookPen className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Notebook', action: onCreateNotebook },
     { icon: <Link className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'URL / Artículo', action: onAddUrl },
     { icon: <Upload className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Importar fichero', action: onImportFile },
@@ -1053,25 +1050,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   const getDefaultProjectId = useCallback(() => {
     return resources.find((r) => r.project_id)?.project_id || 'default';
   }, [resources]);
-
-  const handleCreateNote = useCallback(async () => {
-    if (!window.electron?.db?.resources) return;
-    const now = Date.now();
-    const id = `res_${now}_${Math.random().toString(36).substr(2, 9)}`;
-    const result = await window.electron.db.resources.create({
-      id,
-      type: 'note',
-      title: 'Untitled Note',
-      project_id: getDefaultProjectId(),
-      content: '',
-      created_at: now,
-      updated_at: now,
-    } as any);
-    if (result?.success) {
-      await fetchResources({ silent: true });
-      useTabStore.getState().openResourceTab(id, 'note', 'Untitled Note');
-    }
-  }, [getDefaultProjectId, fetchResources]);
 
   const handleCreateNotebook = useCallback(async () => {
     if (!window.electron?.db?.resources) return;
@@ -1286,7 +1264,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           x={addMenu.x}
           y={addMenu.y}
           onClose={() => setAddMenu(null)}
-          onCreateNote={handleCreateNote}
           onCreateNotebook={handleCreateNotebook}
           onAddUrl={() => setShowUrlInput(true)}
           onImportFile={handleImportFile}

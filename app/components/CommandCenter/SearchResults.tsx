@@ -46,8 +46,6 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
   const { t } = useTranslation();
   const getResourceIcon = (type: string) => {
     switch (type) {
-      case 'note':
-        return <FileText size={16} />;
       case 'notebook':
         return <Notebook size={16} />;
       case 'pdf':
@@ -72,14 +70,12 @@ export function SearchResults({ results, query, isLoading, onSelect, onStudioOut
 
   const getInteractionIcon = (type: string) => {
     switch (type) {
-      case 'note':
-        return <StickyNote size={14} />;
       case 'annotation':
         return <MessageSquare size={14} />;
       case 'chat':
         return <MessageSquare size={14} />;
       default:
-        return <StickyNote size={14} />;
+        return <MessageSquare size={14} />;
     }
   };
 
@@ -280,10 +276,9 @@ function parseJsonField<T = Record<string, unknown>>(val: unknown): T {
 
 function getAnnotationBadgeLabel(interactionType: string, metadata?: { type?: string }): string {
   if (interactionType === 'annotation' && metadata?.type === 'highlight') return 'Highlight';
-  if (interactionType === 'annotation' && metadata?.type === 'note') return i18n.t('command.new_note');
-  if (interactionType === 'note') return i18n.t('command.new_note');
+  if (interactionType === 'annotation' && metadata?.type === 'note') return i18n.t('command.new_annotation');
   if (interactionType === 'chat') return 'Chat';
-  return interactionType || i18n.t('command.new_note');
+  return interactionType || '';
 }
 
 function getInteractionSnippet(

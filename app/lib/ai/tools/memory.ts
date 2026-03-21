@@ -33,7 +33,7 @@ const MemorySearchSchema = Type.Object({
   ),
   type: Type.Optional(
     Type.String({
-      description: "Filter by resource type (e.g., 'note', 'pdf', 'url', 'video').",
+      description: "Filter by resource type (e.g., 'pdf', 'url', 'video').",
     }),
   ),
   projectId: Type.Optional(
