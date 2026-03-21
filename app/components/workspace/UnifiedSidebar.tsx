@@ -1323,7 +1323,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           <span>Settings</span>
         </button>
         <div className="flex items-center justify-between px-2 mt-1">
-          <span style={{ fontSize: 10, color: 'var(--dome-text-muted)', opacity: 0.6 }}>Dome v2</span>
+          <span style={{ fontSize: 10, color: 'var(--dome-text-muted)', opacity: 0.6 }}>Made with ❤️ by <a href="https://www.linkedin.com/in/advo2/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Alder</a> and <a href="https://www.linkedin.com/in/maria-sugasaga/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Mery</a></span>
           <button
             type="button"
             onClick={() => updateTheme(isDark ? 'light' : 'dark')}
