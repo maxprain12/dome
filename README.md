@@ -978,7 +978,7 @@ For questions, suggestions, or commercial inquiries:
 Los binarios de escritorio (macOS `.dmg` / `.zip`, Windows `.exe`) se generan con **GitHub Actions** (workflow [`.github/workflows/build.yml`](.github/workflows/build.yml)).
 
 - **Cuándo corre**: solo cuando se **publica** un [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) (`release`, tipo `published`). No se ejecuta en cada push a `main` ni en pull requests.
-- **Qué hace**: jobs `build-macos` y `build-windows` (Bun, `rebuild:natives`, `electron:build`), luego el job `attach-artifacts` sube los artefactos al **mismo** release que disparó el workflow.
+- **Qué hace**: jobs `build-macos` y `build-windows` (**npm ci**, `rebuild:natives`, `electron:build`), luego el job `attach-artifacts` sube los artefactos al **mismo** release que disparó el workflow.
 - **Secrets útiles**: firma macOS opcional (`CSC_*`, `APPLE_*`), PostHog (`VITE_POSTHOG_*`), Google Drive en CI (`DOME_GOOGLE_DRIVE_*`). Sin `CSC_LINK`, la build macOS es sin firma/notarización.
 
 Para publicar: crea una etiqueta de versión, abre **Releases → Draft a new release**, elige la etiqueta, escribe las notas y **Publish release**.

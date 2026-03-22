@@ -158,7 +158,7 @@ console.log('══════════════════════�
 
 if (criticalMissing) {
   console.log('❌ CRITICAL: Required native modules are missing!');
-  console.log('   Run: bun install && bun run rebuild:natives\n');
+  console.log('   Run: npm install && npm run rebuild:natives\n');
   process.exit(1);
 } else if (warnings.length > 0) {
   console.log(`⚠️  Some optional modules have warnings: ${warnings.join(', ')}`);

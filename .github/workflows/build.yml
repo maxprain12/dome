@@ -25,45 +25,31 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock', '**/bun.lockb') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
       - name: Install dependencies
-        run: bun install
+        run: npm ci
 
       - name: Rebuild native modules
-        run: bun run rebuild:natives
+        run: npm run rebuild:natives
 
       - name: Verify native modules
-        run: bun run verify:natives
+        run: npm run verify:natives
 
       - name: Build Electron (macOS)
         run: |
           if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
             echo "⚠️  No code signing credentials, building without signing..."
             export CSC_IDENTITY_AUTO_DISCOVERY=false
-            bun run electron:build -- --mac --config.mac.identity=null --config.mac.notarize=false --publish never
+            npm run electron:build -- --mac --config.mac.identity=null --config.mac.notarize=false --publish never
           else
             echo "✓ Code signing credentials found, building with signing..."
-            bun run electron:build -- --mac --publish never
+            npm run electron:build -- --mac --publish never
           fi
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -99,38 +85,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock', '**/bun.lockb') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
       - name: Install dependencies
-        run: bun install
+        run: npm ci
 
       - name: Rebuild native modules
-        run: bun run rebuild:natives
+        run: npm run rebuild:natives
 
       - name: Verify native modules
-        run: bun run verify:natives
+        run: npm run verify:natives
 
       - name: Build Electron (Windows)
-        run: bun run electron:build -- --win --publish never
+        run: npm run electron:build -- --win --publish never
         env:
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}

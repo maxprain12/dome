@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script para limpiar datos de desarrollo
-# Ejecutar con: bun run clean
+# Ejecutar con: npm run clean
 
 echo "🧹 Limpiando datos de desarrollo de Dome..."
 echo ""
@@ -35,7 +35,7 @@ if [ -d "$DATA_DIR" ]; then
         echo "✅ Datos eliminados correctamente"
         echo ""
         echo "Para crear nuevos datos, ejecuta:"
-        echo "  bun run test:db"
+        echo "  npm run test:db"
     else
         echo "❌ Operación cancelada"
     fi

@@ -15,17 +15,17 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron .",
-    "electron:dev": "concurrently \"bun run dev\" \"wait-on http://localhost:5173 && cross-env NODE_OPTIONS=--max-old-space-size=8192 electron .\"",
-    "electron:build": "bun run build && bun run rebuild:natives && bun run verify:natives && node scripts/prepare-pageindex-runtime.cjs && cross-env DEBUG= electron-builder",
-    "electron:build:verbose": "bun run build && bun run rebuild:natives && bun run verify:natives && node scripts/prepare-pageindex-runtime.cjs && cross-env DEBUG=electron-builder electron-builder",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_OPTIONS=--max-old-space-size=8192 electron .\"",
+    "electron:build": "npm run build && npm run rebuild:natives && npm run verify:natives && node scripts/prepare-pageindex-runtime.cjs && cross-env DEBUG= electron-builder",
+    "electron:build:verbose": "npm run build && npm run rebuild:natives && npm run verify:natives && node scripts/prepare-pageindex-runtime.cjs && cross-env DEBUG=electron-builder electron-builder",
     "prepare:pageindex-runtime": "node scripts/prepare-pageindex-runtime.cjs",
     "rebuild:natives": "electron-rebuild -f -w=better-sqlite3,sharp,@ffmpeg-installer/ffmpeg,@napi-rs/canvas,node-pty",
     "verify:natives": "node scripts/verify-natives.cjs",
     "copy:pdf-worker": "node scripts/copy-pdf-worker.cjs",
-    "postinstall": "electron-builder install-app-deps && bun run rebuild:natives && bun run copy:pdf-worker",
-    "test:db": "bun run scripts/test-db.ts",
+    "postinstall": "electron-builder install-app-deps && npm run rebuild:natives && npm run copy:pdf-worker",
+    "test:db": "tsx scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
-    "generate-icons": "bun run scripts/generate-icons.ts"
+    "generate-icons": "tsx scripts/generate-icons.ts"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -83,7 +83,6 @@
     "@tiptap/starter-kit": "^3.17.1",
     "@types/katex": "^0.16.7",
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
-    "@xterm/addon-fit": "^0.11.0",
     "archiver": "^7.0.1",
     "archiver-utils": "^5.0.2",
     "better-sqlite3": "^12.6.2",
@@ -140,14 +139,16 @@
     "tiptap-extension-global-drag-handle": "^0.1.18",
     "turndown": "^7.2.2",
     "xlsx": "^0.18.5",
-    "xterm": "^5.3.0",
     "yauzl": "^3.2.0",
     "zod": "^4.3.6",
     "zustand": "^4.5.0"
   },
   "optionalDependencies": {},
+  "overrides": {
+    "@tootallnate/once": "^3.0.1"
+  },
   "devDependencies": {
-    "@electron/rebuild": "^3.6.3",
+    "@electron/rebuild": "^4.0.3",
     "@types/better-sqlite3": "^7.6.0",
     "@types/bun": "latest",
     "@types/dagre": "^0.7.53",
@@ -166,6 +167,7 @@
     "postcss-preset-mantine": "^1.17.0",
     "postcss-simple-vars": "^7.0.1",
     "tailwindcss": "^3.4.0",
+    "tsx": "^4.19.4",
     "typescript": "^5",
     "vite": "^7.3.1",
     "wait-on": "^8.0.0"
