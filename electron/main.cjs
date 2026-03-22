@@ -3,6 +3,23 @@
 // fetch/stream AbortSignal usage (MCP servers, AI streams, etc.)
 require('events').EventEmitter.defaultMaxListeners = 30;
 
+// Load .env in development
+const fs_env = require('fs');
+const path_env = require('path');
+const dotenvPath = path_env.join(__dirname, '../.env');
+if (fs_env.existsSync(dotenvPath)) {
+  const lines = fs_env.readFileSync(dotenvPath, 'utf-8').split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const idx = trimmed.indexOf('=');
+    if (idx === -1) continue;
+    const key = trimmed.slice(0, idx).trim();
+    const val = trimmed.slice(idx + 1).trim().replace(/^["']|["']$/g, '');
+    if (key && !(key in process.env)) process.env[key] = val;
+  }
+}
+
 const {
   app,
   BrowserWindow,

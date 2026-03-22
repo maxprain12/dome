@@ -1,40 +1,30 @@
 /* eslint-disable no-console */
 /**
- * Cloud Storage IPC handlers — Google Drive & OneDrive
+ * Cloud Storage IPC handlers — Google Drive
  *
- * Uses native HTTP requests + PKCE OAuth (same pattern as google-calendar-service.cjs).
- * No external googleapis/msal packages required.
+ * Uses native HTTP requests + PKCE OAuth.
+ * Google Drive: loopback HTTP server (http://127.0.0.1:PORT/callback)
+ *   — required by Google's OAuth 2.0 policy for Desktop apps.
+ *   No redirect URI registration needed in Google Console.
  *
  * OAuth tokens are stored in the `settings` DB table under key `cloud_accounts`
  * as a JSON array: [{ provider, accountId, email, accessToken, refreshToken, expiresAt }]
- *
- * Redirect URI registered in your Google / Microsoft app console: dome://oauth/callback
  */
 
 const crypto = require('crypto');
-const https = require('https');
+const http   = require('http');
+const https  = require('https');
 const { shell } = require('electron');
 
 // ─── OAuth constants ──────────────────────────────────────────────────────────
 
-const REDIRECT_URI = 'dome://oauth/callback';
-
-const GOOGLE_AUTH_URL   = 'https://accounts.google.com/o/oauth2/v2/auth';
-const GOOGLE_TOKEN_URL  = 'https://oauth2.googleapis.com/token';
+const GOOGLE_AUTH_URL    = 'https://accounts.google.com/o/oauth2/v2/auth';
+const GOOGLE_TOKEN_URL   = 'https://oauth2.googleapis.com/token';
 const GOOGLE_DRIVE_SCOPES = [
   'https://www.googleapis.com/auth/drive.readonly',
   'openid',
   'email',
 ].join(' ');
-
-const MS_AUTH_URL   = 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize';
-const MS_TOKEN_URL  = 'https://login.microsoftonline.com/common/oauth2/v2.0/token';
-const MS_DRIVE_SCOPES = 'openid email offline_access Files.Read';
-
-// ─── Pending OAuth state ──────────────────────────────────────────────────────
-
-/** @type {{ provider: string, codeVerifier: string, state: string } | null} */
-let _pendingOAuth = null;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -49,7 +39,7 @@ function generateState() {
   return crypto.randomBytes(16).toString('hex');
 }
 
-/** Simple HTTPS GET/POST helper */
+/** Simple HTTPS GET/POST helper with 15s timeout */
 function httpsRequest(url, options = {}, body = null) {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
@@ -58,15 +48,18 @@ function httpsRequest(url, options = {}, body = null) {
       path: parsed.pathname + parsed.search,
       method: options.method || 'GET',
       headers: options.headers || {},
+      timeout: 15000,
     };
     const req = https.request(reqOptions, (res) => {
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => {
         const raw = Buffer.concat(chunks).toString('utf8');
+        console.log(`[CloudStorage] HTTP ${res.statusCode} from ${parsed.hostname}${parsed.pathname}`);
         try { resolve(JSON.parse(raw)); } catch { resolve(raw); }
       });
     });
+    req.on('timeout', () => { req.destroy(); reject(new Error(`Request timed out: ${url}`)); });
     req.on('error', reject);
     if (body) req.write(typeof body === 'string' ? body : JSON.stringify(body));
     req.end();
@@ -77,11 +70,71 @@ function urlEncode(params) {
   return Object.entries(params).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
 }
 
+// ─── Loopback server helpers (Google OAuth) ───────────────────────────────────
+
+/** Asks the OS for a free port by binding to :0 */
+function findFreePort() {
+  return new Promise((resolve, reject) => {
+    const srv = http.createServer();
+    srv.listen(0, '127.0.0.1', () => {
+      const { port } = srv.address();
+      srv.close(() => resolve(port));
+    });
+    srv.on('error', reject);
+  });
+}
+
+/**
+ * Starts a one-shot HTTP server on 127.0.0.1:port.
+ * Resolves with the auth `code` when Google redirects back.
+ * Times out after 5 minutes.
+ */
+function startLoopbackServer(port, expectedState) {
+  return new Promise((resolve, reject) => {
+    const srv = http.createServer((req, res) => {
+      try {
+        const url = new URL(req.url, `http://127.0.0.1:${port}`);
+        const code  = url.searchParams.get('code');
+        const state = url.searchParams.get('state');
+        const error = url.searchParams.get('error');
+
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(
+          '<html><body style="font-family:sans-serif;text-align:center;padding:60px">' +
+          '<h2>Dome: autorización completada ✓</h2>' +
+          '<p>Puedes cerrar esta pestaña y volver a Dome.</p>' +
+          '<script>window.close()</script>' +
+          '</body></html>'
+        );
+
+        srv.close();
+
+        if (error) {
+          reject(new Error(error));
+        } else if (!code || state !== expectedState) {
+          reject(new Error('Invalid OAuth callback parameters'));
+        } else {
+          resolve(code);
+        }
+      } catch (err) {
+        srv.close();
+        reject(err);
+      }
+    });
+
+    srv.listen(port, '127.0.0.1');
+    srv.on('error', reject);
+
+    // Abort if user takes too long
+    setTimeout(() => { srv.close(); reject(new Error('OAuth timeout')); }, 5 * 60 * 1000);
+  });
+}
+
 // ─── DB helpers ───────────────────────────────────────────────────────────────
 
 function loadAccounts(database) {
   try {
-    const row = database.getQueries().getSetting?.get?.('cloud_accounts');
+    const row = database.getQueries().getSetting.get('cloud_accounts');
     return row?.value ? JSON.parse(row.value) : [];
   } catch {
     return [];
@@ -92,12 +145,8 @@ function saveAccounts(database, accounts) {
   try {
     const queries = database.getQueries();
     const json = JSON.stringify(accounts);
-    const existing = queries.getSetting?.get?.('cloud_accounts');
-    if (existing) {
-      queries.updateSetting?.run?.(json, 'cloud_accounts');
-    } else {
-      queries.insertSetting?.run?.('cloud_accounts', json);
-    }
+    queries.setSetting.run('cloud_accounts', json, Date.now());
+    console.log('[CloudStorage] Accounts saved to DB:', accounts.length);
   } catch (err) {
     console.error('[CloudStorage] Failed to save accounts:', err.message);
   }
@@ -105,7 +154,7 @@ function saveAccounts(database, accounts) {
 
 function isTokenExpired(account) {
   if (!account.expiresAt) return true;
-  return Date.now() >= account.expiresAt - 60_000; // 1 min buffer
+  return Date.now() >= account.expiresAt - 60_000;
 }
 
 // ─── Token refresh ────────────────────────────────────────────────────────────
@@ -132,33 +181,9 @@ async function refreshGoogleToken(account) {
   };
 }
 
-async function refreshMsToken(account) {
-  const clientId = process.env.DOME_ONEDRIVE_CLIENT_ID;
-  if (!clientId || !account.refreshToken) return null;
-
-  const body = urlEncode({
-    grant_type: 'refresh_token',
-    client_id: clientId,
-    refresh_token: account.refreshToken,
-    scope: MS_DRIVE_SCOPES,
-  });
-  const data = await httpsRequest(MS_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': body.length },
-  }, body);
-  if (!data.access_token) return null;
-  return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token || account.refreshToken,
-    expiresAt: Date.now() + (data.expires_in || 3600) * 1000,
-  };
-}
-
 async function getValidToken(database, account) {
   if (!isTokenExpired(account)) return account.accessToken;
-  const refreshed = account.provider === 'google'
-    ? await refreshGoogleToken(account)
-    : await refreshMsToken(account);
+  const refreshed = await refreshGoogleToken(account);
   if (!refreshed) return null;
   const accounts = loadAccounts(database);
   const idx = accounts.findIndex((a) => a.accountId === account.accountId);
@@ -184,7 +209,6 @@ async function googleListFiles(token, folderId, query) {
 }
 
 async function googleDownloadFile(token, fileId) {
-  // For Google Docs/Sheets/Slides — export as PDF; for binary files — download directly
   const metaUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,size`;
   const meta = await httpsRequest(metaUrl, { headers: { Authorization: `Bearer ${token}` } });
 
@@ -203,49 +227,6 @@ async function googleDownloadFile(token, fileId) {
         const chunks = [];
         res.on('data', (c) => chunks.push(c));
         res.on('end', () => resolve({ meta, buffer: Buffer.concat(chunks) }));
-      }
-    );
-    req.on('error', reject);
-  });
-}
-
-// ─── OneDrive API ─────────────────────────────────────────────────────────────
-
-async function oneDriveListFiles(token, folderId, query) {
-  let url;
-  if (query) {
-    url = `https://graph.microsoft.com/v1.0/me/drive/root/search(q='${encodeURIComponent(query)}')?$select=id,name,file,folder,size,lastModifiedDateTime&$top=50`;
-  } else {
-    const parent = folderId ? `items/${folderId}` : 'root';
-    url = `https://graph.microsoft.com/v1.0/me/drive/${parent}/children?$select=id,name,file,folder,size,lastModifiedDateTime&$top=50`;
-  }
-  return httpsRequest(url, { headers: { Authorization: `Bearer ${token}` } });
-}
-
-async function oneDriveDownloadFile(token, fileId) {
-  const metaUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}?$select=id,name,file,size`;
-  const meta = await httpsRequest(metaUrl, { headers: { Authorization: `Bearer ${token}` } });
-
-  // Get download URL
-  const linkUrl = `https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/content`;
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(linkUrl);
-    const req = https.get(
-      { hostname: parsed.hostname, path: parsed.pathname + parsed.search, headers: { Authorization: `Bearer ${token}` } },
-      (res) => {
-        if (res.statusCode === 302 || res.statusCode === 301) {
-          // Follow redirect
-          const location = res.headers['location'];
-          https.get(location, (res2) => {
-            const chunks = [];
-            res2.on('data', (c) => chunks.push(c));
-            res2.on('end', () => resolve({ meta, buffer: Buffer.concat(chunks) }));
-          }).on('error', reject);
-        } else {
-          const chunks = [];
-          res.on('data', (c) => chunks.push(c));
-          res.on('end', () => resolve({ meta, buffer: Buffer.concat(chunks) }));
-        }
       }
     );
     req.on('error', reject);
@@ -275,7 +256,8 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   });
 
   /**
-   * Start Google Drive OAuth flow (PKCE via shell.openExternal)
+   * Start Google Drive OAuth flow via loopback HTTP server.
+   * Google redirects to http://127.0.0.1:PORT/callback — no URI registration needed.
    */
   ipcMain.handle('cloud:auth-google', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
@@ -285,13 +267,20 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       return { success: false, error: 'DOME_GOOGLE_DRIVE_CLIENT_ID env var not set. Configure your Google OAuth app and set this variable.' };
     }
 
+    let port;
+    try {
+      port = await findFreePort();
+    } catch (err) {
+      return { success: false, error: `Could not allocate OAuth callback port: ${err.message}` };
+    }
+
     const { codeVerifier, codeChallenge } = generatePKCE();
     const state = generateState();
-    _pendingOAuth = { provider: 'google', codeVerifier, state };
+    const redirectUri = `http://127.0.0.1:${port}/callback`;
 
     const params = urlEncode({
       client_id: clientId,
-      redirect_uri: REDIRECT_URI,
+      redirect_uri: redirectUri,
       response_type: 'code',
       scope: GOOGLE_DRIVE_SCOPES,
       code_challenge: codeChallenge,
@@ -301,134 +290,76 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       state,
     });
 
-    await shell.openExternal(`${GOOGLE_AUTH_URL}?${params}`);
-    return { success: true, message: 'OAuth flow started — complete sign-in in your browser.' };
-  });
-
-  /**
-   * Start OneDrive OAuth flow (PKCE via shell.openExternal)
-   */
-  ipcMain.handle('cloud:auth-onedrive', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
-
-    const clientId = process.env.DOME_ONEDRIVE_CLIENT_ID;
-    if (!clientId) {
-      return { success: false, error: 'DOME_ONEDRIVE_CLIENT_ID env var not set. Configure your Microsoft Azure app and set this variable.' };
-    }
-
-    const { codeVerifier, codeChallenge } = generatePKCE();
-    const state = generateState();
-    _pendingOAuth = { provider: 'onedrive', codeVerifier, state };
-
-    const params = urlEncode({
-      client_id: clientId,
-      redirect_uri: REDIRECT_URI,
-      response_type: 'code',
-      scope: MS_DRIVE_SCOPES,
-      code_challenge: codeChallenge,
-      code_challenge_method: 'S256',
-      state,
-    });
-
-    await shell.openExternal(`${MS_AUTH_URL}?${params}`);
-    return { success: true, message: 'OAuth flow started — complete sign-in in your browser.' };
-  });
-
-  /**
-   * Handle OAuth callback (called by deep-link handler when dome://oauth/callback?code=...&state=... is received)
-   * Exported so deep-link-handler.cjs can call it.
-   */
-  async function handleOAuthCallback(url) {
-    if (!_pendingOAuth) return false;
-    const parsed = new URL(url);
-    const code = parsed.searchParams.get('code');
-    const state = parsed.searchParams.get('state');
-    if (!code || state !== _pendingOAuth.state) return false;
-
-    const { provider, codeVerifier } = _pendingOAuth;
-    _pendingOAuth = null;
-
-    try {
-      let tokenData;
-      if (provider === 'google') {
-        const clientId = process.env.DOME_GOOGLE_DRIVE_CLIENT_ID;
+    // Handle the callback asynchronously — broadcast result when done
+    startLoopbackServer(port, state)
+      .then(async (code) => {
+        console.log('[CloudStorage] Google loopback: got auth code, exchanging for token...');
         const clientSecret = process.env.DOME_GOOGLE_DRIVE_CLIENT_SECRET;
+        if (!clientSecret) {
+          console.warn('[CloudStorage] DOME_GOOGLE_DRIVE_CLIENT_SECRET is not set — token exchange may fail');
+        }
         const body = urlEncode({
           code,
           client_id: clientId,
           client_secret: clientSecret || '',
-          redirect_uri: REDIRECT_URI,
+          redirect_uri: redirectUri,
           grant_type: 'authorization_code',
           code_verifier: codeVerifier,
         });
-        tokenData = await httpsRequest(GOOGLE_TOKEN_URL, {
+        const tokenData = await httpsRequest(GOOGLE_TOKEN_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': body.length },
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body) },
         }, body);
-      } else {
-        const clientId = process.env.DOME_ONEDRIVE_CLIENT_ID;
-        const body = urlEncode({
-          code,
-          client_id: clientId,
-          redirect_uri: REDIRECT_URI,
-          grant_type: 'authorization_code',
-          code_verifier: codeVerifier,
-          scope: MS_DRIVE_SCOPES,
-        });
-        tokenData = await httpsRequest(MS_TOKEN_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': body.length },
-        }, body);
-      }
 
-      if (!tokenData.access_token) {
-        console.error('[CloudStorage] Token exchange failed:', tokenData);
-        windowManager.broadcast('cloud:auth-result', { success: false, provider, error: tokenData.error_description || 'Token exchange failed' });
-        return true;
-      }
+        console.log('[CloudStorage] Google token response keys:', Object.keys(tokenData));
 
-      // Get user email
-      let email = 'Unknown';
-      try {
-        if (provider === 'google') {
+        if (!tokenData.access_token) {
+          console.error('[CloudStorage] Google token exchange failed:', tokenData);
+          windowManager.broadcast('cloud:auth-result', {
+            success: false, provider: 'google',
+            error: tokenData.error_description || tokenData.error || 'Token exchange failed',
+          });
+          return;
+        }
+
+        let email = 'Unknown';
+        try {
           const info = await httpsRequest('https://www.googleapis.com/oauth2/v3/userinfo', {
             headers: { Authorization: `Bearer ${tokenData.access_token}` },
           });
           email = info.email || email;
-        } else {
-          const info = await httpsRequest('https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName', {
-            headers: { Authorization: `Bearer ${tokenData.access_token}` },
-          });
-          email = info.mail || info.userPrincipalName || email;
+        } catch (e) {
+          console.warn('[CloudStorage] Could not fetch Google user info:', e.message);
         }
-      } catch { /* non-critical */ }
 
-      const accountId = `${provider}-${email}`;
-      const accounts = loadAccounts(database);
-      const existingIdx = accounts.findIndex((a) => a.accountId === accountId);
-      const account = {
-        provider,
-        accountId,
-        email,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token || null,
-        expiresAt: Date.now() + (tokenData.expires_in || 3600) * 1000,
-      };
-      if (existingIdx >= 0) {
-        accounts[existingIdx] = account;
-      } else {
-        accounts.push(account);
-      }
-      saveAccounts(database, accounts);
+        const accountId = `google-${email}`;
+        const accounts = loadAccounts(database);
+        const existingIdx = accounts.findIndex((a) => a.accountId === accountId);
+        const account = {
+          provider: 'google',
+          accountId,
+          email,
+          accessToken: tokenData.access_token,
+          refreshToken: tokenData.refresh_token || null,
+          expiresAt: Date.now() + (tokenData.expires_in || 3600) * 1000,
+        };
+        if (existingIdx >= 0) {
+          accounts[existingIdx] = account;
+        } else {
+          accounts.push(account);
+        }
+        saveAccounts(database, accounts);
+        console.log('[CloudStorage] Google account saved, broadcasting success for', email);
+        windowManager.broadcast('cloud:auth-result', { success: true, provider: 'google', email, accountId });
+      })
+      .catch((err) => {
+        console.error('[CloudStorage] Google OAuth error:', err);
+        windowManager.broadcast('cloud:auth-result', { success: false, provider: 'google', error: err.message });
+      });
 
-      windowManager.broadcast('cloud:auth-result', { success: true, provider, email, accountId });
-      return true;
-    } catch (err) {
-      console.error('[CloudStorage] OAuth callback error:', err);
-      windowManager.broadcast('cloud:auth-result', { success: false, provider, error: err.message });
-      return true;
-    }
-  }
+    await shell.openExternal(`${GOOGLE_AUTH_URL}?${params}`);
+    return { success: true, message: 'OAuth flow started — complete sign-in in your browser.' };
+  });
 
   /**
    * Disconnect a cloud account
@@ -457,34 +388,18 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       const token = await getValidToken(database, account);
       if (!token) return { success: false, error: 'Failed to get valid token — please reconnect.' };
 
-      let data;
-      if (account.provider === 'google') {
-        data = await googleListFiles(token, folderId, query);
-        const files = (data.files || []).map((f) => ({
-          id: f.id,
-          name: f.name,
-          mimeType: f.mimeType,
-          size: f.size ? parseInt(f.size, 10) : null,
-          modifiedAt: f.modifiedTime,
-          isFolder: f.mimeType === 'application/vnd.google-apps.folder',
-          provider: 'google',
-          accountId,
-        }));
-        return { success: true, files };
-      } else {
-        data = await oneDriveListFiles(token, folderId, query);
-        const files = (data.value || []).map((f) => ({
-          id: f.id,
-          name: f.name,
-          mimeType: f.file?.mimeType || null,
-          size: f.size || null,
-          modifiedAt: f.lastModifiedDateTime,
-          isFolder: !!f.folder,
-          provider: 'onedrive',
-          accountId,
-        }));
-        return { success: true, files };
-      }
+      const data = await googleListFiles(token, folderId, query);
+      const files = (data.files || []).map((f) => ({
+        id: f.id,
+        name: f.name,
+        mimeType: f.mimeType,
+        size: f.size ? parseInt(f.size, 10) : null,
+        modifiedAt: f.modifiedTime,
+        isFolder: f.mimeType === 'application/vnd.google-apps.folder',
+        provider: 'google',
+        accountId,
+      }));
+      return { success: true, files };
     } catch (err) {
       console.error('[CloudStorage] list-files error:', err);
       return { success: false, error: err.message };
@@ -510,23 +425,15 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       const token = await getValidToken(database, account);
       if (!token) return { success: false, error: 'Failed to get valid token — please reconnect.' };
 
-      // Download file
-      let downloadResult;
-      if (account.provider === 'google') {
-        downloadResult = await googleDownloadFile(token, fileId);
-      } else {
-        downloadResult = await oneDriveDownloadFile(token, fileId);
-      }
+      const downloadResult = await googleDownloadFile(token, fileId);
 
       const { meta, buffer } = downloadResult;
       const name = fileName || meta.name || 'imported-file';
       const effectiveMime = mimeType || meta.mimeType || meta.file?.mimeType || 'application/octet-stream';
 
-      // Determine extension and resource type
       const ext = path.extname(name).toLowerCase() || (effectiveMime.includes('pdf') ? '.pdf' : '.bin');
       const effectiveType = effectiveMime.includes('pdf') || ext === '.pdf' ? 'pdf' : 'document';
 
-      // Write to temp file
       const tempPath = path.join(os.tmpdir(), `dome-cloud-${Date.now()}${ext}`);
       fs.writeFileSync(tempPath, buffer);
 
@@ -534,13 +441,11 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
         const importResult = await fileStorage.importFile(tempPath, effectiveType);
         const queries = database.getQueries();
 
-        // Check duplicate
         const existing = queries.findByHash?.get(importResult.hash);
         if (existing) {
           return { success: false, error: 'duplicate', duplicate: { id: existing.id, title: existing.title } };
         }
 
-        // Extract text
         const fullPath = fileStorage.getFullPath(importResult.internalPath);
         let contentText = null;
         try {
@@ -580,7 +485,6 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
         const resource = queries.getResourceById.get(resourceId);
         windowManager.broadcast('resource:created', resource);
 
-        // Schedule indexing
         const resourceIndexer = require('../resource-indexer.cjs');
         if (resource && resourceIndexer.shouldIndex(resource)) {
           resourceIndexer.scheduleIndexing(resourceId, { database, fileStorage, windowManager });
@@ -596,8 +500,6 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     }
   });
 
-  // Export handleOAuthCallback so deep-link-handler can delegate to it
-  register._handleOAuthCallback = handleOAuthCallback;
 }
 
 module.exports = { register };

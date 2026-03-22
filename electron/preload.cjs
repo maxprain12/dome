@@ -351,10 +351,9 @@ const ALLOWED_CHANNELS = {
     'plugin:uninstall',
     'plugin:setEnabled',
     'plugin:read-asset',
-    // Cloud Storage (Google Drive + OneDrive)
+    // Cloud Storage (Google Drive)
     'cloud:get-accounts',
     'cloud:auth-google',
-    'cloud:auth-onedrive',
     'cloud:disconnect',
     'cloud:list-files',
     'cloud:import-file',
@@ -882,12 +881,11 @@ const electronHandler = {
   },
 
   // ============================================
-  // CLOUD STORAGE API (Google Drive + OneDrive)
+  // CLOUD STORAGE API (Google Drive)
   // ============================================
   cloud: {
     getAccounts: () => ipcRenderer.invoke('cloud:get-accounts'),
     authGoogle: () => ipcRenderer.invoke('cloud:auth-google'),
-    authOneDrive: () => ipcRenderer.invoke('cloud:auth-onedrive'),
     disconnect: (accountId) => ipcRenderer.invoke('cloud:disconnect', { accountId }),
     listFiles: (params) => ipcRenderer.invoke('cloud:list-files', params),
     importFile: (params) => ipcRenderer.invoke('cloud:import-file', params),

@@ -1355,15 +1355,14 @@ declare global {
         rememberFact: (key: string, value: string) => Promise<{ success: boolean; error?: string }>;
       };
 
-      // Cloud Storage API (Google Drive + OneDrive)
+      // Cloud Storage API (Google Drive)
       cloud: {
         getAccounts: () => Promise<{
           success: boolean;
-          accounts?: Array<{ provider: 'google' | 'onedrive'; accountId: string; email: string; connected: boolean }>;
+          accounts?: Array<{ provider: 'google'; accountId: string; email: string; connected: boolean }>;
           error?: string;
         }>;
         authGoogle: () => Promise<{ success: boolean; message?: string; error?: string }>;
-        authOneDrive: () => Promise<{ success: boolean; message?: string; error?: string }>;
         disconnect: (accountId: string) => Promise<{ success: boolean; error?: string }>;
         listFiles: (params: {
           accountId: string;

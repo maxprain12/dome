@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
 import {
   ChevronDown,
   Search,
@@ -32,6 +33,7 @@ import {
   NotebookPen,
   Link,
   Upload,
+  Cloud,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -917,9 +919,10 @@ interface AddResourceMenuProps {
   onCreateNotebook: () => void;
   onAddUrl: () => void;
   onImportFile: () => void;
+  onImportFromCloud: () => void;
 }
 
-function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddUrl, onImportFile }: AddResourceMenuProps) {
+function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddUrl, onImportFile, onImportFromCloud }: AddResourceMenuProps) {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -942,6 +945,7 @@ function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddU
     { icon: <NotebookPen className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Notebook', action: onCreateNotebook },
     { icon: <Link className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'URL / Artículo', action: onAddUrl },
     { icon: <Upload className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Importar fichero', action: onImportFile },
+    { icon: <Cloud className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Importar desde Cloud', action: onImportFromCloud },
   ];
 
   return (
@@ -1005,6 +1009,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   const [workspaceOpen, setWorkspaceOpen] = useState(true);
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
   const [showUrlInput, setShowUrlInput] = useState(false);
+  const [showCloudPicker, setShowCloudPicker] = useState(false);
   const [newFolderInWorkspace, setNewFolderInWorkspace] = useState(false);
 
   const theme = useAppStore((s) => s.theme);
@@ -1289,7 +1294,18 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           onCreateNotebook={handleCreateNotebook}
           onAddUrl={() => setShowUrlInput(true)}
           onImportFile={handleImportFile}
+          onImportFromCloud={() => { setAddMenu(null); setShowCloudPicker(true); }}
         />
+      )}
+
+      {/* Cloud file picker modal */}
+      {showCloudPicker && (
+        <Suspense fallback={null}>
+          <CloudFilePicker
+            onClose={() => { setShowCloudPicker(false); void fetchResources({ silent: true }); }}
+            projectId={getDefaultProjectId()}
+          />
+        </Suspense>
       )}
 
       {/* URL input modal */}

@@ -1,14 +1,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Cloud, HardDrive, Trash2, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Cloud, Trash2, CheckCircle2, Loader2 } from 'lucide-react';
 import { showToast } from '@/lib/store/useToastStore';
 
 const DOME_GREEN = '#596037';
 const DOME_GREEN_LIGHT = '#E0EAB4';
 
 interface CloudAccount {
-  provider: 'google' | 'onedrive';
+  provider: 'google';
   accountId: string;
   email: string;
   connected: boolean;
@@ -16,7 +16,6 @@ interface CloudAccount {
 
 const PROVIDER_LABELS: Record<string, string> = {
   google: 'Google Drive',
-  onedrive: 'OneDrive',
 };
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -59,7 +58,7 @@ export default function CloudStorageSettings() {
 
     const cleanup = window.electron?.cloud?.onAuthResult?.((data: { success: boolean; provider: string; email?: string; error?: string }) => {
       if (data.success) {
-        showToast('success', t('settings.cloud.toast_connected', { provider: PROVIDER_LABELS[data.provider] ?? data.provider, email: data.email }));
+        showToast('success', `${PROVIDER_LABELS[data.provider] ?? data.provider} conectado: ${data.email}`);
         loadAccounts();
       } else {
         showToast('error', data.error || t('settings.cloud.toast_error'));
@@ -70,13 +69,26 @@ export default function CloudStorageSettings() {
     return () => cleanup?.();
   }, [loadAccounts]);
 
-  const handleConnect = async (provider: 'google' | 'onedrive') => {
+  // Start polling when a connect action is in progress
+  useEffect(() => {
+    if (!connecting) return;
+    const interval = setInterval(async () => {
+      if (!window.electron?.cloud) return;
+      const result = await window.electron.cloud.getAccounts();
+      if (result.success && (result.accounts ?? []).length > 0) {
+        setAccounts(result.accounts ?? []);
+        setConnecting(null);
+      }
+    }, 1500);
+    const timeout = setTimeout(() => clearInterval(interval), 90_000);
+    return () => { clearInterval(interval); clearTimeout(timeout); };
+  }, [connecting]);
+
+  const handleConnect = async () => {
     if (!window.electron?.cloud) return;
-    setConnecting(provider);
+    setConnecting('google');
     try {
-      const result = provider === 'google'
-        ? await window.electron.cloud.authGoogle()
-        : await window.electron.cloud.authOneDrive();
+      const result = await window.electron.cloud.authGoogle();
       if (!result.success) {
         showToast('error', result.error || t('settings.cloud.toast_error'));
         setConnecting(null);
@@ -103,7 +115,6 @@ export default function CloudStorageSettings() {
   };
 
   const googleConnected = accounts.some((a) => a.provider === 'google');
-  const onedriveConnected = accounts.some((a) => a.provider === 'onedrive');
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -111,19 +122,9 @@ export default function CloudStorageSettings() {
       <div>
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>Cloud Storage</h2>
         <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          Conecta Google Drive o OneDrive para explorar e importar archivos directamente en Dome.
+          Conecta Google Drive para explorar e importar archivos directamente en Dome.
         </p>
       </div>
-
-      {/* Setup notice */}
-      <SettingsCard className="p-4">
-        <div className="flex gap-3">
-          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: DOME_GREEN }} />
-          <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.cloud.setup_notice')}
-          </p>
-        </div>
-      </SettingsCard>
 
       {/* Connected accounts */}
       {loading ? (
@@ -138,14 +139,8 @@ export default function CloudStorageSettings() {
               <SettingsCard key={account.accountId} className="px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: DOME_GREEN_LIGHT }}
-                    >
-                      {account.provider === 'google'
-                        ? <Cloud className="w-4 h-4" style={{ color: DOME_GREEN }} />
-                        : <HardDrive className="w-4 h-4" style={{ color: DOME_GREEN }} />
-                      }
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: DOME_GREEN_LIGHT }}>
+                      <Cloud className="w-4 h-4" style={{ color: DOME_GREEN }} />
                     </div>
                     <div>
                       <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
@@ -172,46 +167,26 @@ export default function CloudStorageSettings() {
         </div>
       )}
 
-      {/* Connect buttons */}
+      {/* Connect button */}
       <div>
-        <SectionLabel>{accounts.length > 0 ? t('settings.cloud.section_add') : t('settings.cloud.section_connect')}</SectionLabel>
-        <div className="space-y-2">
-          <button
-            onClick={() => handleConnect('google')}
-            disabled={connecting === 'google'}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all disabled:opacity-60"
-            style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
-          >
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
-              {connecting === 'google'
-                ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: DOME_GREEN }} />
-                : <Cloud className="w-4 h-4" style={{ color: DOME_GREEN }} />
-              }
-            </div>
-            <div>
-              <p className="text-sm font-medium">{googleConnected ? t('settings.cloud.connect_google_another') : t('settings.cloud.connect_google')}</p>
-              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.cloud.oauth_google')}</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => handleConnect('onedrive')}
-            disabled={connecting === 'onedrive'}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all disabled:opacity-60"
-            style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
-          >
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
-              {connecting === 'onedrive'
-                ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: DOME_GREEN }} />
-                : <HardDrive className="w-4 h-4" style={{ color: DOME_GREEN }} />
-              }
-            </div>
-            <div>
-              <p className="text-sm font-medium">{onedriveConnected ? t('settings.cloud.connect_onedrive_another') : t('settings.cloud.connect_onedrive')}</p>
-              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.cloud.oauth_microsoft')}</p>
-            </div>
-          </button>
-        </div>
+        <SectionLabel>{googleConnected ? t('settings.cloud.section_add') : t('settings.cloud.section_connect')}</SectionLabel>
+        <button
+          onClick={handleConnect}
+          disabled={connecting === 'google'}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all disabled:opacity-60"
+          style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+        >
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
+            {connecting === 'google'
+              ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: DOME_GREEN }} />
+              : <Cloud className="w-4 h-4" style={{ color: DOME_GREEN }} />
+            }
+          </div>
+          <div>
+            <p className="text-sm font-medium">{googleConnected ? t('settings.cloud.connect_google_another') : t('settings.cloud.connect_google')}</p>
+            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.cloud.oauth_google')}</p>
+          </div>
+        </button>
       </div>
     </div>
   );
