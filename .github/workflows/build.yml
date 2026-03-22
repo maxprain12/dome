@@ -41,6 +41,12 @@ jobs:
       - name: Verify native modules
         run: npm run verify:natives
 
+      - name: Embed build credentials
+        run: node scripts/embed-env.cjs
+        env:
+          DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
+          DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
+
       - name: Build Electron (macOS)
         run: |
           if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
@@ -60,8 +66,6 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
-          DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
-          DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
@@ -101,13 +105,17 @@ jobs:
       - name: Verify native modules
         run: npm run verify:natives
 
+      - name: Embed build credentials
+        run: node scripts/embed-env.cjs
+        env:
+          DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
+          DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
+
       - name: Build Electron (Windows)
         run: npm run electron:build -- --win --publish never
         env:
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
-          DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
-          DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4

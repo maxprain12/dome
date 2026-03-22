@@ -1012,6 +1012,16 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   const [showCloudPicker, setShowCloudPicker] = useState(false);
   const [newFolderInWorkspace, setNewFolderInWorkspace] = useState(false);
 
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  useEffect(() => {
+    if (!window.electron?.updater?.onStatus) return;
+    const unsub = window.electron.updater.onStatus((s: { status: string }) => {
+      setUpdateAvailable(s.status === 'available' || s.status === 'downloaded');
+    });
+    return unsub;
+  }, []);
+
   const theme = useAppStore((s) => s.theme);
   const updateTheme = useAppStore((s) => s.updateTheme);
   const activeSection = useAppStore((s) => s.homeSidebarSection);
@@ -1329,13 +1339,29 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       <div className="shrink-0 px-2 py-2" style={{ borderTop: '1px solid var(--dome-border)' }}>
         <button
           type="button"
-          onClick={openSettingsTab}
+          onClick={() => {
+            openSettingsTab();
+            if (updateAvailable) {
+              // Give the tab a frame to mount before signalling the section
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('dome:goto-settings-section', { detail: 'advanced' }));
+              }, 50);
+            }
+          }}
           className="flex items-center gap-2 w-full text-left transition-colors rounded-md px-2 py-1.5"
           style={{ fontSize: 12, color: 'var(--dome-text-secondary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
         >
-          <Settings className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+          <div className="relative shrink-0">
+            <Settings className="w-4 h-4" strokeWidth={1.75} />
+            {updateAvailable && (
+              <span
+                className="absolute -top-0.5 -right-0.5 rounded-full"
+                style={{ width: 6, height: 6, background: 'var(--accent)', display: 'block' }}
+              />
+            )}
+          </div>
           <span>Settings</span>
         </button>
         <div className="flex items-center justify-between px-2 mt-1">

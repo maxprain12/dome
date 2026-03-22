@@ -25,7 +25,7 @@
     "postinstall": "electron-builder install-app-deps && npm run rebuild:natives && npm run copy:pdf-worker",
     "test:db": "tsx scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
-    "generate-icons": "tsx scripts/generate-icons.ts"
+    "generate-icons": "bun scripts/generate-icons.ts"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",

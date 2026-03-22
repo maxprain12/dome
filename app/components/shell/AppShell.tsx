@@ -9,7 +9,6 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { useResizeStore } from '@/lib/store/useResizeStore';
 import UnifiedSidebar from '@/components/workspace/UnifiedSidebar';
 import PetPluginSlot from '@/components/plugins/PetPluginSlot';
-import UpdateAlertBanner from '@/components/ui/UpdateAlertBanner';
 import ResizeHandle from '@/components/workspace/ResizeHandle';
 import WindowControls from '@/components/ui/WindowControls';
 
@@ -222,7 +221,6 @@ export default function AppShell() {
           className="flex flex-col flex-1 min-w-0 overflow-hidden"
           style={{ background: 'var(--dome-surface)' }}
         >
-          <UpdateAlertBanner />
           <div className="flex flex-1 min-h-0 overflow-hidden relative">
             <ContentRouter />
           </div>

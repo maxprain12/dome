@@ -35,14 +35,24 @@ export default function SettingsPage() {
     }
   }, [sectionParam]);
 
-  // Listen for navigate-to-section when settings window is focused from another context
+  // Listen for navigate-to-section from IPC or sidebar custom event
   useEffect(() => {
     const unsub = window.electron?.on?.('settings:navigate-to-section', (section: string) => {
       if (VALID_SECTIONS.includes(section as SettingsSection)) {
         setActiveSection(section as SettingsSection);
       }
     });
-    return () => unsub?.();
+    const handleCustomNav = (e: Event) => {
+      const section = (e as CustomEvent<string>).detail;
+      if (VALID_SECTIONS.includes(section as SettingsSection)) {
+        setActiveSection(section as SettingsSection);
+      }
+    };
+    window.addEventListener('dome:goto-settings-section', handleCustomNav);
+    return () => {
+      unsub?.();
+      window.removeEventListener('dome:goto-settings-section', handleCustomNav);
+    };
   }, []);
   const { loadPreferences } = useAppStore();
 

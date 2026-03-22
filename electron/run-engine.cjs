@@ -610,6 +610,9 @@ function resolveStaticNodeOutput(node) {
 
 async function getProviderConfig(providerArg, modelArg) {
   const queries = getQueries();
+  if (!queries) {
+    throw new Error('Database not initialized. Please restart the app.');
+  }
   const provider = providerArg || queries.getSetting.get('ai_provider')?.value || 'ollama';
   let apiKey;
   let baseUrl;

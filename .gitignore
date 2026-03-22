@@ -57,3 +57,6 @@ dome-vector/
 
 # User data (local)
 dome-files/
+
+# Generated credentials (baked in during CI build)
+electron/app-credentials.cjs

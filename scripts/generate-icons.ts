@@ -74,6 +74,19 @@ async function generateIcons() {
     .toFile(join(ASSETS_DIR, 'icon-256.png'));
   console.log('   ✅ Creado: assets/icon-256.png');
 
+  // Generar icono para macOS menu bar tray (template image, 18x18)
+  console.log('\n🍎 Generando icono para macOS menu bar (tray)...');
+  await sharp(Buffer.from(iconBuffer))
+    .resize(18, 18)
+    .png()
+    .toFile(join(ASSETS_DIR, 'trayTemplate.png'));
+  // @2x para pantallas Retina
+  await sharp(Buffer.from(iconBuffer))
+    .resize(36, 36)
+    .png()
+    .toFile(join(ASSETS_DIR, 'trayTemplate@2x.png'));
+  console.log('   ✅ Creado: assets/trayTemplate.png + trayTemplate@2x.png');
+
   // Crear .icns usando png2icons (funciona en macOS, Windows y Linux)
   console.log('\n🍎 Generando icono .icns para macOS...');
   try {

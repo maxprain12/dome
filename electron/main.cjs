@@ -385,11 +385,27 @@ function createTray(mainWindow) {
     ? path.join(process.resourcesPath, 'assets')
     : path.join(__dirname, '../assets');
 
-  // macOS uses a template image (white/black auto-switching); other platforms use the colour icon
-  const trayIconName = process.platform === 'darwin' ? 'icon.png' : 'icon.png';
+  // macOS uses a template image (18x18, white/black auto-switching for menu bar)
+  const trayIconName = process.platform === 'darwin' ? 'trayTemplate.png' : 'icon.png';
   const trayIconPath = path.join(RESOURCES_PATH, trayIconName);
+  const fallbackIconPath = path.join(RESOURCES_PATH, 'icon.png');
 
-  appTray = new Tray(fs.existsSync(trayIconPath) ? trayIconPath : undefined);
+  const resolvedIconPath = fs.existsSync(trayIconPath)
+    ? trayIconPath
+    : fs.existsSync(fallbackIconPath)
+    ? fallbackIconPath
+    : null;
+
+  if (!resolvedIconPath) {
+    console.warn('[Tray] No icon found, skipping tray creation');
+    return;
+  }
+
+  appTray = new Tray(resolvedIconPath);
+  if (process.platform === 'darwin') {
+    // Template image auto-adapts to light/dark menu bar
+    appTray.setImage(resolvedIconPath);
+  }
   appTray.setToolTip('Dome');
 
   const buildContextMenu = () => Menu.buildFromTemplate([
@@ -479,8 +495,12 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   // Re-create window on macOS when dock icon is clicked
-  if (windowManager.count() === 0) {
+  const win = windowManager.get('main');
+  if (!win || win.isDestroyed()) {
     createWindow();
+  } else {
+    win.show();
+    win.focus();
   }
 });
 

@@ -16,6 +16,17 @@ const http   = require('http');
 const https  = require('https');
 const { shell } = require('electron');
 
+// Load credentials: prefer baked-in file (production), fall back to process.env (dev)
+let _appCredentials = {};
+try {
+  _appCredentials = require('../app-credentials.cjs');
+} catch {
+  // app-credentials.cjs not generated yet (dev without running embed-env.cjs)
+}
+function getCredential(key) {
+  return _appCredentials[key] || process.env[key] || '';
+}
+
 // ─── OAuth constants ──────────────────────────────────────────────────────────
 
 const GOOGLE_AUTH_URL    = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -160,8 +171,8 @@ function isTokenExpired(account) {
 // ─── Token refresh ────────────────────────────────────────────────────────────
 
 async function refreshGoogleToken(account) {
-  const clientId = process.env.DOME_GOOGLE_DRIVE_CLIENT_ID;
-  const clientSecret = process.env.DOME_GOOGLE_DRIVE_CLIENT_SECRET;
+  const clientId = getCredential('DOME_GOOGLE_DRIVE_CLIENT_ID');
+  const clientSecret = getCredential('DOME_GOOGLE_DRIVE_CLIENT_SECRET');
   if (!clientId || !clientSecret || !account.refreshToken) return null;
 
   const body = urlEncode({
@@ -262,9 +273,9 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   ipcMain.handle('cloud:auth-google', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
 
-    const clientId = process.env.DOME_GOOGLE_DRIVE_CLIENT_ID;
+    const clientId = getCredential('DOME_GOOGLE_DRIVE_CLIENT_ID');
     if (!clientId) {
-      return { success: false, error: 'DOME_GOOGLE_DRIVE_CLIENT_ID env var not set. Configure your Google OAuth app and set this variable.' };
+      return { success: false, error: 'Google Drive is not configured. Contact the developer.' };
     }
 
     let port;
