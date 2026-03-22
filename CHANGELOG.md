@@ -2,6 +2,14 @@
 
 All notable changes to Dome are documented in this file.
 
+## [2.1.0] - 2026-03-22
+
+### Changed
+
+- **Many / chat**: `MarkdownRenderer` y `ManyPanel` con mejor manejo de carpetas y recuperación de sesión.
+
+[2.1.0]: https://github.com/maxprain12/dome/releases/tag/v2.1.0
+
 ## [2.0.9] - 2026-03-22
 
 ### Changed
