@@ -9,6 +9,8 @@ on:
 
 env:
   NODE_VERSION: '24'
+  # Evita avisos de deprecación de Node 20 en actions/checkout, setup-node, etc. (hasta junio 2026)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # macOS build

@@ -191,11 +191,12 @@ async function installRequirements(target) {
   const { dirs, basePython, platform } = await ensureExtractedPython(target);
   const venvPython = getPythonExe(dirs.root, platform, true);
   if (!fs.existsSync(venvPython)) {
-    // --copies: evita symlinks del intérprete hacia rutas absolutas fuera del bundle;
-    // codesign --strict falla con "invalid destination for symbolic link in bundle".
+    // Sin --copies: el CPython standalone (indygreg) en CI macOS abortaba (SIGABRT) en ensurepip.
+    // El saneado de symlinks en scripts/after-pack.cjs (macOS, antes de codesign) evita el error
+    // "invalid destination for symbolic link in bundle" al empaquetar.
     const create = await runCommand(
       basePython,
-      ['-m', 'venv', '--copies', dirs.venvRoot],
+      ['-m', 'venv', dirs.venvRoot],
       { timeoutMs: 120000 }
     );
     if (create.code !== 0) {

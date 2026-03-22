@@ -2,6 +2,46 @@
 
 All notable changes to Dome are documented in this file.
 
+## [2.0.8] - 2026-03-22
+
+### Added
+
+- **Google Drive**: Conexión en Ajustes → Cloud Storage, importación con selector de archivos (OAuth 2.0 con PKCE). Ver `docs/cloud-storage-setup.md`.
+- **Docling**: Fase de conversión de documentos (p. ej. PDF) antes de PageIndex, con progreso en la cabecera del workspace.
+- **Bandeja del sistema**: La app puede permanecer en segundo plano al cerrar la ventana; menú contextual en el icono de la bandeja.
+- **Inicio con el sistema**: Opción de lanzar Dome al iniciar sesión (configurable en Ajustes; sugerencia en primer arranque).
+- **Internacionalización (i18n)**: `react-i18next` en **en**, **es**, **fr** y **pt**; onboarding y UI ampliados.
+- **Herramienta de agente `import_file_to_dome`**: Importar archivos desde MCP al almacén local de Dome (texto o base64) con indexación posterior.
+- **date-fns** y mejoras de estilo (p. ej. barras de desplazamiento).
+
+### Changed
+
+- **Almacenamiento en la nube**: Se simplifica el producto a **solo Google Drive** (se retira la integración con OneDrive en la app).
+- **Editor y workspace**: Revisiones de contenido, título condicional, mejoras en URLs y componentes del workspace.
+- **Recursos**: Limpieza del tipo `document` y flujo de notas/recursos más coherente.
+- **Chat y artefactos**: Mejor manejo con integración Docling.
+- **Tema**: Gestión de tema reforzada.
+- **Documentación**: README actualizado (stack, estructura, releases/CI, sin Remotion).
+- **Pie del sidebar**: Créditos a desarrolladores actualizados.
+
+### Removed
+
+- **OneDrive** como proveedor en la UI de cloud storage.
+- **Remotion** (`remotion`, `@remotion/renderer`, plugin ESLint asociado): no se usaba en el código; dependencias eliminadas.
+- Funciones de embedding obsoletas y componentes no usados (refactor general).
+
+### Fixed
+
+- **Empaquetado macOS / codesign**: Enlaces simbólicos del runtime Python (PageIndex) o `app.asar.unpacked` que apuntaban fuera del `.app` rompían `codesign --verify --strict`. Mitigación con `venv --copies` en `prepare-pageindex-runtime` y saneado de symlinks en `after-pack` antes de firmar.
+
+### Build & CI
+
+- **GitHub Actions**: Workflow de build de Electron solo al publicar un **Release** (`release: published`).
+- **Node.js en CI**: versión **24** en el job de build.
+- **Etiqueta**: `v2.0.8` alineada con estos cambios para releases reproducibles.
+
+[2.0.8]: https://github.com/maxprain12/dome/releases/tag/v2.0.8
+
 ## [0.2.4] - 2026-02-17
 
 ### Added
