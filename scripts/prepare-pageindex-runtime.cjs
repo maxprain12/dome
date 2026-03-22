@@ -118,16 +118,33 @@ function runCommand(command, args, options = {}) {
   });
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function downloadFile(url, destPath) {
   return new Promise((resolve, reject) => {
-    function fetch(currentUrl) {
+    function fetchOnce(currentUrl, redirectDepth = 0) {
+      if (redirectDepth > 10) {
+        reject(new Error(`Too many redirects downloading ${url}`));
+        return;
+      }
       const lib = currentUrl.startsWith('https') ? https : http;
-      lib.get(currentUrl, (res) => {
+      const req = lib.get(currentUrl, (res) => {
+        req.setTimeout(0);
         if ([301, 302, 307, 308].includes(res.statusCode)) {
-          fetch(res.headers.location);
+          res.resume();
+          const next = res.headers.location;
+          if (!next) {
+            reject(new Error(`HTTP ${res.statusCode} without Location`));
+            return;
+          }
+          const resolved = new URL(next, currentUrl).href;
+          fetchOnce(resolved, redirectDepth + 1);
           return;
         }
         if (res.statusCode !== 200) {
+          res.resume();
           reject(new Error(`HTTP ${res.statusCode} while downloading ${currentUrl}`));
           return;
         }
@@ -135,14 +152,50 @@ function downloadFile(url, destPath) {
         res.pipe(file);
         file.on('finish', () => file.close(() => resolve()));
         file.on('error', (error) => {
-          try { fs.unlinkSync(destPath); } catch {}
+          try {
+            fs.unlinkSync(destPath);
+          } catch {}
           reject(error);
         });
         res.on('error', reject);
-      }).on('error', reject);
+      });
+      req.on('error', reject);
+      req.setTimeout(600000, () => {
+        req.destroy(new Error('Download request timeout (10 min)'));
+      });
     }
-    fetch(url);
+    fetchOnce(url, 0);
   });
+}
+
+function isRetryableDownloadError(err) {
+  const m = err?.message || String(err);
+  if (/HTTP (408|429|500|502|503|504)\b/.test(m)) return true;
+  if (/ECONNRESET|ETIMEDOUT|EPIPE|socket hang up|Download request timeout/i.test(m)) return true;
+  return false;
+}
+
+async function downloadFileWithRetries(url, destPath, options = {}) {
+  const maxAttempts = options.maxAttempts ?? 7;
+  const baseDelayMs = options.baseDelayMs ?? 4000;
+  let lastErr;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await downloadFile(url, destPath);
+      return;
+    } catch (e) {
+      lastErr = e;
+      if (attempt === maxAttempts || !isRetryableDownloadError(e)) {
+        throw e;
+      }
+      const delay = Math.min(baseDelayMs * 2 ** (attempt - 1), 120000);
+      console.warn(
+        `[PageIndexRuntime] Download attempt ${attempt}/${maxAttempts} failed (${e.message}); retrying in ${delay}ms…`
+      );
+      await sleep(delay);
+    }
+  }
+  throw lastErr;
 }
 
 async function ensureExtractedPython(target) {
@@ -158,7 +211,7 @@ async function ensureExtractedPython(target) {
   try {
     const url = getStandalonePythonUrl(platform, arch);
     console.log(`[PageIndexRuntime] Downloading ${target} from ${url}`);
-    await downloadFile(url, tarPath);
+    await downloadFileWithRetries(url, tarPath);
     await tar.x({ file: tarPath, cwd: dirs.root });
   } finally {
     try { fs.unlinkSync(tarPath); } catch {}
