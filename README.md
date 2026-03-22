@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.1-00C853?style=flat)](https://langchain-ai.github.io/langgraphjs/)
 [![License](https://img.shields.io/badge/License-Custom%20Open%20Source-blue.svg)](LICENSE)
 
-**v2.0.8** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently. It includes native **Google Drive** import, **Docling**-assisted document conversion before indexing, MCP-powered file import, automatic background indexing, **system tray** with optional **launch at login**, and **multi-language UI** (EN / ES / FR / PT).
+**v2.0.9** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently. It includes native **Google Drive** import, **Docling**-assisted document conversion before indexing, MCP-powered file import, automatic background indexing, **system tray** with optional **launch at login**, and **multi-language UI** (EN / ES / FR / PT).
 
 ---
 
@@ -61,6 +61,11 @@ Dome provides a unified workspace for managing your research and knowledge. It c
 ---
 
 ## What's New
+
+### v2.0.9 — Download reliability & CI
+
+- **Downloads** — Retries and improved error handling for failed transfers.
+- **CI / tooling** — Workflows use **npm** where applicable; updates to credentials handling in CI and icon generation.
 
 ### v2.0.8 — Cloud Storage, Docling, Tray, i18n, Auto-Indexing & More
 

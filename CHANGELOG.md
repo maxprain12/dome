@@ -2,6 +2,19 @@
 
 All notable changes to Dome are documented in this file.
 
+## [2.0.9] - 2026-03-22
+
+### Changed
+
+- **Descargas**: Reintentos y manejo de errores más robusto.
+- **CI y scripts**: Workflows y `package.json` orientados a **npm** (en lugar de Bun) donde aplica.
+
+### Build & maintenance
+
+- **Repositorio**: Ajustes en `.gitignore`, gestión de credenciales en CI y generación de iconos.
+
+[2.0.9]: https://github.com/maxprain12/dome/releases/tag/v2.0.9
+
 ## [2.0.8] - 2026-03-22
 
 ### Added
