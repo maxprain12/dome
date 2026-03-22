@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.1-00C853?style=flat)](https://langchain-ai.github.io/langgraphjs/)
 [![License](https://img.shields.io/badge/License-Custom%20Open%20Source-blue.svg)](LICENSE)
 
-**v2.0.8** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently. Now with native Google Drive and OneDrive integration, MCP-powered file import, and automatic background indexing.
+**v2.0.8** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently. It includes native **Google Drive** import, **Docling**-assisted document conversion before indexing, MCP-powered file import, automatic background indexing, **system tray** with optional **launch at login**, and **multi-language UI** (EN / ES / FR / PT).
 
 ---
 
@@ -25,6 +25,7 @@
 - [Project Structure](#project-structure)
 - [Configuration](#configuration)
 - [Contributing](#contributing)
+- [Releases y CI/CD](#releases-y-cicd)
 - [License](#license)
 - [Acknowledgments](#acknowledgments)
 
@@ -43,7 +44,7 @@ Dome provides a unified workspace for managing your research and knowledge. It c
 - **Studio** — Generate mindmaps, quizzes, flashcards, guides, FAQs, timelines from your content
 - **Flashcards** — Spaced repetition (SM-2) with AI-generated decks from your documents
 - **Calendar** — Event management with Google Calendar sync and AI-driven event tools
-- **Cloud Storage** — Native Google Drive and OneDrive integration with built-in file picker
+- **Cloud Storage** — Native Google Drive integration with built-in file picker (import to your Dome library)
 - **Auto-Indexing** — Background PageIndex sweep on startup and every hour, no manual action needed
 - **MCP File Import** — Agents can import files from MCP servers directly into the Dome library
 - **Annotate PDFs** with highlights, comments, and notes
@@ -61,12 +62,14 @@ Dome provides a unified workspace for managing your research and knowledge. It c
 
 ## What's New
 
-### v2.0.8 — Cloud Storage, Auto-Indexing, MCP Import & More
+### v2.0.8 — Cloud Storage, Docling, Tray, i18n, Auto-Indexing & More
 
 - **Google Drive Integration** — Connect your Google Drive account in Settings → Cloud Storage and import files directly into Dome with the built-in file picker. Uses PKCE OAuth 2.0 — no data passes through Dome servers. See [Cloud Storage Setup](docs/cloud-storage-setup.md).
-- **OneDrive Integration** — Connect your Microsoft OneDrive account using the same native OAuth 2.0 flow. Files.Read scope only; Dome never writes to your cloud.
-- **Cloud File Picker** — Browse folders, search by name, and multi-select files from Google Drive or OneDrive. Imported files are automatically added to your Dome library and queued for PageIndex.
-- **Automatic Background Indexing** — Dome now indexes all unindexed resources automatically: once on startup (after a 15-second warm-up) and then every hour, so your library is always AI-ready without manual intervention.
+- **Cloud File Picker** — Browse folders, search by name, and multi-select files from Google Drive. Imported files are added to your Dome library and queued for conversion/indexing.
+- **Docling Document Pipeline** — PDFs and compatible documents can go through a **Docling** conversion phase (progress shown in the workspace header) before **PageIndex** indexing, for richer text layout and tables where configured.
+- **Automatic Background Indexing** — Unindexed resources are processed automatically: once on startup (after a warm-up) and on a recurring schedule, so your library stays AI-ready without manual steps.
+- **System Tray & Launch at Login** — Closing the window can keep Dome running in the tray (automations and notifications). Auto-launch can be enabled on first run and toggled later in Settings.
+- **Interface Localization** — UI strings use **react-i18next** with **English, Spanish, French, and Portuguese** (language persisted in the app).
 - **`import_file_to_dome` Agent Tool** — AI agents can now save files retrieved from any MCP server directly into the Dome library. The tool accepts plain text or base64-encoded binary content (PDF, DOCX, etc.) and triggers indexing automatically.
 - **Agent Canvas** — Visual workflow builder with ReactFlow. Create workflows by connecting nodes (text input, agents, documents, outputs, images). Run workflows and see execution logs in real-time.
 - **Agent Teams** — Multi-agent collaboration. Create teams of specialized agents that work together in a shared chat session.
@@ -82,7 +85,6 @@ Dome provides a unified workspace for managing your research and knowledge. It c
 - **Projects Dashboard** — New home screen showing all your projects at a glance
 - **Run Engine** — Background engine for running agent workflows
 - **GitHub Integration** — Connect GitHub repositories for workflow automation
-- **Remotion** — Render videos from your content
 
 ### v2.0.0 — The Major Update
 
@@ -257,6 +259,7 @@ Extract text from scanned documents:
 
 Resources are indexed using a **reasoning-based** approach (no embeddings required):
 
+- Many PDFs first show **Docling** conversion progress in the header (when applicable), then PageIndex processing
 - Documents are parsed into structured text nodes and stored in SQLite
 - Each resource shows a status badge: **Listo para IA** (indexed), processing, or error
 - The badge appears in the workspace header next to the Paneles button
@@ -413,7 +416,7 @@ Comprehensive source management for academic work:
 | **Appearance** | Light, dark, and system theme modes |
 | **AI Configuration** | Providers, API keys, models |
 | **Indexing** | PageIndex provider/model, re-index controls |
-| **Cloud Storage** | Connect Google Drive and OneDrive accounts |
+| **Cloud Storage** | Connect Google Drive for import |
 | **Calendar** | Google Calendar account connection and sync |
 | **MCP** | Configure Model Context Protocol servers (stdio/http) |
 | **Skills** | Browse and manage agent skills |
@@ -440,10 +443,11 @@ Comprehensive source management for academic work:
 | AI Document Index | PageIndex (reasoning-based, SQLite-backed) |
 | State Management | [Zustand](https://github.com/pmndrs/zustand) |
 | Language | [TypeScript](https://www.typescriptlang.org/) (strict mode) |
+| Routing | [React Router 7](https://reactrouter.com/) |
+| i18n | [react-i18next](https://react.i18next.com/) (en, es, fr, pt) |
 | Web Automation | [Playwright](https://playwright.dev/) |
 | PDF Rendering | [PDF.js](https://mozilla.github.io/pdf.js/) |
 | PowerPoint Rendering | [pptx-preview](https://github.com/mesmerize-dev/pptx-preview) |
-| Video Rendering | [Remotion](https://www.remotion.dev/) |
 | Guided Tours | [driver.js](https://driverjs.com/) |
 | Analytics | [PostHog](https://posthog.com/) (opt-in) |
 
@@ -531,7 +535,7 @@ When you first launch Dome:
    - For cloud providers: Enter your API key and choose your chat model
 3. **Configure Indexing** (optional): Go to **Settings → Indexing** to set the provider and model for PageIndex
 4. **Configure MCP** (optional): Add MCP servers in Settings → MCP for extended AI tools
-5. **Connect Cloud Storage** (optional): Go to **Settings → Cloud Storage** to link Google Drive or OneDrive accounts — see the [Cloud Storage Setup Guide](docs/cloud-storage-setup.md) for credential setup
+5. **Connect Cloud Storage** (optional): Go to **Settings → Cloud Storage** to link Google Drive — see the [Cloud Storage Setup Guide](docs/cloud-storage-setup.md) for credential setup
 
 ### 2. Creating Projects
 
@@ -725,6 +729,8 @@ dome/
 │   │   ├── calendar/            # Calendar grid and event modal
 │   │   ├── chat/                # AI Chat (messages, tool cards)
 │   │   ├── CommandCenter/       # Search and command palette
+│   │   ├── cloud/               # Google Drive file picker UI
+│   │   ├── shell/               # Single-window shell (tabs, AppShell, ContentRouter)
 │   │   ├── editor/              # Notion-style editor
 │   │   │   ├── blocks/          # Custom block components
 │   │   │   └── extensions/      # Tiptap extension wiring
@@ -756,6 +762,7 @@ dome/
 │   │   ├── store/               # Zustand (useManyStore, useAgentChatStore, useCalendarStore, useMarketplaceStore…)
 │   │   ├── agents/              # Many Agents API and catalog
 │   │   ├── studio/              # Studio constants and outputs
+│   │   ├── i18n.ts              # Translations (en, es, fr, pt)
 │   │   └── utils/               # Utilities
 │   ├── pages/                   # Route pages (Calendar, Settings, PPT…)
 │   ├── types/                   # TypeScript definitions
@@ -769,6 +776,8 @@ dome/
 │   ├── ai-tools-handler.cjs     # AI tools (resources, flashcard create)
 │   ├── langgraph-agent.cjs      # LangGraph agent (chat with tools)
 │   ├── doc-indexer.cjs          # PageIndex document indexer
+│   ├── docling-pipeline.cjs     # Docling conversion orchestration
+│   ├── docling-client.cjs       # Docling service client
 │   ├── resource-indexer.cjs     # Resource indexing orchestrator
 │   ├── calendar-service.cjs      # Calendar CRUD + Google sync
 │   ├── calendar-notification-service.cjs  # Desktop event reminders
@@ -790,6 +799,7 @@ dome/
 │   │   ├── ai.cjs
 │   │   ├── agents.cjs
 │   │   ├── marketplace.cjs
+│   │   ├── docling.cjs
 │   │   └── ...
 │   ├── window-manager.cjs       # Window management
 │   ├── security.cjs             # Security utilities
@@ -854,9 +864,9 @@ Configure in **Settings** → **Indexing**:
 - **Re-index all** — Trigger a full re-index of all project resources
 - Indexing runs automatically in the background when resources are added or updated
 
-### Cloud Storage — Google Drive & OneDrive
+### Cloud Storage — Google Drive
 
-Connect cloud accounts in **Settings** → **Cloud Storage**.
+Connect Google Drive in **Settings** → **Cloud Storage**.
 
 Dome uses **PKCE OAuth 2.0** — your tokens are stored locally in the SQLite database and never sent to Dome servers.
 
@@ -865,10 +875,9 @@ Dome uses **PKCE OAuth 2.0** — your tokens are stored locally in the SQLite da
 ```bash
 DOME_GOOGLE_DRIVE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 DOME_GOOGLE_DRIVE_CLIENT_SECRET=GOCSPX-your-client-secret
-DOME_ONEDRIVE_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 ```
 
-📖 **[Cloud Storage Setup Guide](docs/cloud-storage-setup.md)** — Step-by-step instructions to create Google Cloud credentials and register a Microsoft Azure app, including redirect URI setup and scope configuration.
+📖 **[Cloud Storage Setup Guide](docs/cloud-storage-setup.md)** — Google Cloud project, OAuth consent, redirect URI `dome://oauth/callback`, and scopes. *(The doc may still mention legacy providers; the app currently ships Google Drive only.)*
 
 ### MCP Servers
 
@@ -961,6 +970,18 @@ Dome is an open-source project, and we believe in the power of community collabo
 For questions, suggestions, or commercial inquiries:
 
 **Email**: alder.velasquezobando@gmail.com
+
+---
+
+## Releases y CI/CD
+
+Los binarios de escritorio (macOS `.dmg` / `.zip`, Windows `.exe`) se generan con **GitHub Actions** (workflow [`.github/workflows/build.yml`](.github/workflows/build.yml)).
+
+- **Cuándo corre**: solo cuando se **publica** un [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) (`release`, tipo `published`). No se ejecuta en cada push a `main` ni en pull requests.
+- **Qué hace**: jobs `build-macos` y `build-windows` (Bun, `rebuild:natives`, `electron:build`), luego el job `attach-artifacts` sube los artefactos al **mismo** release que disparó el workflow.
+- **Secrets útiles**: firma macOS opcional (`CSC_*`, `APPLE_*`), PostHog (`VITE_POSTHOG_*`), Google Drive en CI (`DOME_GOOGLE_DRIVE_*`). Sin `CSC_LINK`, la build macOS es sin firma/notarización.
+
+Para publicar: crea una etiqueta de versión, abre **Releases → Draft a new release**, elige la etiqueta, escribe las notas y **Publish release**.
 
 ---
 

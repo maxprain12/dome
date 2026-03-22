@@ -1,16 +1,14 @@
 name: Build Electron App
 
+# Solo se ejecuta al publicar un GitHub Release (no en push/PR a main).
+# Flujo: crear el release (etiqueta + notas) y publicarlo → este workflow
+# compila macOS/Windows y sube los artefactos al mismo release.
 on:
-  push:
-    branches: [main]
-    tags:
-      - 'v*'
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
+  release:
+    types: [published]
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '24'
 
 jobs:
   # macOS build
@@ -146,11 +144,10 @@ jobs:
             release/latest.yml
           if-no-files-found: error
 
-  # Create GitHub Release when a tag is pushed
-  release:
+  # Adjunta DMG/ZIP/EXE al release que disparó el workflow (no crea otro release).
+  attach-artifacts:
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
     steps:
@@ -162,14 +159,11 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
-      - name: Create Release
+      - name: Upload build assets to release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/dome-macos/*
             artifacts/dome-windows/*
-          draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

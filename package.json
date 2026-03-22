@@ -48,7 +48,6 @@
     "@mantine/modals": "^8.3.14",
     "@mantine/notifications": "^8.3.14",
     "@napi-rs/canvas": "^0.1.88",
-    "@remotion/renderer": "^4.0.431",
     "@sinclair/typebox": "^0.34.48",
     "@tabler/icons-react": "^3.36.1",
     "@tiptap/core": "^3.19.0",
@@ -133,7 +132,6 @@
     "react-router-dom": "^7.13.0",
     "reactflow": "^11.11.4",
     "remark-gfm": "^4.0.1",
-    "remotion": "^4.0.431",
     "rfc6902": "^5.2.0",
     "sharp": "^0.34.5",
     "tailwind-merge": "^2.5.0",
@@ -150,7 +148,6 @@
   "optionalDependencies": {},
   "devDependencies": {
     "@electron/rebuild": "^3.6.3",
-    "@remotion/eslint-plugin": "^4.0.431",
     "@types/better-sqlite3": "^7.6.0",
     "@types/bun": "latest",
     "@types/dagre": "^0.7.53",
