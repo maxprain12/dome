@@ -7,6 +7,105 @@
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * codesign --verify --deep --strict rejects symlinks whose target resolves outside the .app.
+ * Python venvs and some wheels leave such links; materialize them as real files/dirs.
+ */
+function collectSymlinksUnder(rootDir, acc = []) {
+  if (!fs.existsSync(rootDir)) return acc;
+  let entries;
+  try {
+    entries = fs.readdirSync(rootDir);
+  } catch {
+    return acc;
+  }
+  for (const name of entries) {
+    const full = path.join(rootDir, name);
+    let st;
+    try {
+      st = fs.lstatSync(full);
+    } catch {
+      continue;
+    }
+    if (st.isSymbolicLink()) {
+      acc.push(full);
+    } else if (st.isDirectory()) {
+      collectSymlinksUnder(full, acc);
+    }
+  }
+  return acc;
+}
+
+function fixSymlinksOutsideAppBundle(appBundlePath, dirsToScan) {
+  let appReal;
+  try {
+    appReal = fs.realpathSync(appBundlePath);
+  } catch (e) {
+    console.warn('[AfterPack] Could not realpath app bundle:', e.message);
+    return;
+  }
+  const appPrefix = appReal + path.sep;
+
+  for (let pass = 0; pass < 30; pass += 1) {
+    const symlinks = [];
+    for (const d of dirsToScan) {
+      if (fs.existsSync(d)) {
+        collectSymlinksUnder(d, symlinks);
+      }
+    }
+    symlinks.sort((a, b) => b.length - a.length);
+
+    let changed = 0;
+    for (const linkPath of symlinks) {
+      let resolved;
+      try {
+        resolved = fs.realpathSync(linkPath);
+      } catch {
+        console.warn('[AfterPack] Removing broken symlink:', linkPath);
+        try {
+          fs.unlinkSync(linkPath);
+        } catch {}
+        changed += 1;
+        continue;
+      }
+      if (resolved === appReal || resolved.startsWith(appPrefix)) {
+        continue;
+      }
+
+      const rawTarget = fs.readlinkSync(linkPath);
+      const sourceAbs = path.isAbsolute(rawTarget)
+        ? rawTarget
+        : path.resolve(path.dirname(linkPath), rawTarget);
+
+      let stats;
+      try {
+        stats = fs.statSync(sourceAbs);
+      } catch (e) {
+        console.warn('[AfterPack] Skipping unreadable symlink:', linkPath, e.message);
+        continue;
+      }
+
+      try {
+        fs.unlinkSync(linkPath);
+        if (stats.isDirectory()) {
+          fs.cpSync(sourceAbs, linkPath, { recursive: true, dereference: true });
+        } else {
+          fs.copyFileSync(sourceAbs, linkPath);
+        }
+        console.log('[AfterPack] Materialized symlink for codesign:', linkPath);
+        changed += 1;
+      } catch (e) {
+        console.warn('[AfterPack] Failed to materialize symlink:', linkPath, e.message);
+      }
+    }
+
+    if (changed === 0) {
+      break;
+    }
+    console.log(`[AfterPack] Symlink sanitization pass ${pass + 1}: fixed ${changed} item(s)`);
+  }
+}
+
 exports.default = async function afterPack(context) {
   const { appOutDir, electronPlatformName } = context;
 
@@ -68,6 +167,18 @@ exports.default = async function afterPack(context) {
     });
   } else {
     console.warn('[AfterPack] ⚠️  Embedded PageIndex runtime missing from resources');
+  }
+
+  if (electronPlatformName === 'darwin') {
+    const appBundle = path.join(appOutDir, 'Dome.app');
+    const scanDirs = [
+      path.join(resourcesPath, 'pageindex-runtime'),
+      path.join(resourcesPath, 'app.asar.unpacked'),
+    ].filter((p) => fs.existsSync(p));
+    if (scanDirs.length > 0) {
+      console.log('[AfterPack] Checking symlinks for macOS codesign (strict)...');
+      fixSymlinksOutsideAppBundle(appBundle, scanDirs);
+    }
   }
 
   console.log('[AfterPack] After-pack hook completed');

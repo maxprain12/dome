@@ -191,7 +191,13 @@ async function installRequirements(target) {
   const { dirs, basePython, platform } = await ensureExtractedPython(target);
   const venvPython = getPythonExe(dirs.root, platform, true);
   if (!fs.existsSync(venvPython)) {
-    const create = await runCommand(basePython, ['-m', 'venv', dirs.venvRoot], { timeoutMs: 120000 });
+    // --copies: evita symlinks del intérprete hacia rutas absolutas fuera del bundle;
+    // codesign --strict falla con "invalid destination for symbolic link in bundle".
+    const create = await runCommand(
+      basePython,
+      ['-m', 'venv', '--copies', dirs.venvRoot],
+      { timeoutMs: 120000 }
+    );
     if (create.code !== 0) {
       throw new Error(create.stderr || create.stdout || `Failed to create venv for ${target}`);
     }
