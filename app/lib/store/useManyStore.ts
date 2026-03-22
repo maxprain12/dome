@@ -74,10 +74,26 @@ function getInitialSessionsState(): {
 }
 
 function persistSessions(sessions: ManyChatSession[]): void {
+  const MAX_MSG_LENGTH = 4000; // chars per message before trimming
+  const toStore = sessions.slice(0, MAX_SESSIONS);
   try {
-    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions.slice(0, MAX_SESSIONS)));
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(toStore));
   } catch {
-    // ignore (incognito, quota, disabled)
+    // Quota exceeded — retry with trimmed message content to free space
+    try {
+      const trimmed = toStore.map((s) => ({
+        ...s,
+        messages: s.messages.map((m) => ({
+          ...m,
+          content: m.content.length > MAX_MSG_LENGTH ? m.content.slice(0, MAX_MSG_LENGTH) + '…' : m.content,
+          // Drop tool call results (usually large) when saving under pressure
+          toolCalls: m.toolCalls?.map((tc) => ({ ...tc, result: undefined })),
+        })),
+      }));
+      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(trimmed));
+    } catch {
+      // incognito, disabled, or completely out of space — silently skip
+    }
   }
 }
 
@@ -326,7 +342,8 @@ export const useManyStore = create<ManyState>((set, get) => ({
     const nextSessions = idx >= 0
       ? sessions.map((item) => (item.id === session.id ? normalizedSession : item))
       : [normalizedSession, ...sessions].slice(0, MAX_SESSIONS);
-    persistSessions(nextSessions);
+    // Update in-memory state FIRST so the UI always reflects the latest messages,
+    // even if the localStorage write below fails (e.g. quota exceeded).
     set({
       sessions: nextSessions,
       currentSessionId: currentSessionId ?? normalizedSession.id,
@@ -335,6 +352,12 @@ export const useManyStore = create<ManyState>((set, get) => ({
           ? [...normalizedSession.messages]
           : get().messages,
     });
+    // Best-effort persistence — a failure here must never clear the chat UI.
+    try {
+      persistSessions(nextSessions);
+    } catch (e) {
+      console.warn('[ManyStore] Could not persist sessions to localStorage:', e);
+    }
   },
 
   setCurrentInput: (input) => set({ currentInput: input }),

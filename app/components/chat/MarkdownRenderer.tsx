@@ -190,16 +190,29 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
   const setCurrentProject = useAppStore((s) => s.setCurrentProject);
-  const setCurrentFolderId = useAppStore((s) => s.setCurrentFolderId);
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
 
   const openFolderInCurrentWindow = useCallback(
-    (folderId: string) => {
-      setHomeSidebarSection('library');
-      setCurrentFolderId(folderId);
-      navigate(`/?folder=${encodeURIComponent(folderId)}`);
+    async (folderId: string) => {
+      const electron = typeof window !== 'undefined' ? window.electron : null;
+      try {
+        if (electron?.db?.resources?.getById) {
+          const result = await electron.db.resources.getById(folderId);
+          if (result?.success && result.data) {
+            const folder = result.data as { title?: string; type?: string };
+            const title = folder.title || 'Carpeta';
+            useTabStore.getState().openFolderTab(folderId, title);
+            return;
+          }
+          // Folder not found in DB (likely a hallucinated ID from the AI)
+          showToast('error', t('toast.resource_not_found'));
+          return;
+        }
+      } catch { /* fall through */ }
+      // Fallback: open with generic title if IPC isn't available
+      useTabStore.getState().openFolderTab(folderId, 'Carpeta');
     },
-    [navigate, setCurrentFolderId, setHomeSidebarSection]
+    [t]
   );
 
   const handleOpenExternalUrl = useCallback(async (href: string) => {
@@ -230,7 +243,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
 
       const folderMatch = href.match(/^dome:\/\/folder\/([^/?#]+)/);
       if (folderMatch) {
-        openFolderInCurrentWindow(folderMatch[1]);
+        await openFolderInCurrentWindow(folderMatch[1]);
         return;
       }
 
@@ -239,24 +252,29 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         const [, resourceId, explicitResourceType, queryString] = resourceMatch;
         const page = parsePageFromQuery(queryString);
         let resourceType = explicitResourceType?.trim();
+        let resourceTitle = 'Recurso';
 
-        if (!resourceType && electron.db?.resources?.getById) {
+        if (electron.db?.resources?.getById) {
           try {
             const lookup = await electron.db.resources.getById(resourceId);
             if (lookup?.success && lookup.data) {
-              resourceType = (lookup.data as { type?: string }).type || 'url';
-            } else {
+              const data = lookup.data as { type?: string; title?: string };
+              if (!resourceType) resourceType = data.type || 'url';
+              resourceTitle = data.title || 'Recurso';
+            } else if (!resourceType) {
               showToast('error', getResultError(lookup, t('toast.resource_not_found')));
               return;
             }
           } catch (err) {
-            console.error('[MarkdownRenderer] Failed to resolve resource type:', err);
-            showToast('error', t('toast.resource_not_found'));
-            return;
+            console.error('[MarkdownRenderer] Failed to resolve resource:', err);
+            if (!resourceType) {
+              showToast('error', t('toast.resource_not_found'));
+              return;
+            }
           }
         }
 
-        useTabStore.getState().openResourceTab(resourceId, resourceType || 'url', 'Recurso');
+        useTabStore.getState().openResourceTab(resourceId, resourceType || 'url', resourceTitle);
         return;
       }
 
@@ -304,7 +322,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           }
 
           if (resolvedType === 'folder') {
-            openFolderInCurrentWindow(resolvedId);
+            await openFolderInCurrentWindow(resolvedId);
             return;
           }
 

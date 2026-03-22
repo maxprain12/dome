@@ -128,7 +128,7 @@ export function buildSharedResourceHint(context: SharedAgentContext): string {
     }
   }
 
-  if ((context.pathname === '/' || context.pathname === '/home') && context.currentFolderId) {
+  if (context.currentFolderId) {
     hints.push(
       `The user is viewing folder ID: ${context.currentFolderId}. Use folder-aware listing or creation when organizing or creating resources.`
     );

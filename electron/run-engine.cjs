@@ -797,21 +797,25 @@ async function executeLangGraphRun(runId, params) {
       return getRun(runId);
     }
     if (params.sessionId) {
-      persistAssistantMessage(params.sessionId, {
-        content: context.fullResponse,
-        toolCalls: context.toolCalls,
-        thinking: context.fullThinking,
-        metadata: {
-          mode: params.ownerType,
-          runId,
-        },
-        mode: params.ownerType === 'agent' ? 'agent' : 'many',
-        contextId: params.contextId ?? null,
-        threadId: context.threadId,
-        title: params.sessionTitle ?? null,
-        toolIds: params.toolIds ?? [],
-        mcpServerIds: params.mcpServerIds ?? [],
-      });
+      try {
+        persistAssistantMessage(params.sessionId, {
+          content: context.fullResponse,
+          toolCalls: context.toolCalls,
+          thinking: context.fullThinking,
+          metadata: {
+            mode: params.ownerType,
+            runId,
+          },
+          mode: params.ownerType === 'agent' ? 'agent' : 'many',
+          contextId: params.contextId ?? null,
+          threadId: context.threadId,
+          title: params.sessionTitle ?? null,
+          toolIds: params.toolIds ?? [],
+          mcpServerIds: params.mcpServerIds ?? [],
+        });
+      } catch (e) {
+        console.warn('[RunEngine] Could not persist assistant message to DB:', e?.message);
+      }
     }
     appendRunStep({
       runId,
@@ -1361,9 +1365,27 @@ function migrateLegacyData() {
   migrateLegacyWorkflowExecutions();
 }
 
+function recoverStuckRuns() {
+  try {
+    const db = _database.getDB();
+    const ts = now();
+    db.prepare(`
+      UPDATE automation_runs
+      SET status = 'failed',
+          error = 'Interrupted — the app was restarted while this run was active.',
+          finished_at = ?,
+          updated_at = ?
+      WHERE status IN ('running', 'queued', 'waiting_approval')
+    `).run(ts, ts);
+  } catch (e) {
+    console.warn('[RunEngine] recoverStuckRuns failed:', e?.message);
+  }
+}
+
 function init(windowManager, database) {
   _windowManager = windowManager;
   _database = database;
+  recoverStuckRuns();
   migrateLegacyData();
 }
 

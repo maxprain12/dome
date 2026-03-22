@@ -69,27 +69,30 @@ const CHAT_CITATION_INSTRUCTION = `## Citation Guidance
 - Prefer one citation per concrete factual claim or paragraph grounded in the library.`;
 
 const APP_SECTION_GUIDE = `## Dome App Sections
-- Home > Library: browse folders and resources, open folders, and organize the main library.
-- Home > Studio: open generated outputs such as mindmaps, guides, quizzes, timelines, tables, flashcards, audio, and video.
-- Home > Flashcards: review and manage flashcard decks.
-- Home > Tags: browse resources grouped by tags.
-- Home > Agents: manage specialized agents.
-- Home > Workflows: run agent teams and workflow automations.
-- Home > Marketplace: explore installable assets, workflows, and agents.
-- Calendar: view and manage events.
-- Workspace: open and edit a specific resource such as a document, notebook, PDF, DOCX, PPT, URL, video, or audio.
+Dome is a single-window app with a browser-like tab bar. Each section opens as a tab.
+
+- **Home**: the starting tab — shows recent resources, quick actions, and workspace overview.
+- **Folder tab** (one per folder): clicking a folder in the sidebar or a dome://folder link opens it as its own tab. Each folder tab shows subfolders + files inside that folder.
+- **Agents**: manage and chat with specialized agents; also shows Workflows and Automations.
+- **Learn**: Studio outputs (mindmaps, guides, quizzes, timelines, tables, flashcards, audio, video), Flashcards review, and Tags browser — all accessible via top-tabs inside Learn.
+- **Calendar**: view and manage events.
+- **Marketplace**: explore and install agents, workflows, and assets.
+- **Settings**: app configuration, AI providers, integrations.
+- **Resource tab** (one per resource): opens a specific note, notebook, PDF, DOCX, PPT, URL, video, or audio file for editing or viewing.
+
+## Sidebar (Unified Workspace)
+The left sidebar shows the full folder tree of the workspace. Clicking any folder opens it as a Folder tab. Folders can be nested; each Folder tab shows its subfolders in a grid and its files in a list.
 
 ## Navigation Guidance
-- If the user asks how to do something in Dome, explain the path step by step using the real section names above.
-- If another area of the app is better for the task, say it explicitly: for example "ve a Studio", "abre Workflows", or "entra en Library".
+- If the user asks how to find something, describe it using the tab and sidebar names above (e.g. "en la barra lateral izquierda busca la carpeta X", "abre la pestaña Agents", "ve a Learn > Studio").
 - Prefer actionable guidance plus clickable internal links when available.
-- If a workflow or specialized agent is the best route, mention it clearly and explain why.
+- If a workflow or specialized agent is the best route, mention it clearly.
 
 ## Deep Link Rules
 - Resource links must use \`dome://resource/RESOURCE_ID/TYPE\`.
-- Folder links must use \`dome://folder/FOLDER_ID\` and open the folder inside Home > Library in the current app window.
+- Folder links must use \`dome://folder/FOLDER_ID\` — opens that folder as a tab in the current window.
 - Studio links must use \`dome://studio/OUTPUT_ID/TYPE\`.
-- Never invent resource IDs, folder IDs, output IDs, or types. Use exact values from tool results only.`;
+- **CRITICAL — Never invent IDs**: Always use the exact \`id\` field returned by tools (resource_create, resource_search, resource_get_library_overview, etc.). Resource IDs look like \`res_1234567890_abc123\`. Folder IDs use the same format — folders are resources too. NEVER invent IDs like \`fol_...\`, \`folder-123\`, or anything not returned by a tool. If you do not have the ID, call \`resource_get_library_overview\` or \`resource_search\` first.`;
 
 const ENTITY_CREATION_RULES = `## Entity Creation (agent_create, workflow_create, automation_create)
 - **agent_create**: Always pass \`tool_ids\` — an agent without tools cannot work. Example: Noticiero needs ["web_fetch", "resource_create"]. After calling, your response MUST include the artifact block: \`\`\`artifact:created_entity (newline) {JSON from tool, strip ENTITY_CREATED: prefix} (newline) \`\`\`. This block renders the visual card. Without it, the user only sees plain text.
@@ -212,6 +215,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     loadMemory();
   }, []);
 
+  // Startup: sync current session from DB — recovers messages that survived an app restart
+  // even if localStorage was cleared or quota-failed.
   useEffect(() => {
     if (!currentSessionId || !db.isAvailable()) {
       return;
@@ -232,11 +237,17 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         thinking: message.thinking ?? undefined,
       }));
 
-      const shouldHydrate =
-        !currentSession ||
-        persistedMessages.length > currentSession.messages.length ||
-        (persistedMessages.length === currentSession.messages.length &&
-          persistedMessages[persistedMessages.length - 1]?.id !== currentSession.messages[currentSession.messages.length - 1]?.id);
+      // Must have at least one user message and one assistant message to be worth hydrating.
+      // If DB only has an assistant message (partial write), keep localStorage as-is.
+      const hasUserMsg = persistedMessages.some((m) => m.role === 'user');
+      const hasAssistantMsg = persistedMessages.some((m) => m.role === 'assistant');
+      if (!hasUserMsg || !hasAssistantMsg) return;
+
+      // Only hydrate if DB has strictly more messages than localStorage,
+      // OR if count matches but last message IDs differ (different persistence sources).
+      // Never replace localStorage with fewer DB messages (avoid losing messages).
+      const localCount = currentSession?.messages?.length ?? 0;
+      const shouldHydrate = persistedMessages.length > localCount;
 
       if (!shouldHydrate) {
         return;
@@ -257,6 +268,61 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     };
   }, [currentSessionId, currentSession, hydrateSession]);
 
+  // Startup: recover sessions from DB that are missing from localStorage.
+  // Runs once on mount. Handles the case where localStorage was cleared but DB survived.
+  useEffect(() => {
+    if (!db.isAvailable()) return;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const listResult = await db.getChatSessionsGlobal(20);
+        if (cancelled || !listResult.success || !Array.isArray(listResult.data)) return;
+
+        const { sessions: localSessions, hydrateSession: hydrateS } = useManyStore.getState();
+        const localIds = new Set(localSessions.map((s) => s.id));
+
+        // The SQL SELECT * returns all columns; cast through unknown to access title/mode
+        type DbSessionRow = { id: string; title?: string | null; created_at?: number; updated_at?: number; mode?: string | null };
+        for (const dbSession of (listResult.data as unknown as DbSessionRow[])) {
+          if (cancelled) break;
+          // Skip if already in localStorage
+          if (localIds.has(dbSession.id)) continue;
+
+          // Load full session to get messages
+          const fullResult = await db.getChatSession(dbSession.id);
+          if (cancelled || !fullResult.success || !fullResult.data) continue;
+
+          const msgs: ManyMessage[] = fullResult.data.messages.map((m) => ({
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            timestamp: m.created_at,
+            toolCalls: m.tool_calls ?? undefined,
+            thinking: m.thinking ?? undefined,
+          }));
+
+          // Only recover sessions that have at least one user+assistant exchange
+          const hasUser = msgs.some((m) => m.role === 'user');
+          const hasAssistant = msgs.some((m) => m.role === 'assistant');
+          if (!hasUser || !hasAssistant) continue;
+
+          hydrateS({
+            id: dbSession.id,
+            title: fullResult.data.title || dbSession.title || 'Chat',
+            messages: msgs,
+            createdAt: dbSession.created_at ?? Date.now(),
+          } satisfies ManyChatSession);
+        }
+      } catch (err) {
+        console.warn('[Many] DB session recovery failed:', err);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
   const refreshSessionFromDb = useCallback(async (): Promise<boolean> => {
     if (!currentSessionId || !db.isAvailable()) {
       return false;
@@ -265,17 +331,33 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     if (!result.success || !result.data) {
       return false;
     }
+    const dbMessages = result.data.messages.map((message) => ({
+      id: message.id,
+      role: message.role as 'user' | 'assistant',
+      content: message.content,
+      timestamp: message.created_at,
+      toolCalls: message.tool_calls ?? undefined,
+      thinking: message.thinking ?? undefined,
+    }));
+    // Guard: the last DB message must be an assistant message.
+    // If it's a user message (or missing), the run's assistant write hasn't
+    // landed yet (sessionId null, DB error, or race). Keep streaming visible.
+    const lastDbMessage = dbMessages[dbMessages.length - 1];
+    if (!lastDbMessage || lastDbMessage.role !== 'assistant') return false;
+    // Guard: the DB session must have at least one user message before the assistant.
+    // If DB only has assistant messages (user message write failed), don't hydrate —
+    // that would wipe the user message that's already visible in localStorage.
+    const hasUserMessage = dbMessages.some((m) => m.role === 'user');
+    if (!hasUserMessage) return false;
+    // Guard: if the last assistant message has neither content nor tool calls,
+    // the write may have landed but with empty output. Keep streaming visible.
+    const hasContent = !!lastDbMessage.content?.trim();
+    const hasToolCalls = Array.isArray(lastDbMessage.toolCalls) && lastDbMessage.toolCalls.length > 0;
+    if (!hasContent && !hasToolCalls) return false;
     hydrateSession({
       id: currentSessionId,
       title: result.data.title || currentSession?.title || 'New chat',
-      messages: result.data.messages.map((message) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        timestamp: message.created_at,
-        toolCalls: message.tool_calls ?? undefined,
-        thinking: message.thinking ?? undefined,
-      })),
+      messages: dbMessages,
       createdAt: currentSession?.createdAt ?? result.data.messages[0]?.created_at ?? Date.now(),
     } satisfies ManyChatSession);
     return true;
@@ -380,13 +462,39 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             toolCalls,
           };
         });
+        // Capture final content from run for localStorage fallback.
+        const finalContent = run.outputText || '';
+        const finalToolCalls: ToolCallData[] = Array.isArray(run.metadata?.toolCalls)
+          ? (run.metadata.toolCalls as ToolCallData[])
+          : [];
+
         // Use ref so this listener is not re-registered every time currentSession
         // changes (which would create a window where the event could be missed).
-        void refreshSessionFromDbRef.current().then((hydrated) => {
-          if (hydrated) setStreamingMessage(null);
-        }).catch(() => {
-          setStreamingMessage(null);
-        });
+        const tryRefresh = (attemptsLeft: number) => {
+          void refreshSessionFromDbRef.current().then((hydrated) => {
+            if (hydrated) {
+              setStreamingMessage(null);
+            } else if (attemptsLeft > 0) {
+              // DB message may not be written yet — retry once after a short delay.
+              setTimeout(() => tryRefresh(attemptsLeft - 1), 600);
+            } else {
+              // DB hydration failed after all retries. Persist assistant message
+              // directly to localStorage so it survives closing the panel.
+              if (finalContent || finalToolCalls.length > 0) {
+                addMessage({ role: 'assistant', content: finalContent, toolCalls: finalToolCalls });
+              }
+              setStreamingMessage(null);
+            }
+          }).catch((err) => {
+            // Keep the streaming message visible as fallback so the chat is never blank.
+            console.warn('[Many] refreshSessionFromDb failed, persisting to localStorage:', err);
+            if (finalContent || finalToolCalls.length > 0) {
+              addMessage({ role: 'assistant', content: finalContent, toolCalls: finalToolCalls });
+            }
+            setStreamingMessage(null);
+          });
+        };
+        tryRefresh(2);
         if (run.status === 'completed') {
           window.dispatchEvent(new Event('dome:resources-changed'));
         }
@@ -476,7 +584,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       unsubUpdated();
       unsubChunk();
     };
-  }, [activeRunId, applyRunSnapshot]);
+  }, [activeRunId, applyRunSnapshot, addMessage]);
 
   const setMcpEnabled = useCallback(async (value: boolean) => {
     setMcpEnabledState(value);
@@ -848,6 +956,27 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         }
         setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
         if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
+
+        // Also persist to DB for cross-restart recovery (non-tools path only saves to localStorage)
+        if (fullResponse && db.isAvailable() && currentSessionId) {
+          try {
+            const nonToolsThreadId = `many_${effectiveResourceId || 'global'}_${Date.now()}`;
+            const sessionResult = await db.createChatSession({
+              id: currentSessionId,
+              agentId: null,
+              resourceId: effectiveResourceId ?? null,
+              threadId: nonToolsThreadId,
+              mode: 'many',
+              contextId: effectiveResourceId ?? null,
+            });
+            if (sessionResult.success && sessionResult.data) {
+              await db.addChatMessage({ sessionId: sessionResult.data.id, role: 'user', content: userMessage });
+              await db.addChatMessage({ sessionId: sessionResult.data.id, role: 'assistant', content: fullResponse });
+            }
+          } catch (e) {
+            console.warn('[Many] Could not persist non-tools chat to DB:', e);
+          }
+        }
       }
     } catch (err) {
       chatSuccess = false;

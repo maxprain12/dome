@@ -900,6 +900,151 @@ async function getCurrentProject() {
  * @param {string} [data.folder_id] - Folder ID
  * @returns {Promise<Object>}
  */
+/**
+ * Convert a markdown string to TipTap ProseMirror JSON format.
+ * Handles headings, bold, italic, code, bullet/ordered lists,
+ * horizontal rules, code blocks, and paragraphs.
+ */
+function markdownToTipTapJSON(markdown) {
+  if (!markdown || !markdown.trim()) {
+    return JSON.stringify({ type: 'doc', content: [{ type: 'paragraph' }] });
+  }
+
+  // If it already looks like TipTap JSON, return as-is
+  try {
+    const parsed = JSON.parse(markdown);
+    if (parsed && parsed.type === 'doc' && Array.isArray(parsed.content)) {
+      return markdown;
+    }
+  } catch (_) { /* not JSON, continue */ }
+
+  const lines = markdown.split('\n');
+  const nodes = [];
+  let i = 0;
+
+  function parseInline(text) {
+    const parts = [];
+    // Pattern: **bold**, *italic*, `code`, ~~strike~~
+    const re = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|~~(.+?)~~)/g;
+    let last = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) {
+        parts.push({ type: 'text', text: text.slice(last, m.index) });
+      }
+      if (m[2] !== undefined) {
+        parts.push({ type: 'text', marks: [{ type: 'bold' }], text: m[2] });
+      } else if (m[3] !== undefined) {
+        parts.push({ type: 'text', marks: [{ type: 'italic' }], text: m[3] });
+      } else if (m[4] !== undefined) {
+        parts.push({ type: 'text', marks: [{ type: 'code' }], text: m[4] });
+      } else if (m[5] !== undefined) {
+        parts.push({ type: 'text', marks: [{ type: 'strike' }], text: m[5] });
+      }
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) {
+      parts.push({ type: 'text', text: text.slice(last) });
+    }
+    return parts.length ? parts : [{ type: 'text', text }];
+  }
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Fenced code block
+    if (/^```/.test(line)) {
+      const lang = line.slice(3).trim() || null;
+      const codeLines = [];
+      i++;
+      while (i < lines.length && !/^```/.test(lines[i])) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      nodes.push({
+        type: 'codeBlock',
+        attrs: { language: lang },
+        content: [{ type: 'text', text: codeLines.join('\n') }],
+      });
+      i++;
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^---+$/.test(line.trim()) || /^\*\*\*+$/.test(line.trim())) {
+      nodes.push({ type: 'horizontalRule' });
+      i++;
+      continue;
+    }
+
+    // Heading
+    const headingMatch = line.match(/^(#{1,6})\s+(.*)/);
+    if (headingMatch) {
+      nodes.push({
+        type: 'heading',
+        attrs: { level: headingMatch[1].length },
+        content: parseInline(headingMatch[2].trim()),
+      });
+      i++;
+      continue;
+    }
+
+    // Bullet list
+    if (/^[-*+]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^[-*+]\s+/.test(lines[i])) {
+        const text = lines[i].replace(/^[-*+]\s+/, '');
+        items.push({
+          type: 'listItem',
+          content: [{ type: 'paragraph', content: parseInline(text) }],
+        });
+        i++;
+      }
+      nodes.push({ type: 'bulletList', content: items });
+      continue;
+    }
+
+    // Ordered list
+    if (/^\d+\.\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        const text = lines[i].replace(/^\d+\.\s+/, '');
+        items.push({
+          type: 'listItem',
+          content: [{ type: 'paragraph', content: parseInline(text) }],
+        });
+        i++;
+      }
+      nodes.push({ type: 'orderedList', attrs: { start: 1 }, content: items });
+      continue;
+    }
+
+    // Blank line — skip
+    if (!line.trim()) {
+      i++;
+      continue;
+    }
+
+    // Regular paragraph (accumulate consecutive non-empty lines)
+    const paraLines = [];
+    while (i < lines.length && lines[i].trim() && !/^(#{1,6}\s|[-*+]\s|\d+\.\s|```|---)/.test(lines[i])) {
+      paraLines.push(lines[i]);
+      i++;
+    }
+    if (paraLines.length) {
+      const content = [];
+      paraLines.forEach((pl, idx) => {
+        content.push(...parseInline(pl));
+        if (idx < paraLines.length - 1) content.push({ type: 'hardBreak' });
+      });
+      nodes.push({ type: 'paragraph', content });
+    }
+  }
+
+  if (!nodes.length) nodes.push({ type: 'paragraph' });
+  return JSON.stringify({ type: 'doc', content: nodes });
+}
+
 const DEFAULT_NOTEBOOK_JSON = JSON.stringify({
   nbformat: 4,
   nbformat_minor: 1,
@@ -954,6 +1099,8 @@ async function resourceCreate(data) {
     let content = data.content || '';
     if (type === 'folder') {
       content = '';
+    } else if (type === 'note') {
+      content = markdownToTipTapJSON(content);
     } else if (type === 'notebook') {
       if (!content.trim()) {
         content = DEFAULT_NOTEBOOK_JSON;
@@ -1066,6 +1213,10 @@ async function resourceCreate(data) {
       updated_at: now,
     };
 
+    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
+      windowManagerRef.broadcast('resource:created', resource);
+    }
+
     return { success: true, resource };
   } catch (error) {
     console.error('[AI Tools] resourceCreate error:', error);
@@ -1097,6 +1248,11 @@ async function resourceUpdate(resourceId, updates) {
 
     const title = updates.title !== undefined ? updates.title.trim() : existing.title;
     let content = updates.content !== undefined ? updates.content : existing.content;
+
+    // Convert markdown to TipTap JSON for note resources
+    if (existing.type === 'note' && updates.content !== undefined) {
+      content = markdownToTipTapJSON(content);
+    }
 
     // Merge metadata
     let metadata = existing.metadata;
@@ -1327,6 +1483,10 @@ async function resourceDelete(resourceId) {
     // Delete from database
     queries.deleteResource.run(resourceId);
 
+    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
+      windowManagerRef.broadcast('resource:deleted', { id: resourceId });
+    }
+
     return {
       success: true,
       deleted: {
@@ -1391,6 +1551,10 @@ async function resourceMoveToFolder(resourceId, folderId) {
       queries.moveResourceToFolder.run(targetFolderId, now, resourceId);
     } else {
       queries.removeResourceFromFolder.run(now, resourceId);
+    }
+
+    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
+      windowManagerRef.broadcast('resource:updated', { id: resourceId, folder_id: targetFolderId });
     }
 
     return { success: true, resource_id: resourceId, folder_id: targetFolderId };

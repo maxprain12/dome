@@ -777,7 +777,7 @@ function getAllToolDefinitions() {
           properties: {
             title: { type: 'string', description: 'Resource title' },
             type: { type: 'string', description: 'note, notebook, document, url, folder' },
-            content: { type: 'string', description: 'Content (for notes)' },
+            content: { type: 'string', description: 'Content for notes: use Markdown GFM (headings, bold, italic, lists, code blocks). The system converts it to the editor format automatically. Do NOT pass HTML or JSON.' },
             project_id: { type: 'string', description: 'Project ID' },
             folder_id: { type: 'string', description: 'Parent folder ID' },
           },

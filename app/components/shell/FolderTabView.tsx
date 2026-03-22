@@ -9,6 +9,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useResources, type Resource } from '@/lib/hooks/useResources';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -592,6 +593,13 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   } = useResources({ folderId, sortBy: 'updated_at', sortOrder: 'desc' });
 
   const { openResourceTab, openFolderTab, activateTab, updateTab } = useTabStore();
+  const setCurrentFolderId = useAppStore((s) => s.setCurrentFolderId);
+
+  // Keep app store in sync so Many AI knows which folder is active
+  useEffect(() => {
+    setCurrentFolderId(folderId);
+    return () => { setCurrentFolderId(null); };
+  }, [folderId, setCurrentFolderId]);
 
   const currentFolder = getFolderById(folderId);
   const breadcrumb = useMemo(
