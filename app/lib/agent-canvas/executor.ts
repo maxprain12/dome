@@ -158,19 +158,20 @@ function resolveStaticNodeOutput(node: Node<CanvasNodeData>): CanvasNodePayload 
   }
   if (data.type === 'document') {
     const d = data as DocumentNodeData;
+    const resolvedTitle = d.resourceTitle || 'Documento';
     const resource =
-      d.resourceId && d.resourceTitle
+      d.resourceId
         ? ({
             resourceId: d.resourceId,
             resourceType: d.resourceType ?? 'document',
-            resourceTitle: d.resourceTitle,
+            resourceTitle: resolvedTitle,
             resourceContent: d.resourceContent,
             metadata: d.resourceMetadata ?? null,
           } satisfies CanvasResourceReference)
         : undefined;
     return {
       kind: resource ? 'resource' : 'text',
-      text: d.resourceContent || (d.resourceTitle ? `[Documento: ${d.resourceTitle}]` : ''),
+      text: d.resourceContent || (d.resourceId ? `[Documento: ${resolvedTitle}]` : ''),
       resources: resource ? [resource] : undefined,
     };
   }
@@ -225,6 +226,7 @@ async function executeAgentNode(
   // Resolve tools and system prompt
   let toolIds: string[] = [];
   let systemPrompt: string | undefined;
+  let mcpServerIds: string[] = [];
 
   if (agentData.agentId) {
     // User-defined ManyAgent
@@ -238,6 +240,7 @@ async function executeAgentNode(
     }
     toolIds = agent.toolIds ?? [];
     systemPrompt = agent.systemInstructions || undefined;
+    mcpServerIds = agent.mcpServerIds ?? [];
   } else if (agentData.systemAgentRole) {
     // Built-in system agent
     const sysAgent = getSystemAgent(agentData.systemAgentRole);
@@ -270,6 +273,7 @@ async function executeAgentNode(
     const stream = chatWithToolsStream(messages, tools, {
       threadId: `canvas-${node.id}-${Date.now()}`,
       skipHitl: true,
+      mcpServerIds,
     });
 
     for await (const chunk of stream) {

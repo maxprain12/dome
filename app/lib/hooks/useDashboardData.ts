@@ -50,7 +50,7 @@ const EMPTY_STATS: DashboardStats = {
   recentChats: 0,
 };
 
-export function useDashboardData(): DashboardData {
+export function useDashboardData(projectId: string | null = null): DashboardData {
   const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
   const [recentResources, setRecentResources] = useState<RecentResource[]>([]);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
@@ -71,13 +71,16 @@ export function useDashboardData(): DashboardData {
         ]);
 
       // All resources for stats and activity feed (includes metadata)
-      const allResources: Array<{
+      const allResourcesRaw: Array<{
         id: string; title: string; type: string; project_id: string; updated_at: number;
         metadata?: string | Record<string, unknown>;
       }> =
         resourcesResult?.success && Array.isArray(resourcesResult.data)
           ? resourcesResult.data
           : [];
+      const allResources = projectId
+        ? allResourcesRaw.filter((resource) => resource.project_id === projectId)
+        : allResourcesRaw;
 
       // Build a metadata map keyed by resource id so we can enrich recentResources
       const metaMap = new Map<string, { color?: string }>();
@@ -92,10 +95,13 @@ export function useDashboardData(): DashboardData {
       }
 
       // Recent resources for the "recently opened" row — enriched with metadata
-      const rawRecent: RecentResource[] =
+      const rawRecentAll: RecentResource[] =
         recentResult?.success && Array.isArray(recentResult.resources)
           ? recentResult.resources
           : [];
+      const rawRecent = projectId
+        ? rawRecentAll.filter((resource) => resource.project_id === projectId)
+        : rawRecentAll;
       const nextRecentResources: RecentResource[] = rawRecent.map((r) => ({
         ...r,
         metadata: metaMap.get(r.id) ?? r.metadata,
@@ -106,10 +112,13 @@ export function useDashboardData(): DashboardData {
       const projectsResult = await db.getProjects();
       const projectList =
         projectsResult.success && Array.isArray(projectsResult.data) ? projectsResult.data : [];
+      const scopedProjectList = projectId
+        ? projectList.filter((project) => project.id === projectId)
+        : projectList;
       let studioCount = 0;
-      if (window.electron?.db?.studio?.getByProject && projectList.length > 0) {
+      if (window.electron?.db?.studio?.getByProject && scopedProjectList.length > 0) {
         const studioResults = await Promise.all(
-          projectList.map((p: { id: string }) =>
+          scopedProjectList.map((p: { id: string }) =>
             window.electron.db.studio.getByProject(p.id).catch(() => null),
           ),
         );
@@ -119,8 +128,11 @@ export function useDashboardData(): DashboardData {
       }
 
       // Due flashcards
-      const decks: Array<{ id: string }> =
+      const decksRaw: Array<{ id: string; project_id?: string | null }> =
         decksResult?.success && Array.isArray(decksResult.data) ? decksResult.data : [];
+      const decks = projectId
+        ? decksRaw.filter((deck) => deck.project_id === projectId)
+        : decksRaw;
       let dueFlashcards = 0;
       if (window.electron?.db?.flashcards?.getStats && decks.length > 0) {
         const deckStats = await Promise.all(
@@ -138,8 +150,14 @@ export function useDashboardData(): DashboardData {
           ? eventsResult.events.length
           : 0;
 
-      const chats =
+      const chatsAll =
         chatsResult.success && Array.isArray(chatsResult.data) ? chatsResult.data : [];
+      const chats = projectId
+        ? chatsAll.filter((session) => {
+            const linkedResource = allResourcesRaw.find((resource) => resource.id === session.resource_id);
+            return linkedResource?.project_id === projectId;
+          })
+        : chatsAll;
 
       setStats({
         resourceCount: allResources.length,
@@ -186,7 +204,7 @@ export function useDashboardData(): DashboardData {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     void load();

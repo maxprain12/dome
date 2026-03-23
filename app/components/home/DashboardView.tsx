@@ -25,6 +25,7 @@ import { useDashboardData } from '@/lib/hooks/useDashboardData';
 import { InlineSearch } from '@/components/Search/SimpleSearch';
 import type { RecentResource } from '@/lib/hooks/useDashboardData';
 import { formatDistanceToNow } from '@/lib/utils';
+import { showToast } from '@/lib/store/useToastStore';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -264,8 +265,9 @@ export default function DashboardView() {
   const { name } = useUserStore();
   const { openResourceTab, openFolderTab, openCalendarTab, openChatTab } = useTabStore();
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
+  const currentProject = useAppStore((s) => s.currentProject);
 
-  const { stats, recentResources, loading } = useDashboardData();
+  const { stats, recentResources, loading } = useDashboardData(currentProject?.id ?? null);
 
   const handleResourceClick = useCallback(
     (r: RecentResource) => {
@@ -286,7 +288,7 @@ export default function DashboardView() {
       type: 'note' as const,
       title: t('dashboard.untitled_note'),
       content: '',
-      project_id: 'default',
+      project_id: currentProject?.id ?? 'default',
       created_at: now,
       updated_at: now,
     };
@@ -294,13 +296,20 @@ export default function DashboardView() {
     if (result.success && result.data) {
       openResourceTab(result.data.id, 'note', result.data.title);
     }
-  }, [t, openResourceTab]);
+  }, [currentProject?.id, t, openResourceTab]);
 
   const handleUpload = useCallback(async () => {
     if (!window.electron?.selectFiles || !window.electron?.resource?.importMultiple) return;
     const paths = await window.electron.selectFiles({ properties: ['openFile', 'multiSelections'] });
-    if (paths?.length) await window.electron.resource.importMultiple(paths, 'default');
-  }, []);
+    if (!paths?.length) return;
+    const result = await window.electron.resource.importMultiple(paths, currentProject?.id ?? 'default');
+    if (result?.errors?.length) {
+      const duplicateCount = result.errors.filter((entry) => entry.error === 'duplicate').length;
+      if (duplicateCount > 0) {
+        showToast('warning', `${duplicateCount} archivo(s) ya existían en la biblioteca.`);
+      }
+    }
+  }, [currentProject?.id]);
 
   const handleNewChat = useCallback(async () => {
     const sessionId = `session_${Date.now()}`;

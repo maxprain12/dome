@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Search,
   Plus,
@@ -18,6 +18,7 @@ import {
   GitBranch,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 interface SearchResult {
   id: string;
@@ -66,6 +67,7 @@ interface UseSimpleSearchOptions {
 
 export function useSimpleSearch({ onResourceSelect }: UseSimpleSearchOptions = {}) {
   const { t } = useTranslation();
+  const currentProject = useAppStore((s) => s.currentProject);
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -145,7 +147,7 @@ export function useSimpleSearch({ onResourceSelect }: UseSimpleSearchOptions = {
       type: 'note' as const,
       title: t('dashboard.untitled_note'),
       content: '',
-      project_id: 'default',
+      project_id: currentProject?.id ?? 'default',
       created_at: now,
       updated_at: now,
     };
@@ -154,24 +156,35 @@ export function useSimpleSearch({ onResourceSelect }: UseSimpleSearchOptions = {
       onResourceSelect?.({ id: result.data.id, type: 'note', title: result.data.title });
     }
     close();
-  }, [t, onResourceSelect, close]);
+  }, [close, currentProject?.id, onResourceSelect, t]);
 
   const handleUpload = useCallback(async () => {
     if (!window.electron?.selectFiles || !window.electron?.resource?.importMultiple) return;
     const paths = await window.electron.selectFiles({ properties: ['openFile', 'multiSelections'] });
     if (paths?.length) {
-      await window.electron.resource.importMultiple(paths, 'default');
+      await window.electron.resource.importMultiple(paths, currentProject?.id ?? 'default');
     }
     close();
-  }, [close]);
+  }, [close, currentProject?.id]);
 
   const handleAddUrl = useCallback(() => {
     const url = prompt(t('command.please_enter_url'));
-    if (url && window.electron?.invoke) {
-      window.electron.invoke('resource:import', { url, projectId: 'default' }).catch(console.error);
+    if (url && window.electron?.db?.resources?.create) {
+      const now = Date.now();
+      const id = `res_${now}_${Math.random().toString(36).substr(2, 9)}`;
+      const title = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
+      window.electron.db.resources.create({
+        id,
+        type: 'url',
+        title,
+        project_id: currentProject?.id ?? 'default',
+        content: url,
+        created_at: now,
+        updated_at: now,
+      }).catch(console.error);
     }
     close();
-  }, [t, close]);
+  }, [close, currentProject?.id, t]);
 
   const handleResultClick = useCallback(
     (result: SearchResult) => {

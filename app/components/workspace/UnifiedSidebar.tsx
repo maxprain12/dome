@@ -39,6 +39,8 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import type { Resource } from '@/lib/hooks/useResources';
+import type { Project } from '@/types';
+import { showToast } from '@/lib/store/useToastStore';
 
 // ---------------------------------------------------------------------------
 // Icons
@@ -1005,6 +1007,7 @@ interface UnifiedSidebarProps {
 export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: UnifiedSidebarProps) {
   const { t } = useTranslation();
   const [resources, setResources] = useState<Resource[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [workspaceOpen, setWorkspaceOpen] = useState(true);
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
@@ -1024,6 +1027,8 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
 
   const theme = useAppStore((s) => s.theme);
   const updateTheme = useAppStore((s) => s.updateTheme);
+  const currentProject = useAppStore((s) => s.currentProject);
+  const setCurrentProject = useAppStore((s) => s.setCurrentProject);
   const activeSection = useAppStore((s) => s.homeSidebarSection);
   const setSection = useAppStore((s) => s.setHomeSidebarSection);
   const {
@@ -1053,7 +1058,22 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     }
   }, []);
 
-  useEffect(() => { fetchResources(); }, [fetchResources]);
+  const fetchProjects = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron?.db?.projects) return;
+    try {
+      const result = await window.electron.db.projects.getAll();
+      if (result?.success && result.data) {
+        setProjects(result.data as Project[]);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchResources();
+    void fetchProjects();
+  }, [fetchProjects, fetchResources]);
 
   const debouncedSilentRefetchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleDebouncedSilentRefetch = useCallback(() => {
@@ -1064,9 +1084,13 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     }, 400);
   }, [fetchResources]);
 
+  const scopedResources = currentProject?.id
+    ? resources.filter((resource) => resource.project_id === currentProject.id)
+    : resources;
+
   const getDefaultProjectId = useCallback(() => {
-    return resources.find((r) => r.project_id)?.project_id || 'default';
-  }, [resources]);
+    return currentProject?.id ?? 'default';
+  }, [currentProject?.id]);
 
   const handleCreateNote = useCallback(async () => {
     if (!window.electron?.db?.resources) return;
@@ -1143,37 +1167,47 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   }, [getDefaultProjectId, fetchResources]);
 
   const handleImportFile = useCallback(async () => {
-    if (!window.electron?.selectFiles || !window.electron?.resource?.import) return;
+    if (!window.electron?.selectFiles || !window.electron?.resource?.importMultiple) return;
     const filePaths = await window.electron.selectFiles({ properties: ['openFile', 'multiSelections'] });
     if (!filePaths || filePaths.length === 0) return;
     const projectId = getDefaultProjectId();
-    await Promise.all(filePaths.map((fp: string) => {
-      const ext = fp.split('.').pop()?.toLowerCase() ?? '';
-      const type = ['mp4','mov','avi','mkv','webm'].includes(ext) ? 'video'
-        : ['mp3','wav','ogg','m4a','flac'].includes(ext) ? 'audio'
-        : ['jpg','jpeg','png','gif','webp','svg'].includes(ext) ? 'image'
-        : ['pptx','ppt'].includes(ext) ? 'ppt'
-        : ['ipynb'].includes(ext) ? 'notebook'
-        : 'url';
-      return window.electron.resource.import(fp, projectId, type);
-    }));
+    const result = await window.electron.resource.importMultiple(filePaths, projectId);
+    if (result?.errors?.length) {
+      const duplicateCount = result.errors.filter((entry) => entry.error === 'duplicate').length;
+      if (duplicateCount > 0) {
+        showToast('warning', `${duplicateCount} archivo(s) ya existían en la biblioteca.`);
+      }
+    }
     void fetchResources({ silent: true });
   }, [getDefaultProjectId, fetchResources]);
+
+  const handleProjectChange = useCallback(async (projectId: string) => {
+    if (!projectId) {
+      setCurrentProject(null);
+      return;
+    }
+    const nextProject = projects.find((project) => project.id === projectId) ?? null;
+    setCurrentProject(nextProject);
+    await fetchResources({ silent: true });
+  }, [fetchResources, projects, setCurrentProject]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron) return;
     const onCreated = () => { void fetchResources({ silent: true }); };
     const onDeleted = () => { void fetchResources({ silent: true }); };
+    const onProjectCreated = () => { void fetchProjects(); };
     const u1 = window.electron.on('resource:created', onCreated);
     const u2 = window.electron.on('resource:updated', scheduleDebouncedSilentRefetch);
     const u3 = window.electron.on('resource:deleted', onDeleted);
+    const u4 = window.electron.on('project:created', onProjectCreated);
     return () => {
       u1?.();
       u2?.();
       u3?.();
+      u4?.();
       if (debouncedSilentRefetchRef.current) clearTimeout(debouncedSilentRefetchRef.current);
     };
-  }, [fetchResources, scheduleDebouncedSilentRefetch]);
+  }, [fetchProjects, fetchResources, scheduleDebouncedSilentRefetch]);
 
   const navItems = [
     { id: 'library', label: 'Home', icon: <Home className="w-4 h-4" strokeWidth={1.75} />, action: 'section' as const },
@@ -1235,6 +1269,41 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       {/* Workspace tree */}
       <div className="flex-1 overflow-y-auto">
         <div className="border-b" style={{ borderColor: 'var(--dome-border)' }}>
+          <div className="px-3 pt-3 pb-1.5">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dome-text-muted)' }}>
+                Proyecto
+              </span>
+              <button
+                type="button"
+                onClick={() => setSection('projects')}
+                className="rounded px-1.5 py-0.5 transition-colors"
+                style={{ fontSize: 11, color: 'var(--dome-accent)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+              >
+                Gestionar
+              </button>
+            </div>
+            <select
+              value={currentProject?.id ?? ''}
+              onChange={(event) => void handleProjectChange(event.target.value)}
+              className="w-full rounded-md px-2 py-1.5 text-xs outline-none"
+              style={{
+                background: 'var(--dome-bg-hover)',
+                border: '1px solid var(--dome-border)',
+                color: 'var(--dome-text)',
+              }}
+            >
+              <option value="">Biblioteca general</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Header row */}
           <div className="flex items-center px-2 py-1.5 gap-0.5">
             <button
@@ -1285,7 +1354,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
                 </div>
               ) : (
                 <FileTree
-                  resources={resources}
+                  resources={scopedResources}
                   onRefresh={() => { void fetchResources({ silent: true }); }}
                 />
               )}

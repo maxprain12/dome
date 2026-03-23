@@ -405,7 +405,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'web_search',
-        description: 'Search the web for current information using Brave Search configured in Settings. If Brave is missing, falls back to less reliable HTML scraping. Returns titles, URLs, and snippets.',
+        description: 'Search the web for current information using Brave Search configured in Settings. If Brave is not configured, returns an explicit configuration error instead of scraping HTML. Returns titles, URLs, and snippets.',
         parameters: {
           type: 'object',
           properties: {

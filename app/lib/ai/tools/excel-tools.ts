@@ -352,8 +352,8 @@ export function createExcelCreateTool(): AnyAgentTool {
         const params = args as Record<string, unknown>;
         const title = readStringParam(params, 'title', { required: true });
         const projectId = readStringParam(params, 'project_id');
-        const currentProject = await window.electron!.ai.tools.getCurrentProject();
-        const resolvedProjectId = projectId || currentProject?.id || 'default';
+        const currentProjectResult = await window.electron!.ai.tools.getCurrentProject();
+        const resolvedProjectId = projectId || currentProjectResult?.project?.id || 'default';
         const result = await window.electron!.ai.tools.excelCreate(resolvedProjectId, title, {
           sheet_name: readStringParam(params, 'sheet_name'),
           initial_data: params.initial_data as string[][] | undefined,

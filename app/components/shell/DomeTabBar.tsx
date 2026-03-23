@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Home,
@@ -128,9 +128,36 @@ interface DomeTabBarProps {
 export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
   const { t } = useTranslation();
   const { tabs, activeTabId, activateTab, closeTab } = useTabStore();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      const canScrollHorizontally = container.scrollWidth > container.clientWidth;
+      if (!canScrollHorizontally) return;
+
+      const horizontalDelta = event.deltaX;
+      const verticalDelta = event.deltaY;
+      const shouldTranslateVerticalWheel = Math.abs(verticalDelta) > Math.abs(horizontalDelta);
+      const delta = shouldTranslateVerticalWheel ? verticalDelta : horizontalDelta;
+
+      if (delta === 0) return;
+
+      container.scrollLeft += delta;
+      event.preventDefault();
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   return (
     <div
+      ref={scrollRef}
       className="flex items-stretch flex-1 min-w-0 overflow-x-auto scrollbar-none"
       style={{
         height: '100%',

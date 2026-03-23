@@ -129,8 +129,8 @@ export function createPptCreateTool(): AnyAgentTool {
         const projectId = readStringParam(params, 'project_id');
         const folderId = readStringParam(params, 'folder_id');
         const sync = typeof params.sync === 'boolean' ? params.sync : false;
-        const currentProject = await window.electron!.ai.tools.getCurrentProject();
-        const resolvedProjectId = projectId || currentProject?.project?.id || 'default';
+        const currentProjectResult = await window.electron!.ai.tools.getCurrentProject();
+        const resolvedProjectId = projectId || currentProjectResult?.project?.id || 'default';
         const options: Record<string, unknown> = {};
         if (folderId) options.folder_id = folderId;
         if (script) options.script = script;
