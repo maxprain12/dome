@@ -13,6 +13,39 @@ import { createManyAgent } from '@/lib/agents/api';
 import { createWorkflow } from '@/lib/agent-canvas/api';
 import { saveAutomation } from '@/lib/automations/api';
 
+function normalizeWorkflowNodeType(type: unknown): string {
+  if (typeof type !== 'string') return 'text-input';
+  const normalized = type.trim().toLowerCase().replace(/\s+/g, '-');
+  if (normalized === 'text' || normalized === 'textinput' || normalized === 'input') return 'text-input';
+  if (normalized === 'doc' || normalized === 'document' || normalized === 'documents') return 'document';
+  if (normalized === 'img' || normalized === 'picture') return 'image';
+  if (normalized === 'llm') return 'agent';
+  if (normalized === 'result') return 'output';
+  return ['text-input', 'document', 'image', 'agent', 'output'].includes(normalized)
+    ? normalized
+    : 'text-input';
+}
+
+function normalizeWorkflowNodes(nodes: unknown[]): unknown[] {
+  return nodes.map((node, index) => {
+    if (!node || typeof node !== 'object') return node;
+    const record = node as Record<string, unknown>;
+    const data = (record.data && typeof record.data === 'object')
+      ? { ...(record.data as Record<string, unknown>) }
+      : {};
+    const normalizedType = normalizeWorkflowNodeType(record.type ?? data.type);
+    return {
+      ...record,
+      id: typeof record.id === 'string' && record.id.trim() ? record.id : `node-${index + 1}`,
+      type: normalizedType,
+      data: {
+        ...data,
+        type: normalizedType,
+      },
+    };
+  });
+}
+
 // =============================================================================
 // agent_create
 // =============================================================================
@@ -227,14 +260,15 @@ export function createWorkflowCreateTool(): AnyAgentTool {
     name: 'workflow_create',
     description:
       'Create a new visual workflow in the canvas with nodes and edges. ' +
-      'Use this when the user asks to create, build, or set up a new workflow or automation pipeline.',
+      'Use this when the user asks to create, build, or set up a new workflow or automation pipeline. ' +
+      'IMPORTANT: Valid node types are only "text-input", "document", "image", "agent", and "output". Never use "Document" (capitalized) or invent new node types.',
     parameters: WorkflowCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
         const params = args as Record<string, unknown>;
         const name = readStringParam(params, 'name', { required: true });
         const description = readStringParam(params, 'description') ?? '';
-        const nodes = Array.isArray(params.nodes) ? params.nodes : [];
+        const nodes = Array.isArray(params.nodes) ? normalizeWorkflowNodes(params.nodes) : [];
         const edges = Array.isArray(params.edges) ? params.edges : [];
 
         const result = await createWorkflow({

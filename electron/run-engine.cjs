@@ -1008,6 +1008,7 @@ function resolveWorkflowAgent(nodeData) {
       return {
         name: agent.name,
         toolIds: Array.isArray(agent.toolIds) ? agent.toolIds : [],
+        mcpServerIds: Array.isArray(agent.mcpServerIds) ? agent.mcpServerIds : [],
         systemPrompt: agent.systemInstructions || agent.description || `You are ${agent.name}.`,
       };
     }
@@ -1086,6 +1087,9 @@ async function executeWorkflowRun(runId, params, workflow) {
             inputPayload.text || '',
           ].filter(Boolean).join('\n\n');
           const toolDefinitions = getToolDefinitionsByIds(agentDef.toolIds || []);
+          const mcpServerIds = Array.isArray(agentDef.mcpServerIds)
+            ? agentDef.mcpServerIds
+            : (Array.isArray(params.inputTemplate?.mcpServerIds) ? params.inputTemplate.mcpServerIds : []);
           const providerConfig = await getProviderConfig(params.provider, params.model);
           const nodeContext = {
             fullResponse: '',
@@ -1111,7 +1115,8 @@ async function executeWorkflowRun(runId, params, workflow) {
               { role: 'user', content: userPrompt },
             ],
             toolDefinitions,
-            useDirectTools: toolDefinitions.length > 0,
+            useDirectTools: toolDefinitions.length > 0 || mcpServerIds.length > 0,
+            mcpServerIds,
             signal: context.controller.signal,
             threadId: nodeContext.threadId,
             skipHitl: true,

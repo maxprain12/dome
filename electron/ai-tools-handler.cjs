@@ -1792,7 +1792,6 @@ async function webFetch(args) {
 const BRAVE_SEARCH_ENDPOINT = 'https://api.search.brave.com/res/v1/web/search';
 const DEFAULT_PERPLEXITY_BASE = 'https://api.perplexity.ai';
 const DEFAULT_PERPLEXITY_MODEL = 'perplexity/sonar-pro';
-const FALLBACK_SEARCH_ENDPOINT = 'https://html.duckduckgo.com/html/';
 
 function getSettingValue(key) {
   try {
@@ -1810,100 +1809,6 @@ function resolveSiteName(url) {
     return new URL(url).hostname;
   } catch {
     return undefined;
-  }
-}
-
-function decodeHtmlEntities(value) {
-  if (!value || typeof value !== 'string') return '';
-  return value
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, '\'')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#x2F;/g, '/');
-}
-
-function stripHtml(value) {
-  if (!value || typeof value !== 'string') return '';
-  return decodeHtmlEntities(value.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
-}
-
-function unwrapDuckDuckGoUrl(rawUrl) {
-  if (!rawUrl || typeof rawUrl !== 'string') return '';
-  const decoded = decodeHtmlEntities(rawUrl);
-  try {
-    const url = new URL(decoded, FALLBACK_SEARCH_ENDPOINT);
-    const redirectTarget = url.searchParams.get('uddg');
-    return redirectTarget ? decodeURIComponent(redirectTarget) : url.toString();
-  } catch {
-    return decoded;
-  }
-}
-
-function parseFallbackSearchResults(html, count) {
-  if (!html || typeof html !== 'string') return [];
-
-  const resultRegex = /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?(?:<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>|<div[^>]*class="[^"]*result__snippet[^"]*"[^>]*>)([\s\S]*?)(?:<\/a>|<\/div>)/gi;
-  const results = [];
-  let match;
-
-  while ((match = resultRegex.exec(html)) !== null && results.length < count) {
-    const rawUrl = match[1] || '';
-    const titleHtml = match[2] || '';
-    const snippetHtml = match[3] || '';
-    const url = unwrapDuckDuckGoUrl(rawUrl);
-    const title = stripHtml(titleHtml);
-    const description = stripHtml(snippetHtml);
-
-    if (!url || !title) continue;
-
-    results.push({
-      title,
-      url,
-      description,
-      siteName: resolveSiteName(url),
-    });
-  }
-
-  return results;
-}
-
-async function runFallbackScrapeSearch(query, count, timeoutMs) {
-  const url = new URL(FALLBACK_SEARCH_ENDPOINT);
-  url.searchParams.set('q', query);
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const res = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        Accept: 'text/html,application/xhtml+xml',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-      },
-      signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      const detail = await res.text();
-      throw new Error(`Fallback search scrape error (${res.status}): ${detail || res.statusText}`);
-    }
-
-    const html = await res.text();
-    const results = parseFallbackSearchResults(html, count);
-    return {
-      query,
-      provider: 'scrape_fallback',
-      count: results.length,
-      results,
-      warning:
-        'Brave Search no está configurado. Se usó scraping HTML como fallback; puede fallar, devolver menos resultados o ser menos fiable.',
-      degraded: true,
-    };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -1940,9 +1845,7 @@ async function webSearch(args) {
 
   try {
     if (provider === 'brave' && !braveApiKey) {
-      const fallbackResult = await runFallbackScrapeSearch(query, count, timeoutMs);
-      traceLog('webSearch', { query, provider: 'scrape_fallback' }, { success: true, count: fallbackResult.count });
-      return fallbackResult;
+      throw new Error('Brave Search no está configurado. Añade la API key en Settings > AI para usar web_search.');
     }
 
     if (provider === 'perplexity') {
@@ -2020,25 +1923,9 @@ async function webSearch(args) {
 async function testWebSearchConnection() {
   const { provider, braveApiKey } = resolveWebSearchConfig();
   if (provider === 'brave' && !braveApiKey) {
-    const fallbackResult = await webSearch({ query: 'Dome app', count: 1 });
-    if (fallbackResult?.status === 'error') {
-      return {
-        success: false,
-        error: 'Falta la Brave Search API key y el fallback por scraping también falló.',
-      };
-    }
-
     return {
-      success: true,
-      provider: 'scrape_fallback',
-      count:
-        typeof fallbackResult.count === 'number'
-          ? fallbackResult.count
-          : Array.isArray(fallbackResult.results)
-            ? fallbackResult.results.length
-            : 0,
-      warning:
-        'Brave Search no está configurado. La app está usando scraping HTML como fallback y puede funcionar peor.',
+      success: false,
+      error: 'Falta la Brave Search API key. Configúrala en Settings > AI para habilitar web_search.',
     };
   }
 

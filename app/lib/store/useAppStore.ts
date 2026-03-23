@@ -9,6 +9,7 @@ interface AppState {
   projects: Project[];
   currentProject: Project | null;
   setProjects: (projects: Project[]) => void;
+  loadCurrentProject: () => Promise<void>;
   setCurrentProject: (project: Project | null) => void;
   addProject: (project: Project) => void;
   updateProject: (id: string, updates: Partial<Project>) => void;
@@ -107,8 +108,33 @@ export const useAppStore = create<AppState>((set) => ({
   projects: [],
   currentProject: null,
   setProjects: (projects) => set({ projects }),
+  loadCurrentProject: async () => {
+    if (typeof window === 'undefined' || !window.electron?.db?.settings || !window.electron?.db?.projects) {
+      return;
+    }
+    try {
+      const settingResult = await window.electron.db.settings.get('last_project_id');
+      const projectId = settingResult?.success ? settingResult.data : null;
+      if (!projectId) {
+        set({ currentProject: null });
+        return;
+      }
+      const projectResult = await window.electron.db.projects.getById(projectId);
+      if (projectResult?.success && projectResult.data) {
+        set({ currentProject: projectResult.data });
+      } else {
+        set({ currentProject: null });
+      }
+    } catch {
+      set({ currentProject: null });
+    }
+  },
   setCurrentProject: (project) => {
     set({ currentProject: project });
+    if (typeof window !== 'undefined' && window.electron?.db?.settings) {
+      const value = project?.id ?? '';
+      void window.electron.db.settings.set('last_project_id', value);
+    }
     if (project?.id) {
       capturePostHog(ANALYTICS_EVENTS.PROJECT_SWITCHED, { project_id: project.id });
     }

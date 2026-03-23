@@ -594,6 +594,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
 
   const { openResourceTab, openFolderTab, activateTab, updateTab } = useTabStore();
   const setCurrentFolderId = useAppStore((s) => s.setCurrentFolderId);
+  const currentProject = useAppStore((s) => s.currentProject);
 
   // Keep app store in sync so Many AI knows which folder is active
   useEffect(() => {
@@ -602,6 +603,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   }, [folderId, setCurrentFolderId]);
 
   const currentFolder = getFolderById(folderId);
+  const effectiveProjectId = currentFolder?.project_id ?? currentProject?.id ?? 'default';
   const breadcrumb = useMemo(
     () => getBreadcrumbPath(folderId).filter((f) => f.id !== folderId),
     [folderId, getBreadcrumbPath],
@@ -647,9 +649,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   };
 
   const handleCreateFolder = useCallback(async (name: string) => {
-    await createResource({ type: 'folder', title: name, project_id: 'default', content: '', folder_id: folderId });
+    await createResource({ type: 'folder', title: name, project_id: effectiveProjectId, content: '', folder_id: folderId });
     setCreatingFolder(false);
-  }, [createResource, folderId]);
+  }, [createResource, effectiveProjectId, folderId]);
 
   const handleNewNote = useCallback(async () => {
     if (!window.electron?.db?.resources?.create) return;
@@ -659,7 +661,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
       type: 'note' as const,
       title: t('dashboard.untitled_note', 'Nota sin título'),
       content: '',
-      project_id: 'default',
+      project_id: effectiveProjectId,
       folder_id: folderId,
       created_at: now,
       updated_at: now,
@@ -668,20 +670,30 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     if (result.success && result.data) {
       openResourceTab(result.data.id, 'note', result.data.title);
     }
-  }, [folderId, t, openResourceTab]);
+  }, [effectiveProjectId, folderId, t, openResourceTab]);
 
   const handleUpload = useCallback(async () => {
     if (!window.electron?.selectFiles || !window.electron?.resource?.importMultiple) return;
     const paths = await window.electron.selectFiles({ properties: ['openFile', 'multiSelections'] });
-    if (paths?.length) await window.electron.resource.importMultiple(paths, 'default', folderId);
-  }, [folderId]);
+    if (paths?.length) await window.electron.resource.importMultiple(paths, effectiveProjectId);
+  }, [effectiveProjectId]);
 
   const handleAddUrl = useCallback(() => {
     const url = prompt(t('command.please_enter_url', 'Introduce una URL'));
-    if (url && window.electron?.invoke) {
-      window.electron.invoke('resource:import', { url, projectId: 'default', folderId }).catch(console.error);
+    if (url && window.electron?.db?.resources?.create) {
+      const now = Date.now();
+      void window.electron.db.resources.create({
+        id: `res_${now}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'url',
+        title: url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0],
+        project_id: effectiveProjectId,
+        folder_id: folderId,
+        content: url,
+        created_at: now,
+        updated_at: now,
+      });
     }
-  }, [folderId, t]);
+  }, [effectiveProjectId, folderId, t]);
 
   const handleDeleteFile = useCallback(async (id: string) => {
     if (!window.confirm(t('folder.confirmDelete'))) return;

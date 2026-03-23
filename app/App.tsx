@@ -22,6 +22,11 @@ function MainApp() {
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
   const setCurrentProject = useAppStore((s) => s.setCurrentProject);
+  const loadCurrentProject = useAppStore((s) => s.loadCurrentProject);
+
+  useEffect(() => {
+    void loadCurrentProject();
+  }, [loadCurrentProject]);
 
   // Handle dome://studio/ID deep links
   useEffect(() => {

@@ -201,7 +201,7 @@ export default function WorkspaceHeader({
 
   return (
     <header
-      className={`app-region-drag shrink-0${isWindows ? ' win-titlebar-padding' : ''}`}
+      className={`drag-region shrink-0${isWindows ? ' win-titlebar-padding' : ''}`}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -216,7 +216,7 @@ export default function WorkspaceHeader({
       }}
     >
       {/* ── Left: type badge + title + saving ─────────────────────────── */}
-      <div className="app-region-no-drag flex items-center gap-2.5 min-w-0 flex-1 mr-3">
+      <div className="no-drag flex items-center gap-2.5 min-w-0 flex-1 mr-3">
         {/* Type badge */}
         <div
           style={{
@@ -328,7 +328,7 @@ export default function WorkspaceHeader({
       </div>
 
       {/* ── Right: panels + tools ─────────────────────────────────────── */}
-      <div className="app-region-no-drag flex items-center gap-0.5 flex-shrink-0">
+      <div className="no-drag flex items-center gap-0.5 flex-shrink-0">
         {/* AI index status */}
         <IndexStatusBadge resourceId={resource.id} resourceType={resource.type} />
 

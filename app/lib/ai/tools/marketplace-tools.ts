@@ -21,6 +21,7 @@ const MarketplaceSearchSchema = Type.Object({
     description: 'Search query to find agents or workflows (e.g. "research", "pdf", "writing").',
   }),
   type: Type.Optional(Type.Union([
+    Type.Literal('all'),
     Type.Literal('agents'),
     Type.Literal('workflows'),
   ], {
@@ -40,7 +41,7 @@ export function createMarketplaceSearchTool(): AnyAgentTool {
       try {
         const params = args as Record<string, unknown>;
         const query = readStringParam(params, 'query', { required: true })?.toLowerCase() ?? '';
-        const type = readStringParam(params, 'type') ?? 'agents';
+        const type = readStringParam(params, 'type') ?? 'all';
 
         const results: { agents: MarketplaceAgent[]; workflows: WorkflowTemplate[] } = {
           agents: [],
