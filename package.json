@@ -190,6 +190,13 @@
     ],
     "extraResources": [
       {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
         "from": "build/pageindex-runtime",
         "to": "pageindex-runtime",
         "filter": [

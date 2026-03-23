@@ -156,6 +156,8 @@ if (!gotTheLock) {
     }
     const win = windowManager?.get?.('main');
     if (win && !win.isDestroyed()) {
+      if (!win.isVisible()) win.show();
+      if (win.isMinimized()) win.restore();
       win.focus();
     }
   });
