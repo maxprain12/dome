@@ -2,6 +2,14 @@
 
 All notable changes to Dome are documented in this file.
 
+## [2.1.1] - 2026-03-23
+
+### Changed
+
+- **Electron**: Gestión de ventanas mejorada y manejo de recursos de assets en el proceso principal.
+
+[2.1.1]: https://github.com/maxprain12/dome/releases/tag/v2.1.1
+
 ## [2.1.0] - 2026-03-22
 
 ### Changed
