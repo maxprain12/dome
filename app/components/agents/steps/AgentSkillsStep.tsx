@@ -20,26 +20,20 @@ export default function AgentSkillsStep({ selectedIds, onChange }: AgentSkillsSt
     }
     setLoading(true);
     try {
-      const result = await db.getSetting('ai_skills');
-      if (result.success && result.data) {
-        try {
-          const parsed = JSON.parse(result.data) as unknown;
-          const list = Array.isArray(parsed) ? parsed : [];
-          setSkills(
-            list.map((s: SkillConfig) => ({
-              id: s.id || '',
-              name: s.name || '',
-              description: s.description || '',
-              prompt: s.prompt || '',
-              enabled: s.enabled !== false,
-            }))
-          );
-        } catch {
-          setSkills([]);
-        }
-      } else {
+      const result = await db.getAISkills();
+      if (!result.success || !Array.isArray(result.data)) {
         setSkills([]);
+        return;
       }
+      setSkills(
+        result.data.map((s: SkillConfig) => ({
+          id: s.id || '',
+          name: s.name || '',
+          description: s.description || '',
+          prompt: s.prompt || '',
+          enabled: s.enabled !== false,
+        }))
+      );
     } catch {
       setSkills([]);
     } finally {

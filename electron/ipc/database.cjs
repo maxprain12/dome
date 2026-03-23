@@ -4,6 +4,129 @@ const resourceIndexer = require('../resource-indexer.cjs');
 
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
   const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
+
+  function parseJson(raw, fallback) {
+    if (typeof raw !== 'string' || !raw.trim()) return fallback;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return fallback;
+    }
+  }
+
+  function normalizeServerId(name) {
+    return String(name || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+  }
+
+  function serializeManyAgent(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description || '',
+      systemInstructions: row.system_instructions || '',
+      toolIds: parseJson(row.tool_ids, []),
+      mcpServerIds: parseJson(row.mcp_server_ids, []),
+      skillIds: parseJson(row.skill_ids, []),
+      iconIndex: row.icon_index,
+      marketplaceId: row.marketplace_id || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  function serializeWorkflow(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description || '',
+      nodes: parseJson(row.nodes_json, []),
+      edges: parseJson(row.edges_json, []),
+      marketplace: row.marketplace_json ? parseJson(row.marketplace_json, null) : undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  function serializeWorkflowExecution(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      workflowId: row.workflow_id,
+      workflowName: row.workflow_name,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at || undefined,
+      status: row.status,
+      entries: parseJson(row.entries_json, []),
+      nodeOutputs: row.node_outputs_json ? parseJson(row.node_outputs_json, {}) : undefined,
+    };
+  }
+
+  function serializeMcpServer(row) {
+    if (!row) return null;
+    return {
+      name: row.name,
+      type: row.type,
+      command: row.command || undefined,
+      args: parseJson(row.args_json, []),
+      url: row.url || undefined,
+      headers: row.headers_json ? parseJson(row.headers_json, {}) : undefined,
+      env: row.env_json ? parseJson(row.env_json, {}) : undefined,
+      enabled: row.enabled !== 0,
+      tools: row.tools_json ? parseJson(row.tools_json, []) : undefined,
+      enabledToolIds: row.enabled_tool_ids_json ? parseJson(row.enabled_tool_ids_json, []) : undefined,
+      lastDiscoveryAt: row.last_discovery_at || undefined,
+      lastDiscoveryError: row.last_discovery_error ?? undefined,
+    };
+  }
+
+  function serializeSkill(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description || '',
+      prompt: row.prompt || '',
+      enabled: row.enabled !== 0,
+    };
+  }
+
+  function serializeMarketplaceAgentInstall(row) {
+    if (!row) return null;
+    return {
+      marketplaceId: row.marketplace_id,
+      localAgentId: row.local_agent_id,
+      version: row.version || 'unknown',
+      author: row.author || 'Unknown',
+      source: row.source || 'official',
+      installedAt: row.installed_at,
+      updatedAt: row.updated_at,
+      capabilities: parseJson(row.capabilities_json, []),
+      resourceAffinity: parseJson(row.resource_affinity_json, []),
+    };
+  }
+
+  function serializeMarketplaceWorkflowInstall(row) {
+    if (!row) return null;
+    return {
+      templateId: row.template_id,
+      localWorkflowId: row.local_workflow_id,
+      version: row.version || 'unknown',
+      author: row.author || 'Unknown',
+      source: row.source || 'official',
+      installedAt: row.installed_at,
+      updatedAt: row.updated_at,
+      capabilities: parseJson(row.capabilities_json, []),
+      resourceAffinity: parseJson(row.resource_affinity_json, []),
+    };
+  }
+
   // Projects
   ipcMain.handle('db:projects:create', (event, project) => {
     try {
@@ -378,6 +501,476 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: true };
     } catch (error) {
       console.error('[DB] Error saving AI settings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Many agents
+  ipcMain.handle('db:manyAgents:list', (event) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      return { success: true, data: queries.listManyAgents.all().map(serializeManyAgent) };
+    } catch (error) {
+      console.error('[DB] Error listing many agents:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:manyAgents:get', (event, id) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      return { success: true, data: serializeManyAgent(queries.getManyAgentById.get(id)) };
+    } catch (error) {
+      console.error('[DB] Error getting many agent:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:manyAgents:create', (event, agent) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      queries.createManyAgent.run(
+        agent.id,
+        agent.name,
+        agent.description || '',
+        agent.systemInstructions || '',
+        JSON.stringify(Array.isArray(agent.toolIds) ? agent.toolIds : []),
+        JSON.stringify(Array.isArray(agent.mcpServerIds) ? agent.mcpServerIds : []),
+        JSON.stringify(Array.isArray(agent.skillIds) ? agent.skillIds : []),
+        agent.iconIndex || 1,
+        agent.marketplaceId || null,
+        agent.createdAt,
+        agent.updatedAt,
+      );
+      windowManager.broadcast('dome:agents-changed');
+      return { success: true, data: agent };
+    } catch (error) {
+      console.error('[DB] Error creating many agent:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:manyAgents:update', (event, id, updates) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const current = queries.getManyAgentById.get(id);
+      if (!current) return { success: false, error: 'Agent not found' };
+      const next = {
+        ...serializeManyAgent(current),
+        ...updates,
+        id,
+        updatedAt: Date.now(),
+      };
+      queries.updateManyAgent.run(
+        next.name,
+        next.description || '',
+        next.systemInstructions || '',
+        JSON.stringify(Array.isArray(next.toolIds) ? next.toolIds : []),
+        JSON.stringify(Array.isArray(next.mcpServerIds) ? next.mcpServerIds : []),
+        JSON.stringify(Array.isArray(next.skillIds) ? next.skillIds : []),
+        next.iconIndex || 1,
+        next.marketplaceId || null,
+        next.updatedAt,
+        id,
+      );
+      windowManager.broadcast('dome:agents-changed');
+      return { success: true, data: next };
+    } catch (error) {
+      console.error('[DB] Error updating many agent:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:manyAgents:delete', (event, id) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const result = queries.deleteManyAgent.run(id);
+      if (result.changes === 0) return { success: false, error: 'Agent not found' };
+      windowManager.broadcast('dome:agents-changed');
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error deleting many agent:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Workflows
+  ipcMain.handle('db:workflows:list', (event) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      return { success: true, data: queries.listCanvasWorkflows.all().map(serializeWorkflow) };
+    } catch (error) {
+      console.error('[DB] Error listing workflows:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:workflows:get', (event, id) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      return { success: true, data: serializeWorkflow(queries.getCanvasWorkflowById.get(id)) };
+    } catch (error) {
+      console.error('[DB] Error getting workflow:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:workflows:create', (event, workflow) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      queries.createCanvasWorkflow.run(
+        workflow.id,
+        workflow.name,
+        workflow.description || '',
+        JSON.stringify(Array.isArray(workflow.nodes) ? workflow.nodes : []),
+        JSON.stringify(Array.isArray(workflow.edges) ? workflow.edges : []),
+        workflow.marketplace ? JSON.stringify(workflow.marketplace) : null,
+        workflow.createdAt,
+        workflow.updatedAt,
+      );
+      windowManager.broadcast('dome:workflows-changed');
+      return { success: true, data: workflow };
+    } catch (error) {
+      console.error('[DB] Error creating workflow:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:workflows:update', (event, id, updates) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const current = queries.getCanvasWorkflowById.get(id);
+      if (!current) return { success: false, error: 'Workflow not found' };
+      const next = {
+        ...serializeWorkflow(current),
+        ...updates,
+        id,
+        updatedAt: Date.now(),
+      };
+      queries.updateCanvasWorkflow.run(
+        next.name,
+        next.description || '',
+        JSON.stringify(Array.isArray(next.nodes) ? next.nodes : []),
+        JSON.stringify(Array.isArray(next.edges) ? next.edges : []),
+        next.marketplace ? JSON.stringify(next.marketplace) : null,
+        next.updatedAt,
+        id,
+      );
+      windowManager.broadcast('dome:workflows-changed');
+      return { success: true, data: next };
+    } catch (error) {
+      console.error('[DB] Error updating workflow:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:workflows:delete', (event, id) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const result = queries.deleteCanvasWorkflow.run(id);
+      if (result.changes === 0) return { success: false, error: 'Workflow not found' };
+      windowManager.broadcast('dome:workflows-changed');
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error deleting workflow:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:workflowExecutions:save', (event, execution) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const updatedAt = execution.finishedAt || execution.startedAt || Date.now();
+      queries.upsertWorkflowExecution.run(
+        execution.id,
+        execution.workflowId,
+        execution.workflowName,
+        execution.startedAt,
+        execution.finishedAt || null,
+        execution.status,
+        JSON.stringify(Array.isArray(execution.entries) ? execution.entries : []),
+        execution.nodeOutputs ? JSON.stringify(execution.nodeOutputs) : null,
+        updatedAt,
+      );
+      queries.trimWorkflowExecutions.run(execution.workflowId, execution.workflowId, 50);
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error saving workflow execution:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:workflowExecutions:listByWorkflow', (event, workflowId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      return {
+        success: true,
+        data: queries.listWorkflowExecutionsByWorkflow.all(workflowId).map(serializeWorkflowExecution),
+      };
+    } catch (error) {
+      console.error('[DB] Error listing workflow executions:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:workflowExecutions:get', (event, id) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      return { success: true, data: serializeWorkflowExecution(queries.getWorkflowExecutionById.get(id)) };
+    } catch (error) {
+      console.error('[DB] Error getting workflow execution:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // MCP
+  ipcMain.handle('db:mcp:list', (event) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      return { success: true, data: queries.listMcpServers.all().map(serializeMcpServer) };
+    } catch (error) {
+      console.error('[DB] Error listing MCP servers:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:mcp:replaceAll', (event, servers) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const now = Date.now();
+      const tx = database.getDB().transaction((items) => {
+        queries.deleteAllMcpServers.run();
+        for (const server of items) {
+          const serverId = normalizeServerId(server.name) || crypto.randomUUID();
+          queries.createMcpServer.run(
+            serverId,
+            server.name,
+            server.type === 'http' || server.type === 'sse' ? server.type : 'stdio',
+            server.command || null,
+            JSON.stringify(Array.isArray(server.args) ? server.args : []),
+            server.url || null,
+            server.headers ? JSON.stringify(server.headers) : null,
+            server.env ? JSON.stringify(server.env) : null,
+            server.enabled === false ? 0 : 1,
+            Array.isArray(server.tools) ? JSON.stringify(server.tools) : null,
+            Array.isArray(server.enabledToolIds) ? JSON.stringify(server.enabledToolIds) : null,
+            typeof server.lastDiscoveryAt === 'number' ? server.lastDiscoveryAt : null,
+            typeof server.lastDiscoveryError === 'string' ? server.lastDiscoveryError : null,
+            now,
+            now,
+          );
+        }
+      });
+      tx(Array.isArray(servers) ? servers : []);
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error replacing MCP servers:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:mcp:getGlobalEnabled', (event) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const row = queries.getMcpGlobalSettings.get();
+      return { success: true, data: row ? row.enabled !== 0 : true };
+    } catch (error) {
+      console.error('[DB] Error reading MCP global settings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:mcp:setGlobalEnabled', (event, enabled) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      queries.upsertMcpGlobalSettings.run(enabled ? 1 : 0, Date.now());
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error updating MCP global settings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Skills
+  ipcMain.handle('db:skills:list', (event) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      return { success: true, data: queries.listAiSkills.all().map(serializeSkill) };
+    } catch (error) {
+      console.error('[DB] Error listing skills:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:skills:replaceAll', (event, skills) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const now = Date.now();
+      const tx = database.getDB().transaction((items) => {
+        queries.deleteAllAiSkills.run();
+        for (const skill of items) {
+          queries.createAiSkill.run(
+            skill.id,
+            skill.name,
+            skill.description || '',
+            skill.prompt || '',
+            skill.enabled === false ? 0 : 1,
+            now,
+            now,
+          );
+        }
+      });
+      tx(Array.isArray(skills) ? skills : []);
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error replacing skills:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Marketplace persistence
+  ipcMain.handle('db:marketplace:getAgentInstalls', (event) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const rows = queries.listMarketplaceAgentInstalls.all();
+      const data = {};
+      for (const row of rows) {
+        const record = serializeMarketplaceAgentInstall(row);
+        data[record.marketplaceId] = record;
+      }
+      return { success: true, data };
+    } catch (error) {
+      console.error('[DB] Error reading marketplace agent installs:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:marketplace:replaceAgentInstalls', (event, records) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const tx = database.getDB().transaction((nextRecords) => {
+        queries.deleteAllMarketplaceAgentInstalls.run();
+        for (const [marketplaceId, record] of Object.entries(nextRecords || {})) {
+          if (!record || typeof record.localAgentId !== 'string') continue;
+          queries.upsertMarketplaceAgentInstall.run(
+            marketplaceId,
+            record.localAgentId,
+            record.version || null,
+            record.author || null,
+            record.source || null,
+            record.installedAt || Date.now(),
+            record.updatedAt || Date.now(),
+            JSON.stringify(Array.isArray(record.capabilities) ? record.capabilities : []),
+            JSON.stringify(Array.isArray(record.resourceAffinity) ? record.resourceAffinity : []),
+          );
+        }
+      });
+      tx(records || {});
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error replacing marketplace agent installs:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:marketplace:getWorkflowInstalls', (event) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const rows = queries.listMarketplaceWorkflowInstalls.all();
+      const data = {};
+      for (const row of rows) {
+        const record = serializeMarketplaceWorkflowInstall(row);
+        data[record.templateId] = record;
+      }
+      return { success: true, data };
+    } catch (error) {
+      console.error('[DB] Error reading marketplace workflow installs:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:marketplace:replaceWorkflowInstalls', (event, records) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const tx = database.getDB().transaction((nextRecords) => {
+        queries.deleteAllMarketplaceWorkflowInstalls.run();
+        for (const [templateId, record] of Object.entries(nextRecords || {})) {
+          if (!record || typeof record.localWorkflowId !== 'string') continue;
+          queries.upsertMarketplaceWorkflowInstall.run(
+            templateId,
+            record.localWorkflowId,
+            record.version || null,
+            record.author || null,
+            record.source || null,
+            record.installedAt || Date.now(),
+            record.updatedAt || Date.now(),
+            JSON.stringify(Array.isArray(record.capabilities) ? record.capabilities : []),
+            JSON.stringify(Array.isArray(record.resourceAffinity) ? record.resourceAffinity : []),
+          );
+        }
+      });
+      tx(records || {});
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error replacing marketplace workflow installs:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:marketplace:getTemplateMappings', (event) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const rows = queries.listMarketplaceTemplateMappings.all();
+      const data = {};
+      for (const row of rows) {
+        data[row.template_id] = row.workflow_id;
+      }
+      return { success: true, data };
+    } catch (error) {
+      console.error('[DB] Error reading marketplace template mappings:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:marketplace:replaceTemplateMappings', (event, mapping) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const tx = database.getDB().transaction((nextMapping) => {
+        queries.deleteAllMarketplaceTemplateMappings.run();
+        for (const [templateId, workflowId] of Object.entries(nextMapping || {})) {
+          if (typeof workflowId !== 'string') continue;
+          queries.upsertMarketplaceTemplateMapping.run(templateId, workflowId, Date.now());
+        }
+      });
+      tx(mapping || {});
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error replacing marketplace template mappings:', error);
       return { success: false, error: error.message };
     }
   });

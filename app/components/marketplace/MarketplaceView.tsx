@@ -151,20 +151,15 @@ export default function MarketplaceView() {
   const syncInstalledState = async () => {
     const [servers, skillsResult, agentIds, agentRecords, workflowIds, workflowRecords] = await Promise.all([
       loadMcpServersSetting(),
-      db.getSetting('ai_skills'),
+      db.getAISkills(),
       getInstalledMarketplaceAgentIds(),
       getInstalledMarketplaceAgentRecords(),
       getInstalledWorkflowTemplateIds(),
       getInstalledWorkflowRecords(),
     ]);
     setInstalledMcpNames(new Set(servers.map((s) => s.name.toLowerCase())));
-    if (skillsResult.success && skillsResult.data) {
-      try {
-        const list = JSON.parse(skillsResult.data) as Array<{ id?: string }>;
-        if (Array.isArray(list)) {
-          setInstalledSkillIds(new Set(list.map((s) => s.id).filter(Boolean) as string[]));
-        }
-      } catch { /* ignore */ }
+    if (skillsResult.success && Array.isArray(skillsResult.data)) {
+      setInstalledSkillIds(new Set(skillsResult.data.map((s) => s.id).filter(Boolean) as string[]));
     }
     setInstalledIds(agentIds);
     setInstalledAgentRecords(agentRecords);
@@ -348,10 +343,10 @@ export default function MarketplaceView() {
         return;
       }
       // Load current ai_skills list (SkillConfig format)
-      const currentResult = await db.getSetting('ai_skills');
+      const currentResult = await db.getAISkills();
       const currentList: Array<{ id: string; name: string; description: string; prompt: string; enabled: boolean }> =
-        currentResult.success && currentResult.data
-          ? (() => { try { return JSON.parse(currentResult.data); } catch { return []; } })()
+        currentResult.success && Array.isArray(currentResult.data)
+          ? currentResult.data
           : [];
 
       // Add the new skill using the marketplace manifest fields
@@ -363,7 +358,7 @@ export default function MarketplaceView() {
         enabled: true,
       };
       const updated = [...currentList, newSkill];
-      const result = await db.setSetting('ai_skills', JSON.stringify(updated));
+      const result = await db.replaceAISkills(updated);
       if (result.success) {
         setInstalledSkillIds((prev) => new Set([...prev, skill.id]));
         showToast('success', t('toast.skill_added', { name: skill.name }));

@@ -9,6 +9,8 @@
 import { generateId } from '../utils';
 import { capturePostHog } from '../analytics/posthog';
 import { ANALYTICS_EVENTS } from '../analytics/events';
+import type { ManyAgent, MCPServerConfig } from '@/types';
+import type { CanvasWorkflow, WorkflowExecution } from '@/types/canvas';
 
 // Type definitions
 export interface Project {
@@ -64,6 +66,38 @@ export interface DBResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+export interface AISkillRecord {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+  enabled?: boolean;
+}
+
+export interface MarketplaceAgentInstallRecord {
+  marketplaceId: string;
+  localAgentId: string;
+  version: string;
+  author: string;
+  source: 'official' | 'community';
+  installedAt: number;
+  updatedAt: number;
+  capabilities: string[];
+  resourceAffinity: string[];
+}
+
+export interface MarketplaceWorkflowInstallRecord {
+  templateId: string;
+  localWorkflowId: string;
+  version: string;
+  author: string;
+  source: 'official' | 'community';
+  installedAt: number;
+  updatedAt: number;
+  capabilities: string[];
+  resourceAffinity: string[];
 }
 
 /**
@@ -279,6 +313,106 @@ class DatabaseClient {
       return { success: false, error: 'Database API not available' };
     }
     return this.db.settings.set(key, value);
+  }
+
+  async getManyAgents(): Promise<DBResponse<ManyAgent[]>> {
+    return window.electron.invoke('db:manyAgents:list') as Promise<DBResponse<ManyAgent[]>>;
+  }
+
+  async getManyAgent(id: string): Promise<DBResponse<ManyAgent | null>> {
+    return window.electron.invoke('db:manyAgents:get', id) as Promise<DBResponse<ManyAgent | null>>;
+  }
+
+  async createManyAgent(agent: ManyAgent): Promise<DBResponse<ManyAgent>> {
+    return window.electron.invoke('db:manyAgents:create', agent) as Promise<DBResponse<ManyAgent>>;
+  }
+
+  async updateManyAgent(id: string, updates: Partial<ManyAgent>): Promise<DBResponse<ManyAgent>> {
+    return window.electron.invoke('db:manyAgents:update', id, updates) as Promise<DBResponse<ManyAgent>>;
+  }
+
+  async deleteManyAgent(id: string): Promise<DBResponse<void>> {
+    return window.electron.invoke('db:manyAgents:delete', id) as Promise<DBResponse<void>>;
+  }
+
+  async getWorkflows(): Promise<DBResponse<CanvasWorkflow[]>> {
+    return window.electron.invoke('db:workflows:list') as Promise<DBResponse<CanvasWorkflow[]>>;
+  }
+
+  async getWorkflow(id: string): Promise<DBResponse<CanvasWorkflow | null>> {
+    return window.electron.invoke('db:workflows:get', id) as Promise<DBResponse<CanvasWorkflow | null>>;
+  }
+
+  async createWorkflow(workflow: CanvasWorkflow): Promise<DBResponse<CanvasWorkflow>> {
+    return window.electron.invoke('db:workflows:create', workflow) as Promise<DBResponse<CanvasWorkflow>>;
+  }
+
+  async updateWorkflow(id: string, updates: Partial<CanvasWorkflow>): Promise<DBResponse<CanvasWorkflow>> {
+    return window.electron.invoke('db:workflows:update', id, updates) as Promise<DBResponse<CanvasWorkflow>>;
+  }
+
+  async deleteWorkflow(id: string): Promise<DBResponse<void>> {
+    return window.electron.invoke('db:workflows:delete', id) as Promise<DBResponse<void>>;
+  }
+
+  async saveWorkflowExecution(execution: WorkflowExecution): Promise<DBResponse<void>> {
+    return window.electron.invoke('db:workflowExecutions:save', execution) as Promise<DBResponse<void>>;
+  }
+
+  async getWorkflowExecutionsByWorkflow(workflowId: string): Promise<DBResponse<WorkflowExecution[]>> {
+    return window.electron.invoke('db:workflowExecutions:listByWorkflow', workflowId) as Promise<DBResponse<WorkflowExecution[]>>;
+  }
+
+  async getWorkflowExecution(id: string): Promise<DBResponse<WorkflowExecution | null>> {
+    return window.electron.invoke('db:workflowExecutions:get', id) as Promise<DBResponse<WorkflowExecution | null>>;
+  }
+
+  async getMcpServers(): Promise<DBResponse<MCPServerConfig[]>> {
+    return window.electron.invoke('db:mcp:list') as Promise<DBResponse<MCPServerConfig[]>>;
+  }
+
+  async replaceMcpServers(servers: MCPServerConfig[]): Promise<DBResponse<void>> {
+    return window.electron.invoke('db:mcp:replaceAll', servers) as Promise<DBResponse<void>>;
+  }
+
+  async getMcpGlobalEnabled(): Promise<DBResponse<boolean>> {
+    return window.electron.invoke('db:mcp:getGlobalEnabled') as Promise<DBResponse<boolean>>;
+  }
+
+  async setMcpGlobalEnabled(enabled: boolean): Promise<DBResponse<void>> {
+    return window.electron.invoke('db:mcp:setGlobalEnabled', enabled) as Promise<DBResponse<void>>;
+  }
+
+  async getAISkills(): Promise<DBResponse<AISkillRecord[]>> {
+    return window.electron.invoke('db:skills:list') as Promise<DBResponse<AISkillRecord[]>>;
+  }
+
+  async replaceAISkills(skills: AISkillRecord[]): Promise<DBResponse<void>> {
+    return window.electron.invoke('db:skills:replaceAll', skills) as Promise<DBResponse<void>>;
+  }
+
+  async getMarketplaceAgentInstalls(): Promise<DBResponse<Record<string, MarketplaceAgentInstallRecord>>> {
+    return window.electron.invoke('db:marketplace:getAgentInstalls') as Promise<DBResponse<Record<string, MarketplaceAgentInstallRecord>>>;
+  }
+
+  async replaceMarketplaceAgentInstalls(records: Record<string, MarketplaceAgentInstallRecord>): Promise<DBResponse<void>> {
+    return window.electron.invoke('db:marketplace:replaceAgentInstalls', records) as Promise<DBResponse<void>>;
+  }
+
+  async getMarketplaceWorkflowInstalls(): Promise<DBResponse<Record<string, MarketplaceWorkflowInstallRecord>>> {
+    return window.electron.invoke('db:marketplace:getWorkflowInstalls') as Promise<DBResponse<Record<string, MarketplaceWorkflowInstallRecord>>>;
+  }
+
+  async replaceMarketplaceWorkflowInstalls(records: Record<string, MarketplaceWorkflowInstallRecord>): Promise<DBResponse<void>> {
+    return window.electron.invoke('db:marketplace:replaceWorkflowInstalls', records) as Promise<DBResponse<void>>;
+  }
+
+  async getMarketplaceTemplateMappings(): Promise<DBResponse<Record<string, string>>> {
+    return window.electron.invoke('db:marketplace:getTemplateMappings') as Promise<DBResponse<Record<string, string>>>;
+  }
+
+  async replaceMarketplaceTemplateMappings(mapping: Record<string, string>): Promise<DBResponse<void>> {
+    return window.electron.invoke('db:marketplace:replaceTemplateMappings', mapping) as Promise<DBResponse<void>>;
   }
 
   // ============================================

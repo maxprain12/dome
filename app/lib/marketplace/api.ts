@@ -6,12 +6,6 @@ import { getManyAgents, createManyAgent, deleteManyAgent, updateManyAgent } from
 import { createWorkflow, deleteWorkflow, getWorkflow, getWorkflows, updateWorkflow } from '@/lib/agent-canvas/api';
 import { summarizeCapabilityProfile } from '@/lib/ai/shared-capabilities';
 
-const INSTALLED_KEY = 'marketplace_installed';
-const INSTALLED_WORKFLOWS_KEY = 'marketplace_installed_workflows';
-const TEMPLATE_TO_WORKFLOW_KEY = 'marketplace_template_to_workflow';
-const INSTALLED_AGENT_RECORDS_KEY = 'marketplace_agent_records';
-const INSTALLED_WORKFLOW_RECORDS_KEY = 'marketplace_workflow_records';
-
 export interface InstalledMarketplaceAgentRecord {
   marketplaceId: string;
   localAgentId: string;
@@ -36,38 +30,20 @@ export interface InstalledMarketplaceWorkflowRecord {
   resourceAffinity: string[];
 }
 
-async function readJsonSetting<T>(key: string, fallback: T): Promise<T> {
-  if (!db.isAvailable()) return fallback;
-  const result = await db.getSetting(key);
-  if (!result.success || !result.data) return fallback;
-  try {
-    return JSON.parse(result.data) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-async function writeJsonSetting(key: string, value: unknown): Promise<void> {
-  if (!db.isAvailable()) return;
-  await db.setSetting(key, JSON.stringify(value));
-}
-
 async function getInstalledIds(): Promise<string[]> {
-  const parsed = await readJsonSetting<unknown>(INSTALLED_KEY, []);
-  return Array.isArray(parsed) ? (parsed as string[]) : [];
-}
-
-async function saveInstalledIds(ids: string[]): Promise<void> {
-  await writeJsonSetting(INSTALLED_KEY, ids);
+  const records = await getAgentRecords();
+  return Object.keys(records).sort();
 }
 
 async function getAgentRecords(): Promise<Record<string, InstalledMarketplaceAgentRecord>> {
-  const parsed = await readJsonSetting<unknown>(INSTALLED_AGENT_RECORDS_KEY, {});
-  return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, InstalledMarketplaceAgentRecord>) : {};
+  if (!db.isAvailable()) return {};
+  const result = await db.getMarketplaceAgentInstalls();
+  return result.success && result.data ? result.data as Record<string, InstalledMarketplaceAgentRecord> : {};
 }
 
 async function saveAgentRecords(records: Record<string, InstalledMarketplaceAgentRecord>): Promise<void> {
-  await writeJsonSetting(INSTALLED_AGENT_RECORDS_KEY, records);
+  if (!db.isAvailable()) return;
+  await db.replaceMarketplaceAgentInstalls(records);
 }
 
 function shallowEqualStringArrays(a: string[], b: string[]): boolean {
@@ -147,9 +123,6 @@ async function resolveInstalledAgentState(): Promise<{
   }
 
   const sortedIds = Array.from(ids).sort();
-  if (!shallowEqualStringArrays([...storedIds].sort(), sortedIds)) {
-    await saveInstalledIds(sortedIds);
-  }
   if (!shallowEqualRecordKeys(storedRecords, records) || !shallowEqualJson(storedRecords, records)) {
     await saveAgentRecords(records);
   }
@@ -228,10 +201,6 @@ export async function installMarketplaceAgent(
 
   if (!result.success) return result;
 
-  const ids = await getInstalledIds();
-  if (!ids.includes(marketplaceId)) {
-    await saveInstalledIds([...ids, marketplaceId]);
-  }
   if (result.data) {
     const now = Date.now();
     const records = await getAgentRecords();
@@ -262,9 +231,6 @@ export async function uninstallMarketplaceAgent(
   if (record?.localAgentId) {
     await deleteManyAgent(record.localAgentId);
   }
-  const ids = await getInstalledIds();
-  const filtered = ids.filter((id) => id !== marketplaceId);
-  await saveInstalledIds(filtered);
   if (record) {
     delete records[marketplaceId];
     await saveAgentRecords(records);
@@ -276,21 +242,19 @@ export async function uninstallMarketplaceAgent(
 // --- Workflow installation ---
 
 async function getInstalledWorkflowIds(): Promise<string[]> {
-  const parsed = await readJsonSetting<unknown>(INSTALLED_WORKFLOWS_KEY, []);
-  return Array.isArray(parsed) ? (parsed as string[]) : [];
-}
-
-async function saveInstalledWorkflowIds(ids: string[]): Promise<void> {
-  await writeJsonSetting(INSTALLED_WORKFLOWS_KEY, ids);
+  const records = await getWorkflowRecords();
+  return Object.keys(records).sort();
 }
 
 async function getWorkflowRecords(): Promise<Record<string, InstalledMarketplaceWorkflowRecord>> {
-  const parsed = await readJsonSetting<unknown>(INSTALLED_WORKFLOW_RECORDS_KEY, {});
-  return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, InstalledMarketplaceWorkflowRecord>) : {};
+  if (!db.isAvailable()) return {};
+  const result = await db.getMarketplaceWorkflowInstalls();
+  return result.success && result.data ? result.data as Record<string, InstalledMarketplaceWorkflowRecord> : {};
 }
 
 async function saveWorkflowRecords(records: Record<string, InstalledMarketplaceWorkflowRecord>): Promise<void> {
-  await writeJsonSetting(INSTALLED_WORKFLOW_RECORDS_KEY, records);
+  if (!db.isAvailable()) return;
+  await db.replaceMarketplaceWorkflowInstalls(records);
 }
 
 async function resolveInstalledWorkflowState(): Promise<{
@@ -352,9 +316,6 @@ async function resolveInstalledWorkflowState(): Promise<{
   }
 
   const sortedIds = Array.from(ids).sort();
-  if (!shallowEqualStringArrays([...storedIds].sort(), sortedIds)) {
-    await saveInstalledWorkflowIds(sortedIds);
-  }
   if (!shallowEqualRecordKeys(storedRecords, records) || !shallowEqualJson(storedRecords, records)) {
     await saveWorkflowRecords(records);
   }
@@ -416,11 +377,6 @@ export async function installWorkflowTemplate(
 
   if (!result.success) return { success: false, error: result.error };
 
-  const ids = await getInstalledWorkflowIds();
-  if (!ids.includes(template.id)) {
-    await saveInstalledWorkflowIds([...ids, template.id]);
-  }
-
   if (result.data) {
     const mapping = await getTemplateToWorkflowMapping();
     mapping[template.id] = result.data.id;
@@ -451,12 +407,14 @@ export async function installWorkflowTemplate(
 }
 
 async function getTemplateToWorkflowMapping(): Promise<Record<string, string>> {
-  const parsed = await readJsonSetting<unknown>(TEMPLATE_TO_WORKFLOW_KEY, {});
-  return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, string>) : {};
+  if (!db.isAvailable()) return {};
+  const result = await db.getMarketplaceTemplateMappings();
+  return result.success && result.data ? result.data : {};
 }
 
 async function saveTemplateToWorkflowMapping(mapping: Record<string, string>): Promise<void> {
-  await writeJsonSetting(TEMPLATE_TO_WORKFLOW_KEY, mapping);
+  if (!db.isAvailable()) return;
+  await db.replaceMarketplaceTemplateMappings(mapping);
 }
 
 export async function getWorkflowIdForTemplate(templateId: string): Promise<string | null> {
@@ -469,9 +427,6 @@ export async function uninstallWorkflowTemplate(templateId: string): Promise<{ s
   if (workflowId) {
     await deleteWorkflow(workflowId);
   }
-
-  const ids = await getInstalledWorkflowIds();
-  await saveInstalledWorkflowIds(ids.filter((id) => id !== templateId));
 
   const mapping = await getTemplateToWorkflowMapping();
   if (mapping[templateId]) {
@@ -497,9 +452,6 @@ export async function syncMarketplaceOnWorkflowDelete(workflowId: string): Promi
   const mapping = await getTemplateToWorkflowMapping();
   const templateId = Object.entries(mapping).find(([, wfId]) => wfId === workflowId)?.[0];
   if (!templateId) return;
-
-  const ids = await getInstalledWorkflowIds();
-  await saveInstalledWorkflowIds(ids.filter((id) => id !== templateId));
 
   const { [templateId]: _, ...rest } = mapping;
   await saveTemplateToWorkflowMapping(rest);

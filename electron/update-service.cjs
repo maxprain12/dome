@@ -8,6 +8,16 @@ const { autoUpdater } = require('electron-updater');
 
 let mainWindow = null;
 let broadcastUpdateStatus = () => {};
+let beforeQuitCallback = null;
+
+/**
+ * Register a callback to run synchronously before quitAndInstall.
+ * Used by main.cjs to set isQuitting and destroy the tray before the updater quits.
+ * @param {() => void} cb
+ */
+function setBeforeQuitCallback(cb) {
+  beforeQuitCallback = cb;
+}
 
 /**
  * Initialize the update service
@@ -94,9 +104,12 @@ function downloadUpdate() {
 }
 
 /**
- * Quit and install the downloaded update
+ * Quit and install the downloaded update.
+ * Calls the beforeQuitCallback synchronously first so the tray is destroyed
+ * and isQuitting is set before the app exits (critical on macOS).
  */
 function quitAndInstall() {
+  if (beforeQuitCallback) beforeQuitCallback();
   autoUpdater.quitAndInstall(false, true);
 }
 
@@ -105,4 +118,5 @@ module.exports = {
   checkForUpdates,
   downloadUpdate,
   quitAndInstall,
+  setBeforeQuitCallback,
 };

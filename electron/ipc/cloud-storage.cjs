@@ -443,7 +443,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       const effectiveMime = mimeType || meta.mimeType || meta.file?.mimeType || 'application/octet-stream';
 
       const ext = path.extname(name).toLowerCase() || (effectiveMime.includes('pdf') ? '.pdf' : '.bin');
-      const effectiveType = effectiveMime.includes('pdf') || ext === '.pdf' ? 'pdf' : 'document';
+      const effectiveType = effectiveMime.includes('pdf') || ext === '.pdf' ? 'pdf' : 'note';
 
       const tempPath = path.join(os.tmpdir(), `dome-cloud-${Date.now()}${ext}`);
       fs.writeFileSync(tempPath, buffer);

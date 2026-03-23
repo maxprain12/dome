@@ -147,6 +147,127 @@ function initDatabase() {
     )
   `);
 
+  // Dedicated tables for agent/runtime entities previously stored in settings blobs
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS many_agents (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      system_instructions TEXT,
+      tool_ids TEXT NOT NULL DEFAULT '[]',
+      mcp_server_ids TEXT NOT NULL DEFAULT '[]',
+      skill_ids TEXT NOT NULL DEFAULT '[]',
+      icon_index INTEGER NOT NULL DEFAULT 1,
+      marketplace_id TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS canvas_workflows (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      nodes_json TEXT NOT NULL DEFAULT '[]',
+      edges_json TEXT NOT NULL DEFAULT '[]',
+      marketplace_json TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS workflow_executions (
+      id TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL,
+      workflow_name TEXT NOT NULL,
+      started_at INTEGER NOT NULL,
+      finished_at INTEGER,
+      status TEXT NOT NULL,
+      entries_json TEXT NOT NULL DEFAULT '[]',
+      node_outputs_json TEXT,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (workflow_id) REFERENCES canvas_workflows(id) ON DELETE CASCADE
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mcp_servers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL CHECK(type IN ('stdio', 'http', 'sse')),
+      command TEXT,
+      args_json TEXT,
+      url TEXT,
+      headers_json TEXT,
+      env_json TEXT,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      tools_json TEXT,
+      enabled_tool_ids_json TEXT,
+      last_discovery_at INTEGER,
+      last_discovery_error TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mcp_global_settings (
+      id INTEGER PRIMARY KEY CHECK(id = 1),
+      enabled INTEGER NOT NULL DEFAULT 1,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_skills (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      prompt TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS marketplace_agent_installs (
+      marketplace_id TEXT PRIMARY KEY,
+      local_agent_id TEXT NOT NULL,
+      version TEXT,
+      author TEXT,
+      source TEXT,
+      installed_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      capabilities_json TEXT NOT NULL DEFAULT '[]',
+      resource_affinity_json TEXT NOT NULL DEFAULT '[]'
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS marketplace_workflow_installs (
+      template_id TEXT PRIMARY KEY,
+      local_workflow_id TEXT NOT NULL,
+      version TEXT,
+      author TEXT,
+      source TEXT,
+      installed_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      capabilities_json TEXT NOT NULL DEFAULT '[]',
+      resource_affinity_json TEXT NOT NULL DEFAULT '[]'
+    )
+  `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS marketplace_template_mappings (
+      template_id TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
   // Dome provider OAuth session storage (desktop linking)
   db.exec(`
     CREATE TABLE IF NOT EXISTS dome_provider_sessions (
@@ -212,6 +333,12 @@ function initDatabase() {
   db.exec('CREATE INDEX IF NOT EXISTS idx_links_source ON resource_links(source_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_links_target ON resource_links(target_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_search_index_resource ON search_index(resource_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_many_agents_marketplace_id ON many_agents(marketplace_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_canvas_workflows_updated_at ON canvas_workflows(updated_at)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow_id ON workflow_executions(workflow_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_executions_started_at ON workflow_executions(started_at)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_mcp_servers_name ON mcp_servers(name)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_ai_skills_enabled ON ai_skills(enabled)');
 
   // Full-text search - STANDALONE FTS tables (no external content)
   // This avoids SQLITE_CORRUPT_VTAB errors that occur with external content tables
@@ -388,6 +515,38 @@ function createDefaultProject(db) {
   } catch (error) {
     console.error('[DB] Error creating default project:', error.message);
   }
+}
+
+function parseJsonValue(raw, fallback) {
+  if (typeof raw !== 'string' || !raw.trim()) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeServerId(name) {
+  return String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+function extractLegacyMcpServers(raw) {
+  const parsed = parseJsonValue(raw, []);
+  if (Array.isArray(parsed)) {
+    return parsed.filter((server) => server && typeof server.name === 'string');
+  }
+  if (parsed && typeof parsed === 'object' && parsed.mcpServers && typeof parsed.mcpServers === 'object') {
+    return Object.entries(parsed.mcpServers).map(([name, value]) => ({
+      ...(value && typeof value === 'object' ? value : {}),
+      name,
+    }));
+  }
+  return [];
 }
 
 /**
@@ -1690,6 +1849,315 @@ function runMigrations(db) {
       console.error('[DB] Migration 18 failed:', error);
     }
   }
+
+  if (version < 19) {
+    try {
+      const now = Date.now();
+
+      const manyAgentsCount = db.prepare('SELECT COUNT(*) as count FROM many_agents').get()?.count ?? 0;
+      if (manyAgentsCount === 0) {
+        const raw = db.prepare('SELECT value FROM settings WHERE key = ?').get('many_agents')?.value;
+        const agents = parseJsonValue(raw, []);
+        if (Array.isArray(agents) && agents.length > 0) {
+          const stmt = db.prepare(`
+            INSERT INTO many_agents (
+              id, name, description, system_instructions, tool_ids, mcp_server_ids,
+              skill_ids, icon_index, marketplace_id, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              description = excluded.description,
+              system_instructions = excluded.system_instructions,
+              tool_ids = excluded.tool_ids,
+              mcp_server_ids = excluded.mcp_server_ids,
+              skill_ids = excluded.skill_ids,
+              icon_index = excluded.icon_index,
+              marketplace_id = excluded.marketplace_id,
+              updated_at = excluded.updated_at
+          `);
+          for (const agent of agents) {
+            if (!agent || typeof agent.id !== 'string' || typeof agent.name !== 'string') continue;
+            const createdAt = typeof agent.createdAt === 'number' ? agent.createdAt : now;
+            const updatedAt = typeof agent.updatedAt === 'number' ? agent.updatedAt : createdAt;
+            stmt.run(
+              agent.id,
+              agent.name,
+              typeof agent.description === 'string' ? agent.description : '',
+              typeof agent.systemInstructions === 'string' ? agent.systemInstructions : '',
+              JSON.stringify(Array.isArray(agent.toolIds) ? agent.toolIds : []),
+              JSON.stringify(Array.isArray(agent.mcpServerIds) ? agent.mcpServerIds : []),
+              JSON.stringify(Array.isArray(agent.skillIds) ? agent.skillIds : []),
+              typeof agent.iconIndex === 'number' ? agent.iconIndex : 1,
+              typeof agent.marketplaceId === 'string' ? agent.marketplaceId : null,
+              createdAt,
+              updatedAt,
+            );
+          }
+        }
+      }
+
+      const workflowsCount = db.prepare('SELECT COUNT(*) as count FROM canvas_workflows').get()?.count ?? 0;
+      if (workflowsCount === 0) {
+        const raw = db.prepare('SELECT value FROM settings WHERE key = ?').get('canvas_workflows')?.value;
+        const workflows = parseJsonValue(raw, []);
+        if (Array.isArray(workflows) && workflows.length > 0) {
+          const stmt = db.prepare(`
+            INSERT INTO canvas_workflows (
+              id, name, description, nodes_json, edges_json, marketplace_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              description = excluded.description,
+              nodes_json = excluded.nodes_json,
+              edges_json = excluded.edges_json,
+              marketplace_json = excluded.marketplace_json,
+              updated_at = excluded.updated_at
+          `);
+          for (const workflow of workflows) {
+            if (!workflow || typeof workflow.id !== 'string' || typeof workflow.name !== 'string') continue;
+            const createdAt = typeof workflow.createdAt === 'number' ? workflow.createdAt : now;
+            const updatedAt = typeof workflow.updatedAt === 'number' ? workflow.updatedAt : createdAt;
+            stmt.run(
+              workflow.id,
+              workflow.name,
+              typeof workflow.description === 'string' ? workflow.description : '',
+              JSON.stringify(Array.isArray(workflow.nodes) ? workflow.nodes : []),
+              JSON.stringify(Array.isArray(workflow.edges) ? workflow.edges : []),
+              workflow.marketplace ? JSON.stringify(workflow.marketplace) : null,
+              createdAt,
+              updatedAt,
+            );
+          }
+        }
+      }
+
+      const executionsCount = db.prepare('SELECT COUNT(*) as count FROM workflow_executions').get()?.count ?? 0;
+      if (executionsCount === 0) {
+        const raw = db.prepare('SELECT value FROM settings WHERE key = ?').get('canvas_executions')?.value;
+        const executions = parseJsonValue(raw, []);
+        if (Array.isArray(executions) && executions.length > 0) {
+          const stmt = db.prepare(`
+            INSERT INTO workflow_executions (
+              id, workflow_id, workflow_name, started_at, finished_at, status, entries_json, node_outputs_json, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              workflow_id = excluded.workflow_id,
+              workflow_name = excluded.workflow_name,
+              started_at = excluded.started_at,
+              finished_at = excluded.finished_at,
+              status = excluded.status,
+              entries_json = excluded.entries_json,
+              node_outputs_json = excluded.node_outputs_json,
+              updated_at = excluded.updated_at
+          `);
+          for (const execution of executions) {
+            if (!execution || typeof execution.id !== 'string' || typeof execution.workflowId !== 'string') continue;
+            const startedAt = typeof execution.startedAt === 'number' ? execution.startedAt : now;
+            stmt.run(
+              execution.id,
+              execution.workflowId,
+              typeof execution.workflowName === 'string' ? execution.workflowName : 'Workflow',
+              startedAt,
+              typeof execution.finishedAt === 'number' ? execution.finishedAt : null,
+              typeof execution.status === 'string' ? execution.status : 'done',
+              JSON.stringify(Array.isArray(execution.entries) ? execution.entries : []),
+              execution.nodeOutputs ? JSON.stringify(execution.nodeOutputs) : null,
+              typeof execution.finishedAt === 'number' ? execution.finishedAt : startedAt,
+            );
+          }
+        }
+      }
+
+      const mcpServerCount = db.prepare('SELECT COUNT(*) as count FROM mcp_servers').get()?.count ?? 0;
+      if (mcpServerCount === 0) {
+        const raw = db.prepare('SELECT value FROM settings WHERE key = ?').get('mcp_servers')?.value;
+        const servers = extractLegacyMcpServers(raw);
+        if (servers.length > 0) {
+          const stmt = db.prepare(`
+            INSERT INTO mcp_servers (
+              id, name, type, command, args_json, url, headers_json, env_json,
+              enabled, tools_json, enabled_tool_ids_json, last_discovery_at,
+              last_discovery_error, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              type = excluded.type,
+              command = excluded.command,
+              args_json = excluded.args_json,
+              url = excluded.url,
+              headers_json = excluded.headers_json,
+              env_json = excluded.env_json,
+              enabled = excluded.enabled,
+              tools_json = excluded.tools_json,
+              enabled_tool_ids_json = excluded.enabled_tool_ids_json,
+              last_discovery_at = excluded.last_discovery_at,
+              last_discovery_error = excluded.last_discovery_error,
+              updated_at = excluded.updated_at
+          `);
+          for (const server of servers) {
+            const serverId = normalizeServerId(server.name) || `mcp_${Date.now()}`;
+            stmt.run(
+              serverId,
+              server.name,
+              server.type === 'http' || server.type === 'sse' ? server.type : 'stdio',
+              typeof server.command === 'string' ? server.command : null,
+              JSON.stringify(Array.isArray(server.args) ? server.args : []),
+              typeof server.url === 'string' ? server.url : null,
+              server.headers ? JSON.stringify(server.headers) : null,
+              server.env ? JSON.stringify(server.env) : null,
+              server.enabled === false ? 0 : 1,
+              Array.isArray(server.tools) ? JSON.stringify(server.tools) : null,
+              Array.isArray(server.enabledToolIds) ? JSON.stringify(server.enabledToolIds) : null,
+              typeof server.lastDiscoveryAt === 'number' ? server.lastDiscoveryAt : null,
+              typeof server.lastDiscoveryError === 'string' ? server.lastDiscoveryError : null,
+              now,
+              now,
+            );
+          }
+        }
+      }
+
+      const mcpEnabledRaw = db.prepare('SELECT value FROM settings WHERE key = ?').get('mcp_enabled')?.value;
+      db.prepare(`
+        INSERT INTO mcp_global_settings (id, enabled, updated_at)
+        VALUES (1, ?, ?)
+        ON CONFLICT(id) DO NOTHING
+      `).run(mcpEnabledRaw === 'false' ? 0 : 1, now);
+
+      const skillsCount = db.prepare('SELECT COUNT(*) as count FROM ai_skills').get()?.count ?? 0;
+      if (skillsCount === 0) {
+        const raw = db.prepare('SELECT value FROM settings WHERE key = ?').get('ai_skills')?.value;
+        const skills = parseJsonValue(raw, []);
+        if (Array.isArray(skills) && skills.length > 0) {
+          const stmt = db.prepare(`
+            INSERT INTO ai_skills (id, name, description, prompt, enabled, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              name = excluded.name,
+              description = excluded.description,
+              prompt = excluded.prompt,
+              enabled = excluded.enabled,
+              updated_at = excluded.updated_at
+          `);
+          for (const skill of skills) {
+            if (!skill || typeof skill.id !== 'string' || typeof skill.name !== 'string') continue;
+            stmt.run(
+              skill.id,
+              skill.name,
+              typeof skill.description === 'string' ? skill.description : '',
+              typeof skill.prompt === 'string' ? skill.prompt : '',
+              skill.enabled === false ? 0 : 1,
+              now,
+              now,
+            );
+          }
+        }
+      }
+
+      const agentInstallsCount = db.prepare('SELECT COUNT(*) as count FROM marketplace_agent_installs').get()?.count ?? 0;
+      if (agentInstallsCount === 0) {
+        const raw = db.prepare('SELECT value FROM settings WHERE key = ?').get('marketplace_agent_records')?.value;
+        const records = parseJsonValue(raw, {});
+        if (records && typeof records === 'object') {
+          const stmt = db.prepare(`
+            INSERT INTO marketplace_agent_installs (
+              marketplace_id, local_agent_id, version, author, source,
+              installed_at, updated_at, capabilities_json, resource_affinity_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(marketplace_id) DO UPDATE SET
+              local_agent_id = excluded.local_agent_id,
+              version = excluded.version,
+              author = excluded.author,
+              source = excluded.source,
+              installed_at = excluded.installed_at,
+              updated_at = excluded.updated_at,
+              capabilities_json = excluded.capabilities_json,
+              resource_affinity_json = excluded.resource_affinity_json
+          `);
+          for (const [marketplaceId, record] of Object.entries(records)) {
+            if (!record || typeof record !== 'object' || typeof record.localAgentId !== 'string') continue;
+            stmt.run(
+              marketplaceId,
+              record.localAgentId,
+              typeof record.version === 'string' ? record.version : null,
+              typeof record.author === 'string' ? record.author : null,
+              typeof record.source === 'string' ? record.source : null,
+              typeof record.installedAt === 'number' ? record.installedAt : now,
+              typeof record.updatedAt === 'number' ? record.updatedAt : now,
+              JSON.stringify(Array.isArray(record.capabilities) ? record.capabilities : []),
+              JSON.stringify(Array.isArray(record.resourceAffinity) ? record.resourceAffinity : []),
+            );
+          }
+        }
+      }
+
+      const workflowInstallsCount = db.prepare('SELECT COUNT(*) as count FROM marketplace_workflow_installs').get()?.count ?? 0;
+      if (workflowInstallsCount === 0) {
+        const raw = db.prepare('SELECT value FROM settings WHERE key = ?').get('marketplace_workflow_records')?.value;
+        const records = parseJsonValue(raw, {});
+        if (records && typeof records === 'object') {
+          const stmt = db.prepare(`
+            INSERT INTO marketplace_workflow_installs (
+              template_id, local_workflow_id, version, author, source,
+              installed_at, updated_at, capabilities_json, resource_affinity_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(template_id) DO UPDATE SET
+              local_workflow_id = excluded.local_workflow_id,
+              version = excluded.version,
+              author = excluded.author,
+              source = excluded.source,
+              installed_at = excluded.installed_at,
+              updated_at = excluded.updated_at,
+              capabilities_json = excluded.capabilities_json,
+              resource_affinity_json = excluded.resource_affinity_json
+          `);
+          for (const [templateId, record] of Object.entries(records)) {
+            if (!record || typeof record !== 'object' || typeof record.localWorkflowId !== 'string') continue;
+            stmt.run(
+              templateId,
+              record.localWorkflowId,
+              typeof record.version === 'string' ? record.version : null,
+              typeof record.author === 'string' ? record.author : null,
+              typeof record.source === 'string' ? record.source : null,
+              typeof record.installedAt === 'number' ? record.installedAt : now,
+              typeof record.updatedAt === 'number' ? record.updatedAt : now,
+              JSON.stringify(Array.isArray(record.capabilities) ? record.capabilities : []),
+              JSON.stringify(Array.isArray(record.resourceAffinity) ? record.resourceAffinity : []),
+            );
+          }
+        }
+      }
+
+      const mappingsCount = db.prepare('SELECT COUNT(*) as count FROM marketplace_template_mappings').get()?.count ?? 0;
+      if (mappingsCount === 0) {
+        const raw = db.prepare('SELECT value FROM settings WHERE key = ?').get('marketplace_template_to_workflow')?.value;
+        const mapping = parseJsonValue(raw, {});
+        if (mapping && typeof mapping === 'object') {
+          const stmt = db.prepare(`
+            INSERT INTO marketplace_template_mappings (template_id, workflow_id, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(template_id) DO UPDATE SET
+              workflow_id = excluded.workflow_id,
+              updated_at = excluded.updated_at
+          `);
+          for (const [templateId, workflowId] of Object.entries(mapping)) {
+            if (typeof workflowId !== 'string') continue;
+            stmt.run(templateId, workflowId, now);
+          }
+        }
+      }
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '19', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '19', updated_at = excluded.updated_at
+      `).run(now);
+
+      console.log('[DB] Migration 19 complete - dedicated runtime entity tables');
+    } catch (error) {
+      console.error('[DB] Migration 19 failed:', error);
+    }
+  }
 }
 
 /**
@@ -1786,6 +2254,156 @@ function getQueries() {
       VALUES (?, ?, ?)
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
     `),
+
+    // Many agents
+    listManyAgents: db.prepare('SELECT * FROM many_agents ORDER BY updated_at DESC'),
+    getManyAgentById: db.prepare('SELECT * FROM many_agents WHERE id = ?'),
+    createManyAgent: db.prepare(`
+      INSERT INTO many_agents (
+        id, name, description, system_instructions, tool_ids, mcp_server_ids,
+        skill_ids, icon_index, marketplace_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateManyAgent: db.prepare(`
+      UPDATE many_agents
+      SET name = ?, description = ?, system_instructions = ?, tool_ids = ?, mcp_server_ids = ?,
+          skill_ids = ?, icon_index = ?, marketplace_id = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deleteManyAgent: db.prepare('DELETE FROM many_agents WHERE id = ?'),
+
+    // Canvas workflows
+    listCanvasWorkflows: db.prepare('SELECT * FROM canvas_workflows ORDER BY updated_at DESC'),
+    getCanvasWorkflowById: db.prepare('SELECT * FROM canvas_workflows WHERE id = ?'),
+    createCanvasWorkflow: db.prepare(`
+      INSERT INTO canvas_workflows (
+        id, name, description, nodes_json, edges_json, marketplace_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateCanvasWorkflow: db.prepare(`
+      UPDATE canvas_workflows
+      SET name = ?, description = ?, nodes_json = ?, edges_json = ?, marketplace_json = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deleteCanvasWorkflow: db.prepare('DELETE FROM canvas_workflows WHERE id = ?'),
+
+    // Workflow executions
+    listWorkflowExecutionsByWorkflow: db.prepare(`
+      SELECT * FROM workflow_executions
+      WHERE workflow_id = ?
+      ORDER BY started_at DESC
+    `),
+    getWorkflowExecutionById: db.prepare('SELECT * FROM workflow_executions WHERE id = ?'),
+    upsertWorkflowExecution: db.prepare(`
+      INSERT INTO workflow_executions (
+        id, workflow_id, workflow_name, started_at, finished_at, status, entries_json, node_outputs_json, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        workflow_id = excluded.workflow_id,
+        workflow_name = excluded.workflow_name,
+        started_at = excluded.started_at,
+        finished_at = excluded.finished_at,
+        status = excluded.status,
+        entries_json = excluded.entries_json,
+        node_outputs_json = excluded.node_outputs_json,
+        updated_at = excluded.updated_at
+    `),
+    trimWorkflowExecutions: db.prepare(`
+      DELETE FROM workflow_executions
+      WHERE workflow_id = ?
+        AND id NOT IN (
+          SELECT id FROM workflow_executions
+          WHERE workflow_id = ?
+          ORDER BY started_at DESC
+          LIMIT ?
+        )
+    `),
+
+    // MCP
+    listMcpServers: db.prepare('SELECT * FROM mcp_servers ORDER BY updated_at DESC, name ASC'),
+    getMcpServerById: db.prepare('SELECT * FROM mcp_servers WHERE id = ?'),
+    getMcpServerByName: db.prepare('SELECT * FROM mcp_servers WHERE name = ?'),
+    createMcpServer: db.prepare(`
+      INSERT INTO mcp_servers (
+        id, name, type, command, args_json, url, headers_json, env_json,
+        enabled, tools_json, enabled_tool_ids_json, last_discovery_at,
+        last_discovery_error, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateMcpServer: db.prepare(`
+      UPDATE mcp_servers
+      SET name = ?, type = ?, command = ?, args_json = ?, url = ?, headers_json = ?, env_json = ?,
+          enabled = ?, tools_json = ?, enabled_tool_ids_json = ?, last_discovery_at = ?,
+          last_discovery_error = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deleteAllMcpServers: db.prepare('DELETE FROM mcp_servers'),
+    getMcpGlobalSettings: db.prepare('SELECT * FROM mcp_global_settings WHERE id = 1'),
+    upsertMcpGlobalSettings: db.prepare(`
+      INSERT INTO mcp_global_settings (id, enabled, updated_at)
+      VALUES (1, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET enabled = excluded.enabled, updated_at = excluded.updated_at
+    `),
+
+    // Skills
+    listAiSkills: db.prepare('SELECT * FROM ai_skills ORDER BY updated_at DESC, name ASC'),
+    getAiSkillById: db.prepare('SELECT * FROM ai_skills WHERE id = ?'),
+    createAiSkill: db.prepare(`
+      INSERT INTO ai_skills (id, name, description, prompt, enabled, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateAiSkill: db.prepare(`
+      UPDATE ai_skills
+      SET name = ?, description = ?, prompt = ?, enabled = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deleteAllAiSkills: db.prepare('DELETE FROM ai_skills'),
+
+    // Marketplace install state
+    listMarketplaceAgentInstalls: db.prepare('SELECT * FROM marketplace_agent_installs ORDER BY updated_at DESC'),
+    upsertMarketplaceAgentInstall: db.prepare(`
+      INSERT INTO marketplace_agent_installs (
+        marketplace_id, local_agent_id, version, author, source,
+        installed_at, updated_at, capabilities_json, resource_affinity_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(marketplace_id) DO UPDATE SET
+        local_agent_id = excluded.local_agent_id,
+        version = excluded.version,
+        author = excluded.author,
+        source = excluded.source,
+        installed_at = excluded.installed_at,
+        updated_at = excluded.updated_at,
+        capabilities_json = excluded.capabilities_json,
+        resource_affinity_json = excluded.resource_affinity_json
+    `),
+    deleteAllMarketplaceAgentInstalls: db.prepare('DELETE FROM marketplace_agent_installs'),
+
+    listMarketplaceWorkflowInstalls: db.prepare('SELECT * FROM marketplace_workflow_installs ORDER BY updated_at DESC'),
+    upsertMarketplaceWorkflowInstall: db.prepare(`
+      INSERT INTO marketplace_workflow_installs (
+        template_id, local_workflow_id, version, author, source,
+        installed_at, updated_at, capabilities_json, resource_affinity_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(template_id) DO UPDATE SET
+        local_workflow_id = excluded.local_workflow_id,
+        version = excluded.version,
+        author = excluded.author,
+        source = excluded.source,
+        installed_at = excluded.installed_at,
+        updated_at = excluded.updated_at,
+        capabilities_json = excluded.capabilities_json,
+        resource_affinity_json = excluded.resource_affinity_json
+    `),
+    deleteAllMarketplaceWorkflowInstalls: db.prepare('DELETE FROM marketplace_workflow_installs'),
+
+    listMarketplaceTemplateMappings: db.prepare('SELECT * FROM marketplace_template_mappings ORDER BY template_id ASC'),
+    upsertMarketplaceTemplateMapping: db.prepare(`
+      INSERT INTO marketplace_template_mappings (template_id, workflow_id, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(template_id) DO UPDATE SET workflow_id = excluded.workflow_id, updated_at = excluded.updated_at
+    `),
+    deleteAllMarketplaceTemplateMappings: db.prepare('DELETE FROM marketplace_template_mappings'),
+
     upsertDomeProviderSession: db.prepare(`
       INSERT INTO dome_provider_sessions (user_id, access_token, refresh_token, expires_at, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)

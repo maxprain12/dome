@@ -1064,8 +1064,9 @@ async function resourceCreate(data) {
     const db = database.getDB();
     const queries = database.getQueries();
 
-    const type = data.type || 'note';
-    const validTypes = ['note', 'notebook', 'document', 'url', 'folder', 'excel'];
+    const requestedType = data.type || 'note';
+    const type = requestedType === 'document' ? 'note' : requestedType;
+    const validTypes = ['note', 'notebook', 'url', 'folder', 'excel'];
     if (!validTypes.includes(type)) {
       return { success: false, error: `AI can only create resources of type: ${validTypes.join(', ')}` };
     }
@@ -1146,62 +1147,18 @@ async function resourceCreate(data) {
     const now = Date.now();
     const id = `res_${now}_${Math.random().toString(36).substr(2, 9)}`;
 
-    if (type === 'document' && content && content.trim()) {
-      try {
-        let html = content.trim();
-        if (!html.startsWith('<') || !html.includes('>')) {
-          const { marked } = await import('marked');
-          html = marked.parse(html);
-        }
-        const buffer = await docxConverter.htmlToDocxBuffer(html);
-        if (buffer) {
-          const safeTitle = data.title.trim().replace(/[<>:"/\\|?*]/g, '_').substring(0, 80);
-          const importResult = await fileStorage.importFromBuffer(buffer, `${safeTitle}.docx`, 'document');
-          const fullPath = fileStorage.getFullPath(importResult.internalPath);
-          let contentText = null;
-          try {
-            contentText = await documentExtractor.extractDocxText(fullPath, 50000);
-          } catch (e) {
-            console.warn('[AI Tools] DOCX text extraction failed:', e?.message);
-          }
-          queries.createResourceWithFile.run(
-            id,
-            projectId,
-            type,
-            data.title.trim(),
-            contentText || content,
-            null,
-            importResult.internalPath,
-            importResult.mimeType,
-            importResult.size,
-            importResult.hash,
-            null,
-            importResult.originalName,
-            data.metadata ? JSON.stringify(data.metadata) : null,
-            now,
-            now
-          );
-        } else {
-          queries.createResource.run(id, projectId, type, data.title.trim(), content, null, resolvedFolderId, data.metadata ? JSON.stringify(data.metadata) : null, now, now);
-        }
-      } catch (docxErr) {
-        console.warn('[AI Tools] DOCX creation failed, falling back to note-style:', docxErr?.message);
-        queries.createResource.run(id, projectId, type, data.title.trim(), content, null, resolvedFolderId, data.metadata ? JSON.stringify(data.metadata) : null, now, now);
-      }
-    } else {
-      queries.createResource.run(
-        id,
-        projectId,
-        type,
-        data.title.trim(),
-        content,
-        null, // file_path
-        resolvedFolderId,
-        data.metadata ? JSON.stringify(data.metadata) : null,
-        now,
-        now
-      );
-    }
+    queries.createResource.run(
+      id,
+      projectId,
+      type,
+      data.title.trim(),
+      content,
+      null, // file_path
+      resolvedFolderId,
+      data.metadata ? JSON.stringify(data.metadata) : null,
+      now,
+      now
+    );
 
     const resource = {
       id,
@@ -2439,7 +2396,7 @@ async function calendarDeleteEvent({ event_id } = {}) {
 
 /**
  * Create a new Many agent (specialized agent / "hijo de Many").
- * Persists to settings.many_agents. Returns ENTITY_CREATED string for artifact block.
+ * Persists to the dedicated many_agents table. Returns ENTITY_CREATED string for artifact block.
  * @param {Object} args
  * @param {string} args.name - Agent name
  * @param {string} [args.description] - Short description
@@ -2490,7 +2447,7 @@ async function importFileToLibrary(args = {}) {
       }
 
       // Determine resource type
-      let effectiveType = 'document';
+      let effectiveType = 'note';
       if (ext === '.pdf' || mime_type?.includes('pdf')) effectiveType = 'pdf';
 
       const importResult = await fileStorage.importFile(tempPath, effectiveType);
@@ -2512,7 +2469,7 @@ async function importFileToLibrary(args = {}) {
       try {
         if (effectiveType === 'pdf') {
           contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
-        } else if (effectiveType === 'document') {
+        } else if (effectiveType === 'note') {
           contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
         }
       } catch { /* keep original text content */ }
@@ -2569,15 +2526,6 @@ async function agentCreate(args = {}) {
     if (!name) return { status: 'error', error: 'name is required' };
 
     const queries = database.getQueries();
-    const raw = queries?.getSetting?.get?.('many_agents')?.value;
-    let agents = [];
-    try {
-      const parsed = JSON.parse(raw || '[]');
-      agents = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      agents = [];
-    }
-
     const now = Date.now();
     const description = typeof args.description === 'string' ? args.description : '';
     const systemInstructions = typeof (args.systemInstructions ?? args.system_instructions) === 'string'
@@ -2600,9 +2548,19 @@ async function agentCreate(args = {}) {
       createdAt: now,
       updatedAt: now,
     };
-    agents.push(agent);
-
-    queries.setSetting.run('many_agents', JSON.stringify(agents), now);
+    queries.createManyAgent.run(
+      agent.id,
+      agent.name,
+      agent.description,
+      agent.systemInstructions,
+      JSON.stringify(agent.toolIds),
+      JSON.stringify(agent.mcpServerIds),
+      JSON.stringify(agent.skillIds),
+      agent.iconIndex,
+      null,
+      agent.createdAt,
+      agent.updatedAt,
+    );
 
     if (windowManagerRef) {
       windowManagerRef.broadcast('dome:agents-changed');

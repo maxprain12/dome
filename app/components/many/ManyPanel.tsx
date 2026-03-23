@@ -193,8 +193,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   useEffect(() => {
     const loadMcpEnabled = async () => {
       if (db.isAvailable()) {
-        const res = await db.getSetting('mcp_enabled');
-        setMcpEnabledState(res.data !== 'false');
+        const res = await db.getMcpGlobalEnabled();
+        setMcpEnabledState(res.success ? res.data !== false : true);
       }
     };
     loadMcpEnabled();
@@ -589,7 +589,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const setMcpEnabled = useCallback(async (value: boolean) => {
     setMcpEnabledState(value);
     if (db.isAvailable()) {
-      await db.setSetting('mcp_enabled', value ? 'true' : 'false');
+      await db.setMcpGlobalEnabled(value);
     }
   }, []);
 
@@ -784,12 +784,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       let skillsBlock = '';
       if (db.isAvailable()) {
         try {
-          const skillsResult = await db.getSetting('ai_skills');
-          if (skillsResult.success && skillsResult.data) {
-            const parsed = JSON.parse(skillsResult.data || '[]');
-            const skills = Array.isArray(parsed)
-              ? parsed.filter((s: { enabled?: boolean }) => s.enabled !== false)
-              : [];
+          const skillsResult = await db.getAISkills();
+          if (skillsResult.success && Array.isArray(skillsResult.data)) {
+            const skills = skillsResult.data.filter((s: { enabled?: boolean }) => s.enabled !== false);
             if (skills.length > 0) {
               const MAX_SKILLS_CHARS = 8000;
               let block = '\n\n## Available Skills\n';

@@ -1,30 +1,16 @@
 /**
  * Many Agents API - CRUD for specialized agents (hijos de Many)
- * Uses settings.many_agents (JSON) for persistence
+ * Uses dedicated SQLite tables via IPC
  */
 
 import { db } from '@/lib/db/client';
 import { generateId } from '@/lib/utils';
 import type { ManyAgent } from '@/types';
 
-const SETTINGS_KEY = 'many_agents';
-
 async function getAll(): Promise<ManyAgent[]> {
   if (!db.isAvailable()) return [];
-  const result = await db.getSetting(SETTINGS_KEY);
-  if (!result.success || !result.data) return [];
-  try {
-    const parsed = JSON.parse(result.data) as unknown;
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-async function saveAll(agents: ManyAgent[]): Promise<{ success: boolean; error?: string }> {
-  if (!db.isAvailable()) return { success: false, error: 'Database not available' };
-  const result = await db.setSetting(SETTINGS_KEY, JSON.stringify(agents));
-  return result.success ? { success: true } : { success: false, error: result.error };
+  const result = await db.getManyAgents();
+  return result.success && Array.isArray(result.data) ? result.data : [];
 }
 
 export async function getManyAgents(): Promise<ManyAgent[]> {
@@ -42,41 +28,29 @@ export async function createManyAgent(
     createdAt: now,
     updatedAt: now,
   };
-  agents.push(agent);
-  const saved = await saveAll(agents);
-  if (!saved.success) return { success: false, error: saved.error };
-  return { success: true, data: agent };
+  const saved = await db.createManyAgent(agent);
+  return saved.success ? { success: true, data: saved.data } : { success: false, error: saved.error };
 }
 
 export async function updateManyAgent(
   id: string,
   updates: Partial<Omit<ManyAgent, 'id' | 'createdAt'>>
 ): Promise<{ success: boolean; data?: ManyAgent; error?: string }> {
-  const agents = await getAll();
-  const idx = agents.findIndex((a) => a.id === id);
-  if (idx < 0) return { success: false, error: 'Agent not found' };
-  const now = Date.now();
-  agents[idx] = {
-    ...agents[idx],
+  const saved = await db.updateManyAgent(id, {
     ...updates,
-    updatedAt: now,
-  };
-  const saved = await saveAll(agents);
-  if (!saved.success) return { success: false, error: saved.error };
-  return { success: true, data: agents[idx] };
+    updatedAt: Date.now(),
+  });
+  return saved.success ? { success: true, data: saved.data } : { success: false, error: saved.error };
 }
 
 export async function deleteManyAgent(id: string): Promise<{ success: boolean; error?: string }> {
-  const agents = await getAll();
-  const filtered = agents.filter((a) => a.id !== id);
-  if (filtered.length === agents.length) return { success: false, error: 'Agent not found' };
-  const saved = await saveAll(filtered);
-  return saved.success ? { success: true } : { success: false, error: saved.error };
+  const result = await db.deleteManyAgent(id);
+  return result.success ? { success: true } : { success: false, error: result.error };
 }
 
 export async function getManyAgentById(id: string): Promise<ManyAgent | null> {
-  const agents = await getAll();
-  return agents.find((a) => a.id === id) ?? null;
+  const result = await db.getManyAgent(id);
+  return result.success ? result.data ?? null : null;
 }
 
 /** Serialize one or more agents to JSON for export */
@@ -124,11 +98,11 @@ export function parseAgentsConfig(json: string): { success: true; data: ManyAgen
 export async function importAgentsConfig(json: string): Promise<{ success: boolean; data?: ManyAgent[]; error?: string }> {
   const parsed = parseAgentsConfig(json);
   if (!parsed.success) return parsed;
-  const agents = await getAll();
   for (const agent of parsed.data) {
-    agents.push(agent);
+    const saved = await db.createManyAgent(agent);
+    if (!saved.success) {
+      return { success: false, error: saved.error };
+    }
   }
-  const saved = await saveAll(agents);
-  if (!saved.success) return { success: false, error: saved.error };
   return { success: true, data: parsed.data };
 }

@@ -118,8 +118,8 @@ export default function MCPSettingsPanel() {
 
   const loadMcpEnabled = useCallback(async () => {
     if (!db.isAvailable()) return;
-    const res = await db.getSetting('mcp_enabled');
-    setMcpEnabled(res.data !== 'false');
+    const res = await db.getMcpGlobalEnabled();
+    setMcpEnabled(res.success ? res.data !== false : true);
   }, []);
 
   useEffect(() => { loadServers(); }, [loadServers]);
@@ -128,7 +128,7 @@ export default function MCPSettingsPanel() {
   const handleMcpEnabledToggle = async () => {
     const next = !mcpEnabled;
     setMcpEnabled(next);
-    if (db.isAvailable()) await db.setSetting('mcp_enabled', next ? 'true' : 'false');
+    if (db.isAvailable()) await db.setMcpGlobalEnabled(next);
   };
 
   const saveServers = async () => {

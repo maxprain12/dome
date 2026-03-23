@@ -1,8 +1,6 @@
 import { db } from '@/lib/db/client';
 import type { MCPServerConfig, MCPToolConfig } from '@/types';
 
-const MCP_SETTINGS_KEY = 'mcp_servers';
-
 export function normalizeMcpServerId(name: string): string {
   return String(name || '')
     .trim()
@@ -141,12 +139,8 @@ export async function loadMcpServersSetting(): Promise<MCPServerConfig[]> {
     return [];
   }
 
-  const result = await db.getSetting(MCP_SETTINGS_KEY);
-  if (!result.success) {
-    return [];
-  }
-
-  return parseMcpServersSetting(result.data);
+  const result = await db.getMcpServers();
+  return result.success && Array.isArray(result.data) ? result.data : [];
 }
 
 export async function saveMcpServersSetting(servers: MCPServerConfig[]): Promise<{ success: boolean; error?: string }> {
@@ -154,7 +148,7 @@ export async function saveMcpServersSetting(servers: MCPServerConfig[]): Promise
     return { success: false, error: 'Database API not available' };
   }
 
-  const result = await db.setSetting(MCP_SETTINGS_KEY, JSON.stringify(servers));
+  const result = await db.replaceMcpServers(servers);
   return result.success ? { success: true } : { success: false, error: result.error };
 }
 

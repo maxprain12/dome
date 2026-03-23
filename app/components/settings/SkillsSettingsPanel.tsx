@@ -70,26 +70,20 @@ export default function SkillsSettingsPanel() {
     setLoading(true);
     setError(null);
     try {
-      const result = await db.getSetting('ai_skills');
-      if (result.success && result.data) {
-        try {
-          const parsed = JSON.parse(result.data);
-          const list = Array.isArray(parsed) ? parsed : [];
-          setSkills(
-            list.map((s: SkillConfig) => ({
-              id: s.id || generateId(),
-              name: s.name || '',
-              description: s.description || '',
-              prompt: s.prompt || '',
-              enabled: s.enabled !== false,
-            }))
-          );
-        } catch {
-          setSkills([]);
-        }
-      } else {
+      const result = await db.getAISkills();
+      if (!result.success || !Array.isArray(result.data)) {
         setSkills([]);
+        return;
       }
+      setSkills(
+        result.data.map((s: SkillConfig) => ({
+          id: s.id || generateId(),
+          name: s.name || '',
+          description: s.description || '',
+          prompt: s.prompt || '',
+          enabled: s.enabled !== false,
+        }))
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar skills');
       setSkills([]);
@@ -106,7 +100,7 @@ export default function SkillsSettingsPanel() {
     setError(null);
     setSaved(false);
     try {
-      const result = await db.setSetting('ai_skills', JSON.stringify(skills));
+      const result = await db.replaceAISkills(skills);
       if (result.success) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);

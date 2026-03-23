@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ManyAgent } from '@/types';
 import { createManyAgent, updateManyAgent } from '@/lib/agents/api';
+import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import { showToast } from '@/lib/store/useToastStore';
 import AgentNameStep, { type AgentNameData } from './steps/AgentNameStep';
 import AgentInstructionsStep from './steps/AgentInstructionsStep';
@@ -25,6 +26,7 @@ interface AgentOnboardingProps {
 
 export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: AgentOnboardingProps) {
   const { t } = useTranslation();
+  const stepsRef = useRef<HTMLDivElement>(null);
   const isEditMode = !!initialAgent;
   const [currentStep, setCurrentStep] = useState<Step>('name');
   const [name, setName] = useState(initialAgent?.name ?? '');
@@ -36,6 +38,8 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
   const [iconIndex, setIconIndex] = useState(initialAgent?.iconIndex ?? 1);
   const [canProceed, setCanProceed] = useState((initialAgent?.name ?? '').trim().length > 0);
   const [saving, setSaving] = useState(false);
+
+  useHorizontalScroll(stepsRef);
 
   // Sync when initialAgent changes (e.g. switching to edit another agent)
   useEffect(() => {
@@ -283,7 +287,11 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
         </div>
       </div>
 
-      <div className="flex gap-1 px-4 py-2 overflow-x-auto shrink-0" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+      <div
+        ref={stepsRef}
+        className="flex gap-1 px-4 py-2 overflow-x-auto shrink-0 scrollbar-none"
+        style={{ backgroundColor: 'var(--bg-secondary)' }}
+      >
         {STEP_ORDER.map((s, i) => (
           <button
             key={s}

@@ -3,7 +3,7 @@
  * MCP Client - Main Process
  *
  * Connects to configured MCP servers and provides tools for the LangGraph agent.
- * Config is stored in settings as mcp_servers (JSON array).
+ * Config is stored in dedicated SQLite tables.
  *
  * Format: [{ name, type: "stdio"|"http"|"sse", command?, args?, url?, headers? }]
  * - stdio: command (required), args (optional array)
@@ -138,6 +138,32 @@ function normalizeToolEntry(tool) {
       : undefined,
     enabled: tool.enabled !== false,
   };
+}
+
+function safeParseJson(raw, fallback) {
+  if (typeof raw !== 'string' || !raw.trim()) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function deserializeMcpServerRow(row) {
+  if (!row) return null;
+  return normalizeServerEntry(row.name, {
+    type: row.type,
+    command: row.command,
+    args: safeParseJson(row.args_json, []),
+    url: row.url,
+    headers: safeParseJson(row.headers_json, undefined),
+    env: safeParseJson(row.env_json, undefined),
+    tools: safeParseJson(row.tools_json, undefined),
+    enabledToolIds: safeParseJson(row.enabled_tool_ids_json, undefined),
+    lastDiscoveryAt: row.last_discovery_at,
+    lastDiscoveryError: row.last_discovery_error,
+    enabled: row.enabled !== 0,
+  });
 }
 
 /**
@@ -294,12 +320,16 @@ async function getMCPTools(database, serverIds) {
   const queries = database?.getQueries?.();
   if (!queries) return [];
 
-  const mcpEnabledRow = queries.getSetting?.get?.('mcp_enabled');
-  if (mcpEnabledRow?.value === 'false') return [];
+  const mcpEnabledRow = queries.getMcpGlobalSettings?.get?.();
+  if (mcpEnabledRow && mcpEnabledRow.enabled === 0) return [];
 
-  const row = queries.getSetting?.get?.('mcp_servers');
-  const raw = row?.value;
-  let servers = parseMcpServersConfig(raw);
+  const rows = queries.listMcpServers?.all?.() ?? [];
+  let servers = rows.map((row) => deserializeMcpServerRow(row)).filter(Boolean);
+  if (servers.length === 0) {
+    const row = queries.getSetting?.get?.('mcp_servers');
+    const raw = row?.value;
+    servers = parseMcpServersConfig(raw);
+  }
   if (servers.length === 0) return [];
 
   if (serverIds && serverIds.length > 0) {

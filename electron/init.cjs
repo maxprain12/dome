@@ -58,19 +58,9 @@ function initializeDefaultSettings() {
     queries.setSetting.run('app_citation_style', 'apa', timestamp);
   }
 
-  const mcpServersRow = queries.getSetting.get('mcp_servers');
-  if (!mcpServersRow) {
-    queries.setSetting.run('mcp_servers', '[]', timestamp);
-  }
-
-  const mcpEnabledRow = queries.getSetting.get('mcp_enabled');
-  if (!mcpEnabledRow) {
-    queries.setSetting.run('mcp_enabled', 'true', timestamp);
-  }
-
-  const aiSkillsRow = queries.getSetting.get('ai_skills');
-  if (!aiSkillsRow) {
-    queries.setSetting.run('ai_skills', '[]', timestamp);
+  const mcpGlobalRow = queries.getMcpGlobalSettings?.get?.();
+  if (!mcpGlobalRow) {
+    queries.upsertMcpGlobalSettings.run(1, timestamp);
   }
 
   console.log('✅ Configuración inicializada');

@@ -49,11 +49,27 @@ async function getAISettings(database) {
 }
 
 /**
- * Load agent configs from settings table
+ * Load agent configs from dedicated agents table
  */
 function loadAgents(database) {
   try {
     const queries = database.getQueries();
+    const rows = queries.listManyAgents?.all?.() ?? [];
+    if (rows.length > 0) {
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        description: row.description || '',
+        systemInstructions: row.system_instructions || '',
+        toolIds: row.tool_ids ? JSON.parse(row.tool_ids) : [],
+        mcpServerIds: row.mcp_server_ids ? JSON.parse(row.mcp_server_ids) : [],
+        skillIds: row.skill_ids ? JSON.parse(row.skill_ids) : [],
+        iconIndex: row.icon_index,
+        marketplaceId: row.marketplace_id || undefined,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+    }
     const result = queries.getSetting.get('many_agents');
     if (!result?.value) return [];
     return JSON.parse(result.value) || [];

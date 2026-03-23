@@ -473,6 +473,22 @@ function writeSettingsFlag(key) {
 
 function loadManyAgents() {
   const queries = getQueries();
+  const rows = queries?.listManyAgents?.all?.() ?? [];
+  if (Array.isArray(rows) && rows.length > 0) {
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description || '',
+      systemInstructions: row.system_instructions || '',
+      toolIds: parseJsonSafely(row.tool_ids, []),
+      mcpServerIds: parseJsonSafely(row.mcp_server_ids, []),
+      skillIds: parseJsonSafely(row.skill_ids, []),
+      iconIndex: row.icon_index,
+      marketplaceId: row.marketplace_id || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
   const raw = queries?.getSetting?.get('many_agents')?.value;
   const parsed = parseJsonSafely(raw, []);
   return Array.isArray(parsed) ? parsed : [];
@@ -480,6 +496,19 @@ function loadManyAgents() {
 
 function loadWorkflowById(workflowId) {
   const queries = getQueries();
+  const row = queries?.getCanvasWorkflowById?.get?.(workflowId);
+  if (row) {
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description || '',
+      nodes: parseJsonSafely(row.nodes_json, []),
+      edges: parseJsonSafely(row.edges_json, []),
+      marketplace: row.marketplace_json ? parseJsonSafely(row.marketplace_json, null) : undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
   const raw = queries?.getSetting?.get('canvas_workflows')?.value;
   const parsed = parseJsonSafely(raw, []);
   if (!Array.isArray(parsed)) return null;
@@ -1320,8 +1349,28 @@ function migrateLegacyAutomations() {
 function migrateLegacyWorkflowExecutions() {
   if (ensureSettingsFlag('automation_runs_legacy_canvas_migrated')) return;
   const queries = getQueries();
-  const raw = queries?.getSetting?.get('canvas_executions')?.value;
-  const parsed = parseJsonSafely(raw, []);
+  let parsed = [];
+  try {
+    const rows = _database?.getDB?.()?.prepare('SELECT * FROM workflow_executions ORDER BY started_at DESC')?.all?.() ?? [];
+    if (Array.isArray(rows) && rows.length > 0) {
+      parsed = rows.map((row) => ({
+        id: row.id,
+        workflowId: row.workflow_id,
+        workflowName: row.workflow_name,
+        startedAt: row.started_at,
+        finishedAt: row.finished_at,
+        status: row.status,
+        entries: parseJsonSafely(row.entries_json, []),
+        nodeOutputs: row.node_outputs_json ? parseJsonSafely(row.node_outputs_json, {}) : {},
+      }));
+    } else {
+      const raw = queries?.getSetting?.get('canvas_executions')?.value;
+      parsed = parseJsonSafely(raw, []);
+    }
+  } catch {
+    const raw = queries?.getSetting?.get('canvas_executions')?.value;
+    parsed = parseJsonSafely(raw, []);
+  }
   if (!Array.isArray(parsed) || parsed.length === 0) {
     writeSettingsFlag('automation_runs_legacy_canvas_migrated');
     return;

@@ -786,11 +786,10 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       }
 
       // Determine resource type
-      let effectiveType = type;
+      let effectiveType = type === 'document' ? 'note' : type;
       if (!effectiveType) {
         if (ext === '.pdf' || mime_type?.includes('pdf')) effectiveType = 'pdf';
-        else if (['.docx', '.doc', '.odt', '.rtf'].includes(ext)) effectiveType = 'document';
-        else effectiveType = 'document';
+        else effectiveType = 'note';
       }
 
       // Import via fileStorage
@@ -810,7 +809,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       // Extract text for searchable types
       const fullPath = fileStorage.getFullPath(importResult.internalPath);
       let contentText = content || null;
-      if (effectiveType === 'document' || effectiveType === 'pdf') {
+      if (effectiveType === 'note' || effectiveType === 'pdf') {
         try {
           if (effectiveType === 'pdf') {
             contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);

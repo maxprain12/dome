@@ -214,8 +214,8 @@ export function createResourceCreateTool(): AnyAgentTool {
         }
 
         const validTypes = ['notebook', 'url', 'folder', 'note'];
-        // Redirect legacy 'document' type to 'url'
-        const normalizedType = type === 'document' ? 'url' : type;
+        // Redirect legacy 'document' type to note so agents never create Word resources.
+        const normalizedType = type === 'document' ? 'note' : type;
         if (!validTypes.includes(normalizedType)) {
           return jsonResult({
             status: 'error',

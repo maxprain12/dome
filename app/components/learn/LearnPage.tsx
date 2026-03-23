@@ -1,9 +1,10 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Brain, Map, HelpCircle, BookOpen, MessageCircleQuestion, CalendarRange, Table2, Wand2, Plus, Layers } from 'lucide-react';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { LearnSection } from '@/lib/store/useLearnStore';
+import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import ContentGrid from './ContentGrid';
 import GenerateModal from './GenerateModal';
 import DeckModal from './DeckModal';
@@ -13,6 +14,7 @@ import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 
 export default function LearnPage() {
   const { t } = useTranslation();
+  const tabsRef = useRef<HTMLDivElement>(null);
   const tabs = useMemo(
     () =>
       [
@@ -43,6 +45,8 @@ export default function LearnPage() {
   } = useLearnStore();
   const activeStudioOutput = useAppStore((s) => s.activeStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
+
+  useHorizontalScroll(tabsRef);
 
   useEffect(() => {
     loadDecks();
@@ -103,6 +107,7 @@ export default function LearnPage() {
 
       {/* Tab bar — full width, no competition with buttons */}
       <div
+        ref={tabsRef}
         className="flex items-center shrink-0 overflow-x-auto scrollbar-none"
         style={{ borderBottom: '1px solid var(--dome-border)', height: 38 }}
       >

@@ -33,7 +33,7 @@ import {
 } from '@/lib/automations/api';
 
 const RESOURCE_LINK_INSTRUCTION = `
-When mentioning a resource (document, PDF, video, etc.) that the user can open, ALWAYS use this format: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: pdf, url, youtube, notebook, docx, document, excel, ppt, video, audio, image, folder.
+When mentioning a resource (note, PDF, video, etc.) that the user can open, ALWAYS use this format: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, excel, ppt, video, audio, image, folder.
 
 NEVER use resource:// - it does not work. ONLY dome://resource/ID/TYPE works. NEVER use [[Title]] wikilinks or file:// or raw URLs for internal resources—they open in the browser instead of in Dome. CRITICAL: For url-type resources (websites), NEVER use the actual web URL (https://...)—always use dome://resource/ID/url. Using https:// opens in the browser instead of Dome. NEVER use /resource/ID as the link URL—always use dome://resource/ID/TYPE. If the user asks for "enlace", "link", or "abrir", use: [Abrir](dome://resource/RESOURCE_ID/TYPE).
 
@@ -336,17 +336,14 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
     if (agent.skillIds?.length && db.isAvailable()) {
       try {
-        const skillsResult = await db.getSetting('ai_skills');
-        if (skillsResult.success && skillsResult.data) {
-          const parsed = JSON.parse(skillsResult.data || '[]');
-          const skills = Array.isArray(parsed)
-            ? parsed.filter(
-              (s: { id?: string; enabled?: boolean }) =>
-                typeof s.id === 'string' &&
-                agent.skillIds!.includes(s.id) &&
-                s.enabled !== false
-            )
-            : [];
+        const skillsResult = await db.getAISkills();
+        if (skillsResult.success && Array.isArray(skillsResult.data)) {
+          const skills = skillsResult.data.filter(
+            (s: { id?: string; enabled?: boolean }) =>
+              typeof s.id === 'string' &&
+              agent.skillIds!.includes(s.id) &&
+              s.enabled !== false
+          );
           if (skills.length > 0) {
             prompt += '\n\n## Skills\n';
             for (const s of skills) {

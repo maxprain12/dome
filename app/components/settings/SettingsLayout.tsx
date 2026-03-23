@@ -2,6 +2,7 @@
 import { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2, Wand2, Database, Cloud, Globe } from 'lucide-react';
+import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 
 type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced' | 'indexing' | 'cloud' | 'language';
 
@@ -36,6 +37,9 @@ const TAB_DEFS: Tab[] = [
 export default function SettingsLayout({ activeSection, onSectionChange, children }: SettingsLayoutProps) {
   const { t } = useTranslation();
   const activeTabRef = useRef<HTMLButtonElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+
+  useHorizontalScroll(navRef);
 
   useEffect(() => {
     activeTabRef.current?.scrollIntoView({ inline: 'nearest', behavior: 'smooth', block: 'nearest' });
@@ -64,6 +68,7 @@ export default function SettingsLayout({ activeSection, onSectionChange, childre
 
         {/* Tab strip */}
         <nav
+          ref={navRef}
           className="flex items-end gap-0.5 px-4 overflow-x-auto"
           style={{ scrollbarWidth: 'none' }}
           aria-label="Settings tabs"

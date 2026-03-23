@@ -732,6 +732,16 @@ app
       mainWindow,
       (status) => windowManager.broadcast('updater:status', status)
     );
+    // Ensure tray is destroyed and isQuitting is set synchronously before
+    // the updater calls app.quit() / app.exit() — critical on macOS where
+    // the tray can keep the process alive after windows close.
+    updateService.setBeforeQuitCallback(() => {
+      isQuitting = true;
+      if (appTray) {
+        appTray.destroy();
+        appTray = null;
+      }
+    });
 
     // Initialize calendar notification service (upcoming events broadcast)
     calendarNotificationService.init(windowManager);

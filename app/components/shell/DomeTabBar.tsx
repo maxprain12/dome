@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Home,
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
 import { getDomeTabDisplayTitle } from '@/lib/dome-tab-title';
+import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 
 function TabIcon({ tab }: { tab: DomeTab }) {
   const cls = 'w-3.5 h-3.5 shrink-0';
@@ -129,31 +130,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
   const { t } = useTranslation();
   const { tabs, activeTabId, activateTab, closeTab } = useTabStore();
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (!container) return;
-
-    const handleWheel = (event: WheelEvent) => {
-      const canScrollHorizontally = container.scrollWidth > container.clientWidth;
-      if (!canScrollHorizontally) return;
-
-      const horizontalDelta = event.deltaX;
-      const verticalDelta = event.deltaY;
-      const shouldTranslateVerticalWheel = Math.abs(verticalDelta) > Math.abs(horizontalDelta);
-      const delta = shouldTranslateVerticalWheel ? verticalDelta : horizontalDelta;
-
-      if (delta === 0) return;
-
-      container.scrollLeft += delta;
-      event.preventDefault();
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => {
-      container.removeEventListener('wheel', handleWheel);
-    };
-  }, []);
+  useHorizontalScroll(scrollRef);
 
   return (
     <div

@@ -911,7 +911,7 @@ export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
         : isPpt && toolsEnabled
           ? 'This is a PowerPoint presentation. Use ppt_get_slides to read slide content, ppt_create to create new presentations, ppt_export to export.'
           : isDocument && toolsEnabled
-            ? 'This is a Word document. Use resource_get to read its content. Edit with resource_update (content as HTML or Markdown).'
+            ? 'This is an imported Word document. Use resource_get to read its content. Edit with resource_update (content as HTML or Markdown). If you create a new written artifact from it, save it as a note.'
             : resourceContext.content;
     prompt += '\n\n' + buildMartinResourceContext({
       type: resourceContext.type,
