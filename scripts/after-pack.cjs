@@ -127,6 +127,21 @@ exports.default = async function afterPack(context) {
 
   // Check if app.asar.unpacked exists
   const asarUnpackedPath = path.join(resourcesPath, 'app.asar.unpacked');
+  const playwrightCoreUnpackedPath = path.join(
+    asarUnpackedPath,
+    'node_modules',
+    'playwright-core',
+  );
+  const playwrightBrowserCandidates = [
+    path.join(resourcesPath, 'playwright-browsers'),
+    path.join(
+      resourcesPath,
+      'app.asar.unpacked',
+      'node_modules',
+      'playwright-core',
+      '.local-browsers',
+    ),
+  ];
   if (fs.existsSync(asarUnpackedPath)) {
     console.log('[AfterPack] ✅ app.asar.unpacked exists');
 
@@ -135,7 +150,6 @@ exports.default = async function afterPack(context) {
       'node_modules/better-sqlite3',
       'node_modules/sharp',
       'node_modules/playwright',
-      'node_modules/playwright-core',
     ];
 
     for (const modulePath of criticalModules) {
@@ -155,23 +169,25 @@ exports.default = async function afterPack(context) {
         console.warn(`[AfterPack] ⚠️  ${modulePath} is NOT unpacked - this may cause errors!`);
       }
     }
+
+    if (fs.existsSync(playwrightCoreUnpackedPath)) {
+      console.log('[AfterPack] ✅ node_modules/playwright-core is unpacked');
+    } else {
+      console.log('[AfterPack] ℹ️  node_modules/playwright-core is packaged in asar; using bundled browser resources');
+    }
   } else {
     console.error('[AfterPack] ❌ app.asar.unpacked does NOT exist!');
     console.error('[AfterPack] Native modules will not work in production!');
   }
 
-  const playwrightBrowsersPath = path.join(
-    resourcesPath,
-    'app.asar.unpacked',
-    'node_modules',
-    'playwright-core',
-    '.local-browsers',
-  );
-  if (fs.existsSync(playwrightBrowsersPath)) {
+  const playwrightBrowsersPath = playwrightBrowserCandidates.find((candidate) => fs.existsSync(candidate));
+  if (playwrightBrowsersPath) {
     const browsers = fs.readdirSync(playwrightBrowsersPath).filter((name) => !name.startsWith('.'));
-    console.log(`[AfterPack] ✅ Playwright browsers bundled: ${browsers.join(', ') || 'none'}`);
+    console.log(
+      `[AfterPack] ✅ Playwright browsers bundled at ${path.relative(resourcesPath, playwrightBrowsersPath)}: ${browsers.join(', ') || 'none'}`,
+    );
   } else {
-    console.warn('[AfterPack] ⚠️  Playwright local browsers are missing from app.asar.unpacked');
+    console.warn('[AfterPack] ⚠️  Playwright bundled browsers are missing from resources');
   }
 
   const pageIndexRuntimePath = path.join(resourcesPath, 'pageindex-runtime');

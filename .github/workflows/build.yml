@@ -52,10 +52,10 @@ jobs:
           if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
             echo "⚠️  No code signing credentials, building without signing..."
             export CSC_IDENTITY_AUTO_DISCOVERY=false
-            npm run electron:build -- --mac --config.mac.identity=null --config.mac.notarize=false --publish never
+            npm run electron:build -- --mac --arm64 --config.mac.identity=null --config.mac.notarize=false --publish never
           else
             echo "✓ Code signing credentials found, building with signing..."
-            npm run electron:build -- --mac --publish never
+            npm run electron:build -- --mac --arm64 --publish never
           fi
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}

@@ -2,6 +2,16 @@
 
 All notable changes to Dome are documented in this file.
 
+## [2.1.3] - 2026-03-24
+
+### Fixed
+
+- **macOS Apple Silicon builds**: CI/CD and `electron-builder` now generate macOS artifacts only for `arm64`, removing Intel packaging.
+- **Playwright packaging**: bundled browser resources are now copied into the app and resolved correctly in packaged builds, including macOS `arm64`.
+- **After-pack validation**: `scripts/after-pack.cjs` now checks the correct bundled Playwright browser location and avoids misleading warnings about `playwright-core`.
+
+[2.1.3]: https://github.com/maxprain12/dome/releases/tag/v2.1.3
+
 ## [2.1.2] - 2026-03-24
 
 ### Added

@@ -84,6 +84,7 @@ function configurePlaywrightBrowserPath() {
 
   const candidates = [];
   if (process.resourcesPath) {
+    candidates.push(path.join(process.resourcesPath, 'playwright-browsers'));
     candidates.push(
       path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'playwright-core', '.local-browsers'),
     );
@@ -102,6 +103,19 @@ function configurePlaywrightBrowserPath() {
 }
 
 function resolveExecutableFromDir(browserDir) {
+  const headlessShellMacArm64 = path.join(
+    browserDir,
+    'chrome-headless-shell-mac-arm64',
+    'chrome-headless-shell',
+  );
+  const chromeTestingMacArm64 = path.join(
+    browserDir,
+    'chrome-mac-arm64',
+    'Google Chrome for Testing.app',
+    'Contents',
+    'MacOS',
+    'Google Chrome for Testing',
+  );
   const headlessShellMac = path.join(browserDir, 'chrome-headless-shell-mac-x64', 'chrome-headless-shell');
   const chromeTestingMac = path.join(
     browserDir,
@@ -117,6 +131,8 @@ function resolveExecutableFromDir(browserDir) {
   const chromeTestingWin = path.join(browserDir, 'chrome-win64', 'chrome.exe');
 
   const candidates = [
+    chromeTestingMacArm64,
+    headlessShellMacArm64,
     chromeTestingMac,
     headlessShellMac,
     chromeTestingLinux,

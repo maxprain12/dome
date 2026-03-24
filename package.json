@@ -1,6 +1,6 @@
 {
   "name": "dome",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "Aplicación de escritorio inteligente para gestión de conocimiento e investigación",
   "author": "Dome Team",
   "repository": {
@@ -205,6 +205,13 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "node_modules/playwright-core/.local-browsers",
+        "to": "playwright-browsers",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "asarUnpack": [
@@ -241,14 +248,12 @@
         {
           "target": "dmg",
           "arch": [
-            "x64",
             "arm64"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "x64",
             "arm64"
           ]
         }

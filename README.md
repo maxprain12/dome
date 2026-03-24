@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.1-00C853?style=flat)](https://langchain-ai.github.io/langgraphjs/)
 [![License](https://img.shields.io/badge/License-Custom%20Open%20Source-blue.svg)](LICENSE)
 
-**v2.1.2** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently. It includes native **Google Drive** import, **Docling**-assisted document conversion before indexing, MCP-powered file import, automatic background indexing, **Playwright-based web search and scraping** (no Brave API keys required), **system tray** with optional **launch at login**, and **multi-language UI** (EN / ES / FR / PT).
+**v2.1.3** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently. It includes native **Google Drive** import, **Docling**-assisted document conversion before indexing, MCP-powered file import, automatic background indexing, **Playwright-based web search and scraping** (no Brave API keys required), **system tray** with optional **launch at login**, and **multi-language UI** (EN / ES / FR / PT).
 
 ---
 
@@ -61,6 +61,12 @@ Dome provides a unified workspace for managing your research and knowledge. It c
 ---
 
 ## What's New
+
+### v2.1.3 — macOS arm64 y empaquetado de Playwright
+
+- **macOS releases** — CI/CD and packaging now target **Apple Silicon only** for macOS artifacts.
+- **Playwright bundle** — Browser resources are copied and resolved correctly in packaged production builds, including macOS `arm64`.
+- **After-pack logs** — Build validation now reports the correct Playwright resource path and avoids misleading packaging warnings.
 
 ### v2.1.2 — Playwright web, DB para agentes/skills/workflows y automatizaciones
 
