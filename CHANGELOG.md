@@ -2,6 +2,26 @@
 
 All notable changes to Dome are documented in this file.
 
+## [2.1.2] - 2026-03-24
+
+### Added
+
+- **Web scraping con Playwright** (`electron/playwright-scraper.cjs`): extracción de HTML y metadatos más fiable en páginas con JavaScript; integrada en la herramienta de fetch web del proceso principal.
+
+### Changed
+
+- **Búsqueda web**: sustitución de la integración con Brave Search por búsqueda basada en Playwright, sin depender de API keys externas para el flujo principal.
+- **Persistencia de datos**: agentes Many, skills y workflows almacenados en tablas SQLite dedicadas en lugar de JSON en `settings`, con APIs y validación actualizadas.
+- **Automatizaciones y runs**: estados de ejecución ampliados, mejoras en `RunLogView`, `AutomationsHubView` y en el motor de runs (`run-engine`).
+- **Ajustes de IA**: panel de IA alineado con el nuevo enfoque de búsqueda web (textos i18n actualizados).
+- **Proyectos, pestañas y workflows**: mejoras de UX y flujos (incl. PR #12).
+
+### Documentation
+
+- **Diseño**: ampliación de `docs/dome-design-guide.md`.
+
+[2.1.2]: https://github.com/maxprain12/dome/releases/tag/v2.1.2
+
 ## [2.1.1] - 2026-03-23
 
 ### Changed

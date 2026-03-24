@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.1-00C853?style=flat)](https://langchain-ai.github.io/langgraphjs/)
 [![License](https://img.shields.io/badge/License-Custom%20Open%20Source-blue.svg)](LICENSE)
 
-**v2.1.1** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently. It includes native **Google Drive** import, **Docling**-assisted document conversion before indexing, MCP-powered file import, automatic background indexing, **system tray** with optional **launch at login**, and **multi-language UI** (EN / ES / FR / PT).
+**v2.1.2** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently. It includes native **Google Drive** import, **Docling**-assisted document conversion before indexing, MCP-powered file import, automatic background indexing, **Playwright-based web search and scraping** (no Brave API keys required), **system tray** with optional **launch at login**, and **multi-language UI** (EN / ES / FR / PT).
 
 ---
 
@@ -61,6 +61,14 @@ Dome provides a unified workspace for managing your research and knowledge. It c
 ---
 
 ## What's New
+
+### v2.1.2 — Playwright web, DB para agentes/skills/workflows y automatizaciones
+
+- **Web search & scraping** — Brave Search API replaced with a **Playwright**-based pipeline in the main process: more reliable results and scraping of JS-heavy pages without managing Brave API keys.
+- **SQLite for agents, skills & workflows** — Many agents, skills, and workflow definitions now live in **dedicated tables** instead of large JSON blobs in settings, with clearer validation and faster access.
+- **Automations & runs** — Expanded run statuses, richer **Run log** and **Automations** hub UI, and updates to the run engine for clearer progress and interactions.
+- **Projects, tabs & workflows** — General UX improvements to project navigation, tabs, and workflow usage.
+- **Design guide** — Expanded `docs/dome-design-guide.md` for internal UI reference.
 
 ### v2.1.1 — Electron windows & assets
 
