@@ -244,8 +244,6 @@ export interface AISettings {
   model?: string;
   embedding_model?: string;
   base_url?: string;
-  web_search_provider?: 'brave';
-  brave_search_api_key?: string;
   // Para Ollama:
   ollama_base_url?: string;
   ollama_model?: string;

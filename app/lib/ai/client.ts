@@ -52,8 +52,6 @@ export interface AIConfig {
   model?: string;
   embeddingModel?: string;
   baseURL?: string;
-  webSearchProvider?: 'brave';
-  braveSearchApiKey?: string;
   ollamaBaseURL?: string;
   ollamaModel?: string;
   ollamaEmbeddingModel?: string;
@@ -70,8 +68,6 @@ export async function getAIConfig(): Promise<AIConfig | null> {
     const modelResult = await db.getSetting('ai_model');
     const embeddingModelResult = await db.getSetting('ai_embedding_model');
     const baseURLResult = await db.getSetting('ai_base_url');
-    const webSearchProviderResult = await db.getSetting('web_search_provider');
-    const braveSearchApiKeyResult = await db.getSetting('brave_search_api_key');
     const ollamaBaseURLResult = await db.getSetting('ollama_base_url');
     const ollamaModelResult = await db.getSetting('ollama_model');
     const ollamaEmbeddingModelResult = await db.getSetting('ollama_embedding_model');
@@ -84,8 +80,6 @@ export async function getAIConfig(): Promise<AIConfig | null> {
       model: modelResult.data || undefined,
       embeddingModel: embeddingModelResult.data || undefined,
       baseURL: baseURLResult.data || undefined,
-      webSearchProvider: webSearchProviderResult.data === 'brave' ? 'brave' : 'brave',
-      braveSearchApiKey: braveSearchApiKeyResult.data || undefined,
       ollamaBaseURL: ollamaBaseURLResult.data || undefined,
       ollamaModel: ollamaModelResult.data || undefined,
       ollamaEmbeddingModel: ollamaEmbeddingModelResult.data || undefined,
@@ -110,12 +104,6 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
   }
   if (config.baseURL) {
     await db.setSetting('ai_base_url', config.baseURL);
-  }
-  if (config.webSearchProvider) {
-    await db.setSetting('web_search_provider', config.webSearchProvider);
-  }
-  if (config.braveSearchApiKey !== undefined) {
-    await db.setSetting('brave_search_api_key', config.braveSearchApiKey);
   }
   if (config.ollamaBaseURL) {
     await db.setSetting('ollama_base_url', config.ollamaBaseURL);

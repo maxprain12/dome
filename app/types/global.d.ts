@@ -687,6 +687,28 @@ declare global {
           warning?: string;
           error?: string;
         }>;
+        webSearch: (args: {
+          query: string;
+          count?: number;
+          country?: string;
+          search_lang?: string;
+          freshness?: string;
+        }) => Promise<{
+          status?: string;
+          query?: string;
+          provider?: string;
+          engine?: string;
+          count?: number;
+          results?: Array<{
+            title: string;
+            url: string;
+            description?: string;
+            displayedUrl?: string;
+            siteName?: string;
+          }>;
+          error?: string;
+          cached?: boolean;
+        }>;
         stream: (
           provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'ollama' | 'minimax',
           messages: Array<{ role: string; content: string }>,

@@ -240,6 +240,7 @@ const ALLOWED_CHANNELS = {
     'ai:embeddings',
     'ai:testConnection',
     'ai:testWebSearch',
+    'ai:webSearch',
     // Agent Team orchestration
     'ai:team:stream',
     'ai:team:abort',
@@ -1150,6 +1151,9 @@ const electronHandler = {
 
     testWebSearch: () =>
       ipcRenderer.invoke('ai:testWebSearch'),
+
+    webSearch: (args) =>
+      ipcRenderer.invoke('ai:webSearch', args),
 
     // AI Tools for Many agent
     tools: {

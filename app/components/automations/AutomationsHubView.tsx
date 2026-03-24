@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Bot, Workflow, Zap, Activity, Plus, Play, Trash2, Pencil,
   Clock, CheckCircle2, XCircle, Loader2, ChevronLeft, X,
@@ -11,6 +11,7 @@ import AgentChatView from '@/components/agents/AgentChatView';
 import AgentCanvasView from '@/components/agent-canvas/AgentCanvasView';
 import WorkflowLibraryView from '@/components/agent-canvas/WorkflowLibraryView';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useTabStore } from '@/lib/store/useTabStore';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import ChatToolCard, { type ToolCallData } from '@/components/chat/ChatToolCard';
 import {
@@ -18,6 +19,7 @@ import {
   statusColor as runStatusColor,
   formatRunDate,
   formatDuration,
+  RunProgressBar,
 } from './RunLogView';
 import {
   listAutomations,
@@ -27,11 +29,15 @@ import {
   deleteRun,
   runAutomationNow,
   saveAutomation,
+  onRunUpdated,
+  onRunStep,
+  AUTOMATIONS_CHANGED_EVENT,
   type AutomationDefinition,
   type AutomationOutputMode,
   type PersistentRun,
   type PersistentRunStep,
 } from '@/lib/automations/api';
+import { getRunProgress } from '@/lib/automations/run-progress';
 import { getManyAgents } from '@/lib/agents/api';
 import { getWorkflows } from '@/lib/agent-canvas/api';
 import type { ManyAgent } from '@/types';
@@ -94,8 +100,11 @@ function StatusBadge({ status }: { status: string }) {
       }}
     >
       {status === 'running' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+      {status === 'queued' && <Clock className="w-2.5 h-2.5" />}
+      {status === 'waiting_approval' && <Clock className="w-2.5 h-2.5" />}
       {status === 'completed' && <CheckCircle2 className="w-2.5 h-2.5" />}
       {status === 'failed' && <XCircle className="w-2.5 h-2.5" />}
+      {status === 'cancelled' && <XCircle className="w-2.5 h-2.5" />}
       {runStatusLabel(status)}
     </span>
   );
@@ -315,10 +324,22 @@ function AutomationEditDrawer({
           </select>
         </div>
 
-        {/* Enabled */}
-        <label className="flex items-center gap-3 cursor-pointer">
+        {/* Enabled — whole row + switch are clickable (previously only the label text toggled) */}
+        <div
+          className="flex items-center gap-3 cursor-pointer select-none"
+          role="switch"
+          aria-checked={draft.enabled}
+          tabIndex={0}
+          onClick={() => onDraftChange({ enabled: !draft.enabled })}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onDraftChange({ enabled: !draft.enabled });
+            }
+          }}
+        >
           <div
-            className="relative w-9 h-5 rounded-full transition-colors"
+            className="relative w-9 h-5 rounded-full transition-colors shrink-0 pointer-events-none"
             style={{ background: draft.enabled ? 'var(--dome-accent)' : 'var(--dome-border)' }}
           >
             <div
@@ -326,14 +347,10 @@ function AutomationEditDrawer({
               style={{ left: draft.enabled ? '18px' : '2px' }}
             />
           </div>
-          <span
-            className="text-sm font-medium"
-            style={{ color: 'var(--dome-text)' }}
-            onClick={() => onDraftChange({ enabled: !draft.enabled })}
-          >
+          <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
             {draft.enabled ? t('automation.enabled_on_save') : t('automation.paused_on_save')}
           </span>
-        </label>
+        </div>
       </div>
   );
 
@@ -437,6 +454,12 @@ function AutomationsTab({ initialFilter, agents, workflows }: AutomationsTabProp
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    const handler = () => { void load(); };
+    window.addEventListener(AUTOMATIONS_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(AUTOMATIONS_CHANGED_EVENT, handler);
+  }, [load]);
 
   const filtered = useMemo(() => {
     let result = automations;
@@ -809,9 +832,10 @@ function stepToToolCall(step: PersistentRunStep): ToolCallData {
 
   let status: ToolCallData['status'];
   if (step.status === 'running') status = 'running';
-  else if (step.status === 'failed' || step.status === 'error') status = 'error';
+  else if (step.status === 'failed' || step.status === 'error' || step.status === 'cancelled') status = 'error';
   else if (step.status === 'completed' || step.status === 'done') status = 'success';
-  else status = 'pending';
+  else if (step.status === 'pending' || step.status === 'queued' || step.status === 'waiting_approval') status = 'pending';
+  else status = 'error';
 
   let result: unknown = step.content;
   let error: string | undefined;
@@ -839,6 +863,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
   const otherSteps = steps.filter((s) => s.stepType !== 'tool_call' && s.stepType !== 'tool');
   const isRunning = run.status === 'running' || run.status === 'queued';
   const color = runStatusColor(run.status);
+  const progress = getRunProgress(run);
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--bg)' }}>
@@ -887,19 +912,17 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
             <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
               {steps.length === 1 ? t('runLog.step_singular') : t('runLog.step_plural', { count: steps.length })}
             </span>
+            {progress?.mode === 'determinate' && (
+              <span className="text-[11px] font-medium" style={{ color: 'var(--accent)' }}>
+                {progress.percent ?? 0}% · {progress.completed}/{progress.total}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
       {/* Progress bar for running */}
-      {isRunning && (
-        <div className="h-0.5 w-full overflow-hidden shrink-0" style={{ background: 'var(--bg-tertiary)' }}>
-          <div
-            className="h-full animate-pulse"
-            style={{ width: '60%', background: 'var(--accent)', transition: 'width 1s ease' }}
-          />
-        </div>
-      )}
+      {isRunning && <RunProgressBar run={run} />}
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
@@ -1019,6 +1042,12 @@ function RunsTab() {
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const [filter, setFilter] = useState<RunFilter>({ ownerType: 'all', status: 'all' });
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const selectedRunIdRef = useRef<string | null>(null);
+  const detailRefreshTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    selectedRunIdRef.current = selectedRun?.id ?? null;
+  }, [selectedRun]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1033,10 +1062,87 @@ function RunsTab() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const scheduleRefreshSelectedRun = useCallback((runId: string) => {
+    if (typeof window === 'undefined') return;
+    if (detailRefreshTimeoutRef.current) {
+      window.clearTimeout(detailRefreshTimeoutRef.current);
+    }
+    detailRefreshTimeoutRef.current = window.setTimeout(() => {
+      void getRun(runId)
+        .then((full) => {
+          if (!full || selectedRunIdRef.current !== runId) return;
+          setSelectedRun(full);
+        })
+        .catch(() => {
+          // Keep the last live snapshot if hydration fails.
+        })
+        .finally(() => {
+          detailRefreshTimeoutRef.current = null;
+        });
+    }, 150);
+  }, []);
+
+  useEffect(() => {
+    const unsubUpdated = onRunUpdated(({ run }) => {
+      if (run.ownerType === 'many') return;
+      setAllRuns((prev) => {
+        const filteredPrev = prev.filter((entry) => entry.ownerType !== 'many');
+        const existing = filteredPrev.find((entry) => entry.id === run.id);
+        const merged = existing
+          ? { ...existing, ...run, steps: existing.steps ?? run.steps, links: existing.links ?? run.links }
+          : run;
+        const next = existing
+          ? filteredPrev.map((entry) => (entry.id === run.id ? merged : entry))
+          : [merged, ...filteredPrev];
+        return next
+          .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
+          .slice(0, 100);
+      });
+
+      if (selectedRunIdRef.current === run.id) {
+        setSelectedRun((prev) =>
+          prev?.id === run.id
+            ? { ...prev, ...run, steps: prev.steps, links: prev.links }
+            : prev,
+        );
+        scheduleRefreshSelectedRun(run.id);
+      }
+    });
+
+    const unsubStep = onRunStep(({ step }) => {
+      if (selectedRunIdRef.current === step.runId) {
+        scheduleRefreshSelectedRun(step.runId);
+      }
+      setAllRuns((prev) =>
+        prev.map((run) =>
+          run.id === step.runId
+            ? { ...run, updatedAt: step.updatedAt ?? Date.now() }
+            : run,
+        ),
+      );
+    });
+
+    return () => {
+      unsubUpdated();
+      unsubStep();
+      if (detailRefreshTimeoutRef.current && typeof window !== 'undefined') {
+        window.clearTimeout(detailRefreshTimeoutRef.current);
+        detailRefreshTimeoutRef.current = null;
+      }
+    };
+  }, [scheduleRefreshSelectedRun]);
+
   const filtered = useMemo(() => {
     let result = allRuns;
     if (filter.ownerType !== 'all') result = result.filter((r) => r.ownerType === filter.ownerType);
-    if (filter.status !== 'all') result = result.filter((r) => r.status === filter.status);
+    if (filter.status !== 'all') {
+      result = result.filter((r) => {
+        if (filter.status === 'running') {
+          return r.status === 'running' || r.status === 'queued' || r.status === 'waiting_approval';
+        }
+        return r.status === filter.status;
+      });
+    }
     return result;
   }, [allRuns, filter]);
 
@@ -1214,6 +1320,15 @@ function RunsTab() {
                         ? ` · ${run.steps.length === 1 ? t('runLog.step_singular') : t('runLog.step_plural', { count: run.steps.length })}`
                         : ''}
                     </p>
+                    {(() => {
+                      const progress = getRunProgress(run);
+                      if (progress?.mode !== 'determinate') return null;
+                      return (
+                        <p className="text-[10px] mt-0.5 font-medium" style={{ color: 'var(--accent)' }}>
+                          {progress.percent ?? 0}% · {progress.completed}/{progress.total}
+                        </p>
+                      );
+                    })()}
                   </div>
 
                   {/* Status + delete */}
@@ -1261,6 +1376,14 @@ export default function AutomationsHubView({ onAgentSelect }: AutomationsHubView
   const [activeTab, setActiveTab] = useState<HubTab>('agents');
   const [automationsFilter, setAutomationsFilter] = useState<AutomationFilter | undefined>();
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [automationsListEpoch, setAutomationsListEpoch] = useState(0);
+
+  const activeShellTabId = useTabStore((s) => s.activeTabId);
+  const shellTabs = useTabStore((s) => s.tabs);
+  const agentsShellTabId = shellTabs.find((t) => t.type === 'agents')?.id;
+  const agentsShellVisible = agentsShellTabId != null && activeShellTabId === agentsShellTabId;
+
+  const prevAgentsShellVisible = useRef<boolean | null>(null);
 
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
   const isWorkflowCanvasActive = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('workflow:');
@@ -1270,9 +1393,34 @@ export default function AutomationsHubView({ onAgentSelect }: AutomationsHubView
   const [workflows, setWorkflows] = useState<CanvasWorkflow[]>([]);
 
   useEffect(() => {
+    const refreshMeta = () => {
+      getManyAgents().then(setAgents).catch(() => {});
+      getWorkflows().then(setWorkflows).catch(() => {});
+    };
+    refreshMeta();
+    window.addEventListener('dome:agents-changed', refreshMeta);
+    window.addEventListener('dome:workflows-changed', refreshMeta);
+    return () => {
+      window.removeEventListener('dome:agents-changed', refreshMeta);
+      window.removeEventListener('dome:workflows-changed', refreshMeta);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'automations') return;
     getManyAgents().then(setAgents).catch(() => {});
     getWorkflows().then(setWorkflows).catch(() => {});
-  }, []);
+  }, [activeTab]);
+
+  // Persistent shell tab: AutomationsTab stays mounted while hidden; remount list when shell is shown again.
+  useEffect(() => {
+    const prev = prevAgentsShellVisible.current;
+    const becameVisible = prev === false && agentsShellVisible;
+    prevAgentsShellVisible.current = agentsShellVisible;
+    if (becameVisible && activeTab === 'automations') {
+      setAutomationsListEpoch((n) => n + 1);
+    }
+  }, [agentsShellVisible, activeTab]);
 
   // Called from AgentManagementView / WorkflowLibraryView when user clicks "Automatizaciones"
   const handleShowAutomations = useCallback((
@@ -1348,7 +1496,7 @@ export default function AutomationsHubView({ onAgentSelect }: AutomationsHubView
         )}
         {activeTab === 'automations' && (
           <AutomationsTab
-            key={automationsFilter?.targetId ?? 'all'}
+            key={`${automationsFilter?.targetId ?? 'all'}:${automationsListEpoch}`}
             initialFilter={automationsFilter}
             agents={agents}
             workflows={workflows}

@@ -405,7 +405,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'web_search',
-        description: 'Search the web for current information using Brave Search configured in Settings. If Brave is not configured, returns an explicit configuration error instead of scraping HTML. Returns titles, URLs, and snippets.',
+        description: 'Search the web for current information using the built-in Playwright browser search. Returns titles, URLs, and snippets from live search results.',
         parameters: {
           type: 'object',
           properties: {

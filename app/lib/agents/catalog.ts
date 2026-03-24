@@ -14,7 +14,7 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
   {
     id: 'web_search',
     label: 'Web Search',
-    description: 'Realiza búsquedas en la web usando Brave Search. Si Brave no está configurado, hace un fallback por scraping HTML menos fiable. Devuelve títulos, URLs y fragmentos relevantes para investigación actualizada.',
+    description: 'Realiza búsquedas en la web usando el navegador Playwright integrado. Devuelve títulos, URLs y fragmentos relevantes obtenidos en tiempo real.',
     group: 'web',
   },
   {

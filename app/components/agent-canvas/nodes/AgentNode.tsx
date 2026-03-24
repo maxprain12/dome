@@ -163,12 +163,12 @@ export default function AgentNode({ data, selected }: NodeProps<AgentNodeData>) 
           <div className="space-y-1">
             <div
               className="h-1.5 rounded-full overflow-hidden"
-          style={{ background: 'var(--dome-bg)' }}
-        >
-          <div
-            className="h-full rounded-full animate-pulse"
-            style={{ width: '60%', background: 'var(--dome-accent)' }}
-          />
+              style={{ background: 'var(--dome-bg)' }}
+            >
+              <div
+                className="h-full w-full rounded-full animate-pulse"
+                style={{ background: 'linear-gradient(90deg, transparent 0%, var(--dome-accent) 50%, transparent 100%)' }}
+              />
             </div>
             <p className="text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
               {t('canvas.processing')}

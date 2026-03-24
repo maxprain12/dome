@@ -11,6 +11,8 @@ const RUN_CHUNK_CHANNEL = 'runs:chunk';
 
 const OUTPUT_MODES = new Set(['chat_only', 'note', 'studio_output', 'mixed']);
 const RUN_TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
+const RUN_RECOVERY_STALE_MS = 45 * 1000;
+const RUN_RESTART_ERROR = 'Interrupted - the app was restarted while this run was active.';
 
 const SYSTEM_AGENTS = {
   research: {
@@ -92,6 +94,58 @@ function parseJsonSafely(value, fallback) {
 
 function toJson(value) {
   return value == null ? null : JSON.stringify(value);
+}
+
+function parseToolArguments(rawArguments) {
+  if (typeof rawArguments === 'string') {
+    try {
+      return JSON.parse(rawArguments);
+    } catch {
+      return {};
+    }
+  }
+  return rawArguments && typeof rawArguments === 'object' ? rawArguments : {};
+}
+
+function serializeToolResult(result) {
+  if (typeof result === 'string') return result;
+  try {
+    return JSON.stringify(result ?? null);
+  } catch {
+    return String(result);
+  }
+}
+
+function getToolStepPatch(toolCallId, result, extraMetadata = {}) {
+  const serializedResult = serializeToolResult(result);
+  let parsedResult = result;
+  if (typeof serializedResult === 'string') {
+    try {
+      parsedResult = JSON.parse(serializedResult);
+    } catch {
+      parsedResult = result;
+    }
+  }
+
+  const isErrorResult =
+    parsedResult &&
+    typeof parsedResult === 'object' &&
+    !Array.isArray(parsedResult) &&
+    parsedResult.status === 'error';
+
+  const errorMessage = isErrorResult
+    ? (typeof parsedResult.error === 'string' ? parsedResult.error : serializedResult)
+    : null;
+
+  return {
+    status: isErrorResult ? 'failed' : 'done',
+    content: errorMessage || serializedResult,
+    metadata: {
+      toolCallId,
+      ...extraMetadata,
+      ...(isErrorResult ? { error: errorMessage } : {}),
+    },
+  };
 }
 
 function emit(channel, payload) {
@@ -284,15 +338,28 @@ function appendRunStep(params) {
   return step;
 }
 
-function updateRunStep(stepId, patch) {
+function updateRunStep(stepId, patch, existingStep = null) {
   const queries = getQueries();
+  const mergedMetadata = existingStep
+    ? { ...(existingStep.metadata ?? {}), ...(patch.metadata ?? {}) }
+    : (patch.metadata ?? {});
+  const nextStep = existingStep
+    ? {
+      ...existingStep,
+      ...patch,
+      metadata: mergedMetadata,
+      updatedAt: patch.updatedAt ?? now(),
+    }
+    : null;
   queries.updateAutomationRunStep.run(
     patch.status ?? 'done',
     patch.content ?? null,
-    toJson(patch.metadata ?? {}),
-    patch.updatedAt ?? now(),
+    toJson(mergedMetadata),
+    nextStep?.updatedAt ?? patch.updatedAt ?? now(),
     stepId,
   );
+  if (nextStep) emit(RUN_STEP_CHANNEL, { step: nextStep });
+  return nextStep;
 }
 
 function getRun(runId) {
@@ -737,23 +804,27 @@ function createRunChunkEmitter(runId, context) {
         metadata: { toolCallId: data.toolCall.id, arguments: args },
       });
       context.toolStepIds.set(data.toolCall.id, step.id);
+      context.toolSteps.set(data.toolCall.id, step);
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'tool_call', toolCall: data.toolCall });
       patchRun(runId, { lastHeartbeatAt: heartbeat });
       return;
     }
     if (data.type === 'tool_result' && data.toolCallId != null) {
+      const stepPatch = getToolStepPatch(data.toolCallId, data.result);
       const entry = context.toolCalls.find((item) => item.id === data.toolCallId);
       if (entry) {
-        entry.status = 'success';
+        entry.status = stepPatch.status === 'failed' ? 'error' : 'success';
         entry.result = data.result;
       }
       const stepId = context.toolStepIds.get(data.toolCallId);
       if (stepId) {
-        updateRunStep(stepId, {
-          status: 'done',
-          content: typeof data.result === 'string' ? data.result : JSON.stringify(data.result ?? null),
-          metadata: { toolCallId: data.toolCallId },
-        });
+        const existingStep = context.toolSteps.get(data.toolCallId) ?? null;
+        const nextStep = updateRunStep(
+          stepId,
+          stepPatch,
+          existingStep,
+        );
+        if (nextStep) context.toolSteps.set(data.toolCallId, nextStep);
       }
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'tool_result', toolCallId: data.toolCallId, result: data.result });
       patchRun(runId, { lastHeartbeatAt: heartbeat });
@@ -921,6 +992,7 @@ async function startLangGraphRun(params) {
     fullThinking: '',
     toolCalls: [],
     toolStepIds: new Map(),
+    toolSteps: new Map(),
     threadId,
     provider: providerConfig.provider,
     model: providerConfig.model,
@@ -961,6 +1033,7 @@ async function resumeRun(runId, decisions) {
     fullThinking: '',
     toolCalls: Array.isArray(metadata.toolCalls) ? metadata.toolCalls : [],
     toolStepIds: new Map(),
+    toolSteps: new Map(),
     threadId: run.threadId,
     provider: providerConfig.provider,
     model: providerConfig.model,
@@ -1051,12 +1124,37 @@ function resolveWorkflowAgent(nodeData) {
   return null;
 }
 
+function getWorkflowProgressMetadata(workflow, completedNodeIds) {
+  const total = Array.isArray(workflow?.nodes) ? workflow.nodes.length : 0;
+  const completed = completedNodeIds.size;
+  return {
+    total,
+    completed,
+    percent: total > 0 ? Math.round((completed / total) * 100) : 0,
+  };
+}
+
 async function executeWorkflowRun(runId, params, workflow) {
   const context = activeRunContexts.get(runId);
   if (!context) return;
   const run = getRun(runId);
   const nodeOutputs = {};
   const resolvedPayloads = {};
+  const completedNodeIds = new Set(
+    Array.isArray(run?.metadata?.progress?.completedNodeIds) ? run.metadata.progress.completedNodeIds : [],
+  );
+  const syncWorkflowProgress = (nodeId) => {
+    if (!nodeId || completedNodeIds.has(nodeId)) return;
+    completedNodeIds.add(nodeId);
+    patchRun(runId, {
+      metadata: {
+        progress: {
+          ...getWorkflowProgressMetadata(workflow, completedNodeIds),
+          completedNodeIds: [...completedNodeIds],
+        },
+      },
+    });
+  };
   let finalOutput = '';
   patchRun(runId, {
     status: 'running',
@@ -1081,6 +1179,7 @@ async function executeWorkflowRun(runId, params, workflow) {
             content: resolvedPayloads[node.id].text.slice(0, 4000),
             metadata: { nodeId: node.id, nodeType: data.type },
           });
+          syncWorkflowProgress(node.id);
           return;
         }
         if (data.type === 'output') {
@@ -1097,6 +1196,7 @@ async function executeWorkflowRun(runId, params, workflow) {
             content: payload.text.slice(0, 4000),
             metadata: { nodeId: node.id },
           });
+          syncWorkflowProgress(node.id);
           return;
         }
         if (data.type === 'agent') {
@@ -1111,6 +1211,7 @@ async function executeWorkflowRun(runId, params, workflow) {
               metadata: { nodeId: node.id },
             });
             resolvedPayloads[node.id] = { kind: 'text', text: '' };
+            syncWorkflowProgress(node.id);
             return;
           }
           const inputPayload = mergePayloads(getInputPayloads(node.id, workflow.edges || [], resolvedPayloads));
@@ -1128,6 +1229,7 @@ async function executeWorkflowRun(runId, params, workflow) {
             fullThinking: '',
             toolCalls: [],
             toolStepIds: new Map(),
+            toolSteps: new Map(),
             threadId: `${runId}_${node.id}`,
           };
           const nodeStep = appendRunStep({
@@ -1159,14 +1261,33 @@ async function executeWorkflowRun(runId, params, workflow) {
               } else if (chunk.type === 'thinking' && chunk.text) {
                 nodeContext.fullThinking += chunk.text;
               } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-                appendRunStep({
+                const step = appendRunStep({
                   runId,
                   parentStepId: nodeStep.id,
                   stepType: 'tool_call',
                   title: `${data.label || agentDef.name}: ${chunk.toolCall.name}`,
                   status: 'running',
-                  metadata: { nodeId: node.id },
+                  metadata: {
+                    nodeId: node.id,
+                    toolCallId: chunk.toolCall.id,
+                    arguments: parseToolArguments(chunk.toolCall.arguments),
+                  },
                 });
+                nodeContext.toolStepIds.set(chunk.toolCall.id, step.id);
+                nodeContext.toolSteps.set(chunk.toolCall.id, step);
+                patchRun(runId, { lastHeartbeatAt: now() });
+              } else if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
+                const stepId = nodeContext.toolStepIds.get(chunk.toolCallId);
+                if (stepId) {
+                  const existingStep = nodeContext.toolSteps.get(chunk.toolCallId) ?? null;
+                  const nextStep = updateRunStep(
+                    stepId,
+                    getToolStepPatch(chunk.toolCallId, chunk.result, { nodeId: node.id }),
+                    existingStep,
+                  );
+                  if (nextStep) nodeContext.toolSteps.set(chunk.toolCallId, nextStep);
+                }
+                patchRun(runId, { lastHeartbeatAt: now() });
               }
             },
           });
@@ -1174,7 +1295,8 @@ async function executeWorkflowRun(runId, params, workflow) {
             status: 'done',
             content: nodeContext.fullResponse.slice(0, 8000),
             metadata: { nodeId: node.id, thinking: nodeContext.fullThinking },
-          });
+          }, nodeStep);
+          syncWorkflowProgress(node.id);
           const outputPayload = {
             kind: inputPayload.resources?.length ? 'bundle' : 'text',
             text: nodeContext.fullResponse,
@@ -1221,6 +1343,10 @@ async function executeWorkflowRun(runId, params, workflow) {
       metadata: {
         kind: 'workflow',
         workflowName: workflow.name,
+        progress: {
+          ...getWorkflowProgressMetadata(workflow, completedNodeIds),
+          completedNodeIds: [...completedNodeIds],
+        },
         nodeOutputs,
         createdNoteId: createdNote?.id ?? null,
       },
@@ -1238,6 +1364,12 @@ async function executeWorkflowRun(runId, params, workflow) {
       status: 'failed',
       error: error?.message || String(error),
       finishedAt: now(),
+      metadata: {
+        progress: {
+          ...getWorkflowProgressMetadata(workflow, completedNodeIds),
+          completedNodeIds: [...completedNodeIds],
+        },
+      },
     });
   } finally {
     activeRunContexts.delete(runId);
@@ -1259,6 +1391,12 @@ function startWorkflowRun(params) {
     metadata: {
       kind: 'workflow',
       workflowName: workflow.name,
+      progress: {
+        total: Array.isArray(workflow.nodes) ? workflow.nodes.length : 0,
+        completed: 0,
+        percent: 0,
+        completedNodeIds: [],
+      },
     },
   });
   const controller = new AbortController();
@@ -1426,14 +1564,16 @@ function recoverStuckRuns() {
   try {
     const db = _database.getDB();
     const ts = now();
+    const staleCutoff = ts - RUN_RECOVERY_STALE_MS;
     db.prepare(`
       UPDATE automation_runs
       SET status = 'failed',
-          error = 'Interrupted — the app was restarted while this run was active.',
+          error = ?,
           finished_at = ?,
           updated_at = ?
-      WHERE status IN ('running', 'queued', 'waiting_approval')
-    `).run(ts, ts);
+      WHERE status = 'running'
+        AND COALESCE(last_heartbeat_at, updated_at, started_at) < ?
+    `).run(RUN_RESTART_ERROR, ts, ts, staleCutoff);
   } catch (e) {
     console.warn('[RunEngine] recoverStuckRuns failed:', e?.message);
   }

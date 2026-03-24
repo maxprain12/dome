@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { PersistentRun, PersistentRunStep } from '@/lib/automations/api';
+import { getRunProgress } from '@/lib/automations/run-progress';
 
 // ─── Shared helpers (subset of ChatToolCard logic, dependency-free) ──────────
 
@@ -136,13 +137,21 @@ export function RunStepCard({ step }: { step: PersistentRunStep }) {
   const isToolCall = step.stepType === 'tool_call' || step.stepType === 'tool';
   const isThinking = step.stepType === 'thinking';
   const isMessage = step.stepType === 'message' || step.stepType === 'output';
-  const isError = step.status === 'failed' || step.stepType === 'error';
+  const isError = step.status === 'failed' || step.status === 'error' || step.stepType === 'error';
+  const isCancelled = step.status === 'cancelled';
+  const isWaitingApproval = step.status === 'waiting_approval';
 
   const toolName = isToolCall ? step.title : '';
   const Icon = isToolCall ? getIconForTool(toolName) : isThinking ? Clock : isMessage ? FileText : Globe;
   const label = isToolCall ? getLabelForTool(toolName) : step.title;
   const category = isToolCall ? getCategory(toolName) : 'default';
-  const accentColor = isError ? 'var(--error)' : CATEGORY_COLORS[category];
+  const accentColor = isError
+    ? 'var(--error)'
+    : isCancelled
+      ? 'var(--tertiary-text)'
+      : isWaitingApproval
+        ? '#f59e0b'
+        : CATEGORY_COLORS[category];
 
   // Parse tool args from metadata
   const toolArgs = useMemo(() => {
@@ -159,6 +168,10 @@ export function RunStepCard({ step }: { step: PersistentRunStep }) {
 
   const statusIcon = isError
     ? <XCircle size={13} style={{ color: 'var(--error)', flexShrink: 0 }} />
+    : isCancelled
+      ? <XCircle size={13} style={{ color: 'var(--tertiary-text)', flexShrink: 0 }} />
+      : isWaitingApproval
+        ? <Clock size={13} style={{ color: '#f59e0b', flexShrink: 0 }} />
     : step.status === 'running'
       ? <Loader2 size={13} className="animate-spin" style={{ color: accentColor, flexShrink: 0 }} />
       : step.status === 'completed' || step.status === 'done'
@@ -169,12 +182,18 @@ export function RunStepCard({ step }: { step: PersistentRunStep }) {
   const renderContent = () => {
     if (!step.content && !isError) return null;
 
-    if (isError || isMessage || isThinking) {
+    if (isError || isCancelled || isMessage || isThinking) {
       const text = typeof step.content === 'string' ? step.content : JSON.stringify(step.content || '', null, 2);
       return (
         <div
           className="mt-2 rounded-lg p-3 text-xs"
-          style={{ background: isError ? 'color-mix(in srgb, var(--error) 8%, transparent)' : 'var(--bg-tertiary)' }}
+          style={{
+            background: isError
+              ? 'color-mix(in srgb, var(--error) 8%, transparent)'
+              : isCancelled
+                ? 'color-mix(in srgb, var(--bg-hover) 80%, transparent)'
+                : 'var(--bg-tertiary)',
+          }}
         >
           <MarkdownRenderer content={text} />
         </div>
@@ -289,6 +308,7 @@ export function statusColor(status: string): string {
   if (status === 'completed') return '#10b981';
   if (status === 'failed') return 'var(--error)';
   if (status === 'running') return 'var(--accent)';
+  if (status === 'queued' || status === 'waiting_approval') return '#f59e0b';
   if (status === 'cancelled') return 'var(--tertiary-text)';
   return 'var(--secondary-text)';
 }
@@ -307,6 +327,29 @@ export function formatDuration(startedAt?: number, finishedAt?: number | null): 
   return `${mins}m ${secs % 60}s`;
 }
 
+export function RunProgressBar({ run }: { run: PersistentRun }) {
+  const progress = getRunProgress(run);
+  if (!progress) return null;
+
+  return (
+    <div className="w-full">
+      <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--bg-tertiary)' }}>
+        {progress.mode === 'determinate' ? (
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${progress.percent ?? 0}%`, background: 'var(--accent)' }}
+          />
+        ) : (
+          <div
+            className="h-full w-full animate-pulse rounded-full"
+            style={{ background: 'linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%)' }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── RunLogView ───────────────────────────────────────────────────────────────
 
 interface RunLogViewProps {
@@ -319,6 +362,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
   const steps = run.steps ?? [];
   const toolSteps = steps.filter((s) => s.stepType === 'tool_call' || s.stepType === 'tool');
   const otherSteps = steps.filter((s) => s.stepType !== 'tool_call' && s.stepType !== 'tool');
+  const progress = getRunProgress(run);
 
   const isRunning = run.status === 'running' || run.status === 'queued';
 
@@ -376,6 +420,11 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
               <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
                 {steps.length === 1 ? t('runLog.step_singular') : t('runLog.step_plural', { count: steps.length })}
               </span>
+              {progress?.mode === 'determinate' && (
+                <span className="text-[11px] font-medium" style={{ color: 'var(--accent)' }}>
+                  {progress.percent ?? 0}% · {progress.completed}/{progress.total}
+                </span>
+              )}
             </div>
           </div>
           <button
@@ -390,14 +439,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
         </div>
 
         {/* Progress bar for running */}
-        {isRunning && (
-          <div className="h-0.5 w-full overflow-hidden" style={{ background: 'var(--bg-tertiary)' }}>
-            <div
-              className="h-full animate-pulse"
-              style={{ width: '60%', background: 'var(--accent)', transition: 'width 1s ease' }}
-            />
-          </div>
-        )}
+        {isRunning && <RunProgressBar run={run} />}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">

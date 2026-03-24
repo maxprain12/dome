@@ -169,8 +169,6 @@ export async function getAIConfig(): Promise<AISettings> {
   const modelResult = await db.getSetting('ai_model');
   const embeddingModelResult = await db.getSetting('ai_embedding_model');
   const baseUrlResult = await db.getSetting('ai_base_url');
-  const webSearchProviderResult = await db.getSetting('web_search_provider');
-  const braveSearchApiKeyResult = await db.getSetting('brave_search_api_key');
   const ollamaBaseUrlResult = await db.getSetting('ollama_base_url');
   const ollamaModelResult = await db.getSetting('ollama_model');
   const ollamaApiKeyResult = await db.getSetting('ollama_api_key');
@@ -192,8 +190,6 @@ export async function getAIConfig(): Promise<AISettings> {
     model: modelResult.data || undefined,
     embedding_model: embeddingModelResult.data || undefined,
     base_url: baseUrlResult.data || undefined,
-    web_search_provider: webSearchProviderResult.data === 'brave' ? 'brave' : 'brave',
-    brave_search_api_key: braveSearchApiKeyResult.data || undefined,
     ollama_base_url: ollamaBaseUrlResult.data || undefined,
     ollama_model: ollamaModelResult.data || undefined,
     ollama_api_key: ollamaApiKeyResult.data || undefined,
@@ -224,14 +220,6 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
 
   if (config.base_url !== undefined) {
     await db.setSetting('ai_base_url', config.base_url);
-  }
-
-  if (config.web_search_provider !== undefined) {
-    await db.setSetting('web_search_provider', config.web_search_provider);
-  }
-
-  if (config.brave_search_api_key !== undefined) {
-    await db.setSetting('brave_search_api_key', config.brave_search_api_key);
   }
 
   if (config.ollama_base_url !== undefined) {

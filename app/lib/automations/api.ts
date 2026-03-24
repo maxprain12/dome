@@ -11,6 +11,17 @@ export type PersistentRunStatus =
   | 'failed'
   | 'cancelled';
 
+export type PersistentRunStepStatus =
+  | 'pending'
+  | 'queued'
+  | 'running'
+  | 'waiting_approval'
+  | 'completed'
+  | 'done'
+  | 'failed'
+  | 'error'
+  | 'cancelled';
+
 export interface AutomationDefinition {
   id: string;
   title: string;
@@ -47,7 +58,7 @@ export interface PersistentRunStep {
   parentStepId?: string | null;
   stepType: string;
   title: string;
-  status: string;
+  status: PersistentRunStepStatus;
   content?: string | null;
   metadata?: Record<string, unknown>;
   createdAt: number;
@@ -91,6 +102,14 @@ interface Result<T> {
   error?: string;
 }
 
+export const AUTOMATIONS_CHANGED_EVENT = 'dome:automations-changed';
+
+function notifyAutomationsChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(AUTOMATIONS_CHANGED_EVENT));
+  }
+}
+
 function ensureElectron() {
   if (typeof window === 'undefined' || !window.electron?.invoke) {
     throw new Error('Electron no disponible');
@@ -119,11 +138,14 @@ export async function getAutomation(automationId: string): Promise<AutomationDef
 }
 
 export async function saveAutomation(automation: Partial<AutomationDefinition>): Promise<AutomationDefinition> {
-  return invoke<AutomationDefinition>('automations:upsert', automation);
+  const saved = await invoke<AutomationDefinition>('automations:upsert', automation);
+  notifyAutomationsChanged();
+  return saved;
 }
 
 export async function deleteAutomation(automationId: string): Promise<void> {
   await invoke<void>('automations:delete', automationId);
+  notifyAutomationsChanged();
 }
 
 export async function runAutomationNow(automationId: string): Promise<PersistentRun> {

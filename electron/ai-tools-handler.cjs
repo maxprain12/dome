@@ -1769,47 +1769,21 @@ async function webFetch(args) {
 // Web Search Tool (LangGraph / Subagents)
 // =============================================================================
 
-const BRAVE_SEARCH_ENDPOINT = 'https://api.search.brave.com/res/v1/web/search';
-const DEFAULT_PERPLEXITY_BASE = 'https://api.perplexity.ai';
-const DEFAULT_PERPLEXITY_MODEL = 'perplexity/sonar-pro';
+const WEB_SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
+const WEB_SEARCH_CACHE = new Map();
 
-function getSettingValue(key) {
-  try {
-    const queries = database.getQueries();
-    const row = queries?.getSetting?.get?.(key);
-    return typeof row?.value === 'string' && row.value.trim() ? row.value.trim() : '';
-  } catch {
-    return '';
+function getCachedWebSearchResult(key) {
+  const cached = WEB_SEARCH_CACHE.get(key);
+  if (!cached) return null;
+  if (Date.now() - cached.createdAt > WEB_SEARCH_CACHE_TTL_MS) {
+    WEB_SEARCH_CACHE.delete(key);
+    return null;
   }
+  return cached.value;
 }
 
-function resolveSiteName(url) {
-  if (!url || typeof url !== 'string') return undefined;
-  try {
-    return new URL(url).hostname;
-  } catch {
-    return undefined;
-  }
-}
-
-function resolveWebSearchConfig() {
-  const configuredProvider = getSettingValue('web_search_provider');
-  const braveApiKey = getSettingValue('brave_search_api_key') || process.env.BRAVE_API_KEY || '';
-  const perplexityApiKey = process.env.PERPLEXITY_API_KEY || process.env.OPENROUTER_API_KEY || '';
-
-  if (configuredProvider === 'brave') {
-    return { provider: 'brave', braveApiKey, perplexityApiKey: '' };
-  }
-
-  if (braveApiKey) {
-    return { provider: 'brave', braveApiKey, perplexityApiKey: '' };
-  }
-
-  if (perplexityApiKey) {
-    return { provider: 'perplexity', braveApiKey: '', perplexityApiKey };
-  }
-
-  return { provider: 'brave', braveApiKey: '', perplexityApiKey: '' };
+function setCachedWebSearchResult(key, value) {
+  WEB_SEARCH_CACHE.set(key, { createdAt: Date.now(), value });
 }
 
 async function webSearch(args) {
@@ -1818,82 +1792,46 @@ async function webSearch(args) {
     return { status: 'error', error: 'Query is required for web_search' };
   }
 
-  const { provider, braveApiKey, perplexityApiKey } = resolveWebSearchConfig();
-
   const count = Math.min(Math.max(1, parseInt(args?.count, 10) || 5), 10);
   const timeoutMs = 15000;
+  const country = typeof args?.country === 'string' ? args.country : undefined;
+  const searchLang = typeof args?.search_lang === 'string' ? args.search_lang : undefined;
+  const freshness = typeof args?.freshness === 'string' ? args.freshness : undefined;
+  const cacheKey = JSON.stringify({
+    query: query.trim(),
+    count,
+    country: country || '',
+    searchLang: searchLang || '',
+    freshness: freshness || '',
+  });
 
   try {
-    if (provider === 'brave' && !braveApiKey) {
-      throw new Error('Brave Search no está configurado. Añade la API key en Settings > AI para usar web_search.');
+    const cached = getCachedWebSearchResult(cacheKey);
+    if (cached) {
+      return { ...cached, cached: true };
     }
 
-    if (provider === 'perplexity') {
-      const endpoint = `${DEFAULT_PERPLEXITY_BASE}/chat/completions`;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${perplexityApiKey}`,
-          'HTTP-Referer': 'https://dome.app',
-        },
-        body: JSON.stringify({
-          model: DEFAULT_PERPLEXITY_MODEL,
-          messages: [{ role: 'user', content: query }],
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      if (!res.ok) {
-        const detail = await res.text();
-        throw new Error(`Perplexity API error (${res.status}): ${detail || res.statusText}`);
-      }
-
-      const data = await res.json();
-      const content = data.choices?.[0]?.message?.content ?? 'No response';
-      traceLog('webSearch', { query, provider }, { success: true });
-      return { query, provider: 'perplexity', content, citations: data.citations ?? [] };
-    }
-
-    // Brave
-    const url = new URL(BRAVE_SEARCH_ENDPOINT);
-    url.searchParams.set('q', query);
-    url.searchParams.set('count', String(count));
-    if (args?.country) url.searchParams.set('country', args.country);
-    if (args?.search_lang) url.searchParams.set('search_lang', args.search_lang);
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        'X-Subscription-Token': braveApiKey,
-      },
-      signal: controller.signal,
+    const result = await webScraper.searchWeb({
+      query,
+      count,
+      country,
+      searchLang,
+      freshness,
+      timeoutMs,
     });
-    clearTimeout(timeout);
-
-    if (!res.ok) {
-      const detail = await res.text();
-      throw new Error(`Brave Search API error (${res.status}): ${detail || res.statusText}`);
+    if (!result?.success) {
+      throw new Error(result?.error || 'No se pudo completar la búsqueda web.');
     }
-
-    const data = await res.json();
-    const results = Array.isArray(data.web?.results) ? data.web.results : [];
-    const mapped = results.map((r) => ({
-      title: r.title ?? '',
-      url: r.url ?? '',
-      description: r.description ?? '',
-      published: r.age ?? undefined,
-      siteName: resolveSiteName(r.url ?? ''),
-    }));
-    traceLog('webSearch', { query, provider }, { success: true, count: mapped.length });
-    return { query, provider: 'brave', count: mapped.length, results: mapped };
+    const payload = {
+      query,
+      provider: result.provider || 'playwright',
+      engine: result.engine || 'duckduckgo',
+      count: typeof result.count === 'number' ? result.count : Array.isArray(result.results) ? result.results.length : 0,
+      results: Array.isArray(result.results) ? result.results : [],
+    };
+    setCachedWebSearchResult(cacheKey, payload);
+    traceLog('webSearch', { query, provider: payload.provider }, { success: true, count: payload.count });
+    return payload;
   } catch (err) {
     traceLog('webSearch', { query }, null, err);
     return { status: 'error', error: err?.message || String(err) };
@@ -1901,22 +1839,14 @@ async function webSearch(args) {
 }
 
 async function testWebSearchConnection() {
-  const { provider, braveApiKey } = resolveWebSearchConfig();
-  if (provider === 'brave' && !braveApiKey) {
-    return {
-      success: false,
-      error: 'Falta la Brave Search API key. Configúrala en Settings > AI para habilitar web_search.',
-    };
-  }
-
   const result = await webSearch({ query: 'Dome app', count: 1 });
   if (result?.status === 'error') {
-    return { success: false, error: result.error || 'No se pudo conectar con Brave Search.' };
+    return { success: false, error: result.error || 'No se pudo validar la búsqueda web con Playwright.' };
   }
 
   return {
     success: true,
-    provider: result.provider || provider,
+    provider: result.provider || 'playwright',
     count: typeof result.count === 'number' ? result.count : Array.isArray(result.results) ? result.results.length : 0,
   };
 }

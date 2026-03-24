@@ -15,6 +15,9 @@ const DEFAULT_NAVIGATION_TIMEOUT = 30000;
 const DEFAULT_NETWORK_IDLE_TIMEOUT = 5000;
 const DEFAULT_POST_LOAD_DELAY = 1200;
 const DEFAULT_MAX_CONTENT_LENGTH = 50000;
+const DEFAULT_SEARCH_RESULT_COUNT = 5;
+const DEFAULT_SEARCH_ENGINE = 'duckduckgo';
+const SEARCH_FALLBACK_ENGINE = 'bing';
 
 const CONSENT_BUTTON_TEXTS = [
   'accept',
@@ -234,6 +237,93 @@ function normalizeRequest(input) {
       ),
     userAgent: typeof input.userAgent === 'string' ? input.userAgent : DEFAULT_USER_AGENT,
   };
+}
+
+function normalizeSearchRequest(input) {
+  if (!input || typeof input !== 'object') {
+    throw new Error('Invalid search request');
+  }
+
+  return {
+    query: typeof input.query === 'string' ? input.query.trim() : '',
+    count: Math.min(
+      Math.max(1, Number.parseInt(String(input.count ?? DEFAULT_SEARCH_RESULT_COUNT), 10) || DEFAULT_SEARCH_RESULT_COUNT),
+      10,
+    ),
+    country: typeof input.country === 'string' ? input.country.trim().toUpperCase() : '',
+    searchLang: typeof input.searchLang === 'string' ? input.searchLang.trim().toLowerCase() : '',
+    freshness: typeof input.freshness === 'string' ? input.freshness.trim().toLowerCase() : '',
+    timeoutMs: Math.min(
+      Math.max(5000, Number.parseInt(String(input.timeoutMs ?? DEFAULT_NAVIGATION_TIMEOUT), 10) || DEFAULT_NAVIGATION_TIMEOUT),
+      120000,
+    ),
+    userAgent: typeof input.userAgent === 'string' ? input.userAgent : DEFAULT_USER_AGENT,
+  };
+}
+
+function resolveDuckDuckGoRegion(country, searchLang) {
+  const normalizedCountry = country || 'us';
+  const normalizedLang = searchLang || 'en';
+  return `${normalizedCountry.toLowerCase()}-${normalizedLang}`;
+}
+
+function resolveDuckDuckGoFreshness(freshness) {
+  switch ((freshness || '').toLowerCase()) {
+    case 'pd':
+      return 'd';
+    case 'pw':
+      return 'w';
+    case 'pm':
+      return 'm';
+    case 'py':
+      return 'y';
+    default:
+      return '';
+  }
+}
+
+function resolveSearchResultUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+  try {
+    const parsed = new URL(rawUrl, 'https://duckduckgo.com');
+    const uddg = parsed.searchParams.get('uddg');
+    if (uddg) {
+      return decodeURIComponent(uddg);
+    }
+    if (
+      parsed.hostname.endsWith('bing.com') &&
+      parsed.pathname.startsWith('/ck/')
+    ) {
+      const encoded = parsed.searchParams.get('u');
+      if (encoded) {
+        const normalized = encoded.startsWith('a1')
+          ? encoded.slice(2)
+          : encoded.startsWith('a')
+            ? encoded.slice(1)
+            : encoded;
+        try {
+          return Buffer.from(normalized, 'base64url').toString('utf8');
+        } catch {
+          // Ignore invalid redirect payloads and fall back to the original URL.
+        }
+      }
+    }
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch {
+    // Ignore and fall back to the raw value.
+  }
+  return rawUrl;
+}
+
+function resolveSearchSiteName(url) {
+  if (!url) return undefined;
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return undefined;
+  }
 }
 
 async function dismissCookieBanners(page) {
@@ -552,7 +642,207 @@ async function scrapeUrl(input) {
   }
 }
 
+async function searchWeb(input) {
+  const request = normalizeSearchRequest(input);
+  if (!request.query) {
+    return {
+      success: false,
+      provider: 'playwright',
+      engine: DEFAULT_SEARCH_ENGINE,
+      query: '',
+      count: 0,
+      results: [],
+      error: 'Query is required',
+    };
+  }
+
+  try {
+    return await withBrowserRetry(async () => {
+      let context;
+      let page;
+
+      try {
+        const browser = await getBrowser();
+        context = await browser.newContext({
+          viewport: { width: 1280, height: 900 },
+          userAgent: request.userAgent,
+          javaScriptEnabled: true,
+          locale: request.searchLang || 'en-US',
+          bypassCSP: false,
+        });
+        page = await context.newPage();
+        page.setDefaultNavigationTimeout(request.timeoutMs);
+        page.setDefaultTimeout(request.timeoutMs);
+
+        const searchEngines = [
+          {
+            engine: DEFAULT_SEARCH_ENGINE,
+            url: (() => {
+              const searchUrl = new URL('https://duckduckgo.com/html/');
+              searchUrl.searchParams.set('q', request.query);
+              searchUrl.searchParams.set('kl', resolveDuckDuckGoRegion(request.country, request.searchLang));
+              const freshness = resolveDuckDuckGoFreshness(request.freshness);
+              if (freshness) searchUrl.searchParams.set('df', freshness);
+              return searchUrl;
+            })(),
+            waitForSelector: '.result, .web-result',
+            anomalySelectors: ['.anomaly-modal__modal', '#challenge-form', 'form[action*="anomaly.js"]'],
+            extractSelector: '.result, .web-result',
+            extract: (nodes, max) => nodes.slice(0, max).map((node) => {
+              const titleLink =
+                node.querySelector('.result__title a') ||
+                node.querySelector('.result__a') ||
+                node.querySelector('h2 a') ||
+                node.querySelector('a[href]');
+              const snippetNode =
+                node.querySelector('.result__snippet') ||
+                node.querySelector('.result-snippet') ||
+                node.querySelector('.result__extras__url') ||
+                node.querySelector('p');
+              const displayedUrlNode =
+                node.querySelector('.result__url') ||
+                node.querySelector('.result__extras__url') ||
+                node.querySelector('.result__hostname');
+
+              return {
+                title: (titleLink?.textContent || '').trim(),
+                url: titleLink?.getAttribute('href') || '',
+                description: (snippetNode?.textContent || '').trim(),
+                displayedUrl: (displayedUrlNode?.textContent || '').trim(),
+              };
+            }),
+          },
+          {
+            engine: SEARCH_FALLBACK_ENGINE,
+            url: (() => {
+              const searchUrl = new URL('https://www.bing.com/search');
+              searchUrl.searchParams.set('q', request.query);
+              searchUrl.searchParams.set('setlang', request.searchLang || 'en-US');
+              return searchUrl;
+            })(),
+            waitForSelector: 'li.b_algo, .b_algo',
+            anomalySelectors: [],
+            extractSelector: 'li.b_algo, .b_algo',
+            extract: (nodes, max) => nodes.slice(0, max).map((node) => {
+              const titleLink =
+                node.querySelector('h2 a') ||
+                node.querySelector('a[href]');
+              const snippetNode =
+                node.querySelector('.b_caption p') ||
+                node.querySelector('.b_snippet') ||
+                node.querySelector('p');
+              const displayedUrlNode =
+                node.querySelector('cite') ||
+                node.querySelector('.tptt') ||
+                node.querySelector('.b_attribution');
+
+              return {
+                title: (titleLink?.textContent || '').trim(),
+                url: titleLink?.getAttribute('href') || '',
+                description: (snippetNode?.textContent || '').trim(),
+                displayedUrl: (displayedUrlNode?.textContent || '').trim(),
+              };
+            }),
+          },
+        ];
+
+        let resolvedEngine = DEFAULT_SEARCH_ENGINE;
+        let results = [];
+        let fallbackReason = '';
+
+        for (const engine of searchEngines) {
+          resolvedEngine = engine.engine;
+          await page.goto(engine.url.toString(), {
+            waitUntil: 'domcontentloaded',
+            timeout: request.timeoutMs,
+          });
+
+          let sawResults = false;
+          try {
+            await page.waitForSelector(engine.waitForSelector, { timeout: Math.min(10000, request.timeoutMs) });
+            sawResults = true;
+          } catch {
+            await dismissCookieBanners(page);
+          }
+
+          const isBlocked = engine.anomalySelectors.length > 0
+            ? await page.evaluate((selectors) => selectors.some((selector) => Boolean(document.querySelector(selector))), engine.anomalySelectors)
+            : false;
+
+          if (isBlocked) {
+            fallbackReason = `${engine.engine} returned an anti-bot challenge`;
+            continue;
+          }
+
+          const rawResults = await page.$$eval(
+            engine.extractSelector,
+            engine.extract,
+            request.count,
+          );
+
+          results = rawResults
+            .map((entry) => {
+              const url = resolveSearchResultUrl(entry.url);
+              return {
+                title: entry.title || url,
+                url,
+                description: entry.description,
+                displayedUrl: entry.displayedUrl || url,
+                siteName: resolveSearchSiteName(url),
+              };
+            })
+            .filter((entry) => Boolean(entry.url));
+
+          if (results.length > 0 || sawResults || engine.engine === SEARCH_FALLBACK_ENGINE) {
+            break;
+          }
+        }
+
+        if (results.length === 0 && fallbackReason) {
+          return {
+            success: false,
+            provider: 'playwright',
+            engine: resolvedEngine,
+            query: request.query,
+            count: 0,
+            results: [],
+            error: fallbackReason,
+          };
+        }
+
+        return {
+          success: true,
+          provider: 'playwright',
+          engine: resolvedEngine,
+          query: request.query,
+          count: results.length,
+          results,
+        };
+      } finally {
+        if (page) {
+          await page.close().catch(() => {});
+        }
+        if (context) {
+          await context.close().catch(() => {});
+        }
+      }
+    }, { url: `search:${request.query}` });
+  } catch (error) {
+    console.error('[PlaywrightScraper] Error searching web:', request.query, error);
+    return {
+      success: false,
+      provider: 'playwright',
+      engine: DEFAULT_SEARCH_ENGINE,
+      query: request.query,
+      count: 0,
+      results: [],
+      error: error?.message || String(error),
+    };
+  }
+}
+
 module.exports = {
   close,
   scrapeUrl,
+  searchWeb,
 };

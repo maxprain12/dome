@@ -252,14 +252,15 @@ async function invokeLangGraphAgent(opts) {
   const subagentIds = Array.isArray(opts.subagentIds) ? opts.subagentIds : undefined;
 
   // Track real-time emitted tool IDs (useDirectTools path) to avoid duplicates in post-invoke batch
-  const rtEmittedIds = new Set();
+  const rtEmittedCallIds = new Set();
+  const rtEmittedResultIds = new Set();
   let rtCallCounter = 0;
 
   if (useDirectTools) {
     // Specialized agents: wrap executeFn to emit real-time tool_call/tool_result events
     const executeFn = async (name, args) => {
       const id = `rt_${threadId || 'x'}_${++rtCallCounter}`;
-      rtEmittedIds.add(id);
+      rtEmittedCallIds.add(id);
       if (onChunk) {
         onChunk({
           type: 'tool_call',
@@ -273,6 +274,7 @@ async function invokeLangGraphAgent(opts) {
       const result = await executeToolInMain(name, args);
       const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
       if (onChunk) onChunk({ type: 'tool_result', toolCallId: id, result: resultStr });
+      rtEmittedResultIds.add(id);
       return result;
     };
     const directTools = opts.toolDefinitions?.length
@@ -454,32 +456,33 @@ async function invokeLangGraphAgent(opts) {
     }
 
     // Emit tool calls and tool results in message order for UI cards.
-    // Skip if useDirectTools already emitted them in real-time (to avoid duplicates).
+    // Skip only the IDs already emitted in real-time so MCP tools can still surface.
     const resultMessages = result?.messages || [];
-    if (rtEmittedIds.size === 0) {
-      for (const msg of resultMessages) {
-        if (!msg || typeof msg._getType !== 'function') continue;
-        const msgType = msg._getType();
-        if (msgType === 'ai' && msg.tool_calls?.length) {
-          for (const tc of msg.tool_calls) {
-            if (onChunk) {
-              onChunk({
-                type: 'tool_call',
-                toolCall: {
-                  id: tc.id || `call_${threadId || 'x'}_${++callCounter}`,
-                  name: tc.name,
-                  arguments: typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args || {}),
-                },
-              });
-            }
+    for (const msg of resultMessages) {
+      if (!msg || typeof msg._getType !== 'function') continue;
+      const msgType = msg._getType();
+      if (msgType === 'ai' && msg.tool_calls?.length) {
+        for (const tc of msg.tool_calls) {
+          const toolCallId = tc.id || `call_${threadId || 'x'}_${++callCounter}`;
+          if (rtEmittedCallIds.has(toolCallId)) continue;
+          if (onChunk) {
+            onChunk({
+              type: 'tool_call',
+              toolCall: {
+                id: toolCallId,
+                name: tc.name,
+                arguments: typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args || {}),
+              },
+            });
           }
-        } else if ((msgType === 'tool' || msgType === 'ToolMessage') && msg.tool_call_id != null) {
-          let resultContent = msg.content;
-          if (typeof resultContent !== 'string') {
-            try { resultContent = JSON.stringify(resultContent); } catch { resultContent = String(resultContent); }
-          }
-          if (onChunk) onChunk({ type: 'tool_result', toolCallId: msg.tool_call_id, result: resultContent });
         }
+      } else if ((msgType === 'tool' || msgType === 'ToolMessage') && msg.tool_call_id != null) {
+        if (rtEmittedResultIds.has(msg.tool_call_id)) continue;
+        let resultContent = msg.content;
+        if (typeof resultContent !== 'string') {
+          try { resultContent = JSON.stringify(resultContent); } catch { resultContent = String(resultContent); }
+        }
+        if (onChunk) onChunk({ type: 'tool_result', toolCallId: msg.tool_call_id, result: resultContent });
       }
     }
 

@@ -624,6 +624,21 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       };
     }
   });
+
+  ipcMain.handle('ai:webSearch', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { status: 'error', error: 'Unauthorized' };
+    }
+
+    try {
+      return await aiToolsHandler.webSearch(args);
+    } catch (error) {
+      return {
+        status: 'error',
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
 }
 
 module.exports = { register };
