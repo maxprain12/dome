@@ -115,7 +115,7 @@ export function buildSharedResourceHint(context: SharedAgentContext): string {
     hints.push(
       `The user is viewing resource ID: ${context.currentResourceId}` +
         (context.currentResourceTitle ? ` (title: "${context.currentResourceTitle}")` : '') +
-        '. Include this resource in delegated work whenever it is relevant.'
+        '. Treat this resource as the primary context whenever tool use is necessary.'
     );
     hints.push(
       'For questions about this resource: use resource_get first. Do NOT call get_document_structure—resource_get already returns the structure for indexed PDFs.'

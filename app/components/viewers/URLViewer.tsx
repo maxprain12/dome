@@ -120,6 +120,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
 
   const processingStatus = (metadata?.processing_status as string) || 'pending';
   const scrapedContent = typeof metadata?.scraped_content === 'string' ? metadata.scraped_content : null;
+  const scrapeError = typeof metadata?.scrape_error === 'string' ? metadata.scrape_error : null;
   const previewImage = resource.thumbnail_data;
 
   const nested = useMemo(() => nestMeta(metadata ?? {}), [metadata]);
@@ -295,6 +296,11 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
               <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
                 {t('viewer.content_not_processed_desc')}
               </p>
+              {scrapeError && (
+                <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                  {scrapeError}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={() => { void onRunUrlProcess(); }}

@@ -279,6 +279,19 @@ async function resourceGet(resourceId, options = {}) {
       }
     }
 
+    // --- URLs: prefer scraped article/page content over the stored URL string ---
+    if (includeContent && !result.content && resource.type === 'url' && typeof metadata?.scraped_content === 'string') {
+      if (metadata.scraped_content.length > maxLen) {
+        result.content = metadata.scraped_content.substring(0, maxLen);
+        result.content_truncated = true;
+        result.full_length = metadata.scraped_content.length;
+      } else {
+        result.content = metadata.scraped_content;
+        result.content_truncated = false;
+      }
+      result.content_source = 'scraped_content';
+    }
+
     // --- Notes and other types with stored content ---
     if (includeContent && !result.content && resource.content) {
       if (resource.content.length > maxLen) {
@@ -1701,9 +1714,16 @@ async function webFetch(args) {
 
   const maxLength = Math.min(Math.max(1000, parseInt(args?.max_length ?? args?.maxLength ?? 50000, 10) || 50000), 100000);
   const includeMetadata = args?.include_metadata !== false && args?.includeMetadata !== false;
+  const selector = typeof args?.selector === 'string' ? args.selector : undefined;
 
   try {
-    const scraped = await webScraper.scrapeUrl(url);
+    const scraped = await webScraper.scrapeUrl({
+      url,
+      includeMetadata,
+      includeScreenshot: false,
+      maxLength,
+      selector,
+    });
     if (!scraped?.success) {
       return {
         status: 'error',
@@ -1719,7 +1739,7 @@ async function webFetch(args) {
 
     const out = {
       url: scraped.url,
-      finalUrl: scraped.url,
+      finalUrl: scraped.finalUrl || scraped.url,
       content,
       contentLength: content.length,
       truncated,
@@ -1732,6 +1752,9 @@ async function webFetch(args) {
         author: scraped.metadata?.author,
         sourceUrl: scraped.url,
       };
+    }
+    if (Array.isArray(scraped?.warnings) && scraped.warnings.length > 0) {
+      out.warnings = scraped.warnings;
     }
     traceLog('webFetch', { url }, { success: true, contentLength: out.contentLength });
     return out;

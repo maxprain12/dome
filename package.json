@@ -16,13 +16,14 @@
     "preview": "vite preview",
     "electron": "electron .",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_OPTIONS=--max-old-space-size=8192 electron .\"",
-    "electron:build": "npm run build && npm run rebuild:natives && npm run verify:natives && node scripts/prepare-pageindex-runtime.cjs && cross-env DEBUG= electron-builder",
-    "electron:build:verbose": "npm run build && npm run rebuild:natives && npm run verify:natives && node scripts/prepare-pageindex-runtime.cjs && cross-env DEBUG=electron-builder electron-builder",
+    "electron:build": "npm run build && npm run rebuild:natives && npm run verify:natives && node scripts/prepare-pageindex-runtime.cjs && node scripts/embed-env.cjs && cross-env DEBUG= electron-builder",
+    "electron:build:verbose": "npm run build && npm run rebuild:natives && npm run verify:natives && node scripts/prepare-pageindex-runtime.cjs && node scripts/embed-env.cjs && cross-env DEBUG=electron-builder electron-builder",
     "prepare:pageindex-runtime": "node scripts/prepare-pageindex-runtime.cjs",
+    "playwright:install": "cross-env PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium",
     "rebuild:natives": "electron-rebuild -f -w=better-sqlite3,sharp,@ffmpeg-installer/ffmpeg,@napi-rs/canvas,node-pty",
     "verify:natives": "node scripts/verify-natives.cjs",
     "copy:pdf-worker": "node scripts/copy-pdf-worker.cjs",
-    "postinstall": "electron-builder install-app-deps && npm run rebuild:natives && npm run copy:pdf-worker",
+    "postinstall": "electron-builder install-app-deps && npm run rebuild:natives && npm run copy:pdf-worker && npm run playwright:install",
     "test:db": "tsx scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "bun scripts/generate-icons.ts"
@@ -47,6 +48,7 @@
     "@mantine/hooks": "^8.3.14",
     "@mantine/modals": "^8.3.14",
     "@mantine/notifications": "^8.3.14",
+    "@mozilla/readability": "^0.6.0",
     "@napi-rs/canvas": "^0.1.88",
     "@sinclair/typebox": "^0.34.48",
     "@tabler/icons-react": "^3.36.1",
@@ -106,6 +108,7 @@
     "jszip": "^3.10.1",
     "katex": "0.16.27",
     "langchain": "^1.2.24",
+    "linkedom": "^0.18.12",
     "llm-chunk": "^0.0.1",
     "lowlight": "^3.1.0",
     "lucide-react": "^0.460.0",
@@ -116,6 +119,7 @@
     "node-pty": "^1.1.0",
     "papaparse": "^5.5.3",
     "pdfjs-dist": "^5.4.624",
+    "playwright": "^1.58.2",
     "posthog-js": "^1.200.0",
     "pptx-preview": "^1.0.7",
     "pptxgenjs": "^3.12.0",
@@ -143,7 +147,6 @@
     "zod": "^4.3.6",
     "zustand": "^4.5.0"
   },
-  "optionalDependencies": {},
   "overrides": {
     "@tootallnate/once": "^3.0.1"
   },
@@ -216,7 +219,9 @@
       "node_modules/archiver-utils/**/*",
       "node_modules/zip-stream/**/*",
       "node_modules/yauzl/**/*",
-      "node_modules/node-pty/**/*"
+      "node_modules/node-pty/**/*",
+      "node_modules/playwright/**/*",
+      "node_modules/playwright-core/**/*"
     ],
     "afterPack": "./scripts/after-pack.cjs",
     "directories": {

@@ -802,6 +802,7 @@ app.on('before-quit', async () => {
   automationService.stop();
   runEngine.stop();
   // doc-indexer is native JS, no subprocess to stop
+  await webScraper.close?.();
   await ollamaManager.cleanup();
   database.closeDB();
 });

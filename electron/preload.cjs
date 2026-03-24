@@ -1081,7 +1081,7 @@ const electronHandler = {
   // ============================================
   web: {
     // Scrape a URL and extract content + screenshot
-    scrape: (url) => ipcRenderer.invoke('web:scrape', url),
+    scrape: (request) => ipcRenderer.invoke('web:scrape', request),
 
     // Get YouTube thumbnail
     getYouTubeThumbnail: (url) => ipcRenderer.invoke('web:get-youtube-thumbnail', url),

@@ -305,7 +305,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     startLoopbackServer(port, state)
       .then(async (code) => {
         console.log('[CloudStorage] Google loopback: got auth code, exchanging for token...');
-        const clientSecret = process.env.DOME_GOOGLE_DRIVE_CLIENT_SECRET;
+        const clientSecret = getCredential('DOME_GOOGLE_DRIVE_CLIENT_SECRET');
         if (!clientSecret) {
           console.warn('[CloudStorage] DOME_GOOGLE_DRIVE_CLIENT_SECRET is not set — token exchange may fail');
         }

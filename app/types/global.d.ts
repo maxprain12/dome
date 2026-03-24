@@ -561,13 +561,26 @@ declare global {
 
       // Web Scraping API
       web: {
-        scrape: (url: string) => Promise<{
+        scrape: (request:
+          | string
+          | {
+            url: string;
+            selector?: string;
+            includeMetadata?: boolean;
+            includeScreenshot?: boolean;
+            maxLength?: number;
+            timeoutMs?: number;
+            userAgent?: string;
+          }) => Promise<{
           success: boolean;
           url: string;
+          finalUrl?: string;
           title?: string | null;
           content?: string | null;
           metadata?: any;
           screenshot?: string | null;
+          screenshotFormat?: string;
+          warnings?: string[];
           error?: string;
         }>;
         getYouTubeThumbnail: (url: string) => Promise<{
@@ -659,7 +672,7 @@ declare global {
       // AI Cloud API (OpenAI, Anthropic, Google)
       ai: {
         chat: (
-          provider: 'openai' | 'anthropic' | 'google' | 'dome',
+          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'minimax',
           messages: Array<{ role: string; content: string }>,
           model?: string
         ) => Promise<{
@@ -675,7 +688,7 @@ declare global {
           error?: string;
         }>;
         stream: (
-          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'ollama',
+          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'ollama' | 'minimax',
           messages: Array<{ role: string; content: string }>,
           model: string | undefined,
           streamId: string,
@@ -693,7 +706,7 @@ declare global {
           error?: string;
         }>;
         streamLangGraph: (
-          provider: 'openai' | 'anthropic' | 'google' | 'ollama',
+          provider: 'openai' | 'anthropic' | 'google' | 'ollama' | 'minimax',
           messages: Array<{ role: string; content: string }>,
           model: string,
           streamId: string,

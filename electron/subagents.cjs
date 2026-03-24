@@ -154,8 +154,8 @@ PPT from folder: (1) get_library_overview; (2) resource_list with folder_id; (3)
  */
 async function createSubagentTools(llm, createLangChainTools, onChunk, agentNames) {
   const executeFn = (name, args) => executeToolInMain(name, args);
-  const agents = Array.isArray(agentNames) && agentNames.length > 0
-    ? agentNames
+  const agents = Array.isArray(agentNames)
+    ? agentNames.filter((name) => typeof name === 'string' && name.trim().length > 0)
     : ['research', 'library', 'writer', 'data'];
   const tools = [];
   for (const name of agents) {

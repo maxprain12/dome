@@ -134,6 +134,8 @@ exports.default = async function afterPack(context) {
     const criticalModules = [
       'node_modules/better-sqlite3',
       'node_modules/sharp',
+      'node_modules/playwright',
+      'node_modules/playwright-core',
     ];
 
     for (const modulePath of criticalModules) {
@@ -156,6 +158,20 @@ exports.default = async function afterPack(context) {
   } else {
     console.error('[AfterPack] ❌ app.asar.unpacked does NOT exist!');
     console.error('[AfterPack] Native modules will not work in production!');
+  }
+
+  const playwrightBrowsersPath = path.join(
+    resourcesPath,
+    'app.asar.unpacked',
+    'node_modules',
+    'playwright-core',
+    '.local-browsers',
+  );
+  if (fs.existsSync(playwrightBrowsersPath)) {
+    const browsers = fs.readdirSync(playwrightBrowsersPath).filter((name) => !name.startsWith('.'));
+    console.log(`[AfterPack] ✅ Playwright browsers bundled: ${browsers.join(', ') || 'none'}`);
+  } else {
+    console.warn('[AfterPack] ⚠️  Playwright local browsers are missing from app.asar.unpacked');
   }
 
   const pageIndexRuntimePath = path.join(resourcesPath, 'pageindex-runtime');

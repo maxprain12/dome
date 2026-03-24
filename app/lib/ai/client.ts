@@ -324,6 +324,83 @@ export async function chatWithGemini(
   return result.content;
 }
 
+export async function chatWithMiniMax(
+  messages: Array<{ role: string; content: string }>,
+  _apiKey: string,
+  model: string = 'MiniMax-M2.5',
+  _tools?: ToolDefinition[],
+): Promise<string> {
+  if (!isElectron()) {
+    throw new Error('AI chat requires Electron environment');
+  }
+
+  const result = await window.electron.ai.chat('minimax', messages, model);
+  if (!result.success || !result.content) {
+    throw new Error(result.error || 'MiniMax chat failed');
+  }
+  return result.content;
+}
+
+export async function* streamMiniMax(
+  messages: Array<{ role: string; content: string }>,
+  _apiKey: string,
+  model: string = 'MiniMax-M2.5',
+  tools?: ToolDefinition[],
+  _signal?: AbortSignal,
+): AsyncIterable<ChatStreamChunk> {
+  if (!isElectron()) {
+    throw new Error('AI streaming requires Electron environment');
+  }
+
+  const streamId = generateStreamId();
+  const chunks: ChatStreamChunk[] = [];
+  let done = false;
+  let error: Error | null = null;
+  let resolveWait: (() => void) | null = null;
+
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type?: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
+    if (data.streamId !== streamId) return;
+
+    if (data.type === 'text' && data.text) {
+      chunks.push({ type: 'text', text: data.text });
+    } else if (data.type === 'tool_call' && data.toolCall) {
+      chunks.push({
+        type: 'tool_call',
+        toolCall: {
+          id: data.toolCall.id,
+          name: data.toolCall.name,
+          arguments: data.toolCall.arguments,
+        },
+      });
+    } else if (data.type === 'done') {
+      chunks.push({ type: 'done' });
+      done = true;
+    } else if (data.type === 'error') {
+      error = new Error(data.error || 'Stream error');
+      done = true;
+    }
+
+    if (resolveWait) resolveWait();
+  });
+
+  window.electron.ai.stream('minimax', messages, model, streamId, tools);
+
+  try {
+    while (!done || chunks.length > 0) {
+      if (chunks.length > 0) {
+        yield chunks.shift()!;
+      } else if (!done) {
+        await new Promise<void>(resolve => { resolveWait = resolve; });
+        resolveWait = null;
+      }
+    }
+
+    if (error) throw error;
+  } finally {
+    unsubscribe();
+  }
+}
+
 export async function chatWithDome(
   messages: Array<{ role: string; content: string }>,
   model: string = 'dome/auto',
@@ -558,6 +635,15 @@ export async function chat(
         config.model || getDefaultModelId('google'),
       );
 
+    case 'minimax':
+      if (!config.apiKey) throw new Error('MiniMax API key not configured');
+      return chatWithMiniMax(
+        messages,
+        config.apiKey,
+        config.model || getDefaultModelId('minimax'),
+        tools,
+      );
+
     case 'dome':
       return chatWithDome(messages, config.model || getDefaultModelId('dome'));
 
@@ -608,6 +694,17 @@ export async function* chatStream(
         messages,
         config.apiKey,
         config.model || getDefaultModelId('google'),
+        tools,
+        signal,
+      );
+      break;
+
+    case 'minimax':
+      if (!config.apiKey) throw new Error('MiniMax API key not configured');
+      yield* streamMiniMax(
+        messages,
+        config.apiKey,
+        config.model || getDefaultModelId('minimax'),
         tools,
         signal,
       );

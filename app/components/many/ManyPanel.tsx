@@ -8,7 +8,6 @@ import { useManyStore, type ManyChatSession, type ManyMessage } from '@/lib/stor
 import { useAppStore } from '@/lib/store/useAppStore';
 import {
   getAIConfig,
-  chatStream,
   createManyToolsForContext,
   providerSupportsTools,
   toOpenAIToolDefinitions,
@@ -19,10 +18,9 @@ import {
   buildSharedResourceHint,
   buildSharedUiContextBlock,
   getUiLocationDescription,
-  resolveManyCapabilityRuntime,
 } from '@/lib/ai/shared-capabilities';
 import { createRememberFactTool } from '@/lib/ai/tools/memory';
-import { buildManyFloatingPrompt, buildMartinSupervisorPrompt, prompts } from '@/lib/prompts/loader';
+import { buildManyFloatingPrompt, prompts } from '@/lib/prompts/loader';
 import { showToast } from '@/lib/store/useToastStore';
 import ManyAvatar from './ManyAvatar';
 import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
@@ -98,6 +96,28 @@ const ENTITY_CREATION_RULES = `## Entity Creation (agent_create, workflow_create
 - **agent_create**: Always pass \`tool_ids\` — an agent without tools cannot work. Example: Noticiero needs ["web_fetch", "resource_create"]. After calling, your response MUST include the artifact block: \`\`\`artifact:created_entity (newline) {JSON from tool, strip ENTITY_CREATED: prefix} (newline) \`\`\`. This block renders the visual card. Without it, the user only sees plain text.
 - **workflow_create**: When workflow nodes reference custom agents, create those agents first with agent_create (including tool_ids!), then reference their ID in nodes.
 - **automation_create**: Dome has native automations. After creating an agent that could run recurrently (e.g. Noticiero), offer to create an automation. Never mention n8n or Make.`;
+
+type ResourceContextPayload = {
+  content?: string | null;
+  summary?: string | null;
+  transcription?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+function getPreferredResourceContextContent(resource: ResourceContextPayload): string {
+  const scrapedContent = typeof resource.metadata?.scraped_content === 'string'
+    ? resource.metadata.scraped_content
+    : '';
+  const metadataSummary = typeof resource.metadata?.summary === 'string'
+    ? resource.metadata.summary
+    : '';
+
+  return (
+    [resource.content, scrapedContent, resource.summary, resource.transcription, metadataSummary]
+      .find((value) => typeof value === 'string' && value.trim().length > 0)
+      ?.trim() || ''
+  );
+}
 
 interface ManyPanelProps {
   width: number;
@@ -670,7 +690,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           });
           if (result?.success && result?.resource) {
             const r = result.resource;
-            const content = r.content || r.summary || r.transcription || r.metadata?.summary || '';
+            const content = getPreferredResourceContextContent(r);
             pinnedBlock += `\n### [${resource.title}] (id: ${resource.id}, type: ${resource.type})\n`;
             if (content?.trim()) {
               pinnedBlock += content.slice(0, 5000);
@@ -711,7 +731,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   };
 
   const hasLangGraph = typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
-  const useToolsStream = supportsTools && activeTools.length > 0 && toolsEnabled && hasLangGraph;
 
   const handleSend = useCallback(async (messageOverride?: string) => {
     const userMessage = messageOverride || input.trim();
@@ -723,9 +742,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     setStatus('thinking');
     setError(null);
     setStreamingMessage(null);
-
-    const controller = new AbortController();
-    setAbortController(controller);
+    setAbortController(null);
 
     addMessage({ role: 'user', content: userMessage });
     scrollToBottom(true);
@@ -757,10 +774,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         return;
       }
 
-      let systemPrompt = await buildSystemPrompt();
-      let contentInjected = false;
+      if (!hasLangGraph) {
+        throw new Error('Many requiere el runtime LangGraph para funcionar.');
+      }
 
-      if (effectiveResourceId && isSummarizeRequest(userMessage) && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
+      let systemPrompt = await buildSystemPrompt();
+
+      if (effectiveResourceId && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
         try {
           const result = await window.electron.ai.tools.resourceGet(effectiveResourceId, {
             includeContent: true,
@@ -768,11 +788,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           });
           if (result?.success && result?.resource) {
             const r = result.resource;
-            const content = r.content || r.summary || r.transcription || r.metadata?.summary || '';
+            const content = getPreferredResourceContextContent(r);
             if (content?.trim()) {
-              systemPrompt += `\n\n## Current Resource Content (for summarization)\nThe user is viewing "${r.title || currentResourceTitle}". Here is the content to summarize:\n\n${content.slice(0, 12000)}`;
+              systemPrompt += `\n\n## Current Resource Content\nThe user is viewing "${r.title || currentResourceTitle}". Use this as the primary context for answering the user directly.\n\n${content.slice(0, 12000)}`;
               if (content.length > 12000) systemPrompt += '\n\n[Content truncated for length]';
-              contentInjected = true;
             }
           }
         } catch (e) {
@@ -813,168 +832,101 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         }
       }
 
-      // Note: pinned resource content is already injected into systemPrompt via buildSystemPrompt().
-      // Build a compact pinnedBlock for the tools path supervisor prompt too.
-      let pinnedBlock = '';
-      if (pinnedResources.length > 0) {
-        const alreadyInjectedNote = pinnedResources.map((r) => `"${r.title}" (id: ${r.id})`).join(', ');
-        pinnedBlock = `\n\n> Context resources already loaded by user — do NOT re-fetch: ${alreadyInjectedNote}`;
-      }
+      const sharedContext = {
+        pathname: pathname || '/',
+        homeSidebarSection,
+        currentFolderId,
+        currentResourceId: effectiveResourceId,
+        currentResourceTitle: currentResourceTitle || null,
+      };
+      const toolHint = buildSharedResourceHint(sharedContext);
+      const toolDefinitions =
+        toolsEnabled && supportsTools && activeTools.length > 0
+          ? toOpenAIToolDefinitions(activeTools)
+          : [];
+      const toolIds = toolsEnabled ? activeTools.map((tool) => tool.name) : [];
+      const mcpServerIds =
+        toolsEnabled && mcpEnabled
+          ? (await loadMcpServersSetting())
+              .filter((server) => server.enabled !== false)
+              .map((server) => server.name)
+          : [];
 
-      const useToolsForThisRequest = useToolsStream && (isSummarizeRequest(userMessage) ? !contentInjected : true);
       providerForAnalytics = config.provider;
       capturePostHog(ANALYTICS_EVENTS.AI_CHAT_STARTED, {
         provider: config.provider,
-        has_tools: useToolsForThisRequest,
+        has_tools: toolDefinitions.length > 0 || mcpServerIds.length > 0,
       });
 
-      const apiMessages = [
-        { role: 'system', content: systemPrompt },
+      const unifiedSystemPrompt =
+        systemPrompt +
+        '\n\n' +
+        prompts.martin.tools +
+        '\n\n## Tool Usage Mode\n- You are running in a single direct-tools runtime.\n- Decide yourself whether to answer directly or call tools.\n- If the current context already contains enough information, answer directly without tools.\n- Use tools only when you need fresh workspace data, external information, or to perform an action.\n- Never delegate or hand off the response to subagents.\n\n' +
+        ENTITY_CREATION_RULES +
+        toolHint;
+
+      const runMessages = [
+        { role: 'system', content: unifiedSystemPrompt },
         ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
         { role: 'user', content: userMessage },
       ];
 
-      if (useToolsForThisRequest) {
-        if (mcpEnabled) {
-          await loadMcpServersSetting();
-        }
-        const context = getUiLocationDescription(pathname || '/', homeSidebarSection);
-        const now = new Date();
-        const supervisorPrompt = buildMartinSupervisorPrompt({
-          location: context.location,
-          date: now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-          time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          resourceTitle: currentResourceTitle || undefined,
-          includeDateTime: true,
-        });
-        const sharedContext = {
-          pathname: pathname || '/',
-          homeSidebarSection,
-          currentFolderId,
-          currentResourceId: effectiveResourceId,
-          currentResourceTitle: currentResourceTitle || null,
-        };
-        const uiContextBlock = buildSharedUiContextBlock(sharedContext);
-        const toolHint = buildSharedResourceHint(sharedContext);
-        const capabilityRuntime = resolveManyCapabilityRuntime(
-          {
-            toolsEnabled,
-            resourceToolsEnabled,
-            mcpEnabled,
-          },
-          undefined
-        );
-        const memoryBlock = userMemory ? `\n\n## What I know about you\n${userMemory}` : '';
-        const toolsMessages = [
-          { role: 'system', content: supervisorPrompt + '\n\n' + APP_SECTION_GUIDE + '\n\n' + ENTITY_CREATION_RULES + '\n\n' + uiContextBlock + memoryBlock + (skillsBlock || '') + toolHint + pinnedBlock },
-          ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
-          { role: 'user', content: userMessage },
-        ];
+      setStreamingMessage({
+        id: `streaming-${Date.now()}`,
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        isStreaming: true,
+        toolCalls: [],
+        streamingLabel: toolDefinitions.length > 0 || mcpServerIds.length > 0 ? 'Pensando y evaluando herramientas...' : 'Procesando...',
+      });
 
-        setStreamingMessage({
-          id: `streaming-${Date.now()}`,
-          role: 'assistant',
-          content: '',
-          timestamp: Date.now(),
-          isStreaming: true,
-          toolCalls: [],
-          streamingLabel: 'Ejecutando herramientas...',
-        });
+      const threadId = `many_${effectiveResourceId || 'global'}_${Date.now()}`;
 
-        const threadId = `many_${effectiveResourceId || 'global'}_${Date.now()}`;
-
-        let dbSessionId: string | null = null;
-        if (db.isAvailable() && currentSessionId) {
-          try {
-            const sessionResult = await db.createChatSession({
-              id: currentSessionId,
-              agentId: null,
-              resourceId: effectiveResourceId ?? null,
-              threadId,
-              toolIds: capabilityRuntime.subagentIds.map((subagentId) => `call_${subagentId}_agent`),
-              mcpServerIds: capabilityRuntime.mcpServerIds,
-              mode: 'many',
-              contextId: effectiveResourceId ?? null,
+      let dbSessionId: string | null = null;
+      if (db.isAvailable() && currentSessionId) {
+        try {
+          const sessionResult = await db.createChatSession({
+            id: currentSessionId,
+            agentId: null,
+            resourceId: effectiveResourceId ?? null,
+            threadId,
+            toolIds,
+            mcpServerIds,
+            mode: 'many',
+            contextId: effectiveResourceId ?? null,
+          });
+          if (sessionResult.success && sessionResult.data) {
+            dbSessionId = sessionResult.data.id;
+            await db.addChatMessage({
+              sessionId: dbSessionId,
+              role: 'user',
+              content: userMessage,
             });
-            if (sessionResult.success && sessionResult.data) {
-              dbSessionId = sessionResult.data.id;
-              await db.addChatMessage({
-                sessionId: dbSessionId,
-                role: 'user',
-                content: userMessage,
-              });
-            }
-          } catch (e) {
-            console.warn('[Many] Could not persist chat to DB:', e);
           }
-        }
-
-        const run = await startLangGraphRun({
-          ownerType: 'many',
-          ownerId: currentSessionId || `many-${Date.now()}`,
-          title: userMessage.slice(0, 80) || 'Many run',
-          sessionId: dbSessionId,
-          contextId: effectiveResourceId ?? null,
-          sessionTitle: currentSession?.title || null,
-          messages: toolsMessages,
-          toolDefinitions: [],
-          toolIds: capabilityRuntime.subagentIds.map((subagentId) => `call_${subagentId}_agent`),
-          mcpServerIds: capabilityRuntime.mcpServerIds,
-          subagentIds: capabilityRuntime.subagentIds,
-          threadId,
-        });
-        delegatedToRunEngine = true;
-        setAbortController(null);
-        setActiveRunId(run.id);
-        applyRunSnapshot(run);
-      } else {
-        const toolDefs =
-          toolsEnabled && activeTools.length > 0 && supportsTools
-            ? toOpenAIToolDefinitions(activeTools)
-            : undefined;
-        setStreamingMessage({
-          id: `streaming-${Date.now()}`,
-          role: 'assistant',
-          content: '',
-          timestamp: Date.now(),
-          isStreaming: true,
-          streamingLabel: 'Procesando...',
-        });
-        for await (const chunk of chatStream(apiMessages, toolDefs, controller.signal)) {
-          if (chunk.type === 'thinking' && chunk.text) {
-            fullThinking += chunk.text;
-            setStreamingMessage((prev) => (prev ? { ...prev, thinking: fullThinking } : null));
-          } else if (chunk.type === 'text' && chunk.text) {
-            fullResponse += chunk.text;
-            setStreamingMessage((prev) => (prev ? { ...prev, content: fullResponse } : null));
-          } else if (chunk.type === 'error') {
-            throw new Error(chunk.error);
-          }
-        }
-        setStreamingMessage((prev) => (prev ? { ...prev, isStreaming: false } : null));
-        if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
-
-        // Also persist to DB for cross-restart recovery (non-tools path only saves to localStorage)
-        if (fullResponse && db.isAvailable() && currentSessionId) {
-          try {
-            const nonToolsThreadId = `many_${effectiveResourceId || 'global'}_${Date.now()}`;
-            const sessionResult = await db.createChatSession({
-              id: currentSessionId,
-              agentId: null,
-              resourceId: effectiveResourceId ?? null,
-              threadId: nonToolsThreadId,
-              mode: 'many',
-              contextId: effectiveResourceId ?? null,
-            });
-            if (sessionResult.success && sessionResult.data) {
-              await db.addChatMessage({ sessionId: sessionResult.data.id, role: 'user', content: userMessage });
-              await db.addChatMessage({ sessionId: sessionResult.data.id, role: 'assistant', content: fullResponse });
-            }
-          } catch (e) {
-            console.warn('[Many] Could not persist non-tools chat to DB:', e);
-          }
+        } catch (e) {
+          console.warn('[Many] Could not persist chat to DB:', e);
         }
       }
+
+      const run = await startLangGraphRun({
+        ownerType: 'many',
+        ownerId: currentSessionId || `many-${Date.now()}`,
+        title: userMessage.slice(0, 80) || 'Many run',
+        sessionId: dbSessionId,
+        contextId: effectiveResourceId ?? null,
+        sessionTitle: currentSession?.title || null,
+        messages: runMessages,
+        toolDefinitions,
+        toolIds,
+        mcpServerIds,
+        subagentIds: [],
+        threadId,
+      });
+      delegatedToRunEngine = true;
+      setActiveRunId(run.id);
+      applyRunSnapshot(run);
     } catch (err) {
       chatSuccess = false;
       if (err instanceof Error && err.name === 'AbortError') {
@@ -1014,11 +966,16 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     pathname,
     homeSidebarSection,
     currentFolderId,
-    useToolsStream,
     toolsEnabled,
+    mcpEnabled,
+    supportsTools,
+    hasLangGraph,
     activeTools,
     scrollToBottom,
     currentResourceTitle,
+    currentSession,
+    currentSessionId,
+    applyRunSnapshot,
   ]);
 
   const handleAbort = useCallback(() => {

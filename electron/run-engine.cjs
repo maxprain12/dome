@@ -794,7 +794,7 @@ async function executeLangGraphRun(runId, params) {
       provider: context.provider,
       model: context.model,
       mcpServerIds: params.mcpServerIds ?? [],
-      subagentIds: params.subagentIds ?? [],
+      subagentIds: params.ownerType === 'many' ? [] : (params.subagentIds ?? []),
       title: params.title ?? '',
     },
   });
@@ -813,9 +813,12 @@ async function executeLangGraphRun(runId, params) {
       baseUrl: context.baseUrl,
       messages: params.messages,
       toolDefinitions: params.toolDefinitions ?? [],
-      useDirectTools: (params.toolDefinitions?.length ?? 0) > 0 || (params.mcpServerIds?.length ?? 0) > 0,
+      useDirectTools:
+        params.ownerType === 'many' ||
+        (params.toolDefinitions?.length ?? 0) > 0 ||
+        (params.mcpServerIds?.length ?? 0) > 0,
       mcpServerIds: params.mcpServerIds,
-      subagentIds: params.subagentIds,
+      subagentIds: params.ownerType === 'many' ? [] : params.subagentIds,
       threadId: context.threadId,
       skipHitl: !!params.skipHitl,
       signal: context.controller.signal,

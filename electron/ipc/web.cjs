@@ -1,6 +1,16 @@
 /* eslint-disable no-console */
 
 function register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService, initModule }) {
+  function normalizeScrapeRequest(input) {
+    if (typeof input === 'string') {
+      return { url: input };
+    }
+    if (input && typeof input === 'object') {
+      return input;
+    }
+    return { url: '' };
+  }
+
   function broadcastResourceUpdated(resourceId, updates) {
     try {
       windowManager.broadcast('resource:updated', { id: resourceId, updates });
@@ -11,17 +21,19 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
   /**
    * Scrape a URL and extract content + screenshot
    */
-  ipcMain.handle('web:scrape', async (event, url) => {
+  ipcMain.handle('web:scrape', async (event, input) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
     try {
-      const result = await webScraper.scrapeUrl(url);
+      const request = normalizeScrapeRequest(input);
+      const result = await webScraper.scrapeUrl(request);
       return result;
     } catch (error) {
       console.error('[Web] Error scraping URL:', error);
-      return { success: false, error: error.message, url };
+      const request = normalizeScrapeRequest(input);
+      return { success: false, error: error.message, url: request.url };
     }
   });
 
@@ -141,6 +153,8 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
 
       let thumbnailResult = null;
       let scrapeResult = null;
+      let processingFailed = false;
+      let processingError = null;
 
       if (isYouTube) {
         // Get YouTube thumbnail
@@ -174,7 +188,12 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
         }
       } else {
         // Scrape article
-        scrapeResult = await webScraper.scrapeUrl(url);
+        scrapeResult = await webScraper.scrapeUrl({
+          url,
+          includeScreenshot: true,
+          includeMetadata: true,
+          maxLength: 50000,
+        });
 
         if (scrapeResult.success) {
           // Save screenshot if available
@@ -229,6 +248,14 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
 
           metadata.scraped_content = scrapeResult.content;
           metadata.metadata = scrapeResult.metadata;
+          metadata.final_url = scrapeResult.finalUrl || scrapeResult.url || url;
+          metadata.scrape_warnings = Array.isArray(scrapeResult.warnings) ? scrapeResult.warnings : [];
+          delete metadata.scrape_error;
+        } else {
+          processingFailed = true;
+          processingError = scrapeResult.error || 'Failed to scrape URL';
+          metadata.scrape_error = processingError;
+          metadata.scrape_warnings = Array.isArray(scrapeResult.warnings) ? scrapeResult.warnings : [];
         }
       }
 
@@ -236,7 +263,7 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
       // (like note-type resources - indexing triggered on workspace open, not during add)
 
       // Update final status
-      metadata.processing_status = 'completed';
+      metadata.processing_status = processingFailed ? 'failed' : 'completed';
       metadata.processed_at = Date.now();
 
       const currentResource = queries.getResourceById.get(resourceId);
@@ -253,6 +280,10 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
         updated_at: Date.now(),
         thumbnail_ready: true,
       });
+
+      if (processingFailed) {
+        return { success: false, error: processingError || 'Failed to process URL resource', metadata };
+      }
 
       return { success: true, metadata };
     } catch (error) {
