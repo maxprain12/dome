@@ -164,6 +164,12 @@ interface ManyState {
   addPinnedResource: (resource: PinnedResource) => void;
   removePinnedResource: (id: string) => void;
   clearPinnedResources: () => void;
+  /** Last text-to-speech error (voice assistant HUD) */
+  ttsError: string | null;
+  setTtsError: (message: string | null) => void;
+  /** Sentence currently being spoken by streaming TTS (for live HUD transcript) */
+  currentSentence: string | null;
+  setCurrentSentence: (sentence: string | null) => void;
 }
 
 export const useManyStore = create<ManyState>((set, get) => ({
@@ -400,4 +406,10 @@ export const useManyStore = create<ManyState>((set, get) => ({
   removePinnedResource: (id) =>
     set((state) => ({ pinnedResources: state.pinnedResources.filter((r) => r.id !== id) })),
   clearPinnedResources: () => set({ pinnedResources: [] }),
+
+  ttsError: null,
+  setTtsError: (message) => set({ ttsError: message }),
+
+  currentSentence: null,
+  setCurrentSentence: (sentence) => set({ currentSentence: sentence }),
 }));

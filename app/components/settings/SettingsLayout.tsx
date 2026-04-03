@@ -1,10 +1,22 @@
 
 import { useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, Palette, Brain, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2, Wand2, Database, Cloud, Globe } from 'lucide-react';
+import { User, Palette, Brain, Mic, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2, Wand2, Database, Cloud, Globe } from 'lucide-react';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 
-type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced' | 'indexing' | 'cloud' | 'language';
+type SettingsSection =
+  | 'general'
+  | 'appearance'
+  | 'ai'
+  | 'transcription'
+  | 'whatsapp'
+  | 'mcp'
+  | 'skills'
+  | 'plugins'
+  | 'advanced'
+  | 'indexing'
+  | 'cloud'
+  | 'language';
 
 interface SettingsLayoutProps {
   activeSection: SettingsSection;
@@ -24,6 +36,7 @@ const TAB_DEFS: Tab[] = [
   { id: 'general',    icon: <User className="w-3.5 h-3.5" /> },
   { id: 'appearance', icon: <Palette className="w-3.5 h-3.5" /> },
   { id: 'ai',         icon: <Brain className="w-3.5 h-3.5" /> },
+  { id: 'transcription', icon: <Mic className="w-3.5 h-3.5" /> },
   { id: 'skills',     icon: <Wand2 className="w-3.5 h-3.5" /> },
   { id: 'whatsapp',   icon: <MessageCircle className="w-3.5 h-3.5" /> },
   { id: 'mcp',        icon: <Plug2 className="w-3.5 h-3.5" /> },

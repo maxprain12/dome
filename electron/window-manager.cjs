@@ -86,6 +86,7 @@ class WindowManager {
     }
 
     // Merge configuración por defecto con opciones proporcionadas
+    const deferShow = Boolean(options.deferShow);
     const config = {
       ...this.defaultConfig,
       ...options,
@@ -94,6 +95,7 @@ class WindowManager {
         ...options.webPreferences,
       },
     };
+    delete config.deferShow;
 
     // Crear ventana
     const window = new BrowserWindow(config);
@@ -138,10 +140,12 @@ class WindowManager {
       window.loadURL(appUrl);
     }
 
-    // Mostrar cuando esté lista (evitar flash blanco)
-    window.once('ready-to-show', () => {
-      window.show();
-    });
+    // Mostrar cuando esté lista (evitar flash blanco), salvo ventanas que controlan la visibilidad a mano
+    if (!deferShow) {
+      window.once('ready-to-show', () => {
+        window.show();
+      });
+    }
 
     // Enable DevTools with keyboard shortcut (all windows, including production)
     window.webContents.on('before-input-event', (event, input) => {

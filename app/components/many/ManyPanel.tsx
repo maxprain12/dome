@@ -42,6 +42,14 @@ import {
   startLangGraphRun,
   type PersistentRun,
 } from '@/lib/automations/api';
+import { registerManyMessageSender, sendManyUserMessage, type ManySendOptions } from '@/lib/many/manySendController';
+
+/**
+ * Module-level guard: only ONE ManyPanel instance registers the IPC relay listener at a time.
+ * Multiple panels can be mounted simultaneously (sidebar + chat tab), so we must prevent
+ * duplicate handleSend calls when voice relay arrives.
+ */
+let _relayListenerCleanup: (() => void) | null = null;
 
 const QUICK_PROMPTS_BASE = [
   'Summarize my current resource',
@@ -60,6 +68,18 @@ const STREAMING_LABELS: Record<string, string> = {
   call_library_agent: 'Consultando biblioteca',
   call_research_agent: 'Investigando',
 };
+
+const VOICE_LANGUAGE_NAMES: Record<string, string> = {
+  en: 'English',
+  es: 'Spanish',
+  fr: 'French',
+  pt: 'Portuguese',
+};
+
+function buildVoicePrompt(language: string): string {
+  const langName = VOICE_LANGUAGE_NAMES[language] || 'Spanish';
+  return `\n\n## Voice Response Mode\nYou are speaking aloud in a live voice conversation. Follow these rules:\n- Keep responses SHORT and conversational (2-4 sentences for simple questions).\n- Use natural spoken language — avoid markdown, bullet lists, headers, and code blocks.\n- Summarize instead of enumerating long lists.\n- Avoid saying "of course!", "certainly!", or other filler phrases.\n- Respond in ${langName}.`;
+}
 
 const CHAT_CITATION_INSTRUCTION = `## Citation Guidance
 - When you use evidence from resource_semantic_search or resource_get, cite the supporting source inline as [1], [2], etc.
@@ -90,7 +110,10 @@ The left sidebar shows the full folder tree of the workspace. Clicking any folde
 - Resource links must use \`dome://resource/RESOURCE_ID/TYPE\`.
 - Folder links must use \`dome://folder/FOLDER_ID\` — opens that folder as a tab in the current window.
 - Studio links must use \`dome://studio/OUTPUT_ID/TYPE\`.
-- **CRITICAL — Never invent IDs**: Always use the exact \`id\` field returned by tools (resource_create, resource_search, resource_get_library_overview, etc.). Resource IDs look like \`res_1234567890_abc123\`. Folder IDs use the same format — folders are resources too. NEVER invent IDs like \`fol_...\`, \`folder-123\`, or anything not returned by a tool. If you do not have the ID, call \`resource_get_library_overview\` or \`resource_search\` first.`;
+- **CRITICAL — Never invent IDs**: Always use the exact \`id\` field returned by tools (resource_create, resource_search, resource_get_library_overview, etc.). Resource IDs look like \`res_1234567890_abc123\`. Folder IDs use the same format — folders are resources too. NEVER invent IDs like \`fol_...\`, \`folder-123\`, or anything not returned by a tool. If you do not have the ID, call \`resource_get_library_overview\` or \`resource_search\` first.
+
+## Active browser tab (macOS)
+- When the user asks to save the page they are viewing **in an external browser** (Safari, Chrome, etc.), call \`browser_get_active_tab\` to obtain the live URL and title, then \`resource_create\` with \`type: "url"\` and \`metadata.url\`, then offer to run indexing if appropriate. If the tool errors, ask the user to paste the URL or focus a supported browser.`;
 
 const ENTITY_CREATION_RULES = `## Entity Creation (agent_create, workflow_create, automation_create)
 - **agent_create**: Always pass \`tool_ids\` — an agent without tools cannot work. Example: Noticiero needs ["web_fetch", "resource_create"]. After calling, your response MUST include the artifact block: \`\`\`artifact:created_entity (newline) {JSON from tool, strip ENTITY_CREATED: prefix} (newline) \`\`\`. This block renders the visual card. Without it, the user only sees plain text.
@@ -124,9 +147,12 @@ interface ManyPanelProps {
   onClose: () => void;
   isVisible: boolean;
   isFullscreen?: boolean;
+  /** Motor de mensajes sin UI (voz global con panel lateral cerrado / pestaña Chat). */
+  mode?: 'full' | 'headless';
 }
 
-export default function ManyPanel({ width, onClose, isVisible, isFullscreen = false }: ManyPanelProps) {
+export default function ManyPanel({ width, onClose, isVisible, isFullscreen = false, mode = 'full' }: ManyPanelProps) {
+  const isHeadless = mode === 'headless';
   const { t } = useTranslation();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
@@ -176,6 +202,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const pendingApprovalRef = useRef<HTMLDivElement>(null);
   const hitlDecisionsRef = useRef<Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }> | null>(null);
   const isSubmittingRef = useRef(false);
+  const voiceAutoSpeakForRunIdRef = useRef<string | null>(null);
   // Ref so the onRunUpdated listener always calls the latest refreshSessionFromDb
   // without re-registering the listener every time currentSession changes.
   const refreshSessionFromDbRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
@@ -459,6 +486,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         return;
       }
       if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+        if (voiceAutoSpeakForRunIdRef.current === run.id) {
+          voiceAutoSpeakForRunIdRef.current = null;
+        }
         // Clear non-message state immediately
         setActiveRunId(null);
         setIsLoading(false);
@@ -515,6 +545,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           });
         };
         tryRefresh(2);
+        // Note: TTS is now handled via streaming (run-engine feeds chunks to streaming-tts.cjs)
+        // voiceAutoSpeakForRunIdRef is kept only to track state for HUD
         if (run.status === 'completed') {
           window.dispatchEvent(new Event('dome:resources-changed'));
         }
@@ -647,10 +679,22 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   }, [pendingApproval]);
 
   useEffect(() => {
+    if (isHeadless) return;
     if (inputRef.current) {
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, []);
+  }, [isHeadless]);
+
+  const hadPendingApprovalRef = useRef(false);
+  useEffect(() => {
+    const has = Boolean(pendingApproval);
+    if (has) {
+      window.dispatchEvent(new CustomEvent('dome:many-requires-panel', { detail: { reason: 'hitl' } }));
+    } else if (hadPendingApprovalRef.current) {
+      window.dispatchEvent(new CustomEvent('dome:many-hitl-cleared'));
+    }
+    hadPendingApprovalRef.current = has;
+  }, [pendingApproval]);
 
   const buildSystemPrompt = useCallback(async () => {
     if (petPromptOverride) {
@@ -732,9 +776,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
   const hasLangGraph = typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
 
-  const handleSend = useCallback(async (messageOverride?: string) => {
+  const handleSend = useCallback(async (messageOverride?: string, sendOptions?: ManySendOptions) => {
     const userMessage = messageOverride || input.trim();
     if (!userMessage || isLoading || isSubmittingRef.current) return;
+
+    if (sendOptions?.openPanel) {
+      useManyStore.getState().setOpen(true);
+    }
 
     isSubmittingRef.current = true;
     setInput('');
@@ -858,13 +906,20 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         has_tools: toolDefinitions.length > 0 || mcpServerIds.length > 0,
       });
 
+      const voiceLanguage =
+        sendOptions?.voiceLanguage ||
+        (typeof localStorage !== 'undefined' ? localStorage.getItem('dome:language') : null) ||
+        'es';
+      const voicePromptSuffix = sendOptions?.autoSpeak ? buildVoicePrompt(voiceLanguage) : '';
+
       const unifiedSystemPrompt =
         systemPrompt +
         '\n\n' +
         prompts.martin.tools +
         '\n\n## Tool Usage Mode\n- You are running in a single direct-tools runtime.\n- Decide yourself whether to answer directly or call tools.\n- If the current context already contains enough information, answer directly without tools.\n- Use tools only when you need fresh workspace data, external information, or to perform an action.\n- Never delegate or hand off the response to subagents.\n\n' +
         ENTITY_CREATION_RULES +
-        toolHint;
+        toolHint +
+        voicePromptSuffix;
 
       const runMessages = [
         { role: 'system', content: unifiedSystemPrompt },
@@ -923,8 +978,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         mcpServerIds,
         subagentIds: [],
         threadId,
+        autoSpeak: sendOptions?.autoSpeak ? true : undefined,
+        voiceLanguage: sendOptions?.autoSpeak ? voiceLanguage : undefined,
       });
       delegatedToRunEngine = true;
+      if (sendOptions?.autoSpeak) {
+        voiceAutoSpeakForRunIdRef.current = run.id;
+      }
       setActiveRunId(run.id);
       applyRunSnapshot(run);
     } catch (err) {
@@ -953,7 +1013,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         setPendingApproval(null);
         setAbortController(null);
       }
-      inputRef.current?.focus();
+      if (!isHeadless) inputRef.current?.focus();
     }
   }, [
     input,
@@ -976,7 +1036,120 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     currentSession,
     currentSessionId,
     applyRunSnapshot,
+    isHeadless,
   ]);
+
+  useEffect(() => {
+    registerManyMessageSender(async (text, opts) => {
+      await handleSend(text, opts);
+    });
+    return () => registerManyMessageSender(null);
+  }, [handleSend]);
+
+  /**
+   * Voz global: el HUD vive en `many-voice-overlay`; reenvío IPC → este panel.
+   * Singleton: uses a module-level guard so multiple mounted ManyPanel instances
+   * (sidebar + chat tab) don't each register their own listener and double-fire.
+   * Delegates to sendManyUserMessage → registeredSender (whichever panel is active).
+   */
+  useEffect(() => {
+    if (!window.electron?.manyVoice?.onRelayToMain) return undefined;
+    // Already registered by another instance — skip
+    if (_relayListenerCleanup) return undefined;
+    _relayListenerCleanup = window.electron.manyVoice.onRelayToMain(
+      (payload: { text: string; autoSpeak?: boolean; openPanel?: boolean; voiceLanguage?: string }) => {
+        void sendManyUserMessage(payload.text, {
+          autoSpeak: payload.autoSpeak,
+          openPanel: payload.openPanel,
+          voiceLanguage: payload.voiceLanguage,
+        });
+      },
+    );
+    return () => {
+      _relayListenerCleanup?.();
+      _relayListenerCleanup = null;
+    };
+  }, []);
+
+  /** Sincroniza estado Many (thinking / TTS / currentSentence) hacia la ventana flotante de voz. */
+  useEffect(() => {
+    if (!window.electron?.manyVoice?.pushStateToOverlay) return undefined;
+    const pushNow = () => {
+      const { status, ttsError, currentSentence } = useManyStore.getState();
+      void window.electron.manyVoice.pushStateToOverlay({ status, ttsError, currentSentence });
+    };
+    let last = {
+      status: useManyStore.getState().status,
+      ttsError: useManyStore.getState().ttsError,
+      currentSentence: useManyStore.getState().currentSentence,
+    };
+    const unsub = useManyStore.subscribe((state) => {
+      const next = { status: state.status, ttsError: state.ttsError, currentSentence: state.currentSentence };
+      if (next.status === last.status && next.ttsError === last.ttsError && next.currentSentence === last.currentSentence) return;
+      last = next;
+      void window.electron.manyVoice.pushStateToOverlay(next);
+    });
+    pushNow();
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!window.electron?.manyVoice?.onRequestStatePush) return undefined;
+    return window.electron.manyVoice.onRequestStatePush(() => {
+      const { status, ttsError, currentSentence } = useManyStore.getState();
+      void window.electron.manyVoice.pushStateToOverlay({ status, ttsError, currentSentence });
+    });
+  }, []);
+
+  /** Listen for streaming TTS sentence events and update store + overlay */
+  useEffect(() => {
+    if (!window.electron?.audio?.onTtsSentencePlaying) return undefined;
+    const unsub = window.electron.audio.onTtsSentencePlaying(
+      (data: { runId: string; sentence: string }) => {
+        const { setStatus, setCurrentSentence } = useManyStore.getState();
+        setStatus('speaking');
+        setCurrentSentence(data.sentence);
+      },
+    );
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!window.electron?.audio?.onTtsFinished) return undefined;
+    const unsub = window.electron.audio.onTtsFinished(() => {
+      const { setStatus, setCurrentSentence } = useManyStore.getState();
+      setCurrentSentence(null);
+      setStatus('idle');
+    });
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!window.electron?.audio?.onTtsError) return undefined;
+    const unsub = window.electron.audio.onTtsError(
+      (data: { runId: string; error: string }) => {
+        useManyStore.getState().setTtsError(data.error || 'Error de voz al reproducir respuesta.');
+        useManyStore.getState().setCurrentSentence(null);
+        useManyStore.getState().setStatus('idle');
+      },
+    );
+    return unsub;
+  }, []);
+
+  useEffect(() => {
+    if (!window.electron?.manyVoice?.onOpenPanelRequest) return undefined;
+    return window.electron.manyVoice.onOpenPanelRequest(() => {
+      useManyStore.getState().setOpen(true);
+      window.dispatchEvent(new CustomEvent('dome:many-requires-panel', { detail: { reason: 'user' } }));
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!window.electron?.manyVoice?.onDismissTtsError) return undefined;
+    return window.electron.manyVoice.onDismissTtsError(() => {
+      useManyStore.getState().setTtsError(null);
+    });
+  }, []);
 
   const handleAbort = useCallback(() => {
     if (activeRunId) {
@@ -1059,6 +1232,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     return undefined;
   }, [pendingApproval, streamingMessage?.toolCalls, isLoading, toolsEnabled, status]);
 
+  if (isHeadless) {
+    return null;
+  }
+
   return (
     <div
       className="flex flex-col h-full overflow-hidden shrink-0 border-l"
@@ -1137,6 +1314,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               hasMcp={hasLangGraph}
               onSend={() => handleSend()}
               onAbort={handleAbort}
+              onVoiceSend={(text) => void handleSend(text, { autoSpeak: true })}
               isWelcomeScreen
             />
           </div>
@@ -1325,6 +1503,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               hasMcp={hasLangGraph}
               onSend={() => handleSend()}
               onAbort={handleAbort}
+              onVoiceSend={(text) => void handleSend(text, { autoSpeak: true })}
             />
           </div>
         ) : (
@@ -1343,6 +1522,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             hasMcp={hasLangGraph}
             onSend={() => handleSend()}
             onAbort={handleAbort}
+            onVoiceSend={(text) => void handleSend(text, { autoSpeak: true })}
           />
         )
       )}

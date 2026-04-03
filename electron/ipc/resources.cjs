@@ -322,6 +322,58 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
   /**
    * Read file content as Base64 data URL
    */
+  /**
+   * Read raw file bytes for renderer-side Blob URLs (avoids file:// loads from http/app origins).
+   */
+  ipcMain.handle('resource:readFileBuffer', (event, resourceId) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const queries = database.getQueries();
+      const resource = queries.getResourceById.get(resourceId);
+
+      if (!resource) {
+        return { success: false, error: 'Resource not found' };
+      }
+
+      let buffer;
+      let mimeType = resource.file_mime_type && String(resource.file_mime_type).trim()
+        ? String(resource.file_mime_type).trim()
+        : null;
+
+      if (resource.internal_path) {
+        if (!fileStorage.fileExists(resource.internal_path)) {
+          return { success: false, error: 'Internal file not found' };
+        }
+        const fullPath = fileStorage.getFullPath(resource.internal_path);
+        buffer = fs.readFileSync(fullPath);
+        if (!mimeType) {
+          const ext = path.extname(resource.original_filename || resource.title || '').toLowerCase();
+          mimeType = fileStorage.getMimeType(ext);
+        }
+      } else if (resource.file_path && fs.existsSync(resource.file_path)) {
+        buffer = fs.readFileSync(resource.file_path);
+        if (!mimeType) {
+          const ext = path.extname(resource.file_path).toLowerCase();
+          mimeType = fileStorage.getMimeType(ext);
+        }
+      } else {
+        return { success: false, error: 'File not found' };
+      }
+
+      return {
+        success: true,
+        data: buffer,
+        mimeType: mimeType || 'application/octet-stream',
+      };
+    } catch (error) {
+      console.error('[Resource] Error reading file buffer:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('resource:readFile', (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };

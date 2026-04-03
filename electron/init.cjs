@@ -58,6 +58,11 @@ function initializeDefaultSettings() {
     queries.setSetting.run('app_citation_style', 'apa', timestamp);
   }
 
+  const analyticsRow = queries.getSetting.get('analytics_enabled');
+  if (!analyticsRow) {
+    queries.setSetting.run('analytics_enabled', 'true', timestamp);
+  }
+
   const mcpGlobalRow = queries.getMcpGlobalSettings?.get?.();
   if (!mcpGlobalRow) {
     queries.upsertMcpGlobalSettings.run(1, timestamp);

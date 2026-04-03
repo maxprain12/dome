@@ -46,6 +46,8 @@ interface WorkspaceHeaderProps {
   onOpenWorkspacePanel?: () => void;
   notebookWorkspacePath?: string;
   notebookVenvPath?: string;
+  /** Oculta fuentes / estudio / grafo para un encabezado más limpio en audio y vídeo */
+  mediaFocusMode?: boolean;
 }
 
 // ── Type metadata ──────────────────────────────────────────────────────────
@@ -142,6 +144,7 @@ export default function WorkspaceHeader({
   onOpenWorkspacePanel,
   notebookWorkspacePath,
   notebookVenvPath,
+  mediaFocusMode = false,
 }: WorkspaceHeaderProps) {
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -334,27 +337,31 @@ export default function WorkspaceHeader({
 
         <HDivider />
 
-        {/* Panel toggle buttons */}
-        <HeaderIconBtn
-          icon={<BookOpen size={14} strokeWidth={2} />}
-          label={t('workspace.sources')}
-          active={sourcesPanelOpen}
-          onClick={toggleSourcesPanel}
-        />
-        <HeaderIconBtn
-          icon={<Sparkles size={14} strokeWidth={2} />}
-          label={t('workspace.studio')}
-          active={studioPanelOpen}
-          activeColor="#9B6FCD"
-          onClick={toggleStudioPanel}
-        />
-        <HeaderIconBtn
-          icon={<Network size={14} strokeWidth={2} />}
-          label={t('workspace.graph')}
-          active={graphPanelOpen}
-          activeColor="#4A90D9"
-          onClick={toggleGraphPanel}
-        />
+        {/* Panel toggles: ocultos en modo multimedia para reducir ruido */}
+        {!mediaFocusMode && (
+          <>
+            <HeaderIconBtn
+              icon={<BookOpen size={14} strokeWidth={2} />}
+              label={t('workspace.sources')}
+              active={sourcesPanelOpen}
+              onClick={toggleSourcesPanel}
+            />
+            <HeaderIconBtn
+              icon={<Sparkles size={14} strokeWidth={2} />}
+              label={t('workspace.studio')}
+              active={studioPanelOpen}
+              activeColor="#9B6FCD"
+              onClick={toggleStudioPanel}
+            />
+            <HeaderIconBtn
+              icon={<Network size={14} strokeWidth={2} />}
+              label={t('workspace.graph')}
+              active={graphPanelOpen}
+              activeColor="#4A90D9"
+              onClick={toggleGraphPanel}
+            />
+          </>
+        )}
         <HeaderIconBtn
           icon={<PanelRight size={14} strokeWidth={2} />}
           label={t('workspace.sidePanel')}

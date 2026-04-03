@@ -184,5 +184,5 @@ Si Ollama no está corriendo, Dome indicará que no puede conectar con el provee
 ## Siguientes pasos
 
 - [Uso del asistente Many](./ai-chat.md)
-- [Búsqueda con Cmd+K](./command-center.md)
+- [Workspace y pestañas](./workspace.md) (búsqueda en la página de inicio con ⌘K cuando el widget está visible)
 - [Configuración general](./settings.md)

@@ -1,7 +1,10 @@
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
-import { Database, Search, ArrowUp, StopCircle, Plug2, FileText, X, Paperclip } from 'lucide-react';
+import { Database, Search, ArrowUp, StopCircle, Plug2, FileText, X, Paperclip, Mic, Loader2 } from 'lucide-react';
+import { notifications } from '@mantine/notifications';
+import { useTranslation } from 'react-i18next';
+import { pickRecordMimeType, transcribeAudioBlob } from '@/lib/transcription/transcribeBlob';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
 import { useManyStore, type PinnedResource } from '@/lib/store/useManyStore';
 
@@ -23,7 +26,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 
 interface ManyChatInputProps {
   input: string;
-  setInput: (v: string) => void;
+  setInput: Dispatch<SetStateAction<string>>;
   inputRef: React.RefObject<HTMLTextAreaElement>;
   isLoading: boolean;
   toolsEnabled: boolean;
@@ -36,6 +39,8 @@ interface ManyChatInputProps {
   hasMcp: boolean;
   onSend: () => void;
   onAbort: () => void;
+  /** Send transcribed text as a new user message (voice "dictate and send") */
+  onVoiceSend?: (text: string) => void;
   /** When true, renders a larger welcome-screen variant (centered, wider, taller) */
   isWelcomeScreen?: boolean;
 }
@@ -61,9 +66,18 @@ export default memo(function ManyChatInput({
   hasMcp,
   onSend,
   onAbort,
+  onVoiceSend,
   isWelcomeScreen = false,
 }: ManyChatInputProps) {
+  const { t } = useTranslation();
   const { pinnedResources, addPinnedResource, removePinnedResource } = useManyStore();
+  const [voiceToSend, setVoiceToSend] = useState(false);
+  const [voicePhase, setVoicePhase] = useState<'idle' | 'recording' | 'processing'>('idle');
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const voiceProcessRef = useRef(true);
+  const voiceArmRef = useRef(false);
 
   const [showDropdown, setShowDropdown] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -222,6 +236,178 @@ export default memo(function ManyChatInput({
     : toolsEnabled
       ? 'Pregunta algo... (con búsqueda web)'
       : 'Pregunta algo... usa @ para añadir documentos';
+
+  const canVoice = typeof window !== 'undefined' && !!window.electron?.transcription?.bufferToText;
+
+  const cleanupVoiceStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }, []);
+
+  useEffect(
+    () => () => {
+      cleanupVoiceStream();
+      const mr = mediaRecorderRef.current;
+      if (mr && mr.state !== 'inactive') {
+        try {
+          mr.stop();
+        } catch {
+          /* */
+        }
+      }
+    },
+    [cleanupVoiceStream],
+  );
+
+  const stopVoiceMic = useCallback(() => {
+    voiceProcessRef.current = true;
+    const mr = mediaRecorderRef.current;
+    if (mr && mr.state !== 'inactive') mr.stop();
+    else {
+      cleanupVoiceStream();
+      setVoicePhase('idle');
+    }
+  }, [cleanupVoiceStream]);
+
+  const startVoiceMic = useCallback(async () => {
+    if (!canVoice || isLoading || voicePhase !== 'idle') return;
+    if (typeof MediaRecorder === 'undefined') {
+      notifications.show({ title: t('manyVoice.unavailable'), color: 'red' });
+      return;
+    }
+    voiceArmRef.current = true;
+    try {
+      if (window.electron.isMac) {
+        const perm = await window.electron.transcription.requestMicrophoneAccess();
+        if (perm.success === false || perm.granted === false) {
+          voiceArmRef.current = false;
+          notifications.show({
+            title: t('media.dock_mic_permission'),
+            message: perm.error || '',
+            color: 'red',
+          });
+          return;
+        }
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const mime = pickRecordMimeType();
+      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = mr;
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mr.onstop = () => {
+        void (async () => {
+          cleanupVoiceStream();
+          const shouldProcess = voiceProcessRef.current;
+          voiceProcessRef.current = true;
+          if (!shouldProcess) {
+            setVoicePhase('idle');
+            return;
+          }
+          const outMime = mr.mimeType || mime || 'audio/webm';
+          const blob = new Blob(chunksRef.current, { type: outMime });
+          chunksRef.current = [];
+          if (blob.size < 256) {
+            notifications.show({ title: t('media.dock_empty_recording'), color: 'yellow' });
+            setVoicePhase('idle');
+            return;
+          }
+          setVoicePhase('processing');
+          try {
+            const tr = await transcribeAudioBlob(blob);
+            if (!tr.success) {
+              notifications.show({ title: t('manyVoice.transcribe_failed'), message: tr.error, color: 'red' });
+              setVoicePhase('idle');
+              return;
+            }
+            if (voiceToSend && onVoiceSend) {
+              onVoiceSend(tr.text);
+            } else {
+              setInput((prev) => `${prev}${prev && !/\s$/.test(prev) ? ' ' : ''}${tr.text}`);
+            }
+          } finally {
+            setVoicePhase('idle');
+          }
+        })();
+      };
+      mr.start(200);
+      voiceArmRef.current = false;
+      setVoicePhase('recording');
+    } catch (e) {
+      voiceArmRef.current = false;
+      cleanupVoiceStream();
+      notifications.show({
+        title: t('media.dock_mic_permission'),
+        message: e instanceof Error ? e.message : '',
+        color: 'red',
+      });
+      setVoicePhase('idle');
+    }
+  }, [
+    canVoice,
+    cleanupVoiceStream,
+    isLoading,
+    onVoiceSend,
+    setInput,
+    t,
+    voicePhase,
+    voiceToSend,
+  ]);
+
+  const cancelVoiceFromPointer = useCallback(() => {
+    voiceProcessRef.current = false;
+    const mr = mediaRecorderRef.current;
+    if (mr && mr.state !== 'inactive') mr.stop();
+    else {
+      cleanupVoiceStream();
+      setVoicePhase('idle');
+    }
+  }, [cleanupVoiceStream]);
+
+  const onVoicePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      if (isLoading || voicePhase === 'processing' || voicePhase === 'recording') return;
+      e.preventDefault();
+      (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
+      void startVoiceMic();
+    },
+    [isLoading, startVoiceMic, voicePhase],
+  );
+
+  const onVoicePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (e.button !== 0) return;
+      try {
+        (e.currentTarget as HTMLButtonElement).releasePointerCapture(e.pointerId);
+      } catch {
+        /* */
+      }
+      if (voicePhase === 'recording') stopVoiceMic();
+      else if (voiceArmRef.current) {
+        voiceArmRef.current = false;
+        voiceProcessRef.current = false;
+        cleanupVoiceStream();
+        const mr = mediaRecorderRef.current;
+        if (mr && mr.state !== 'inactive') {
+          try {
+            mr.stop();
+          } catch {
+            /* */
+          }
+        }
+        setVoicePhase('idle');
+      }
+    },
+    [cleanupVoiceStream, stopVoiceMic, voicePhase],
+  );
+
+  const onVoicePointerCancel = useCallback(() => {
+    if (voicePhase === 'recording') cancelVoiceFromPointer();
+  }, [cancelVoiceFromPointer, voicePhase]);
 
   useEffect(() => {
     if (!showDropdown) {
@@ -413,8 +599,49 @@ export default memo(function ManyChatInput({
             )}
           </div>
 
-          {/* Send / Stop */}
+          {/* Voice + Send / Stop */}
           <div className="flex items-center gap-2">
+            {canVoice ? (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onPointerDown={onVoicePointerDown}
+                  onPointerUp={onVoicePointerUp}
+                  onPointerCancel={onVoicePointerCancel}
+                  onPointerLeave={(e) => {
+                    if (voicePhase !== 'recording') return;
+                    if (e.buttons === 0) cancelVoiceFromPointer();
+                  }}
+                  disabled={isLoading || voicePhase === 'processing'}
+                  className="flex h-9 w-9 items-center justify-center rounded-full transition-all select-none touch-none"
+                  style={{
+                    background: voicePhase === 'recording' ? 'var(--error)' : 'var(--bg-tertiary)',
+                    color: voicePhase === 'recording' ? '#fff' : 'var(--secondary-text)',
+                  }}
+                  title={t('manyVoice.ptt_subtitle')}
+                >
+                  {voicePhase === 'processing' ? (
+                    <Loader2 size={16} className="animate-spin" aria-hidden />
+                  ) : (
+                    <Mic size={16} strokeWidth={2} aria-hidden />
+                  )}
+                </button>
+                {onVoiceSend ? (
+                  <button
+                    type="button"
+                    onClick={() => setVoiceToSend((v) => !v)}
+                    className="rounded px-1.5 py-0.5 text-[10px] font-medium"
+                    style={{
+                      background: voiceToSend ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'transparent',
+                      color: 'var(--secondary-text)',
+                    }}
+                    title={t('manyVoice.toggle_send_mode')}
+                  >
+                    {voiceToSend ? t('manyVoice.mode_send') : t('manyVoice.mode_input')}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             {isLoading ? (
               <button
                 type="button"

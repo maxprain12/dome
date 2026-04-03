@@ -151,6 +151,7 @@ const ALLOWED_CHANNELS = {
     'resource:import',
     'resource:importMultiple',
     'resource:getFilePath',
+    'resource:readFileBuffer',
     'resource:readFile',
     'resource:readDocumentContent',
     'resource:extractPptImages',
@@ -182,6 +183,7 @@ const ALLOWED_CHANNELS = {
     'migration:getStatus',
     // Web scraping
     'web:scrape',
+    'browser:get-active-tab-macos',
     'web:get-youtube-thumbnail',
     'web:save-screenshot',
     // Image processing
@@ -316,9 +318,42 @@ const ALLOWED_CHANNELS = {
     'db:flashcards:getSessions',
     // Audio (TTS)
     'audio:generate-speech',
+    'audio:play-file',
     'audio:generate-podcast',
     'audio:get-status',
     'audio:list',
+    // Transcription (STT → note)
+    'transcription:request-microphone-access',
+    'transcription:resource-to-note',
+    'transcription:buffer-to-note',
+    'transcription:buffer-to-text',
+    'transcription:get-defaults',
+    'transcription:get-settings',
+    'transcription:set-settings',
+    'transcription:regenerate-linked-note',
+    'transcription:patch-transcript-speakers',
+    'transcription:list-desktop-capture-sources',
+    // Transcription overlay hub
+    'transcription-overlay:toggle-from-ui',
+    'transcription-overlay:overlay-set-visible',
+    'transcription-overlay:overlay-resize',
+    'transcription-overlay:open-note-in-main',
+    // Many voice overlay bridge
+    'many-voice:relay-send',
+    'many-voice:push-state-to-overlay',
+    'many-voice:overlay-mounted',
+    'many-voice:overlay-set-visible',
+    'many-voice:open-many-panel',
+    'many-voice:dismiss-tts-error',
+    'many-voice:overlay-resize',
+    'many-voice:toggle-overlay-from-ui',
+    // Streaming TTS control (renderer → main)
+    'audio:stop-streaming-tts',
+    // Realtime Voice API
+    'realtime:get-session-config',
+    'realtime:create-ephemeral-token',
+    'realtime:exchange-sdp',
+    'realtime:execute-tool',
     // Database - Studio Outputs
     'db:studio:create',
     'db:studio:getAll',
@@ -432,6 +467,22 @@ const ALLOWED_CHANNELS = {
     'pageindex:progress',
     // Audio events
     'audio:generation-progress',
+    // Voice recording / dictation toggle (from tray or global shortcut)
+    'transcription:toggle-recording',
+    'transcription:overlay-loaded',
+    'many-voice-assistant:toggle',
+    'many-voice-assistant:ptt-start',
+    'many-voice-assistant:ptt-end',
+    'many-voice:relay-to-main',
+    'many-voice:hud-state',
+    'many-voice:request-state-push',
+    'many-voice:open-panel-request',
+    'many-voice:dismiss-tts-error',
+    'many-voice:overlay-loaded',
+    // Streaming TTS events (main → renderer)
+    'tts:sentence-playing',
+    'tts:finished',
+    'tts:error',
     // Auto-updater events
     'updater:status',
     // Ollama Manager events
@@ -471,6 +522,7 @@ const ALLOWED_CHANNELS = {
     // Tab navigation (deep links → renderer tab store)
     'dome:open-resource-in-tab',
     'dome:open-settings-in-tab',
+    'dome:open-singleton-tab',
   ],
 };
 
@@ -978,6 +1030,9 @@ const electronHandler = {
     readFile: (resourceId) =>
       ipcRenderer.invoke('resource:readFile', resourceId),
 
+    readFileBuffer: (resourceId) =>
+      ipcRenderer.invoke('resource:readFileBuffer', resourceId),
+
     // Read document content as raw Base64 for renderer-side parsing (DOCX, XLSX, CSV)
     readDocumentContent: (resourceId) =>
       ipcRenderer.invoke('resource:readDocumentContent', resourceId),
@@ -1272,6 +1327,8 @@ const electronHandler = {
     generateSpeech: (text, voice, options) =>
       ipcRenderer.invoke('audio:generate-speech', { text, voice, options }),
 
+    playFile: (filePath) => ipcRenderer.invoke('audio:play-file', { filePath }),
+
     // Generate full podcast from dialogue lines
     generatePodcast: (lines, options) =>
       ipcRenderer.invoke('audio:generate-podcast', { lines, options }),
@@ -1283,12 +1340,137 @@ const electronHandler = {
     // List generated audio files
     list: () => ipcRenderer.invoke('audio:list'),
 
+    // Stop streaming TTS for a run
+    stopStreamingTts: (runId) =>
+      ipcRenderer.invoke('audio:stop-streaming-tts', { runId }),
+
     // Listen to generation progress
     onGenerationProgress: (callback) => {
       const subscription = (event, data) => callback(data);
       ipcRenderer.on('audio:generation-progress', subscription);
       return () => ipcRenderer.removeListener('audio:generation-progress', subscription);
     },
+
+    // Streaming TTS events
+    onTtsSentencePlaying: (callback) => {
+      const subscription = (_e, data) => callback(data);
+      ipcRenderer.on('tts:sentence-playing', subscription);
+      return () => ipcRenderer.removeListener('tts:sentence-playing', subscription);
+    },
+    onTtsFinished: (callback) => {
+      const subscription = (_e, data) => callback(data);
+      ipcRenderer.on('tts:finished', subscription);
+      return () => ipcRenderer.removeListener('tts:finished', subscription);
+    },
+    onTtsError: (callback) => {
+      const subscription = (_e, data) => callback(data);
+      ipcRenderer.on('tts:error', subscription);
+      return () => ipcRenderer.removeListener('tts:error', subscription);
+    },
+  },
+
+  // ============================================
+  // TRANSCRIPTION API (speech-to-text → notes)
+  // ============================================
+  transcription: {
+    requestMicrophoneAccess: () => ipcRenderer.invoke('transcription:request-microphone-access'),
+    resourceToNote: (args) => ipcRenderer.invoke('transcription:resource-to-note', args),
+    bufferToNote: (args) => ipcRenderer.invoke('transcription:buffer-to-note', args),
+    bufferToText: (args) => ipcRenderer.invoke('transcription:buffer-to-text', args),
+    getDefaults: () => ipcRenderer.invoke('transcription:get-defaults'),
+    getSettings: () => ipcRenderer.invoke('transcription:get-settings'),
+    setSettings: (args) => ipcRenderer.invoke('transcription:set-settings', args),
+    regenerateLinkedNote: (args) => ipcRenderer.invoke('transcription:regenerate-linked-note', args),
+    patchTranscriptSpeakers: (args) =>
+      ipcRenderer.invoke('transcription:patch-transcript-speakers', args),
+    listDesktopCaptureSources: () => ipcRenderer.invoke('transcription:list-desktop-capture-sources'),
+    onToggleRecording: (callback) => {
+      const subscription = () => callback();
+      ipcRenderer.on('transcription:toggle-recording', subscription);
+      return () => ipcRenderer.removeListener('transcription:toggle-recording', subscription);
+    },
+  },
+
+  transcriptionOverlay: {
+    toggleFromUi: () => ipcRenderer.invoke('transcription-overlay:toggle-from-ui'),
+    overlaySetVisible: (visible) =>
+      ipcRenderer.invoke('transcription-overlay:overlay-set-visible', { visible }),
+    overlayResize: (height) => ipcRenderer.invoke('transcription-overlay:overlay-resize', { height }),
+    openNoteInMain: (payload) => ipcRenderer.invoke('transcription-overlay:open-note-in-main', payload),
+    onOverlayLoaded: (callback) => {
+      const subscription = () => callback();
+      ipcRenderer.on('transcription:overlay-loaded', subscription);
+      return () => ipcRenderer.removeListener('transcription:overlay-loaded', subscription);
+    },
+  },
+
+  manyVoice: {
+    onToggle: (callback) => {
+      const subscription = () => callback();
+      ipcRenderer.on('many-voice-assistant:toggle', subscription);
+      return () => ipcRenderer.removeListener('many-voice-assistant:toggle', subscription);
+    },
+    onPttStart: (callback) => {
+      const subscription = () => callback();
+      ipcRenderer.on('many-voice-assistant:ptt-start', subscription);
+      return () => ipcRenderer.removeListener('many-voice-assistant:ptt-start', subscription);
+    },
+    onPttEnd: (callback) => {
+      const subscription = () => callback();
+      ipcRenderer.on('many-voice-assistant:ptt-end', subscription);
+      return () => ipcRenderer.removeListener('many-voice-assistant:ptt-end', subscription);
+    },
+    relaySend: (args) => ipcRenderer.invoke('many-voice:relay-send', args),
+    pushStateToOverlay: (payload) =>
+      ipcRenderer.invoke('many-voice:push-state-to-overlay', payload),
+    overlayMounted: () => ipcRenderer.invoke('many-voice:overlay-mounted'),
+    overlaySetVisible: (visible) =>
+      ipcRenderer.invoke('many-voice:overlay-set-visible', { visible }),
+    openManyPanel: () => ipcRenderer.invoke('many-voice:open-many-panel'),
+    dismissTtsError: () => ipcRenderer.invoke('many-voice:dismiss-tts-error'),
+    overlayResize: (height) => ipcRenderer.invoke('many-voice:overlay-resize', { height }),
+    toggleOverlayFromUi: () => ipcRenderer.invoke('many-voice:toggle-overlay-from-ui'),
+    onRelayToMain: (callback) => {
+      const subscription = (_e, payload) => callback(payload);
+      ipcRenderer.on('many-voice:relay-to-main', subscription);
+      return () => ipcRenderer.removeListener('many-voice:relay-to-main', subscription);
+    },
+    onHudState: (callback) => {
+      const subscription = (_e, payload) => callback(payload);
+      ipcRenderer.on('many-voice:hud-state', subscription);
+      return () => ipcRenderer.removeListener('many-voice:hud-state', subscription);
+    },
+    onRequestStatePush: (callback) => {
+      const subscription = () => callback();
+      ipcRenderer.on('many-voice:request-state-push', subscription);
+      return () => ipcRenderer.removeListener('many-voice:request-state-push', subscription);
+    },
+    onOpenPanelRequest: (callback) => {
+      const subscription = () => callback();
+      ipcRenderer.on('many-voice:open-panel-request', subscription);
+      return () => ipcRenderer.removeListener('many-voice:open-panel-request', subscription);
+    },
+    onDismissTtsError: (callback) => {
+      const subscription = () => callback();
+      ipcRenderer.on('many-voice:dismiss-tts-error', subscription);
+      return () => ipcRenderer.removeListener('many-voice:dismiss-tts-error', subscription);
+    },
+    onOverlayLoaded: (callback) => {
+      const subscription = () => callback();
+      ipcRenderer.on('many-voice:overlay-loaded', subscription);
+      return () => ipcRenderer.removeListener('many-voice:overlay-loaded', subscription);
+    },
+  },
+
+  // ============================================
+  // REALTIME VOICE API (OpenAI STS)
+  // ============================================
+  realtime: {
+    getSessionConfig: () => ipcRenderer.invoke('realtime:get-session-config'),
+    createEphemeralToken: (params) =>
+      ipcRenderer.invoke('realtime:create-ephemeral-token', params),
+    exchangeSdp: (params) => ipcRenderer.invoke('realtime:exchange-sdp', params),
+    executeTool: (params) => ipcRenderer.invoke('realtime:execute-tool', params),
   },
 
   // ============================================

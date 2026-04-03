@@ -96,7 +96,6 @@
 | Recursos & Proyectos | [resources.md](./docs/resources.md) | ✅ Implementado |
 | Workspace | [workspace.md](./docs/workspace.md) | ✅ Implementado |
 | Viewers (PDF, Video, etc.) | [viewers.md](./docs/viewers.md) | ✅ Implementado |
-| Command Center (Cmd+K) | [command-center.md](./docs/command-center.md) | ✅ Implementado |
 
 ### Extensiones & Integración
 

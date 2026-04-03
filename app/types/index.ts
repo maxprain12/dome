@@ -122,6 +122,64 @@ export interface Resource {
   updated_at: number;
 }
 
+/** Segmento de transcripción con timestamp y hablante (UI + notas enriquecidas) */
+export interface TranscriptionSegment {
+  id: string;
+  startTime: number;
+  endTime: number;
+  text: string;
+  /** Identificador estable del hablante (ej. auto-0, user-named) */
+  speakerId: string;
+  /** Etiqueta mostrada; puede sobrescribir el mapa speakers */
+  speakerLabel?: string;
+  confidence?: number;
+}
+
+/** Perfil de hablante para una transcripción concreta */
+export interface TranscriptionSpeakerProfile {
+  label: string;
+  /** Si true, marca al usuario local (p. ej. micrófono) */
+  isSelf?: boolean;
+  colorIndex?: number;
+}
+
+export type TranscriptionCaptureKind = 'file' | 'microphone' | 'system' | 'call';
+
+export type TranscriptionCallPlatform =
+  | 'teams'
+  | 'slack'
+  | 'discord'
+  | 'meet'
+  | 'zoom'
+  | 'webex'
+  | 'unknown';
+
+export type TranscriptionDiarizationStatus =
+  | 'none'
+  | 'heuristic'
+  | 'model'
+  | 'manual';
+
+/**
+ * Blob versionado guardado en metadata del recurso multimedia.
+ * Futuro: `diarization: 'model'` cuando exista un motor de diarización real (p. ej. por voz),
+ * sin romper este esquema; el campo `speakers` ya soporta IDs estables y renombrado manual.
+ */
+export interface StructuredTranscriptPayload {
+  version: 1;
+  segments: TranscriptionSegment[];
+  speakers: Record<string, TranscriptionSpeakerProfile>;
+  session?: {
+    captureKind: TranscriptionCaptureKind;
+    callPlatform: TranscriptionCallPlatform;
+    /** ISO o timestamp ms cuando se infirió la plataforma */
+    inferredAt?: number;
+  };
+  diarization: TranscriptionDiarizationStatus;
+  /** Duración conocida del medio (s), si está disponible */
+  durationSec?: number;
+}
+
 export interface ResourceMetadata {
   file_size?: number;
   file_hash?: string;
@@ -129,13 +187,26 @@ export interface ResourceMetadata {
   page_count?: number; // Para PDFs
   url?: string; // Para recursos web
   thumbnail?: string;
-  transcription?: string; // Para videos/audios
+  transcription?: string; // Para videos/audios — texto plano legacy / búsqueda
+  /** Transcripción estructurada: timestamps, hablantes, sesión */
+  transcription_structured?: StructuredTranscriptPayload;
+  /** Nota principal generada desde transcripción (enlace bidireccional) */
+  transcription_note_id?: string;
+  /** Recurso de audio/video origen (en notas creadas desde transcripción) */
+  source_audio_id?: string;
+  source_media_type?: 'audio' | 'video';
+  transcription_model?: string;
+  transcription_language?: string;
+  transcribed_at?: number;
+  from_microphone?: boolean;
+  source?: string;
   summary?: string; // Generado por IA
   // Para recursos URL:
   url_type?: 'article' | 'youtube';
   scraped_content?: string;
   embedding?: number[];
-  processing_status?: 'pending' | 'processing' | 'completed' | 'failed';
+  /** Legacy: algunos flujos usaron 'done' en lugar de 'completed' */
+  processing_status?: 'pending' | 'processing' | 'completed' | 'failed' | 'done';
   processed_at?: number;
   screenshot_path?: string; // Path interno de la captura guardada
   video_id?: string; // Para YouTube
@@ -275,6 +346,50 @@ export interface UserProfile {
   avatarPath?: string;
 }
 
+/** Acciones rápidas disponibles en el home (orden y visibilidad configurables) */
+export type HomeQuickActionId =
+  | 'newNote'
+  | 'upload'
+  | 'newChat'
+  | 'learn'
+  | 'calendar';
+
+/** Widgets del dashboard gamificado del home */
+export interface HomeDashboardWidgets {
+  momentum: boolean;
+  weeklyActivity: boolean;
+  pendingToday: boolean;
+  search: boolean;
+  continueActivity: boolean;
+}
+
+export interface HomeDashboardPreferences {
+  quickActions: HomeQuickActionId[];
+  widgets: HomeDashboardWidgets;
+}
+
+/** Valores por defecto del home dashboard */
+export const DEFAULT_HOME_QUICK_ACTIONS: HomeQuickActionId[] = [
+  'newNote',
+  'upload',
+  'newChat',
+  'learn',
+  'calendar',
+];
+
+export const DEFAULT_HOME_WIDGETS: HomeDashboardWidgets = {
+  momentum: true,
+  weeklyActivity: true,
+  pendingToday: true,
+  search: true,
+  continueActivity: true,
+};
+
+export const DEFAULT_HOME_DASHBOARD_PREFERENCES: HomeDashboardPreferences = {
+  quickActions: [...DEFAULT_HOME_QUICK_ACTIONS],
+  widgets: { ...DEFAULT_HOME_WIDGETS },
+};
+
 // Preferencias de la aplicación
 export interface AppPreferences {
   theme: 'light' | 'dark' | 'auto';
@@ -282,6 +397,7 @@ export interface AppPreferences {
   autoBackup: boolean;
   citationStyle: CitationStyle;
   shortcuts?: Record<string, string>;
+  homeDashboard?: HomeDashboardPreferences;
 }
 
 // Tipos para el editor tipo Notion

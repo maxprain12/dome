@@ -38,6 +38,11 @@ const runsHandlers = require('./runs.cjs');
 const marketplaceHandlers = require('./marketplace.cjs');
 const cloudStorageHandlers = require('./cloud-storage.cjs');
 const doclingHandlers = require('./docling.cjs');
+const transcriptionHandlers = require('./transcription.cjs');
+const browserContextHandlers = require('./browser-context.cjs');
+const manyVoiceHandlers = require('./many-voice.cjs');
+const transcriptionOverlayHandlers = require('./transcription-overlay.cjs');
+const realtimeHandlers = require('./realtime.cjs');
 
 /**
  * Register all IPC handlers
@@ -89,7 +94,7 @@ function registerAll(deps) {
   webHandlers.register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService, initModule });
   imageHandlers.register({ ipcMain, windowManager, cropImage });
   ollamaHandlers.register({ ipcMain, windowManager, database, ollamaService, ollamaManager });
-  whatsappHandlers.register({ ipcMain, windowManager, database, fileStorage, ollamaService });
+  whatsappHandlers.register({ ipcMain, windowManager, database, fileStorage, ollamaService, initModule, aiToolsHandler });
   authHandlers.register({ ipcMain, windowManager, authManager });
   personalityHandlers.register({ ipcMain, windowManager, personalityLoader });
   aiHandlers.register({ ipcMain, windowManager, database, aiCloudService, ollamaService });
@@ -111,6 +116,20 @@ function registerAll(deps) {
   marketplaceHandlers.register({ ipcMain, windowManager, validateSender });
   cloudStorageHandlers.register({ ipcMain, windowManager, database, fileStorage });
   doclingHandlers.register({ ipcMain, windowManager, database, fileStorage });
+  transcriptionHandlers.register({
+    ipcMain,
+    windowManager,
+    database,
+    fileStorage,
+    aiToolsHandler,
+    thumbnail,
+    initModule,
+    ollamaService,
+  });
+  browserContextHandlers.register({ ipcMain, windowManager });
+  manyVoiceHandlers.register({ ipcMain, windowManager });
+  transcriptionOverlayHandlers.register({ ipcMain, windowManager });
+  realtimeHandlers.register({ ipcMain, windowManager, database });
 
 }
 

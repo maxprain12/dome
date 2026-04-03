@@ -7,6 +7,7 @@
 
 import { db } from '../db/client';
 import type { UserProfile, AppPreferences, AISettings, CitationStyle } from '@/types';
+import { normalizeHomeDashboardPreferences, serializeHomeDashboardPreferences } from './home-dashboard';
 
 // ===========================
 // User Profile Functions
@@ -88,6 +89,7 @@ export async function getAppPreferences(): Promise<AppPreferences> {
       autoBackup: true,
       citationStyle: 'apa',
       shortcuts: undefined,
+      homeDashboard: undefined,
     };
   }
 
@@ -96,6 +98,7 @@ export async function getAppPreferences(): Promise<AppPreferences> {
   const autoBackupResult = await db.getSetting('app_auto_backup');
   const citationStyleResult = await db.getSetting('app_citation_style');
   const shortcutsResult = await db.getSetting('app_shortcuts');
+  const homeDashboardResult = await db.getSetting('home_dashboard_v1');
 
   let shortcuts: Record<string, string> | undefined;
   if (shortcutsResult.data) {
@@ -106,12 +109,22 @@ export async function getAppPreferences(): Promise<AppPreferences> {
     }
   }
 
+  let homeDashboard: AppPreferences['homeDashboard'];
+  if (homeDashboardResult.data) {
+    try {
+      homeDashboard = normalizeHomeDashboardPreferences(JSON.parse(homeDashboardResult.data));
+    } catch {
+      homeDashboard = normalizeHomeDashboardPreferences(undefined);
+    }
+  }
+
   return {
     theme: (themeResult.data as 'light' | 'dark' | 'auto') || 'light',
     autoSave: autoSaveResult.data === 'true' || autoSaveResult.data === undefined,
     autoBackup: autoBackupResult.data === 'true' || autoBackupResult.data === undefined,
     citationStyle: (citationStyleResult.data as CitationStyle) || 'apa',
     shortcuts,
+    homeDashboard,
   };
 }
 
@@ -135,6 +148,11 @@ export async function saveAppPreferences(preferences: Partial<AppPreferences>): 
   if (preferences.shortcuts !== undefined) {
     await db.setSetting('app_shortcuts', JSON.stringify(preferences.shortcuts));
   }
+
+  if (preferences.homeDashboard !== undefined) {
+    const normalized = normalizeHomeDashboardPreferences(preferences.homeDashboard);
+    await db.setSetting('home_dashboard_v1', serializeHomeDashboardPreferences(normalized));
+  }
 }
 
 export async function setTheme(theme: 'light' | 'dark' | 'auto'): Promise<void> {
@@ -152,7 +170,7 @@ export async function setCitationStyle(style: CitationStyle): Promise<void> {
 export async function getAnalyticsEnabled(): Promise<boolean> {
   if (!db.isAvailable()) return false;
   const result = await db.getSetting('analytics_enabled');
-  return result.data === 'true';
+  return result.data === 'true' || result.data === undefined;
 }
 
 export async function setAnalyticsEnabled(enabled: boolean): Promise<void> {

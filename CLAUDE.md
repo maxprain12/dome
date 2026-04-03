@@ -152,7 +152,6 @@ dome/
 │   │   ├── cloud/              # Cloud storage file picker
 │   │   ├── marketplace/        # Plugin marketplace UI
 │   │   ├── settings/           # Settings panels
-│   │   └── CommandCenter/      # Cmd+K search palette
 │   │
 │   ├── lib/
 │   │   ├── ai/                 # AI client and provider adapters

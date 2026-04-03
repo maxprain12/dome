@@ -8,18 +8,38 @@ const { Readability } = require('@mozilla/readability');
 const { DOMParser } = require('linkedom');
 const TurndownService = require('turndown');
 
-const BANNER_SELECTORS = [
+/** Remove CMP / cookie UI roots; avoid stripping every [role="dialog"] or generic ".modal". */
+const CONSENT_SPECIFIC_SELECTORS = [
+  '[class*="onetrust"]',
+  '[id*="onetrust"]',
+  '[class*="cookiebot"]',
+  '[id*="cookiebot"]',
+  '[id*="CybotCookiebot"]',
+  '[class*="CybotCookiebot"]',
+  '[id*="truste"]',
+  '[class*="trustarc"]',
+  '[id*="didomi"]',
+  '[class*="didomi"]',
+  '[id*="usercentrics"]',
+  '[class*="usercentrics"]',
+  '[class*="qc-cmp"]',
+  '[id*="qc-cmp"]',
+  '[class*="cookie-consent"]',
+  '[id*="cookie-consent"]',
+  '[class*="consent-banner"]',
+  '[id*="consent-banner"]',
+  '[class*="cookie-banner"]',
+  '[id*="cookie-banner"]',
+  '[data-testid*="cookie"]',
+  '[data-testid*="consent"]',
+  '[class*="gdpr"]',
+  '[id*="gdpr"]',
   '[class*="cookie"]',
   '[id*="cookie"]',
   '[class*="consent"]',
   '[id*="consent"]',
-  '[class*="gdpr"]',
-  '[class*="banner"]',
   '[class*="privacy"]',
-  '[role="dialog"]',
-  '.modal',
-  '[data-testid*="cookie"]',
-  '[data-testid*="consent"]',
+  '[id*="privacy"]',
 ];
 
 const STRUCTURAL_SELECTORS = [
@@ -90,6 +110,18 @@ function removeMatchingElements(document, selectors) {
       nodes.forEach((node) => node.remove());
     } catch (error) {
       console.warn('[HtmlExtractor] Invalid selector skipped:', selector, error?.message || error);
+    }
+  }
+}
+
+function removeConsentLikeDialogs(document) {
+  const hints = ['cookie', 'consent', 'privacy', 'gdpr', 'similar technologies', 'preferences'];
+  const dialogs = document.querySelectorAll('[role="dialog"], [aria-modal="true"], .modal');
+  for (const el of dialogs) {
+    const t = (el.textContent || '').toLowerCase();
+    const hits = hints.filter((h) => t.includes(h)).length;
+    if (hits >= 2 || (hits >= 1 && t.length < 720)) {
+      el.remove();
     }
   }
 }
@@ -233,7 +265,8 @@ function createFallbackMarkdown(document, selector, warnings) {
   const fallbackDocument = parseDocument(document.documentElement.outerHTML, document.URL);
 
   removeMatchingElements(fallbackDocument, STRUCTURAL_SELECTORS);
-  removeMatchingElements(fallbackDocument, BANNER_SELECTORS);
+  removeMatchingElements(fallbackDocument, CONSENT_SPECIFIC_SELECTORS);
+  removeConsentLikeDialogs(fallbackDocument);
 
   let root = fallbackDocument.body;
   if (selector) {
@@ -258,6 +291,34 @@ function createFallbackMarkdown(document, selector, warnings) {
   };
 }
 
+function assessConsentDominated(content, title) {
+  const combined = `${title || ''}\n${content || ''}`.toLowerCase();
+  const trimmed = combined.trim();
+  if (trimmed.length < 80) return false;
+
+  const strong = [
+    'accept all cookies',
+    'cookie preferences',
+    'manage preferences',
+    'cookie consent',
+    'we use cookies and similar',
+    'your privacy preferences',
+    'manage cookie preferences',
+  ];
+  const strongHits = strong.filter((s) => combined.includes(s)).length;
+  const head = combined.slice(0, 900);
+  const headStrongHits = strong.filter((s) => head.includes(s)).length;
+
+  if (strongHits >= 2) return true;
+  if (headStrongHits >= 1 && trimmed.length < 1500) return true;
+
+  const soft = ['cookies', 'consent', 'privacy policy', 'essential cookies', 'partners'];
+  const softInHead = soft.filter((s) => head.includes(s)).length;
+  if (softInHead >= 3 && trimmed.length < 2200) return true;
+
+  return false;
+}
+
 function extractContentFromHtml({ html, url, finalUrl, selector, metadataHints = {} }) {
   const document = parseDocument(html, finalUrl || url);
   const warnings = [];
@@ -271,7 +332,8 @@ function extractContentFromHtml({ html, url, finalUrl, selector, metadataHints =
     const readabilityDocument = parseDocument(html, finalUrl || url);
 
     removeMatchingElements(readabilityDocument, STRUCTURAL_SELECTORS);
-    removeMatchingElements(readabilityDocument, BANNER_SELECTORS);
+    removeMatchingElements(readabilityDocument, CONSENT_SPECIFIC_SELECTORS);
+    removeConsentLikeDialogs(readabilityDocument);
 
     let article;
     if (selector) {
@@ -315,15 +377,25 @@ function extractContentFromHtml({ html, url, finalUrl, selector, metadataHints =
     excerpt = excerpt || fallback.textContent.slice(0, 280);
   }
 
+  const normalizedContent = normalizeWhitespace(content);
+  const consentLikelyDominated = assessConsentDominated(normalizedContent, title);
+  if (consentLikelyDominated) {
+    warnings.push(
+      'El texto extraído parece dominado por avisos de cookies, consentimiento o privacidad.',
+    );
+  }
+
   return {
     title,
-    content: normalizeWhitespace(content),
+    content: normalizedContent,
     metadata,
     warnings,
     excerpt: excerpt ? normalizeWhitespace(excerpt) : undefined,
+    consentLikelyDominated,
   };
 }
 
 module.exports = {
   extractContentFromHtml,
+  assessConsentDominated,
 };

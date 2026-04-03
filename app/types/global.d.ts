@@ -505,6 +505,12 @@ declare global {
         }>;
         getFilePath: (resourceId: string) => Promise<DBResponse<string>>;
         readFile: (resourceId: string) => Promise<DBResponse<string>>;
+        readFileBuffer: (
+          resourceId: string
+        ) => Promise<
+          | { success: true; data: ArrayBuffer; mimeType: string }
+          | { success: false; error?: string }
+        >;
         readDocumentContent: (resourceId: string) => Promise<{
           success: boolean;
           data?: string;
@@ -581,6 +587,10 @@ declare global {
           screenshot?: string | null;
           screenshotFormat?: string;
           warnings?: string[];
+          excerpt?: string;
+          consentBlocked?: boolean;
+          consentStrategyUsed?: string;
+          consentSignalScore?: number;
           error?: string;
         }>;
         getYouTubeThumbnail: (url: string) => Promise<{
@@ -1160,6 +1170,7 @@ declare global {
           size?: number;
           error?: string;
         }>;
+        playFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
         generatePodcast: (
           lines: Array<{ speaker: string; text: string }>,
           options?: {
@@ -1195,6 +1206,189 @@ declare global {
           error?: string;
         }>;
         onGenerationProgress: (callback: (data: { current: number; total: number }) => void) => RemoveListenerFn;
+        stopStreamingTts: (runId: string) => Promise<{ success: boolean; error?: string }>;
+        onTtsSentencePlaying: (callback: (data: { runId: string; sentence: string }) => void) => RemoveListenerFn;
+        onTtsFinished: (callback: (data: { runId: string }) => void) => RemoveListenerFn;
+        onTtsError: (callback: (data: { runId: string; error: string }) => void) => RemoveListenerFn;
+      };
+
+      transcription: {
+        requestMicrophoneAccess: () => Promise<{
+          success: boolean;
+          granted?: boolean;
+          error?: string;
+        }>;
+        resourceToNote: (args: {
+          resourceId: string;
+          title?: string;
+          language?: string | null;
+          model?: string;
+          updateAudioMetadata?: boolean;
+        }) => Promise<{
+          success: boolean;
+          note?: import('./index').Resource;
+          text?: string;
+          structured?: import('./index').StructuredTranscriptPayload;
+          sourceResourceId?: string;
+          error?: string;
+        }>;
+        bufferToNote: (args: {
+          buffer: ArrayBuffer;
+          extension?: string;
+          projectId?: string;
+          folderId?: string | null;
+          title?: string;
+          audioTitle?: string;
+          saveRecordingAsAudio?: boolean;
+          language?: string | null;
+          model?: string;
+          captureKind?: 'microphone' | 'system' | 'call';
+          callPlatform?: string;
+        }) => Promise<{
+          success: boolean;
+          note?: import('./index').Resource;
+          text?: string;
+          structured?: import('./index').StructuredTranscriptPayload;
+          audioResourceId?: string | null;
+          error?: string;
+        }>;
+        bufferToText: (args: {
+          buffer: ArrayBuffer;
+          extension?: string;
+          language?: string | null;
+          model?: string;
+        }) => Promise<{
+          success: boolean;
+          text?: string;
+          structured?: import('./index').StructuredTranscriptPayload | null;
+          error?: string;
+        }>;
+        getDefaults: () => Promise<{
+          success: boolean;
+          data?: {
+            sttProvider?: 'openai' | 'groq' | 'custom';
+            model: string;
+            language: string | null;
+            apiBaseUrl?: string;
+            prompt?: string;
+            pauseThresholdSec?: number;
+          };
+          error?: string;
+        }>;
+        getSettings: () => Promise<{
+          success: boolean;
+          data?: {
+            sttProvider: 'openai' | 'groq' | 'custom';
+            model: string;
+            language: string | null;
+            apiBaseUrl: string;
+            prompt: string;
+            hasDedicatedOpenAIKey: boolean;
+            hasGroqApiKey: boolean;
+            globalShortcut: string;
+            manyVoiceGlobalShortcut?: string;
+            transcriptionGlobalShortcutEnabled?: boolean;
+            manyVoiceGlobalShortcutEnabled?: boolean;
+            manyVoiceRealtimeEnabled?: boolean;
+            realtimeVoice?: string;
+            realtimeModel?: string;
+            realtimeInstructionsSuffix?: string;
+            pauseThresholdSec?: number;
+          };
+          error?: string;
+        }>;
+        setSettings: (args: {
+          sttProvider?: 'openai' | 'groq' | 'custom';
+          model?: string;
+          language?: string | null;
+          dedicatedOpenaiKey?: string | null;
+          groqApiKey?: string | null;
+          globalShortcut?: string;
+          manyVoiceGlobalShortcut?: string;
+          transcriptionGlobalShortcutEnabled?: boolean;
+          manyVoiceGlobalShortcutEnabled?: boolean;
+          manyVoiceRealtimeEnabled?: boolean;
+          realtimeVoice?: string;
+          realtimeModel?: string;
+          realtimeInstructionsSuffix?: string;
+          apiBaseUrl?: string;
+          prompt?: string | null;
+          pauseThresholdSec?: number | string | null;
+        }) => Promise<{ success: boolean; error?: string }>;
+        regenerateLinkedNote: (args: { resourceId: string }) => Promise<{
+          success: boolean;
+          noteId?: string;
+          error?: string;
+        }>;
+        patchTranscriptSpeakers: (args: {
+          resourceId: string;
+          speakersPatch: Record<string, { label: string; isSelf?: boolean }>;
+        }) => Promise<{ success: boolean; error?: string }>;
+        listDesktopCaptureSources: () => Promise<{
+          success: boolean;
+          sources?: Array<{ id: string; name: string }>;
+          error?: string;
+        }>;
+        onToggleRecording: (callback: () => void) => RemoveListenerFn;
+      };
+
+      transcriptionOverlay: {
+        toggleFromUi: () => Promise<{ success: boolean; error?: string }>;
+        overlaySetVisible: (visible: boolean) => Promise<{ success: boolean; error?: string }>;
+        overlayResize: (height: number) => Promise<{ success: boolean; error?: string }>;
+        openNoteInMain: (payload: { noteId: string; title?: string }) => Promise<{ success: boolean; error?: string }>;
+        onOverlayLoaded: (callback: () => void) => RemoveListenerFn;
+      };
+
+      manyVoice: {
+        onToggle: (callback: () => void) => RemoveListenerFn;
+        onPttStart?: (callback: () => void) => RemoveListenerFn;
+        onPttEnd?: (callback: () => void) => RemoveListenerFn;
+        relaySend: (args: {
+          text: string;
+          autoSpeak?: boolean;
+          openPanel?: boolean;
+        }) => Promise<{ success: boolean; error?: string }>;
+        pushStateToOverlay: (payload: {
+          status: 'idle' | 'thinking' | 'speaking' | 'listening';
+          ttsError?: string | null;
+        }) => Promise<{ success: boolean; error?: string }>;
+        overlayMounted: () => Promise<{ success: boolean; error?: string }>;
+        overlaySetVisible: (visible: boolean) => Promise<{ success: boolean; error?: string }>;
+        openManyPanel: () => Promise<{ success: boolean; error?: string }>;
+        dismissTtsError: () => Promise<{ success: boolean; error?: string }>;
+        overlayResize: (height: number) => Promise<{ success: boolean; error?: string }>;
+        toggleOverlayFromUi: () => Promise<{ success: boolean; error?: string }>;
+        onRelayToMain: (
+          callback: (payload: { text: string; autoSpeak?: boolean; openPanel?: boolean; voiceLanguage?: string }) => void
+        ) => RemoveListenerFn;
+        onHudState: (
+          callback: (payload: { status?: string; ttsError?: string | null; currentSentence?: string | null }) => void
+        ) => RemoveListenerFn;
+        onRequestStatePush: (callback: () => void) => RemoveListenerFn;
+        onOpenPanelRequest: (callback: () => void) => RemoveListenerFn;
+        onDismissTtsError: (callback: () => void) => RemoveListenerFn;
+        onOverlayLoaded: (callback: () => void) => RemoveListenerFn;
+      };
+
+      // Realtime Voice API (OpenAI STS)
+      realtime?: {
+        getSessionConfig: () => Promise<
+          | { success: true; voice: string; model: string; instructionsSuffix?: string }
+          | { success: false; error: string }
+        >;
+        createEphemeralToken: (params: { model: string; voice: string }) => Promise<
+          | { success: true; clientSecret: string }
+          | { success: false; error: string }
+        >;
+        exchangeSdp: (params: { sdp: string; sessionConfig: Record<string, unknown> }) => Promise<
+          | { success: true; sdp: string }
+          | { success: false; error: string }
+        >;
+        executeTool: (params: { name: string; args: Record<string, unknown> }) => Promise<
+          | { success: true; output: string }
+          | { success: false; error: string }
+        >;
       };
 
       // Ollama API

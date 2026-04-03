@@ -541,14 +541,14 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // ⌘K focuses the inline input
+  // ⌘K: AppShell dispara `dome:focus-inline-search` solo en el tab Inicio; Escape cierra
   useEffect(() => {
+    const focusFromChrome = () => {
+      inputRef.current?.focus();
+      setIsFocused(true);
+    };
+    window.addEventListener('dome:focus-inline-search', focusFromChrome);
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        inputRef.current?.focus();
-        setIsFocused(true);
-      }
       if (e.key === 'Escape' && isFocused) {
         setQuery('');
         setGroups({});
@@ -557,7 +557,10 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
       }
     };
     document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('dome:focus-inline-search', focusFromChrome);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isFocused]);
 
   // Debounced multi-source search

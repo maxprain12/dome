@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Mic, Radio } from 'lucide-react';
 import DomeTabBar from './DomeTabBar';
 import ContentRouter from './ContentRouter';
 import ManyPanel from '@/components/many/ManyPanel';
@@ -11,7 +12,6 @@ import UnifiedSidebar from '@/components/workspace/UnifiedSidebar';
 import PetPluginSlot from '@/components/plugins/PetPluginSlot';
 import ResizeHandle from '@/components/workspace/ResizeHandle';
 import WindowControls from '@/components/ui/WindowControls';
-
 const MANY_WIDTH_KEY = 'dome:many-panel-width-v1';
 const MANY_MIN = 280;
 const MANY_MAX = 600;
@@ -32,6 +32,8 @@ export default function AppShell() {
   const { t } = useTranslation();
   const [manyWidth, setManyWidth] = useState(MANY_DEFAULT);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
+  /** Muestra Many en la columna derecha aunque la pestaña activa sea Chat (p. ej. HITL). */
+  const [manyRightOverride, setManyRightOverride] = useState(false);
   const manyWidthRef = useRef(manyWidth);
   manyWidthRef.current = manyWidth;
 
@@ -60,12 +62,43 @@ export default function AppShell() {
     setRightSidebarOpen(prev => !prev);
   }, []);
 
+  const handleToggleDictationDock = useCallback(async () => {
+    try {
+      await window.electron?.transcriptionOverlay?.toggleFromUi?.();
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const handleToggleManyVoiceOverlay = useCallback(async () => {
+    try {
+      await window.electron?.manyVoice?.toggleOverlayFromUi?.();
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const handleNewChat = useCallback(() => {
     useManyStore.getState().startNewChat();
     const sessionId = useManyStore.getState().currentSessionId;
     if (sessionId) openChatTab(sessionId, t('shell.new_chat'));
     if (!rightSidebarOpen) setRightSidebarOpen(true);
   }, [openChatTab, rightSidebarOpen, t]);
+
+  /** ⌘K enfoca el buscador del Inicio (si el widget de búsqueda está visible). */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        const { tabs: tabList, activeTabId: aid } = useTabStore.getState();
+        const tab = tabList.find((x) => x.id === aid);
+        if (tab?.type !== 'home') return;
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('dome:focus-inline-search'));
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
@@ -101,7 +134,23 @@ export default function AppShell() {
     }
   }, [isChatTab]);
 
-  const effectiveManyWidth = rightSidebarOpen ? manyWidth : 0;
+  useEffect(() => {
+    const onReq = () => {
+      setManyRightOverride(true);
+      setRightSidebarOpen(true);
+    };
+    const onClr = () => setManyRightOverride(false);
+    window.addEventListener('dome:many-requires-panel', onReq);
+    window.addEventListener('dome:many-hitl-cleared', onClr);
+    return () => {
+      window.removeEventListener('dome:many-requires-panel', onReq);
+      window.removeEventListener('dome:many-hitl-cleared', onClr);
+    };
+  }, []);
+
+  const showChatHistory = Boolean(isChatTab && !manyRightOverride);
+  const showManyInSidebar = Boolean(rightSidebarOpen && !showChatHistory);
+  const needsHeadlessMany = !showManyInSidebar;
 
   const SIDEBAR_W = 260;
   const HEADER_DRAG_STRIP_W = isWindows ? 20 : 32;
@@ -120,9 +169,9 @@ export default function AppShell() {
           zIndex: 10,
         } as React.CSSProperties}
       >
-        {/* Left section: sidebar header */}
+        {/* Left section: alineado al ancho del sidebar; arrastrable salvo el botón de colapsar */}
         <div
-          className="flex items-center shrink-0"
+          className="flex items-center shrink-0 min-w-0"
           style={{
             width: leftSidebarCollapsed ? (isMac ? 116 : 48) : SIDEBAR_W,
             minWidth: leftSidebarCollapsed ? (isMac ? 116 : 48) : SIDEBAR_W,
@@ -133,42 +182,29 @@ export default function AppShell() {
             overflow: 'hidden',
           } as React.CSSProperties}
         >
-          {/* no-drag wrapper so buttons remain clickable */}
-          <div
-            className="flex items-center gap-1.5 flex-1 min-w-0"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            {!leftSidebarCollapsed && (
-              <>
-                <div className="w-4 h-4 shrink-0" style={{ filter: 'var(--dome-logo-filter)' }}>
-                  <img src="/many.png" alt="Dome" width={16} height={16} style={{ objectFit: 'contain' }} />
-                </div>
-                <span
-                  className="truncate flex-1"
-                  style={{ fontSize: 12, fontWeight: 600, color: 'var(--dome-text)', userSelect: 'none' }}
-                >
-                  Dome
-                </span>
-              </>
-            )}
-            {/* Sidebar toggle — always visible in header */}
-            <button
-              onClick={toggleLeftSidebar}
-              className="flex items-center justify-center rounded shrink-0 transition-colors"
-              style={{
-                width: 22, height: 22,
-                background: 'transparent',
-                color: 'var(--dome-text-muted)',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-              title={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <line x1="9" y1="3" x2="9" y2="21" />
-              </svg>
-            </button>
+          <div className="flex flex-1 min-w-0 items-center justify-end gap-1.5 h-full">
+            {/* Hueco arrastrable (mover ventana); la marca Dome está en el sidebar */}
+            <div className="flex-1 min-w-0 h-full self-stretch" aria-hidden />
+            <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+              <button
+                type="button"
+                onClick={toggleLeftSidebar}
+                className="flex items-center justify-center rounded shrink-0 transition-colors"
+                style={{
+                  width: 22, height: 22,
+                  background: 'transparent',
+                  color: 'var(--dome-text-muted)',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+                title={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <line x1="9" y1="3" x2="9" y2="21" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -196,6 +232,45 @@ export default function AppShell() {
               WebkitAppRegion: 'drag',
             } as React.CSSProperties}
           />
+
+          {/* Voice: dictation dock + Many overlay (no global shortcut required) */}
+          <div
+            className="flex shrink-0 items-stretch gap-0.5 pr-1"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+          >
+            <button
+              type="button"
+              onClick={handleToggleDictationDock}
+              className="flex items-center justify-center shrink-0 transition-colors rounded-md"
+              style={{
+                width: 34,
+                height: '100%',
+                background: 'transparent',
+                color: 'var(--dome-text-muted)',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+              title={t('shell.dictation_dock')}
+            >
+              <Mic className="h-[15px] w-[15px]" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleToggleManyVoiceOverlay()}
+              className="flex items-center justify-center shrink-0 transition-colors rounded-md"
+              style={{
+                width: 34,
+                height: '100%',
+                background: 'transparent',
+                color: 'var(--dome-text-muted)',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+              title={t('shell.many_voice_overlay')}
+            >
+              <Radio className="h-[15px] w-[15px]" aria-hidden />
+            </button>
+          </div>
 
           {/* Right sidebar toggle */}
           <div
@@ -248,27 +323,45 @@ export default function AppShell() {
         {/* Right sidebar with resize handle */}
         {rightSidebarOpen && (
           <>
-            {!isChatTab && <ResizeHandle onResize={handleManyResize} direction="horizontal" />}
+            {showManyInSidebar ? <ResizeHandle onResize={handleManyResize} direction="horizontal" /> : null}
             <div
               className="shrink-0 overflow-hidden"
               style={{
-                width: isChatTab ? 280 : effectiveManyWidth,
-                minWidth: isChatTab ? 280 : effectiveManyWidth,
+                width: showChatHistory ? 280 : manyWidth,
+                minWidth: showChatHistory ? 280 : manyWidth,
                 transition: 'width 200ms ease',
               }}
             >
-              {isChatTab ? (
+              {showChatHistory ? (
                 <ChatHistoryPanel onClose={handleToggleRightSidebar} />
               ) : (
                 <ManyPanel
                   width={manyWidth}
                   onClose={handleToggleRightSidebar}
-                  isVisible={true}
+                  isVisible
                   isFullscreen={false}
                 />
               )}
             </div>
           </>
+        )}
+
+        {needsHeadlessMany && (
+          <div
+            aria-hidden
+            className="fixed top-0 left-0 w-px h-px overflow-hidden opacity-0 pointer-events-none"
+            style={{ zIndex: -10 }}
+          >
+            <div style={{ width: manyWidth, minHeight: 1 }}>
+              <ManyPanel
+                width={manyWidth}
+                onClose={() => {}}
+                isVisible
+                isFullscreen={false}
+                mode="headless"
+              />
+            </div>
+          </div>
         )}
       </div>
 

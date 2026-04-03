@@ -12,6 +12,8 @@ import AppShell from '@/components/shell/AppShell';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
 import PptCapturePage from './pages/PptCapturePage';
+import ManyVoiceOverlayPage from './pages/ManyVoiceOverlayPage';
+import TranscriptionOverlayPage from './pages/TranscriptionOverlayPage';
 
 function MainApp() {
   const { t } = useTranslation();
@@ -64,6 +66,47 @@ function MainApp() {
     return () => unsub?.();
   }, [t]);
 
+  // Realtime / main-process: open built-in singleton tabs
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron?.on) return;
+    const unsub = window.electron.on('dome:open-singleton-tab', (data: { tab?: string }) => {
+      const tab = String(data?.tab || '').toLowerCase();
+      const ts = useTabStore.getState();
+      switch (tab) {
+        case 'home':
+          ts.activateTab('home');
+          break;
+        case 'settings':
+          ts.openSettingsTab();
+          break;
+        case 'calendar':
+          ts.openCalendarTab();
+          break;
+        case 'agents':
+          ts.openAgentsTab();
+          break;
+        case 'studio':
+          ts.openStudioTab();
+          break;
+        case 'flashcards':
+          ts.openFlashcardsTab();
+          break;
+        case 'learn':
+          ts.openLearnTab();
+          break;
+        case 'tags':
+          ts.openTagsTab();
+          break;
+        case 'marketplace':
+          ts.openMarketplaceTab();
+          break;
+        default:
+          break;
+      }
+    });
+    return () => unsub?.();
+  }, []);
+
   // PPT background generation notifications
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
@@ -102,6 +145,22 @@ export default function App() {
   // Hidden capture route — render only the bare slide container, no app UI.
   if (pathname === '/ppt-capture') {
     return <PptCapturePage />;
+  }
+
+  if (pathname === '/many-voice-overlay') {
+    return (
+      <ThemeProvider>
+        <ManyVoiceOverlayPage />
+      </ThemeProvider>
+    );
+  }
+
+  if (pathname === '/transcription-overlay') {
+    return (
+      <ThemeProvider>
+        <TranscriptionOverlayPage />
+      </ThemeProvider>
+    );
   }
 
   return (

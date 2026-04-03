@@ -1,4 +1,20 @@
 /* eslint-disable no-console */
+const path = require('path');
+const { app } = require('electron');
+const audioPlayback = require('../audio-playback.cjs');
+const streamingTts = require('../streaming-tts.cjs');
+
+/**
+ * @param {string} filePath
+ * @param {string} audioDir Resolved absolute audio root
+ */
+function _isPathInsideAudioDir(filePath, audioDir) {
+  const resolved = path.resolve(filePath);
+  const root = path.resolve(audioDir);
+  const prefix = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
+  return resolved === root || resolved.startsWith(prefix);
+}
+
 /**
  * Audio IPC Handlers
  *
@@ -28,6 +44,39 @@ function register({ ipcMain, windowManager, database, ttsService }) {
     } catch (error) {
       console.error('[Audio IPC] generate-speech error:', error);
       return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('audio:play-file', async (event, { filePath }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        return { success: false, error: 'Invalid path' };
+      }
+      const audioDir = path.join(app.getPath('userData'), 'audio');
+      if (!_isPathInsideAudioDir(filePath, audioDir)) {
+        return { success: false, error: 'Invalid audio path' };
+      }
+      const resolved = path.resolve(filePath);
+      await audioPlayback.playAudioFile(resolved);
+      return { success: true };
+    } catch (error) {
+      const msg =
+        error instanceof Error && typeof error.message === 'string' && error.message.trim()
+          ? error.message.trim()
+          : typeof error === 'string' && error.trim()
+            ? error.trim()
+            : (() => {
+                try {
+                  return JSON.stringify(error);
+                } catch {
+                  return 'Error desconocido al reproducir audio';
+                }
+              })();
+      console.error('[Audio IPC] play-file failed:', msg, error);
+      return { success: false, error: msg };
     }
   });
 
@@ -99,6 +148,19 @@ function register({ ipcMain, windowManager, database, ttsService }) {
       return { success: false, error: error.message };
     }
   });
+
+  /**
+   * Stop / cancel streaming TTS for a run (e.g. user interrupts)
+   */
+  ipcMain.handle('audio:stop-streaming-tts', async (event, { runId } = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    if (runId) {
+      streamingTts.cancel(runId);
+    }
+    return { success: true };
+  });
 }
 
 /**
@@ -111,23 +173,25 @@ function _getOpenAIKey(database) {
   try {
     const queries = database.getQueries();
 
-    // Only use OpenAI key when provider is openai
     const providerRow = queries.getSetting.get('ai_provider');
     const provider = providerRow?.value;
-    if (provider !== 'openai') {
-      return null;
+
+    // Primary: chat configured for OpenAI
+    if (provider === 'openai') {
+      const apiKeyRow = queries.getSetting.get('ai_api_key');
+      if (apiKeyRow?.value && String(apiKeyRow.value).trim()) {
+        return String(apiKeyRow.value).trim();
+      }
+      const openaiSpecific = queries.getSetting.get('openai_api_key');
+      if (openaiSpecific?.value && String(openaiSpecific.value).trim()) {
+        return String(openaiSpecific.value).trim();
+      }
     }
 
-    // Get API key from ai_api_key (consistent with rest of app)
-    const apiKeyRow = queries.getSetting.get('ai_api_key');
-    if (apiKeyRow?.value) {
-      return apiKeyRow.value;
-    }
-
-    // Fallback: legacy openai-specific setting key
-    const openaiSpecific = queries.getSetting.get('openai_api_key');
-    if (openaiSpecific?.value) {
-      return openaiSpecific.value;
+    // TTS uses OpenAI API: allow transcription-dedicated OpenAI key when chat uses another provider
+    const transcriptionDedicated = queries.getSetting.get('transcription_openai_api_key');
+    if (transcriptionDedicated?.value && String(transcriptionDedicated.value).trim()) {
+      return String(transcriptionDedicated.value).trim();
     }
 
     return null;

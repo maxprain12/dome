@@ -11,6 +11,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { type Resource } from '@/types';
+import { mergeResourceOnBroadcast } from '@/lib/utils/resource-metadata';
 
 const PDFViewer = lazy(() => import('../viewers/PDFViewer'));
 const VideoPlayer = lazy(() => import('../viewers/VideoPlayer'));
@@ -96,17 +97,25 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   useEffect(() => {
     if (!resourceId || typeof window === 'undefined' || !window.electron) return;
 
-    // Listener: Actualización del recurso actual
-    const unsubscribe = window.electron.on('resource:updated',
-      ({ id, updates }: { id: string, updates: Partial<Resource> }) => {
-        if (id === resourceId && resource) {
-          setResource(prev => prev ? { ...prev, ...updates } : prev);
-        }
-      }
-    );
+    const unsubscribe = window.electron.on('resource:updated', (payload: unknown) => {
+      setResource((prev) => {
+        if (!prev || (payload as { id?: string }).id !== resourceId) return prev;
+        return mergeResourceOnBroadcast(prev, payload);
+      });
+    });
 
     return unsubscribe;
-  }, [resourceId, resource]);
+  }, [resourceId]);
+
+  // Modo multimedia: menos paneles al abrir audio/vídeo (workspace más limpio)
+  useEffect(() => {
+    if (!resource) return;
+    if (resource.type !== 'audio' && resource.type !== 'video') return;
+    const app = useAppStore.getState();
+    app.setSourcesPanelOpen(false);
+    if (app.studioPanelOpen) app.toggleStudioPanel();
+    if (app.graphPanelOpen) app.toggleGraphPanel();
+  }, [resource?.id, resource?.type]);
 
   const handleToggleSidePanel = useCallback(() => {
     setSidePanelOpen((prev) => !prev);
@@ -292,6 +301,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
         sidePanelOpen={sidePanelOpen}
         onToggleSidePanel={handleToggleSidePanel}
         onShowMetadata={handleShowMetadata}
+        mediaFocusMode={resource.type === 'audio' || resource.type === 'video'}
       />
 
       {/* Main Content */}

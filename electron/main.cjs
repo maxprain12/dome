@@ -195,6 +195,7 @@ const resourceIndexer = require('./resource-indexer.cjs');
 
 // IPC handlers (modularized)
 const { registerAll } = require('./ipc/index.cjs');
+const transcriptionShortcut = require('./transcription-shortcut.cjs');
 
 // Environment detection
 const isDev = process.env.NODE_ENV === 'development' ||
@@ -420,6 +421,29 @@ function createTray(mainWindow) {
           win.focus();
         } else {
           createWindow();
+        }
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Grabar / dictado',
+      click: () => {
+        try {
+          const transcriptionOverlay = require('./transcription-overlay.cjs');
+          transcriptionOverlay.showAndFocus(windowManager);
+          const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
+          if (ov && !ov.isDestroyed()) {
+            ov.webContents.send('transcription:toggle-recording');
+            return;
+          }
+        } catch (e) {
+          console.warn('[Tray] transcription overlay:', e?.message);
+        }
+        const win = windowManager.get('main');
+        if (win && !win.isDestroyed()) {
+          win.webContents.send('transcription:toggle-recording');
+          win.show();
+          win.focus();
         }
       },
     },
@@ -693,9 +717,31 @@ app
       validateUrl,
     });
 
+    try {
+      transcriptionShortcut.registerFromDatabase(database, windowManager);
+      const manyVoiceShortcut = require('./many-voice-shortcut.cjs');
+      await manyVoiceShortcut.registerFromDatabase(database, windowManager);
+    } catch (shortcutErr) {
+      console.warn('[Main] Transcription shortcut init:', shortcutErr?.message);
+    }
+
     // IMPORTANTE: Crear ventana PRIMERO para que la UI se muestre inmediatamente
     // La inicializacion de LanceDB puede fallar o bloquearse con modulos nativos
     const mainWindow = await createWindow();
+
+    try {
+      const manyVoiceOverlay = require('./many-voice-overlay.cjs');
+      manyVoiceOverlay.ensureCreated(windowManager);
+    } catch (ovErr) {
+      console.warn('[Main] Many voice overlay init:', ovErr?.message);
+    }
+
+    try {
+      const transcriptionOverlay = require('./transcription-overlay.cjs');
+      transcriptionOverlay.ensureCreated(windowManager);
+    } catch (txOvErr) {
+      console.warn('[Main] Transcription overlay init:', txOvErr?.message);
+    }
 
     // Create tray icon for background operation (automations, notifications)
     createTray(mainWindow);
@@ -745,7 +791,7 @@ app
 
     // Initialize calendar notification service (upcoming events broadcast)
     calendarNotificationService.init(windowManager);
-    runEngine.init(windowManager, database);
+    runEngine.init(windowManager, database, ttsService);
     automationService.init(windowManager, database);
 
     // Initialize the app in background (SQLite settings, filesystem)
@@ -797,6 +843,13 @@ app.on('before-quit', async () => {
   if (appTray) {
     appTray.destroy();
     appTray = null;
+  }
+  transcriptionShortcut.unregisterAll();
+  try {
+    const manyVoiceShortcut = require('./many-voice-shortcut.cjs');
+    manyVoiceShortcut.unregisterAll();
+  } catch (e) {
+    console.warn('[Main] many-voice shortcut cleanup:', e?.message);
   }
   calendarNotificationService.stop();
   automationService.stop();

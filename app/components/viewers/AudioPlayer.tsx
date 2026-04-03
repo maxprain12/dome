@@ -1,21 +1,26 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Rewind, FastForward, Music } from 'lucide-react';
+import { Rewind, FastForward } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { notifications } from '@mantine/notifications';
 import { type Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
+import { useSafeMediaSource } from '@/lib/hooks/useSafeMediaSource';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
 import MediaControls from './shared/MediaControls';
 import SeekBar from './shared/SeekBar';
 import AnnotationInput from './shared/AnnotationInput';
+import StructuredTranscriptWorkspace from './shared/StructuredTranscriptWorkspace';
+import { useMediaPlaybackStore } from '@/lib/store/useMediaPlaybackStore';
 
 interface AudioPlayerProps {
   resource: Resource;
 }
 
 function AudioPlayerComponent({ resource }: AudioPlayerProps) {
+  const { t } = useTranslation();
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const { objectUrl: audioUrl, loading: sourceLoading, error: sourceError } = useSafeMediaSource(resource.id);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -25,40 +30,158 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [showAnnotationInput, setShowAnnotationInput] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [miniPlayerCollapsed, setMiniPlayerCollapsed] = useState(false);
 
   const { addInteraction } = useInteractions(resource.id);
+  const setPlaybackPartial = useMediaPlaybackStore((s) => s.setPartial);
 
-  // Load audio file
+  const persistPlayback = useCallback(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    setPlaybackPartial(resource.id, {
+      currentTime: el.currentTime,
+      volume: el.volume,
+      isMuted: el.volume === 0,
+      playbackRate: el.playbackRate,
+    });
+  }, [resource.id, setPlaybackPartial]);
+
   useEffect(() => {
-    async function loadAudio() {
-      if (typeof window === 'undefined' || !window.electron) return;
+    setError(sourceError);
+  }, [sourceError]);
 
+  useEffect(() => {
+    if (!sourceLoading && (audioUrl || sourceError)) {
+      setIsLoading(false);
+    }
+  }, [sourceLoading, audioUrl, sourceError]);
+
+  useEffect(() => {
+    if (!audioUrl || !audioRef.current) return;
+    const el = audioRef.current;
+    const snap = useMediaPlaybackStore.getState().getForResource(resource.id);
+
+    const onMeta = () => {
+      el.volume = snap.isMuted ? 0 : snap.volume;
+      setVolume(snap.volume);
+      setIsMuted(snap.isMuted);
+      el.playbackRate = snap.playbackRate;
+      setPlaybackRate(snap.playbackRate);
+      if (snap.currentTime > 0.25 && Number.isFinite(el.duration) && el.duration > 0) {
+        el.currentTime = Math.min(snap.currentTime, el.duration - 0.1);
+      }
+      setCurrentTime(el.currentTime);
+      setDuration(Number.isFinite(el.duration) ? el.duration : 0);
+    };
+
+    el.addEventListener('loadedmetadata', onMeta);
+    return () => el.removeEventListener('loadedmetadata', onMeta);
+  }, [audioUrl, resource.id]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    const i = setInterval(() => persistPlayback(), 1000);
+    return () => clearInterval(i);
+  }, [isPlaying, persistPlayback]);
+
+  const handlePlayPause = useCallback(async () => {
+    if (!audioRef.current) return;
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      persistPlayback();
+    } else {
       try {
-        setIsLoading(true);
-        setError(null);
-
-        const result = await window.electron.resource.getFilePath(resource.id);
-
-        if (result.success && result.data) {
-          setAudioUrl(`file://${result.data}`);
-        } else {
-          setError(result.error || 'Failed to load audio');
-        }
-      } catch (err) {
-        console.error('Error loading audio:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setIsLoading(false);
+        await audioRef.current.play();
+      } catch (e) {
+        notifications.show({
+          title: t('media.playback_failed_title'),
+          message: e instanceof Error ? e.message : t('media.playback_failed_generic'),
+          color: 'red',
+        });
       }
     }
+  }, [isPlaying, persistPlayback, t]);
 
-    loadAudio();
-  }, [resource.id]);
+  const handleSkip = useCallback(
+    (seconds: number) => {
+      if (!audioRef.current) return;
+      const raw = Number.isFinite(audioRef.current.duration) ? audioRef.current.duration : duration;
+      const upper = Number.isFinite(raw) && raw > 0 ? raw : Number.POSITIVE_INFINITY;
+      const next = Math.max(0, Math.min(audioRef.current.currentTime + seconds, upper));
+      audioRef.current.currentTime = next;
+      setPlaybackPartial(resource.id, { currentTime: next });
+    },
+    [duration, resource.id, setPlaybackPartial],
+  );
 
-  // Keyboard shortcuts
+  const handleTimeUpdate = useCallback(() => {
+    if (!audioRef.current) return;
+    setCurrentTime(audioRef.current.currentTime);
+  }, []);
+
+  const handleLoadedMetadata = useCallback(() => {
+    if (!audioRef.current) return;
+    const d = audioRef.current.duration;
+    setDuration(Number.isFinite(d) ? d : 0);
+  }, []);
+
+  const handleDurationChange = useCallback(() => {
+    if (!audioRef.current) return;
+    const d = audioRef.current.duration;
+    if (Number.isFinite(d)) setDuration(d);
+  }, []);
+
+  const handleMediaError = useCallback(() => {
+    const el = audioRef.current;
+    const code = el?.error?.code;
+    const msg =
+      code === 1 ? t('media.playback_error_aborted')
+      : code === 2 ? t('media.playback_error_network')
+      : code === 3 ? t('media.playback_error_decode')
+      : code === 4 ? t('media.playback_error_not_supported')
+      : t('media.playback_failed_generic');
+    setError(msg);
+  }, [t]);
+
+  const handleSeek = useCallback(
+    (time: number) => {
+      if (!audioRef.current) return;
+      audioRef.current.currentTime = time;
+      setCurrentTime(time);
+      setPlaybackPartial(resource.id, { currentTime: time });
+    },
+    [resource.id, setPlaybackPartial],
+  );
+
+  const handleVolumeChange = useCallback(
+    (vol: number) => {
+      if (!audioRef.current) return;
+      audioRef.current.volume = vol;
+      setVolume(vol);
+      setIsMuted(vol === 0);
+      setPlaybackPartial(resource.id, { volume: vol, isMuted: vol === 0 });
+    },
+    [resource.id, setPlaybackPartial],
+  );
+
+  const handleToggleMute = useCallback(() => {
+    if (!audioRef.current) return;
+
+    if (isMuted) {
+      const v = volume || 0.5;
+      audioRef.current.volume = v;
+      setIsMuted(false);
+      setPlaybackPartial(resource.id, { volume: v, isMuted: false });
+    } else {
+      audioRef.current.volume = 0;
+      setIsMuted(true);
+      setPlaybackPartial(resource.id, { isMuted: true });
+    }
+  }, [isMuted, volume, resource.id, setPlaybackPartial]);
+
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
@@ -66,7 +189,7 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
       switch (e.key.toLowerCase()) {
         case ' ':
           e.preventDefault();
-          handlePlayPause();
+          void handlePlayPause();
           break;
         case 'm':
           e.preventDefault();
@@ -93,191 +216,98 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [volume, isPlaying]);
+  }, [volume, handlePlayPause, handleSkip, handleVolumeChange, handleToggleMute]);
 
-  const handlePlayPause = useCallback(() => {
-    if (!audioRef.current) return;
+  const handleSaveAnnotation = useCallback(
+    async (content: string) => {
+      await addInteraction('annotation', content, {
+        type: 'audio_timestamp',
+        timestamp: currentTime,
+      });
+    },
+    [currentTime, addInteraction],
+  );
 
-    if (isPlaying) {
-      audioRef.current.pause();
-    } else {
-      audioRef.current.play();
-    }
-  }, [isPlaying]);
-
-  const handleTimeUpdate = useCallback(() => {
-    if (!audioRef.current) return;
-    setCurrentTime(audioRef.current.currentTime);
-  }, []);
-
-  const handleLoadedMetadata = useCallback(() => {
-    if (!audioRef.current) return;
-    setDuration(audioRef.current.duration);
-  }, []);
-
-  const handleSeek = useCallback((time: number) => {
-    if (!audioRef.current) return;
-    audioRef.current.currentTime = time;
-    setCurrentTime(time);
-  }, []);
-
-  const handleSkip = useCallback((seconds: number) => {
-    if (!audioRef.current) return;
-    audioRef.current.currentTime = Math.max(0, Math.min(audioRef.current.currentTime + seconds, duration));
-  }, [duration]);
-
-  const handleVolumeChange = useCallback((vol: number) => {
-    if (!audioRef.current) return;
-    audioRef.current.volume = vol;
-    setVolume(vol);
-    setIsMuted(vol === 0);
-  }, []);
-
-  const handleToggleMute = useCallback(() => {
-    if (!audioRef.current) return;
-
-    if (isMuted) {
-      audioRef.current.volume = volume || 0.5;
-      setIsMuted(false);
-    } else {
-      audioRef.current.volume = 0;
-      setIsMuted(true);
-    }
-  }, [isMuted, volume]);
-
-  const handleSaveAnnotation = useCallback(async (content: string) => {
-    await addInteraction('annotation', content, {
-      type: 'audio_timestamp',
-      timestamp: currentTime,
-    });
-  }, [currentTime, addInteraction]);
-
-  const handlePlaybackRateChange = useCallback((rate: number) => {
-    if (!audioRef.current) return;
-    audioRef.current.playbackRate = rate;
-    setPlaybackRate(rate);
-  }, []);
+  const handlePlaybackRateChange = useCallback(
+    (rate: number) => {
+      if (!audioRef.current) return;
+      audioRef.current.playbackRate = rate;
+      setPlaybackRate(rate);
+      setPlaybackPartial(resource.id, { playbackRate: rate });
+    },
+    [resource.id, setPlaybackPartial],
+  );
 
   const formatTime = (seconds: number) => {
+    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (error) {
-    return <ErrorState error={error} />;
+  useEffect(() => {
+    return () => {
+      persistPlayback();
+    };
+  }, [persistPlayback]);
+
+  if (error || sourceError) {
+    return <ErrorState error={error || sourceError || t('media.playback_failed_generic')} />;
   }
 
+  const mainLoading = isLoading || sourceLoading;
+
   return (
-    <div
-      className="flex flex-col items-center justify-center h-full p-8"
-      style={{ background: 'var(--bg-secondary)' }}
-    >
-      {/* Hidden audio element */}
-      {audioUrl && (
-        <audio
-          ref={audioRef}
-          src={audioUrl}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
+    <div className="flex h-full min-h-0 flex-col" style={{ background: 'var(--dome-bg)' }}>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <StructuredTranscriptWorkspace
+          resource={resource}
+          mediaLabel="audio"
+          currentTime={currentTime}
+          onSeek={handleSeek}
+          miniPlayerCollapsed={miniPlayerCollapsed}
+          onToggleMiniPlayer={() => setMiniPlayerCollapsed((c) => !c)}
+          isPlaying={isPlaying}
         />
-      )}
+      </div>
 
-      {/* Visual Container */}
-      <div className="w-full max-w-md">
-        {isLoading && !audioUrl ? (
-          <LoadingState message="Loading audio..." />
-        ) : (
-          <>
-            {/* Album Art Placeholder */}
-            <div
-              className="aspect-square rounded-xl mb-8 flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(135deg, var(--accent) 0%, var(--secondary) 100%)',
-              }}
-            >
-              <Music className="w-24 h-24 text-white opacity-50" />
-            </div>
-
-            {/* Title */}
-            <h2
-              className="text-xl font-semibold text-center mb-2 truncate"
-              style={{ color: 'var(--primary-text)' }}
-            >
-              {resource.title}
-            </h2>
-            <p className="text-sm text-center mb-6" style={{ color: 'var(--secondary-text)' }}>
-              {resource.original_filename || 'Audio file'}
-            </p>
-
-            {/* Progress Bar */}
-            <div className="mb-4">
+      {!miniPlayerCollapsed && (
+        <div
+          className="shrink-0 space-y-2 border-t px-4 py-3"
+          style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
+        >
+          {audioUrl && (
+            <audio
+              ref={audioRef}
+              src={audioUrl}
+              preload="metadata"
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onDurationChange={handleDurationChange}
+              onError={handleMediaError}
+            />
+          )}
+          {mainLoading && !audioUrl ? (
+            <LoadingState message={t('media.loading_audio')} />
+          ) : (
+            <>
               <SeekBar
                 currentTime={currentTime}
                 duration={duration}
                 onSeek={handleSeek}
                 formatTime={formatTime}
               />
-            </div>
-
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <button
-                onClick={() => handleSkip(-10)}
-                className="p-3 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-                style={{ color: 'var(--secondary-text)' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--bg-tertiary)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                }}
-                title="Rewind 10s (←)"
-                aria-label="Rewind 10 seconds"
-              >
-                <Rewind size={24} />
-              </button>
-
-              <MediaControls
-                isPlaying={isPlaying}
-                isMuted={isMuted}
-                volume={volume}
-                onPlayPause={handlePlayPause}
-                onToggleMute={handleToggleMute}
-                onVolumeChange={handleVolumeChange}
-              />
-
-              <button
-                onClick={() => handleSkip(10)}
-                className="p-3 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-                style={{ color: 'var(--secondary-text)' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--bg-tertiary)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                }}
-                title="Forward 10s (→)"
-                aria-label="Forward 10 seconds"
-              >
-                <FastForward size={24} />
-              </button>
-            </div>
-
-            {/* Playback Speed & Annotation */}
-            <div className="flex items-center justify-between">
-              {/* Playback Speed */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <select
                   value={playbackRate}
                   onChange={(e) => handlePlaybackRateChange(parseFloat(e.target.value))}
-                  className="px-2 py-1 text-sm rounded"
+                  className="cursor-pointer rounded-lg px-2 py-1 text-xs"
                   style={{
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--primary-text)',
+                    background: 'var(--dome-bg-hover)',
+                    border: '1px solid var(--dome-border)',
+                    color: 'var(--dome-text)',
                   }}
                   aria-label="Playback speed"
                 >
@@ -288,27 +318,51 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
                   <option value={1.5}>1.5x</option>
                   <option value={2}>2x</option>
                 </select>
+                <div className="flex items-center justify-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSkip(-10)}
+                    className="cursor-pointer rounded-full p-2 transition-colors"
+                    style={{ color: 'var(--dome-text-muted)' }}
+                    aria-label="Rewind 10 seconds"
+                  >
+                    <Rewind size={20} />
+                  </button>
+                  <MediaControls
+                    isPlaying={isPlaying}
+                    isMuted={isMuted}
+                    volume={volume}
+                    onPlayPause={() => void handlePlayPause()}
+                    onToggleMute={handleToggleMute}
+                    onVolumeChange={handleVolumeChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSkip(10)}
+                    className="cursor-pointer rounded-full p-2 transition-colors"
+                    style={{ color: 'var(--dome-text-muted)' }}
+                    aria-label="Forward 10 seconds"
+                  >
+                    <FastForward size={20} />
+                  </button>
+                </div>
+                <AnnotationInput
+                  isOpen={showAnnotationInput}
+                  onRequestOpen={() => setShowAnnotationInput(true)}
+                  onClose={() => setShowAnnotationInput(false)}
+                  onSave={handleSaveAnnotation}
+                  currentTime={currentTime}
+                  placeholder={t('media.annotation_placeholder')}
+                  addNoteLabel={t('media.add_note')}
+                />
               </div>
-
-              {/* Annotation Input */}
-              <AnnotationInput
-                isOpen={showAnnotationInput}
-                onClose={() => setShowAnnotationInput(!showAnnotationInput)}
-                onSave={handleSaveAnnotation}
-                currentTime={currentTime}
-                placeholder="Note at this timestamp..."
-              />
-            </div>
-
-            {/* Keyboard Shortcuts Hint */}
-            <div className="mt-4 text-center">
-              <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
-                Space: Play/Pause • M: Mute • ←/→: Skip • ↑/↓: Volume
+              <p className="text-center text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
+                {t('media.keyboard_hints_audio')}
               </p>
-            </div>
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

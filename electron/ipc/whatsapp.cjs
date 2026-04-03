@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-function register({ ipcMain, windowManager, database, fileStorage, ollamaService }) {
+function register({ ipcMain, windowManager, database, fileStorage, ollamaService, initModule, aiToolsHandler }) {
   // Lazy load WhatsApp service to avoid issues if Baileys is not installed
   let whatsappService = null;
   function getWhatsappService() {
@@ -11,6 +11,8 @@ function register({ ipcMain, windowManager, database, fileStorage, ollamaService
           fileStorage,
           windowManager,
           ollamaService,
+          initModule,
+          aiToolsHandler,
         });
       } catch (error) {
         console.error('[WhatsApp] Failed to load service:', error.message);

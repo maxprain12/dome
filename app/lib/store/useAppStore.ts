@@ -1,6 +1,18 @@
 import { create } from 'zustand';
-import type { Project, Resource, Source, Tag, AppPreferences, CitationStyle, StudioOutput, GraphViewState } from '@/types';
+import type {
+  Project,
+  Resource,
+  Source,
+  Tag,
+  AppPreferences,
+  CitationStyle,
+  StudioOutput,
+  GraphViewState,
+  HomeDashboardPreferences,
+} from '@/types';
+import { DEFAULT_HOME_DASHBOARD_PREFERENCES } from '@/types';
 import { getAppPreferences, saveAppPreferences, setTheme as saveTheme, setCitationStyle } from '../settings';
+import { normalizeHomeDashboardPreferences } from '../settings/home-dashboard';
 import { capturePostHog } from '../analytics/posthog';
 import { ANALYTICS_EVENTS } from '../analytics/events';
 
@@ -44,18 +56,6 @@ interface AppState {
   setHomeSidebarSection: (section: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | `agent:${string}` | `team:${string}` | `workflow:${string}`) => void;
   homeSidebarCollapsed: boolean;
   toggleHomeSidebar: () => void;
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  searchResults: { resources: any[]; interactions: any[]; studioOutputs?: any[] } | null;
-  setSearchResults: (data: { resources: any[]; interactions: any[]; studioOutputs?: any[] } | null) => void;
-  commandCenterOpen: boolean;
-  setCommandCenterOpen: (open: boolean) => void;
-  /** When true, Command Center dropdown is expanded (typing/searching) */
-  commandCenterExpanded: boolean;
-  setCommandCenterExpanded: (expanded: boolean) => void;
-  /** When true, next open will start in URL mode */
-  commandCenterUrlModeRequest: boolean;
-  setCommandCenterUrlModeRequest: (v: boolean) => void;
   viewMode: 'grid' | 'list';
   setViewMode: (mode: 'grid' | 'list') => void;
 
@@ -95,12 +95,14 @@ interface AppState {
   autoSave: boolean;
   autoBackup: boolean;
   shortcuts?: Record<string, string>;
+  homeDashboard: HomeDashboardPreferences;
 
   // Preference Actions
   loadPreferences: () => Promise<void>;
   updateTheme: (theme: 'light' | 'dark' | 'auto') => Promise<void>;
   updateCitationStyle: (style: CitationStyle) => Promise<void>;
   updatePreferences: (preferences: Partial<AppPreferences>) => Promise<void>;
+  updateHomeDashboard: (next: HomeDashboardPreferences) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -193,16 +195,6 @@ export const useAppStore = create<AppState>((set) => ({
   setHomeSidebarSection: (section) => set({ homeSidebarSection: section }),
   homeSidebarCollapsed: false,
   toggleHomeSidebar: () => set((state) => ({ homeSidebarCollapsed: !state.homeSidebarCollapsed })),
-  searchQuery: '',
-  setSearchQuery: (query) => set({ searchQuery: query }),
-  searchResults: null,
-  setSearchResults: (data) => set({ searchResults: data }),
-  commandCenterOpen: false,
-  setCommandCenterOpen: (open) => set({ commandCenterOpen: open }),
-  commandCenterExpanded: false,
-  setCommandCenterExpanded: (expanded) => set({ commandCenterExpanded: expanded }),
-  commandCenterUrlModeRequest: false,
-  setCommandCenterUrlModeRequest: (v) => set({ commandCenterUrlModeRequest: v }),
   viewMode: 'grid',
   setViewMode: (mode) => set({ viewMode: mode }),
 
@@ -258,6 +250,7 @@ export const useAppStore = create<AppState>((set) => ({
   autoSave: true,
   autoBackup: true,
   shortcuts: undefined,
+  homeDashboard: DEFAULT_HOME_DASHBOARD_PREFERENCES,
 
   // Preference Actions
   loadPreferences: async () => {
@@ -268,6 +261,7 @@ export const useAppStore = create<AppState>((set) => ({
       autoSave: prefs.autoSave,
       autoBackup: prefs.autoBackup,
       shortcuts: prefs.shortcuts,
+      homeDashboard: prefs.homeDashboard ?? DEFAULT_HOME_DASHBOARD_PREFERENCES,
     });
 
     // Sync theme with Electron on load
@@ -296,11 +290,21 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({
       ...state,
       ...preferences,
+      homeDashboard:
+        preferences.homeDashboard !== undefined
+          ? preferences.homeDashboard
+          : state.homeDashboard,
     }));
 
     // Sync theme with Electron if it changed
     if (preferences.theme && typeof window !== 'undefined' && window.electron) {
       window.electron.setTheme(preferences.theme);
     }
+  },
+
+  updateHomeDashboard: async (next) => {
+    const normalized = normalizeHomeDashboardPreferences(next);
+    await saveAppPreferences({ homeDashboard: normalized });
+    set({ homeDashboard: normalized });
   },
 }));

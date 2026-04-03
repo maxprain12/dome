@@ -1,0 +1,96 @@
+[
+  {
+    "type": "function",
+    "name": "get_library_info",
+    "description": "Get an overview of the user library — projects and optionally resources in a specific folder.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "folder_id": {
+          "type": "string",
+          "description": "Optional project/folder ID to scope the resource list."
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "type": "function",
+    "name": "list_recent_resources",
+    "description": "List the most recently updated resources in Dome (notes, PDFs, media, etc.).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "number",
+          "description": "Max items to return (default 10, max 25)."
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "type": "function",
+    "name": "search_resources",
+    "description": "Full-text search across the Dome library by keyword.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "string", "description": "Search query." },
+        "limit": { "type": "number", "description": "Max results (default 8, max 20)." }
+      },
+      "required": ["query"]
+    }
+  },
+  {
+    "type": "function",
+    "name": "open_resource",
+    "description": "Open a resource in the main Dome window as a tab.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "resource_id": { "type": "string", "description": "Resource ID to open." }
+      },
+      "required": ["resource_id"]
+    }
+  },
+  {
+    "type": "function",
+    "name": "navigate_dome_ui",
+    "description": "Switch the main Dome window to a built-in section (tab).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "view": {
+          "type": "string",
+          "description": "One of: home, settings, calendar, agents, studio, flashcards, learn, tags, marketplace."
+        }
+      },
+      "required": ["view"]
+    }
+  },
+  {
+    "type": "function",
+    "name": "create_note",
+    "description": "Create a new note in the library. Use when the user asks to save or write something down.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Short title (optional; derived from content if omitted)." },
+        "content": { "type": "string", "description": "Full text body of the note." },
+        "project_id": { "type": "string", "description": "Optional project ID." }
+      },
+      "required": ["content"]
+    }
+  },
+  {
+    "type": "function",
+    "name": "close_session",
+    "description": "End the voice session after the user says goodbye or similar.",
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    }
+  }
+]

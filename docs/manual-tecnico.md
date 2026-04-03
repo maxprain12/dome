@@ -141,7 +141,6 @@ dome/
 │   │   ├── settings/           # Settings panels
 │   │   ├── marketplace/        # Marketplace UI
 │   │   ├── cloud/              # Cloud storage file picker
-│   │   └── CommandCenter/      # Cmd+K search palette
 │   │
 │   ├── lib/
 │   │   ├── ai/                 # AI client multi-provider

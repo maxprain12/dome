@@ -1240,6 +1240,22 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       className="flex flex-col h-full relative shrink-0 overflow-hidden"
       style={{ width: 260, minWidth: 260, background: 'var(--dome-sidebar-bg)', borderRight: '1px solid var(--dome-border)' }}
     >
+      {/* Marca Dome (antes en la barra superior) */}
+      <div
+        className="shrink-0 flex items-center gap-1.5 px-2 pt-3 pb-2 border-b"
+        style={{ borderColor: 'var(--dome-border)' }}
+      >
+        <div className="w-4 h-4 shrink-0" style={{ filter: 'var(--dome-logo-filter)' }}>
+          <img src="/many.png" alt="Dome" width={16} height={16} style={{ objectFit: 'contain' }} />
+        </div>
+        <span
+          className="truncate"
+          style={{ fontSize: 12, fontWeight: 600, color: 'var(--dome-text)', userSelect: 'none' }}
+        >
+          Dome
+        </span>
+      </div>
+
       {/* Nav */}
       <div className="shrink-0 px-2 pt-2">
         {navItems.map((item) => {

@@ -19,19 +19,87 @@ const DEFAULT_SEARCH_RESULT_COUNT = 5;
 const DEFAULT_SEARCH_ENGINE = 'duckduckgo';
 const SEARCH_FALLBACK_ENGINE = 'bing';
 
-const CONSENT_BUTTON_TEXTS = [
-  'accept',
-  'agree',
-  'i agree',
-  'allow',
-  'ok',
-  'acceptar',
-  'aceptar',
-  'consent',
-  'allow all',
+/**
+ * Cookie / CMP flow (post-navigation, pre-extraction)
+ * 1) CMP-specific "accept all" selectors (main frame + iframes where needed)
+ * 2) Role-based accept in known CMP containers
+ * 3) Heuristic clicks scoped to consent-like roots only (no global "ok/allow")
+ * 4) verifyConsentState + optional retry
+ *
+ * Previously: blind clicks on every button matching vague strings, then removal of
+ * all [role="dialog"] / .modal — prone to scraping the consent UI itself.
+ */
+
+/** Text snippets for buttons/links *inside* consent-like containers only */
+const SCOPED_CONSENT_BUTTON_TEXTS = [
   'accept all',
+  'allow all',
+  'accept all cookies',
+  'allow all cookies',
+  'agree to all',
+  'aceptar todo',
+  'aceptar todas',
+  'tout accepter',
+  'tout accepter et continuer',
+  'i agree',
   'got it',
-  'understand',
+  'acknowledge',
+  'consent',
+  'accept cookies',
+  'accept',
+  'aceptar',
+  'agree',
+  'accepter',
+];
+
+const CMP_ACCEPT_CONFIG = [
+  {
+    id: 'sourcepoint',
+    useFrames: false,
+    selectors: ['#sp-cc-accept', 'button.sp_choice_all', 'button[title="Accept all cookies"]'],
+  },
+  {
+    id: 'onetrust',
+    useFrames: false,
+    selectors: [
+      '#onetrust-accept-btn-handler',
+      'button#onetrust-accept-btn-handler',
+      '.onetrust-accept-btn-handler',
+    ],
+  },
+  {
+    id: 'cookiebot',
+    useFrames: true,
+    selectors: [
+      '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll',
+      '#CybotCookiebotDialogBodyButtonAccept',
+      'button[data-cookieaction="accept"]',
+    ],
+  },
+  {
+    id: 'usercentrics',
+    useFrames: false,
+    selectors: [
+      '[data-testid="uc-accept-all-button"]',
+      '[data-testid="uc-accept-all-banner"]',
+      '#uc-btn-accept-banner',
+    ],
+  },
+  {
+    id: 'didomi',
+    useFrames: false,
+    selectors: ['#didomi-notice-agree-button', 'button#didomi-notice-agree-button'],
+  },
+  {
+    id: 'quantcast',
+    useFrames: false,
+    selectors: ['button.qc-cmp2-summary-buttons-accept'],
+  },
+  {
+    id: 'trustarc',
+    useFrames: false,
+    selectors: ['#truste-consent-button', 'button#truste-consent-button', '.trustarc-agree-btn'],
+  },
 ];
 
 const API_DOMAINS = [
@@ -342,47 +410,273 @@ function resolveSearchSiteName(url) {
   }
 }
 
-async function dismissCookieBanners(page) {
+async function trySelectors(page, selectors, visibleTimeout = 1500, clickTimeout = 3500) {
+  for (const sel of selectors) {
+    try {
+      const loc = page.locator(sel).first();
+      await loc.waitFor({ state: 'visible', timeout: visibleTimeout });
+      await loc.click({ timeout: clickTimeout });
+      return true;
+    } catch {
+      try {
+        const loc = page.locator(sel).first();
+        const visible = await loc.isVisible().catch(() => false);
+        if (visible) {
+          await loc.click({ timeout: clickTimeout, force: true });
+          return true;
+        }
+      } catch {
+        // try next selector
+      }
+    }
+  }
+  return false;
+}
+
+async function trySelectorsInAllFrames(page, selectors) {
+  const frames = page.frames();
+  for (const frame of frames) {
+    for (const sel of selectors) {
+      try {
+        const loc = frame.locator(sel).first();
+        await loc.waitFor({ state: 'visible', timeout: 900 });
+        await loc.click({ timeout: 3500 });
+        return true;
+      } catch {
+        try {
+          const loc = frame.locator(sel).first();
+          const visible = await loc.isVisible().catch(() => false);
+          if (visible) {
+            await loc.click({ timeout: 3500, force: true });
+            return true;
+          }
+        } catch {
+          // try next
+        }
+      }
+    }
+  }
+  return false;
+}
+
+async function tryAcceptAllRole(page) {
+  const scopes = [
+    page.locator('#onetrust-banner-sdk'),
+    page.locator('#onetrust-consent-sdk'),
+    page.locator('#CybotCookiebotDialog'),
+    page.locator('.qc-cmp2-container'),
+    page.locator('[class*="qc-cmp"]'),
+  ];
+
+  for (const scope of scopes) {
+    try {
+      if ((await scope.count()) === 0) continue;
+      const btn = scope
+        .getByRole('button', {
+          name: /accept all|allow all|agree to all|aceptar todo|tout accepter/i,
+        })
+        .first();
+      if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {
+        await btn.click({ timeout: 4000 });
+        return true;
+      }
+    } catch {
+      // next scope
+    }
+  }
+
+  try {
+    const globalBtn = page
+      .getByRole('button', { name: /accept all( cookies)?|allow all( cookies)?/i })
+      .first();
+    if (await globalBtn.isVisible({ timeout: 450 }).catch(() => false)) {
+      await globalBtn.click({ timeout: 4000 });
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+
+  return false;
+}
+
+async function dismissCookieBannersScoped(page) {
   try {
     await page.evaluate((buttonTexts) => {
-      const bannerSelectors = [
-        '[class*="cookie"]',
-        '[id*="cookie"]',
-        '[class*="consent"]',
-        '[id*="consent"]',
-        '[class*="gdpr"]',
-        '[class*="banner"]',
-        '[class*="privacy"]',
-        '[role="dialog"]',
-        '.modal',
+      const containerSelectors = [
+        '[id*="onetrust"]',
+        '[class*="onetrust"]',
+        '[id*="cookiebot"]',
+        '[class*="cookiebot"]',
+        '[id*="CybotCookiebot"]',
+        '[id*="truste"]',
+        '[class*="trustarc"]',
+        '[id*="didomi"]',
+        '[class*="didomi"]',
+        '[id*="usercentrics"]',
+        '[class*="usercentrics"]',
+        '[class*="qc-cmp"]',
+        '[id*="qc-cmp"]',
+        '[class*="cookie-banner"]',
+        '[id*="cookie-banner"]',
+        '[class*="consent-banner"]',
+        '[id*="consent-banner"]',
         '[data-testid*="cookie"]',
         '[data-testid*="consent"]',
+        '[aria-label*="cookie" i]',
       ];
 
-      const buttons = document.querySelectorAll('button, [role="button"], a, input[type="submit"]');
-      for (const button of buttons) {
-        const text = (button.innerText || button.textContent || button.value || '').trim().toLowerCase();
-        if (buttonTexts.some((entry) => text.includes(entry))) {
-          try {
-            button.click();
-          } catch {
-            // Ignore.
+      const roots = new Set();
+      for (const sel of containerSelectors) {
+        try {
+          document.querySelectorAll(sel).forEach((node) => roots.add(node));
+        } catch {
+          // invalid selector from site
+        }
+      }
+
+      for (const root of roots) {
+        const buttons = root.querySelectorAll('button, [role="button"], a, input[type="submit"]');
+        for (const button of buttons) {
+          const text = (button.innerText || button.textContent || button.value || '').trim().toLowerCase();
+          if (buttonTexts.some((entry) => text.includes(entry))) {
+            try {
+              button.click();
+            } catch {
+              // Ignore.
+            }
           }
         }
       }
+    }, SCOPED_CONSENT_BUTTON_TEXTS);
+  } catch (error) {
+    console.warn('[PlaywrightScraper] Scoped cookie dismiss failed:', error?.message || error);
+  }
+}
 
-      for (const selector of bannerSelectors) {
-        try {
-          const nodes = document.querySelectorAll(selector);
-          nodes.forEach((node) => node.remove());
-        } catch {
-          // Ignore invalid selectors generated by sites.
+async function verifyConsentState(page) {
+  try {
+    return await page.evaluate(() => {
+      function isVisible(el) {
+        if (!el) return false;
+        const st = window.getComputedStyle(el);
+        if (st.display === 'none' || st.visibility === 'hidden' || parseFloat(st.opacity || '1') === 0) {
+          return false;
+        }
+        const r = el.getBoundingClientRect();
+        return r.width > 40 && r.height > 16 && r.bottom > 0 && r.right > 0;
+      }
+
+      const cmpSelectors = [
+        '#onetrust-banner-sdk',
+        '#onetrust-consent-sdk',
+        '#CybotCookiebotDialog',
+        '.qc-cmp-ui-container',
+        '.qc-cmp2-container',
+      ];
+
+      let cmpVisible = false;
+      for (const sel of cmpSelectors) {
+        const el = document.querySelector(sel);
+        if (el && isVisible(el)) {
+          cmpVisible = true;
+          break;
         }
       }
-    }, CONSENT_BUTTON_TEXTS);
+
+      let consentDialog = false;
+      for (const d of document.querySelectorAll('[role="dialog"], [aria-modal="true"]')) {
+        if (!isVisible(d)) continue;
+        const t = (d.innerText || '').toLowerCase();
+        if (t.includes('cookie') || t.includes('consent') || (t.includes('privacy') && t.includes('accept'))) {
+          consentDialog = true;
+          break;
+        }
+      }
+
+      const body = (document.body?.innerText || '').toLowerCase();
+      const head = body.slice(0, 4500);
+      const phrases = [
+        'accept all cookies',
+        'manage cookie preferences',
+        'cookie settings',
+        'we use cookies',
+        'your cookie preferences',
+        'cookie consent',
+      ];
+      const phraseHits = phrases.filter((p) => head.includes(p)).length;
+
+      return { cmpVisible, consentDialog, phraseHits };
+    });
   } catch (error) {
-    console.warn('[PlaywrightScraper] Failed to dismiss cookie banners:', error?.message || error);
+    console.warn('[PlaywrightScraper] verifyConsentState failed:', error?.message || error);
+    return { cmpVisible: false, consentDialog: false, phraseHits: 0 };
   }
+}
+
+/**
+ * @returns {{ strategies: string[], consentBlocked: boolean, consentSignalScore: number }}
+ */
+async function handleCookieConsent(page, timeoutMs) {
+  const strategies = [];
+  const pushStrategy = (id) => {
+    if (!strategies.includes(id)) strategies.push(id);
+  };
+
+  const visibleTimeout = Math.min(2000, Math.max(800, timeoutMs / 15));
+  const clickTimeout = Math.min(5000, Math.max(2000, timeoutMs / 8));
+
+  for (const cmp of CMP_ACCEPT_CONFIG) {
+    try {
+      const ok = cmp.useFrames
+        ? await trySelectorsInAllFrames(page, cmp.selectors)
+        : await trySelectors(page, cmp.selectors, visibleTimeout, clickTimeout);
+      if (ok) pushStrategy(cmp.id);
+    } catch {
+      // continue with next CMP
+    }
+  }
+
+  if (await tryAcceptAllRole(page)) pushStrategy('accept-all-role');
+
+  await dismissCookieBannersScoped(page);
+  pushStrategy('scoped-click');
+
+  await page.waitForTimeout(400);
+
+  let state = await verifyConsentState(page);
+  if (state.cmpVisible || state.consentDialog || state.phraseHits >= 2) {
+    for (const cmp of CMP_ACCEPT_CONFIG) {
+      try {
+        const ok = cmp.useFrames
+          ? await trySelectorsInAllFrames(page, cmp.selectors)
+          : await trySelectors(page, cmp.selectors, visibleTimeout, clickTimeout);
+        if (ok) pushStrategy(`${cmp.id}-retry`);
+      } catch {
+        // next
+      }
+    }
+    if (await tryAcceptAllRole(page)) pushStrategy('accept-all-role-retry');
+    await dismissCookieBannersScoped(page);
+    pushStrategy('scoped-click-retry');
+    await page.waitForTimeout(400);
+    state = await verifyConsentState(page);
+  }
+
+  const consentBlocked = Boolean(state.cmpVisible || state.consentDialog || state.phraseHits >= 2);
+
+  if (consentBlocked) {
+    console.warn(
+      '[PlaywrightScraper] Consent may still be visible:',
+      JSON.stringify({ strategies, state }),
+    );
+  }
+
+  return {
+    strategies,
+    consentBlocked,
+    consentSignalScore: state.phraseHits,
+  };
 }
 
 async function autoScroll(page) {
@@ -584,8 +878,14 @@ async function scrapeUrl(input) {
           // Many sites never become idle; keep going with hydrated DOM.
         }
 
+        let consentInfo = {
+          strategies: [],
+          consentBlocked: false,
+          consentSignalScore: 0,
+        };
+
         if (!page.isClosed()) {
-          await dismissCookieBanners(page);
+          consentInfo = await handleCookieConsent(page, request.timeoutMs);
           await autoScroll(page);
           await page.waitForTimeout(DEFAULT_POST_LOAD_DELAY);
         }
@@ -622,17 +922,32 @@ async function scrapeUrl(input) {
 
         const content = String(extracted.content || '').slice(0, request.maxLength);
 
+        const consentBlocked = Boolean(
+          consentInfo.consentBlocked || extracted.consentLikelyDominated,
+        );
+        const warnings = Array.isArray(extracted.warnings) ? [...extracted.warnings] : [];
+        if (consentBlocked) {
+          warnings.push(
+            'El contenido podría estar parcialmente bloqueado por el aviso de cookies o privacidad.',
+          );
+        }
+
         return {
           success: true,
           url: finalUrl,
           finalUrl,
           title: extracted.title || metadataHints.title || finalUrl,
           content,
-          metadata: request.includeMetadata ? extracted.metadata : undefined,
+          metadata: request.includeMetadata
+            ? { ...extracted.metadata, consentBlocked, consentLikelyDominated: extracted.consentLikelyDominated }
+            : undefined,
           screenshot,
           screenshotFormat,
-          warnings: extracted.warnings,
+          warnings,
           excerpt: extracted.excerpt,
+          consentBlocked,
+          consentStrategyUsed: consentInfo.strategies.length ? consentInfo.strategies.join(',') : 'none',
+          consentSignalScore: Math.max(consentInfo.consentSignalScore || 0, 0),
         };
       } finally {
         if (page) {
@@ -778,7 +1093,7 @@ async function searchWeb(input) {
             await page.waitForSelector(engine.waitForSelector, { timeout: Math.min(10000, request.timeoutMs) });
             sawResults = true;
           } catch {
-            await dismissCookieBanners(page);
+            await handleCookieConsent(page, Math.min(request.timeoutMs, 15000));
           }
 
           const isBlocked = engine.anomalySelectors.length > 0

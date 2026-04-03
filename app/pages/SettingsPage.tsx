@@ -12,12 +12,38 @@ import PluginsSettings from '@/components/settings/PluginsSettings';
 import IndexingSettings from '@/components/settings/IndexingSettings';
 import CloudStorageSettings from '@/components/settings/CloudStorageSettings';
 import LanguageSettings from '@/components/settings/LanguageSettings';
+import TranscriptionSettingsPanel from '@/components/settings/TranscriptionSettingsPanel';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 
-type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'mcp' | 'skills' | 'plugins' | 'advanced' | 'indexing' | 'cloud' | 'language';
+type SettingsSection =
+  | 'general'
+  | 'appearance'
+  | 'ai'
+  | 'transcription'
+  | 'whatsapp'
+  | 'mcp'
+  | 'skills'
+  | 'plugins'
+  | 'advanced'
+  | 'indexing'
+  | 'cloud'
+  | 'language';
 
-const VALID_SECTIONS = ['general', 'appearance', 'ai', 'whatsapp', 'mcp', 'skills', 'plugins', 'advanced', 'indexing', 'cloud', 'language'] as const;
+const VALID_SECTIONS = [
+  'general',
+  'appearance',
+  'ai',
+  'transcription',
+  'whatsapp',
+  'mcp',
+  'skills',
+  'plugins',
+  'advanced',
+  'indexing',
+  'cloud',
+  'language',
+] as const;
 
 export default function SettingsPage() {
   const [searchParams] = useSearchParams();
@@ -70,6 +96,8 @@ export default function SettingsPage() {
         return <AppearanceSettings />;
       case 'ai':
         return <AISettingsPanel />;
+      case 'transcription':
+        return <TranscriptionSettingsPanel />;
       case 'whatsapp':
         return <WhatsAppSettingsPanel />;
       case 'mcp':

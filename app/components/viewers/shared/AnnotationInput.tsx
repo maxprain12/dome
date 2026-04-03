@@ -4,18 +4,22 @@ import { Bookmark } from 'lucide-react';
 
 interface AnnotationInputProps {
   isOpen: boolean;
+  onRequestOpen: () => void;
   onClose: () => void;
   onSave: (content: string) => Promise<void>;
   currentTime: number;
   placeholder?: string;
+  addNoteLabel?: string;
 }
 
 function AnnotationInputComponent({
   isOpen,
+  onRequestOpen,
   onClose,
   onSave,
-  currentTime,
+  currentTime: _currentTime,
   placeholder = 'Note at this timestamp...',
+  addNoteLabel = 'Add Note',
 }: AnnotationInputProps) {
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -38,7 +42,7 @@ function AnnotationInputComponent({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSave();
+      void handleSave();
     }
     if (e.key === 'Escape') {
       setContent('');
@@ -49,24 +53,27 @@ function AnnotationInputComponent({
   if (!isOpen) {
     return (
       <button
-        onClick={onClose}
-        className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors hover:bg-[var(--bg-tertiary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+        type="button"
+        onClick={onRequestOpen}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors hover:bg-[var(--bg-tertiary)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer"
         style={{
           color: 'var(--secondary-text)',
           border: '1px solid var(--border)',
         }}
-        aria-label="Add annotation"
-        title="Add annotation at current time"
+        aria-label={addNoteLabel}
+        title={addNoteLabel}
       >
-        <Bookmark size={14} />
-        Add Note
+        <Bookmark size={14} aria-hidden />
+        {addNoteLabel}
       </button>
     );
   }
 
   return (
     <div className="flex items-center gap-2">
-      <label htmlFor="annotation-input-content" className="sr-only">Annotation note</label>
+      <label htmlFor="annotation-input-content" className="sr-only">
+        Annotation note
+      </label>
       <input
         id="annotation-input-content"
         type="text"
@@ -85,9 +92,10 @@ function AnnotationInputComponent({
         disabled={isSaving}
       />
       <button
-        onClick={handleSave}
+        type="button"
+        onClick={() => void handleSave()}
         disabled={isSaving || !content.trim()}
-        className="px-2 py-1 text-sm rounded transition-opacity"
+        className="px-2 py-1 text-sm rounded transition-opacity cursor-pointer"
         style={{
           background: 'var(--accent)',
           color: 'white',

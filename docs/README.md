@@ -27,7 +27,6 @@ Documentación completa del proyecto Dome (v2.0.8). Organizada en dos audiencias
 | **Editor** | [editor.md](./editor.md) | Tiptap/NotionEditor, bloques, slash commands, file drop, extensiones dome-editor |
 | **Workspace** | [workspace.md](./workspace.md) | Layout por recurso, pestañas, rutas, MetadataModal |
 | **Viewers** | [viewers.md](./viewers.md) | PDF, Video, Audio, Image, URL; anotaciones PDF; `readFile` IPC |
-| **Command Center** | [command-center.md](./command-center.md) | Cmd+K, búsqueda unificada FTS, modo URL, drop de archivos |
 
 ### IA & Agentes
 

@@ -22,6 +22,8 @@ let database = null;
 let fileStorage = null;
 let windowManager = null;
 let ollamaService = null;
+let initModule = null;
+let aiToolsHandler = null;
 let session = null;
 
 // Lista de números autorizados (allowlist)
@@ -38,6 +40,8 @@ function init(deps) {
   fileStorage = deps.fileStorage;
   windowManager = deps.windowManager;
   ollamaService = deps.ollamaService;
+  initModule = deps.initModule;
+  aiToolsHandler = deps.aiToolsHandler;
   session = deps.session;
 
   // Cargar allowlist desde settings
@@ -565,7 +569,29 @@ async function processAudioMessage(message) {
       windowManager.broadcast('resource:created', resource);
     }
 
-    await session.sendText(from, '✅ Audio saved in Dome. Processing transcription...');
+    const noteHelper = require('../transcription-note-helper.cjs');
+    const tr = await noteHelper.transcribeResourceToNote({
+      resourceId: id,
+      database,
+      fileStorage,
+      windowManager,
+      aiToolsHandler,
+      initModule,
+      ollamaService,
+      updateAudioMetadata: true,
+    });
+
+    if (tr.success && tr.note) {
+      await session.sendText(
+        from,
+        `✅ Audio guardado y transcrito. Nota: «${tr.note.title}»`
+      );
+    } else {
+      await session.sendText(
+        from,
+        `✅ Audio guardado en Dome. ${tr.error ? `Transcripción no disponible: ${tr.error}` : 'No se pudo transcribir.'}`
+      );
+    }
 
     return { success: true, resourceId: id };
   } catch (error) {

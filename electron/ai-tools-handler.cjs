@@ -2629,6 +2629,9 @@ module.exports = {
   // Window manager (for broadcast when tools modify resources in main)
   setWindowManager,
 
+  /** TipTap JSON helper (shared with transcription IPC) */
+  markdownToTipTapJSON,
+
 
   // Resource tools (read)
   resourceSearch,

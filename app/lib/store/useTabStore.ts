@@ -80,6 +80,7 @@ interface TabStore {
   activateTab: (tabId: string) => void;
   replaceTabType: (tabId: string, newType: TabType) => void;
   openResourceTab: (resourceId: string, resourceType: string, title: string) => void;
+  openNoteTab: (resourceId: string, title: string) => void;
   openSettingsTab: () => void;
   openCalendarTab: () => void;
   openChatTab: (sessionId: string, title: string) => void;
@@ -193,6 +194,10 @@ export const useTabStore = create<TabStore>((set, get) => {
       };
       const tabType: TabType = typeMap[resourceType] ?? 'resource';
       get().openTab({ type: tabType, title, resourceId });
+    },
+
+    openNoteTab: (resourceId, title) => {
+      get().openTab({ type: 'note', title, resourceId });
     },
 
     openSettingsTab: () => {

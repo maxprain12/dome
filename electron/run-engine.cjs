@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const { setMaxListeners } = require('events');
 const langgraphAgent = require('./langgraph-agent.cjs');
 const { getToolDefinitionsByIds } = require('./ai-chat-with-tools.cjs');
+const streamingTts = require('./streaming-tts.cjs');
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
 const RUN_STEP_CHANNEL = 'runs:step';
@@ -774,6 +775,10 @@ function createRunChunkEmitter(runId, context) {
     if (data.type === 'text' && data.text) {
       context.fullResponse += data.text;
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'text', text: data.text });
+      // Feed chunk to streaming TTS if this run requested autoSpeak
+      if (context.autoSpeak) {
+        streamingTts.feedChunk(runId, data.text);
+      }
       patchRun(runId, {
         status: 'running',
         outputText: context.fullResponse,
@@ -927,6 +932,10 @@ async function executeLangGraphRun(runId, params) {
       status: 'done',
       content: context.fullResponse.slice(0, 8000),
     });
+    // Flush streaming TTS (plays any remaining buffered text)
+    if (context.autoSpeak) {
+      streamingTts.flush(runId);
+    }
     return patchRun(runId, {
       status: 'completed',
       outputText: context.fullResponse,
@@ -943,6 +952,10 @@ async function executeLangGraphRun(runId, params) {
     });
   } catch (error) {
     const aborted = error?.name === 'AbortError' || `${error?.message || ''}`.toLowerCase().includes('abort');
+    // Cancel streaming TTS on error/abort
+    if (context.autoSpeak) {
+      streamingTts.cancel(runId);
+    }
     appendRunStep({
       runId,
       stepType: aborted ? 'cancelled' : 'error',
@@ -986,6 +999,8 @@ async function startLangGraphRun(params) {
   });
   const controller = new AbortController();
   setMaxListeners(64, controller.signal);
+  const autoSpeak = Boolean(params.autoSpeak);
+  const voiceLanguage = typeof params.voiceLanguage === 'string' ? params.voiceLanguage : 'es';
   activeRunContexts.set(run.id, {
     controller,
     fullResponse: run.outputText || '',
@@ -998,7 +1013,12 @@ async function startLangGraphRun(params) {
     model: providerConfig.model,
     apiKey: providerConfig.apiKey,
     baseUrl: providerConfig.baseUrl,
+    autoSpeak,
+    voiceLanguage,
   });
+  if (autoSpeak) {
+    streamingTts.start(run.id, { language: voiceLanguage });
+  }
   setImmediate(() => {
     void executeLangGraphRun(run.id, {
       ...params,
@@ -1579,9 +1599,36 @@ function recoverStuckRuns() {
   }
 }
 
-function init(windowManager, database) {
+function init(windowManager, database, ttsService) {
   _windowManager = windowManager;
   _database = database;
+
+  // Initialize streaming TTS with dependencies
+  if (ttsService) {
+    streamingTts.init({
+      broadcast: (channel, payload) => _windowManager?.broadcast?.(channel, payload),
+      getApiKey: () => {
+        try {
+          const queries = _database?.getQueries?.();
+          if (!queries) return null;
+          const providerRow = queries.getSetting.get('ai_provider');
+          const provider = providerRow?.value;
+          if (provider === 'openai') {
+            const key = queries.getSetting.get('ai_api_key');
+            if (key?.value?.trim()) return String(key.value).trim();
+            const specific = queries.getSetting.get('openai_api_key');
+            if (specific?.value?.trim()) return String(specific.value).trim();
+          }
+          const dedicated = queries.getSetting.get('transcription_openai_api_key');
+          if (dedicated?.value?.trim()) return String(dedicated.value).trim();
+          return null;
+        } catch { return null; }
+      },
+      generateSpeech: (text, voice, apiKey, opts) =>
+        ttsService.generateSpeech(text, voice, apiKey, opts),
+    });
+  }
+
   recoverStuckRuns();
   migrateLegacyData();
 }

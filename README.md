@@ -756,7 +756,6 @@ dome/
 │   │   │   └── AutomationTargetPanel.tsx
 │   │   ├── calendar/            # Calendar grid and event modal
 │   │   ├── chat/                # AI Chat (messages, tool cards)
-│   │   ├── CommandCenter/       # Search and command palette
 │   │   ├── cloud/               # Google Drive file picker UI
 │   │   ├── shell/               # Single-window shell (tabs, AppShell, ContentRouter)
 │   │   ├── editor/              # Notion-style editor

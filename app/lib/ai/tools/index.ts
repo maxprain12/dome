@@ -110,6 +110,7 @@ export {
 // Tools - Web
 export { createWebSearchTool, type WebSearchConfig } from './web-search';
 export { createWebFetchTool, type WebFetchConfig } from './web-fetch';
+export { createBrowserActiveTabTool } from './browser-active-tab';
 export { createImageCropTool, type ImageCropConfig } from './image-crop';
 export { createImageThumbnailTool, type ImageThumbnailConfig } from './image-thumbnail';
 
@@ -266,6 +267,7 @@ export {
 import type { AnyAgentTool } from './types';
 import { createWebSearchTool, type WebSearchConfig } from './web-search';
 import { createWebFetchTool, type WebFetchConfig } from './web-fetch';
+import { createBrowserActiveTabTool } from './browser-active-tab';
 import { createImageCropTool, type ImageCropConfig } from './image-crop';
 import { createImageThumbnailTool, type ImageThumbnailConfig } from './image-thumbnail';
 import { createResourceTools } from './resources';
@@ -413,6 +415,9 @@ export function createManyToolsForContext(
   if (config?.includeWeb !== false) {
     tools.push(createWebSearchTool(config?.webSearch));
     tools.push(createWebFetchTool(config?.webFetch));
+    if (typeof window !== 'undefined' && window.electron?.isMac) {
+      tools.push(createBrowserActiveTabTool());
+    }
   }
   if (config?.includeImages !== false) {
     tools.push(createImageCropTool(config?.imageCrop));
