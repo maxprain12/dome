@@ -4,16 +4,17 @@
 
 import { db } from '@/lib/db/client';
 import { generateId } from '@/lib/utils';
+import type { DomeWorkflowFolder } from '@/types';
 import type { CanvasWorkflow, WorkflowExecution } from '@/types/canvas';
 
-async function getAll(): Promise<CanvasWorkflow[]> {
+async function getAll(projectId: string): Promise<CanvasWorkflow[]> {
   if (!db.isAvailable()) return [];
-  const result = await db.getWorkflows();
+  const result = await db.getWorkflows(projectId);
   return result.success && Array.isArray(result.data) ? result.data : [];
 }
 
-export async function getWorkflows(): Promise<CanvasWorkflow[]> {
-  return getAll();
+export async function getWorkflows(projectId = 'default'): Promise<CanvasWorkflow[]> {
+  return getAll(projectId);
 }
 
 export async function getWorkflow(id: string): Promise<CanvasWorkflow | null> {
@@ -28,6 +29,7 @@ export async function createWorkflow(
   const workflow: CanvasWorkflow = {
     id: generateId(),
     ...data,
+    projectId: data.projectId ?? 'default',
     createdAt: now,
     updatedAt: now,
   };
@@ -53,9 +55,9 @@ export async function deleteWorkflow(id: string): Promise<{ success: boolean; er
 
 // --- Executions (traceability) ---
 
-async function getAllExecutions(): Promise<WorkflowExecution[]> {
+async function getAllExecutions(projectId: string): Promise<WorkflowExecution[]> {
   if (!db.isAvailable()) return [];
-  const workflows = await getAll();
+  const workflows = await getAll(projectId);
   if (workflows.length === 0) return [];
   const results = await Promise.all(workflows.map((workflow) => db.getWorkflowExecutionsByWorkflow(workflow.id)));
   return results
@@ -79,4 +81,51 @@ export async function getExecutionsByWorkflow(workflowId: string): Promise<Workf
 export async function getExecution(id: string): Promise<WorkflowExecution | null> {
   const result = await db.getWorkflowExecution(id);
   return result.success ? result.data ?? null : null;
+}
+
+export async function listWorkflowFolders(projectId = 'default'): Promise<DomeWorkflowFolder[]> {
+  if (!db.isAvailable()) return [];
+  const result = await db.listWorkflowFolders(projectId);
+  return result.success && Array.isArray(result.data) ? result.data : [];
+}
+
+export async function createWorkflowFolderRecord(
+  name: string,
+  parentId?: string | null,
+  projectId = 'default',
+): Promise<{ success: boolean; data?: DomeWorkflowFolder; error?: string }> {
+  if (!db.isAvailable()) return { success: false, error: 'Database unavailable' };
+  const now = Date.now();
+  const folder: DomeWorkflowFolder = {
+    id: generateId(),
+    projectId,
+    parentId: parentId ?? null,
+    name: name.trim() || 'Folder',
+    sortOrder: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const saved = await db.createWorkflowFolder(folder);
+  return saved.success && saved.data
+    ? { success: true, data: saved.data }
+    : { success: false, error: saved.error };
+}
+
+export async function updateWorkflowFolderRecord(
+  id: string,
+  updates: Partial<Pick<DomeWorkflowFolder, 'parentId' | 'name' | 'sortOrder'>>,
+): Promise<{ success: boolean; data?: DomeWorkflowFolder; error?: string }> {
+  if (!db.isAvailable()) return { success: false, error: 'Database unavailable' };
+  const saved = await db.updateWorkflowFolder(id, updates);
+  return saved.success && saved.data
+    ? { success: true, data: saved.data }
+    : { success: false, error: saved.error };
+}
+
+export async function deleteWorkflowFolderRecord(
+  id: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!db.isAvailable()) return { success: false, error: 'Database unavailable' };
+  const result = await db.deleteWorkflowFolder(id);
+  return result.success ? { success: true } : { success: false, error: result.error };
 }

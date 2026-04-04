@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, Save, FileJson, CheckCircle2, AlertCircle } from 'lucide-react';
 import { db } from '@/lib/db/client';
+import { normalizeSkillImportArray } from '@/lib/skills/normalize-import';
 import { generateId } from '@/lib/utils';
 
 const DOME_GREEN = '#596037';
@@ -129,20 +130,14 @@ export default function SkillsSettingsPanel() {
   const handleImport = () => {
     try {
       const parsed = JSON.parse(importJson);
-      const list = Array.isArray(parsed) ? parsed : [];
-      const normalized = list
-        .map((s: unknown) => {
-          if (!s || typeof s !== 'object') return null;
-          const t = s as Record<string, unknown>;
-          return {
-            id: (typeof t.id === 'string' ? t.id : generateId()) as string,
-            name: (typeof t.name === 'string' ? t.name : '') as string,
-            description: (typeof t.description === 'string' ? t.description : '') as string,
-            prompt: (typeof t.prompt === 'string' ? t.prompt : '') as string,
-            enabled: (t.enabled as boolean) !== false,
-          };
-        })
-        .filter((s): s is SkillConfig => s !== null);
+      const raw = normalizeSkillImportArray(parsed);
+      const normalized: SkillConfig[] = raw.map((r) => ({
+        id: r.id || generateId(),
+        name: r.name,
+        description: r.description,
+        prompt: r.prompt,
+        enabled: r.enabled,
+      }));
       if (normalized.length > 0) {
         setSkills(normalized);
         setShowImport(false);

@@ -20,6 +20,9 @@ import {
   Store,
   Zap,
   FolderOpen,
+  Bot,
+  Workflow,
+  Activity,
 } from 'lucide-react';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
 import { getDomeTabDisplayTitle } from '@/lib/dome-tab-title';
@@ -43,7 +46,10 @@ function TabIcon({ tab }: { tab: DomeTab }) {
     case 'flashcards': return <WalletCards className={cls} strokeWidth={sw} />;
     case 'tags': return <Tag className={cls} strokeWidth={sw} />;
     case 'marketplace': return <Store className={cls} strokeWidth={sw} />;
-    case 'agents': return <Zap className={cls} strokeWidth={sw} />;
+    case 'agents': return <Bot className={cls} strokeWidth={sw} />;
+    case 'workflows': return <Workflow className={cls} strokeWidth={sw} />;
+    case 'automations': return <Zap className={cls} strokeWidth={sw} />;
+    case 'runs': return <Activity className={cls} strokeWidth={sw} />;
     case 'folder': return <FolderOpen className={cls} strokeWidth={sw} style={tab.color ? { color: tab.color } : undefined} />;
     case 'learn': return <BookOpen className={cls} strokeWidth={sw} />;
     default: return <File className={cls} strokeWidth={sw} />;

@@ -9,7 +9,7 @@
 import { generateId } from '../utils';
 import { capturePostHog } from '../analytics/posthog';
 import { ANALYTICS_EVENTS } from '../analytics/events';
-import type { ManyAgent, MCPServerConfig } from '@/types';
+import type { DomeAgentFolder, DomeWorkflowFolder, ManyAgent, MCPServerConfig } from '@/types';
 import type { CanvasWorkflow, WorkflowExecution } from '@/types/canvas';
 
 // Type definitions
@@ -149,6 +149,14 @@ class DatabaseClient {
     return this.db.projects.getById(id);
   }
 
+  async getProjectDeletionImpact(projectId: string): Promise<DBResponse<Record<string, number>>> {
+    return this.db.projects.getDeletionImpact(projectId) as Promise<DBResponse<Record<string, number>>>;
+  }
+
+  async deleteProjectWithContent(projectId: string): Promise<DBResponse<void>> {
+    return this.db.projects.deleteWithContent(projectId) as Promise<DBResponse<void>>;
+  }
+
   // ============================================
   // RESOURCES
   // ============================================
@@ -201,6 +209,7 @@ class DatabaseClient {
     title?: string | null;
     toolIds?: string[];
     mcpServerIds?: string[];
+    projectId?: string;
   }): Promise<DBResponse<{ id: string; agentId?: string | null; resourceId?: string | null; mode?: string | null; contextId?: string | null; threadId?: string | null; title?: string | null; toolIds?: string[]; mcpServerIds?: string[]; createdAt: number; updatedAt: number }>> {
     return this.db.chat.createSession(opts) as Promise<DBResponse<{ id: string; agentId?: string | null; resourceId?: string | null; mode?: string | null; contextId?: string | null; threadId?: string | null; title?: string | null; toolIds?: string[]; mcpServerIds?: string[]; createdAt: number; updatedAt: number }>>;
   }
@@ -265,12 +274,30 @@ class DatabaseClient {
     return this.db.chat.updateSession(opts) as Promise<DBResponse<void>>;
   }
 
-  async getChatSessionsByAgent(agentId: string, limit?: number): Promise<DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>> {
-    return this.db.chat.getSessionsByAgent({ agentId, limit }) as Promise<DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>>;
+  async getChatSessionsByAgent(opts: {
+    agentId: string;
+    projectId?: string;
+    limit?: number;
+  }): Promise<DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>> {
+    return this.db.chat.getSessionsByAgent({
+      agentId: opts.agentId,
+      projectId: opts.projectId ?? 'default',
+      limit: opts.limit,
+    }) as Promise<DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>>;
   }
 
-  async getChatSessionsGlobal(limit?: number): Promise<DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>> {
-    return this.db.chat.getSessionsGlobal(limit) as Promise<DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>>;
+  async getChatSessionsGlobal(
+    limitOrOpts?: number | { limit?: number; projectId?: string },
+  ): Promise<DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>> {
+    const payload =
+      limitOrOpts === undefined
+        ? { limit: 50, projectId: 'default' }
+        : typeof limitOrOpts === 'number'
+          ? { limit: limitOrOpts, projectId: 'default' }
+          : { limit: limitOrOpts.limit ?? 50, projectId: limitOrOpts.projectId ?? 'default' };
+    return this.db.chat.getSessionsGlobal(payload) as Promise<
+      DBResponse<Array<{ id: string; agent_id: string | null; resource_id: string | null; thread_id: string | null; created_at: number; updated_at: number }>>
+    >;
   }
 
   async addChatMessage(opts: {
@@ -315,8 +342,8 @@ class DatabaseClient {
     return this.db.settings.set(key, value);
   }
 
-  async getManyAgents(): Promise<DBResponse<ManyAgent[]>> {
-    return window.electron.invoke('db:manyAgents:list') as Promise<DBResponse<ManyAgent[]>>;
+  async getManyAgents(projectId = 'default'): Promise<DBResponse<ManyAgent[]>> {
+    return window.electron.invoke('db:manyAgents:list', projectId) as Promise<DBResponse<ManyAgent[]>>;
   }
 
   async getManyAgent(id: string): Promise<DBResponse<ManyAgent | null>> {
@@ -335,8 +362,29 @@ class DatabaseClient {
     return window.electron.invoke('db:manyAgents:delete', id) as Promise<DBResponse<void>>;
   }
 
-  async getWorkflows(): Promise<DBResponse<CanvasWorkflow[]>> {
-    return window.electron.invoke('db:workflows:list') as Promise<DBResponse<CanvasWorkflow[]>>;
+  async listAgentFolders(projectId = 'default'): Promise<DBResponse<DomeAgentFolder[]>> {
+    return window.electron.invoke('db:agentFolders:list', projectId) as Promise<DBResponse<DomeAgentFolder[]>>;
+  }
+
+  async createAgentFolder(folder: DomeAgentFolder): Promise<DBResponse<DomeAgentFolder>> {
+    return window.electron.invoke('db:agentFolders:create', folder) as Promise<DBResponse<DomeAgentFolder>>;
+  }
+
+  async updateAgentFolder(
+    id: string,
+    updates: Partial<Pick<DomeAgentFolder, 'parentId' | 'name' | 'sortOrder'>>,
+  ): Promise<DBResponse<DomeAgentFolder>> {
+    return window.electron.invoke('db:agentFolders:update', id, updates) as Promise<
+      DBResponse<DomeAgentFolder>
+    >;
+  }
+
+  async deleteAgentFolder(id: string): Promise<DBResponse<void>> {
+    return window.electron.invoke('db:agentFolders:delete', id) as Promise<DBResponse<void>>;
+  }
+
+  async getWorkflows(projectId = 'default'): Promise<DBResponse<CanvasWorkflow[]>> {
+    return window.electron.invoke('db:workflows:list', projectId) as Promise<DBResponse<CanvasWorkflow[]>>;
   }
 
   async getWorkflow(id: string): Promise<DBResponse<CanvasWorkflow | null>> {
@@ -353,6 +401,29 @@ class DatabaseClient {
 
   async deleteWorkflow(id: string): Promise<DBResponse<void>> {
     return window.electron.invoke('db:workflows:delete', id) as Promise<DBResponse<void>>;
+  }
+
+  async listWorkflowFolders(projectId = 'default'): Promise<DBResponse<DomeWorkflowFolder[]>> {
+    return window.electron.invoke('db:workflowFolders:list', projectId) as Promise<DBResponse<DomeWorkflowFolder[]>>;
+  }
+
+  async createWorkflowFolder(folder: DomeWorkflowFolder): Promise<DBResponse<DomeWorkflowFolder>> {
+    return window.electron.invoke('db:workflowFolders:create', folder) as Promise<
+      DBResponse<DomeWorkflowFolder>
+    >;
+  }
+
+  async updateWorkflowFolder(
+    id: string,
+    updates: Partial<Pick<DomeWorkflowFolder, 'parentId' | 'name' | 'sortOrder'>>,
+  ): Promise<DBResponse<DomeWorkflowFolder>> {
+    return window.electron.invoke('db:workflowFolders:update', id, updates) as Promise<
+      DBResponse<DomeWorkflowFolder>
+    >;
+  }
+
+  async deleteWorkflowFolder(id: string): Promise<DBResponse<void>> {
+    return window.electron.invoke('db:workflowFolders:delete', id) as Promise<DBResponse<void>>;
   }
 
   async saveWorkflowExecution(execution: WorkflowExecution): Promise<DBResponse<void>> {

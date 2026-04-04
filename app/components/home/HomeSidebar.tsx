@@ -36,15 +36,16 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
   const location = useLocation();
   const activeSection = useAppStore((s) => s.homeSidebarSection);
   const setSection = useAppStore((s) => s.setHomeSidebarSection);
+  const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const isCalendar = location.pathname === '/calendar';
   const [agents, setAgents] = useState<ManyAgent[]>([]);
   const [teams, setTeams] = useState<AgentTeam[]>([]);
   const [showAgentOnboarding, setShowAgentOnboarding] = useState(false);
 
   const loadAgents = useCallback(async () => {
-    const list = await getManyAgents();
+    const list = await getManyAgents(hubProjectId);
     setAgents(list);
-  }, []);
+  }, [hubProjectId]);
 
   const loadTeams = useCallback(async () => {
     const list = await getAgentTeams();
@@ -211,6 +212,7 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
               className="relative rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden bg-[var(--dome-bg)] border border-[var(--dome-border)]"
             >
               <AgentOnboarding
+                projectId={hubProjectId}
                 onComplete={handleAgentComplete}
                 onCancel={() => setShowAgentOnboarding(false)}
               />

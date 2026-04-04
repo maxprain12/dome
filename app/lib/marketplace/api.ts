@@ -1,10 +1,15 @@
 import { db } from '@/lib/db/client';
+import { useAppStore } from '@/lib/store/useAppStore';
 import type { MarketplaceAgent, ManyAgent } from '@/types';
 import type { CanvasWorkflow, WorkflowTemplate } from '@/types/canvas';
 import { loadMarketplaceAgents } from './loaders';
 import { getManyAgents, createManyAgent, deleteManyAgent, updateManyAgent } from '@/lib/agents/api';
 import { createWorkflow, deleteWorkflow, getWorkflow, getWorkflows, updateWorkflow } from '@/lib/agent-canvas/api';
 import { summarizeCapabilityProfile } from '@/lib/ai/shared-capabilities';
+
+function marketplaceProjectId(): string {
+  return useAppStore.getState().currentProject?.id ?? 'default';
+}
 
 export interface InstalledMarketplaceAgentRecord {
   marketplaceId: string;
@@ -72,7 +77,7 @@ async function resolveInstalledAgentState(): Promise<{
   const [storedIds, storedRecords, localAgents] = await Promise.all([
     getInstalledIds(),
     getAgentRecords(),
-    getManyAgents(),
+    getManyAgents(marketplaceProjectId()),
   ]);
 
   const ids = new Set<string>();
@@ -156,7 +161,7 @@ export async function installMarketplaceAgent(
   const template = catalog.find((a) => a.id === marketplaceId);
   if (!template) return { success: false, error: 'Agente no encontrado en el catálogo' };
 
-  const existingAgents = await getManyAgents();
+  const existingAgents = await getManyAgents(marketplaceProjectId());
   const existingByMarketplace = existingAgents.find((agent) => agent.marketplaceId === marketplaceId);
   const existingByName = existingAgents.find((agent) => agent.name === template.name);
   const source = template.source ?? 'official';
@@ -196,6 +201,7 @@ export async function installMarketplaceAgent(
       skillIds: template.skillIds,
       iconIndex: template.iconIndex,
       marketplaceId: marketplaceId,
+      projectId: marketplaceProjectId(),
     });
   }
 
@@ -264,7 +270,7 @@ async function resolveInstalledWorkflowState(): Promise<{
   const [storedIds, storedRecords, localWorkflows] = await Promise.all([
     getInstalledWorkflowIds(),
     getWorkflowRecords(),
-    getWorkflows(),
+    getWorkflows(marketplaceProjectId()),
   ]);
 
   const ids = new Set<string>();
@@ -369,6 +375,7 @@ export async function installWorkflowTemplate(
         nodes: template.nodes,
         edges: template.edges,
         marketplace: marketplaceMetadata,
+        projectId: marketplaceProjectId(),
       }).then((createResult) => ({
         success: createResult.success,
         data: createResult.data ? { id: createResult.data.id, name: createResult.data.name } : undefined,

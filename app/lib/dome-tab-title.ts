@@ -15,7 +15,13 @@ export function getDomeTabDisplayTitle(tab: DomeTab, t: TFunction): string {
     case 'marketplace':
       return t('tabs.marketplace');
     case 'agents':
-      return t('tabs.agents_flows');
+      return t('automationHub.tab_agents');
+    case 'workflows':
+      return t('automationHub.tab_workflows');
+    case 'automations':
+      return t('automationHub.tab_automations');
+    case 'runs':
+      return t('automationHub.tab_runs');
     case 'studio':
       return t('workspace.studio');
     case 'flashcards':

@@ -80,6 +80,7 @@ export type CanvasNodeData =
 // Serialized workflow stored in SQLite
 export interface CanvasWorkflow {
   id: string;
+  projectId?: string;
   name: string;
   description: string;
   nodes: SerializedNode[];
@@ -92,6 +93,8 @@ export interface CanvasWorkflow {
     capabilities?: string[];
     resourceAffinity?: string[];
   };
+  /** Workflow library folder (null/undefined = root) */
+  folderId?: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -164,6 +167,7 @@ export interface ExecutionLogEntry {
 /** Persisted workflow execution for traceability */
 export interface WorkflowExecution {
   id: string;
+  projectId?: string;
   workflowId: string;
   workflowName: string;
   startedAt: number;

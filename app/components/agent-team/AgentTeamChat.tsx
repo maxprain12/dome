@@ -51,6 +51,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
   const currentFolderId = useAppStore((s) => s.currentFolderId);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
   const currentResource = useAppStore((s) => s.currentResource);
+  const teamProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
   const effectiveResourceId =
     currentResource?.id ||
@@ -159,6 +160,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
           threadId: streamId,
           toolIds: memberAgents.flatMap((agent) => agent.toolIds ?? []),
           mcpServerIds: memberAgents.flatMap((agent) => agent.mcpServerIds ?? []),
+          projectId: teamProjectId,
         });
         if (sessionResult.success && sessionResult.data) {
           dbSessionIdRef.current = sessionResult.data.id;
@@ -297,6 +299,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
         homeSidebarSection,
         teamToolIds: team.toolIds ?? [],
         teamMcpServerIds: team.mcpServerIds ?? [],
+        projectId: teamProjectId,
       });
 
       unsubChunk();
@@ -370,6 +373,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
     memberAgents,
     currentSessionId,
     teamMcpServerIds,
+    teamProjectId,
   ]);
 
   const handleStop = useCallback(() => {

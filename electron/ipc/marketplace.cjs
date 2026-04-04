@@ -202,21 +202,36 @@ async function fetchLocalSkills() {
     // Try to find SKILL.md or skill.json
     const skillMdPath = path.join(skillDir, 'SKILL.md');
     const skillJsonPath = path.join(skillDir, 'skill.json');
-    
+    const manifestPath = path.join(skillDir, 'manifest.json');
+
     let skillData = { id: entry.name, name: entry.name };
-    
+
     try {
-      if (fs.existsSync(skillJsonPath)) {
+      if (fs.existsSync(manifestPath)) {
+        const raw = fs.readFileSync(manifestPath, 'utf8');
+        const man = JSON.parse(raw);
+        const instr = typeof man.instructions === 'string' ? man.instructions : '';
+        const pr = typeof man.prompt === 'string' ? man.prompt : '';
+        skillData = {
+          ...skillData,
+          ...man,
+          prompt: pr || instr || skillData.prompt || '',
+        };
+      } else if (fs.existsSync(skillJsonPath)) {
         const raw = fs.readFileSync(skillJsonPath, 'utf8');
-        skillData = { ...skillData, ...JSON.parse(raw) };
+        const j = JSON.parse(raw);
+        const instr = typeof j.instructions === 'string' ? j.instructions : '';
+        const pr = typeof j.prompt === 'string' ? j.prompt : '';
+        skillData = { ...skillData, ...j, prompt: pr || instr || skillData.prompt || '' };
       } else if (fs.existsSync(skillMdPath)) {
         const raw = fs.readFileSync(skillMdPath, 'utf8');
-        // Extract title from SKILL.md
         const titleMatch = raw.match(/^#\s+(.+)$/m);
         if (titleMatch) {
           skillData.name = titleMatch[1];
         }
-        skillData.description = raw.split('\n').slice(1, 3).join(' ').substring(0, 200);
+        const body = raw.replace(/^#\s+[^\n]*\n?/m, '').trim();
+        skillData.prompt = body || skillData.prompt || '';
+        skillData.description = body.split('\n').slice(0, 2).join(' ').substring(0, 200);
       }
       
       skills.push({
@@ -590,7 +605,7 @@ function register({ ipcMain, windowManager, validateSender }) {
     
     try {
       const { filePaths } = await dialog.showOpenDialog(win, {
-        title: 'Select skill folder (must contain SKILL.md or skill.json)',
+        title: 'Select skill folder (SKILL.md, skill.json, or manifest.json)',
         properties: ['openDirectory'],
       });
 
@@ -604,19 +619,33 @@ function register({ ipcMain, windowManager, validateSender }) {
       // Read skill.json or SKILL.md from selected folder
       const skillJsonPath = path.join(sourceDir, 'skill.json');
       const skillMdPath = path.join(sourceDir, 'SKILL.md');
-      
+      const manifestPath = path.join(sourceDir, 'manifest.json');
+
       let skillData = {};
-      
-      if (fs.existsSync(skillJsonPath)) {
+
+      if (fs.existsSync(manifestPath)) {
+        const raw = fs.readFileSync(manifestPath, 'utf8');
+        const man = JSON.parse(raw);
+        const instr = typeof man.instructions === 'string' ? man.instructions : '';
+        const pr = typeof man.prompt === 'string' ? man.prompt : '';
+        skillData = { ...man, prompt: pr || instr };
+      } else if (fs.existsSync(skillJsonPath)) {
         const raw = fs.readFileSync(skillJsonPath, 'utf8');
-        skillData = JSON.parse(raw);
+        const j = JSON.parse(raw);
+        const instr = typeof j.instructions === 'string' ? j.instructions : '';
+        const pr = typeof j.prompt === 'string' ? j.prompt : '';
+        skillData = { ...j, prompt: pr || instr };
       } else if (fs.existsSync(skillMdPath)) {
         const raw = fs.readFileSync(skillMdPath, 'utf8');
         const titleMatch = raw.match(/^#\s+(.+)$/m);
         skillData.name = titleMatch ? titleMatch[1] : path.basename(sourceDir);
         skillData.id = path.basename(sourceDir).toLowerCase().replace(/\s+/g, '-');
+        skillData.prompt = raw.replace(/^#\s+[^\n]*\n?/m, '').trim();
       } else {
-        return { success: false, error: 'Selected folder must contain SKILL.md or skill.json' };
+        return {
+          success: false,
+          error: 'Selected folder must contain SKILL.md, skill.json, or manifest.json',
+        };
       }
       
       const skillId = skillData.id || path.basename(sourceDir).toLowerCase().replace(/\s+/g, '-');

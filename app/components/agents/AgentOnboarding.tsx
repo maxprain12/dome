@@ -22,9 +22,11 @@ interface AgentOnboardingProps {
   onCancel: () => void;
   /** When provided, runs in edit mode (prefilled, saves via updateManyAgent) */
   initialAgent?: ManyAgent | null;
+  /** Project scope for new agents (default: default) */
+  projectId?: string;
 }
 
-export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: AgentOnboardingProps) {
+export default function AgentOnboarding({ onComplete, onCancel, initialAgent, projectId = 'default' }: AgentOnboardingProps) {
   const { t } = useTranslation();
   const stepsRef = useRef<HTMLDivElement>(null);
   const isEditMode = !!initialAgent;
@@ -86,6 +88,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
             mcpServerIds,
             skillIds,
             iconIndex,
+            projectId,
           });
           if (result.success && result.data) {
             showToast('success', t('agents.new_agent'));
@@ -105,7 +108,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent }: 
     if (nextIdx < STEP_ORDER.length) {
       setCurrentStep(STEP_ORDER[nextIdx]);
     }
-  }, [currentStep, stepIndex, name, description, systemInstructions, toolIds, mcpServerIds, skillIds, iconIndex, onComplete, isEditMode, initialAgent]);
+  }, [currentStep, stepIndex, name, description, systemInstructions, toolIds, mcpServerIds, skillIds, iconIndex, onComplete, isEditMode, initialAgent, projectId, t]);
 
   const handleBack = useCallback(() => {
     if (stepIndex > 0) {

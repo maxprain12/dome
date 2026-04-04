@@ -116,12 +116,16 @@ export const useAppStore = create<AppState>((set) => ({
     }
     try {
       const settingResult = await window.electron.db.settings.get('last_project_id');
-      const projectId = settingResult?.success ? settingResult.data : null;
-      if (!projectId) {
-        set({ currentProject: null });
-        return;
+      let projectId =
+        settingResult?.success && settingResult.data && String(settingResult.data).trim()
+          ? String(settingResult.data).trim()
+          : 'default';
+      let projectResult = await window.electron.db.projects.getById(projectId);
+      if (!projectResult?.success || !projectResult.data) {
+        projectId = 'default';
+        projectResult = await window.electron.db.projects.getById('default');
+        await window.electron.db.settings.set('last_project_id', 'default');
       }
-      const projectResult = await window.electron.db.projects.getById(projectId);
       if (projectResult?.success && projectResult.data) {
         set({ currentProject: projectResult.data });
       } else {
@@ -134,7 +138,7 @@ export const useAppStore = create<AppState>((set) => ({
   setCurrentProject: (project) => {
     set({ currentProject: project });
     if (typeof window !== 'undefined' && window.electron?.db?.settings) {
-      const value = project?.id ?? '';
+      const value = project?.id ?? 'default';
       void window.electron.db.settings.set('last_project_id', value);
     }
     if (project?.id) {

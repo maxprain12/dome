@@ -32,7 +32,7 @@ export default function DashboardView() {
   const updateHomeDashboard = useAppStore((s) => s.updateHomeDashboard);
 
   const { stats, activity, gamification, pendingToday, loading } = useDashboardData(
-    currentProject?.id ?? null,
+    currentProject?.id ?? 'default',
   );
 
   const [customizeOpen, setCustomizeOpen] = useState(false);

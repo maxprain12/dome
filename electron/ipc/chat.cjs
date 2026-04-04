@@ -8,13 +8,29 @@ function generateId() {
   return crypto.randomUUID();
 }
 
+function resolveChatProjectId(queries, { projectId, resourceId, agentId }) {
+  if (projectId && String(projectId).trim()) {
+    return String(projectId).trim();
+  }
+  if (resourceId) {
+    const resource = queries.getResourceById.get(resourceId);
+    if (resource?.project_id) return resource.project_id;
+  }
+  if (agentId) {
+    const agent = queries.getManyAgentById.get(agentId);
+    if (agent?.project_id) return agent.project_id;
+  }
+  return 'default';
+}
+
 function register({ ipcMain, windowManager, database, validateSender }) {
-  ipcMain.handle('db:chat:createSession', (event, { id: providedId, agentId, resourceId, mode, contextId, threadId, title, toolIds, mcpServerIds }) => {
+  ipcMain.handle('db:chat:createSession', (event, { id: providedId, agentId, resourceId, mode, contextId, threadId, title, toolIds, mcpServerIds, projectId }) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const id = providedId || generateId();
       const now = Date.now();
+      const resolvedProjectId = resolveChatProjectId(queries, { projectId, resourceId, agentId });
       const existing = queries.getChatSession.get(id);
       if (existing) {
         queries.updateChatSession.run(
@@ -33,6 +49,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
             id,
             agentId,
             resourceId,
+            projectId: existing.project_id ?? resolvedProjectId,
             mode: mode ?? existing.mode ?? null,
             contextId: contextId ?? existing.context_id ?? null,
             threadId,
@@ -46,6 +63,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       }
       queries.createChatSession.run(
         id,
+        resolvedProjectId,
         agentId ?? null,
         resourceId ?? null,
         mode ?? null,
@@ -63,6 +81,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
           id,
           agentId,
           resourceId,
+          projectId: resolvedProjectId,
           mode: mode ?? null,
           contextId: contextId ?? null,
           threadId,
@@ -125,11 +144,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:chat:getSessionsByAgent', (event, { agentId, limit }) => {
+  ipcMain.handle('db:chat:getSessionsByAgent', (event, { agentId, projectId, limit }) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const sessions = queries.getChatSessionsByAgent.all(agentId, limit ?? 50);
+      const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
+      const sessions = queries.getChatSessionsByAgent.all(agentId, pid, limit ?? 50);
       return { success: true, data: sessions };
     } catch (error) {
       console.error('[DB] Error getting chat sessions by agent:', error);
@@ -137,11 +157,19 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:chat:getSessionsGlobal', (event, limit) => {
+  ipcMain.handle('db:chat:getSessionsGlobal', (event, arg) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const sessions = queries.getChatSessionsGlobal.all(limit ?? 50);
+      let limit = 50;
+      let projectId = 'default';
+      if (typeof arg === 'number') {
+        limit = arg;
+      } else if (arg && typeof arg === 'object') {
+        limit = arg.limit ?? 50;
+        projectId = arg.projectId && String(arg.projectId).trim() ? String(arg.projectId).trim() : 'default';
+      }
+      const sessions = queries.getChatSessionsGlobal.all(projectId, limit);
       return { success: true, data: sessions };
     } catch (error) {
       console.error('[DB] Error getting global chat sessions:', error);

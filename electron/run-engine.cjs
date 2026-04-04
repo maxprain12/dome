@@ -5,6 +5,7 @@ const { setMaxListeners } = require('events');
 const langgraphAgent = require('./langgraph-agent.cjs');
 const { getToolDefinitionsByIds } = require('./ai-chat-with-tools.cjs');
 const streamingTts = require('./streaming-tts.cjs');
+const { appendSkillsToPrompt } = require('./skill-prompt.cjs');
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
 const RUN_STEP_CHANNEL = 'runs:step';
@@ -12,7 +13,7 @@ const RUN_CHUNK_CHANNEL = 'runs:chunk';
 
 const OUTPUT_MODES = new Set(['chat_only', 'note', 'studio_output', 'mixed']);
 const RUN_TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
-const RUN_RECOVERY_STALE_MS = 45 * 1000;
+const RUN_RECOVERY_STALE_MS = 120 * 1000;
 const RUN_RESTART_ERROR = 'Interrupted - the app was restarted while this run was active.';
 
 const SYSTEM_AGENTS = {
@@ -157,6 +158,7 @@ function normalizeAutomationRow(row) {
   if (!row) return null;
   return {
     id: row.id,
+    projectId: row.project_id ?? 'default',
     title: row.title,
     description: row.description ?? '',
     targetType: row.target_type,
@@ -178,6 +180,7 @@ function normalizeRunRow(row) {
   if (!row) return null;
   return {
     id: row.id,
+    projectId: row.project_id ?? 'default',
     automationId: row.automation_id ?? null,
     ownerType: row.owner_type,
     ownerId: row.owner_id,
@@ -220,6 +223,7 @@ function updateStoredRun(run) {
     throw new Error('Database queries unavailable');
   }
   queries.updateAutomationRun.run(
+    run.projectId ?? 'default',
     run.automationId ?? null,
     run.ownerType,
     run.ownerId,
@@ -245,6 +249,7 @@ function createRun(params) {
   const timestamp = now();
   const run = {
     id: params.id ?? crypto.randomUUID(),
+    projectId: params.projectId ?? 'default',
     automationId: params.automationId ?? null,
     ownerType: params.ownerType,
     ownerId: params.ownerId,
@@ -265,6 +270,7 @@ function createRun(params) {
   };
   queries.createAutomationRun.run(
     run.id,
+    run.projectId,
     run.automationId,
     run.ownerType,
     run.ownerId,
@@ -305,6 +311,13 @@ function patchRun(runId, patch) {
   };
   updateStoredRun(next);
   emit(RUN_EVENT_CHANNEL, { run: next });
+  if (next.automationId && RUN_TERMINAL_STATUSES.has(next.status)) {
+    try {
+      setAutomationRunStatus(next.automationId, next.status);
+    } catch (e) {
+      console.warn('[RunEngine] setAutomationRunStatus failed:', e?.message);
+    }
+  }
   return next;
 }
 
@@ -391,6 +404,9 @@ function listRuns(filters = {}) {
   if (filters.ownerType && filters.ownerId) {
     return queries.getAutomationRunsByOwner.all(filters.ownerType, filters.ownerId, limit).map(normalizeRunRow);
   }
+  if (filters.projectId) {
+    return queries.getLatestAutomationRunsByProject.all(filters.projectId, limit).map(normalizeRunRow);
+  }
   return queries.getLatestAutomationRuns.all(limit).map(normalizeRunRow);
 }
 
@@ -399,10 +415,16 @@ function getActiveRunBySession(sessionId) {
   return normalizeRunRow(queries.getActiveRunBySession.get(sessionId));
 }
 
-function normalizeAutomationInput(input) {
+function normalizeAutomationInput(input, existingRow = null) {
   const timestamp = now();
+  const projectId =
+    input?.projectId ??
+    input?.project_id ??
+    existingRow?.project_id ??
+    'default';
   return {
     id: input.id ?? crypto.randomUUID(),
+    projectId: String(projectId || 'default'),
     title: String(input.title || 'Automatización').trim(),
     description: input.description ? String(input.description) : '',
     targetType: ['many', 'agent', 'workflow'].includes(input.targetType) ? input.targetType : 'agent',
@@ -422,11 +444,13 @@ function normalizeAutomationInput(input) {
 
 function upsertAutomation(input) {
   const queries = getQueries();
-  const normalized = normalizeAutomationInput(input);
-  const existing = queries.getAutomationDefinitionById.get(normalized.id);
+  const id = input?.id ?? crypto.randomUUID();
+  const existing = queries.getAutomationDefinitionById.get(id);
+  const normalized = normalizeAutomationInput({ ...input, id }, existing);
   if (existing) {
     const previous = normalizeAutomationRow(existing);
     queries.updateAutomationDefinition.run(
+      normalized.projectId,
       normalized.title,
       normalized.description,
       normalized.targetType,
@@ -445,6 +469,7 @@ function upsertAutomation(input) {
   } else {
     queries.createAutomationDefinition.run(
       normalized.id,
+      normalized.projectId,
       normalized.title,
       normalized.description,
       normalized.targetType,
@@ -467,9 +492,15 @@ function upsertAutomation(input) {
 function listAutomations(filters = {}) {
   const queries = getQueries();
   if (filters.targetType && filters.targetId) {
-    return queries.getAutomationDefinitionsByTarget
-      .all(filters.targetType, filters.targetId)
-      .map(normalizeAutomationRow);
+    const rows = queries.getAutomationDefinitionsByTarget.all(filters.targetType, filters.targetId);
+    const mapped = rows.map(normalizeAutomationRow);
+    if (filters.projectId) {
+      return mapped.filter((a) => a.projectId === filters.projectId);
+    }
+    return mapped;
+  }
+  if (filters.projectId) {
+    return queries.getAutomationDefinitionsByProject.all(filters.projectId).map(normalizeAutomationRow);
   }
   return queries.getAllAutomationDefinitions.all().map(normalizeAutomationRow);
 }
@@ -539,9 +570,9 @@ function writeSettingsFlag(key) {
   queries?.setSetting?.run(key, '1', now());
 }
 
-function loadManyAgents() {
+function loadManyAgents(projectId = 'default') {
   const queries = getQueries();
-  const rows = queries?.listManyAgents?.all?.() ?? [];
+  const rows = queries?.listManyAgents?.all?.(projectId) ?? [];
   if (Array.isArray(rows) && rows.length > 0) {
     return rows.map((row) => ({
       id: row.id,
@@ -568,6 +599,7 @@ function loadWorkflowById(workflowId) {
   if (row) {
     return {
       id: row.id,
+      projectId: row.project_id ?? 'default',
       name: row.name,
       description: row.description || '',
       nodes: parseJsonSafely(row.nodes_json, []),
@@ -983,6 +1015,7 @@ async function startLangGraphRun(params) {
   const threadId = params.threadId || `run_${params.ownerType}_${now()}`;
   const run = createRun({
     automationId: params.automationId ?? null,
+    projectId: params.projectId ?? 'default',
     ownerType: params.ownerType,
     ownerId: params.ownerId,
     title: params.title ?? 'Run de agente',
@@ -1126,20 +1159,28 @@ function abortRun(runId) {
   }
 }
 
-function resolveWorkflowAgent(nodeData) {
+function resolveWorkflowAgent(nodeData, projectId = 'default') {
   if (nodeData.agentId) {
-    const agent = loadManyAgents().find((item) => item.id === nodeData.agentId);
+    const agent = loadManyAgents(projectId).find((item) => item.id === nodeData.agentId);
     if (agent) {
       return {
         name: agent.name,
         toolIds: Array.isArray(agent.toolIds) ? agent.toolIds : [],
         mcpServerIds: Array.isArray(agent.mcpServerIds) ? agent.mcpServerIds : [],
+        skillIds: Array.isArray(agent.skillIds) ? agent.skillIds : [],
         systemPrompt: agent.systemInstructions || agent.description || `You are ${agent.name}.`,
       };
     }
   }
   if (nodeData.systemAgentRole && SYSTEM_AGENTS[nodeData.systemAgentRole]) {
-    return SYSTEM_AGENTS[nodeData.systemAgentRole];
+    const def = SYSTEM_AGENTS[nodeData.systemAgentRole];
+    return {
+      name: def.name,
+      toolIds: def.toolIds,
+      mcpServerIds: [],
+      skillIds: [],
+      systemPrompt: def.systemPrompt,
+    };
   }
   return null;
 }
@@ -1220,7 +1261,7 @@ async function executeWorkflowRun(runId, params, workflow) {
           return;
         }
         if (data.type === 'agent') {
-          const agentDef = resolveWorkflowAgent(data);
+          const agentDef = resolveWorkflowAgent(data, workflow.projectId ?? 'default');
           if (!agentDef) {
             appendRunStep({
               runId,
@@ -1259,13 +1300,18 @@ async function executeWorkflowRun(runId, params, workflow) {
             status: 'running',
             metadata: { nodeId: node.id, agentId: data.agentId ?? null, systemAgentRole: data.systemAgentRole ?? null },
           });
+          const systemWithSkills = appendSkillsToPrompt(
+            agentDef.systemPrompt || '',
+            agentDef.skillIds,
+            getQueries(),
+          );
           await langgraphAgent.invokeLangGraphAgent({
             provider: providerConfig.provider,
             model: providerConfig.model,
             apiKey: providerConfig.apiKey,
             baseUrl: providerConfig.baseUrl,
             messages: [
-              { role: 'system', content: agentDef.systemPrompt || '' },
+              { role: 'system', content: systemWithSkills },
               { role: 'user', content: userPrompt },
             ],
             toolDefinitions,
@@ -1403,6 +1449,7 @@ function startWorkflowRun(params) {
   }
   const run = createRun({
     automationId: params.automationId ?? null,
+    projectId: workflow.projectId ?? 'default',
     ownerType: 'workflow',
     ownerId: workflow.id,
     title: params.title ?? workflow.name,
@@ -1426,6 +1473,24 @@ function startWorkflowRun(params) {
     void executeWorkflowRun(run.id, params, workflow);
   });
   return getRun(run.id);
+}
+
+async function fireContextualAutomations(tag) {
+  if (!tag || typeof tag !== 'string') return { fired: 0 };
+  const all = listAutomations({});
+  let fired = 0;
+  for (const a of all) {
+    if (!a.enabled || a.triggerType !== 'contextual') continue;
+    const tags = Array.isArray(a.schedule?.contextTags) ? a.schedule.contextTags : [];
+    if (!tags.includes(tag)) continue;
+    try {
+      await startAutomationNow(a.id);
+      fired += 1;
+    } catch (e) {
+      console.warn('[RunEngine] contextual automation failed', a.id, e?.message);
+    }
+  }
+  return { fired };
 }
 
 async function startAutomationNow(automationId) {
@@ -1453,6 +1518,7 @@ async function startAutomationNow(automationId) {
     : [];
   const run = await startLangGraphRun({
     automationId: automation.id,
+    projectId: automation.projectId ?? 'default',
     ownerType: targetOwnerType,
     ownerId: automation.targetId,
     title,
@@ -1481,6 +1547,7 @@ function migrateLegacyAutomations() {
     const cadence = item?.cadence === 'weekly' ? 'weekly' : 'daily';
     upsertAutomation({
       id: `legacy-${item.id || crypto.randomUUID()}`,
+      projectId: item.projectId || 'default',
       title: String(item.id || 'Legacy automation')
         .replace(/-/g, ' ')
         .replace(/\b\w/g, (char) => char.toUpperCase()),
@@ -1539,6 +1606,7 @@ function migrateLegacyWorkflowExecutions() {
   for (const execution of parsed) {
     const run = createRun({
       id: execution.id,
+      projectId: 'default',
       ownerType: 'workflow',
       ownerId: execution.workflowId || 'legacy-workflow',
       title: execution.workflowName || 'Workflow legacy',
@@ -1655,6 +1723,7 @@ module.exports = {
   getAutomation,
   deleteAutomation,
   startAutomationNow,
+  fireContextualAutomations,
   startLangGraphRun,
   startWorkflowRun,
   resumeRun,

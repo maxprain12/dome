@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import HubListState from '@/components/ui/HubListState';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
 import { useManyStore } from '@/lib/store/useManyStore';
 
@@ -22,9 +22,10 @@ const AgentsPage = lazy(() => import('@/components/automations/AutomationsHubVie
 const FolderTabView = lazy(() => import('@/components/shell/FolderTabView'));
 
 function Loading() {
+  const { t } = useTranslation();
   return (
-    <div className="flex flex-1 items-center justify-center h-full" style={{ color: 'var(--dome-text-muted)' }}>
-      <Loader2 className="w-5 h-5 animate-spin" />
+    <div className="flex flex-1 items-center justify-center h-full min-h-[120px]" style={{ background: 'var(--dome-bg)' }}>
+      <HubListState variant="loading" loadingLabel={t('common.loading')} compact />
     </div>
   );
 }
@@ -32,8 +33,8 @@ function Loading() {
 function NoResource() {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-1 items-center justify-center h-full" style={{ color: 'var(--dome-text-muted)' }}>
-      <p className="text-sm">{t('common.noResourceSelected')}</p>
+    <div className="flex flex-1 items-center justify-center h-full min-h-[120px]" style={{ background: 'var(--dome-bg)' }}>
+      <HubListState variant="empty" title={t('common.noResourceSelected')} compact />
     </div>
   );
 }
@@ -172,8 +173,35 @@ function TabContent({ tab }: { tab: DomeTab }) {
     case 'agents':
       return (
         <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
-            <AgentsPage />
+          <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <AgentsPage shellHubTab="agents" />
+          </div>
+        </Suspense>
+      );
+
+    case 'workflows':
+      return (
+        <Suspense fallback={<Loading />}>
+          <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <AgentsPage shellHubTab="workflows" />
+          </div>
+        </Suspense>
+      );
+
+    case 'automations':
+      return (
+        <Suspense fallback={<Loading />}>
+          <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <AgentsPage shellHubTab="automations" />
+          </div>
+        </Suspense>
+      );
+
+    case 'runs':
+      return (
+        <Suspense fallback={<Loading />}>
+          <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+            <AgentsPage shellHubTab="runs" />
           </div>
         </Suspense>
       );
@@ -198,7 +226,17 @@ function TabContent({ tab }: { tab: DomeTab }) {
  * remounted fresh on activation — exactly like DenchClaw's workspace model.
  */
 const PERSISTENT_TAB_TYPES = new Set([
-  'home', 'chat', 'learn', 'tags', 'marketplace', 'agents', 'settings', 'calendar',
+  'home',
+  'chat',
+  'learn',
+  'tags',
+  'marketplace',
+  'agents',
+  'workflows',
+  'automations',
+  'runs',
+  'settings',
+  'calendar',
 ]);
 
 export default function ContentRouter() {

@@ -135,6 +135,17 @@ function register({ ipcMain, windowManager, validateSender }) {
       return { success: false, error: error.message };
     }
   });
+
+  ipcMain.handle('automations:notifyContext', async (event, payload) => {
+    try {
+      validateSender(event, windowManager);
+      const tag = payload && typeof payload.tag === 'string' ? payload.tag : '';
+      return { success: true, data: await runEngine.fireContextualAutomations(tag) };
+    } catch (error) {
+      console.error('[Automations] notifyContext error:', error);
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 module.exports = { register };

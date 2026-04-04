@@ -177,6 +177,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   } = useManyStore();
   const currentFolderId = useAppStore((s) => s.currentFolderId);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
+  const chatProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -951,6 +952,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             mcpServerIds,
             mode: 'many',
             contextId: effectiveResourceId ?? null,
+            projectId: chatProjectId,
           });
           if (sessionResult.success && sessionResult.data) {
             dbSessionId = sessionResult.data.id;
@@ -978,6 +980,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         mcpServerIds,
         subagentIds: [],
         threadId,
+        projectId: chatProjectId,
         autoSpeak: sendOptions?.autoSpeak ? true : undefined,
         voiceLanguage: sendOptions?.autoSpeak ? voiceLanguage : undefined,
       });
@@ -1037,6 +1040,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     currentSessionId,
     applyRunSnapshot,
     isHeadless,
+    chatProjectId,
   ]);
 
   useEffect(() => {

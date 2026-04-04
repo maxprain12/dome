@@ -2489,6 +2489,12 @@ async function agentCreate(args = {}) {
       ? Math.round(args.iconIndex)
       : Math.floor(Math.random() * 18) + 1;
 
+    const projectId =
+      typeof args.projectId === 'string' && args.projectId.trim()
+        ? args.projectId.trim()
+        : typeof args.project_id === 'string' && args.project_id.trim()
+          ? args.project_id.trim()
+          : 'default';
     const agent = {
       id: generateId(),
       name,
@@ -2503,6 +2509,7 @@ async function agentCreate(args = {}) {
     };
     queries.createManyAgent.run(
       agent.id,
+      projectId,
       agent.name,
       agent.description,
       agent.systemInstructions,
@@ -2511,6 +2518,8 @@ async function agentCreate(args = {}) {
       JSON.stringify(agent.skillIds),
       agent.iconIndex,
       null,
+      null,
+      0,
       agent.createdAt,
       agent.updatedAt,
     );

@@ -11,6 +11,7 @@ const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:300
 const langgraphAgent = require('../langgraph-agent.cjs');
 const { getToolDefinitionsByIds } = require('../ai-chat-with-tools.cjs');
 const domeOauth = require('../dome-oauth.cjs');
+const { appendSkillsToPrompt } = require('../skill-prompt.cjs');
 
 const agentTeamAbortControllers = new Map();
 
@@ -51,10 +52,11 @@ async function getAISettings(database) {
 /**
  * Load agent configs from dedicated agents table
  */
-function loadAgents(database) {
+function loadAgents(database, projectId = 'default') {
   try {
     const queries = database.getQueries();
-    const rows = queries.listManyAgents?.all?.() ?? [];
+    const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
+    const rows = queries.listManyAgents?.all?.(pid) ?? [];
     if (rows.length > 0) {
       return rows.map((row) => ({
         id: row.id,
@@ -193,6 +195,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       homeSidebarSection,
       teamToolIds,
       teamMcpServerIds,
+      projectId,
     } = payload || {};
 
     if (!streamId || !teamId || !Array.isArray(messages) || !Array.isArray(memberAgentIds)) {
@@ -211,7 +214,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
 
     try {
       const settings = await getAISettings(database);
-      const allAgents = loadAgents(database);
+      const allAgents = loadAgents(database, projectId);
       const memberAgents = memberAgentIds
         .map((id) => allAgents.find((a) => a.id === id))
         .filter(Boolean);
@@ -310,9 +313,14 @@ ${contextBlock}`.trim();
         // Signal to UI which agent is working
         send({ chunk: '', agentName: agent.name });
 
-        const agentSystemPrompt = agent.systemInstructions?.trim()
+        let agentSystemPrompt = agent.systemInstructions?.trim()
           || agent.description
           || `You are ${agent.name}, a specialized AI assistant.`;
+        agentSystemPrompt = appendSkillsToPrompt(
+          agentSystemPrompt,
+          Array.isArray(agent.skillIds) ? agent.skillIds : [],
+          database.getQueries(),
+        );
 
         const toolDefinitions = getToolDefinitionsByIds([
           ...(Array.isArray(agent.toolIds) ? agent.toolIds : []),

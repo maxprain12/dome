@@ -150,12 +150,13 @@ export function useDashboardData(projectId: string | null = null): DashboardData
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      const scopedPid = projectId ?? 'default';
       const [resourcesResult, eventsResult, chatsResult, decksResult, runsResult] = await Promise.all([
         window.electron?.db?.resources?.getAll?.(2000),
         window.electron?.calendar?.getUpcoming?.({ windowMinutes: 60 * 24 * 7, limit: 50 }),
-        db.getChatSessionsGlobal(80),
+        db.getChatSessionsGlobal({ limit: 80, projectId: scopedPid }),
         window.electron?.db?.flashcards?.getAllDecks?.(200),
-        listRuns({ limit: 80 }).catch(() => [] as PersistentRun[]),
+        listRuns({ limit: 80, projectId: scopedPid }).catch(() => [] as PersistentRun[]),
       ]);
 
       const allResourcesRaw: Array<{
@@ -170,33 +171,18 @@ export function useDashboardData(projectId: string | null = null): DashboardData
         resourcesResult?.success && Array.isArray(resourcesResult.data)
           ? resourcesResult.data
           : [];
-      const allResources = projectId
-        ? allResourcesRaw.filter((resource) => resource.project_id === projectId)
-        : allResourcesRaw;
+      const allResources = allResourcesRaw.filter((resource) => resource.project_id === scopedPid);
 
-      const projectsResult = await db.getProjects();
-      const projectList =
-        projectsResult.success && Array.isArray(projectsResult.data) ? projectsResult.data : [];
-      const scopedProjectList = projectId
-        ? projectList.filter((project) => project.id === projectId)
-        : projectList;
       let studioCount = 0;
-      if (window.electron?.db?.studio?.getByProject && scopedProjectList.length > 0) {
-        const studioResults = await Promise.all(
-          scopedProjectList.map((p: { id: string }) =>
-            window.electron.db.studio.getByProject(p.id).catch(() => null),
-          ),
-        );
-        studioCount = studioResults.reduce((sum, r) => {
-          return sum + (r?.success && Array.isArray(r.data) ? r.data.length : 0);
-        }, 0);
+      if (window.electron?.db?.studio?.getByProject) {
+        const studioResult = await window.electron.db.studio.getByProject(scopedPid).catch(() => null);
+        studioCount =
+          studioResult?.success && Array.isArray(studioResult.data) ? studioResult.data.length : 0;
       }
 
       const decksRaw: Array<{ id: string; project_id?: string | null }> =
         decksResult?.success && Array.isArray(decksResult.data) ? decksResult.data : [];
-      const decks = projectId
-        ? decksRaw.filter((deck) => deck.project_id === projectId)
-        : decksRaw;
+      const decks = decksRaw.filter((deck) => deck.project_id === scopedPid);
       let dueFlashcards = 0;
       if (window.electron?.db?.flashcards?.getStats && decks.length > 0) {
         const deckStats = await Promise.all(
@@ -227,14 +213,7 @@ export function useDashboardData(projectId: string | null = null): DashboardData
 
       const upcomingEvents = eventsRaw.length;
 
-      const chatsAll =
-        chatsResult.success && Array.isArray(chatsResult.data) ? chatsResult.data : [];
-      const chats = projectId
-        ? chatsAll.filter((session) => {
-            const linkedResource = allResourcesRaw.find((resource) => resource.id === session.resource_id);
-            return linkedResource?.project_id === projectId;
-          })
-        : chatsAll;
+      const chats = chatsResult.success && Array.isArray(chatsResult.data) ? chatsResult.data : [];
 
       setStats({
         resourceCount: allResources.length,
@@ -321,7 +300,7 @@ export function useDashboardData(projectId: string | null = null): DashboardData
         weeklyRunsCompleted,
       });
 
-      const resourcesById = new Map(allResourcesRaw.map((r) => [r.id, r]));
+      const resourcesById = new Map(allResources.map((r) => [r.id, r]));
       const sevenDaysAgoSecs = (Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000;
       const resourceActivity: ActivityItem[] = allResources
         .filter((r) => r.updated_at > sevenDaysAgoSecs)

@@ -13,7 +13,9 @@ import {
   type AIProviderType,
 } from '@/lib/ai';
 import { showToast } from '@/lib/store/useToastStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 import { db } from '@/lib/db/client';
+import { appendSkillsMarkdown } from '@/lib/skills/append-markdown';
 import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
 import ReadingIndicator from '@/components/chat/ReadingIndicator';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
@@ -123,6 +125,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     currentSessionId,
     hydrateSession,
   } = useAgentChatStore();
+  const chatProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
   useEffect(() => {
     setStoreAgent(agentId);
@@ -338,20 +341,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
       try {
         const skillsResult = await db.getAISkills();
         if (skillsResult.success && Array.isArray(skillsResult.data)) {
-          const skills = skillsResult.data.filter(
-            (s: { id?: string; enabled?: boolean }) =>
-              typeof s.id === 'string' &&
-              agent.skillIds!.includes(s.id) &&
-              s.enabled !== false
-          );
-          if (skills.length > 0) {
-            prompt += '\n\n## Skills\n';
-            for (const s of skills) {
-              if (s.prompt?.trim()) {
-                prompt += `\n### ${s.name || 'Skill'}\n${s.prompt}\n`;
-              }
-            }
-          }
+          prompt = appendSkillsMarkdown(prompt, agent.skillIds, skillsResult.data);
         }
       } catch {
         // ignore
@@ -466,6 +456,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
               title: agent?.name ?? null,
               toolIds: agent?.toolIds ?? [],
               mcpServerIds: enabledMcpIds,
+              projectId: chatProjectId,
             });
             if (sessionResult.success && sessionResult.data) {
               dbSessionId = sessionResult.data.id;
@@ -492,6 +483,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           toolIds: agent.toolIds ?? [],
           mcpServerIds: enabledMcpIds,
           threadId,
+          projectId: chatProjectId,
           skipHitl: true,
         });
         delegatedToRunEngine = true;
@@ -560,6 +552,8 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     enabledMcpIds,
     scrollToBottom,
     currentSessionId,
+    chatProjectId,
+    applyRunSnapshot,
   ]);
 
   const handleAbort = useCallback(() => {

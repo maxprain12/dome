@@ -34,6 +34,7 @@ function AgentCanvasInner() {
   const { t } = useTranslation();
   const store = useCanvasStore();
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
+  const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const nodes = useCanvasStore((s) => s.nodes);
   const setNodes = useCanvasStore((s) => s.setNodes);
   const edges = useCanvasStore((s) => s.edges);
@@ -75,7 +76,7 @@ function AgentCanvasInner() {
     );
     if (agentNodesNeedingIcon.length === 0) return;
 
-    getManyAgents().then((agents) => {
+    getManyAgents(hubProjectId).then((agents) => {
       const updates: { nodeId: string; iconIndex: number }[] = [];
       for (const node of agentNodesNeedingIcon) {
         const agentData = node.data as AgentNodeData;
@@ -99,7 +100,7 @@ function AgentCanvasInner() {
       });
       setNodes(newNodes);
     });
-  }, [nodes, setNodes]);
+  }, [nodes, setNodes, hubProjectId]);
 
   // Load execution history when workflow changes
   useEffect(() => {
@@ -251,6 +252,7 @@ function AgentCanvasInner() {
         description: '',
         nodes: serializedNodes,
         edges: serializedEdges,
+        projectId: hubProjectId,
       });
       if (result.success && result.data) {
         store.setActiveWorkflow(result.data);
@@ -259,7 +261,7 @@ function AgentCanvasInner() {
         showToast('error', result.error ?? t('toast.workflow_save_error'));
       }
     }
-  }, [store]);
+  }, [store, hubProjectId, t]);
 
   const handleClear = useCallback(() => {
     setNodes([]);

@@ -35,6 +35,22 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       skillIds: parseJson(row.skill_ids, []),
       iconIndex: row.icon_index,
       marketplaceId: row.marketplace_id || undefined,
+      folderId: row.folder_id != null ? row.folder_id : undefined,
+      favorite: row.favorite === 1 || row.favorite === true,
+      projectId: row.project_id ?? 'default',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  function serializeAgentFolderRow(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      parentId: row.parent_id != null ? row.parent_id : null,
+      name: row.name,
+      sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
+      projectId: row.project_id ?? 'default',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -49,6 +65,21 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       nodes: parseJson(row.nodes_json, []),
       edges: parseJson(row.edges_json, []),
       marketplace: row.marketplace_json ? parseJson(row.marketplace_json, null) : undefined,
+      folderId: row.folder_id != null ? row.folder_id : undefined,
+      projectId: row.project_id ?? 'default',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  function serializeWorkflowFolderRow(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      parentId: row.parent_id != null ? row.parent_id : null,
+      name: row.name,
+      sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
+      projectId: row.project_id ?? 'default',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -171,6 +202,30 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: true, data: project };
     } catch (error) {
       console.error('[DB] Error getting project:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:projects:getDeletionImpact', (event, projectId) => {
+    try {
+      validateSender(event, windowManager);
+      return database.getProjectDeletionImpact(projectId);
+    } catch (error) {
+      console.error('[DB] Error project deletion impact:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:projects:deleteWithContent', (event, projectId) => {
+    try {
+      validateSender(event, windowManager);
+      const result = database.deleteProjectWithContent(projectId);
+      if (result.success) {
+        windowManager.broadcast('project:deleted', { id: projectId });
+      }
+      return result;
+    } catch (error) {
+      console.error('[DB] Error deleting project:', error);
       return { success: false, error: error.message };
     }
   });
@@ -506,11 +561,12 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Many agents
-  ipcMain.handle('db:manyAgents:list', (event) => {
+  ipcMain.handle('db:manyAgents:list', (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      return { success: true, data: queries.listManyAgents.all().map(serializeManyAgent) };
+      const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
+      return { success: true, data: queries.listManyAgents.all(pid).map(serializeManyAgent) };
     } catch (error) {
       console.error('[DB] Error listing many agents:', error);
       return { success: false, error: error.message };
@@ -532,8 +588,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
+      const favorite = agent.favorite === true ? 1 : 0;
+      const projectId = agent.projectId && String(agent.projectId).trim() ? String(agent.projectId).trim() : 'default';
       queries.createManyAgent.run(
         agent.id,
+        projectId,
         agent.name,
         agent.description || '',
         agent.systemInstructions || '',
@@ -542,11 +601,16 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         JSON.stringify(Array.isArray(agent.skillIds) ? agent.skillIds : []),
         agent.iconIndex || 1,
         agent.marketplaceId || null,
+        agent.folderId != null && agent.folderId !== '' ? agent.folderId : null,
+        favorite,
         agent.createdAt,
         agent.updatedAt,
       );
       windowManager.broadcast('dome:agents-changed');
-      return { success: true, data: agent };
+      return {
+        success: true,
+        data: serializeManyAgent(queries.getManyAgentById.get(agent.id)),
+      };
     } catch (error) {
       console.error('[DB] Error creating many agent:', error);
       return { success: false, error: error.message };
@@ -565,7 +629,22 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         id,
         updatedAt: Date.now(),
       };
+      const folderId =
+        next.folderId !== undefined
+          ? next.folderId && next.folderId !== ''
+            ? next.folderId
+            : null
+          : current.folder_id != null
+            ? current.folder_id
+            : null;
+      const favorite =
+        next.favorite !== undefined ? (next.favorite === true ? 1 : 0) : current.favorite === 1 ? 1 : 0;
+      const projectId =
+        next.projectId !== undefined && String(next.projectId || '').trim()
+          ? String(next.projectId).trim()
+          : current.project_id ?? 'default';
       queries.updateManyAgent.run(
+        projectId,
         next.name,
         next.description || '',
         next.systemInstructions || '',
@@ -574,11 +653,13 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         JSON.stringify(Array.isArray(next.skillIds) ? next.skillIds : []),
         next.iconIndex || 1,
         next.marketplaceId || null,
+        folderId,
+        favorite,
         next.updatedAt,
         id,
       );
       windowManager.broadcast('dome:agents-changed');
-      return { success: true, data: next };
+      return { success: true, data: serializeManyAgent(queries.getManyAgentById.get(id)) };
     } catch (error) {
       console.error('[DB] Error updating many agent:', error);
       return { success: false, error: error.message };
@@ -599,12 +680,90 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  // Workflows
-  ipcMain.handle('db:workflows:list', (event) => {
+  // Agent folders
+  ipcMain.handle('db:agentFolders:list', (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      return { success: true, data: queries.listCanvasWorkflows.all().map(serializeWorkflow) };
+      const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
+      return { success: true, data: queries.listAgentFolders.all(pid).map(serializeAgentFolderRow) };
+    } catch (error) {
+      console.error('[DB] Error listing agent folders:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:agentFolders:create', (event, folder) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const now = Date.now();
+      const pid = folder.projectId && String(folder.projectId).trim() ? String(folder.projectId).trim() : 'default';
+      queries.createAgentFolder.run(
+        folder.id,
+        pid,
+        folder.parentId != null && folder.parentId !== '' ? folder.parentId : null,
+        String(folder.name || 'Carpeta').trim() || 'Carpeta',
+        typeof folder.sortOrder === 'number' ? folder.sortOrder : 0,
+        folder.createdAt ?? now,
+        folder.updatedAt ?? now,
+      );
+      windowManager.broadcast('dome:agents-changed');
+      return { success: true, data: serializeAgentFolderRow(queries.getAgentFolderById.get(folder.id)) };
+    } catch (error) {
+      console.error('[DB] Error creating agent folder:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:agentFolders:update', (event, id, updates) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const current = queries.getAgentFolderById.get(id);
+      if (!current) return { success: false, error: 'Folder not found' };
+      const parentId =
+        updates.parentId !== undefined
+          ? updates.parentId && updates.parentId !== ''
+            ? updates.parentId
+            : null
+          : current.parent_id;
+      const name =
+        updates.name !== undefined
+          ? String(updates.name || '').trim() || current.name
+          : current.name;
+      const sortOrder =
+        updates.sortOrder !== undefined ? updates.sortOrder : current.sort_order ?? 0;
+      const now = Date.now();
+      queries.updateAgentFolder.run(parentId, name, sortOrder, now, id);
+      windowManager.broadcast('dome:agents-changed');
+      return { success: true, data: serializeAgentFolderRow(queries.getAgentFolderById.get(id)) };
+    } catch (error) {
+      console.error('[DB] Error updating agent folder:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:agentFolders:delete', (event, id) => {
+    try {
+      validateSender(event, windowManager);
+      const result = database.deleteAgentFolderCascade(id);
+      if (!result.success) return result;
+      windowManager.broadcast('dome:agents-changed');
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error deleting agent folder:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Workflows
+  ipcMain.handle('db:workflows:list', (event, projectId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
+      return { success: true, data: queries.listCanvasWorkflows.all(pid).map(serializeWorkflow) };
     } catch (error) {
       console.error('[DB] Error listing workflows:', error);
       return { success: false, error: error.message };
@@ -626,18 +785,24 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
+      const pid = workflow.projectId && String(workflow.projectId).trim() ? String(workflow.projectId).trim() : 'default';
       queries.createCanvasWorkflow.run(
         workflow.id,
+        pid,
         workflow.name,
         workflow.description || '',
         JSON.stringify(Array.isArray(workflow.nodes) ? workflow.nodes : []),
         JSON.stringify(Array.isArray(workflow.edges) ? workflow.edges : []),
         workflow.marketplace ? JSON.stringify(workflow.marketplace) : null,
+        workflow.folderId != null && workflow.folderId !== '' ? workflow.folderId : null,
         workflow.createdAt,
         workflow.updatedAt,
       );
       windowManager.broadcast('dome:workflows-changed');
-      return { success: true, data: workflow };
+      return {
+        success: true,
+        data: serializeWorkflow(queries.getCanvasWorkflowById.get(workflow.id)),
+      };
     } catch (error) {
       console.error('[DB] Error creating workflow:', error);
       return { success: false, error: error.message };
@@ -656,17 +821,31 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         id,
         updatedAt: Date.now(),
       };
+      const folderId =
+        next.folderId !== undefined
+          ? next.folderId && next.folderId !== ''
+            ? next.folderId
+            : null
+          : current.folder_id != null
+            ? current.folder_id
+            : null;
+      const wfProjectId =
+        next.projectId !== undefined && String(next.projectId || '').trim()
+          ? String(next.projectId).trim()
+          : current.project_id ?? 'default';
       queries.updateCanvasWorkflow.run(
+        wfProjectId,
         next.name,
         next.description || '',
         JSON.stringify(Array.isArray(next.nodes) ? next.nodes : []),
         JSON.stringify(Array.isArray(next.edges) ? next.edges : []),
         next.marketplace ? JSON.stringify(next.marketplace) : null,
+        folderId,
         next.updatedAt,
         id,
       );
       windowManager.broadcast('dome:workflows-changed');
-      return { success: true, data: next };
+      return { success: true, data: serializeWorkflow(queries.getCanvasWorkflowById.get(id)) };
     } catch (error) {
       console.error('[DB] Error updating workflow:', error);
       return { success: false, error: error.message };
@@ -687,14 +866,99 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
+  ipcMain.handle('db:workflowFolders:list', (event, projectId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
+      return { success: true, data: queries.listWorkflowFolders.all(pid).map(serializeWorkflowFolderRow) };
+    } catch (error) {
+      console.error('[DB] Error listing workflow folders:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:workflowFolders:create', (event, folder) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const now = Date.now();
+      const pid = folder.projectId && String(folder.projectId).trim() ? String(folder.projectId).trim() : 'default';
+      queries.createWorkflowFolder.run(
+        folder.id,
+        pid,
+        folder.parentId != null && folder.parentId !== '' ? folder.parentId : null,
+        String(folder.name || 'Carpeta').trim() || 'Carpeta',
+        typeof folder.sortOrder === 'number' ? folder.sortOrder : 0,
+        folder.createdAt ?? now,
+        folder.updatedAt ?? now,
+      );
+      windowManager.broadcast('dome:workflows-changed');
+      return {
+        success: true,
+        data: serializeWorkflowFolderRow(queries.getWorkflowFolderById.get(folder.id)),
+      };
+    } catch (error) {
+      console.error('[DB] Error creating workflow folder:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:workflowFolders:update', (event, id, updates) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const current = queries.getWorkflowFolderById.get(id);
+      if (!current) return { success: false, error: 'Folder not found' };
+      const parentId =
+        updates.parentId !== undefined
+          ? updates.parentId && updates.parentId !== ''
+            ? updates.parentId
+            : null
+          : current.parent_id;
+      const name =
+        updates.name !== undefined
+          ? String(updates.name || '').trim() || current.name
+          : current.name;
+      const sortOrder =
+        updates.sortOrder !== undefined ? updates.sortOrder : current.sort_order ?? 0;
+      const now = Date.now();
+      queries.updateWorkflowFolder.run(parentId, name, sortOrder, now, id);
+      windowManager.broadcast('dome:workflows-changed');
+      return { success: true, data: serializeWorkflowFolderRow(queries.getWorkflowFolderById.get(id)) };
+    } catch (error) {
+      console.error('[DB] Error updating workflow folder:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:workflowFolders:delete', (event, id) => {
+    try {
+      validateSender(event, windowManager);
+      const result = database.deleteWorkflowFolderCascade(id);
+      if (!result.success) return result;
+      windowManager.broadcast('dome:workflows-changed');
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error deleting workflow folder:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('db:workflowExecutions:save', (event, execution) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const updatedAt = execution.finishedAt || execution.startedAt || Date.now();
+      let projectId = execution.projectId ?? execution.project_id ?? 'default';
+      if ((!execution.projectId && !execution.project_id) && execution.workflowId) {
+        const wf = queries.getCanvasWorkflowById.get(execution.workflowId);
+        projectId = wf?.project_id ?? 'default';
+      }
       queries.upsertWorkflowExecution.run(
         execution.id,
         execution.workflowId,
+        projectId,
         execution.workflowName,
         execution.startedAt,
         execution.finishedAt || null,

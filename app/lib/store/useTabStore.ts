@@ -17,6 +17,9 @@ export type TabType =
   | 'tags'
   | 'marketplace'
   | 'agents'
+  | 'workflows'
+  | 'automations'
+  | 'runs'
   | 'folder'
   | 'learn';
 
@@ -39,6 +42,9 @@ export const LEARN_TAB_ID = 'learn';
 export const TAGS_TAB_ID = 'tags';
 export const MARKETPLACE_TAB_ID = 'marketplace';
 export const AGENTS_TAB_ID = 'agents';
+export const WORKFLOWS_TAB_ID = 'workflows';
+export const AUTOMATIONS_TAB_ID = 'automations';
+export const RUNS_TAB_ID = 'runs';
 export const FOLDER_TAB_PREFIX = 'folder:';
 
 const HOME_TAB: DomeTab = { id: HOME_TAB_ID, type: 'home', title: 'Home', pinned: true };
@@ -90,6 +96,9 @@ interface TabStore {
   openTagsTab: () => void;
   openMarketplaceTab: () => void;
   openAgentsTab: () => void;
+  openWorkflowsTab: () => void;
+  openAutomationsTab: () => void;
+  openRunsTab: () => void;
   openFolderTab: (folderId: string, title: string, color?: string) => void;
   updateTab: (tabId: string, updates: Partial<Pick<DomeTab, 'title' | 'color'>>) => void;
 }
@@ -113,8 +122,20 @@ export const useTabStore = create<TabStore>((set, get) => {
         return;
       }
 
-      // For singleton tabs (settings, calendar, studio, flashcards, tags, marketplace, agents, learn), focus existing one
-      const singletonTypes: TabType[] = ['settings', 'calendar', 'studio', 'flashcards', 'tags', 'marketplace', 'agents', 'learn'];
+      // For singleton tabs (settings, calendar, studio, flashcards, tags, marketplace, agents hub tabs, learn), focus existing one
+      const singletonTypes: TabType[] = [
+        'settings',
+        'calendar',
+        'studio',
+        'flashcards',
+        'tags',
+        'marketplace',
+        'agents',
+        'workflows',
+        'automations',
+        'runs',
+        'learn',
+      ];
       if (singletonTypes.includes(tabSpec.type)) {
         const existing = tabs.find((t) => t.type === tabSpec.type);
         if (existing) {
@@ -194,6 +215,15 @@ export const useTabStore = create<TabStore>((set, get) => {
       };
       const tabType: TabType = typeMap[resourceType] ?? 'resource';
       get().openTab({ type: tabType, title, resourceId });
+      try {
+        void window.electron?.invoke?.('automations:notifyContext', {
+          tag: 'resource_opened',
+          resourceId,
+          resourceType,
+        });
+      } catch {
+        /* non-Electron or older build */
+      }
     },
 
     openNoteTab: (resourceId, title) => {
@@ -233,7 +263,19 @@ export const useTabStore = create<TabStore>((set, get) => {
     },
 
     openAgentsTab: () => {
-      get().openTab({ id: AGENTS_TAB_ID, type: 'agents', title: 'Agentes & Flows', pinned: false });
+      get().openTab({ id: AGENTS_TAB_ID, type: 'agents', title: 'Agents', pinned: false });
+    },
+
+    openWorkflowsTab: () => {
+      get().openTab({ id: WORKFLOWS_TAB_ID, type: 'workflows', title: 'Workflows', pinned: false });
+    },
+
+    openAutomationsTab: () => {
+      get().openTab({ id: AUTOMATIONS_TAB_ID, type: 'automations', title: 'Automations', pinned: false });
+    },
+
+    openRunsTab: () => {
+      get().openTab({ id: RUNS_TAB_ID, type: 'runs', title: 'Runs', pinned: false });
     },
 
     openFolderTab: (folderId, title, color) => {

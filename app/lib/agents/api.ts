@@ -5,26 +5,28 @@
 
 import { db } from '@/lib/db/client';
 import { generateId } from '@/lib/utils';
-import type { ManyAgent } from '@/types';
+import type { DomeAgentFolder, ManyAgent } from '@/types';
 
-async function getAll(): Promise<ManyAgent[]> {
+async function getAll(projectId: string): Promise<ManyAgent[]> {
   if (!db.isAvailable()) return [];
-  const result = await db.getManyAgents();
+  const result = await db.getManyAgents(projectId);
   return result.success && Array.isArray(result.data) ? result.data : [];
 }
 
-export async function getManyAgents(): Promise<ManyAgent[]> {
-  return getAll();
+export async function getManyAgents(projectId = 'default'): Promise<ManyAgent[]> {
+  return getAll(projectId);
 }
 
 export async function createManyAgent(
   data: Omit<ManyAgent, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<{ success: boolean; data?: ManyAgent; error?: string }> {
-  const agents = await getAll();
+  const pid = data.projectId ?? 'default';
+  const agents = await getAll(pid);
   const now = Date.now();
   const agent: ManyAgent = {
     id: generateId(),
     ...data,
+    projectId: pid,
     createdAt: now,
     updatedAt: now,
   };
@@ -53,6 +55,53 @@ export async function getManyAgentById(id: string): Promise<ManyAgent | null> {
   return result.success ? result.data ?? null : null;
 }
 
+export async function listAgentFolders(projectId = 'default'): Promise<DomeAgentFolder[]> {
+  if (!db.isAvailable()) return [];
+  const result = await db.listAgentFolders(projectId);
+  return result.success && Array.isArray(result.data) ? result.data : [];
+}
+
+export async function createAgentFolderRecord(
+  name: string,
+  parentId?: string | null,
+  projectId = 'default',
+): Promise<{ success: boolean; data?: DomeAgentFolder; error?: string }> {
+  if (!db.isAvailable()) return { success: false, error: 'Database unavailable' };
+  const now = Date.now();
+  const folder: DomeAgentFolder = {
+    id: generateId(),
+    projectId,
+    parentId: parentId ?? null,
+    name: name.trim() || 'Folder',
+    sortOrder: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const saved = await db.createAgentFolder(folder);
+  return saved.success && saved.data
+    ? { success: true, data: saved.data }
+    : { success: false, error: saved.error };
+}
+
+export async function updateAgentFolderRecord(
+  id: string,
+  updates: Partial<Pick<DomeAgentFolder, 'parentId' | 'name' | 'sortOrder'>>,
+): Promise<{ success: boolean; data?: DomeAgentFolder; error?: string }> {
+  if (!db.isAvailable()) return { success: false, error: 'Database unavailable' };
+  const saved = await db.updateAgentFolder(id, updates);
+  return saved.success && saved.data
+    ? { success: true, data: saved.data }
+    : { success: false, error: saved.error };
+}
+
+export async function deleteAgentFolderRecord(
+  id: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!db.isAvailable()) return { success: false, error: 'Database unavailable' };
+  const result = await db.deleteAgentFolder(id);
+  return result.success ? { success: true } : { success: false, error: result.error };
+}
+
 /** Serialize one or more agents to JSON for export */
 export function exportAgentsConfig(agents: ManyAgent[]): string {
   return JSON.stringify(agents, null, 2);
@@ -72,8 +121,15 @@ export function parseAgentsConfig(json: string): { success: true; data: ManyAgen
       if (!name) {
         return { success: false, error: `Agente ${i + 1}: falta el nombre` };
       }
+      const folderIdRaw = raw.folderId;
+      const folderId =
+        typeof folderIdRaw === 'string' && folderIdRaw.trim() ? folderIdRaw.trim() : undefined;
+      const favorite = raw.favorite === true;
+      const impPid =
+        typeof raw.projectId === 'string' && raw.projectId.trim() ? raw.projectId.trim() : 'default';
       agents.push({
         id: generateId(),
+        projectId: impPid,
         name,
         description: typeof raw.description === 'string' ? raw.description : '',
         systemInstructions: typeof raw.systemInstructions === 'string' ? raw.systemInstructions : '',
@@ -81,6 +137,8 @@ export function parseAgentsConfig(json: string): { success: true; data: ManyAgen
         mcpServerIds: Array.isArray(raw.mcpServerIds) ? (raw.mcpServerIds as string[]) : [],
         skillIds: Array.isArray(raw.skillIds) ? (raw.skillIds as string[]) : [],
         iconIndex: typeof raw.iconIndex === 'number' && raw.iconIndex >= 1 && raw.iconIndex <= 18 ? raw.iconIndex : 1,
+        ...(folderId ? { folderId } : {}),
+        favorite,
         createdAt: now,
         updatedAt: now,
       });
@@ -95,11 +153,18 @@ export function parseAgentsConfig(json: string): { success: true; data: ManyAgen
 }
 
 /** Import agents from JSON and persist them */
-export async function importAgentsConfig(json: string): Promise<{ success: boolean; data?: ManyAgent[]; error?: string }> {
+export async function importAgentsConfig(
+  json: string,
+  targetProjectId = 'default',
+): Promise<{ success: boolean; data?: ManyAgent[]; error?: string }> {
   const parsed = parseAgentsConfig(json);
   if (!parsed.success) return parsed;
   for (const agent of parsed.data) {
-    const saved = await db.createManyAgent(agent);
+    const toSave: ManyAgent = {
+      ...agent,
+      projectId: agent.projectId ?? targetProjectId,
+    };
+    const saved = await db.createManyAgent(toSave);
     if (!saved.success) {
       return { success: false, error: saved.error };
     }

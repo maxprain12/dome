@@ -147,10 +147,38 @@ function initDatabase() {
     )
   `);
 
+  // Folders for organizing many_agents and canvas_workflows (hierarchy in app layer)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS agent_folders (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL DEFAULT 'default' REFERENCES projects(id) ON DELETE CASCADE,
+      parent_id TEXT,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_agent_folders_parent ON agent_folders(parent_id)');
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS workflow_folders (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL DEFAULT 'default' REFERENCES projects(id) ON DELETE CASCADE,
+      parent_id TEXT,
+      name TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_folders_parent ON workflow_folders(parent_id)');
+
   // Dedicated tables for agent/runtime entities previously stored in settings blobs
   db.exec(`
     CREATE TABLE IF NOT EXISTS many_agents (
       id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL DEFAULT 'default' REFERENCES projects(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       description TEXT,
       system_instructions TEXT,
@@ -159,21 +187,27 @@ function initDatabase() {
       skill_ids TEXT NOT NULL DEFAULT '[]',
       icon_index INTEGER NOT NULL DEFAULT 1,
       marketplace_id TEXT,
+      folder_id TEXT,
+      favorite INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (folder_id) REFERENCES agent_folders(id) ON DELETE SET NULL
     )
   `);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS canvas_workflows (
       id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL DEFAULT 'default' REFERENCES projects(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
       description TEXT,
       nodes_json TEXT NOT NULL DEFAULT '[]',
       edges_json TEXT NOT NULL DEFAULT '[]',
       marketplace_json TEXT,
+      folder_id TEXT,
       created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (folder_id) REFERENCES workflow_folders(id) ON DELETE SET NULL
     )
   `);
 
@@ -181,6 +215,7 @@ function initDatabase() {
     CREATE TABLE IF NOT EXISTS workflow_executions (
       id TEXT PRIMARY KEY,
       workflow_id TEXT NOT NULL,
+      project_id TEXT NOT NULL DEFAULT 'default' REFERENCES projects(id) ON DELETE CASCADE,
       workflow_name TEXT NOT NULL,
       started_at INTEGER NOT NULL,
       finished_at INTEGER,
@@ -334,6 +369,8 @@ function initDatabase() {
   db.exec('CREATE INDEX IF NOT EXISTS idx_links_target ON resource_links(target_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_search_index_resource ON search_index(resource_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_many_agents_marketplace_id ON many_agents(marketplace_id)');
+  // project_id indexes: must run AFTER runMigrations — existing DBs keep old table DDL until migration 23 adds columns
+  // folder_id indexes: created in migration 20 after ALTER ADD COLUMN (existing DBs lack column until then)
   db.exec('CREATE INDEX IF NOT EXISTS idx_canvas_workflows_updated_at ON canvas_workflows(updated_at)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_executions_workflow_id ON workflow_executions(workflow_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_executions_started_at ON workflow_executions(started_at)');
@@ -451,6 +488,20 @@ function initDatabase() {
   // Run migrations
   runMigrations(db);
 
+  // Indexes on project_id (safe after migration 23 backfill; idempotent for fresh installs)
+  try {
+    db.exec('CREATE INDEX IF NOT EXISTS idx_many_agents_project_id ON many_agents(project_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_agent_folders_project_id ON agent_folders(project_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_folders_project_id ON workflow_folders(project_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_canvas_workflows_project_id ON canvas_workflows(project_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_executions_project_id ON workflow_executions(project_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_project ON chat_sessions(project_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_automation_definitions_project ON automation_definitions(project_id)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_automation_runs_project ON automation_runs(project_id)');
+  } catch (e) {
+    console.warn('[DB] Could not ensure project_id indexes (tables/columns may still be migrating):', e.message);
+  }
+
   // Create default project if it doesn't exist
   createDefaultProject(db);
 
@@ -509,7 +560,7 @@ function createDefaultProject(db) {
       db.prepare(`
         INSERT INTO projects (id, name, description, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?)
-      `).run('default', 'My Library', 'Default project for resources', now, now);
+      `).run('default', 'Dome', 'Default workspace', now, now);
       console.log('[DB] Default project created');
     }
   } catch (error) {
@@ -2158,6 +2209,270 @@ function runMigrations(db) {
       console.error('[DB] Migration 19 failed:', error);
     }
   }
+
+  if (version < 20) {
+    try {
+      const now = Date.now();
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_folders (
+          id TEXT PRIMARY KEY,
+          parent_id TEXT,
+          name TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS workflow_folders (
+          id TEXT PRIMARY KEY,
+          parent_id TEXT,
+          name TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_agent_folders_parent ON agent_folders(parent_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_folders_parent ON workflow_folders(parent_id)');
+
+      const manyCols = new Set(db.prepare('PRAGMA table_info(many_agents)').all().map((c) => c.name));
+      if (!manyCols.has('folder_id')) {
+        db.exec('ALTER TABLE many_agents ADD COLUMN folder_id TEXT REFERENCES agent_folders(id) ON DELETE SET NULL');
+      }
+      if (!manyCols.has('favorite')) {
+        db.exec('ALTER TABLE many_agents ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0');
+      }
+
+      const wfCols = new Set(db.prepare('PRAGMA table_info(canvas_workflows)').all().map((c) => c.name));
+      if (!wfCols.has('folder_id')) {
+        db.exec(
+          'ALTER TABLE canvas_workflows ADD COLUMN folder_id TEXT REFERENCES workflow_folders(id) ON DELETE SET NULL',
+        );
+      }
+
+      db.exec('CREATE INDEX IF NOT EXISTS idx_many_agents_folder_id ON many_agents(folder_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_canvas_workflows_folder_id ON canvas_workflows(folder_id)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '20', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '20', updated_at = excluded.updated_at
+      `).run(now);
+
+      invalidateQueries();
+      console.log('[DB] Migration 20 complete - agent/workflow folders + favorites');
+    } catch (error) {
+      console.error('[DB] Migration 20 failed:', error);
+    }
+  }
+
+  // Migration 21: repair many_agents.favorite if schema_version reached 20 without the column
+  // (e.g. partial/failed migration 20 or older builds that bumped version early)
+  if (version < 21) {
+    try {
+      const now = Date.now();
+      const manyCols = new Set(db.prepare('PRAGMA table_info(many_agents)').all().map((c) => c.name));
+      if (!manyCols.has('favorite')) {
+        db.exec('ALTER TABLE many_agents ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0');
+        console.log('[DB] Migration 21: added missing many_agents.favorite');
+      }
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '21', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '21', updated_at = excluded.updated_at
+      `).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 21 complete - many_agents.favorite repair');
+    } catch (error) {
+      console.error('[DB] Migration 21 failed:', error);
+    }
+  }
+
+  // Migration 22: repair folder_id / workflow folder schema if version advanced without migration 20
+  // (e.g. only migration 21 ran, or partial DB state)
+  if (version < 22) {
+    try {
+      const now = Date.now();
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_folders (
+          id TEXT PRIMARY KEY,
+          parent_id TEXT,
+          name TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS workflow_folders (
+          id TEXT PRIMARY KEY,
+          parent_id TEXT,
+          name TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_agent_folders_parent ON agent_folders(parent_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_folders_parent ON workflow_folders(parent_id)');
+
+      const manyCols22 = new Set(db.prepare('PRAGMA table_info(many_agents)').all().map((c) => c.name));
+      if (!manyCols22.has('folder_id')) {
+        db.exec('ALTER TABLE many_agents ADD COLUMN folder_id TEXT REFERENCES agent_folders(id) ON DELETE SET NULL');
+        console.log('[DB] Migration 22: added missing many_agents.folder_id');
+      }
+      if (!manyCols22.has('favorite')) {
+        db.exec('ALTER TABLE many_agents ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0');
+        console.log('[DB] Migration 22: added missing many_agents.favorite');
+      }
+
+      const wfCols22 = new Set(db.prepare('PRAGMA table_info(canvas_workflows)').all().map((c) => c.name));
+      if (!wfCols22.has('folder_id')) {
+        db.exec(
+          'ALTER TABLE canvas_workflows ADD COLUMN folder_id TEXT REFERENCES workflow_folders(id) ON DELETE SET NULL',
+        );
+        console.log('[DB] Migration 22: added missing canvas_workflows.folder_id');
+      }
+
+      db.exec('CREATE INDEX IF NOT EXISTS idx_many_agents_folder_id ON many_agents(folder_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_canvas_workflows_folder_id ON canvas_workflows(folder_id)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '22', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '22', updated_at = excluded.updated_at
+      `).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 22 complete - agent/workflow folder columns repair');
+    } catch (error) {
+      console.error('[DB] Migration 22 failed:', error);
+    }
+  }
+
+  // Migration 23: project scope for agents, workflows, chat, automations, runs, folders, executions
+  if (version < 23) {
+    try {
+      const now = Date.now();
+      const DEFAULT_PID = 'default';
+
+      db.prepare(`UPDATE projects SET name = 'Dome', description = 'Default workspace' WHERE id = ?`).run(DEFAULT_PID);
+
+      const ensureCol = (table, col) => {
+        const cols = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name));
+        if (!cols.has(col)) {
+          db.exec(
+            `ALTER TABLE ${table} ADD COLUMN ${col} TEXT NOT NULL DEFAULT '${DEFAULT_PID}'`,
+          );
+        }
+      };
+
+      ensureCol('agent_folders', 'project_id');
+      ensureCol('workflow_folders', 'project_id');
+      ensureCol('many_agents', 'project_id');
+      ensureCol('canvas_workflows', 'project_id');
+      ensureCol('workflow_executions', 'project_id');
+      ensureCol('chat_sessions', 'project_id');
+      ensureCol('automation_definitions', 'project_id');
+      ensureCol('automation_runs', 'project_id');
+
+      // Subqueries can yield NULL (orphan FK, missing row, or NULL project_id on parent) — NOT NULL on project_id would fail without COALESCE.
+      db.exec(`
+        UPDATE chat_sessions
+        SET project_id = COALESCE((
+          SELECT r.project_id FROM resources r WHERE r.id = chat_sessions.resource_id
+        ), '${DEFAULT_PID}')
+        WHERE resource_id IS NOT NULL
+      `);
+      db.exec(`
+        UPDATE chat_sessions
+        SET project_id = COALESCE((
+          SELECT a.project_id FROM many_agents a WHERE a.id = chat_sessions.agent_id
+        ), '${DEFAULT_PID}')
+        WHERE agent_id IS NOT NULL AND resource_id IS NULL
+      `);
+
+      db.exec(`
+        UPDATE workflow_executions
+        SET project_id = COALESCE((
+          SELECT w.project_id FROM canvas_workflows w WHERE w.id = workflow_executions.workflow_id
+        ), '${DEFAULT_PID}')
+        WHERE workflow_id IS NOT NULL
+      `);
+
+      db.exec(`
+        UPDATE automation_runs
+        SET project_id = COALESCE((
+          SELECT d.project_id FROM automation_definitions d WHERE d.id = automation_runs.automation_id
+        ), '${DEFAULT_PID}')
+        WHERE automation_id IS NOT NULL
+      `);
+      db.exec(`
+        UPDATE automation_runs
+        SET project_id = COALESCE((
+          SELECT s.project_id FROM chat_sessions s WHERE s.id = automation_runs.session_id
+        ), '${DEFAULT_PID}')
+        WHERE (automation_id IS NULL OR project_id IS NULL OR project_id = '${DEFAULT_PID}')
+          AND session_id IS NOT NULL
+      `);
+      db.exec(`
+        UPDATE automation_runs
+        SET project_id = COALESCE((
+          SELECT w.project_id FROM canvas_workflows w WHERE w.id = automation_runs.workflow_id
+        ), '${DEFAULT_PID}')
+        WHERE workflow_id IS NOT NULL
+          AND (project_id IS NULL OR project_id = '${DEFAULT_PID}')
+      `);
+      db.exec(`
+        UPDATE automation_runs
+        SET project_id = COALESCE((
+          SELECT a.project_id FROM many_agents a WHERE a.id = automation_runs.owner_id
+        ), '${DEFAULT_PID}')
+        WHERE owner_type IN ('agent', 'many') AND owner_id IS NOT NULL
+          AND (project_id IS NULL OR project_id = '${DEFAULT_PID}')
+      `);
+
+      const tablesWithProjectId = [
+        'chat_sessions',
+        'many_agents',
+        'canvas_workflows',
+        'workflow_executions',
+        'automation_definitions',
+        'automation_runs',
+        'agent_folders',
+        'workflow_folders',
+      ];
+      for (const t of tablesWithProjectId) {
+        try {
+          db.exec(
+            `UPDATE ${t} SET project_id = '${DEFAULT_PID}' WHERE project_id IS NULL OR TRIM(COALESCE(project_id, '')) = ''`,
+          );
+        } catch {
+          /* table/column edge cases on very old DBs */
+        }
+      }
+
+      db.exec('CREATE INDEX IF NOT EXISTS idx_chat_sessions_project ON chat_sessions(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_many_agents_project_id ON many_agents(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_agent_folders_project_id ON agent_folders(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_folders_project_id ON workflow_folders(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_canvas_workflows_project_id ON canvas_workflows(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_workflow_executions_project_id ON workflow_executions(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_definitions_project ON automation_definitions(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_runs_project ON automation_runs(project_id)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '23', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '23', updated_at = excluded.updated_at
+      `).run(now);
+
+      invalidateQueries();
+      console.log('[DB] Migration 23 complete - project scope for agents, workflows, chat, automations, runs');
+    } catch (error) {
+      console.error('[DB] Migration 23 failed:', error);
+    }
+  }
 }
 
 /**
@@ -2256,36 +2571,82 @@ function getQueries() {
     `),
 
     // Many agents
-    listManyAgents: db.prepare('SELECT * FROM many_agents ORDER BY updated_at DESC'),
+    listManyAgents: db.prepare(
+      'SELECT * FROM many_agents WHERE project_id = ? ORDER BY favorite DESC, updated_at DESC',
+    ),
     getManyAgentById: db.prepare('SELECT * FROM many_agents WHERE id = ?'),
     createManyAgent: db.prepare(`
       INSERT INTO many_agents (
-        id, name, description, system_instructions, tool_ids, mcp_server_ids,
-        skill_ids, icon_index, marketplace_id, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, project_id, name, description, system_instructions, tool_ids, mcp_server_ids,
+        skill_ids, icon_index, marketplace_id, folder_id, favorite, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     updateManyAgent: db.prepare(`
       UPDATE many_agents
-      SET name = ?, description = ?, system_instructions = ?, tool_ids = ?, mcp_server_ids = ?,
-          skill_ids = ?, icon_index = ?, marketplace_id = ?, updated_at = ?
+      SET project_id = ?, name = ?, description = ?, system_instructions = ?, tool_ids = ?, mcp_server_ids = ?,
+          skill_ids = ?, icon_index = ?, marketplace_id = ?, folder_id = ?, favorite = ?, updated_at = ?
       WHERE id = ?
     `),
     deleteManyAgent: db.prepare('DELETE FROM many_agents WHERE id = ?'),
 
+    // Agent folders
+    listAgentFolders: db.prepare(
+      'SELECT * FROM agent_folders WHERE project_id = ? ORDER BY COALESCE(parent_id, \'\'), sort_order ASC, name ASC',
+    ),
+    getAgentFolderById: db.prepare('SELECT * FROM agent_folders WHERE id = ?'),
+    createAgentFolder: db.prepare(`
+      INSERT INTO agent_folders (id, project_id, parent_id, name, sort_order, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateAgentFolder: db.prepare(`
+      UPDATE agent_folders
+      SET parent_id = ?, name = ?, sort_order = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deleteAgentFolder: db.prepare('DELETE FROM agent_folders WHERE id = ?'),
+    moveManyAgentsFolder: db.prepare(`
+      UPDATE many_agents SET folder_id = ?, updated_at = ? WHERE folder_id = ?
+    `),
+    reparentAgentFolders: db.prepare(`
+      UPDATE agent_folders SET parent_id = ?, updated_at = ? WHERE parent_id = ?
+    `),
+
     // Canvas workflows
-    listCanvasWorkflows: db.prepare('SELECT * FROM canvas_workflows ORDER BY updated_at DESC'),
+    listCanvasWorkflows: db.prepare('SELECT * FROM canvas_workflows WHERE project_id = ? ORDER BY updated_at DESC'),
     getCanvasWorkflowById: db.prepare('SELECT * FROM canvas_workflows WHERE id = ?'),
     createCanvasWorkflow: db.prepare(`
       INSERT INTO canvas_workflows (
-        id, name, description, nodes_json, edges_json, marketplace_json, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        id, project_id, name, description, nodes_json, edges_json, marketplace_json, folder_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     updateCanvasWorkflow: db.prepare(`
       UPDATE canvas_workflows
-      SET name = ?, description = ?, nodes_json = ?, edges_json = ?, marketplace_json = ?, updated_at = ?
+      SET project_id = ?, name = ?, description = ?, nodes_json = ?, edges_json = ?, marketplace_json = ?, folder_id = ?, updated_at = ?
       WHERE id = ?
     `),
     deleteCanvasWorkflow: db.prepare('DELETE FROM canvas_workflows WHERE id = ?'),
+
+    // Workflow folders
+    listWorkflowFolders: db.prepare(
+      'SELECT * FROM workflow_folders WHERE project_id = ? ORDER BY COALESCE(parent_id, \'\'), sort_order ASC, name ASC',
+    ),
+    getWorkflowFolderById: db.prepare('SELECT * FROM workflow_folders WHERE id = ?'),
+    createWorkflowFolder: db.prepare(`
+      INSERT INTO workflow_folders (id, project_id, parent_id, name, sort_order, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateWorkflowFolder: db.prepare(`
+      UPDATE workflow_folders
+      SET parent_id = ?, name = ?, sort_order = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deleteWorkflowFolder: db.prepare('DELETE FROM workflow_folders WHERE id = ?'),
+    moveCanvasWorkflowsFolder: db.prepare(`
+      UPDATE canvas_workflows SET folder_id = ?, updated_at = ? WHERE folder_id = ?
+    `),
+    reparentWorkflowFolders: db.prepare(`
+      UPDATE workflow_folders SET parent_id = ?, updated_at = ? WHERE parent_id = ?
+    `),
 
     // Workflow executions
     listWorkflowExecutionsByWorkflow: db.prepare(`
@@ -2296,10 +2657,11 @@ function getQueries() {
     getWorkflowExecutionById: db.prepare('SELECT * FROM workflow_executions WHERE id = ?'),
     upsertWorkflowExecution: db.prepare(`
       INSERT INTO workflow_executions (
-        id, workflow_id, workflow_name, started_at, finished_at, status, entries_json, node_outputs_json, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, workflow_id, project_id, workflow_name, started_at, finished_at, status, entries_json, node_outputs_json, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         workflow_id = excluded.workflow_id,
+        project_id = excluded.project_id,
         workflow_name = excluded.workflow_name,
         started_at = excluded.started_at,
         finished_at = excluded.finished_at,
@@ -2442,8 +2804,8 @@ function getQueries() {
 
     // Chat sessions and messages (traceability)
     createChatSession: db.prepare(`
-      INSERT INTO chat_sessions (id, agent_id, resource_id, mode, context_id, thread_id, title, tool_ids, mcp_server_ids, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO chat_sessions (id, project_id, agent_id, resource_id, mode, context_id, thread_id, title, tool_ids, mcp_server_ids, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getChatSession: db.prepare('SELECT * FROM chat_sessions WHERE id = ?'),
     updateChatSession: db.prepare(`
@@ -2451,13 +2813,13 @@ function getQueries() {
       WHERE id = ?
     `),
     getChatSessionsByAgent: db.prepare(`
-      SELECT * FROM chat_sessions WHERE agent_id = ? ORDER BY updated_at DESC LIMIT ?
+      SELECT * FROM chat_sessions WHERE agent_id = ? AND project_id = ? ORDER BY updated_at DESC LIMIT ?
     `),
     getChatSessionsByResource: db.prepare(`
       SELECT * FROM chat_sessions WHERE resource_id = ? ORDER BY updated_at DESC LIMIT ?
     `),
     getChatSessionsGlobal: db.prepare(`
-      SELECT * FROM chat_sessions WHERE agent_id IS NULL AND resource_id IS NULL ORDER BY updated_at DESC LIMIT ?
+      SELECT * FROM chat_sessions WHERE agent_id IS NULL AND resource_id IS NULL AND project_id = ? ORDER BY updated_at DESC LIMIT ?
     `),
     createChatMessage: db.prepare(`
       INSERT INTO chat_messages (id, session_id, role, content, tool_calls, thinking, metadata, created_at)
@@ -2474,14 +2836,14 @@ function getQueries() {
     // Automations and persistent runs
     createAutomationDefinition: db.prepare(`
       INSERT INTO automation_definitions (
-        id, title, description, target_type, target_id, trigger_type, schedule_json,
+        id, project_id, title, description, target_type, target_id, trigger_type, schedule_json,
         input_template_json, output_mode, enabled, legacy_source, last_run_at, last_run_status,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     updateAutomationDefinition: db.prepare(`
       UPDATE automation_definitions
-      SET title = ?, description = ?, target_type = ?, target_id = ?, trigger_type = ?, schedule_json = ?,
+      SET project_id = ?, title = ?, description = ?, target_type = ?, target_id = ?, trigger_type = ?, schedule_json = ?,
           input_template_json = ?, output_mode = ?, enabled = ?, legacy_source = ?, last_run_at = ?, last_run_status = ?, updated_at = ?
       WHERE id = ?
     `),
@@ -2495,6 +2857,11 @@ function getQueries() {
       SELECT * FROM automation_definitions
       ORDER BY updated_at DESC
     `),
+    getAutomationDefinitionsByProject: db.prepare(`
+      SELECT * FROM automation_definitions
+      WHERE project_id = ?
+      ORDER BY updated_at DESC
+    `),
     getEnabledScheduledAutomations: db.prepare(`
       SELECT * FROM automation_definitions
       WHERE enabled = 1 AND trigger_type = 'schedule'
@@ -2505,14 +2872,14 @@ function getQueries() {
 
     createAutomationRun: db.prepare(`
       INSERT INTO automation_runs (
-        id, automation_id, owner_type, owner_id, title, status, session_id, workflow_id,
+        id, project_id, automation_id, owner_type, owner_id, title, status, session_id, workflow_id,
         workflow_execution_id, thread_id, output_text, summary, error, metadata,
         started_at, updated_at, finished_at, last_heartbeat_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     updateAutomationRun: db.prepare(`
       UPDATE automation_runs
-      SET automation_id = ?, owner_type = ?, owner_id = ?, title = ?, status = ?, session_id = ?, workflow_id = ?,
+      SET project_id = ?, automation_id = ?, owner_type = ?, owner_id = ?, title = ?, status = ?, session_id = ?, workflow_id = ?,
           workflow_execution_id = ?, thread_id = ?, output_text = ?, summary = ?, error = ?, metadata = ?,
           updated_at = ?, finished_at = ?, last_heartbeat_at = ?
       WHERE id = ?
@@ -2538,6 +2905,12 @@ function getQueries() {
     `),
     getLatestAutomationRuns: db.prepare(`
       SELECT * FROM automation_runs
+      ORDER BY updated_at DESC
+      LIMIT ?
+    `),
+    getLatestAutomationRunsByProject: db.prepare(`
+      SELECT * FROM automation_runs
+      WHERE project_id = ?
       ORDER BY updated_at DESC
       LIMIT ?
     `),
@@ -3150,6 +3523,128 @@ function handleCorruptionError(error) {
 }
 
 /**
+ * Count entities tied to a project (for critical delete confirmation UI).
+ * @param {string} projectId
+ * @returns {{ success: boolean, data?: Record<string, number>, error?: string }}
+ */
+function getProjectDeletionImpact(projectId) {
+  if (!projectId || typeof projectId !== 'string') {
+    return { success: false, error: 'Invalid project id' };
+  }
+  try {
+    const db = getDB();
+    const count = (sql) => db.prepare(sql).get(projectId)?.c ?? 0;
+    const data = {
+      resources: count('SELECT COUNT(*) AS c FROM resources WHERE project_id = ?'),
+      chatSessions: count('SELECT COUNT(*) AS c FROM chat_sessions WHERE project_id = ?'),
+      agents: count('SELECT COUNT(*) AS c FROM many_agents WHERE project_id = ?'),
+      workflows: count('SELECT COUNT(*) AS c FROM canvas_workflows WHERE project_id = ?'),
+      automations: count('SELECT COUNT(*) AS c FROM automation_definitions WHERE project_id = ?'),
+      runs: count('SELECT COUNT(*) AS c FROM automation_runs WHERE project_id = ?'),
+      flashcardDecks: count('SELECT COUNT(*) AS c FROM flashcard_decks WHERE project_id = ?'),
+      studioOutputs: count('SELECT COUNT(*) AS c FROM studio_outputs WHERE project_id = ?'),
+      agentFolders: count('SELECT COUNT(*) AS c FROM agent_folders WHERE project_id = ?'),
+      workflowFolders: count('SELECT COUNT(*) AS c FROM workflow_folders WHERE project_id = ?'),
+    };
+    return { success: true, data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Permanently delete a project and all scoped content (irreversible).
+ * @param {string} projectId
+ * @returns {{ success: boolean, error?: string }}
+ */
+function deleteProjectWithContent(projectId) {
+  if (!projectId || typeof projectId !== 'string') {
+    return { success: false, error: 'Invalid project id' };
+  }
+  if (projectId === 'default') {
+    return { success: false, error: 'Cannot delete the default Dome project' };
+  }
+  const db = getDB();
+  const del = (sql, ...params) => db.prepare(sql).run(...params);
+  try {
+    const tx = db.transaction(() => {
+      const runIds = db.prepare('SELECT id FROM automation_runs WHERE project_id = ?').all(projectId).map((r) => r.id);
+      for (const rid of runIds) {
+        del('DELETE FROM automation_run_steps WHERE run_id = ?', rid);
+        del('DELETE FROM automation_run_links WHERE run_id = ?', rid);
+      }
+      del('DELETE FROM automation_runs WHERE project_id = ?', projectId);
+      del('DELETE FROM chat_sessions WHERE project_id = ?', projectId);
+      del('DELETE FROM automation_definitions WHERE project_id = ?', projectId);
+      del('DELETE FROM canvas_workflows WHERE project_id = ?', projectId);
+      del('DELETE FROM many_agents WHERE project_id = ?', projectId);
+      del('DELETE FROM agent_folders WHERE project_id = ?', projectId);
+      del('DELETE FROM workflow_folders WHERE project_id = ?', projectId);
+      try {
+        del('DELETE FROM flashcard_decks WHERE project_id = ?', projectId);
+      } catch {
+        /* table may be absent in minimal DBs */
+      }
+      try {
+        del('DELETE FROM studio_outputs WHERE project_id = ?', projectId);
+      } catch {
+        /* ignore */
+      }
+      try {
+        del('DELETE FROM workflow_executions WHERE project_id = ?', projectId);
+      } catch {
+        /* ignore */
+      }
+      del('DELETE FROM resources WHERE project_id = ?', projectId);
+      del('DELETE FROM projects WHERE id = ?', projectId);
+    });
+    tx();
+    invalidateQueries();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Delete an agent folder: move agents and child folders to the deleted folder's parent, then remove row.
+ */
+function deleteAgentFolderCascade(folderId) {
+  const db = getDB();
+  const queries = getQueries();
+  const folder = queries.getAgentFolderById.get(folderId);
+  if (!folder) return { success: false, error: 'Folder not found' };
+  const parentId = folder.parent_id;
+  const now = Date.now();
+  const tx = db.transaction(() => {
+    queries.moveManyAgentsFolder.run(parentId ?? null, now, folderId);
+    queries.reparentAgentFolders.run(parentId ?? null, now, folderId);
+    queries.deleteAgentFolder.run(folderId);
+  });
+  tx();
+  return { success: true };
+}
+
+/**
+ * Delete a workflow folder: move workflows and child folders to parent, then remove row.
+ */
+function deleteWorkflowFolderCascade(folderId) {
+  const db = getDB();
+  const queries = getQueries();
+  const folder = queries.getWorkflowFolderById.get(folderId);
+  if (!folder) return { success: false, error: 'Folder not found' };
+  const parentId = folder.parent_id;
+  const now = Date.now();
+  const tx = db.transaction(() => {
+    queries.moveCanvasWorkflowsFolder.run(parentId ?? null, now, folderId);
+    queries.reparentWorkflowFolders.run(parentId ?? null, now, folderId);
+    queries.deleteWorkflowFolder.run(folderId);
+  });
+  tx();
+  return { success: true };
+}
+
+/**
  * Close database connection
  */
 function closeDB() {
@@ -3171,4 +3666,8 @@ module.exports = {
   handleCorruptionError,
   invalidateQueries,
   attemptFullDatabaseRepair,
+  deleteAgentFolderCascade,
+  deleteWorkflowFolderCascade,
+  getProjectDeletionImpact,
+  deleteProjectWithContent,
 };

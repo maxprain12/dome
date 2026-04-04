@@ -58,6 +58,8 @@ const ALLOWED_CHANNELS = {
     'db:projects:create',
     'db:projects:getAll',
     'db:projects:getById',
+    'db:projects:getDeletionImpact',
+    'db:projects:deleteWithContent',
     // Database - Resources
     'db:resources:create',
     'db:resources:getByProject',
@@ -104,6 +106,7 @@ const ALLOWED_CHANNELS = {
     'automations:upsert',
     'automations:delete',
     'automations:runNow',
+    'automations:notifyContext',
     // Database - Links
     'db:links:create',
     'db:links:getBySource',
@@ -127,11 +130,19 @@ const ALLOWED_CHANNELS = {
     'db:manyAgents:create',
     'db:manyAgents:update',
     'db:manyAgents:delete',
+    'db:agentFolders:list',
+    'db:agentFolders:create',
+    'db:agentFolders:update',
+    'db:agentFolders:delete',
     'db:workflows:list',
     'db:workflows:get',
     'db:workflows:create',
     'db:workflows:update',
     'db:workflows:delete',
+    'db:workflowFolders:list',
+    'db:workflowFolders:create',
+    'db:workflowFolders:update',
+    'db:workflowFolders:delete',
     'db:workflowExecutions:save',
     'db:workflowExecutions:listByWorkflow',
     'db:workflowExecutions:get',
@@ -799,6 +810,8 @@ const electronHandler = {
       create: (project) => ipcRenderer.invoke('db:projects:create', project),
       getAll: () => ipcRenderer.invoke('db:projects:getAll'),
       getById: (id) => ipcRenderer.invoke('db:projects:getById', id),
+      getDeletionImpact: (projectId) => ipcRenderer.invoke('db:projects:getDeletionImpact', projectId),
+      deleteWithContent: (projectId) => ipcRenderer.invoke('db:projects:deleteWithContent', projectId),
     },
 
     // Resources
@@ -840,7 +853,7 @@ const electronHandler = {
       getSession: (sessionId) => ipcRenderer.invoke('db:chat:getSession', sessionId),
       updateSession: (opts) => ipcRenderer.invoke('db:chat:updateSession', opts),
       getSessionsByAgent: (opts) => ipcRenderer.invoke('db:chat:getSessionsByAgent', opts),
-      getSessionsGlobal: (limit) => ipcRenderer.invoke('db:chat:getSessionsGlobal', limit),
+      getSessionsGlobal: (limitOrOpts) => ipcRenderer.invoke('db:chat:getSessionsGlobal', limitOrOpts),
       addMessage: (opts) => ipcRenderer.invoke('db:chat:addMessage', opts),
       appendTrace: (opts) => ipcRenderer.invoke('db:chat:appendTrace', opts),
     },
@@ -956,6 +969,7 @@ const electronHandler = {
     upsert: (automation) => ipcRenderer.invoke('automations:upsert', automation),
     delete: (automationId) => ipcRenderer.invoke('automations:delete', automationId),
     runNow: (automationId) => ipcRenderer.invoke('automations:runNow', automationId),
+    notifyContext: (payload) => ipcRenderer.invoke('automations:notifyContext', payload),
   },
 
   // ============================================

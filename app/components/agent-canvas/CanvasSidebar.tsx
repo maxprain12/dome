@@ -20,6 +20,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import type { ManyAgent } from '@/types';
 import { getManyAgents } from '@/lib/agents/api';
+import { useAppStore } from '@/lib/store/useAppStore';
 import { generateId } from '@/lib/utils';
 import type {
   CanvasNodeData,
@@ -77,6 +78,7 @@ const SYSTEM_AGENT_ICONS: Record<SystemAgentRole, React.ElementType> = {
 
 export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
   const { t } = useTranslation();
+  const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const [agents, setAgents] = useState<ManyAgent[]>([]);
   const [agentQuery, setAgentQuery] = useState('');
   const [agentsExpanded, setAgentsExpanded] = useState(true);
@@ -87,17 +89,17 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
 
   const loadAgents = async () => {
     setLoadingAgents(true);
-    const result = await getManyAgents();
+    const result = await getManyAgents(hubProjectId);
     setAgents(result);
     setLoadingAgents(false);
   };
 
   useEffect(() => {
-    loadAgents();
-    const handler = () => loadAgents();
+    void loadAgents();
+    const handler = () => void loadAgents();
     window.addEventListener('dome:agents-changed', handler);
     return () => window.removeEventListener('dome:agents-changed', handler);
-  }, []);
+  }, [hubProjectId]);
 
   const filteredAgents = useMemo(() => {
     const q = agentQuery.trim().toLowerCase();

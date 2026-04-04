@@ -345,6 +345,8 @@ declare global {
           create: (project: any) => Promise<DBResponse<Project>>;
           getAll: () => Promise<DBResponse<Project[]>>;
           getById: (id: string) => Promise<DBResponse<Project>>;
+          getDeletionImpact: (projectId: string) => Promise<DBResponse<Record<string, number>>>;
+          deleteWithContent: (projectId: string) => Promise<DBResponse<void>>;
         };
         resources: {
           create: (resource: any) => Promise<DBResponse<Resource>>;
@@ -382,6 +384,7 @@ declare global {
             title?: string | null;
             toolIds?: string[];
             mcpServerIds?: string[];
+            projectId?: string;
           }) => Promise<DBResponse<unknown>>;
           getSession: (sessionId: string) => Promise<DBResponse<unknown>>;
           updateSession: (opts: {
@@ -393,8 +396,8 @@ declare global {
             toolIds?: string[];
             mcpServerIds?: string[];
           }) => Promise<DBResponse<void>>;
-          getSessionsByAgent: (opts: { agentId: string; limit?: number }) => Promise<DBResponse<unknown[]>>;
-          getSessionsGlobal: (limit?: number) => Promise<DBResponse<unknown[]>>;
+          getSessionsByAgent: (opts: { agentId: string; limit?: number; projectId?: string }) => Promise<DBResponse<unknown[]>>;
+          getSessionsGlobal: (limitOrOpts?: number | { limit?: number; projectId?: string }) => Promise<DBResponse<unknown[]>>;
           addMessage: (opts: {
             sessionId: string;
             role: 'user' | 'assistant';

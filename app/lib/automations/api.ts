@@ -24,6 +24,7 @@ export type PersistentRunStepStatus =
 
 export interface AutomationDefinition {
   id: string;
+  projectId?: string;
   title: string;
   description?: string;
   targetType: AutomationTargetType;
@@ -34,6 +35,8 @@ export interface AutomationDefinition {
     hour?: number;
     weekday?: number | null;
     intervalMinutes?: number;
+    /** When triggerType is contextual: tags that must match (e.g. resource_opened) */
+    contextTags?: string[];
   } | null;
   inputTemplate?: {
     prompt?: string;
@@ -75,6 +78,7 @@ export interface PersistentRunLink {
 
 export interface PersistentRun {
   id: string;
+  projectId?: string;
   automationId?: string | null;
   ownerType: 'many' | 'agent' | 'workflow' | 'automation';
   ownerId: string;
@@ -129,6 +133,7 @@ async function invoke<T>(channel: string, payload?: unknown): Promise<T> {
 export async function listAutomations(filters?: {
   targetType?: AutomationTargetType;
   targetId?: string;
+  projectId?: string;
 }): Promise<AutomationDefinition[]> {
   return invoke<AutomationDefinition[]>('automations:list', filters);
 }
@@ -157,6 +162,7 @@ export async function listRuns(filters?: {
   ownerId?: string;
   automationId?: string;
   sessionId?: string;
+  projectId?: string;
   limit?: number;
 }): Promise<PersistentRun[]> {
   return invoke<PersistentRun[]>('runs:list', filters);
@@ -176,6 +182,7 @@ export async function getActiveRunBySession(sessionId: string): Promise<Persiste
 
 export async function startLangGraphRun(params: {
   automationId?: string | null;
+  projectId?: string;
   ownerType: 'many' | 'agent';
   ownerId: string;
   title: string;
@@ -198,6 +205,7 @@ export async function startLangGraphRun(params: {
 
 export async function startWorkflowRun(params: {
   workflowId: string;
+  projectId?: string;
   automationId?: string | null;
   title?: string;
   inputTemplate?: AutomationDefinition['inputTemplate'];

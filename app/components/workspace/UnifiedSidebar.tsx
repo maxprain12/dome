@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
 import {
   ChevronDown,
@@ -10,7 +10,6 @@ import {
   Calendar,
   BookOpen,
   Tag,
-  Zap,
   Store,
   Folder,
   FileText,
@@ -34,13 +33,26 @@ import {
   Link,
   Upload,
   Cloud,
+  Bot,
+  Workflow,
+  Zap,
+  Activity,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { useTabStore } from '@/lib/store/useTabStore';
+import { useTabStore, type TabType } from '@/lib/store/useTabStore';
 import type { Resource } from '@/lib/hooks/useResources';
 import type { Project } from '@/types';
 import { showToast } from '@/lib/store/useToastStore';
+import { getManyAgents } from '@/lib/agents/api';
+import { getWorkflows } from '@/lib/agent-canvas/api';
+import {
+  listAutomations,
+  listRuns,
+  onRunUpdated,
+  AUTOMATIONS_CHANGED_EVENT,
+} from '@/lib/automations/api';
+import { db } from '@/lib/db/client';
 
 // ---------------------------------------------------------------------------
 // Icons
@@ -820,31 +832,6 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
         )}
       </div>
 
-      {/* Footer: refresh + new folder */}
-      <div className="px-3 py-2 border-t flex items-center gap-1" style={{ borderColor: 'var(--dome-border)' }}>
-        <button
-          type="button"
-          onClick={() => setNewFolderParentId(null)}
-          className="flex items-center gap-1.5 flex-1 text-left px-2 py-1 rounded transition-colors"
-          style={{ fontSize: 11, color: 'var(--dome-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
-        >
-          <FolderPlus className="w-3 h-3" /><span>{t('ui.new_folder')}</span>
-        </button>
-        <button
-          type="button"
-          onClick={onRefresh}
-          className="flex items-center gap-1.5 px-2 py-1 rounded transition-colors"
-          style={{ fontSize: 11, color: 'var(--dome-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-            title={t('ui.refresh')}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
-        >
-          <RefreshCw className="w-3 h-3" />
-        </button>
-      </div>
-
       {/* Context menu */}
       <ContextMenu
         state={ctxMenu}
@@ -1014,8 +1001,18 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [showCloudPicker, setShowCloudPicker] = useState(false);
   const [newFolderInWorkspace, setNewFolderInWorkspace] = useState(false);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [quickProjectName, setQuickProjectName] = useState('');
+  const [quickCreatingProject, setQuickCreatingProject] = useState(false);
+  const projectMenuRef = useRef<HTMLDivElement>(null);
 
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [hubCounts, setHubCounts] = useState({
+    agents: 0,
+    workflows: 0,
+    automations: 0,
+    runs: 0,
+  });
 
   useEffect(() => {
     if (!window.electron?.updater?.onStatus) return;
@@ -1029,6 +1026,9 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   const updateTheme = useAppStore((s) => s.updateTheme);
   const currentProject = useAppStore((s) => s.currentProject);
   const setCurrentProject = useAppStore((s) => s.setCurrentProject);
+  const hubProjectId = currentProject?.id ?? 'default';
+  const activeProjectLabel =
+    currentProject?.name ?? projects.find((p) => p.id === hubProjectId)?.name ?? 'Dome';
   const activeSection = useAppStore((s) => s.homeSidebarSection);
   const setSection = useAppStore((s) => s.setHomeSidebarSection);
   const {
@@ -1037,6 +1037,9 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     openLearnTab,
     openTagsTab,
     openAgentsTab,
+    openWorkflowsTab,
+    openAutomationsTab,
+    openRunsTab,
     openMarketplaceTab,
     activeTabId,
     tabs,
@@ -1044,6 +1047,58 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const isDark = theme === 'dark';
+
+  const refreshHubCounts = useCallback(async () => {
+    try {
+      const pid = useAppStore.getState().currentProject?.id ?? 'default';
+      const [agentList, wfList, autoList, runList] = await Promise.all([
+        getManyAgents(pid),
+        getWorkflows(pid),
+        listAutomations({ projectId: pid }),
+        listRuns({ limit: 200, projectId: pid }),
+      ]);
+      setHubCounts({
+        agents: agentList.length,
+        workflows: wfList.length,
+        automations: autoList.length,
+        runs: runList.filter((r) => r.ownerType !== 'many').length,
+      });
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshHubCounts();
+    const onAgents = () => void refreshHubCounts();
+    const onWorkflows = () => void refreshHubCounts();
+    const onAutos = () => void refreshHubCounts();
+    window.addEventListener('dome:agents-changed', onAgents);
+    window.addEventListener('dome:workflows-changed', onWorkflows);
+    window.addEventListener(AUTOMATIONS_CHANGED_EVENT, onAutos);
+    const unsubRuns = onRunUpdated(() => void refreshHubCounts());
+    return () => {
+      window.removeEventListener('dome:agents-changed', onAgents);
+      window.removeEventListener('dome:workflows-changed', onWorkflows);
+      window.removeEventListener(AUTOMATIONS_CHANGED_EVENT, onAutos);
+      unsubRuns();
+    };
+  }, [refreshHubCounts]);
+
+  useEffect(() => {
+    void refreshHubCounts();
+  }, [hubProjectId, refreshHubCounts]);
+
+  useEffect(() => {
+    if (!projectMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (projectMenuRef.current && !projectMenuRef.current.contains(e.target as Node)) {
+        setProjectMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [projectMenuOpen]);
 
   const fetchResources = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -1084,9 +1139,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     }, 400);
   }, [fetchResources]);
 
-  const scopedResources = currentProject?.id
-    ? resources.filter((resource) => resource.project_id === currentProject.id)
-    : resources;
+  const scopedResources = resources.filter((resource) => resource.project_id === hubProjectId);
 
   const getDefaultProjectId = useCallback(() => {
     return currentProject?.id ?? 'default';
@@ -1181,15 +1234,36 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     void fetchResources({ silent: true });
   }, [getDefaultProjectId, fetchResources]);
 
-  const handleProjectChange = useCallback(async (projectId: string) => {
-    if (!projectId) {
-      setCurrentProject(null);
-      return;
+  const handleProjectChange = useCallback(
+    async (projectId: string) => {
+      const nextProject = projects.find((project) => project.id === projectId) ?? null;
+      setCurrentProject(nextProject);
+      setProjectMenuOpen(false);
+      await fetchResources({ silent: true });
+    },
+    [fetchResources, projects, setCurrentProject],
+  );
+
+  const handleQuickCreateProject = useCallback(async () => {
+    const name = quickProjectName.trim();
+    if (!name || quickCreatingProject || !db.isAvailable()) return;
+    setQuickCreatingProject(true);
+    try {
+      const result = await db.createProject({ name });
+      if (result.success && result.data) {
+        setQuickProjectName('');
+        await fetchProjects();
+        setCurrentProject(result.data);
+        setProjectMenuOpen(false);
+        showToast('success', t('projects.created'));
+        await fetchResources({ silent: true });
+      } else {
+        showToast('error', result.error ?? t('toast.project_create_error'));
+      }
+    } finally {
+      setQuickCreatingProject(false);
     }
-    const nextProject = projects.find((project) => project.id === projectId) ?? null;
-    setCurrentProject(nextProject);
-    await fetchResources({ silent: true });
-  }, [fetchResources, projects, setCurrentProject]);
+  }, [quickCreatingProject, quickProjectName, fetchProjects, setCurrentProject, fetchResources, t]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron) return;
@@ -1200,37 +1274,161 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     const u2 = window.electron.on('resource:updated', scheduleDebouncedSilentRefetch);
     const u3 = window.electron.on('resource:deleted', onDeleted);
     const u4 = window.electron.on('project:created', onProjectCreated);
+    const onProjectDeleted = (payload: { id?: string }) => {
+      void fetchProjects();
+      const deletedId = payload?.id;
+      const cur = useAppStore.getState().currentProject;
+      if (deletedId && cur?.id === deletedId) {
+        void window.electron.db.projects.getAll().then((all) => {
+          if (all?.success && all.data) {
+            const list = all.data as Project[];
+            const dome = list.find((p) => p.id === 'default');
+            useAppStore.getState().setCurrentProject(dome ?? list[0] ?? null);
+          }
+        });
+      }
+      void fetchResources({ silent: true });
+      void refreshHubCounts();
+    };
+    const u5 = window.electron.on('project:deleted', onProjectDeleted);
     return () => {
       u1?.();
       u2?.();
       u3?.();
       u4?.();
+      u5?.();
       if (debouncedSilentRefetchRef.current) clearTimeout(debouncedSilentRefetchRef.current);
     };
-  }, [fetchProjects, fetchResources, scheduleDebouncedSilentRefetch]);
+  }, [fetchProjects, fetchResources, scheduleDebouncedSilentRefetch, refreshHubCounts]);
 
-  const navItems = [
-    { id: 'library', label: 'Home', icon: <Home className="w-4 h-4" strokeWidth={1.75} />, action: 'section' as const },
-    { id: 'calendar', label: 'Calendar', icon: <Calendar className="w-4 h-4" strokeWidth={1.75} />, action: 'tab' as const, tabAction: openCalendarTab, tabType: 'calendar' },
-    { id: 'learn', label: 'Learn', icon: <BookOpen className="w-4 h-4" strokeWidth={1.75} />, action: 'tab' as const, tabAction: openLearnTab, tabType: 'learn' },
-    { id: 'tags', label: 'Tags', icon: <Tag className="w-4 h-4" strokeWidth={1.75} />, action: 'tab' as const, tabAction: openTagsTab, tabType: 'tags' },
-    { id: 'agents', label: 'Agents', icon: <Zap className="w-4 h-4" strokeWidth={1.75} />, action: 'tab' as const, tabAction: openAgentsTab, tabType: 'agents' },
-    { id: 'marketplace', label: 'Marketplace', icon: <Store className="w-4 h-4" strokeWidth={1.75} />, action: 'tab' as const, tabAction: openMarketplaceTab, tabType: 'marketplace' },
-  ];
+  type UnifiedNavItem =
+    | { key: string; kind: 'section'; sectionId: string; label: string; icon: ReactNode }
+    | {
+        key: string;
+        kind: 'tab';
+        tabType: TabType;
+        label: string;
+        icon: ReactNode;
+        onOpen: () => void;
+        count?: number;
+      };
 
-  const getIsActive = (item: typeof navItems[0]) => {
-    if (item.action === 'tab') return activeTab?.type === item.tabType;
-    return activeTab?.type === 'home' && item.id === activeSection;
+  /** Navegación principal: acceso diario (biblioteca, agenda, núcleo de automatización). */
+  const primaryUnifiedNavItems = useMemo((): UnifiedNavItem[] => {
+    const sw = 1.75;
+    return [
+      {
+        key: 'library',
+        kind: 'section',
+        sectionId: 'library',
+        label: t('workspace.home'),
+        icon: <Home className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+      },
+      {
+        key: 'calendar',
+        kind: 'tab',
+        tabType: 'calendar',
+        label: t('workspace.calendar'),
+        icon: <Calendar className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        onOpen: openCalendarTab,
+      },
+      {
+        key: 'agents',
+        kind: 'tab',
+        tabType: 'agents',
+        label: t('automationHub.tab_agents'),
+        icon: <Bot className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        count: hubCounts.agents,
+        onOpen: openAgentsTab,
+      },
+      {
+        key: 'workflows',
+        kind: 'tab',
+        tabType: 'workflows',
+        label: t('automationHub.tab_workflows'),
+        icon: <Workflow className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        count: hubCounts.workflows,
+        onOpen: openWorkflowsTab,
+      },
+      {
+        key: 'automations',
+        kind: 'tab',
+        tabType: 'automations',
+        label: t('automationHub.tab_automations'),
+        icon: <Zap className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        count: hubCounts.automations,
+        onOpen: openAutomationsTab,
+      },
+      {
+        key: 'runs',
+        kind: 'tab',
+        tabType: 'runs',
+        label: t('automationHub.tab_runs'),
+        icon: <Activity className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        count: hubCounts.runs,
+        onOpen: openRunsTab,
+      },
+    ];
+  }, [
+    t,
+    hubCounts.agents,
+    hubCounts.workflows,
+    hubCounts.automations,
+    hubCounts.runs,
+    openCalendarTab,
+    openAgentsTab,
+    openWorkflowsTab,
+    openAutomationsTab,
+    openRunsTab,
+  ]);
+
+  /** Menos uso típico: estudio, taxonomía, extensiones — encima de Ajustes. */
+  const secondaryUnifiedNavItems = useMemo((): UnifiedNavItem[] => {
+    const sw = 1.75;
+    return [
+      {
+        key: 'learn',
+        kind: 'tab',
+        tabType: 'learn',
+        label: t('workspace.learn'),
+        icon: <BookOpen className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        onOpen: openLearnTab,
+      },
+      {
+        key: 'tags',
+        kind: 'tab',
+        tabType: 'tags',
+        label: t('workspace.tags'),
+        icon: <Tag className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        onOpen: openTagsTab,
+      },
+      {
+        key: 'marketplace',
+        kind: 'tab',
+        tabType: 'marketplace',
+        label: t('workspace.marketplace'),
+        icon: <Store className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        onOpen: openMarketplaceTab,
+      },
+    ];
+  }, [t, openLearnTab, openTagsTab, openMarketplaceTab]);
+
+  const handleUnifiedNavClick = (item: UnifiedNavItem) => {
+    if (item.kind === 'section') {
+      setSection(item.sectionId as typeof activeSection);
+      const { activateTab, tabs: currentTabs } = useTabStore.getState();
+      const homeTab = currentTabs.find((tab) => tab.id === 'home');
+      if (homeTab && activeTabId !== 'home') activateTab('home');
+      return;
+    }
+    item.onOpen();
   };
 
-  const handleNavClick = (item: typeof navItems[0]) => {
-    if (item.action === 'tab' && item.tabAction) { item.tabAction(); return; }
-    if (item.action === 'section') {
-      setSection(item.id as typeof activeSection);
-      const { activateTab, tabs: currentTabs } = useTabStore.getState();
-      const homeTab = currentTabs.find((t) => t.id === 'home');
-      if (homeTab && activeTabId !== 'home') activateTab('home');
+  const getUnifiedNavActive = (item: UnifiedNavItem) => {
+    if (item.kind === 'section') {
+      return activeTab?.type === 'home' && activeSection === item.sectionId;
     }
+    return activeTab?.type === item.tabType;
   };
 
   if (collapsed) return null;
@@ -1240,86 +1438,169 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       className="flex flex-col h-full relative shrink-0 overflow-hidden"
       style={{ width: 260, minWidth: 260, background: 'var(--dome-sidebar-bg)', borderRight: '1px solid var(--dome-border)' }}
     >
-      {/* Marca Dome (antes en la barra superior) */}
+      {/* Proyecto activo + selector (antes marca fija) */}
       <div
-        className="shrink-0 flex items-center gap-1.5 px-2 pt-3 pb-2 border-b"
+        ref={projectMenuRef}
+        className="shrink-0 px-2 pt-2 pb-2 border-b relative"
         style={{ borderColor: 'var(--dome-border)' }}
       >
-        <div className="w-4 h-4 shrink-0" style={{ filter: 'var(--dome-logo-filter)' }}>
-          <img src="/many.png" alt="Dome" width={16} height={16} style={{ objectFit: 'contain' }} />
-        </div>
-        <span
-          className="truncate"
-          style={{ fontSize: 12, fontWeight: 600, color: 'var(--dome-text)', userSelect: 'none' }}
+        <button
+          type="button"
+          onClick={() => setProjectMenuOpen((o) => !o)}
+          className="flex items-center gap-1.5 w-full rounded-md px-1.5 py-1.5 text-left transition-colors"
+          style={{ background: projectMenuOpen ? 'var(--dome-bg-hover)' : 'transparent', border: 'none', cursor: 'pointer' }}
+          onMouseEnter={(e) => {
+            if (!projectMenuOpen) (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
+          }}
+          onMouseLeave={(e) => {
+            if (!projectMenuOpen) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+          }}
         >
-          Dome
-        </span>
+          <div className="w-4 h-4 shrink-0" style={{ filter: 'var(--dome-logo-filter)' }}>
+            <img src="/many.png" alt="" width={16} height={16} style={{ objectFit: 'contain' }} />
+          </div>
+          <span
+            className="truncate flex-1 min-w-0"
+            style={{ fontSize: 12, fontWeight: 600, color: 'var(--dome-text)', userSelect: 'none' }}
+          >
+            {activeProjectLabel}
+          </span>
+          <ChevronDown
+            className={`w-3.5 h-3.5 shrink-0 transition-transform ${projectMenuOpen ? 'rotate-180' : ''}`}
+            strokeWidth={2.5}
+            style={{ color: 'var(--dome-text-muted)' }}
+          />
+        </button>
+        {projectMenuOpen ? (
+          <div
+            className="absolute left-2 right-2 top-full mt-1 z-[80] rounded-lg border shadow-lg overflow-hidden flex flex-col"
+            style={{ background: 'var(--dome-surface)', borderColor: 'var(--dome-border)', maxHeight: 280 }}
+          >
+            <div className="overflow-y-auto py-1">
+              {projects.map((project) => (
+                <button
+                  key={project.id}
+                  type="button"
+                  onClick={() => void handleProjectChange(project.id)}
+                  className="w-full text-left px-2.5 py-1.5 text-xs transition-colors truncate"
+                  style={{
+                    background: project.id === hubProjectId ? 'var(--dome-bg-hover)' : 'transparent',
+                    color: 'var(--dome-text)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontWeight: project.id === hubProjectId ? 600 : 500,
+                  }}
+                >
+                  {project.name}
+                </button>
+              ))}
+            </div>
+            <div className="px-2 py-2 border-t flex gap-1" style={{ borderColor: 'var(--dome-border)' }}>
+              <input
+                value={quickProjectName}
+                onChange={(e) => setQuickProjectName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void handleQuickCreateProject();
+                  }
+                }}
+                placeholder={t('sidebar.quick_create_project_placeholder')}
+                className="flex-1 min-w-0 rounded px-2 py-1 text-xs outline-none"
+                style={{
+                  background: 'var(--dome-bg-hover)',
+                  border: '1px solid var(--dome-border)',
+                  color: 'var(--dome-text)',
+                }}
+              />
+              <button
+                type="button"
+                disabled={quickCreatingProject || !quickProjectName.trim()}
+                onClick={() => void handleQuickCreateProject()}
+                className="shrink-0 rounded px-2 py-1 text-xs font-medium"
+                style={{
+                  background: 'var(--dome-accent)',
+                  color: 'var(--dome-accent-fg, white)',
+                  border: 'none',
+                  cursor: quickCreatingProject || !quickProjectName.trim() ? 'not-allowed' : 'pointer',
+                  opacity: quickCreatingProject || !quickProjectName.trim() ? 0.5 : 1,
+                }}
+              >
+                {t('sidebar.quick_create_project_button')}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setProjectMenuOpen(false);
+                setSection('projects');
+              }}
+              className="text-left px-2.5 py-1.5 text-xs border-t transition-colors"
+              style={{
+                borderColor: 'var(--dome-border)',
+                color: 'var(--dome-accent)',
+                background: 'transparent',
+                cursor: 'pointer',
+              }}
+            >
+              {t('sidebar.manage_projects')}
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      {/* Nav */}
-      <div className="shrink-0 px-2 pt-2">
-        {navItems.map((item) => {
-          const isActive = getIsActive(item);
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => handleNavClick(item)}
-              className="flex items-center w-full text-left transition-colors duration-150 rounded-md"
-              style={{
-                gap: 8, paddingLeft: 8, paddingRight: 8, height: 30, fontSize: 12.5, fontWeight: 500,
-                background: isActive ? 'var(--dome-surface)' : 'transparent',
-                color: isActive ? 'var(--dome-text)' : 'var(--dome-text-secondary)',
-                border: 'none', cursor: 'pointer',
-              }}
-              onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
-              onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-            >
-              <span className="shrink-0">{item.icon}</span>
-              <span className="truncate">{item.label}</span>
-            </button>
-          );
-        })}
+      {/* Navegación principal */}
+      <div className="shrink-0 px-2 pt-2 pb-2 border-b" style={{ borderColor: 'var(--dome-border)' }}>
+        <div className="flex flex-col gap-0.5">
+          {primaryUnifiedNavItems.map((item) => {
+            const isActive = getUnifiedNavActive(item);
+            const count = item.kind === 'tab' ? item.count : undefined;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => handleUnifiedNavClick(item)}
+                className="flex items-center w-full text-left transition-colors duration-150 rounded-md"
+                style={{
+                  gap: 8,
+                  paddingLeft: 8,
+                  paddingRight: 8,
+                  minHeight: 30,
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  background: isActive ? 'var(--dome-surface)' : 'transparent',
+                  color: isActive ? 'var(--dome-text)' : 'var(--dome-text-secondary)',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                }}
+              >
+                <span className="shrink-0" style={{ color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}>
+                  {item.icon}
+                </span>
+                <span className="truncate flex-1 min-w-0 text-left">{item.label}</span>
+                {count !== undefined ? (
+                  <span
+                    className="shrink-0 tabular-nums"
+                    style={{ fontSize: 11, fontWeight: 500, color: 'var(--dome-text-muted)' }}
+                  >
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Workspace tree */}
       <div className="flex-1 overflow-y-auto">
         <div className="border-b" style={{ borderColor: 'var(--dome-border)' }}>
-          <div className="px-3 pt-3 pb-1.5">
-            <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dome-text-muted)' }}>
-                Proyecto
-              </span>
-              <button
-                type="button"
-                onClick={() => setSection('projects')}
-                className="rounded px-1.5 py-0.5 transition-colors"
-                style={{ fontSize: 11, color: 'var(--dome-accent)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
-              >
-                Gestionar
-              </button>
-            </div>
-            <select
-              value={currentProject?.id ?? ''}
-              onChange={(event) => void handleProjectChange(event.target.value)}
-              className="w-full rounded-md px-2 py-1.5 text-xs outline-none"
-              style={{
-                background: 'var(--dome-bg-hover)',
-                border: '1px solid var(--dome-border)',
-                color: 'var(--dome-text)',
-              }}
-            >
-              <option value="">Biblioteca general</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Header row */}
           <div className="flex items-center px-2 py-1.5 gap-0.5">
             <button
@@ -1420,8 +1701,67 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         />
       )}
 
-      {/* Footer */}
-      <div className="shrink-0 px-2 py-2" style={{ borderTop: '1px solid var(--dome-border)' }}>
+      {/* Footer: enlaces secundarios, luego Ajustes */}
+      <div className="shrink-0 border-t" style={{ borderColor: 'var(--dome-border)' }}>
+        <div className="px-2 pt-2 pb-1.5">
+          <p
+            className="px-2 pb-1 uppercase tracking-wide"
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              color: 'var(--dome-text-muted)',
+            }}
+          >
+            {t('sidebar.more_tools')}
+          </p>
+          <div className="flex flex-col gap-0.5">
+            {secondaryUnifiedNavItems.map((item) => {
+              const isActive = getUnifiedNavActive(item);
+              const count = item.kind === 'tab' ? item.count : undefined;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => handleUnifiedNavClick(item)}
+                  className="flex items-center w-full text-left transition-colors duration-150 rounded-md"
+                  style={{
+                    gap: 8,
+                    paddingLeft: 8,
+                    paddingRight: 8,
+                    minHeight: 30,
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                    background: isActive ? 'var(--dome-surface)' : 'transparent',
+                    color: isActive ? 'var(--dome-text)' : 'var(--dome-text-secondary)',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                  }}
+                >
+                  <span className="shrink-0" style={{ color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}>
+                    {item.icon}
+                  </span>
+                  <span className="truncate flex-1 min-w-0 text-left">{item.label}</span>
+                  {count !== undefined ? (
+                    <span
+                      className="shrink-0 tabular-nums"
+                      style={{ fontSize: 11, fontWeight: 500, color: 'var(--dome-text-muted)' }}
+                    >
+                      {count}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="px-2 py-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
         <button
           type="button"
           onClick={() => {
@@ -1449,7 +1789,8 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           </div>
           <span>Settings</span>
         </button>
-        <div className="flex items-center justify-between px-2 mt-1">
+        </div>
+        <div className="flex items-center justify-between px-2 py-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
           <span style={{ fontSize: 10, color: 'var(--dome-text-muted)', opacity: 0.6 }}>Made with ❤️ by <a href="https://www.linkedin.com/in/advo2/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Alder</a> and <a href="https://www.linkedin.com/in/maria-sugasaga/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Mery</a></span>
           <button
             type="button"

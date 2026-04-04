@@ -28,9 +28,34 @@ export interface MCPServerConfig {
   lastDiscoveryError?: string | null;
 }
 
+/** Folder for organizing many_agents in the Agents hub */
+export interface DomeAgentFolder {
+  id: string;
+  /** Workspace project (default: Dome) */
+  projectId?: string;
+  parentId: string | null;
+  name: string;
+  sortOrder: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Folder for organizing canvas workflows */
+export interface DomeWorkflowFolder {
+  id: string;
+  projectId?: string;
+  parentId: string | null;
+  name: string;
+  sortOrder: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 // Many Agent (specialized AI agent - "hijo de Many")
 export interface ManyAgent {
   id: string;
+  /** Owning workspace project */
+  projectId?: string;
   name: string;
   description: string;
   systemInstructions: string;
@@ -40,6 +65,10 @@ export interface ManyAgent {
   iconIndex: number; // 1-18 for agents/sprite_N.png
   /** Set when installed from marketplace; used to sync uninstall state */
   marketplaceId?: string;
+  /** Agent library folder (null/undefined = root) */
+  folderId?: string | null;
+  /** Pinned at top of the list */
+  favorite?: boolean;
   createdAt: number;
   updatedAt: number;
 }
