@@ -5,6 +5,7 @@ const { setMaxListeners } = require('events');
 const langgraphAgent = require('./langgraph-agent.cjs');
 const { getToolDefinitionsByIds } = require('./ai-chat-with-tools.cjs');
 const streamingTts = require('./streaming-tts.cjs');
+const { getOpenAIKey } = require('./openai-key.cjs');
 const { appendSkillsToPrompt } = require('./skill-prompt.cjs');
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
@@ -913,6 +914,17 @@ async function executeLangGraphRun(runId, params) {
     status: 'done',
     content: params.title ?? 'Ejecución LangGraph',
   });
+  const useDirectToolsRun =
+    params.ownerType === 'many' ||
+    (params.toolDefinitions?.length ?? 0) > 0 ||
+    (params.mcpServerIds?.length ?? 0) > 0;
+  context.langGraphResumeOpts = {
+    toolDefinitions: params.toolDefinitions ?? [],
+    useDirectTools: useDirectToolsRun,
+    mcpServerIds: params.mcpServerIds,
+    subagentIds: params.ownerType === 'many' ? [] : params.subagentIds,
+    skipHitl: !!params.skipHitl,
+  };
   try {
     const result = await langgraphAgent.invokeLangGraphAgent({
       provider: context.provider,
@@ -921,10 +933,7 @@ async function executeLangGraphRun(runId, params) {
       baseUrl: context.baseUrl,
       messages: params.messages,
       toolDefinitions: params.toolDefinitions ?? [],
-      useDirectTools:
-        params.ownerType === 'many' ||
-        (params.toolDefinitions?.length ?? 0) > 0 ||
-        (params.mcpServerIds?.length ?? 0) > 0,
+      useDirectTools: useDirectToolsRun,
       mcpServerIds: params.mcpServerIds,
       subagentIds: params.ownerType === 'many' ? [] : params.subagentIds,
       threadId: context.threadId,
@@ -1110,6 +1119,13 @@ async function resumeRun(runId, decisions) {
     },
   });
   try {
+    const lgOpts = context.langGraphResumeOpts ?? {
+      toolDefinitions: [],
+      useDirectTools: false,
+      mcpServerIds: undefined,
+      subagentIds: undefined,
+      skipHitl: false,
+    };
     await langgraphAgent.resumeLangGraphAgent({
       provider: providerConfig.provider,
       model: providerConfig.model,
@@ -1120,6 +1136,11 @@ async function resumeRun(runId, decisions) {
       decisions,
       signal: context.controller.signal,
       onChunk: createRunChunkEmitter(runId, context),
+      toolDefinitions: lgOpts.toolDefinitions,
+      useDirectTools: lgOpts.useDirectTools,
+      mcpServerIds: lgOpts.mcpServerIds,
+      subagentIds: lgOpts.subagentIds,
+      skipHitl: lgOpts.skipHitl,
     });
     const latest = getRun(runId);
     if (latest?.status === 'waiting_approval') {
@@ -1675,23 +1696,7 @@ function init(windowManager, database, ttsService) {
   if (ttsService) {
     streamingTts.init({
       broadcast: (channel, payload) => _windowManager?.broadcast?.(channel, payload),
-      getApiKey: () => {
-        try {
-          const queries = _database?.getQueries?.();
-          if (!queries) return null;
-          const providerRow = queries.getSetting.get('ai_provider');
-          const provider = providerRow?.value;
-          if (provider === 'openai') {
-            const key = queries.getSetting.get('ai_api_key');
-            if (key?.value?.trim()) return String(key.value).trim();
-            const specific = queries.getSetting.get('openai_api_key');
-            if (specific?.value?.trim()) return String(specific.value).trim();
-          }
-          const dedicated = queries.getSetting.get('transcription_openai_api_key');
-          if (dedicated?.value?.trim()) return String(dedicated.value).trim();
-          return null;
-        } catch { return null; }
-      },
+      getApiKey: () => _database ? getOpenAIKey(_database) : null,
       generateSpeech: (text, voice, apiKey, opts) =>
         ttsService.generateSpeech(text, voice, apiKey, opts),
     });

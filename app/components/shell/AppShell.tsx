@@ -12,6 +12,7 @@ import UnifiedSidebar from '@/components/workspace/UnifiedSidebar';
 import PetPluginSlot from '@/components/plugins/PetPluginSlot';
 import ResizeHandle from '@/components/workspace/ResizeHandle';
 import WindowControls from '@/components/ui/WindowControls';
+import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
 const MANY_WIDTH_KEY = 'dome:many-panel-width-v1';
 const MANY_MIN = 280;
 const MANY_MAX = 600;
@@ -34,6 +35,10 @@ export default function AppShell() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   /** Muestra Many en la columna derecha aunque la pestaña activa sea Chat (p. ej. HITL). */
   const [manyRightOverride, setManyRightOverride] = useState(false);
+
+  // ── Voice overlay active indicators ──────────────────
+  const [dictationActive, setDictationActive] = useState(false);
+  const [manyVoiceActive, setManyVoiceActive] = useState(false);
   const manyWidthRef = useRef(manyWidth);
   manyWidthRef.current = manyWidth;
 
@@ -148,6 +153,24 @@ export default function AppShell() {
     };
   }, []);
 
+  // Voice activity indicators — driven by DOM events from VoiceRecordingDock and ManyVoiceHud
+  useEffect(() => {
+    const dictOn = () => setDictationActive(true);
+    const dictOff = () => setDictationActive(false);
+    const voiceOn = () => setManyVoiceActive(true);
+    const voiceOff = () => setManyVoiceActive(false);
+    window.addEventListener('dome:dictation-started', dictOn);
+    window.addEventListener('dome:dictation-stopped', dictOff);
+    window.addEventListener('dome:many-voice-started', voiceOn);
+    window.addEventListener('dome:many-voice-stopped', voiceOff);
+    return () => {
+      window.removeEventListener('dome:dictation-started', dictOn);
+      window.removeEventListener('dome:dictation-stopped', dictOff);
+      window.removeEventListener('dome:many-voice-started', voiceOn);
+      window.removeEventListener('dome:many-voice-stopped', voiceOff);
+    };
+  }, []);
+
   const showChatHistory = Boolean(isChatTab && !manyRightOverride);
   const showManyInSidebar = Boolean(rightSidebarOpen && !showChatHistory);
   const needsHeadlessMany = !showManyInSidebar;
@@ -234,41 +257,75 @@ export default function AppShell() {
           />
 
           {/* Voice: dictation dock + Many overlay (no global shortcut required) */}
+          {/* Voice buttons with active-state indicators */}
           <div
             className="flex shrink-0 items-stretch gap-0.5 pr-1"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
+            {/* Dictation dock button */}
             <button
               type="button"
               onClick={handleToggleDictationDock}
-              className="flex items-center justify-center shrink-0 transition-colors rounded-md"
+              className="relative flex items-center justify-center shrink-0 transition-colors rounded-md"
               style={{
                 width: 34,
                 height: '100%',
-                background: 'transparent',
-                color: 'var(--dome-text-muted)',
+                background: dictationActive
+                  ? 'color-mix(in srgb, var(--dome-accent) 12%, transparent)'
+                  : 'transparent',
+                color: dictationActive ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
                 border: 'none',
                 cursor: 'pointer',
+                transition: 'color 200ms ease, background 200ms ease',
               }}
               title={t('shell.dictation_dock')}
+              aria-pressed={dictationActive}
             >
               <Mic className="h-[15px] w-[15px]" aria-hidden />
+              {dictationActive && (
+                <span
+                  className="absolute top-[6px] right-[6px] rounded-full"
+                  style={{
+                    width: 5, height: 5,
+                    background: 'var(--dome-accent)',
+                    animation: 'pulse-dot 1.4s ease-in-out infinite',
+                  }}
+                  aria-hidden
+                />
+              )}
             </button>
+
+            {/* Many voice overlay button */}
             <button
               type="button"
               onClick={() => void handleToggleManyVoiceOverlay()}
-              className="flex items-center justify-center shrink-0 transition-colors rounded-md"
+              className="relative flex items-center justify-center shrink-0 transition-colors rounded-md"
               style={{
                 width: 34,
                 height: '100%',
-                background: 'transparent',
-                color: 'var(--dome-text-muted)',
+                background: manyVoiceActive
+                  ? 'color-mix(in srgb, var(--dome-accent) 12%, transparent)'
+                  : 'transparent',
+                color: manyVoiceActive ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
                 border: 'none',
                 cursor: 'pointer',
+                transition: 'color 200ms ease, background 200ms ease',
               }}
               title={t('shell.many_voice_overlay')}
+              aria-pressed={manyVoiceActive}
             >
               <Radio className="h-[15px] w-[15px]" aria-hidden />
+              {manyVoiceActive && (
+                <span
+                  className="absolute top-[6px] right-[6px] rounded-full"
+                  style={{
+                    width: 5, height: 5,
+                    background: 'var(--dome-accent)',
+                    animation: 'pulse-dot 1.4s ease-in-out infinite',
+                  }}
+                  aria-hidden
+                />
+              )}
             </button>
           </div>
 
@@ -367,6 +424,9 @@ export default function AppShell() {
 
       {/* Pet mascot overlay */}
       <PetPluginSlot />
+
+      {/* Voice IPC bridge — always mounted, zero UI */}
+      <ManyVoiceBridge />
     </div>
   );
 }

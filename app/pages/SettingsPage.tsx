@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import SettingsLayout from '@/components/settings/SettingsLayout';
+import SettingsLayout, { type SettingsSection } from '@/components/settings/SettingsLayout';
 import GeneralSettings from '@/components/settings/GeneralSettings';
 import AppearanceSettings from '@/components/settings/AppearanceSettings';
 import AISettingsPanel from '@/components/settings/AISettingsPanel';
@@ -13,22 +13,10 @@ import IndexingSettings from '@/components/settings/IndexingSettings';
 import CloudStorageSettings from '@/components/settings/CloudStorageSettings';
 import LanguageSettings from '@/components/settings/LanguageSettings';
 import TranscriptionSettingsPanel from '@/components/settings/TranscriptionSettingsPanel';
+import KbLlmSettingsPanel from '@/components/settings/KbLlmSettingsPanel';
+import CalendarSettingsPanel from '@/components/settings/CalendarSettingsPanel';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
-
-type SettingsSection =
-  | 'general'
-  | 'appearance'
-  | 'ai'
-  | 'transcription'
-  | 'whatsapp'
-  | 'mcp'
-  | 'skills'
-  | 'plugins'
-  | 'advanced'
-  | 'indexing'
-  | 'cloud'
-  | 'language';
 
 const VALID_SECTIONS = [
   'general',
@@ -43,6 +31,8 @@ const VALID_SECTIONS = [
   'indexing',
   'cloud',
   'language',
+  'kb_llm',
+  'calendar',
 ] as const;
 
 export default function SettingsPage() {
@@ -114,6 +104,10 @@ export default function SettingsPage() {
         return <CloudStorageSettings />;
       case 'language':
         return <LanguageSettings />;
+      case 'kb_llm':
+        return <KbLlmSettingsPanel />;
+      case 'calendar':
+        return <CalendarSettingsPanel />;
       default:
         return <GeneralSettings />;
     }

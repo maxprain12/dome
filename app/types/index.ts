@@ -209,6 +209,18 @@ export interface StructuredTranscriptPayload {
   durationSec?: number;
 }
 
+/**
+ * Convenciones para KB LLM (wiki compilada por agentes).
+ * Ver docs/kb-llm-wiki-model.md y docs/kb-index-policy.md.
+ */
+export interface DomeKbMetadata {
+  wikiRole?: 'raw' | 'compiled' | 'index' | 'output';
+  /** Si es true, cada guardado puede programar reindex PageIndex (debounced) en el main process. */
+  reindexOnSave?: boolean;
+  topicId?: string;
+  pipelineVersion?: string;
+}
+
 export interface ResourceMetadata {
   file_size?: number;
   file_hash?: string;
@@ -242,6 +254,8 @@ export interface ResourceMetadata {
   channel?: string; // Para YouTube
   /** Notebook workspace folder path - used as cwd for Python execution */
   notebook_workspace_path?: string;
+  /** Wiki / corpus KB mantenido por agentes (opcional) */
+  dome_kb?: DomeKbMetadata;
   [key: string]: any;
 }
 

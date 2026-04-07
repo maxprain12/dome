@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 const crypto = require('crypto');
 const resourceIndexer = require('../resource-indexer.cjs');
+const kbShared = require('../kb-llm-shared.cjs');
 
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
   const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
@@ -11,6 +12,34 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return JSON.parse(raw);
     } catch {
       return fallback;
+    }
+  }
+
+  /**
+   * PageIndex reindex (debounced) when: metadata.dome_kb.reindexOnSave, or KB LLM is enabled for
+   * the project and autoReindexWikiOnSave is true in global settings.
+   * See docs/kb-index-policy.md.
+   */
+  function maybeScheduleKbReindex(resourceId, mergedResource, current) {
+    try {
+      const queries = database.getQueries();
+      const meta = parseJson(mergedResource.metadata, {});
+      const candidate = { ...current, ...mergedResource, type: current.type };
+      if (!resourceIndexer.shouldIndex(candidate)) return;
+
+      const global = { ...kbShared.defaultGlobalConfig(), ...parseJson(queries.getSetting.get(kbShared.KB_GLOBAL_KEY)?.value, {}) };
+      const projectId = current.project_id;
+      const ov = parseJson(queries.getSetting.get(kbShared.projectKey(projectId))?.value, {});
+      const kbActive = kbShared.effectiveKbEnabled(global, ov);
+      const autoAll = kbActive && global.autoReindexWikiOnSave === true;
+      const explicit = meta.dome_kb?.reindexOnSave === true;
+      if (!explicit && !autoAll) return;
+
+      if (indexerDeps) {
+        resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
+      }
+    } catch (e) {
+      console.warn('[DB] maybeScheduleKbReindex:', e?.message || e);
     }
   }
 
@@ -324,9 +353,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         updates: mergedResource,
       });
 
-      // NOTE: We intentionally do NOT call scheduleIndexing on update.
-      // Generating embeddings on every note save would exhaust heap memory (OOM).
-      // Embeddings are generated once on initial resource creation only.
+      maybeScheduleKbReindex(resource.id, mergedResource, current);
 
       return { success: true, data: mergedResource };
     } catch (error) {
@@ -359,6 +386,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             updated_at: mergedUpdatedAt,
           };
           windowManager.broadcast('resource:updated', { id: resource.id, updates: mergedResource });
+          maybeScheduleKbReindex(resource.id, mergedResource, current);
           return { success: true, data: mergedResource };
         } catch (retryError) {
           console.error('[DB] Error retrying after repair:', retryError);
@@ -390,6 +418,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                   updated_at: mergedUpdatedAt,
                 };
                 windowManager.broadcast('resource:updated', { id: resource.id, updates: mergedResource });
+                maybeScheduleKbReindex(resource.id, mergedResource, current);
                 return { success: true, data: mergedResource };
               } catch (finalError) {
                 console.error('[DB] Error after second repair attempt:', finalError);

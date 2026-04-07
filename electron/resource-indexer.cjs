@@ -79,16 +79,14 @@ function scheduleIndexing(resourceId, deps) {
   if (debounceTimer) clearTimeout(debounceTimer);
   debounceTimer = setTimeout(() => {
     debounceTimer = null;
-    const ids = Array.from(pending.keys());
-    // Snapshot deps from the last entry (they're the same object in practice)
-    const lastDeps = pending.get(ids[ids.length - 1]);
+    const snapshot = new Map(pending);
     pending.clear();
 
     setImmediate(() => {
       (async () => {
-        for (const id of ids) {
+        for (const [id, deps] of snapshot) {
           try {
-            await indexResource(id, lastDeps);
+            await indexResource(id, deps);
           } catch (err) {
             console.error(`[Indexer] Error indexing ${id}:`, err.message);
           }

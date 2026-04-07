@@ -42,14 +42,8 @@ import {
   startLangGraphRun,
   type PersistentRun,
 } from '@/lib/automations/api';
-import { registerManyMessageSender, sendManyUserMessage, type ManySendOptions } from '@/lib/many/manySendController';
+import { registerManyMessageSender, type ManySendOptions } from '@/lib/many/manySendController';
 
-/**
- * Module-level guard: only ONE ManyPanel instance registers the IPC relay listener at a time.
- * Multiple panels can be mounted simultaneously (sidebar + chat tab), so we must prevent
- * duplicate handleSend calls when voice relay arrives.
- */
-let _relayListenerCleanup: (() => void) | null = null;
 
 const QUICK_PROMPTS_BASE = [
   'Summarize my current resource',
@@ -1050,110 +1044,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     return () => registerManyMessageSender(null);
   }, [handleSend]);
 
-  /**
-   * Voz global: el HUD vive en `many-voice-overlay`; reenvío IPC → este panel.
-   * Singleton: uses a module-level guard so multiple mounted ManyPanel instances
-   * (sidebar + chat tab) don't each register their own listener and double-fire.
-   * Delegates to sendManyUserMessage → registeredSender (whichever panel is active).
-   */
-  useEffect(() => {
-    if (!window.electron?.manyVoice?.onRelayToMain) return undefined;
-    // Already registered by another instance — skip
-    if (_relayListenerCleanup) return undefined;
-    _relayListenerCleanup = window.electron.manyVoice.onRelayToMain(
-      (payload: { text: string; autoSpeak?: boolean; openPanel?: boolean; voiceLanguage?: string }) => {
-        void sendManyUserMessage(payload.text, {
-          autoSpeak: payload.autoSpeak,
-          openPanel: payload.openPanel,
-          voiceLanguage: payload.voiceLanguage,
-        });
-      },
-    );
-    return () => {
-      _relayListenerCleanup?.();
-      _relayListenerCleanup = null;
-    };
-  }, []);
-
-  /** Sincroniza estado Many (thinking / TTS / currentSentence) hacia la ventana flotante de voz. */
-  useEffect(() => {
-    if (!window.electron?.manyVoice?.pushStateToOverlay) return undefined;
-    const pushNow = () => {
-      const { status, ttsError, currentSentence } = useManyStore.getState();
-      void window.electron.manyVoice.pushStateToOverlay({ status, ttsError, currentSentence });
-    };
-    let last = {
-      status: useManyStore.getState().status,
-      ttsError: useManyStore.getState().ttsError,
-      currentSentence: useManyStore.getState().currentSentence,
-    };
-    const unsub = useManyStore.subscribe((state) => {
-      const next = { status: state.status, ttsError: state.ttsError, currentSentence: state.currentSentence };
-      if (next.status === last.status && next.ttsError === last.ttsError && next.currentSentence === last.currentSentence) return;
-      last = next;
-      void window.electron.manyVoice.pushStateToOverlay(next);
-    });
-    pushNow();
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    if (!window.electron?.manyVoice?.onRequestStatePush) return undefined;
-    return window.electron.manyVoice.onRequestStatePush(() => {
-      const { status, ttsError, currentSentence } = useManyStore.getState();
-      void window.electron.manyVoice.pushStateToOverlay({ status, ttsError, currentSentence });
-    });
-  }, []);
-
-  /** Listen for streaming TTS sentence events and update store + overlay */
-  useEffect(() => {
-    if (!window.electron?.audio?.onTtsSentencePlaying) return undefined;
-    const unsub = window.electron.audio.onTtsSentencePlaying(
-      (data: { runId: string; sentence: string }) => {
-        const { setStatus, setCurrentSentence } = useManyStore.getState();
-        setStatus('speaking');
-        setCurrentSentence(data.sentence);
-      },
-    );
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    if (!window.electron?.audio?.onTtsFinished) return undefined;
-    const unsub = window.electron.audio.onTtsFinished(() => {
-      const { setStatus, setCurrentSentence } = useManyStore.getState();
-      setCurrentSentence(null);
-      setStatus('idle');
-    });
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    if (!window.electron?.audio?.onTtsError) return undefined;
-    const unsub = window.electron.audio.onTtsError(
-      (data: { runId: string; error: string }) => {
-        useManyStore.getState().setTtsError(data.error || 'Error de voz al reproducir respuesta.');
-        useManyStore.getState().setCurrentSentence(null);
-        useManyStore.getState().setStatus('idle');
-      },
-    );
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    if (!window.electron?.manyVoice?.onOpenPanelRequest) return undefined;
-    return window.electron.manyVoice.onOpenPanelRequest(() => {
-      useManyStore.getState().setOpen(true);
-      window.dispatchEvent(new CustomEvent('dome:many-requires-panel', { detail: { reason: 'user' } }));
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!window.electron?.manyVoice?.onDismissTtsError) return undefined;
-    return window.electron.manyVoice.onDismissTtsError(() => {
-      useManyStore.getState().setTtsError(null);
-    });
-  }, []);
+  // Voice IPC bridge effects (relay, TTS state, open-panel, dismiss error) live in
+  // ManyVoiceBridge — mounted unconditionally in AppShell so they work even when
+  // this panel is hidden or replaced by ChatHistoryPanel.
 
   const handleAbort = useCallback(() => {
     if (activeRunId) {

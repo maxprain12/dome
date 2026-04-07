@@ -12,7 +12,7 @@
 3. [Estructura de directorios](#3-estructura-de-directorios)
 4. [IPC — Comunicación entre procesos](#4-ipc--comunicación-entre-procesos)
 5. [Base de datos SQLite](#5-base-de-datos-sqlite)
-6. [PageIndex — Motor de indexación IA](#6-pageindex--motor-de-indexación-ia)
+6. [PageIndex — Motor de indexación IA](#6-pageindex--motor-de-indexación-ia) (incl. [KB LLM](#kb-llm-wiki-compilada-por-agentes))
 7. [AI Integration](#7-ai-integration)
 8. [Run Engine y Automatizaciones](#8-run-engine-y-automatizaciones)
 9. [State Management (Zustand)](#9-state-management-zustand)
@@ -376,6 +376,10 @@ setInterval(() => autoIndexUnindexed(), 3600000); // cada hora
 | `pageindex:status` | resourceId | Estado de indexación |
 | `pageindex:search` | query, limit | Búsqueda semántica |
 | `pageindex:reindex` | resourceId | Re-indexar (borrar y volver a indexar) |
+
+### KB LLM (wiki compilada por agentes)
+
+Convenciones de metadatos y alineación FTS5 ↔ PageIndex: [kb-llm-wiki-model.md](./kb-llm-wiki-model.md), [kb-index-policy.md](./kb-index-policy.md). Si `metadata.dome_kb.reindexOnSave` es `true`, `db:resources:update` puede programar `scheduleIndexing` (debounce en `resource-indexer.cjs`).
 
 ---
 

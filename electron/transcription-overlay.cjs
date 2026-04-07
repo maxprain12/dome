@@ -7,9 +7,9 @@ const { screen } = require('electron');
 
 const TRANSCRIPTION_OVERLAY_ID = 'transcription-overlay';
 
-/** Hub de transcripción: más alto que Many por selector de fuente y controles. */
+/** Pill compacta — se expande dinámicamente cuando el selector de fuentes está visible. */
 const OVERLAY_WIDTH = 440;
-const OVERLAY_HEIGHT = 400;
+const OVERLAY_HEIGHT = 80;
 const BOTTOM_MARGIN = 24;
 
 function layoutOverlayBounds() {
@@ -42,8 +42,8 @@ function ensureCreated(windowManager) {
       height: bounds.height,
       minWidth: bounds.width,
       maxWidth: bounds.width,
-      minHeight: 280,
-      maxHeight: 640,
+      minHeight: 70,
+      maxHeight: 500,
       resizable: false,
       maximizable: false,
       fullscreenable: false,

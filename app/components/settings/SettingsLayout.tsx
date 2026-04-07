@@ -1,10 +1,12 @@
-
-import { useRef, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, Palette, Brain, Mic, Settings as SettingsIcon, MessageCircle, Puzzle, Plug2, Wand2, Database, Cloud, Globe } from 'lucide-react';
-import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
+import {
+  User, Palette, Brain, Mic, Settings as SettingsIcon,
+  MessageCircle, Puzzle, Plug2, Wand2, Database, Cloud,
+  Globe, BookMarked, Calendar,
+} from 'lucide-react';
 
-type SettingsSection =
+export type SettingsSection =
   | 'general'
   | 'appearance'
   | 'ai'
@@ -16,120 +18,160 @@ type SettingsSection =
   | 'advanced'
   | 'indexing'
   | 'cloud'
-  | 'language';
+  | 'language'
+  | 'kb_llm'
+  | 'calendar';
 
 interface SettingsLayoutProps {
   activeSection: SettingsSection;
   onSectionChange: (section: SettingsSection) => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-const DOME_GREEN = '#596037';
-const DOME_GREEN_LIGHT = '#E0EAB4';
-
-interface Tab {
+interface NavItem {
   id: SettingsSection;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
-const TAB_DEFS: Tab[] = [
-  { id: 'general',    icon: <User className="w-3.5 h-3.5" /> },
-  { id: 'appearance', icon: <Palette className="w-3.5 h-3.5" /> },
-  { id: 'ai',         icon: <Brain className="w-3.5 h-3.5" /> },
-  { id: 'transcription', icon: <Mic className="w-3.5 h-3.5" /> },
-  { id: 'skills',     icon: <Wand2 className="w-3.5 h-3.5" /> },
-  { id: 'whatsapp',   icon: <MessageCircle className="w-3.5 h-3.5" /> },
-  { id: 'mcp',        icon: <Plug2 className="w-3.5 h-3.5" /> },
-  { id: 'cloud',      icon: <Cloud className="w-3.5 h-3.5" /> },
-  { id: 'plugins',    icon: <Puzzle className="w-3.5 h-3.5" /> },
-  { id: 'indexing',   icon: <Database className="w-3.5 h-3.5" /> },
-  { id: 'advanced',   icon: <SettingsIcon className="w-3.5 h-3.5" /> },
-  { id: 'language',   icon: <Globe className="w-3.5 h-3.5" /> },
+interface NavGroup {
+  labelKey: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    labelKey: 'settings.groups.preferences',
+    items: [
+      { id: 'general',    icon: <User className="w-3.5 h-3.5" /> },
+      { id: 'appearance', icon: <Palette className="w-3.5 h-3.5" /> },
+      { id: 'language',   icon: <Globe className="w-3.5 h-3.5" /> },
+    ],
+  },
+  {
+    labelKey: 'settings.groups.ai_voice',
+    items: [
+      { id: 'ai',           icon: <Brain className="w-3.5 h-3.5" /> },
+      { id: 'transcription', icon: <Mic className="w-3.5 h-3.5" /> },
+    ],
+  },
+  {
+    labelKey: 'settings.groups.integrations',
+    items: [
+      { id: 'whatsapp', icon: <MessageCircle className="w-3.5 h-3.5" /> },
+      { id: 'cloud',    icon: <Cloud className="w-3.5 h-3.5" /> },
+      { id: 'calendar', icon: <Calendar className="w-3.5 h-3.5" /> },
+      { id: 'mcp',      icon: <Plug2 className="w-3.5 h-3.5" /> },
+    ],
+  },
+  {
+    labelKey: 'settings.groups.knowledge',
+    items: [
+      { id: 'indexing', icon: <Database className="w-3.5 h-3.5" /> },
+      { id: 'kb_llm',   icon: <BookMarked className="w-3.5 h-3.5" /> },
+    ],
+  },
+  {
+    labelKey: 'settings.groups.extensions',
+    items: [
+      { id: 'skills',  icon: <Wand2 className="w-3.5 h-3.5" /> },
+      { id: 'plugins', icon: <Puzzle className="w-3.5 h-3.5" /> },
+    ],
+  },
+  {
+    labelKey: 'settings.groups.system',
+    items: [
+      { id: 'advanced', icon: <SettingsIcon className="w-3.5 h-3.5" /> },
+    ],
+  },
 ];
 
 export default function SettingsLayout({ activeSection, onSectionChange, children }: SettingsLayoutProps) {
   const { t } = useTranslation();
-  const activeTabRef = useRef<HTMLButtonElement>(null);
-  const navRef = useRef<HTMLElement>(null);
-
-  useHorizontalScroll(navRef);
-
-  useEffect(() => {
-    activeTabRef.current?.scrollIntoView({ inline: 'nearest', behavior: 'smooth', block: 'nearest' });
-  }, [activeSection]);
 
   return (
-    <div className="flex flex-col h-screen" style={{ backgroundColor: 'var(--dome-bg)' }}>
-
-      {/* ── Sticky header ── */}
-      <div
-        className="shrink-0 sticky top-0 z-10"
-        style={{ backgroundColor: 'var(--dome-bg)', borderBottom: '1px solid var(--dome-border)' }}
+    <div
+      className="flex h-screen"
+      style={{ backgroundColor: 'var(--dome-bg)' }}
+    >
+      {/* ── Sidebar ── */}
+      <aside
+        className="shrink-0 flex flex-col overflow-y-auto"
+        style={{
+          width: 188,
+          borderRight: '1px solid var(--dome-border)',
+          backgroundColor: 'var(--dome-bg-secondary, var(--dome-bg))',
+        }}
       >
-        {/* Title row */}
-        <div className="px-6 pt-5 pb-3 flex items-center gap-2.5">
-          <div
-            className="w-5 h-5 rounded flex items-center justify-center"
-            style={{ backgroundColor: DOME_GREEN }}
+        {/* Header */}
+        <div className="px-4 pt-5 pb-4 shrink-0">
+          <span
+            className="text-xs font-bold tracking-widest uppercase"
+            style={{ color: 'var(--dome-text-muted)' }}
           >
-            <SettingsIcon className="w-3 h-3" style={{ color: DOME_GREEN_LIGHT }} />
-          </div>
-          <h1 className="text-sm font-bold tracking-wide" style={{ color: 'var(--dome-text)' }}>
             {t('settings.title')}
-          </h1>
+          </span>
         </div>
 
-        {/* Tab strip */}
-        <nav
-          ref={navRef}
-          className="flex items-end gap-0.5 px-4 overflow-x-auto"
-          style={{ scrollbarWidth: 'none' }}
-          aria-label="Settings tabs"
-        >
-          {TAB_DEFS.map((tab) => {
-            const isActive = activeSection === tab.id;
-            return (
-              <button
-                key={tab.id}
-                ref={isActive ? activeTabRef : undefined}
-                type="button"
-                onClick={() => onSectionChange(tab.id)}
-                className="relative flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium whitespace-nowrap transition-colors shrink-0"
-                style={{
-                  color: isActive ? DOME_GREEN : 'var(--dome-text-muted)',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)';
-                }}
+        {/* Nav groups */}
+        <nav className="flex-1 px-2 pb-6 space-y-4" aria-label="Settings navigation">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.labelKey}>
+              {/* Group label */}
+              <p
+                className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest"
+                style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}
               >
-                <span style={{ color: isActive ? DOME_GREEN : 'inherit' }}>{tab.icon}</span>
-                {t(`settings.tabs.${tab.id}`)}
-                {/* Active underline */}
-                {isActive && (
-                  <span
-                    className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full"
-                    style={{ backgroundColor: DOME_GREEN }}
-                  />
-                )}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+                {t(group.labelKey)}
+              </p>
 
-      {/* ── Scrollable content ── */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+              {/* Items */}
+              {group.items.map(({ id, icon }) => {
+                const isActive = activeSection === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => onSectionChange(id)}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left transition-colors mb-0.5"
+                    style={{
+                      backgroundColor: isActive ? 'var(--dome-accent-subtle, rgba(101,93,197,0.12))' : 'transparent',
+                      color: isActive ? 'var(--dome-accent, #7b76d0)' : 'var(--dome-text-secondary, var(--dome-text-muted))',
+                      fontWeight: isActive ? 500 : 400,
+                      fontSize: 13,
+                      border: 'none',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                          'var(--dome-bg-hover, rgba(0,0,0,0.04))';
+                        (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+                        (e.currentTarget as HTMLButtonElement).style.color =
+                          'var(--dome-text-secondary, var(--dome-text-muted))';
+                      }
+                    }}
+                  >
+                    <span style={{ opacity: isActive ? 1 : 0.65 }}>{icon}</span>
+                    {t(`settings.tabs.${id}`)}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+      </aside>
+
+      {/* ── Content area ── */}
+      <main className="flex-1 overflow-y-auto overflow-x-hidden">
         <div className="max-w-2xl mx-auto px-8 py-8 pb-20">
           {children}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

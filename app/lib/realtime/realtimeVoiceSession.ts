@@ -59,6 +59,8 @@ export class RealtimeVoiceSession {
   private dc: RTCDataChannel | null = null;
   private remoteAudio: HTMLAudioElement | null = null;
   private captureStream: MediaStream | null = null;
+  /** Incremented on each `close()` so in-flight `start()` aborts after awaits. */
+  private _sessionEpoch = 0;
   private _status: RealtimeStatus = 'idle';
   private _transcript = '';
   private _closeAfterResponse = false;
@@ -83,11 +85,16 @@ export class RealtimeVoiceSession {
    */
   async start(opts: StartOptions): Promise<void> {
     if (this.pc) this.close();
+    const epoch = this._sessionEpoch;
     this._transcript = '';
     this.setStatus('connecting');
 
     // 1. Get session config
     const cfg = await window.electron.realtime!.getSessionConfig();
+    if (epoch !== this._sessionEpoch) {
+      this.setStatus('idle');
+      return;
+    }
     if (!cfg.success) {
       this.setStatus('error');
       this.onError?.(cfg.error);
@@ -102,6 +109,11 @@ export class RealtimeVoiceSession {
 
     // 3. Acquire mic
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    if (epoch !== this._sessionEpoch) {
+      stream.getTracks().forEach((t) => t.stop());
+      this.setStatus('idle');
+      return;
+    }
     this.captureStream = stream;
 
     // 4. Create peer connection
@@ -144,6 +156,10 @@ export class RealtimeVoiceSession {
     // 8. SDP offer
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    if (epoch !== this._sessionEpoch) {
+      this._purgeConnection();
+      return;
+    }
 
     // 9. SDP exchange via main process (unified interface)
     //    Main process POSTs FormData { sdp, session } to /v1/realtime/calls
@@ -164,6 +180,11 @@ export class RealtimeVoiceSession {
       sessionConfig,
     });
 
+    if (epoch !== this._sessionEpoch) {
+      this._purgeConnection();
+      return;
+    }
+
     if (!sdpRes.success) {
       this.stopCapture();
       pc.close();
@@ -174,6 +195,9 @@ export class RealtimeVoiceSession {
     }
 
     await pc.setRemoteDescription({ type: 'answer', sdp: sdpRes.sdp });
+    if (epoch !== this._sessionEpoch) {
+      this._purgeConnection();
+    }
     // session.created arrives via data channel → sets status to 'ready'
   }
 
@@ -188,6 +212,29 @@ export class RealtimeVoiceSession {
   stopCapture(): void {
     this.captureStream?.getTracks().forEach((t) => t.stop());
     this.captureStream = null;
+  }
+
+  /** Tear down WebRTC + audio without bumping epoch (used when abandoning a stale `start()`). */
+  private _purgeConnection(): void {
+    this.stopCapture();
+    if (this.remoteAudio) {
+      this.remoteAudio.pause();
+      this.remoteAudio.srcObject = null;
+      this.remoteAudio = null;
+    }
+    try {
+      this.dc?.close();
+    } catch {
+      /* ignore */
+    }
+    try {
+      this.pc?.close();
+    } catch {
+      /* ignore */
+    }
+    this.dc = null;
+    this.pc = null;
+    this.setStatus('idle');
   }
 
   /**
@@ -207,17 +254,8 @@ export class RealtimeVoiceSession {
 
   /** Close the session and clean up all resources. */
   close(): void {
-    this.stopCapture();
-    if (this.remoteAudio) {
-      this.remoteAudio.pause();
-      this.remoteAudio.srcObject = null;
-      this.remoteAudio = null;
-    }
-    this.dc?.close();
-    this.pc?.close();
-    this.dc = null;
-    this.pc = null;
-    this.setStatus('idle');
+    this._sessionEpoch++;
+    this._purgeConnection();
   }
 
   // ── Private: server event dispatch ────────────────────

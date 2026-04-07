@@ -16,6 +16,7 @@ const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
 const ManyPanel = lazy(() => import('@/components/many/ManyPanel'));
 const HomePage = lazy(() => import('@/pages/HomePage'));
 const LearnPage = lazy(() => import('@/components/learn/LearnPage'));
+const LearnTabShell = lazy(() => import('@/components/learn/LearnTabShell'));
 const TagsPage = lazy(() => import('@/components/home/TagBrowser'));
 const MarketplacePage = lazy(() => import('@/components/marketplace/MarketplaceView'));
 const AgentsPage = lazy(() => import('@/components/automations/AutomationsHubView'));
@@ -152,6 +153,24 @@ function TabContent({ tab }: { tab: DomeTab }) {
         </Suspense>
       );
 
+    case 'studio':
+      return (
+        <Suspense fallback={<Loading />}>
+          <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+            <LearnTabShell initialSection="all" />
+          </div>
+        </Suspense>
+      );
+
+    case 'flashcards':
+      return (
+        <Suspense fallback={<Loading />}>
+          <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+            <LearnTabShell initialSection="decks" />
+          </div>
+        </Suspense>
+      );
+
     case 'tags':
       return (
         <Suspense fallback={<Loading />}>
@@ -229,6 +248,8 @@ const PERSISTENT_TAB_TYPES = new Set([
   'home',
   'chat',
   'learn',
+  'studio',
+  'flashcards',
   'tags',
   'marketplace',
   'agents',

@@ -196,7 +196,7 @@ function ContextMenu({ state, onClose, onRename, onMove, onColorChange, onDelete
   return (
     <div
       ref={menuRef}
-      className="fixed z-[9999] overflow-hidden"
+      className="fixed z-[var(--z-popover)] overflow-hidden"
       style={{
         left,
         top,
@@ -940,7 +940,7 @@ function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddU
   return (
     <div
       ref={menuRef}
-      className="fixed z-[9999] rounded-lg shadow-xl border overflow-hidden"
+      className="fixed z-[var(--z-popover)] rounded-lg shadow-xl border overflow-hidden"
       style={{
         left: Math.min(x, window.innerWidth - 200),
         top: Math.min(y, window.innerHeight - 160),

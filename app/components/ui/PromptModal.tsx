@@ -42,7 +42,7 @@ export default function PromptModal() {
   return (
     <div
       className="fixed inset-0 flex items-center justify-center p-6"
-      style={{ zIndex: 9999 }}
+      style={{ zIndex: 'var(--z-modal)' }}
     >
       {/* Overlay with blur */}
       <div

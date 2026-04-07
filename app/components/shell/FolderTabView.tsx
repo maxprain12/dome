@@ -80,7 +80,7 @@ function ColorPickerPopover({
   return (
     <div
       ref={ref}
-      className="fixed z-[9999] rounded-xl shadow-lg p-2.5"
+      className="fixed z-[var(--z-popover)] rounded-xl shadow-lg p-2.5"
       style={{ top: pos.top, left: pos.left, background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -247,7 +247,7 @@ function SubfolderCard({
 
           {menuOpen && menuPos && (
             <div
-              className="fixed z-[9999] rounded-lg shadow-lg py-1 min-w-[150px]"
+              className="fixed z-[var(--z-popover)] rounded-lg shadow-lg py-1 min-w-[150px]"
               style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
             >
@@ -397,7 +397,7 @@ function FileRow({
           </button>
           {menuOpen && menuPos && (
             <div
-              className="fixed z-[9999] rounded-lg shadow-lg py-1 min-w-[130px]"
+              className="fixed z-[var(--z-popover)] rounded-lg shadow-lg py-1 min-w-[130px]"
               style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
             >
@@ -553,7 +553,7 @@ function AddMenu({ onNewNote, onNewFolder, onUpload, onAddUrl }: {
       {open && (
         <div
           ref={menuRef}
-          className="absolute right-0 top-full mt-1.5 z-[9999] rounded-xl shadow-xl py-1.5 min-w-[200px]"
+          className="absolute right-0 top-full mt-1.5 z-[var(--z-popover)] rounded-xl shadow-xl py-1.5 min-w-[200px]"
           style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
         >
           {item(<FileText className="w-4 h-4" style={{ color: '#7c6fcd' }} />, t('toolbar.note', 'Nueva nota'), onNewNote)}

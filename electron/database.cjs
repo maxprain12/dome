@@ -3223,6 +3223,9 @@ function getQueries() {
     markCalendarNotificationNotified: db.prepare(`
       UPDATE calendar_notifications SET notified_at = ? WHERE id = ?
     `),
+    deleteCalendarNotificationsForEvent: db.prepare(`
+      DELETE FROM calendar_notifications WHERE event_id = ?
+    `),
   };
 
   return _queries;

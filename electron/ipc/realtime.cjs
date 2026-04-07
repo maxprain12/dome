@@ -10,6 +10,7 @@
  */
 
 const https = require('https');
+const { getOpenAIKey } = require('../openai-key.cjs');
 
 function register({ ipcMain, windowManager, database }) {
   // ─────────────────────────────────────────────────────
@@ -22,7 +23,7 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
-      const apiKey = _getOpenAIKey(database);
+      const apiKey = getOpenAIKey(database);
       if (!apiKey) {
         return {
           success: false,
@@ -61,7 +62,7 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
-      const apiKey = _getOpenAIKey(database);
+      const apiKey = getOpenAIKey(database);
       if (!apiKey) {
         return { success: false, error: 'No OpenAI key configured. Add it in Settings → Transcription.' };
       }
@@ -153,7 +154,7 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
-      const apiKey = _getOpenAIKey(database);
+      const apiKey = getOpenAIKey(database);
       if (!apiKey) {
         return { success: false, error: 'No OpenAI API key configured. Add it in Settings → Transcription.' };
       }
@@ -417,32 +418,6 @@ function _toolCreateNote(database, windowManager, args) {
     };
   } catch (err) {
     return { success: false, error: err.message };
-  }
-}
-
-// ── API key resolution ──────────────────────────────────
-
-function _getOpenAIKey(database) {
-  try {
-    const queries = database.getQueries();
-    // 1. Dedicated transcription/speech key (configured in Transcription settings)
-    const dedicated = queries.getSetting.get('transcription_openai_api_key');
-    if (dedicated?.value && String(dedicated.value).trim()) return String(dedicated.value).trim();
-    // 2. Main AI provider key if provider is OpenAI
-    const providerRow = queries.getSetting.get('ai_provider');
-    if (providerRow?.value === 'openai') {
-      const k = queries.getSetting.get('ai_api_key')?.value;
-      if (k && String(k).trim()) return String(k).trim();
-    }
-    // 3. Legacy openai_api_key setting
-    const legacy = queries.getSetting.get('openai_api_key')?.value;
-    if (legacy && String(legacy).trim()) return String(legacy).trim();
-    // 4. Any ai_api_key regardless of provider
-    const any = queries.getSetting.get('ai_api_key')?.value;
-    if (any && String(any).trim()) return String(any).trim();
-    return null;
-  } catch {
-    return null;
   }
 }
 

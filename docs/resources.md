@@ -86,11 +86,17 @@ interface DBResponse<T> {
 
 ---
 
+## KB LLM (wiki compilada por agentes)
+
+Convenciones opcionales en `metadata.dome_kb` (`wikiRole`, `reindexOnSave`, `topicId`) para pipelines de investigación tipo wiki. Ver [kb-llm-wiki-model.md](./kb-llm-wiki-model.md) y [kb-index-policy.md](./kb-index-policy.md).
+
+Plantillas de prompt: `[prompts/kb-wiki-compile.md](../prompts/kb-wiki-compile.md)`, `[prompts/kb-wiki-health.md](../prompts/kb-wiki-health.md)`.
+
 ## Design patterns
 
 ### Process separation
 
-- **Renderer**: Uses `app/lib/db/client.ts` singleton `db`. All access via `window.electron.db.*` and `window.electron.resource.*` (IPC). No direct Node/fs/sqlite.
+- **Renderer**: Uses `app/lib/db/client.ts` singleton `db`. All access via `window.electron.db.`* and `window.electron.resource.*` (IPC). No direct Node/fs/sqlite.
 - **Main**: SQLite in `electron/database.cjs` (better-sqlite3), file ops in `electron/file-storage.cjs`. IPC handlers in `electron/main.cjs`.
 
 ### Internal file storage
@@ -142,45 +148,50 @@ interface DBResponse<T> {
 
 ## Key files
 
-| Path | Role |
-|------|------|
-| `app/types/index.ts` | Resource, ResourceMetadata, Project, ResourceType, DBResponse, StorageUsage, ResourceImportResult |
-| `app/lib/db/client.ts` | DatabaseClient singleton: projects, resources, interactions, links, search, settings, import/export/storage/migration wrappers |
-| `electron/database.cjs` | getDB, initDatabase, migrations, prepared statements for resources (incl. folder, internal_path, FTS) |
-| `electron/file-storage.cjs` | getStorageDir, importFile, getFilePath, readFile, deleteFile, getUsage, cleanup; TYPE_DIRECTORIES, MIME_TYPES |
-| `electron/main.cjs` | IPC handlers for db:*, resource:*, storage:*, migration:* |
-| `electron/preload.cjs` | window.electron.db.*, window.electron.resource.*, ALLOWED_CHANNELS for invoke/on |
+
+| Path                        | Role                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `app/types/index.ts`        | Resource, ResourceMetadata, Project, ResourceType, DBResponse, StorageUsage, ResourceImportResult                              |
+| `app/lib/db/client.ts`      | DatabaseClient singleton: projects, resources, interactions, links, search, settings, import/export/storage/migration wrappers |
+| `electron/database.cjs`     | getDB, initDatabase, migrations, prepared statements for resources (incl. folder, internal_path, FTS)                          |
+| `electron/file-storage.cjs` | getStorageDir, importFile, getFilePath, readFile, deleteFile, getUsage, cleanup; TYPE_DIRECTORIES, MIME_TYPES                  |
+| `electron/main.cjs`         | IPC handlers for db:*, resource:*, storage:*, migration:*                                                                      |
+| `electron/preload.cjs`      | window.electron.db.*, window.electron.resource.*, ALLOWED_CHANNELS for invoke/on                                               |
+
 
 ---
 
 ## IPC channels (resources and storage)
 
-| Channel | Direction | Purpose |
-|---------|-----------|---------|
-| `db:resources:create` | invoke | Create resource |
-| `db:resources:getByProject` | invoke | List by project |
-| `db:resources:getById` | invoke | Get one |
-| `db:resources:update` | invoke | Update resource |
-| `db:resources:search` | invoke | FTS search |
-| `db:resources:getAll` | invoke | List all (limit) |
-| `db:resources:delete` | invoke | Delete row only |
-| `db:resources:getByFolder` | invoke | List children of folder |
-| `db:resources:getRoot` | invoke | Root resources of project |
-| `db:resources:moveToFolder` | invoke | Set folder_id |
-| `db:resources:removeFromFolder` | invoke | Set folder_id null |
-| `db:resources:searchForMention` | invoke | Search for @mention |
-| `db:resources:getBacklinks` | invoke | Backlinks to resource |
-| `db:resources:uploadFile` | invoke | Upload file into resource |
-| `resource:import` | invoke | Import file → internal storage + resource |
-| `resource:importMultiple` | invoke | Multiple import |
-| `resource:getFilePath` | invoke | Absolute path for native open |
-| `resource:readFile` | invoke | Base64 data URL |
-| `resource:export` | invoke | Export to path |
-| `resource:delete` | invoke | Delete resource + file |
-| `resource:regenerateThumbnail` | invoke | Regenerate thumbnail |
-| `storage:getUsage` | invoke | StorageUsage |
-| `storage:cleanup` | invoke | Remove orphans |
-| `storage:getPath` | invoke | Storage dir path |
-| `resource:created` | on | Event when resource created |
-| `resource:updated` | on | Event when resource updated |
-| `resource:deleted` | on | Event when resource deleted |
+
+| Channel                         | Direction | Purpose                                   |
+| ------------------------------- | --------- | ----------------------------------------- |
+| `db:resources:create`           | invoke    | Create resource                           |
+| `db:resources:getByProject`     | invoke    | List by project                           |
+| `db:resources:getById`          | invoke    | Get one                                   |
+| `db:resources:update`           | invoke    | Update resource                           |
+| `db:resources:search`           | invoke    | FTS search                                |
+| `db:resources:getAll`           | invoke    | List all (limit)                          |
+| `db:resources:delete`           | invoke    | Delete row only                           |
+| `db:resources:getByFolder`      | invoke    | List children of folder                   |
+| `db:resources:getRoot`          | invoke    | Root resources of project                 |
+| `db:resources:moveToFolder`     | invoke    | Set folder_id                             |
+| `db:resources:removeFromFolder` | invoke    | Set folder_id null                        |
+| `db:resources:searchForMention` | invoke    | Search for @mention                       |
+| `db:resources:getBacklinks`     | invoke    | Backlinks to resource                     |
+| `db:resources:uploadFile`       | invoke    | Upload file into resource                 |
+| `resource:import`               | invoke    | Import file → internal storage + resource |
+| `resource:importMultiple`       | invoke    | Multiple import                           |
+| `resource:getFilePath`          | invoke    | Absolute path for native open             |
+| `resource:readFile`             | invoke    | Base64 data URL                           |
+| `resource:export`               | invoke    | Export to path                            |
+| `resource:delete`               | invoke    | Delete resource + file                    |
+| `resource:regenerateThumbnail`  | invoke    | Regenerate thumbnail                      |
+| `storage:getUsage`              | invoke    | StorageUsage                              |
+| `storage:cleanup`               | invoke    | Remove orphans                            |
+| `storage:getPath`               | invoke    | Storage dir path                          |
+| `resource:created`              | on        | Event when resource created               |
+| `resource:updated`              | on        | Event when resource updated               |
+| `resource:deleted`              | on        | Event when resource deleted               |
+
+

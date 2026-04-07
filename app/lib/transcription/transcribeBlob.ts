@@ -1,11 +1,3 @@
-/** Record mime for MediaRecorder (same logic as VoiceRecordingDock). */
-export function pickRecordMimeType(): string | undefined {
-  if (typeof MediaRecorder === 'undefined') return undefined;
-  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus';
-  if (MediaRecorder.isTypeSupported('audio/webm')) return 'audio/webm';
-  return undefined;
-}
-
 export async function transcribeAudioBlob(blob: Blob): Promise<{ success: true; text: string } | { success: false; error: string }> {
   if (!window.electron?.transcription?.bufferToText) {
     return { success: false, error: 'Transcripción no disponible' };

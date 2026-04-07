@@ -185,6 +185,10 @@ function runCommand(command, args, options = {}) {
       } catch {
         // ignore
       }
+      // Escalate to SIGKILL if the process doesn't exit after SIGTERM
+      setTimeout(() => {
+        try { proc.kill('SIGKILL'); } catch { /* ignore */ }
+      }, 1000);
       finish(-1, true);
     }, timeoutMs);
 
@@ -581,10 +585,18 @@ function mirrorStatusFromDatabase(resourceId, database, windowManager) {
   return null;
 }
 
+const MAX_POLL_MS = 30 * 60 * 1000; // Stop after 30 min regardless of DB status
+
 function startStatusPolling(resourceId, database, windowManager) {
   let stopped = false;
+  const deadline = Date.now() + MAX_POLL_MS;
   const timer = setInterval(() => {
-    if (stopped) return;
+    if (stopped) { clearInterval(timer); return; }
+    if (Date.now() > deadline) {
+      clearInterval(timer);
+      setState(resourceId, 'error', 0, 'Timeout', windowManager, database, 'Indexing timed out after 30 min');
+      return;
+    }
     const snapshot = mirrorStatusFromDatabase(resourceId, database, windowManager);
     if (snapshot?.status === 'done' || snapshot?.status === 'error') {
       clearInterval(timer);
@@ -611,6 +623,11 @@ async function fallbackToJsIndexer(resourceId, deps, infraError) {
     if (result?.success && result.tree_json && queries?.upsertPageIndex) {
       queries.upsertPageIndex.run(resourceId, result.tree_json, Date.now(), modelUsed);
       queries.deletePageIndexStatus?.run(resourceId);
+    } else if (!result?.success) {
+      // Clear 'processing' from in-memory state so isProcessing() returns false
+      // and the resource can be retried by the next auto-index sweep.
+      const errMsg = result?.error || infraError?.message || 'JS fallback indexing failed';
+      setState(resourceId, 'error', 0, errMsg, null, database, errMsg);
     }
     return result;
   };

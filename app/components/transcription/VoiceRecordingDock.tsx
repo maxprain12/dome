@@ -1,23 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Mic, Monitor, Square, X, Loader2 } from 'lucide-react';
+import { Mic, Monitor, Square, X, Loader2, Pause, Play } from 'lucide-react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
-
-function pickRecordMime(): string | undefined {
-  if (typeof MediaRecorder === 'undefined') return undefined;
-  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus';
-  if (MediaRecorder.isTypeSupported('audio/webm')) return 'audio/webm';
-  return undefined;
-}
+import { useMediaRecorder } from '@/lib/transcription/useMediaRecorder';
+import { AudioLevelMeter } from '@/components/ui/AudioLevelMeter';
 
 type DesktopSource = { id: string; name: string };
 
 type VoiceRecordingDockVariant = 'shell' | 'overlay';
 
 type Props = {
-  /** `overlay`: ventana flotante dedicada (hub). `shell`: dentro de AppShell (legado). */
+  /** `overlay`: ventana flotante dedicada. `shell`: dentro de AppShell. */
   variant?: VoiceRecordingDockVariant;
 };
 
@@ -25,23 +20,21 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
   const { t } = useTranslation();
   const isOverlay = variant === 'overlay';
   const currentProject = useAppStore((s) => s.currentProject);
+
+  // Dock visibility (separate from recording phase)
   const [visible, setVisible] = useState(false);
-  const [seconds, setSeconds] = useState(0);
-  const [phase, setPhase] = useState<'ready' | 'recording' | 'processing'>('ready');
   const [saveAudioCopy, setSaveAudioCopy] = useState(true);
   const [desktopSources, setDesktopSources] = useState<DesktopSource[] | null>(null);
   const [pickedSourceId, setPickedSourceId] = useState('');
   const [loadingSources, setLoadingSources] = useState(false);
   const [recordingInputKind, setRecordingInputKind] = useState<'microphone' | 'system'>('microphone');
 
-  const processAfterStopRef = useRef(true);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const cancelledDuringSetupRef = useRef(false);
   const captureKindRef = useRef<'microphone' | 'system'>('microphone');
   const hubContentRef = useRef<HTMLDivElement | null>(null);
+  // Tracks whether the mic setup was cancelled before getUserMedia resolved
+  const desktopCancelRef = useRef(false);
+
+  // ── Note opening helper ────────────────────────────────────────────────────
 
   const openCreatedNote = useCallback(
     (noteId: string, title: string) => {
@@ -57,25 +50,68 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
     [isOverlay, t],
   );
 
-  const stopTick = useCallback(() => {
-    if (tickRef.current) {
-      clearInterval(tickRef.current);
-      tickRef.current = null;
-    }
-  }, []);
+  // ── Shared MediaRecorder hook ──────────────────────────────────────────────
 
-  const cleanupStream = useCallback(() => {
-    streamRef.current?.getTracks().forEach((tr) => tr.stop());
-    streamRef.current = null;
-  }, []);
+  const recorder = useMediaRecorder({
+    onBlob: async (blob, mimeType) => {
+      const ext = mimeType.includes('webm') ? 'webm' : mimeType.includes('mp4') ? 'm4a' : 'webm';
+      const projectId = currentProject?.id ?? 'default';
+      const kind = captureKindRef.current;
+      try {
+        const buf = await blob.arrayBuffer();
+        const result = await window.electron!.transcription.bufferToNote({
+          buffer: buf,
+          extension: ext,
+          projectId,
+          saveRecordingAsAudio: saveAudioCopy,
+          captureKind: kind,
+          callPlatform: 'unknown',
+        });
+        if (result.success && result.note) {
+          notifications.show({
+            title: t('media.dock_note_created'),
+            message: result.note.title,
+            color: 'green',
+          });
+          openCreatedNote(result.note.id, result.note.title || t('media.transcription_note_tab'));
+        } else {
+          notifications.show({
+            title: t('media.dock_transcription_failed'),
+            message: result.error || t('media.transcription_unknown_error'),
+            color: 'red',
+          });
+        }
+      } catch (err) {
+        notifications.show({
+          title: t('media.dock_transcription_failed'),
+          message: err instanceof Error ? err.message : t('media.transcription_unknown_error'),
+          color: 'red',
+        });
+      } finally {
+        setVisible(false);
+      }
+    },
+    onEmpty: () => {
+      notifications.show({
+        title: t('media.dock_empty_recording'),
+        message: t('media.dock_no_audio_captured'),
+        color: 'yellow',
+      });
+      setVisible(false);
+    },
+    onError: (msg) => {
+      notifications.show({
+        title: t('media.dock_mic_permission'),
+        message: msg,
+        color: 'red',
+      });
+      setVisible(false);
+    },
+  });
 
-  const fullReset = useCallback(() => {
-    stopTick();
-    mediaRecorderRef.current = null;
-    chunksRef.current = [];
-    setSeconds(0);
-    setPhase('ready');
-  }, [stopTick]);
+  const { phase, seconds, streamRef, canPause } = recorder;
+
+  // ── Desktop sources ────────────────────────────────────────────────────────
 
   const loadDesktopSources = useCallback(async () => {
     if (!window.electron?.transcription?.listDesktopCaptureSources) return;
@@ -104,97 +140,7 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
     }
   }, [t]);
 
-  const beginRecordingFromStream = useCallback(
-    (stream: MediaStream, captureKind: 'microphone' | 'system') => {
-      captureKindRef.current = captureKind;
-      setRecordingInputKind(captureKind);
-      streamRef.current = stream;
-      chunksRef.current = [];
-
-      const mime = pickRecordMime();
-      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-      mediaRecorderRef.current = mr;
-
-      mr.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-
-      mr.onstop = () => {
-        void (async () => {
-          cleanupStream();
-          const shouldProcess = processAfterStopRef.current;
-          processAfterStopRef.current = true;
-
-          if (!shouldProcess) {
-            fullReset();
-            setVisible(false);
-            return;
-          }
-
-          const outMime = mr.mimeType || mime || 'audio/webm';
-          const blob = new Blob(chunksRef.current, { type: outMime });
-          chunksRef.current = [];
-
-          if (blob.size < 256) {
-            notifications.show({
-              title: t('media.dock_empty_recording'),
-              message: t('media.dock_no_audio_captured'),
-              color: 'yellow',
-            });
-            fullReset();
-            setVisible(false);
-            return;
-          }
-
-          setPhase('processing');
-          try {
-            const buf = await blob.arrayBuffer();
-            const ext = outMime.includes('webm') ? 'webm' : outMime.includes('mp4') ? 'm4a' : 'webm';
-            const projectId = currentProject?.id ?? 'default';
-            const kind = captureKindRef.current;
-            const result = await window.electron!.transcription.bufferToNote({
-              buffer: buf,
-              extension: ext,
-              projectId,
-              saveRecordingAsAudio: saveAudioCopy,
-              captureKind: kind,
-              callPlatform: 'unknown',
-            });
-            if (result.success && result.note) {
-              notifications.show({
-                title: t('media.dock_note_created'),
-                message: result.note.title,
-                color: 'green',
-              });
-              openCreatedNote(result.note.id, result.note.title || t('media.transcription_note_tab'));
-            } else {
-              notifications.show({
-                title: t('media.dock_transcription_failed'),
-                message: result.error || t('media.transcription_unknown_error'),
-                color: 'red',
-              });
-            }
-          } catch (err) {
-            notifications.show({
-              title: t('media.dock_transcription_failed'),
-              message: err instanceof Error ? err.message : t('media.transcription_unknown_error'),
-              color: 'red',
-            });
-          } finally {
-            fullReset();
-            setVisible(false);
-          }
-        })();
-      };
-
-      mr.start(200);
-      setPhase('recording');
-      setSeconds(0);
-      stopTick();
-      tickRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
-    },
-    [cleanupStream, currentProject?.id, fullReset, openCreatedNote, saveAudioCopy, stopTick, t],
-  );
+  // ── Recording: microphone ──────────────────────────────────────────────────
 
   const startRecordingMic = useCallback(async () => {
     if (typeof MediaRecorder === 'undefined' || !window.electron?.transcription) {
@@ -206,47 +152,12 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
       setVisible(false);
       return;
     }
+    captureKindRef.current = 'microphone';
+    setRecordingInputKind('microphone');
+    await recorder.startMicRecording();
+  }, [recorder, t]);
 
-    cancelledDuringSetupRef.current = false;
-
-    try {
-      if (window.electron.isMac) {
-        const perm = await window.electron.transcription.requestMicrophoneAccess();
-        if (perm.success === false || perm.granted === false) {
-          notifications.show({
-            title: t('media.dock_mic_permission'),
-            message: perm.error || t('media.dock_mic_denied'),
-            color: 'red',
-          });
-          setVisible(false);
-          return;
-        }
-      }
-
-      if (cancelledDuringSetupRef.current) {
-        setVisible(false);
-        return;
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (cancelledDuringSetupRef.current) {
-        stream.getTracks().forEach((tr) => tr.stop());
-        setVisible(false);
-        return;
-      }
-
-      beginRecordingFromStream(stream, 'microphone');
-    } catch (err) {
-      cleanupStream();
-      notifications.show({
-        title: t('media.dock_mic_permission'),
-        message: err instanceof Error ? err.message : t('media.dock_mic_access_error'),
-        color: 'red',
-      });
-      fullReset();
-      setVisible(false);
-    }
-  }, [beginRecordingFromStream, cleanupStream, fullReset, t]);
+  // ── Recording: desktop/system audio ───────────────────────────────────────
 
   const startRecordingDesktop = useCallback(async () => {
     if (typeof MediaRecorder === 'undefined' || !window.electron?.transcription) {
@@ -267,7 +178,9 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
       return;
     }
 
-    cancelledDuringSetupRef.current = false;
+    desktopCancelRef.current = false;
+    captureKindRef.current = 'system';
+    setRecordingInputKind('system');
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -284,7 +197,8 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
           },
         },
       } as MediaStreamConstraints);
-      if (cancelledDuringSetupRef.current) {
+
+      if (desktopCancelRef.current) {
         stream.getTracks().forEach((tr) => tr.stop());
         setVisible(false);
         return;
@@ -300,15 +214,12 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
           message: window.electron?.isMac ? t('media.dock_no_system_audio_track') : t('media.dock_system_hint'),
           color: 'yellow',
         });
-        fullReset();
         setVisible(false);
         return;
       }
 
-      const audioOnly = new MediaStream(audioTracks);
-      beginRecordingFromStream(audioOnly, 'system');
+      recorder.startFromStream(new MediaStream(audioTracks));
     } catch (err) {
-      cleanupStream();
       const name = err instanceof Error ? err.name : '';
       const msg = err instanceof Error ? err.message : String(err);
       let message = msg;
@@ -317,54 +228,38 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
       } else if (/audio|track/i.test(msg) && !/video/i.test(msg)) {
         message = t('media.dock_no_system_audio_track');
       }
-      notifications.show({
-        title: t('media.dock_recording_unavailable'),
-        message,
-        color: 'red',
-      });
-      fullReset();
+      notifications.show({ title: t('media.dock_recording_unavailable'), message, color: 'red' });
       setVisible(false);
     }
-  }, [beginRecordingFromStream, cleanupStream, fullReset, pickedSourceId, t]);
+  }, [pickedSourceId, recorder, t]);
+
+  // ── Stop / Cancel ──────────────────────────────────────────────────────────
 
   const requestStopAndTranscribe = useCallback(() => {
-    processAfterStopRef.current = true;
-    const mr = mediaRecorderRef.current;
-    if (mr && mr.state !== 'inactive') mr.stop();
-    else if (phase === 'ready') {
+    if (phase === 'idle') {
       setVisible(false);
-      fullReset();
-    }
-    stopTick();
-  }, [fullReset, phase, stopTick]);
-
-  const requestCancel = useCallback(() => {
-    if (phase === 'ready' && !mediaRecorderRef.current) {
-      cancelledDuringSetupRef.current = true;
-      setVisible(false);
-      fullReset();
       return;
     }
-    processAfterStopRef.current = false;
-    const mr = mediaRecorderRef.current;
-    if (mr && mr.state !== 'inactive') mr.stop();
-    else {
-      cleanupStream();
-      fullReset();
-      setVisible(false);
-    }
-    stopTick();
-  }, [cleanupStream, fullReset, phase, stopTick]);
+    recorder.stopRecording();
+  }, [phase, recorder]);
+
+  const requestCancel = useCallback(() => {
+    if (phase === 'processing') return;
+    desktopCancelRef.current = true;
+    recorder.cancelRecording();
+    setVisible(false);
+  }, [phase, recorder]);
+
+  // ── Toggle handler (IPC shortcut + DOM event) ──────────────────────────────
 
   const toggleDockRef = useRef<() => void>(() => {});
   toggleDockRef.current = () => {
     if (phase === 'processing') return;
-    if (phase === 'recording') {
+    if (phase === 'recording' || phase === 'paused') {
       requestStopAndTranscribe();
       return;
     }
-    if (visible && phase === 'ready') {
-      cancelledDuringSetupRef.current = true;
+    if (visible && phase === 'idle') {
       requestCancel();
       return;
     }
@@ -387,34 +282,39 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
     return () => window.removeEventListener('dome:toggle-transcription-dock', onUiToggle);
   }, [isOverlay]);
 
+  // ── Notify AppShell top-bar indicators ───────────────────────────────────
+
+  useEffect(() => {
+    if (phase === 'recording' || phase === 'paused') {
+      window.dispatchEvent(new CustomEvent('dome:dictation-started'));
+    } else {
+      window.dispatchEvent(new CustomEvent('dome:dictation-stopped'));
+    }
+  }, [phase]);
+
+  // ── Overlay window sync ────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!isOverlay || !window.electron?.transcriptionOverlay?.overlaySetVisible) return undefined;
     void window.electron.transcriptionOverlay.overlaySetVisible(visible);
     return undefined;
   }, [visible, isOverlay]);
 
+  // Auto-resize overlay window to content height
   useLayoutEffect(() => {
     if (!isOverlay || typeof ResizeObserver === 'undefined') return undefined;
     const el = hubContentRef.current;
     if (!el) return undefined;
     const ro = new ResizeObserver(() => {
       const h = Math.ceil(el.getBoundingClientRect().height);
-      const padded = Math.min(640, Math.max(280, h + 48));
+      const padded = Math.min(480, Math.max(80, h + 24));
       void window.electron?.transcriptionOverlay?.overlayResize?.(padded);
     });
     ro.observe(el);
-    return () => {
-      ro.disconnect();
-    };
+    return () => ro.disconnect();
   }, [isOverlay, visible, phase]);
 
-  useEffect(
-    () => () => {
-      stopTick();
-      cleanupStream();
-    },
-    [cleanupStream, stopTick],
-  );
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   if (!visible) return null;
 
@@ -422,54 +322,98 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
   const ss = seconds % 60;
   const timeStr = `${mm}:${ss.toString().padStart(2, '0')}`;
 
+  const isRecording = phase === 'recording';
+  const isPaused = phase === 'paused';
+  const isProcessing = phase === 'processing';
+  const isReady = phase === 'idle';
+
+  // ── Shell variant (floating pill within app window) ──────────────────────
+
   const shellWrapper =
-    'fixed bottom-6 left-1/2 z-[200] flex max-h-[85vh] max-w-[min(420px,92vw)] -translate-x-1/2 flex-col items-stretch gap-3 overflow-y-auto rounded-xl px-4 py-3 shadow-lg';
-  const hubWrapper =
-    'relative z-10 w-full max-w-[min(96vw,420px)] flex flex-col items-stretch gap-3 overflow-y-auto overflow-x-hidden rounded-3xl px-4 py-3 shadow-xl border max-h-[min(72vh,520px)]';
-  const hubChrome = isOverlay
-    ? {
-        background: 'color-mix(in srgb, var(--dome-bg, #fff) 94%, transparent)',
-        borderColor: 'color-mix(in srgb, var(--dome-border, #ddd) 50%, transparent)',
-        boxShadow: '0 8px 32px color-mix(in srgb, black 14%, transparent)',
-      }
-    : {
-        background: 'var(--dome-surface)',
-        border: '1px solid var(--dome-border)',
-      };
+    'fixed bottom-6 left-1/2 -translate-x-1/2 z-[var(--z-fixed,300)] flex max-h-[85vh] max-w-[min(420px,92vw)] -translate-x-1/2 flex-col items-stretch gap-3 overflow-y-auto rounded-xl px-4 py-3 shadow-lg';
+
+  // ── Overlay variant (compact pill in dedicated BrowserWindow) ────────────
+
+  const overlayWrapper =
+    'relative z-10 w-full max-w-[min(96vw,420px)] flex flex-col items-stretch gap-2.5 overflow-hidden rounded-3xl px-4 py-3 shadow-xl border';
+
+  const overlayChrome = {
+    background: 'color-mix(in srgb, var(--dome-bg, #fff) 94%, transparent)',
+    borderColor: 'color-mix(in srgb, var(--dome-border, #ddd) 50%, transparent)',
+    boxShadow: isRecording
+      ? '0 0 0 1.5px color-mix(in srgb, var(--dome-accent, #7b76d0) 35%, transparent), 0 8px 32px color-mix(in srgb, black 14%, transparent)'
+      : '0 8px 32px color-mix(in srgb, black 14%, transparent)',
+    transition: 'box-shadow 0.3s ease',
+  };
 
   return (
-    <div className={isOverlay ? 'relative z-10 w-full flex justify-center pointer-events-none' : ''} aria-live="polite">
+    <div
+      className={isOverlay ? 'relative z-10 w-full flex justify-center pointer-events-none' : ''}
+      aria-live="polite"
+    >
       <div
         ref={hubContentRef}
-        className={isOverlay ? `${hubWrapper} pointer-events-auto` : shellWrapper}
+        className={isOverlay ? `${overlayWrapper} pointer-events-auto` : shellWrapper}
         style={
           isOverlay
-            ? hubChrome
-            : {
-                background: 'var(--dome-surface)',
-                border: '1px solid var(--dome-border)',
-                minWidth: 280,
-              }
+            ? overlayChrome
+            : { background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', minWidth: 280 }
         }
       >
-        <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-          <Mic className="h-4 w-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
-          {phase === 'processing' ? (
+        {/* ── Header row ── */}
+        <div className="flex items-center gap-2 min-h-[36px]" style={{ color: 'var(--dome-text)' }}>
+          {isProcessing ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              {t('media.dock_transcribing')}
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+              <span className="text-sm font-medium flex-1 truncate">{t('media.dock_transcribing')}</span>
             </>
-          ) : phase === 'recording' ? (
+          ) : isRecording || isPaused ? (
             <>
-              {recordingInputKind === 'system' ? <Monitor className="h-4 w-4" aria-hidden /> : null}
-              {t('media.dock_recording')} {timeStr}
+              {/* Live audio level meter */}
+              <AudioLevelMeter
+                stream={isRecording ? streamRef.current : null}
+                active={isRecording}
+                height={20}
+              />
+              {recordingInputKind === 'system' && (
+                <Monitor className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+              )}
+              <span className="text-sm font-medium flex-1">
+                {isPaused ? t('media.dock_paused') : t('media.dock_recording')}
+                {' '}
+                <span className="font-mono tabular-nums opacity-70">{timeStr}</span>
+              </span>
+              {/* Pause / Resume */}
+              {canPause && (
+                <button
+                  type="button"
+                  onClick={isPaused ? recorder.resumeRecording : recorder.pauseRecording}
+                  className="shrink-0 rounded-md flex items-center justify-center transition-colors"
+                  style={{
+                    width: 28, height: 28,
+                    background: 'var(--dome-bg-hover)',
+                    color: 'var(--dome-text)',
+                    border: '1px solid var(--dome-border)',
+                  }}
+                  title={isPaused ? t('media.dock_resume') : t('media.dock_pause')}
+                >
+                  {isPaused
+                    ? <Play className="h-3.5 w-3.5" aria-hidden />
+                    : <Pause className="h-3.5 w-3.5" aria-hidden />
+                  }
+                </button>
+              )}
             </>
           ) : (
-            <>{t('media.dock_choose_input')}</>
+            <>
+              <Mic className="h-4 w-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+              <span className="text-sm font-medium flex-1">{t('media.dock_choose_input')}</span>
+            </>
           )}
         </div>
 
-        {phase === 'ready' ? (
+        {/* ── Source selector (only when ready) ── */}
+        {isReady && (
           <>
             <p className="text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
               {t('media.dock_system_hint')}
@@ -502,7 +446,7 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
                     {loadingSources ? '…' : t('media.dock_load_sources')}
                   </button>
                 </div>
-                {desktopSources && desktopSources.length > 0 ? (
+                {desktopSources && desktopSources.length > 0 && (
                   <select
                     value={pickedSourceId}
                     onChange={(e) => setPickedSourceId(e.target.value)}
@@ -519,7 +463,7 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
                       </option>
                     ))}
                   </select>
-                ) : null}
+                )}
                 <button
                   type="button"
                   onClick={() => void startRecordingDesktop()}
@@ -537,24 +481,26 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
               </div>
             </div>
           </>
-        ) : null}
+        )}
 
+        {/* ── Save audio copy checkbox ── */}
         <label className="flex cursor-pointer items-center gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
           <input
             type="checkbox"
             checked={saveAudioCopy}
             onChange={(e) => setSaveAudioCopy(e.target.checked)}
-            disabled={phase !== 'ready'}
+            disabled={!isReady}
             className="cursor-pointer"
           />
           {t('media.dock_save_audio_copy')}
         </label>
 
+        {/* ── Actions ── */}
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
             onClick={requestCancel}
-            disabled={phase === 'processing'}
+            disabled={isProcessing}
             className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium"
             style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
           >
@@ -564,12 +510,9 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
           <button
             type="button"
             onClick={requestStopAndTranscribe}
-            disabled={phase === 'processing' || phase !== 'recording'}
+            disabled={isProcessing || isReady}
             className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-45"
-            style={{
-              background: 'var(--dome-accent)',
-              color: 'var(--dome-on-accent, #fff)',
-            }}
+            style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent, #fff)' }}
           >
             <Square className="h-3.5 w-3.5" aria-hidden />
             {t('media.dock_stop_transcribe')}

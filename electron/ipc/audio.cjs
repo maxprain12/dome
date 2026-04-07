@@ -3,6 +3,7 @@ const path = require('path');
 const { app } = require('electron');
 const audioPlayback = require('../audio-playback.cjs');
 const streamingTts = require('../streaming-tts.cjs');
+const { getOpenAIKey } = require('../openai-key.cjs');
 
 /**
  * @param {string} filePath
@@ -33,8 +34,7 @@ function register({ ipcMain, windowManager, database, ttsService }) {
     }
 
     try {
-      // Get OpenAI API key from settings
-      const apiKey = _getOpenAIKey(database);
+      const apiKey = getOpenAIKey(database);
       if (!apiKey) {
         return { success: false, error: 'OpenAI API key not configured. Please add it in Settings.' };
       }
@@ -89,8 +89,7 @@ function register({ ipcMain, windowManager, database, ttsService }) {
     }
 
     try {
-      // Get OpenAI API key from settings
-      const apiKey = _getOpenAIKey(database);
+      const apiKey = getOpenAIKey(database);
       if (!apiKey) {
         return { success: false, error: 'OpenAI API key not configured. Please add it in Settings.' };
       }
@@ -161,44 +160,6 @@ function register({ ipcMain, windowManager, database, ttsService }) {
     }
     return { success: true };
   });
-}
-
-/**
- * Get OpenAI API key from database settings
- * @private
- * @param {Object} database - Database module
- * @returns {string|null}
- */
-function _getOpenAIKey(database) {
-  try {
-    const queries = database.getQueries();
-
-    const providerRow = queries.getSetting.get('ai_provider');
-    const provider = providerRow?.value;
-
-    // Primary: chat configured for OpenAI
-    if (provider === 'openai') {
-      const apiKeyRow = queries.getSetting.get('ai_api_key');
-      if (apiKeyRow?.value && String(apiKeyRow.value).trim()) {
-        return String(apiKeyRow.value).trim();
-      }
-      const openaiSpecific = queries.getSetting.get('openai_api_key');
-      if (openaiSpecific?.value && String(openaiSpecific.value).trim()) {
-        return String(openaiSpecific.value).trim();
-      }
-    }
-
-    // TTS uses OpenAI API: allow transcription-dedicated OpenAI key when chat uses another provider
-    const transcriptionDedicated = queries.getSetting.get('transcription_openai_api_key');
-    if (transcriptionDedicated?.value && String(transcriptionDedicated.value).trim()) {
-      return String(transcriptionDedicated.value).trim();
-    }
-
-    return null;
-  } catch (error) {
-    console.error('[Audio IPC] Error getting OpenAI key:', error);
-    return null;
-  }
 }
 
 module.exports = { register };

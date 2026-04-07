@@ -107,6 +107,13 @@ const ALLOWED_CHANNELS = {
     'automations:delete',
     'automations:runNow',
     'automations:notifyContext',
+    'kbllm:getGlobal',
+    'kbllm:setGlobal',
+    'kbllm:getProjectOverride',
+    'kbllm:setProjectOverride',
+    'kbllm:syncProject',
+    'kbllm:syncAll',
+    'kbllm:getStatus',
     // Database - Links
     'db:links:create',
     'db:links:getBySource',
@@ -416,6 +423,12 @@ const ALLOWED_CHANNELS = {
     'calendar:deleteEvent',
     'calendar:syncNow',
     'calendar:getUpcoming',
+    'calendar:getSettings',
+    'calendar:setSettings',
+    'calendar:setCalendarSelected',
+    'calendar:disconnectGoogle',
+    'calendar:previewIcs',
+    'calendar:importIcs',
     // Plugins
     'plugin:list',
     'plugin:install-from-folder',
@@ -722,6 +735,14 @@ const electronHandler = {
     deleteEvent: (eventId) => ipcRenderer.invoke('calendar:deleteEvent', eventId),
     syncNow: () => ipcRenderer.invoke('calendar:syncNow'),
     getUpcoming: (params) => ipcRenderer.invoke('calendar:getUpcoming', params),
+    getSettings: () => ipcRenderer.invoke('calendar:getSettings'),
+    setSettings: (partial) => ipcRenderer.invoke('calendar:setSettings', partial),
+    setCalendarSelected: (calendarId, isSelected) =>
+      ipcRenderer.invoke('calendar:setCalendarSelected', calendarId, isSelected),
+    disconnectGoogle: (accountId) => ipcRenderer.invoke('calendar:disconnectGoogle', accountId),
+    previewIcs: (filePath) => ipcRenderer.invoke('calendar:previewIcs', filePath),
+    importIcs: (filePath, calendarId, options) =>
+      ipcRenderer.invoke('calendar:importIcs', filePath, calendarId, options),
     onUpcoming: (callback) => {
       const subscription = (event, data) => callback(data);
       ipcRenderer.on('calendar:upcoming', subscription);
@@ -970,6 +991,16 @@ const electronHandler = {
     delete: (automationId) => ipcRenderer.invoke('automations:delete', automationId),
     runNow: (automationId) => ipcRenderer.invoke('automations:runNow', automationId),
     notifyContext: (payload) => ipcRenderer.invoke('automations:notifyContext', payload),
+  },
+
+  kbllm: {
+    getGlobal: () => ipcRenderer.invoke('kbllm:getGlobal'),
+    setGlobal: (payload) => ipcRenderer.invoke('kbllm:setGlobal', payload),
+    getProjectOverride: (projectId) => ipcRenderer.invoke('kbllm:getProjectOverride', projectId),
+    setProjectOverride: (payload) => ipcRenderer.invoke('kbllm:setProjectOverride', payload),
+    syncProject: (projectId) => ipcRenderer.invoke('kbllm:syncProject', projectId),
+    syncAll: () => ipcRenderer.invoke('kbllm:syncAll'),
+    getStatus: (projectId) => ipcRenderer.invoke('kbllm:getStatus', projectId),
   },
 
   // ============================================

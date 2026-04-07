@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, CalendarDays, Layers3, Plus, Sparkles, WalletCards, MessageCircle, Trash2 } from 'lucide-react';
 import { db, type Project, type Resource } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
@@ -59,6 +59,9 @@ export default function ProjectsDashboard({
   const [deleteImpact, setDeleteImpact] = useState<Record<string, number> | null>(null);
   const [deleteImpactLoading, setDeleteImpactLoading] = useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [kbOverrides, setKbOverrides] = useState<Record<string, 'inherit' | 'enabled' | 'disabled'>>({});
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const loadProjects = useCallback(async () => {
     setLoading(true);
@@ -76,6 +79,22 @@ export default function ProjectsDashboard({
       const nextResources = resourcesResult?.success && resourcesResult.data ? resourcesResult.data : [];
       setProjects(nextProjects);
       setResources(nextResources);
+
+      if (window.electron?.kbllm?.getProjectOverride) {
+        const ov: Record<string, 'inherit' | 'enabled' | 'disabled'> = {};
+        for (const p of nextProjects) {
+          try {
+            const r = await window.electron.kbllm.getProjectOverride(p.id);
+            const o = r && typeof r === 'object' && 'success' in r && r.success && r.data && typeof r.data === 'object' && 'override' in r.data
+              ? (r.data as { override?: string }).override
+              : 'inherit';
+            ov[p.id] = o === 'enabled' || o === 'disabled' ? o : 'inherit';
+          } catch {
+            ov[p.id] = 'inherit';
+          }
+        }
+        setKbOverrides(ov);
+      }
 
       const scopedResources = nextResources.filter((resource: Resource) => resource.project_id === scopedProjectId);
 
@@ -152,6 +171,7 @@ export default function ProjectsDashboard({
     setDeleteImpact(null);
     setDeleteImpactLoading(true);
     void db.getProjectDeletionImpact(project.id).then((impact) => {
+      if (!mountedRef.current) return;
       setDeleteImpact(impact.success && impact.data ? impact.data : null);
       setDeleteImpactLoading(false);
     });
@@ -323,6 +343,49 @@ export default function ProjectsDashboard({
                             <p className="mt-2 text-xs text-[var(--dome-text-muted)]">
                               {projectResources.length} {t('projects.resource', { count: projectResources.length })}
                             </p>
+                            <div className="mt-2 flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-[10px] uppercase tracking-wide text-[var(--dome-text-muted)]">
+                                {t('projects.kb_llm')}
+                              </span>
+                              <select
+                                aria-label={t('projects.kb_llm')}
+                                value={kbOverrides[project.id] ?? 'inherit'}
+                                onChange={async (e) => {
+                                  const v = e.target.value as 'inherit' | 'enabled' | 'disabled';
+                                  try {
+                                    const r = await window.electron?.kbllm?.setProjectOverride?.({
+                                      projectId: project.id,
+                                      override: v,
+                                    });
+                                    const ok =
+                                      r &&
+                                      typeof r === 'object' &&
+                                      'success' in r &&
+                                      (r as { success?: boolean }).success;
+                                    if (ok) {
+                                      setKbOverrides((prev) => ({ ...prev, [project.id]: v }));
+                                      showToast('success', t('settings.kb_llm.saved'));
+                                    } else {
+                                      showToast('error', t('settings.kb_llm.error_save'));
+                                    }
+                                  } catch (err) {
+                                    console.error(err);
+                                    showToast('error', t('settings.kb_llm.error_save'));
+                                  }
+                                }}
+                                className="max-w-[200px] rounded-md border px-2 py-1 text-xs bg-[var(--dome-bg)]"
+                                style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
+                              >
+                                <option value="inherit">{t('projects.kb_llm_inherit')}</option>
+                                <option value="enabled">{t('projects.kb_llm_on')}</option>
+                                <option value="disabled">{t('projects.kb_llm_off')}</option>
+                              </select>
+                              </div>
+                              <p className="text-[10px] leading-snug max-w-md" style={{ color: 'var(--dome-text-muted)' }}>
+                                {t('projects.kb_llm_helper')}
+                              </p>
+                            </div>
                           </div>
                           <ArrowRight className="h-4 w-4 shrink-0 text-[var(--dome-text-muted)]" />
                         </button>

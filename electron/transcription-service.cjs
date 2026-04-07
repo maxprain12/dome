@@ -37,32 +37,7 @@ function loadFfmpeg() {
   }
 }
 
-/**
- * Resolve OpenAI API key: dedicated transcription key, then primary AI key when provider is openai, else fallbacks.
- * @param {Object} database
- * @returns {string|null}
- */
-function getOpenAIKeyForTranscription(database) {
-  try {
-    const queries = database.getQueries();
-    const dedicated = queries.getSetting.get('transcription_openai_api_key');
-    if (dedicated?.value && String(dedicated.value).trim()) {
-      return String(dedicated.value).trim();
-    }
-    const providerRow = queries.getSetting.get('ai_provider');
-    if (providerRow?.value === 'openai') {
-      const k = queries.getSetting.get('ai_api_key')?.value;
-      if (k) return String(k).trim();
-    }
-    const openaiLegacy = queries.getSetting.get('openai_api_key')?.value;
-    if (openaiLegacy) return String(openaiLegacy).trim();
-    const any = queries.getSetting.get('ai_api_key')?.value;
-    if (any) return String(any).trim();
-  } catch (err) {
-    console.error('[Transcription] Key lookup error:', err);
-  }
-  return null;
-}
+const { getOpenAIKey: getOpenAIKeyForTranscription } = require('./openai-key.cjs');
 
 /**
  * STT backend: OpenAI, Groq (OpenAI-compatible /v1/audio/transcriptions), or custom base URL.

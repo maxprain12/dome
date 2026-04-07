@@ -43,6 +43,7 @@ const browserContextHandlers = require('./browser-context.cjs');
 const manyVoiceHandlers = require('./many-voice.cjs');
 const transcriptionOverlayHandlers = require('./transcription-overlay.cjs');
 const realtimeHandlers = require('./realtime.cjs');
+const kbLlmHandlers = require('./kb-llm.cjs');
 
 /**
  * Register all IPC handlers
@@ -108,7 +109,7 @@ function registerAll(deps) {
   pluginsHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });
   mcpHandlers.register({ ipcMain, windowManager, database, validateSender });
   pageIndexHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender });
-  calendarHandlers.register({ ipcMain, windowManager, validateSender });
+  calendarHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });
   domeAuthHandlers.register({ ipcMain, windowManager, database });
   agentTeamHandlers.register({ ipcMain, windowManager, database, aiCloudService, ollamaService });
   chatHandlers.register({ ipcMain, windowManager, database, validateSender });
@@ -130,6 +131,7 @@ function registerAll(deps) {
   manyVoiceHandlers.register({ ipcMain, windowManager });
   transcriptionOverlayHandlers.register({ ipcMain, windowManager });
   realtimeHandlers.register({ ipcMain, windowManager, database });
+  kbLlmHandlers.register({ ipcMain, windowManager, database, validateSender });
 
 }
 

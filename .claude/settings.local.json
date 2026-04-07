@@ -23,7 +23,15 @@
       "Bash(python3 -c \":*)",
       "Bash(find /Users/maxprain/Documents/dome-provider -type f -name *.ts -o -name *.tsx -o -name *.js -o -name *.cjs)",
       "WebFetch(domain:docling-api.dowi.es)",
-      "Bash(find /Users/maxprain/Documents/dome/docs -type f -name *.md)"
+      "Bash(find /Users/maxprain/Documents/dome/docs -type f -name *.md)",
+      "Bash(node --check /Users/maxprain/Documents/dome/electron/pageindex-python.cjs)",
+      "Bash(node --check /Users/maxprain/Documents/dome/electron/resource-indexer.cjs)",
+      "Bash(node --check /Users/maxprain/Documents/dome/electron/streaming-tts.cjs)",
+      "Bash(node --check /Users/maxprain/Documents/dome/electron/tts-service.cjs)",
+      "Bash(node --check /Users/maxprain/Documents/dome/electron/ipc/audio.cjs)",
+      "Bash(node --check /Users/maxprain/Documents/dome/electron/ipc/realtime.cjs)",
+      "Bash(node --check /Users/maxprain/Documents/dome/electron/transcription-service.cjs)",
+      "Bash(node --check /Users/maxprain/Documents/dome/electron/run-engine.cjs)"
     ]
   }
 }

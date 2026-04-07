@@ -131,7 +131,7 @@ export default function ToastContainer() {
           position: 'fixed',
           top: 56,
           right: 16,
-          zIndex: 9999,
+          zIndex: 'var(--z-toast)',
           display: 'flex',
           flexDirection: 'column',
           gap: 8,

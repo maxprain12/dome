@@ -49,6 +49,7 @@ interface ScheduleConfig {
 ## Tipos de trigger
 
 ### Daily (diario)
+
 Ejecuta la automatización una vez al día a la hora indicada.
 
 ```json
@@ -57,9 +58,11 @@ Ejecuta la automatización una vez al día a la hora indicada.
   "hour": 8
 }
 ```
+
 → Se ejecuta cada día a las 8:00 AM (hora local).
 
 ### Weekly (semanal)
+
 Una vez a la semana, un día específico a la hora indicada.
 
 ```json
@@ -69,9 +72,11 @@ Una vez a la semana, un día específico a la hora indicada.
   "weekday": 1
 }
 ```
+
 → Cada lunes a las 9:00 AM.
 
 ### Cron-lite (cada N minutos)
+
 Para automatizaciones que deben ejecutarse con alta frecuencia.
 
 ```json
@@ -80,18 +85,21 @@ Para automatizaciones que deben ejecutarse con alta frecuencia.
   "intervalMinutes": 30
 }
 ```
+
 → Cada 30 minutos.
 
 ---
 
 ## Output modes
 
-| Modo | Descripción |
-|------|-------------|
-| `chat_only` | El resultado solo aparece en el historial de runs (no crea nota) |
-| `note` | Crea/actualiza una nota en Dome con el output |
-| `studio_output` | Genera contenido de studio (mindmap, quiz, etc.) |
-| `mixed` | Combina nota + output del chat |
+
+| Modo            | Descripción                                                      |
+| --------------- | ---------------------------------------------------------------- |
+| `chat_only`     | El resultado solo aparece en el historial de runs (no crea nota) |
+| `note`          | Crea/actualiza una nota en Dome con el output                    |
+| `studio_output` | Genera contenido de studio (mindmap, quiz, etc.)                 |
+| `mixed`         | Combina nota + output del chat                                   |
+
 
 ---
 
@@ -128,15 +136,17 @@ function isAutomationBusy(automationId) {
 
 ## IPC Channels
 
-| Canal | Parámetros | Descripción |
-|-------|-----------|-------------|
-| `automations:list` | — | Lista todas las automatizaciones |
-| `automations:get` | `id` | Obtener automatización por ID |
-| `automations:create` | `AutomationConfig` | Crear nueva automatización |
-| `automations:update` | `id, updates` | Actualizar automatización |
-| `automations:delete` | `id` | Eliminar automatización |
-| `automations:toggle` | `id, enabled` | Activar/desactivar |
-| `automations:runNow` | `id` | Ejecutar inmediatamente |
+
+| Canal                | Parámetros         | Descripción                      |
+| -------------------- | ------------------ | -------------------------------- |
+| `automations:list`   | —                  | Lista todas las automatizaciones |
+| `automations:get`    | `id`               | Obtener automatización por ID    |
+| `automations:create` | `AutomationConfig` | Crear nueva automatización       |
+| `automations:update` | `id, updates`      | Actualizar automatización        |
+| `automations:delete` | `id`               | Eliminar automatización          |
+| `automations:toggle` | `id, enabled`      | Activar/desactivar               |
+| `automations:runNow` | `id`               | Ejecutar inmediatamente          |
+
 
 Los resultados de ejecución se gestionan via `runs:*` (ver [runs.md](./runs.md)).
 
@@ -144,11 +154,13 @@ Los resultados de ejecución se gestionan via `runs:*` (ver [runs.md](./runs.md)
 
 ## UI Components
 
-| Componente | Ubicación | Descripción |
-|-----------|-----------|-------------|
+
+| Componente        | Ubicación                     | Descripción                         |
+| ----------------- | ----------------------------- | ----------------------------------- |
 | `AutomationsView` | `app/components/automations/` | Lista y gestión de automatizaciones |
-| `AutomationForm` | `app/components/automations/` | Crear/editar automatización |
-| `RunLogView` | `app/components/automations/` | Ver historial de ejecuciones |
+| `AutomationForm`  | `app/components/automations/` | Crear/editar automatización         |
+| `RunLogView`      | `app/components/automations/` | Ver historial de ejecuciones        |
+
 
 ---
 
@@ -177,6 +189,7 @@ CREATE TABLE automations (
 ## Casos de uso habituales
 
 ### Resumen diario de noticias
+
 ```
 Cadencia: Daily, 8:00 AM
 Agente: Research Agent
@@ -185,6 +198,7 @@ Output: note → carpeta "Daily Digest"
 ```
 
 ### Revisión semanal de objetivos
+
 ```
 Cadencia: Weekly, Lunes 9:00 AM
 Agente: Library Agent
@@ -193,6 +207,7 @@ Output: note
 ```
 
 ### Monitor cada 30 minutos
+
 ```
 Cadencia: Cron-lite, 30 minutos
 Agente: Research Agent
@@ -206,14 +221,25 @@ Output: chat_only
 
 Los siguientes tipos de trigger están planificados pero no implementados:
 
-| Trigger | Descripción |
-|---------|-------------|
-| `on_resource_added` | Al añadir un nuevo recurso a un proyecto |
-| `on_note_updated` | Al modificar una nota específica |
-| `on_calendar_event` | Al crearse o modificarse un evento |
-| `on_webhook` | Al recibir una webhook HTTP externa |
-| `on_whatsapp_message` | Al recibir un mensaje de WhatsApp |
+
+| Trigger               | Descripción                              |
+| --------------------- | ---------------------------------------- |
+| `on_resource_added`   | Al añadir un nuevo recurso a un proyecto |
+| `on_note_updated`     | Al modificar una nota específica         |
+| `on_calendar_event`   | Al crearse o modificarse un evento       |
+| `on_webhook`          | Al recibir una webhook HTTP externa      |
+| `on_whatsapp_message` | Al recibir un mensaje de WhatsApp        |
+
 
 ---
 
 *Ver también: [runs.md](./runs.md) para la documentación del Run Engine.*
+
+## KB LLM (wiki compilada)
+
+Plantillas de prompt para agentes y automatizaciones:
+
+- [prompts/kb-wiki-compile.md](../prompts/kb-wiki-compile.md) — compilación incremental de la wiki
+- [prompts/kb-wiki-health.md](../prompts/kb-wiki-health.md) — lint / salud del corpus
+
+Modelo de metadatos: [kb-llm-wiki-model.md](./kb-llm-wiki-model.md).

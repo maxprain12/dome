@@ -4,15 +4,19 @@ Documentación completa del proyecto Dome (v2.0.8). Organizada en dos audiencias
 
 ## 👤 Para usuarios finales
 
-| Documento | Descripción |
-|-----------|-------------|
+
+| Documento                                | Descripción                                                                          |
+| ---------------------------------------- | ------------------------------------------------------------------------------------ |
 | [Manual de Usuario](./manual-usuario.md) | Guía completa de uso de Dome: instalación, primeros pasos, todas las funcionalidades |
+
 
 ## 🔧 Para desarrolladores
 
-| Documento | Descripción |
-|-----------|-------------|
+
+| Documento                             | Descripción                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------ |
 | [Manual Técnico](./manual-tecnico.md) | Arquitectura, patrones IPC, DB schema, AI integration, build y troubleshooting |
+
 
 ---
 
@@ -20,53 +24,66 @@ Documentación completa del proyecto Dome (v2.0.8). Organizada en dos audiencias
 
 ### Core
 
-| Feature | Archivo | Contenido |
-|---------|---------|-----------|
-| **AI / Chat (Martin/Many)** | [ai-chat.md](./ai-chat.md) | Cliente unificado, streaming, herramientas, Many Agents, Agent Teams, IPC `ai:*` |
-| **Recursos** | [resources.md](./resources.md) | Tipos Resource/Project, DB client (renderer), almacenamiento, IPC `db:resources:*` |
-| **Editor** | [editor.md](./editor.md) | Tiptap/NotionEditor, bloques, slash commands, file drop, extensiones dome-editor |
-| **Workspace** | [workspace.md](./workspace.md) | Layout por recurso, pestañas, rutas, MetadataModal |
-| **Viewers** | [viewers.md](./viewers.md) | PDF, Video, Audio, Image, URL; anotaciones PDF; `readFile` IPC |
+
+| Feature                     | Archivo                        | Contenido                                                                          |
+| --------------------------- | ------------------------------ | ---------------------------------------------------------------------------------- |
+| **AI / Chat (Martin/Many)** | [ai-chat.md](./ai-chat.md)     | Cliente unificado, streaming, herramientas, Many Agents, Agent Teams, IPC `ai:`*   |
+| **Recursos**                | [resources.md](./resources.md) | Tipos Resource/Project, DB client (renderer), almacenamiento, IPC `db:resources:`* |
+| **Editor**                  | [editor.md](./editor.md)       | Tiptap/NotionEditor, bloques, slash commands, file drop, extensiones dome-editor   |
+| **Workspace**               | [workspace.md](./workspace.md) | Layout por recurso, pestañas, rutas, MetadataModal                                 |
+| **Viewers**                 | [viewers.md](./viewers.md)     | PDF, Video, Audio, Image, URL; anotaciones PDF; `readFile` IPC                     |
+
 
 ### IA & Agentes
 
-| Feature | Archivo | Contenido |
-|---------|---------|-----------|
-| **PageIndex** | [pageindex.md](./pageindex.md) | Motor de indexación IA (reemplaza LanceDB), Python bridge, estados, auto-indexing |
-| **Agent Canvas** | [agent-canvas.md](./agent-canvas.md) | Constructor visual de workflows (ReactFlow), nodos, ejecución en tiempo real |
-| **Agent Teams** | [agent-teams.md](./agent-teams.md) | Equipos multi-agente, supervisor, sesiones compartidas |
-| **Studio** | [studio.md](./studio.md) | Generación de mindmaps, quizzes, flashcards, guías, FAQs, timelines |
+
+| Feature                     | Archivo                                        | Contenido                                                                         |
+| --------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
+| **KB LLM (wiki compilada)** | [kb-llm-wiki-model.md](./kb-llm-wiki-model.md) | Modelo de recursos `dome_kb`, roles raw/wiki/output                               |
+| **KB Index policy**         | [kb-index-policy.md](./kb-index-policy.md)     | FTS5 vs PageIndex, `reindexOnSave`, reindex debounced                             |
+| **KB UX**                   | [kb-ux-unification.md](./kb-ux-unification.md) | Learn, Studio, Flashcards, Runs; Ajustes y overrides por proyecto                 |
+| **PageIndex**               | [pageindex.md](./pageindex.md)                 | Motor de indexación IA (reemplaza LanceDB), Python bridge, estados, auto-indexing |
+| **Agent Canvas**            | [agent-canvas.md](./agent-canvas.md)           | Constructor visual de workflows (ReactFlow), nodos, ejecución en tiempo real      |
+| **Agent Teams**             | [agent-teams.md](./agent-teams.md)             | Equipos multi-agente, supervisor, sesiones compartidas                            |
+| **Studio**                  | [studio.md](./studio.md)                       | Generación de mindmaps, quizzes, flashcards, guías, FAQs, timelines               |
+
 
 ### Productividad
 
-| Feature | Archivo | Contenido |
-|---------|---------|-----------|
-| **Calendar** | [calendar.md](./calendar.md) | Vista día/semana, Google Calendar sync, herramientas IA para agendar |
-| **Flashcards** | [flashcards.md](./flashcards.md) | SM-2 spaced repetition, generación IA desde documentos, sesiones de estudio |
-| **Automatizaciones** | [automations.md](./automations.md) | Reglas event→action, triggers programados, Run Engine |
-| **Runs** | [runs.md](./runs.md) | Run Engine, estados de ejecución, logs en tiempo real |
+
+| Feature              | Archivo                            | Contenido                                                                   |
+| -------------------- | ---------------------------------- | --------------------------------------------------------------------------- |
+| **Calendar**         | [calendar.md](./calendar.md)       | Vista día/semana, Google Calendar sync, herramientas IA para agendar        |
+| **Flashcards**       | [flashcards.md](./flashcards.md)   | SM-2 spaced repetition, generación IA desde documentos, sesiones de estudio |
+| **Automatizaciones** | [automations.md](./automations.md) | Reglas event→action, triggers programados, Run Engine                       |
+| **Runs**             | [runs.md](./runs.md)               | Run Engine, estados de ejecución, logs en tiempo real                       |
+
 
 ### Extensiones & Integraciones
 
-| Feature | Archivo | Contenido |
-|---------|---------|-----------|
-| **Marketplace** | [marketplace/](./marketplace/) | SDK para agents, plugins, skills, workflows, MCP servers |
-| **Plugins** | [plugins.md](./plugins.md) | Sistema de plugins Pets & Views, instalación, desarrollo |
-| **Cloud Storage** | [cloud-storage-setup.md](./cloud-storage-setup.md) | Google Drive & OneDrive, OAuth PKCE, file picker |
-| **WhatsApp** | [whatsapp.md](./whatsapp.md) | Sesión, QR, mensajes, allowlist, IPC `whatsapp:*` |
-| **Dome Provider** | [dome-provider-integration.md](./dome-provider-integration.md) | Cómo Dome Desktop se conecta al backend Provider |
+
+| Feature           | Archivo                                                        | Contenido                                                |
+| ----------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
+| **Marketplace**   | [marketplace/](./marketplace/)                                 | SDK para agents, plugins, skills, workflows, MCP servers |
+| **Plugins**       | [plugins.md](./plugins.md)                                     | Sistema de plugins Pets & Views, instalación, desarrollo |
+| **Cloud Storage** | [cloud-storage-setup.md](./cloud-storage-setup.md)             | Google Drive & OneDrive, OAuth PKCE, file picker         |
+| **WhatsApp**      | [whatsapp.md](./whatsapp.md)                                   | Sesión, QR, mensajes, allowlist, IPC `whatsapp:`*        |
+| **Dome Provider** | [dome-provider-integration.md](./dome-provider-integration.md) | Cómo Dome Desktop se conecta al backend Provider         |
+
 
 ### Infraestructura Técnica
 
-| Feature | Archivo | Contenido |
-|---------|---------|-----------|
-| **Database (SQLite)** | [database.md](./database.md) | Schema, migraciones, prepared queries, FTS5 |
-| **IPC** | [ipc.md](./ipc.md) | Whitelist de canales, preload API, seguridad |
-| **File Storage** | [file-storage.md](./file-storage.md) | dome-files, import/export, dedup por hash |
-| **Settings** | [settings.md](./settings.md) | Paneles de configuración, persistencia en settings table |
-| **Onboarding** | [onboarding.md](./onboarding.md) | Flujo Welcome → Profile → AI → Complete |
-| **Ollama (guía)** | [guia-instalacion-ollama.md](./guia-instalacion-ollama.md) | Instalación y configuración de Ollama local |
-| **Vector DB** *(deprecated)* | [vector-db.md](./vector-db.md) | LanceDB — reemplazado por PageIndex en v2.0.0 |
+
+| Feature                      | Archivo                                                    | Contenido                                                |
+| ---------------------------- | ---------------------------------------------------------- | -------------------------------------------------------- |
+| **Database (SQLite)**        | [database.md](./database.md)                               | Schema, migraciones, prepared queries, FTS5              |
+| **IPC**                      | [ipc.md](./ipc.md)                                         | Whitelist de canales, preload API, seguridad             |
+| **File Storage**             | [file-storage.md](./file-storage.md)                       | dome-files, import/export, dedup por hash                |
+| **Settings**                 | [settings.md](./settings.md)                               | Paneles de configuración, persistencia en settings table |
+| **Onboarding**               | [onboarding.md](./onboarding.md)                           | Flujo Welcome → Profile → AI → Complete                  |
+| **Ollama (guía)**            | [guia-instalacion-ollama.md](./guia-instalacion-ollama.md) | Instalación y configuración de Ollama local              |
+| **Vector DB** *(deprecated)* | [vector-db.md](./vector-db.md)                             | LanceDB — reemplazado por PageIndex en v2.0.0            |
+
 
 ---
 
@@ -88,7 +105,7 @@ La documentación del backend web que complementa Dome Desktop está en:
     └── role-admin.md            ← Asignar rol admin manualmente
 ```
 
-Ver también: [`MASTER.md`](../MASTER.md) para el índice completo del ecosistema.
+Ver también: `[MASTER.md](../MASTER.md)` para el índice completo del ecosistema.
 
 ---
 

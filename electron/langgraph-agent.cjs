@@ -223,41 +223,58 @@ async function trimMessagesForOllama(messages, llm) {
   }
 }
 
+const CALENDAR_HITL_TOOLS = {
+  calendar_create_event: true,
+  calendar_update_event: true,
+  calendar_delete_event: true,
+};
+
+function buildHitlInterruptOn(skipHitl, useDirectTools) {
+  if (skipHitl) {
+    return {
+      call_writer_agent: false,
+      call_data_agent: false,
+      calendar_create_event: false,
+      calendar_update_event: false,
+      calendar_delete_event: false,
+    };
+  }
+  if (useDirectTools) {
+    return {
+      call_writer_agent: false,
+      call_data_agent: false,
+      ...CALENDAR_HITL_TOOLS,
+    };
+  }
+  return {
+    call_writer_agent: true,
+    call_data_agent: true,
+    ...CALENDAR_HITL_TOOLS,
+  };
+}
+
 /**
- * Invoke LangGraph agent with streaming.
- * @param {Object} opts - { provider, model, apiKey, baseUrl, messages, toolDefinitions, onChunk, signal, threadId }
- * @returns {Promise<string>} Final response text
+ * Shared agent graph for invoke + resume (must match checkpoint thread).
+ * @param {import('@langchain/core').BaseChatModel} llm
  */
-async function invokeLangGraphAgent(opts) {
+async function createConfiguredLangGraphAgent(llm, opts) {
+  const { createAgent, humanInTheLoopMiddleware } = await import('langchain');
   const {
-    provider,
-    model,
-    apiKey,
-    baseUrl,
-    messages,
+    useDirectTools,
     toolDefinitions,
-    onChunk,
-    signal,
-    threadId,
+    mcpServerIds,
+    subagentIds,
     skipHitl,
+    onChunk,
+    threadId,
   } = opts;
 
-  const { createAgent, humanInTheLoopMiddleware } = await import('langchain');
-
-  const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
-
-  let tools;
-  const useDirectTools = opts.useDirectTools === true;
-  const mcpServerIds = opts.mcpServerIds;
-  const subagentIds = Array.isArray(opts.subagentIds) ? opts.subagentIds : undefined;
-
-  // Track real-time emitted tool IDs (useDirectTools path) to avoid duplicates in post-invoke batch
   const rtEmittedCallIds = new Set();
   const rtEmittedResultIds = new Set();
   let rtCallCounter = 0;
 
+  let tools;
   if (useDirectTools) {
-    // Specialized agents: wrap executeFn to emit real-time tool_call/tool_result events
     const executeFn = async (name, args) => {
       const id = `rt_${threadId || 'x'}_${++rtCallCounter}`;
       rtEmittedCallIds.add(id);
@@ -277,13 +294,12 @@ async function invokeLangGraphAgent(opts) {
       rtEmittedResultIds.add(id);
       return result;
     };
-    const directTools = opts.toolDefinitions?.length
-      ? await createLangChainToolsFromOpenAIDefinitions(opts.toolDefinitions, executeFn)
+    const directTools = toolDefinitions?.length
+      ? await createLangChainToolsFromOpenAIDefinitions(toolDefinitions, executeFn)
       : [];
     const mcpTools = await getMCPTools(database, mcpServerIds);
     tools = [...directTools, ...mcpTools];
   } else {
-    // Subagents architecture: pass onChunk so subagents emit real-time events for their tools
     const subagentTools = await createSubagentTools(
       llm,
       createLangChainToolsFromOpenAIDefinitions,
@@ -384,19 +400,55 @@ async function invokeLangGraphAgent(opts) {
     tools = [...subagentTools, ...mcpTools, ...mainAgentTools];
   }
 
-  const interruptOn = skipHitl || useDirectTools
-    ? { call_writer_agent: false, call_data_agent: false }
-    : { call_writer_agent: true, call_data_agent: true };
+  const interruptOn = buildHitlInterruptOn(skipHitl, useDirectTools);
   const hitlMiddleware = humanInTheLoopMiddleware({
     interruptOn,
     descriptionPrefix: 'Acción pendiente de aprobación',
   });
+  const middleware = skipHitl ? [] : [hitlMiddleware];
 
   const agent = createAgent({
     model: llm,
     tools,
-    middleware: useDirectTools ? [] : [hitlMiddleware],
+    middleware,
     checkpointer: getSharedCheckpointer(),
+  });
+
+  return { agent, rtEmittedCallIds, rtEmittedResultIds };
+}
+
+/**
+ * Invoke LangGraph agent with streaming.
+ * @param {Object} opts - { provider, model, apiKey, baseUrl, messages, toolDefinitions, onChunk, signal, threadId }
+ * @returns {Promise<string>} Final response text
+ */
+async function invokeLangGraphAgent(opts) {
+  const {
+    provider,
+    model,
+    apiKey,
+    baseUrl,
+    messages,
+    onChunk,
+    signal,
+    threadId,
+    skipHitl,
+  } = opts;
+
+  const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
+
+  const useDirectTools = opts.useDirectTools === true;
+  const mcpServerIds = opts.mcpServerIds;
+  const subagentIds = Array.isArray(opts.subagentIds) ? opts.subagentIds : undefined;
+
+  const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
+    useDirectTools,
+    toolDefinitions: opts.toolDefinitions,
+    mcpServerIds,
+    subagentIds,
+    skipHitl,
+    onChunk,
+    threadId,
   });
 
   let lcMessages = await toLangChainMessages(messages);
@@ -541,12 +593,20 @@ async function runLangGraphAgentSync(opts) {
  * @returns {Promise<string>} Final response text, or { __interrupt__: true } if another interrupt
  */
 async function resumeLangGraphAgent(opts) {
-  const { threadId, decisions, ...rest } = opts;
+  const {
+    threadId,
+    decisions,
+    useDirectTools: useDirectToolsArg,
+    toolDefinitions: toolDefinitionsArg,
+    mcpServerIds: mcpServerIdsArg,
+    subagentIds: subagentIdsArg,
+    skipHitl: skipHitlArg,
+    ...rest
+  } = opts;
   if (!threadId || !decisions || !Array.isArray(decisions)) {
     throw new Error('resumeLangGraphAgent requires threadId and decisions array');
   }
 
-  const { createAgent, humanInTheLoopMiddleware } = await import('langchain');
   const { Command } = await import('@langchain/langgraph');
 
   const {
@@ -560,20 +620,18 @@ async function resumeLangGraphAgent(opts) {
   } = rest;
 
   const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
-  const subagentTools = await createSubagentTools(llm, createLangChainToolsFromOpenAIDefinitions, onChunk);
-  const mcpTools = await getMCPTools(database);
-  const tools = [...subagentTools, ...mcpTools];
-
-  const hitlMiddleware = humanInTheLoopMiddleware({
-    interruptOn: { call_writer_agent: true, call_data_agent: true },
-    descriptionPrefix: 'Acción pendiente de aprobación',
-  });
-
-  const agent = createAgent({
-    model: llm,
-    tools,
-    middleware: [hitlMiddleware],
-    checkpointer: getSharedCheckpointer(),
+  const useDirectTools = useDirectToolsArg === true;
+  const mcpServerIds = mcpServerIdsArg;
+  const subagentIds = Array.isArray(subagentIdsArg) ? subagentIdsArg : undefined;
+  const skipHitl = skipHitlArg === true;
+  const { agent } = await createConfiguredLangGraphAgent(llm, {
+    useDirectTools,
+    toolDefinitions: toolDefinitionsArg,
+    mcpServerIds,
+    subagentIds,
+    skipHitl,
+    onChunk,
+    threadId,
   });
 
   const config = {

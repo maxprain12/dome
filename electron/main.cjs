@@ -188,6 +188,7 @@ const notebookPython = require('./notebook-python.cjs');
 const mcpOauth = require('./mcp-oauth.cjs');
 const { handleDomeUrl } = require('./deep-link-handler.cjs');
 const calendarNotificationService = require('./calendar-notification-service.cjs');
+const calendarSyncScheduler = require('./calendar-sync-scheduler.cjs');
 const automationService = require('./automation-service.cjs');
 const runEngine = require('./run-engine.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
@@ -791,6 +792,7 @@ app
 
     // Initialize calendar notification service (upcoming events broadcast)
     calendarNotificationService.init(windowManager);
+    calendarSyncScheduler.init(windowManager);
     runEngine.init(windowManager, database, ttsService);
     automationService.init(windowManager, database);
 
@@ -852,6 +854,7 @@ app.on('before-quit', async () => {
     console.warn('[Main] many-voice shortcut cleanup:', e?.message);
   }
   calendarNotificationService.stop();
+  calendarSyncScheduler.stop();
   automationService.stop();
   runEngine.stop();
   // doc-indexer is native JS, no subprocess to stop

@@ -64,7 +64,7 @@ export function ConfirmDialog({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 10000,
+        zIndex: 'var(--z-modal)',
         animation: 'overlay-appear 0.2s ease-out',
       }}
       onClick={(e) => {

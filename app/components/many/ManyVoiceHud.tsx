@@ -3,11 +3,11 @@ import { Mic, Loader2, AlertCircle, Radio } from 'lucide-react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
 import type { ManyStatus } from '@/lib/store/useManyStore';
-import { pickRecordMimeType, transcribeAudioBlob } from '@/lib/transcription/transcribeBlob';
+import { transcribeAudioBlob } from '@/lib/transcription/transcribeBlob';
+import { useMediaRecorder } from '@/lib/transcription/useMediaRecorder';
+import { AudioLevelMeter } from '@/components/ui/AudioLevelMeter';
 import { RealtimeVoiceSession, type RealtimeStatus } from '@/lib/realtime/realtimeVoiceSession';
 
-/** Animated waveform bars */
-const BAR_BASE = [4, 8, 13, 8, 4];
 
 /** Build the realtime system prompt with Dome context and Many's personality */
 function buildRealtimePrompt(language: string, instructionsSuffix?: string): string {
@@ -52,15 +52,49 @@ export default function ManyVoiceHud() {
   const [remoteTtsError, setRemoteTtsError] = useState<string | null>(null);
   const [currentSentence, setCurrentSentence] = useState<string | null>(null);
 
-  const [phase, setPhase] = useState<'idle' | 'recording' | 'processing'>('idle');
   const [followManyVoice, setFollowManyVoice] = useState(false);
-  const [barPhase, setBarPhase] = useState(0);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const processAfterStopRef = useRef(true);
-  const cancelledDuringSetupRef = useRef(false);
-  const micSetupInProgressRef = useRef(false);
+
+  // User explicitly dismissed the overlay — overrides all computed visibility.
+  // Cleared whenever new recording/session activity begins.
+  const [userDismissed, setUserDismissed] = useState(false);
+
+  // ── Legacy recording via shared hook ──────────────────
+  const legacyRecorder = useMediaRecorder({
+    onBlob: async (blob) => {
+      const tr = await transcribeAudioBlob(blob);
+      if (!tr.success) {
+        notifications.show({ title: t('manyVoice.transcribe_failed'), message: tr.error, color: 'red' });
+        setFollowManyVoice(false);
+        return;
+      }
+      setFollowManyVoice(true);
+      const voiceLanguage =
+        (typeof localStorage !== 'undefined' ? localStorage.getItem('dome:language') : null) || 'es';
+      const relay = await window.electron.manyVoice.relaySend({
+        text: tr.text,
+        autoSpeak: true,
+        openPanel: false,
+        voiceLanguage,
+      });
+      if (!relay?.success) {
+        notifications.show({
+          title: t('manyVoice.send_failed'),
+          message: relay?.error || t('common.unknown_error'),
+          color: 'red',
+        });
+        setFollowManyVoice(false);
+      }
+    },
+    onEmpty: () => {
+      notifications.show({ title: t('media.dock_empty_recording'), message: t('media.dock_no_audio_captured'), color: 'yellow' });
+      setFollowManyVoice(false);
+    },
+    onError: (msg) => {
+      notifications.show({ title: t('media.dock_mic_permission'), message: msg, color: 'red' });
+    },
+  });
+  const phase = legacyRecorder.phase;
+  const legacyStreamRef = legacyRecorder.streamRef;
 
   // ── Realtime state ────────────────────────────────────
   const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>('idle');
@@ -86,6 +120,11 @@ export default function ManyVoiceHud() {
       if (!payload) return;
       if (Object.prototype.hasOwnProperty.call(payload, 'status') && payload.status) {
         setRemoteManyStatus(payload.status);
+        // If Many becomes active again after a user dismiss, clear the dismissed flag
+        // so the overlay reappears for the new activity.
+        if (payload.status === 'speaking' || payload.status === 'thinking') {
+          setUserDismissed(false);
+        }
       }
       if (Object.prototype.hasOwnProperty.call(payload, 'ttsError')) {
         setRemoteTtsError(payload.ttsError ?? null);
@@ -124,6 +163,7 @@ export default function ManyVoiceHud() {
     // Close any existing session first
     closeRealtimeSession();
     setRealtimeError(null);
+    setUserDismissed(false);
     realtimeModeRef.current = mode;
 
     const language = (typeof localStorage !== 'undefined'
@@ -187,28 +227,16 @@ export default function ManyVoiceHud() {
   }, [closeRealtimeSession, t]);
 
   // ── Legacy helpers ────────────────────────────────────
-  const cleanupStream = useCallback(() => {
-    streamRef.current?.getTracks().forEach((tr) => tr.stop());
-    streamRef.current = null;
-  }, []);
-
-  const resetUi = useCallback(() => {
-    mediaRecorderRef.current = null;
-    chunksRef.current = [];
-    setPhase('idle');
-  }, []);
-
   const clearMainTts = useCallback(() => {
     void window.electron?.manyVoice?.dismissTtsError?.();
     setRemoteTtsError(null);
     setCurrentSentence(null);
   }, []);
 
-  const startRecordingMic = useCallback(async () => {
-    micSetupInProgressRef.current = true;
+  const startLegacyMic = useCallback(async () => {
+    setUserDismissed(false);
     clearMainTts();
     if (typeof MediaRecorder === 'undefined' || !window.electron?.transcription?.bufferToText) {
-      micSetupInProgressRef.current = false;
       notifications.show({
         title: t('manyVoice.unavailable'),
         message: t('manyVoice.no_mediarecorder'),
@@ -216,158 +244,40 @@ export default function ManyVoiceHud() {
       });
       return;
     }
-    try {
-      cancelledDuringSetupRef.current = false;
-      if (window.electron.isMac) {
-        const perm = await window.electron.transcription.requestMicrophoneAccess();
-        if (perm.success === false || perm.granted === false) {
-          notifications.show({
-            title: t('media.dock_mic_permission'),
-            message: perm.error || t('media.dock_mic_denied'),
-            color: 'red',
-          });
-          micSetupInProgressRef.current = false;
-          return;
-        }
-      }
-      if (cancelledDuringSetupRef.current) {
-        micSetupInProgressRef.current = false;
-        return;
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (cancelledDuringSetupRef.current) {
-        stream.getTracks().forEach((tr) => tr.stop());
-        micSetupInProgressRef.current = false;
-        return;
-      }
-      streamRef.current = stream;
-      chunksRef.current = [];
-      const mime = pickRecordMimeType();
-      const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
-      mediaRecorderRef.current = mr;
-      mr.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      mr.onstop = () => {
-        void (async () => {
-          cleanupStream();
-          const shouldProcess = processAfterStopRef.current;
-          processAfterStopRef.current = true;
-          if (!shouldProcess) {
-            resetUi();
-            return;
-          }
-          const outMime = mr.mimeType || mime || 'audio/webm';
-          const blob = new Blob(chunksRef.current, { type: outMime });
-          chunksRef.current = [];
-          if (blob.size < 256) {
-            notifications.show({
-              title: t('media.dock_empty_recording'),
-              message: t('media.dock_no_audio_captured'),
-              color: 'yellow',
-            });
-            resetUi();
-            return;
-          }
-          setPhase('processing');
-          try {
-            const tr = await transcribeAudioBlob(blob);
-            if (!tr.success) {
-              notifications.show({ title: t('manyVoice.transcribe_failed'), message: tr.error, color: 'red' });
-              resetUi();
-              setFollowManyVoice(false);
-              return;
-            }
-            setFollowManyVoice(true);
-            const voiceLanguage =
-              (typeof localStorage !== 'undefined' ? localStorage.getItem('dome:language') : null) || 'es';
-            const relay = await window.electron.manyVoice.relaySend({
-              text: tr.text,
-              autoSpeak: true,
-              openPanel: false,
-              voiceLanguage,
-            });
-            if (!relay?.success) {
-              notifications.show({
-                title: t('manyVoice.send_failed'),
-                message: relay?.error || t('common.unknown_error'),
-                color: 'red',
-              });
-              setFollowManyVoice(false);
-            }
-          } catch (e) {
-            const msg = e instanceof Error ? e.message : String(e);
-            notifications.show({ title: t('manyVoice.send_failed'), message: msg, color: 'red' });
-            setFollowManyVoice(false);
-          } finally {
-            resetUi();
-          }
-        })();
-      };
-      mr.start(200);
-      micSetupInProgressRef.current = false;
-      setPhase('recording');
-    } catch (err) {
-      micSetupInProgressRef.current = false;
-      cleanupStream();
-      notifications.show({
-        title: t('media.dock_mic_permission'),
-        message: err instanceof Error ? err.message : t('media.dock_mic_access_error'),
-        color: 'red',
-      });
-      resetUi();
-    }
-  }, [cleanupStream, clearMainTts, resetUi, t]);
-
-  const stopRecording = useCallback(() => {
-    processAfterStopRef.current = true;
-    const mr = mediaRecorderRef.current;
-    if (mr && mr.state !== 'inactive') mr.stop();
-    else resetUi();
-  }, [resetUi]);
+    await legacyRecorder.startMicRecording();
+  }, [clearMainTts, legacyRecorder, t]);
 
   const cancelAll = useCallback(() => {
-    processAfterStopRef.current = false;
-    const mr = mediaRecorderRef.current;
-    if (mr && mr.state !== 'inactive') mr.stop();
-    else {
-      cleanupStream();
-      resetUi();
-    }
+    legacyRecorder.cancelRecording();
     setFollowManyVoice(false);
-    // Also close realtime if active
     closeRealtimeSession();
     setRealtimeError(null);
-  }, [cleanupStream, closeRealtimeSession, resetUi]);
+  }, [closeRealtimeSession, legacyRecorder]);
+
+  // Dismiss overlay completely — resets all local state and hides the window.
+  const dismissOverlay = useCallback(() => {
+    cancelAll();
+    setRemoteManyStatus('idle');
+    setRemoteTtsError(null);
+    setCurrentSentence(null);
+    setUserDismissed(true);
+    void window.electron?.manyVoice?.dismissTtsError?.();
+  }, [cancelAll]);
 
   // ── Toggle handler (press to start / press to stop) ──
   useEffect(() => {
     if (!window.electron?.manyVoice?.onToggle) return undefined;
     return window.electron.manyVoice.onToggle(() => {
-      // If realtime is active, close it
-      if (isRealtimeActive) {
-        closeRealtimeSession();
-        return;
-      }
-      // If legacy recording active
+      if (isRealtimeActive) { closeRealtimeSession(); return; }
       if (phase === 'processing') return;
-      if (phase === 'recording') { stopRecording(); return; }
-      if (micSetupInProgressRef.current) {
-        cancelledDuringSetupRef.current = true;
-        cancelAll();
-        return;
-      }
+      if (phase === 'recording') { legacyRecorder.stopRecording(); return; }
       clearMainTts();
-      // Try realtime first, fall back to legacy
       void checkRealtimeAvailable().then((available) => {
-        if (available) {
-          void startRealtimeSession('server_vad');
-        } else {
-          void startRecordingMic();
-        }
+        if (available) void startRealtimeSession('server_vad');
+        else void startLegacyMic();
       });
     });
-  }, [cancelAll, checkRealtimeAvailable, clearMainTts, closeRealtimeSession, isRealtimeActive, phase, startRecordingMic, startRealtimeSession, stopRecording]);
+  }, [cancelAll, checkRealtimeAvailable, clearMainTts, closeRealtimeSession, isRealtimeActive, legacyRecorder, phase, startLegacyMic, startRealtimeSession]);
 
   // ── PTT handlers ─────────────────────────────────────
   useEffect(() => {
@@ -377,38 +287,28 @@ export default function ManyVoiceHud() {
     const unA = start(() => {
       if (phase === 'processing') return;
       clearMainTts();
-      cancelledDuringSetupRef.current = false;
-      // Try realtime PTT first
       void checkRealtimeAvailable().then((available) => {
-        if (available) {
-          void startRealtimeSession('ptt');
-        } else {
-          void startRecordingMic();
-        }
+        if (available) void startRealtimeSession('ptt');
+        else void startLegacyMic();
       });
     });
     const unB = end(() => {
-      // Commit realtime audio if active in PTT mode
       if (sessionRef.current && realtimeModeRef.current === 'ptt') {
         sessionRef.current.commitAudio();
         return;
       }
-      if (phase === 'recording') stopRecording();
-      else if (micSetupInProgressRef.current) {
-        cancelledDuringSetupRef.current = true;
-        cancelAll();
-      }
+      if (phase === 'recording') legacyRecorder.stopRecording();
     });
     return () => { unA?.(); unB?.(); };
-  }, [cancelAll, checkRealtimeAvailable, clearMainTts, phase, startRecordingMic, startRealtimeSession, stopRecording]);
+  }, [cancelAll, checkRealtimeAvailable, clearMainTts, legacyRecorder, phase, startLegacyMic, startRealtimeSession]);
 
   // ── Cleanup on unmount ────────────────────────────────
   useEffect(() => () => {
-    cleanupStream();
+    legacyRecorder.cancelRecording();
     closeRealtimeSession();
     wakeWordRecogRef.current?.abort();
     wakeWordRecogRef.current = null;
-  }, [cleanupStream, closeRealtimeSession]);
+  }, [closeRealtimeSession, legacyRecorder]);
 
   // ── Wake word detection ("oye Many" / "hey Many") ─────
   useEffect(() => {
@@ -425,6 +325,13 @@ export default function ManyVoiceHud() {
       return undefined;
     }
 
+    // User closed the HUD with X — do not keep Web Speech wake listener (it uses the mic).
+    if (userDismissed) {
+      wakeWordRecogRef.current?.abort();
+      wakeWordRecogRef.current = null;
+      return undefined;
+    }
+
     const language = (typeof localStorage !== 'undefined'
       ? localStorage.getItem('dome:language')
       : null) ?? 'es';
@@ -433,6 +340,7 @@ export default function ManyVoiceHud() {
     let recog: SpeechRecognition | null = null;
     let stopped = false;
     let consecutiveErrors = 0;
+    let startupTimer: ReturnType<typeof setTimeout> | null = null;
     const MAX_ERRORS = 3; // give up after 3 consecutive failures to avoid infinite loop
 
     const start = () => {
@@ -493,31 +401,19 @@ export default function ManyVoiceHud() {
       try { recog.start(); } catch { consecutiveErrors++; }
     };
 
-    start();
+    // Delay the first start to avoid triggering the OS mic indicator on app load.
+    // Subsequent restarts (after session ends) start immediately.
+    startupTimer = setTimeout(start, 2500);
 
     return () => {
       stopped = true;
+      if (startupTimer !== null) clearTimeout(startupTimer);
       recog?.abort();
       wakeWordRecogRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRealtimeActive]);
+  }, [isRealtimeActive, userDismissed]);
 
-  // ── Bar animation ─────────────────────────────────────
-  useEffect(() => {
-    const active =
-      phase === 'recording' ||
-      phase === 'processing' ||
-      remoteManyStatus === 'thinking' ||
-      remoteManyStatus === 'speaking' ||
-      remoteManyStatus === 'listening' ||
-      realtimeStatus === 'recording' ||
-      realtimeStatus === 'speaking' ||
-      realtimeStatus === 'processing';
-    if (!active) return undefined;
-    const id = setInterval(() => setBarPhase((p) => (p + 1) % 24), 80);
-    return () => clearInterval(id);
-  }, [remoteManyStatus, phase, realtimeStatus]);
 
   // ── Auto-dismiss followManyVoice ─────────────────────
   useEffect(() => {
@@ -536,19 +432,27 @@ export default function ManyVoiceHud() {
 
   // ── Overlay visibility ────────────────────────────────
   const hudOpen =
-    isRealtimeActive ||
-    realtimeStatus === 'error' ||
-    Boolean(realtimeError) ||
-    phase !== 'idle' ||
-    followManyVoice ||
-    Boolean(remoteTtsError) ||
-    remoteManyStatus === 'speaking' ||
-    remoteManyStatus === 'thinking';
+    !userDismissed && (
+      isRealtimeActive ||
+      realtimeStatus === 'error' ||
+      Boolean(realtimeError) ||
+      phase !== 'idle' ||
+      followManyVoice ||
+      Boolean(remoteTtsError) ||
+      remoteManyStatus === 'speaking' ||
+      remoteManyStatus === 'thinking'
+    );
 
   useEffect(() => {
     if (!window.electron?.manyVoice?.overlaySetVisible) return;
     void window.electron.manyVoice.overlaySetVisible(hudOpen);
   }, [hudOpen]);
+
+  // ── Notify AppShell top-bar indicators ─────────────────────────────────
+  useEffect(() => {
+    const isActive = isRealtimeActive || phase === 'recording' || phase === 'paused' || phase === 'processing';
+    window.dispatchEvent(new CustomEvent(isActive ? 'dome:many-voice-started' : 'dome:many-voice-stopped'));
+  }, [isRealtimeActive, phase]);
 
   if (!hudOpen) return null;
 
@@ -603,31 +507,14 @@ export default function ManyVoiceHud() {
       >
         {/* Main pill row */}
         <div className="flex items-center gap-2.5 px-4 py-3 min-h-[52px]">
-          {/* Waveform indicator */}
-          <div className="flex items-end justify-center gap-[2px] h-6 shrink-0 w-7">
-            {BAR_BASE.map((h, i) => {
-              const wobble =
-                barsActive || barsBusy
-                  ? Math.sin((barPhase + i * 3.5) * 0.38) * (barsActive ? 6 : 4)
-                  : 0;
-              return (
-                <div
-                  key={i}
-                  className="w-[3px] rounded-full"
-                  style={{
-                    height: Math.max(2, h + wobble),
-                    background: barsActive
-                      ? 'var(--dome-accent, #7b76d0)'
-                      : barsBusy
-                        ? 'color-mix(in srgb, var(--dome-accent, #7b76d0) 55%, var(--dome-text-muted, #999))'
-                        : 'var(--dome-text-muted, #999)',
-                    opacity: barsActive || barsBusy ? 1 : 0.3,
-                    transition: 'height 80ms ease',
-                  }}
-                />
-              );
-            })}
-          </div>
+          {/* Live audio level meter */}
+          <AudioLevelMeter
+            stream={isRecording && !isRealtime ? legacyStreamRef.current : null}
+            active={barsActive || barsBusy}
+            color={barsActive ? 'var(--dome-accent, #7b76d0)' : 'color-mix(in srgb, var(--dome-accent, #7b76d0) 55%, var(--dome-text-muted, #999))'}
+            idleColor="var(--dome-text-muted, #999)"
+            height={24}
+          />
 
           {/* Status + live transcript */}
           <div className="flex-1 min-w-0">
@@ -672,24 +559,22 @@ export default function ManyVoiceHud() {
             )}
           </div>
 
-          {/* Cancel button */}
-          {(isRecording || isRealtimeActive || isConnecting) ? (
-            <button
-              type="button"
-              onClick={cancelAll}
-              className="shrink-0 rounded-full w-6 h-6 flex items-center justify-center transition-opacity hover:opacity-70"
-              style={{
-                background: 'color-mix(in srgb, var(--dome-text-muted, #999) 15%, transparent)',
-                color: 'var(--dome-text-muted, #999)',
-              }}
-              title={t('media.dock_cancel')}
-              aria-label={t('media.dock_cancel')}
-            >
-              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
-                <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-            </button>
-          ) : null}
+          {/* Dismiss button — always visible so the overlay can always be closed */}
+          <button
+            type="button"
+            onClick={dismissOverlay}
+            className="shrink-0 rounded-full w-6 h-6 flex items-center justify-center transition-opacity hover:opacity-70"
+            style={{
+              background: 'color-mix(in srgb, var(--dome-text-muted, #999) 15%, transparent)',
+              color: 'var(--dome-text-muted, #999)',
+            }}
+            title={t('media.dock_cancel')}
+            aria-label={t('media.dock_cancel')}
+          >
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
+              <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
 
         {/* Error banner */}
@@ -713,7 +598,7 @@ export default function ManyVoiceHud() {
               type="button"
               onClick={() => {
                 setRealtimeError(null);
-                clearMainTts();
+                dismissOverlay();
               }}
               className="shrink-0 rounded-md px-2 py-0.5 text-[10px] font-semibold"
               style={{

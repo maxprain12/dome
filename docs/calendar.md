@@ -71,8 +71,20 @@ Many usa la herramienta `create_event` automáticamente.
 ### Sincronización
 
 - **Lectura**: Los eventos de Google Calendar aparecen en el calendario de Dome (marca de Google)
-- **Escritura**: Los eventos creados en Dome se guardan en tu Google Calendar
-- **Frecuencia**: Sincronización automática al abrir Dome y cada hora
+- **Escritura**: Los eventos creados o editados en calendarios vinculados a Google se propagan a la API de Google cuando hay enlace (`calendar_event_links`)
+- **Manual**: Botón **Sincronizar** en la vista Calendario
+- **Automática**: Configurable en **Ajustes → Calendario** (intervalo mínimo en minutos; el proceso principal comprueba periódicamente si toca ejecutar sync)
+
+### Importar eventos (.ics)
+
+1. En la vista **Calendario**, pulsa **Importar .ics**
+2. Elige un archivo `.ics`
+3. Revisa la vista previa (número de eventos válidos)
+4. Elige el calendario destino y confirma; los duplicados próximos pueden omitirse automáticamente
+
+### Many y confirmación (HITL)
+
+Las herramientas del asistente que **crean, actualizan o borran** eventos (`calendar_create_event`, `calendar_update_event`, `calendar_delete_event`) requieren **aprobación explícita** en el flujo de Many antes de aplicarse, igual que otras acciones sensibles.
 
 ### Desconectar
 

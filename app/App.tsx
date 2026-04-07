@@ -130,6 +130,17 @@ function MainApp() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.electron?.calendar?.onUpcoming) return;
+    const unsub = window.electron.calendar.onUpcoming((data: { events?: Array<{ title?: string }>; inApp?: boolean }) => {
+      if (!data?.events?.length) return;
+      const ev = data.events[0];
+      const title = ev?.title || t('calendarPage.title');
+      showToast('info', t('app.calendar_upcoming', { title }));
+    });
+    return () => unsub?.();
+  }, [t]);
+
   return (
     <>
       <AppShell />

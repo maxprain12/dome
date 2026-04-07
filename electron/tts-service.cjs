@@ -222,12 +222,18 @@ class TTSService {
   }
 
   /**
-   * Get generation status
+   * Get generation status and schedule cleanup of finished entries.
    * @param {string} generationId
    * @returns {{ status: string, progress?: number, total?: number, error?: string } | null}
    */
   getStatus(generationId) {
-    return this._generationStatus.get(generationId) || null;
+    const entry = this._generationStatus.get(generationId);
+    if (!entry) return null;
+    // Auto-delete terminal states after they've been read once
+    if (entry.status === 'completed' || entry.status === 'error') {
+      this._generationStatus.delete(generationId);
+    }
+    return entry;
   }
 
   /**
@@ -263,11 +269,13 @@ class TTSService {
    * @private
    * @param {Object} body - Request body
    * @param {string} apiKey - OpenAI API key
+   * @param {number} [timeoutMs=30000] - Request timeout in milliseconds
    * @returns {Promise<Buffer>}
    */
-  _callOpenAITTS(body, apiKey) {
+  _callOpenAITTS(body, apiKey, timeoutMs = 30000) {
     return new Promise((resolve, reject) => {
       const postData = JSON.stringify(body);
+      let settled = false;
 
       const options = {
         hostname: 'api.openai.com',
@@ -289,6 +297,10 @@ class TTSService {
         });
 
         res.on('end', () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+
           const buffer = Buffer.concat(chunks);
 
           if (res.statusCode !== 200) {
@@ -308,8 +320,18 @@ class TTSService {
       });
 
       req.on('error', (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
         reject(new Error(`Network error calling OpenAI TTS: ${error.message}`));
       });
+
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        req.destroy();
+        reject(new Error(`OpenAI TTS request timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
 
       req.write(postData);
       req.end();

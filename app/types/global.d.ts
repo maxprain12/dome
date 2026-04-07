@@ -229,6 +229,19 @@ declare global {
 
       // IPC Communication
       invoke: (channel: string, ...args: any[]) => Promise<any>;
+      /** KB LLM automations & settings (optional until preload loads) */
+      kbllm?: {
+        getGlobal: () => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
+        setGlobal: (payload: Record<string, unknown>) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        getProjectOverride: (projectId: string) => Promise<{ success: boolean; data?: { override?: string }; error?: string }>;
+        setProjectOverride: (payload: {
+          projectId: string;
+          override: 'inherit' | 'enabled' | 'disabled';
+        }) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        syncProject: (projectId: string) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        syncAll: () => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        getStatus: (projectId?: string) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+      };
       on: (channel: string, callback: (...args: any[]) => void) => RemoveListenerFn;
       once: (channel: string, callback: (...args: any[]) => void) => void;
       send: (channel: string, ...args: any[]) => void;
@@ -279,6 +292,42 @@ declare global {
         deleteEvent: (eventId: string) => Promise<{ success: boolean; deleted?: boolean; error?: string }>;
         syncNow: () => Promise<{ success: boolean; synced?: boolean; message?: string; error?: string }>;
         getUpcoming: (params?: { windowMinutes?: number; limit?: number }) => Promise<{ success: boolean; events?: any[]; error?: string }>;
+        getSettings: () => Promise<{
+          success: boolean;
+          settings?: {
+            sync_auto_enabled: boolean;
+            sync_interval_minutes: number;
+            in_app_notifications_enabled: boolean;
+            in_app_reminder_lead_minutes: number;
+          };
+          error?: string;
+        }>;
+        setSettings: (partial: {
+          sync_auto_enabled?: boolean;
+          sync_interval_minutes?: number;
+          in_app_notifications_enabled?: boolean;
+          in_app_reminder_lead_minutes?: number;
+        }) => Promise<{ success: boolean; settings?: any; error?: string }>;
+        setCalendarSelected: (calendarId: string, isSelected: boolean) => Promise<{ success: boolean; error?: string }>;
+        disconnectGoogle: (accountId: string) => Promise<{ success: boolean; error?: string }>;
+        previewIcs: (filePath: string) => Promise<{
+          success: boolean;
+          events?: Array<Record<string, unknown>>;
+          rawCount?: number;
+          error?: string;
+        }>;
+        importIcs: (
+          filePath: string,
+          calendarId: string,
+          options?: { skipDuplicates?: boolean },
+        ) => Promise<{
+          success: boolean;
+          imported?: number;
+          skipped?: number;
+          totalParsed?: number;
+          errors?: string[];
+          error?: string;
+        }>;
         onUpcoming: (callback: (data: any) => void) => RemoveListenerFn;
         onEventCreated: (callback: (data: any) => void) => RemoveListenerFn;
         onEventUpdated: (callback: (data: any) => void) => RemoveListenerFn;
