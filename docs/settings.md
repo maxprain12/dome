@@ -102,7 +102,7 @@ interface AppPreferences {
 
 ---
 
-## Settings keys reference (v2.0.8)
+## Settings keys reference (v2.1.4)
 
 | Key | Type | Description |
 |-----|------|-------------|

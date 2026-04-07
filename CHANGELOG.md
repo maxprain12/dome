@@ -2,6 +2,26 @@
 
 All notable changes to Dome are documented in this file.
 
+## [2.1.4] - 2026-04-08
+
+### Added
+
+- **Many Voice**: `ManyVoiceBridge` for IPC when the Many panel is closed; floating voice HUD refinements.
+- **Transcription**: shared `useMediaRecorder`, audio level meter, dedicated transcription overlay window.
+- **Calendar**: import service, sync scheduler, and settings panel wiring.
+- **KB LLM**: main-process provisioning/shared helpers, `kb-llm` IPC domain, settings panel, prompts and docs (`kb-*`).
+- **Learn**: `LearnTabShell` route integration.
+
+### Fixed
+
+- **Realtime voice (STS)**: abort in-flight `RealtimeVoiceSession.start()` safely when the user dismisses the overlay; stop wake-word Web Speech listener after explicit HUD dismiss so the mic is not left active in the background.
+
+### Removed
+
+- Legacy `ManyVoiceAssistantDock` (superseded by overlay + bridge).
+
+[2.1.4]: https://github.com/maxprain12/dome/releases/tag/v2.1.4
+
 ## [2.1.3] - 2026-03-24
 
 ### Fixed

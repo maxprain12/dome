@@ -1,6 +1,6 @@
 # Dome – Índice de documentación
 
-Documentación completa del proyecto Dome (v2.0.8). Organizada en dos audiencias:
+Documentación completa del proyecto Dome (v2.1.4). Organizada en dos audiencias:
 
 ## 👤 Para usuarios finales
 

@@ -10,7 +10,7 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.1-00C853?style=flat)](https://langchain-ai.github.io/langgraphjs/)
 [![License](https://img.shields.io/badge/License-Custom%20Open%20Source-blue.svg)](LICENSE)
 
-**v2.1.3** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently. It includes native **Google Drive** import, **Docling**-assisted document conversion before indexing, MCP-powered file import, automatic background indexing, **Playwright-based web search and scraping** (no Brave API keys required), **system tray** with optional **launch at login**, and **multi-language UI** (EN / ES / FR / PT).
+**v2.1.4** — Dome is a comprehensive desktop application designed for researchers, academics, and knowledge workers who need to manage, organize, and synthesize information from multiple sources efficiently. It includes native **Google Drive** import, **Docling**-assisted document conversion before indexing, MCP-powered file import, automatic background indexing, **Playwright-based web search and scraping** (no Brave API keys required), **system tray** with optional **launch at login**, and **multi-language UI** (EN / ES / FR / PT).
 
 ---
 
@@ -61,6 +61,14 @@ Dome provides a unified workspace for managing your research and knowledge. It c
 ---
 
 ## What's New
+
+### v2.1.4 — Voz Many, transcripción, calendario y KB LLM
+
+- **Many Voice** — Puente IPC (`ManyVoiceBridge`), HUD en ventana overlay; cierre de sesión realtime seguro (sin carreras al abortar WebRTC) y sin reactivar el micrófono del wake word tras cerrar con la X.
+- **Transcripción / dictado** — Dock compartido con `useMediaRecorder`, medidor de nivel, ventana overlay dedicada; eliminado el dock asistente antiguo.
+- **Calendario** — Importación, sincronización programada y ajustes en panel de configuración.
+- **KB LLM** — Ajustes en UI, IPC y documentación para el flujo wiki/indexado local.
+- **Learn** — Shell de pestaña Learn integrado en el enrutado principal.
 
 ### v2.1.3 — macOS arm64 y empaquetado de Playwright
 
