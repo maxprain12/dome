@@ -447,6 +447,7 @@ export interface AppPreferences {
 export interface CalloutBlockAttributes {
   icon?: string;
   color?: string;
+  variant?: 'info' | 'warning' | 'error' | 'success';
 }
 
 export interface ToggleBlockAttributes {

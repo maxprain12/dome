@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
+import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { TextInput } from '@mantine/core';
 import type { SlashCommand } from '@/lib/tiptap/slash-commands';
 
 interface SlashMenuProps {
@@ -14,40 +15,56 @@ export interface SlashMenuHandle {
 export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
   ({ items, command }, ref) => {
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const [menuFilter, setMenuFilter] = useState('');
 
-    useEffect(() => setSelectedIndex(0), [items]);
+    const visibleItems = useMemo(() => {
+      const q = menuFilter.trim().toLowerCase();
+      if (!q) return items;
+      return items.filter((cmd) =>
+        [cmd.title, cmd.description, cmd.category].some((s) => s.toLowerCase().includes(q)),
+      );
+    }, [items, menuFilter]);
+
+    useEffect(() => setSelectedIndex(0), [visibleItems]);
+
+    useEffect(() => setMenuFilter(''), [items]);
 
     const selectItem = useCallback(
       (index: number) => {
-        const item = items[index];
+        const item = visibleItems[index];
         if (item) command(item);
       },
-      [items, command],
+      [visibleItems, command],
     );
 
-    useImperativeHandle(ref, () => ({
-      onKeyDown: ({ event }: { event: KeyboardEvent }) => {
-        if (event.key === 'ArrowUp') {
-          setSelectedIndex((i) => (i + items.length - 1) % items.length);
-          return true;
-        }
-        if (event.key === 'ArrowDown') {
-          setSelectedIndex((i) => (i + 1) % items.length);
-          return true;
-        }
-        if (event.key === 'Enter') {
-          selectItem(selectedIndex);
-          return true;
-        }
-        return false;
-      },
-    }));
+    useImperativeHandle(
+      ref,
+      () => ({
+        onKeyDown: ({ event }: { event: KeyboardEvent }) => {
+          if (event.key === 'ArrowUp') {
+            setSelectedIndex((i) =>
+              visibleItems.length ? (i + visibleItems.length - 1) % visibleItems.length : 0,
+            );
+            return true;
+          }
+          if (event.key === 'ArrowDown') {
+            setSelectedIndex((i) => (visibleItems.length ? (i + 1) % visibleItems.length : 0));
+            return true;
+          }
+          if (event.key === 'Enter') {
+            selectItem(selectedIndex);
+            return true;
+          }
+          return false;
+        },
+      }),
+      [visibleItems.length, selectedIndex, selectItem],
+    );
 
     if (!items.length) return null;
 
-    // Group items
     const groups: Record<string, SlashCommand[]> = {};
-    for (const item of items) {
+    for (const item of visibleItems) {
       if (!groups[item.group]) groups[item.group] = [];
       groups[item.group].push(item);
     }
@@ -60,11 +77,20 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
           borderRadius: 10,
           boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
           padding: '6px',
-          minWidth: 240,
-          maxHeight: 320,
+          minWidth: 260,
+          maxHeight: 360,
           overflowY: 'auto',
         }}
       >
+        <div style={{ padding: '4px 6px 8px' }}>
+          <TextInput
+            size="xs"
+            placeholder="Filtrar comandos…"
+            value={menuFilter}
+            onChange={(e) => setMenuFilter(e.currentTarget.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+          />
+        </div>
         {Object.entries(groups).map(([group, cmds]) => (
           <div key={group}>
             <div
@@ -80,11 +106,11 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
               {group}
             </div>
             {cmds.map((item) => {
-              const globalIndex = items.indexOf(item);
+              const globalIndex = visibleItems.indexOf(item);
               const isSelected = globalIndex === selectedIndex;
               return (
                 <button
-                  key={item.title}
+                  key={`${group}-${item.title}-${item.description}`}
                   type="button"
                   onClick={() => selectItem(globalIndex)}
                   onMouseEnter={() => setSelectedIndex(globalIndex)}
@@ -112,8 +138,7 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
                       borderRadius: 6,
                       background: 'var(--dome-bg-tertiary, var(--dome-bg-hover))',
                       fontSize: 11,
-                      fontWeight: 700,
-                      fontFamily: 'monospace',
+                      fontWeight: 400,
                       color: 'var(--dome-text-secondary)',
                       flexShrink: 0,
                     }}
@@ -140,7 +165,6 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
 
 SlashCommandMenu.displayName = 'SlashCommandMenu';
 
-// ── Portal renderer ────────────────────────────────────────────────────────
 interface SlashMenuPortalProps {
   items: SlashCommand[];
   command: (item: SlashCommand) => void;
@@ -158,7 +182,7 @@ export function SlashMenuPortal({ items, command, clientRect, menuRef }: SlashMe
     if (!rect) return;
     setPosition({
       top: rect.bottom + 6,
-      left: Math.min(rect.left, window.innerWidth - 260),
+      left: Math.min(rect.left, window.innerWidth - 280),
     });
   }, [clientRect, items]);
 

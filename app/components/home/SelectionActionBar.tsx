@@ -1,18 +1,20 @@
 'use client';
 
-import { FolderInput, Trash2, X } from 'lucide-react';
+import { FolderInput, FolderOpen, Trash2, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface SelectionActionBarProps {
   count: number;
-  onMove: () => void;
+  onMoveToFolder: () => void;
+  onMoveToProject?: () => void;
   onDelete: () => void;
   onDeselect: () => void;
 }
 
 export default function SelectionActionBar({
   count,
-  onMove,
+  onMoveToFolder,
+  onMoveToProject,
   onDelete,
   onDeselect,
 }: SelectionActionBarProps) {
@@ -45,16 +47,27 @@ export default function SelectionActionBar({
       >
         {t(count === 1 ? 'selection.items_selected_one' : 'selection.items_selected_other', { count })}
       </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <button
           type="button"
-          onClick={onMove}
+          onClick={onMoveToFolder}
           className="selection-action-btn"
-          aria-label={t('selection.move')}
+          aria-label={t('selection.move_to_folder')}
         >
-          <FolderInput size={16} />
-          <span>{t('selection.move')}</span>
+          <FolderOpen size={16} />
+          <span>{t('selection.move_to_folder')}</span>
         </button>
+        {onMoveToProject ? (
+          <button
+            type="button"
+            onClick={onMoveToProject}
+            className="selection-action-btn"
+            aria-label={t('selection.move_to_project')}
+          >
+            <FolderInput size={16} />
+            <span>{t('selection.move_to_project')}</span>
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onDelete}

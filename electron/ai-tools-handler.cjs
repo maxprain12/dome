@@ -843,18 +843,24 @@ async function interactionList(resourceId, options = {}) {
  * @param {number} limit - Max results
  * @returns {Promise<Array>}
  */
-async function getRecentResources(limit = 5) {
+async function getRecentResources(limit = 5, automationProjectId = null) {
   try {
     const queries = database.getQueries();
-    const resources = queries.getAllResources.all(limit);
+    const cap = Math.min(Math.max(1, limit || 5), 50);
+    const fetchN = automationProjectId ? Math.min(500, cap * 30) : cap;
+    const resources = queries.getAllResources.all(fetchN);
 
-    return resources.map(r => ({
+    let mapped = resources.map(r => ({
       id: r.id,
       title: r.title,
       type: r.type,
       project_id: r.project_id,
       updated_at: r.updated_at,
     }));
+    if (automationProjectId) {
+      mapped = mapped.filter((r) => r.project_id === automationProjectId).slice(0, cap);
+    }
+    return mapped;
   } catch (error) {
     console.error('[AI Tools] getRecentResources error:', error);
     return [];
@@ -865,10 +871,21 @@ async function getRecentResources(limit = 5) {
  * Get current/default project
  * @returns {Promise<Object|null>}
  */
-async function getCurrentProject() {
+async function getCurrentProject(automationProjectId = null) {
   try {
     const queries = database.getQueries();
-    
+
+    if (automationProjectId) {
+      const scoped = queries.getProjectById.get(automationProjectId);
+      if (scoped) {
+        return {
+          id: scoped.id,
+          name: scoped.name,
+          description: scoped.description,
+        };
+      }
+    }
+
     // Try to get the last used project from settings
     const lastProjectSetting = queries.getSetting.get('last_project_id');
     if (lastProjectSetting?.value) {

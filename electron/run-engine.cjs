@@ -918,12 +918,14 @@ async function executeLangGraphRun(runId, params) {
     params.ownerType === 'many' ||
     (params.toolDefinitions?.length ?? 0) > 0 ||
     (params.mcpServerIds?.length ?? 0) > 0;
+  const automationProjectId = params.automationId ? (params.projectId ?? context.projectId ?? 'default') : undefined;
   context.langGraphResumeOpts = {
     toolDefinitions: params.toolDefinitions ?? [],
     useDirectTools: useDirectToolsRun,
     mcpServerIds: params.mcpServerIds,
     subagentIds: params.ownerType === 'many' ? [] : params.subagentIds,
     skipHitl: !!params.skipHitl,
+    automationProjectId,
   };
   try {
     const result = await langgraphAgent.invokeLangGraphAgent({
@@ -940,6 +942,7 @@ async function executeLangGraphRun(runId, params) {
       skipHitl: !!params.skipHitl,
       signal: context.controller.signal,
       onChunk: createRunChunkEmitter(runId, context),
+      automationProjectId,
     });
     const current = getRun(runId);
     if (current?.status === 'waiting_approval' || result?.__interrupt__) {
@@ -1057,6 +1060,7 @@ async function startLangGraphRun(params) {
     baseUrl: providerConfig.baseUrl,
     autoSpeak,
     voiceLanguage,
+    projectId: params.projectId ?? 'default',
   });
   if (autoSpeak) {
     streamingTts.start(run.id, { language: voiceLanguage });
@@ -1101,7 +1105,11 @@ async function resumeRun(runId, decisions) {
     model: providerConfig.model,
     apiKey: providerConfig.apiKey,
     baseUrl: providerConfig.baseUrl,
+    projectId: run.projectId ?? 'default',
   };
+  if (existingContext && existingContext.projectId == null) {
+    existingContext.projectId = run.projectId ?? 'default';
+  }
   activeRunContexts.set(runId, context);
   appendRunStep({
     runId,
@@ -1141,6 +1149,8 @@ async function resumeRun(runId, decisions) {
       mcpServerIds: lgOpts.mcpServerIds,
       subagentIds: lgOpts.subagentIds,
       skipHitl: lgOpts.skipHitl,
+      automationProjectId:
+        run.automationId ? (run.projectId ?? 'default') : lgOpts.automationProjectId,
     });
     const latest = getRun(runId);
     if (latest?.status === 'waiting_approval') {
@@ -1341,6 +1351,7 @@ async function executeWorkflowRun(runId, params, workflow) {
             signal: context.controller.signal,
             threadId: nodeContext.threadId,
             skipHitl: true,
+            automationProjectId: workflow.projectId ?? 'default',
             onChunk: (chunk) => {
               if (chunk.type === 'text' && chunk.text) {
                 nodeContext.fullResponse += chunk.text;

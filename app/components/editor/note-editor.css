@@ -300,3 +300,142 @@
 .note-editor-content .tiptap:focus-visible {
   outline: none;
 }
+
+/* ─── Callouts ───────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap [data-type='callout'] {
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  border-left: 4px solid var(--dome-border);
+  background: var(--dome-bg-secondary);
+}
+
+.note-editor-content .tiptap [data-type='callout'].dome-callout--info {
+  border-left-color: var(--dome-accent);
+}
+
+.note-editor-content .tiptap [data-type='callout'].dome-callout--warning {
+  border-left-color: #d97706;
+  background: color-mix(in srgb, #d97706 8%, var(--dome-bg-secondary));
+}
+
+.note-editor-content .tiptap [data-type='callout'].dome-callout--error {
+  border-left-color: #dc2626;
+  background: color-mix(in srgb, #dc2626 8%, var(--dome-bg-secondary));
+}
+
+.note-editor-content .tiptap [data-type='callout'].dome-callout--success {
+  border-left-color: #16a34a;
+  background: color-mix(in srgb, #16a34a 8%, var(--dome-bg-secondary));
+}
+
+/* ─── Toggle / collapsible ───────────────────────────────────────────────── */
+.note-editor-content .tiptap [data-type='toggle-block'] {
+  margin: 0.75rem 0;
+  border: 1px solid var(--dome-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--dome-bg-secondary);
+}
+
+.note-editor-content .tiptap [data-type='toggle-summary'] {
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--dome-border);
+  cursor: default;
+}
+
+.note-editor-content .tiptap [data-type='toggle-body'] {
+  padding: 0.5rem 0.75rem;
+}
+
+.note-editor-content .tiptap [data-type='toggle-block'][data-collapsed='true'] [data-type='toggle-body'] {
+  display: none;
+}
+
+/* ─── Column layouts ─────────────────────────────────────────────────────── */
+.note-editor-content .tiptap [data-type='two-column-layout'],
+.note-editor-content .tiptap [data-type='three-column-layout'] {
+  display: grid;
+  gap: 1rem;
+  margin: 0.75rem 0;
+}
+
+.note-editor-content .tiptap [data-type='two-column-layout'] {
+  grid-template-columns: 1fr 1fr;
+}
+
+.note-editor-content .tiptap [data-type='three-column-layout'] {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.note-editor-content .tiptap [data-type='column'] {
+  min-width: 0;
+  padding: 0.25rem;
+  border-radius: 6px;
+  border: 1px dashed var(--dome-border);
+}
+
+/* ─── Styled dividers ────────────────────────────────────────────────────── */
+.note-editor-content .tiptap [data-type='styled-divider'] {
+  border: none;
+  margin: 1.25rem 0;
+  background: transparent;
+}
+
+.note-editor-content .tiptap [data-type='styled-divider'].dome-styled-divider--line {
+  border-top: 2px solid var(--dome-border);
+  height: 0;
+}
+
+.note-editor-content .tiptap [data-type='styled-divider'].dome-styled-divider--dots {
+  border-top: none;
+  height: 8px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--dome-border) 0 4px,
+    transparent 4px 12px
+  );
+  opacity: 0.7;
+}
+
+.note-editor-content .tiptap [data-type='styled-divider'].dome-styled-divider--space {
+  height: 1.5rem;
+}
+
+/* ─── Dome resource link & mention ───────────────────────────────────────── */
+.note-editor-content .tiptap .dome-resource-link {
+  color: var(--dome-accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+
+.note-editor-content .tiptap .dome-resource-mention {
+  color: var(--dome-accent);
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0 2px;
+  background: color-mix(in srgb, var(--dome-accent) 12%, transparent);
+}
+
+/* ─── YouTube & iframe embeds ────────────────────────────────────────────── */
+.note-editor-content .tiptap div[data-youtube-video],
+.note-editor-content .tiptap [data-type='iframe-embed-wrapper'] {
+  margin: 0.75rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--dome-border);
+}
+
+.note-editor-content .tiptap div[data-youtube-video] iframe,
+.note-editor-content .tiptap iframe.dome-iframe-embed {
+  display: block;
+  width: 100%;
+  min-height: 240px;
+  border: none;
+}

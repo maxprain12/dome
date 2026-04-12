@@ -267,7 +267,10 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     skipHitl,
     onChunk,
     threadId,
+    automationProjectId,
   } = opts;
+
+  const toolContext = automationProjectId ? { automationProjectId } : null;
 
   const rtEmittedCallIds = new Set();
   const rtEmittedResultIds = new Set();
@@ -288,7 +291,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
           },
         });
       }
-      const result = await executeToolInMain(name, args);
+      const result = await executeToolInMain(name, args, toolContext);
       const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
       if (onChunk) onChunk({ type: 'tool_result', toolCallId: id, result: resultStr });
       rtEmittedResultIds.add(id);
@@ -304,7 +307,8 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       llm,
       createLangChainToolsFromOpenAIDefinitions,
       onChunk,
-      subagentIds
+      subagentIds,
+      toolContext,
     );
     const mcpTools = Array.isArray(mcpServerIds)
       ? (mcpServerIds.length > 0 ? await getMCPTools(database, mcpServerIds) : [])
@@ -396,7 +400,9 @@ async function createConfiguredLangGraphAgent(llm, opts) {
         },
       },
     ];
-    const mainAgentTools = await createLangChainToolsFromOpenAIDefinitions(mainAgentDefs, executeToolInMain);
+    const mainAgentTools = await createLangChainToolsFromOpenAIDefinitions(mainAgentDefs, (name, args) =>
+      executeToolInMain(name, args, toolContext),
+    );
     tools = [...subagentTools, ...mcpTools, ...mainAgentTools];
   }
 
@@ -433,6 +439,7 @@ async function invokeLangGraphAgent(opts) {
     signal,
     threadId,
     skipHitl,
+    automationProjectId,
   } = opts;
 
   const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
@@ -449,6 +456,7 @@ async function invokeLangGraphAgent(opts) {
     skipHitl,
     onChunk,
     threadId,
+    automationProjectId,
   });
 
   let lcMessages = await toLangChainMessages(messages);
@@ -601,6 +609,7 @@ async function resumeLangGraphAgent(opts) {
     mcpServerIds: mcpServerIdsArg,
     subagentIds: subagentIdsArg,
     skipHitl: skipHitlArg,
+    automationProjectId: automationProjectIdArg,
     ...rest
   } = opts;
   if (!threadId || !decisions || !Array.isArray(decisions)) {
@@ -632,6 +641,7 @@ async function resumeLangGraphAgent(opts) {
     skipHitl,
     onChunk,
     threadId,
+    automationProjectId: automationProjectIdArg,
   });
 
   const config = {

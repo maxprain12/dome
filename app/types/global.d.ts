@@ -405,10 +405,15 @@ declare global {
           search: (query: string) => Promise<DBResponse<Resource[]>>;
           getAll: (limit?: number) => Promise<DBResponse<Resource[]>>;
           delete: (id: string) => Promise<DBResponse<void>>;
+          bulkDelete: (resourceIds: string[]) => Promise<DBResponse<{ deletedIds: string[] }>>;
           // Folder containment
           getByFolder: (folderId: string) => Promise<DBResponse<Resource[]>>;
           getRoot: (projectId?: string) => Promise<DBResponse<Resource[]>>;
           moveToFolder: (resourceId: string, folderId: string | null) => Promise<DBResponse<void>>;
+          moveToProject: (
+            resourceId: string,
+            projectId: string,
+          ) => Promise<DBResponse<{ movedIds: string[] }>>;
           removeFromFolder: (resourceId: string) => Promise<DBResponse<void>>;
           // Backlinks
           getBacklinks: (resourceId: string) => Promise<DBResponse<Resource[]>>;

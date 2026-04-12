@@ -1511,6 +1511,79 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
+  /** Collect resource id and all descendants (folder tree) for move/delete operations */
+  function collectResourceSubtreeIds(queries, rootId) {
+    const ids = [];
+    const queue = [rootId];
+    while (queue.length) {
+      const id = queue.shift();
+      ids.push(id);
+      const children = queries.getResourcesByFolder.all(id);
+      for (const child of children) {
+        queue.push(child.id);
+      }
+    }
+    return ids;
+  }
+
+  // Move resource (and folder subtree) to another project root (clears folder_id on root only)
+  ipcMain.handle('db:resources:moveToProject', (event, { resourceId, projectId: targetProjectId }) => {
+    try {
+      validateSender(event, windowManager);
+      if (!resourceId || !targetProjectId) {
+        return { success: false, error: 'resourceId and projectId are required' };
+      }
+      const queries = database.getQueries();
+      const resource = queries.getResourceById.get(resourceId);
+      if (!resource) {
+        return { success: false, error: 'Resource not found' };
+      }
+      const project = queries.getProjectById.get(targetProjectId);
+      if (!project) {
+        return { success: false, error: 'Target project not found' };
+      }
+      if (resource.project_id === targetProjectId) {
+        return { success: true, data: { movedIds: [resourceId] } };
+      }
+
+      const subtreeIds = collectResourceSubtreeIds(queries, resourceId);
+      const snapshot = new Map();
+      for (const id of subtreeIds) {
+        const row = queries.getResourceById.get(id);
+        if (row) snapshot.set(id, row);
+      }
+      const now = Date.now();
+
+      const tx = database.getDB().transaction(() => {
+        for (const id of subtreeIds) {
+          const prev = snapshot.get(id);
+          if (!prev) continue;
+          const newFolderId = id === resourceId ? null : prev.folder_id;
+          queries.moveResourceToProject.run(targetProjectId, newFolderId, now, id);
+        }
+      });
+      tx();
+
+      for (const id of subtreeIds) {
+        const prev = snapshot.get(id);
+        const newFolderId = id === resourceId ? null : prev?.folder_id ?? null;
+        windowManager.broadcast('resource:updated', {
+          id,
+          updates: {
+            project_id: targetProjectId,
+            folder_id: newFolderId,
+            updated_at: now,
+          },
+        });
+      }
+
+      return { success: true, data: { movedIds: subtreeIds } };
+    } catch (error) {
+      console.error('[DB] Error moving resource to project:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Move resource to a folder
   ipcMain.handle('db:resources:moveToFolder', (event, { resourceId, folderId }) => {
     try {
@@ -1564,6 +1637,60 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: true };
     } catch (error) {
       console.error('[DB] Error removing resource from folder:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /** Bulk delete: expands folder subtrees, deletes deepest nodes first */
+  ipcMain.handle('db:resources:bulkDelete', async (event, resourceIds) => {
+    try {
+      validateSender(event, windowManager);
+      if (!Array.isArray(resourceIds) || resourceIds.length === 0) {
+        return { success: false, error: 'resourceIds array required' };
+      }
+      const queries = database.getQueries();
+      const deleteSet = new Set();
+      for (const rid of resourceIds) {
+        if (typeof rid !== 'string' || !rid) continue;
+        for (const id of collectResourceSubtreeIds(queries, rid)) {
+          deleteSet.add(id);
+        }
+      }
+      const memo = new Map();
+      function depthInDeleteSet(id) {
+        if (memo.has(id)) return memo.get(id);
+        const row = queries.getResourceById.get(id);
+        if (!row?.folder_id || !deleteSet.has(row.folder_id)) {
+          memo.set(id, 0);
+          return 0;
+        }
+        const v = depthInDeleteSet(row.folder_id) + 1;
+        memo.set(id, v);
+        return v;
+      }
+      const ordered = [...deleteSet].sort((a, b) => depthInDeleteSet(b) - depthInDeleteSet(a));
+
+      for (const id of ordered) {
+        const resource = queries.getResourceById.get(id);
+        if (resource?.internal_path) {
+          try {
+            fileStorage.deleteFile(resource.internal_path);
+          } catch (e) {
+            console.warn('[DB] bulkDelete file:', e?.message);
+          }
+        }
+        queries.deleteResource.run(id);
+        if (indexerDeps) {
+          resourceIndexer.deleteEmbeddings(id, indexerDeps).catch((err) => {
+            console.warn('[DB] Error deleting embeddings:', err.message);
+          });
+        }
+        windowManager.broadcast('resource:deleted', { id });
+      }
+
+      return { success: true, data: { deletedIds: ordered } };
+    } catch (error) {
+      console.error('[DB] Error bulk deleting resources:', error);
       return { success: false, error: error.message };
     }
   });

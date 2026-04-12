@@ -83,6 +83,12 @@ interface TabStore {
   activeTabId: string;
   openTab: (tab: Omit<DomeTab, 'id'> & { id?: string }) => void;
   closeTab: (tabId: string) => void;
+  closeOtherTabs: (keepTabId: string) => void;
+  closeTabsToTheRight: (tabId: string) => void;
+  closeAllUnpinnedTabs: () => void;
+  closeAllTabsToHome: () => void;
+  togglePinTab: (tabId: string) => void;
+  duplicateTab: (tabId: string) => void;
   activateTab: (tabId: string) => void;
   replaceTabType: (tabId: string, newType: TabType) => void;
   openResourceTab: (resourceId: string, resourceType: string, title: string) => void;
@@ -184,6 +190,89 @@ export const useTabStore = create<TabStore>((set, get) => {
       saveTabs(filtered, newActiveId);
     },
 
+    closeOtherTabs: (keepTabId) => {
+      const { tabs, activeTabId } = get();
+      const newTabs = tabs.filter((t) => t.id === keepTabId || t.pinned);
+      if (newTabs.length === 0) {
+        const fallback = [HOME_TAB];
+        set({ tabs: fallback, activeTabId: HOME_TAB_ID });
+        saveTabs(fallback, HOME_TAB_ID);
+        return;
+      }
+      const stillActive = newTabs.some((t) => t.id === activeTabId);
+      const newActiveId = stillActive ? activeTabId : (newTabs.find((t) => t.id === keepTabId)?.id ?? newTabs[newTabs.length - 1]!.id);
+      set({ tabs: newTabs, activeTabId: newActiveId });
+      saveTabs(newTabs, newActiveId);
+    },
+
+    closeTabsToTheRight: (tabId) => {
+      const { tabs, activeTabId } = get();
+      const idx = tabs.findIndex((t) => t.id === tabId);
+      if (idx < 0) return;
+      const newTabs = tabs.filter((t, i) => i <= idx || t.pinned);
+      if (newTabs.length === 0) {
+        const fallback = [HOME_TAB];
+        set({ tabs: fallback, activeTabId: HOME_TAB_ID });
+        saveTabs(fallback, HOME_TAB_ID);
+        return;
+      }
+      const stillActive = newTabs.some((t) => t.id === activeTabId);
+      let newActiveId = activeTabId;
+      if (!stillActive) {
+        const fb = newTabs[Math.min(idx, newTabs.length - 1)];
+        newActiveId = fb?.id ?? HOME_TAB_ID;
+      }
+      set({ tabs: newTabs, activeTabId: newActiveId });
+      saveTabs(newTabs, newActiveId);
+    },
+
+    closeAllUnpinnedTabs: () => {
+      const { tabs, activeTabId } = get();
+      let newTabs = tabs.filter((t) => t.pinned);
+      if (newTabs.length === 0) {
+        newTabs = [HOME_TAB];
+        set({ tabs: newTabs, activeTabId: HOME_TAB_ID });
+        saveTabs(newTabs, HOME_TAB_ID);
+        return;
+      }
+      const stillActive = newTabs.some((t) => t.id === activeTabId);
+      const newActiveId = stillActive ? activeTabId : (newTabs[newTabs.length - 1]?.id ?? HOME_TAB_ID);
+      set({ tabs: newTabs, activeTabId: newActiveId });
+      saveTabs(newTabs, newActiveId);
+    },
+
+    closeAllTabsToHome: () => {
+      const newTabs = [HOME_TAB];
+      set({ tabs: newTabs, activeTabId: HOME_TAB_ID });
+      saveTabs(newTabs, HOME_TAB_ID);
+    },
+
+    togglePinTab: (tabId) => {
+      if (tabId === HOME_TAB_ID) return;
+      const { tabs, activeTabId } = get();
+      const newTabs = tabs.map((t) =>
+        t.id === tabId ? { ...t, pinned: !t.pinned } : t,
+      );
+      set({ tabs: newTabs });
+      saveTabs(newTabs, activeTabId);
+    },
+
+    duplicateTab: (tabId) => {
+      const { tabs, activeTabId } = get();
+      const tab = tabs.find((t) => t.id === tabId);
+      if (!tab) return;
+      const id = generateTabId();
+      const copy: DomeTab = {
+        ...tab,
+        id,
+        pinned: false,
+      };
+      const idx = tabs.findIndex((t) => t.id === tabId);
+      const newTabs = [...tabs.slice(0, idx + 1), copy, ...tabs.slice(idx + 1)];
+      set({ tabs: newTabs, activeTabId: id });
+      saveTabs(newTabs, id);
+    },
+
     activateTab: (tabId) => {
       const { tabs } = get();
       const exists = tabs.find((t) => t.id === tabId);
@@ -207,10 +296,12 @@ export const useTabStore = create<TabStore>((set, get) => {
         youtube: 'youtube',
         docx: 'docx',
         ppt: 'ppt',
+        document: 'resource',
         pdf: 'resource',
         image: 'resource',
         audio: 'resource',
         video: 'resource',
+        excel: 'resource',
         default: 'resource',
       };
       const tabType: TabType = typeMap[resourceType] ?? 'resource';

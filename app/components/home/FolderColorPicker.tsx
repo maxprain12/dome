@@ -6,7 +6,7 @@ import { HexColorPicker, HexColorInput } from 'react-colorful';
 import { Check } from 'lucide-react';
 
 /** Paleta ampliada: acento del proyecto + tonos oliva + neutros */
-const FOLDER_COLOR_SWATCHES = [
+export const FOLDER_COLOR_SWATCHES = [
   '#596037',
   '#6d7a42',
   '#7d8b52',

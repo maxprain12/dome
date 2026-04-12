@@ -98,6 +98,7 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
   }, [shellHubTab, activeShellTabId, automationsShellTabId]);
 
   const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
+  const hubProjectName = useAppStore((s) => s.currentProject?.name);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
   const isWorkflowCanvasActive = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('workflow:');
 
@@ -227,13 +228,29 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
         </div>
       )}
       {activeTab === 'automations' && (
-        <AutomationsWorkspaceView
-          key={`${hubProjectId}:${automationsFilter?.targetId ?? 'all'}:${automationsListEpoch}`}
-          projectId={hubProjectId}
-          initialFilter={automationsFilter}
-          agents={agents}
-          workflows={workflows}
-        />
+        <div className="flex flex-col h-full min-h-0 overflow-hidden">
+          <div
+            className="shrink-0 px-4 py-2.5 text-[11px] leading-snug border-b"
+            style={{
+              borderColor: 'var(--dome-border)',
+              color: 'var(--dome-text-muted)',
+              background: 'color-mix(in srgb, var(--dome-accent) 6%, var(--dome-surface))',
+            }}
+          >
+            {t('automationHub.automations_scope_banner', {
+              name: hubProjectName ?? hubProjectId,
+            })}
+          </div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <AutomationsWorkspaceView
+              key={`${hubProjectId}:${automationsFilter?.targetId ?? 'all'}:${automationsListEpoch}`}
+              projectId={hubProjectId}
+              initialFilter={automationsFilter}
+              agents={agents}
+              workflows={workflows}
+            />
+          </div>
+        </div>
       )}
       {activeTab === 'runs' && <RunsWorkspaceView />}
     </HubPageLayout>

@@ -2544,6 +2544,9 @@ function getQueries() {
     getResourcesByFolder: db.prepare('SELECT * FROM resources WHERE folder_id = ? ORDER BY updated_at DESC'),
     getRootResources: db.prepare('SELECT * FROM resources WHERE project_id = ? AND folder_id IS NULL ORDER BY updated_at DESC'),
     moveResourceToFolder: db.prepare('UPDATE resources SET folder_id = ?, updated_at = ? WHERE id = ?'),
+    moveResourceToProject: db.prepare(
+      'UPDATE resources SET project_id = ?, folder_id = ?, updated_at = ? WHERE id = ?',
+    ),
     removeResourceFromFolder: db.prepare('UPDATE resources SET folder_id = NULL, updated_at = ? WHERE id = ?'),
 
     // Sources

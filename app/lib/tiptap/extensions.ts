@@ -16,14 +16,30 @@ import TableCell from '@tiptap/extension-table-cell';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import Placeholder from '@tiptap/extension-placeholder';
 import UniqueID from '@tiptap/extension-unique-id';
+import Youtube from '@tiptap/extension-youtube';
 import { createLowlight, common } from 'lowlight';
+
+import { NoteEditorBridge } from '@/lib/tiptap/extensions/note-editor-bridge';
+import { Callout } from '@/lib/tiptap/extensions/callout';
+import { ToggleBlock, ToggleSummary, ToggleBody } from '@/lib/tiptap/extensions/toggle-block';
+import { StyledDivider } from '@/lib/tiptap/extensions/styled-divider';
+import {
+  Column,
+  TwoColumnLayout,
+  ThreeColumnLayout,
+  ColumnLayoutCommands,
+} from '@/lib/tiptap/extensions/column-layout';
+import { ResourceLink } from '@/lib/tiptap/extensions/resource-link';
+import { IframeEmbed } from '@/lib/tiptap/extensions/iframe-embed';
 
 const lowlight = createLowlight(common);
 
-export function buildNoteExtensions(placeholder = 'Escribe algo...') {
+/** Core note blocks (TipTap). Slash + Mention are composed in NoteEditor. */
+export function buildCoreNoteExtensions(placeholder = 'Escribe algo...') {
   return [
+    NoteEditorBridge,
     StarterKit.configure({
-      codeBlock: false, // replaced by CodeBlockLowlight
+      codeBlock: false,
       history: true,
     }),
     Underline,
@@ -46,8 +62,47 @@ export function buildNoteExtensions(placeholder = 'Escribe algo...') {
     TableCell,
     CodeBlockLowlight.configure({ lowlight }),
     Placeholder.configure({ placeholder }),
+    Youtube.configure({
+      width: 640,
+      height: 360,
+      nocookie: true,
+    }),
+    Callout,
+    ToggleSummary,
+    ToggleBody,
+    ToggleBlock,
+    StyledDivider,
+    Column,
+    TwoColumnLayout,
+    ThreeColumnLayout,
+    ColumnLayoutCommands,
+    ResourceLink,
+    IframeEmbed,
     UniqueID.configure({
-      types: ['paragraph', 'heading', 'blockquote', 'listItem', 'taskItem', 'tableRow', 'codeBlock'],
+      types: [
+        'paragraph',
+        'heading',
+        'blockquote',
+        'listItem',
+        'taskItem',
+        'tableRow',
+        'codeBlock',
+        'callout',
+        'toggleBlock',
+        'toggleSummary',
+        'toggleBody',
+        'styledDivider',
+        'iframeEmbed',
+        'twoColumnLayout',
+        'threeColumnLayout',
+        'column',
+        'youtube',
+      ],
     }),
   ];
+}
+
+/** @deprecated Use buildCoreNoteExtensions — alias for compatibility */
+export function buildNoteExtensions(placeholder = 'Escribe algo...') {
+  return buildCoreNoteExtensions(placeholder);
 }

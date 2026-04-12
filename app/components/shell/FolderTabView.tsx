@@ -1,15 +1,18 @@
 import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group, Button } from '@mantine/core';
 import { formatDistanceToNow } from 'date-fns';
 import {
   FolderOpen, Folder, FileText, FileEdit, BookOpen, Globe, File as FileIcon,
   Image, Music, Video, Plus, Home, ChevronRight, FileQuestion,
   MoreVertical, Trash2, Pencil, X, Check, Presentation, Upload, Link2, ChevronDown,
-  Palette,
+  Palette, FolderInput,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useResources, type Resource } from '@/lib/hooks/useResources';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
+import MoveToProjectModal, { filterMoveProjectRoots } from '@/components/workspace/MoveToProjectModal';
+import SelectionActionBar from '@/components/home/SelectionActionBar';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -112,13 +115,25 @@ function ColorPickerPopover({
 // ─── SubfolderCard ────────────────────────────────────────────────────────────
 
 function SubfolderCard({
-  folder, onClick, onRename, onDelete, onChangeColor,
+  folder,
+  onClick,
+  onRename,
+  onDelete,
+  onChangeColor,
+  onMoveToProject,
+  selected,
+  showSelectionChrome,
+  onToggleSelect,
 }: {
   folder: Resource;
   onClick: () => void;
   onRename: (newTitle: string) => void;
   onDelete: () => void;
   onChangeColor: (color: string) => void;
+  onMoveToProject: () => void;
+  selected: boolean;
+  showSelectionChrome: boolean;
+  onToggleSelect: (e: React.MouseEvent) => void;
 }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
@@ -185,11 +200,28 @@ function SubfolderCard({
       className="relative flex flex-col rounded-xl transition-all"
       style={{
         background: hovered ? 'var(--dome-bg-hover)' : 'var(--dome-surface)',
-        border: `1px solid ${hovered ? color : 'var(--dome-border)'}`,
+        border: `1px solid ${selected ? 'var(--dome-accent)' : hovered ? color : 'var(--dome-border)'}`,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); }}
     >
+      {showSelectionChrome ? (
+        <div
+          className="absolute left-2 top-2 z-[2] flex items-center"
+          onClick={(e) => { e.stopPropagation(); }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => {}}
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(e); }}
+            className="rounded border cursor-pointer"
+            style={{ accentColor: 'var(--dome-accent)' }}
+            aria-label={t('selection.deselect')}
+          />
+        </div>
+      ) : null}
       {/* Main clickable area */}
       {renaming ? (
         <div className="flex items-center gap-2 px-3 py-2.5">
@@ -219,9 +251,21 @@ function SubfolderCard({
       ) : (
         <button
           type="button"
-          onClick={onClick}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey) {
+              e.preventDefault();
+              onToggleSelect(e);
+              return;
+            }
+            onClick();
+          }}
           className="flex items-center gap-2.5 px-3 py-2.5 text-left w-full"
-          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            paddingLeft: showSelectionChrome ? 36 : undefined,
+          }}
         >
           <Folder className="w-4 h-4 shrink-0" style={{ color }} />
           <span className="text-sm font-medium truncate flex-1 min-w-0" style={{ color: 'var(--dome-text)' }}>
@@ -258,6 +302,7 @@ function SubfolderCard({
                   setColorPickerPos({ top: rect.bottom + 4, left: Math.max(4, rect.right - 220) });
                 }
               })}
+              {menuItem(<FolderInput className="w-3 h-3" />, t('selection.move_to_project'), onMoveToProject)}
               <div style={{ height: 1, background: 'var(--dome-border)', margin: '3px 0' }} />
               {menuItem(<Trash2 className="w-3 h-3" />, t('folder.delete'), onDelete, true)}
             </div>
@@ -281,13 +326,25 @@ function SubfolderCard({
 // ─── FileRow ──────────────────────────────────────────────────────────────────
 
 function FileRow({
-  file, isLast, onOpen, onDelete, onRename,
+  file,
+  isLast,
+  onOpen,
+  onDelete,
+  onRename,
+  onMoveToProject,
+  selected,
+  showSelectionChrome,
+  onToggleSelect,
 }: {
   file: Resource;
   isLast: boolean;
   onOpen: () => void;
   onDelete: () => void;
   onRename: (newTitle: string) => void;
+  onMoveToProject: () => void;
+  selected: boolean;
+  showSelectionChrome: boolean;
+  onToggleSelect: (e: React.MouseEvent) => void;
 }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
@@ -323,10 +380,23 @@ function FileRow({
       style={{
         borderBottom: isLast ? undefined : '1px solid var(--dome-border)',
         background: hovered ? 'var(--dome-bg-hover)' : 'var(--dome-surface)',
+        outline: selected ? '1px solid var(--dome-accent)' : undefined,
+        outlineOffset: -1,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); setMenuOpen(false); }}
     >
+      {showSelectionChrome ? (
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => {}}
+          onClick={(e) => { e.stopPropagation(); onToggleSelect(e); }}
+          className="rounded border shrink-0 cursor-pointer"
+          style={{ accentColor: 'var(--dome-accent)' }}
+          aria-label={t('selection.deselect')}
+        />
+      ) : null}
       <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: typeColor }} />
       <div style={{ color: typeColor }}>
         <ResourceTypeIcon type={file.type} />
@@ -356,7 +426,14 @@ function FileRow({
       ) : (
         <button
           type="button"
-          onClick={onOpen}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey) {
+              e.preventDefault();
+              onToggleSelect(e);
+              return;
+            }
+            onOpen();
+          }}
           className="flex-1 text-left text-[13px] font-medium truncate hover:underline underline-offset-2 min-w-0"
           style={{ color: 'var(--dome-text)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
         >
@@ -410,6 +487,16 @@ function FileRow({
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
               >
                 <Pencil className="w-3 h-3" /> {t('folder.rename')}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMenuOpen(false); onMoveToProject(); }}
+                className="flex items-center gap-2 w-full px-3 py-2 text-xs text-left"
+                style={{ color: 'var(--dome-text)', background: 'none', border: 'none', cursor: 'pointer' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
+              >
+                <FolderInput className="w-3 h-3" /> {t('selection.move_to_project')}
               </button>
               <button
                 type="button"
@@ -572,6 +659,10 @@ function AddMenu({ onNewNote, onNewFolder, onUpload, onAddUrl }: {
 export default function FolderTabView({ folderId, folderTitle }: FolderTabViewProps) {
   const { t } = useTranslation();
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [moveProjectIds, setMoveProjectIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [folderPickOpen, setFolderPickOpen] = useState(false);
+  const showSelectionChrome = selectedIds.size > 0;
 
   // Current folder header editing
   const [editingTitle, setEditingTitle] = useState(false);
@@ -590,7 +681,53 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     updateResource,
     getFolderById,
     getBreadcrumbPath,
+    refetch,
+    allFolders,
+    moveToFolder,
   } = useResources({ folderId, sortBy: 'updated_at', sortOrder: 'desc' });
+
+  const resourceMapForSelection = useMemo(() => {
+    const m = new Map<string, Resource>();
+    for (const f of subfolders) m.set(f.id, f);
+    for (const f of files) m.set(f.id, f);
+    for (const p of getBreadcrumbPath(folderId)) m.set(p.id, p);
+    const cur = getFolderById(folderId);
+    if (cur) m.set(cur.id, cur);
+    return m;
+  }, [subfolders, files, folderId, getBreadcrumbPath, getFolderById]);
+
+  const toggleSelectId = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }, []);
+
+  const handleBulkMoveToFolder = useCallback(
+    async (targetFolderId: string | null) => {
+      const roots = filterMoveProjectRoots(selectedIds, resourceMapForSelection);
+      for (const rid of roots) {
+        const ok = await moveToFolder(rid, targetFolderId);
+        if (!ok) break;
+      }
+      setSelectedIds(new Set());
+      setFolderPickOpen(false);
+      await refetch();
+    },
+    [selectedIds, resourceMapForSelection, moveToFolder, refetch],
+  );
+
+  const handleBulkDelete = useCallback(async () => {
+    const n = selectedIds.size;
+    if (!window.confirm(t('selection.bulk_delete_confirm', { count: n }))) return;
+    const res = await window.electron?.db?.resources?.bulkDelete([...selectedIds]);
+    if (res?.success) {
+      setSelectedIds(new Set());
+      await refetch();
+    }
+  }, [selectedIds, refetch, t]);
 
   const { openResourceTab, openFolderTab, activateTab, updateTab } = useTabStore();
   const setCurrentFolderId = useAppStore((s) => s.setCurrentFolderId);
@@ -604,6 +741,18 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
 
   const currentFolder = getFolderById(folderId);
   const effectiveProjectId = currentFolder?.project_id ?? currentProject?.id ?? 'default';
+
+  const folderTargetsForMove = useMemo(
+    () =>
+      allFolders.filter(
+        (f) =>
+          f.project_id === effectiveProjectId &&
+          f.id !== folderId &&
+          !selectedIds.has(f.id),
+      ),
+    [allFolders, effectiveProjectId, folderId, selectedIds],
+  );
+
   const breadcrumb = useMemo(
     () => getBreadcrumbPath(folderId).filter((f) => f.id !== folderId),
     [folderId, getBreadcrumbPath],
@@ -853,6 +1002,16 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
           />
         </div>
 
+        <SelectionActionBar
+          count={selectedIds.size}
+          onMoveToFolder={() => setFolderPickOpen(true)}
+          onMoveToProject={() =>
+            setMoveProjectIds([...filterMoveProjectRoots(selectedIds, resourceMapForSelection)])
+          }
+          onDelete={() => void handleBulkDelete()}
+          onDeselect={() => setSelectedIds(new Set())}
+        />
+
         {/* ── Current folder color picker popover ── */}
         {colorPickerPos && (
           <ColorPickerPopover
@@ -913,6 +1072,13 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                       onRename={(newTitle) => handleSubfolderRename(folder.id, newTitle)}
                       onDelete={() => handleSubfolderDelete(folder.id)}
                       onChangeColor={(color) => handleSubfolderColor(folder.id, color, folder)}
+                      onMoveToProject={() => setMoveProjectIds([folder.id])}
+                      selected={selectedIds.has(folder.id)}
+                      showSelectionChrome={showSelectionChrome}
+                      onToggleSelect={(e) => {
+                        e.stopPropagation();
+                        toggleSelectId(folder.id);
+                      }}
                     />
                   ))}
                   {creatingFolder && (
@@ -937,6 +1103,13 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                       onOpen={() => openResourceTab(file.id, file.type, file.title ?? 'Sin título')}
                       onDelete={() => handleDeleteFile(file.id)}
                       onRename={(newTitle) => handleRenameFile(file.id, newTitle)}
+                      onMoveToProject={() => setMoveProjectIds([file.id])}
+                      selected={selectedIds.has(file.id)}
+                      showSelectionChrome={showSelectionChrome}
+                      onToggleSelect={(e) => {
+                        e.stopPropagation();
+                        toggleSelectId(file.id);
+                      }}
                     />
                   ))}
                 </div>
@@ -947,6 +1120,70 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
         )}
 
       </div>
+
+      <Modal
+        opened={folderPickOpen}
+        onClose={() => setFolderPickOpen(false)}
+        title={t('selection.move_to_folder')}
+        centered
+        size="sm"
+      >
+        <Stack gap="xs">
+          <Text size="xs" c="dimmed">
+            {t('selection.items_selected_other', { count: selectedIds.size })}
+          </Text>
+          <ScrollArea.Autosize mah={280}>
+            <Stack gap={4}>
+              <UnstyledButton
+                type="button"
+                onClick={() => void handleBulkMoveToFolder(null)}
+                p="sm"
+                style={{
+                  borderRadius: 8,
+                  border: '1px solid var(--dome-border)',
+                  textAlign: 'left',
+                  background: 'var(--dome-surface)',
+                }}
+              >
+                <Text size="sm" fw={500}>
+                  {t('selection.move_to_root')}
+                </Text>
+              </UnstyledButton>
+              {folderTargetsForMove.map((f) => (
+                <UnstyledButton
+                  key={f.id}
+                  type="button"
+                  onClick={() => void handleBulkMoveToFolder(f.id)}
+                  p="sm"
+                  style={{
+                    borderRadius: 8,
+                    border: '1px solid var(--dome-border)',
+                    textAlign: 'left',
+                    background: 'var(--dome-surface)',
+                  }}
+                >
+                  <Text size="sm" fw={500} truncate>
+                    {f.title}
+                  </Text>
+                </UnstyledButton>
+              ))}
+            </Stack>
+          </ScrollArea.Autosize>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setFolderPickOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <MoveToProjectModal
+        opened={moveProjectIds.length > 0}
+        onClose={() => setMoveProjectIds([])}
+        resourceIds={moveProjectIds}
+        resourcesById={resourceMapForSelection}
+        onCompleted={() => void refetch()}
+      />
     </div>
   );
 }

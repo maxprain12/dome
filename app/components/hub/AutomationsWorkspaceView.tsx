@@ -37,6 +37,7 @@ import HubListItem from '@/components/ui/HubListItem';
 import HubEntityIcon from '@/components/ui/HubEntityIcon';
 import HubToolbar from '@/components/ui/HubToolbar';
 import HubTitleBlock from '@/components/ui/HubTitleBlock';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 export interface AutomationFilter {
   targetType: 'all' | 'agent' | 'workflow';
@@ -432,6 +433,8 @@ interface AutomationsTabProps {
 
 function AutomationsTab({ projectId, initialFilter, agents, workflows }: AutomationsTabProps) {
   const { t } = useTranslation();
+  const appProject = useAppStore((s) => s.currentProject);
+  const [scopeProjectName, setScopeProjectName] = useState<string | null>(null);
   const automationImportInputRef = useRef<HTMLInputElement>(null);
   const [importingAutomationBundle, setImportingAutomationBundle] = useState(false);
   const triggerLabel = useCallback(
@@ -457,6 +460,26 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
   useEffect(() => {
     if (initialFilter) setFilter(initialFilter);
   }, [initialFilter]);
+
+  useEffect(() => {
+    if (appProject?.id === projectId) {
+      setScopeProjectName(appProject.name ?? null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await window.electron?.db?.projects?.getById(projectId);
+        if (!cancelled && res?.success && res.data?.name) setScopeProjectName(res.data.name);
+        else if (!cancelled) setScopeProjectName(null);
+      } catch {
+        if (!cancelled) setScopeProjectName(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, appProject?.id, appProject?.name]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -716,13 +739,15 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
             <HubTitleBlock
               icon={Zap}
               title={t('automationHub.tab_automations')}
-              subtitle={
-                automations.length === 0
-                  ? t('automation.no_automations')
-                  : automations.length === 1
-                    ? t('automationHub.automations_list_one', { count: automations.length })
-                    : t('automationHub.automations_list_other', { count: automations.length })
-              }
+              subtitle={(() => {
+                const base =
+                  automations.length === 0
+                    ? t('automation.no_automations')
+                    : automations.length === 1
+                      ? t('automationHub.automations_list_one', { count: automations.length })
+                      : t('automationHub.automations_list_other', { count: automations.length });
+                return base + t('automation.project_scope_suffix', { name: scopeProjectName ?? projectId });
+              })()}
             />
           }
           center={
@@ -855,6 +880,17 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                         <div className="flex items-center gap-2 min-w-0 flex-wrap">
                           <span className="text-xs font-semibold truncate" style={{ color: 'var(--dome-text)' }}>
                             {a.title}
+                          </span>
+                          <span
+                            className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md max-w-[140px] truncate"
+                            title={t('automation.project_scope_tooltip')}
+                            style={{
+                              background: 'var(--dome-bg-hover)',
+                              color: 'var(--dome-text-muted)',
+                              border: '1px solid var(--dome-border)',
+                            }}
+                          >
+                            {t('automation.project_row_badge', { name: scopeProjectName ?? a.projectId ?? projectId })}
                           </span>
                           <StatusBadge status={a.enabled ? 'completed' : 'cancelled'} />
                         </div>

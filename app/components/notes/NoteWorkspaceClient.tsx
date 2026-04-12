@@ -244,6 +244,8 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
           <NoteEditor
             content={initialContent}
             editable
+            projectId={resource.project_id}
+            currentResourceId={resource.id}
             onUpdate={handleContentUpdate}
             onEditorReady={handleEditorReady}
           />

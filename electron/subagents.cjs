@@ -152,8 +152,8 @@ PPT from folder: (1) get_library_overview; (2) resource_list with folder_id; (3)
  * @param {Function|null} onChunk - optional chunk emitter for real-time tool events
  * @returns {Promise<Array>} LangChain tools the main agent can call
  */
-async function createSubagentTools(llm, createLangChainTools, onChunk, agentNames) {
-  const executeFn = (name, args) => executeToolInMain(name, args);
+async function createSubagentTools(llm, createLangChainTools, onChunk, agentNames, toolContext) {
+  const executeFn = (name, args) => executeToolInMain(name, args, toolContext);
   const agents = Array.isArray(agentNames)
     ? agentNames.filter((name) => typeof name === 'string' && name.trim().length > 0)
     : ['research', 'library', 'writer', 'data'];

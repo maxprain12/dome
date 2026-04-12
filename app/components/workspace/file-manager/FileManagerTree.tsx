@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode, type MouseEvent } from 'react';
 import {
   ChevronRight,
   ChevronDown,
@@ -20,9 +20,14 @@ import {
   Copy,
   FolderPlus,
   FilePlus,
+  FolderInput,
 } from 'lucide-react';
 import { useTabStore } from '@/lib/store/useTabStore';
 import type { Resource } from '@/lib/hooks/useResources';
+import MoveToProjectModal, { filterMoveProjectRoots } from '@/components/workspace/MoveToProjectModal';
+import { useTranslation } from 'react-i18next';
+import SelectionActionBar from '@/components/home/SelectionActionBar';
+import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group, Button } from '@mantine/core';
 
 type TreeNodeData = {
   id: string;
@@ -76,6 +81,9 @@ interface TreeNodeComponentProps {
   onContextMenu: (e: React.MouseEvent, node: TreeNodeData) => void;
   onSelect: (node: TreeNodeData) => void;
   compact?: boolean;
+  selectedIds: Set<string>;
+  showSelChrome: boolean;
+  onToggleSelectId: (id: string) => void;
 }
 
 function TreeNodeComponent({
@@ -86,12 +94,22 @@ function TreeNodeComponent({
   onContextMenu,
   onSelect,
   compact = false,
+  selectedIds,
+  showSelChrome,
+  onToggleSelectId,
 }: TreeNodeComponentProps) {
+  const { t } = useTranslation();
   const isFolder = node.type === 'folder';
   const isExpanded = expandedIds.has(node.id);
   const hasChildren = isFolder && node.children && node.children.length > 0;
+  const selected = selectedIds.has(node.id);
 
-  const handleClick = () => {
+  const handleClick = (e: MouseEvent) => {
+    if (e.metaKey || e.ctrlKey) {
+      e.preventDefault();
+      onToggleSelectId(node.id);
+      return;
+    }
     if (isFolder) {
       onToggle(node.id);
     } else {
@@ -123,8 +141,8 @@ function TreeNodeComponent({
           height,
           fontSize: compact ? 12 : 13,
           color: 'var(--dome-text-secondary)',
-          background: 'transparent',
-          border: 'none',
+          background: selected ? 'var(--dome-bg-hover)' : 'transparent',
+          border: selected ? '1px solid var(--dome-accent)' : 'none',
           cursor: 'pointer',
           minWidth: 0,
         }}
@@ -138,6 +156,22 @@ function TreeNodeComponent({
           (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-secondary)';
         }}
       >
+        {showSelChrome ? (
+          <span className="shrink-0 flex items-center justify-center" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={() => {}}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelectId(node.id);
+              }}
+              className="rounded border cursor-pointer"
+              style={{ accentColor: 'var(--dome-accent)' }}
+              aria-label={t('selection.deselect')}
+            />
+          </span>
+        ) : null}
         <span className="shrink-0 flex items-center justify-center" style={{ width: 14, height: 14 }}>
           {isFolder ? (
             hasChildren || isExpanded ? (
@@ -167,6 +201,9 @@ function TreeNodeComponent({
               onContextMenu={onContextMenu}
               onSelect={onSelect}
               compact={compact}
+              selectedIds={selectedIds}
+              showSelChrome={showSelChrome}
+              onToggleSelectId={onToggleSelectId}
             />
           ))}
         </div>
@@ -180,6 +217,7 @@ function ContextMenu({ state, onClose, onAction }: {
   onClose: () => void;
   onAction: (action: string, node: TreeNodeData) => void;
 }) {
+  const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -198,6 +236,7 @@ function ContextMenu({ state, onClose, onAction }: {
   const menuItems = [
     { action: 'rename', label: 'Rename', icon: <Edit3 className="w-3.5 h-3.5" /> },
     { action: 'duplicate', label: 'Duplicate', icon: <Copy className="w-3.5 h-3.5" /> },
+    { action: 'move-to-project', label: t('selection.move_to_project'), icon: <FolderInput className="w-3.5 h-3.5" /> },
     ...(isFolder ? [
       { action: 'new-folder', label: 'New Folder', icon: <FolderPlus className="w-3.5 h-3.5" /> },
       { action: 'new-file', label: 'New File', icon: <FilePlus className="w-3.5 h-3.5" /> },
@@ -292,6 +331,11 @@ function buildTreeFromResources(resources: Resource[]): TreeNodeData[] {
 }
 
 export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeProps) {
+  const { t } = useTranslation();
+  const [moveProjectIds, setMoveProjectIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [folderPickOpen, setFolderPickOpen] = useState(false);
+  const showSelChrome = selectedIds.size > 0;
   const [resources, setResources] = useState<Resource[]>([]);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
@@ -357,8 +401,51 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
     });
   }, []);
 
+  const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
+
+  const toggleSelectId = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }, []);
+
+  const folderPickTargets = useMemo(
+    () => resources.filter((r) => r.type === 'folder' && !selectedIds.has(r.id)),
+    [resources, selectedIds],
+  );
+
+  const handleBulkDelete = useCallback(async () => {
+    const n = selectedIds.size;
+    if (!window.confirm(t('selection.bulk_delete_confirm', { count: n }))) return;
+    const res = await window.electron?.db?.resources?.bulkDelete([...selectedIds]);
+    if (res?.success) {
+      setSelectedIds(new Set());
+      await fetchResources();
+    }
+  }, [selectedIds, fetchResources, t]);
+
+  const handleBulkMoveToFolder = useCallback(
+    async (targetFolderId: string | null) => {
+      const roots = filterMoveProjectRoots(selectedIds, resourcesById);
+      for (const id of roots) {
+        const r = await window.electron?.db?.resources?.moveToFolder(id, targetFolderId);
+        if (!r?.success) break;
+      }
+      setSelectedIds(new Set());
+      setFolderPickOpen(false);
+      await fetchResources();
+    },
+    [selectedIds, resourcesById, fetchResources],
+  );
+
   const handleContextMenuAction = useCallback(async (action: string, node: TreeNodeData) => {
     switch (action) {
+      case 'move-to-project':
+        setMoveProjectIds([node.id]);
+        break;
       case 'delete':
         if (confirm(`Delete "${node.name}"?`)) {
           await window.electron?.db?.resources?.delete(node.id);
@@ -457,6 +544,14 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
         </div>
       )}
 
+      <SelectionActionBar
+        count={selectedIds.size}
+        onMoveToFolder={() => setFolderPickOpen(true)}
+        onMoveToProject={() => setMoveProjectIds([...filterMoveProjectRoots(selectedIds, resourcesById)])}
+        onDelete={() => void handleBulkDelete()}
+        onDeselect={() => setSelectedIds(new Set())}
+      />
+
       <div className="flex-1 overflow-y-auto px-2 pb-2">
         {filteredTree.length === 0 ? (
           <p className="text-center py-4" style={{ fontSize: 12, color: 'var(--dome-text-muted)' }}>
@@ -473,6 +568,9 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
               onContextMenu={handleContextMenu}
               onSelect={handleSelect}
               compact={compact}
+              selectedIds={selectedIds}
+              showSelChrome={showSelChrome}
+              onToggleSelectId={toggleSelectId}
             />
           ))
         )}
@@ -510,6 +608,70 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
         state={contextMenu}
         onClose={() => setContextMenu((s) => ({ ...s, visible: false }))}
         onAction={handleContextMenuAction}
+      />
+
+      <Modal
+        opened={folderPickOpen}
+        onClose={() => setFolderPickOpen(false)}
+        title={t('selection.move_to_folder')}
+        centered
+        size="sm"
+      >
+        <Stack gap="xs">
+          <Text size="xs" c="dimmed">
+            {t('selection.items_selected_other', { count: selectedIds.size })}
+          </Text>
+          <ScrollArea.Autosize mah={280}>
+            <Stack gap={4}>
+              <UnstyledButton
+                type="button"
+                onClick={() => void handleBulkMoveToFolder(null)}
+                p="sm"
+                style={{
+                  borderRadius: 8,
+                  border: '1px solid var(--dome-border)',
+                  textAlign: 'left',
+                  background: 'var(--dome-surface)',
+                }}
+              >
+                <Text size="sm" fw={500}>
+                  {t('selection.move_to_root')}
+                </Text>
+              </UnstyledButton>
+              {folderPickTargets.map((f) => (
+                <UnstyledButton
+                  key={f.id}
+                  type="button"
+                  onClick={() => void handleBulkMoveToFolder(f.id)}
+                  p="sm"
+                  style={{
+                    borderRadius: 8,
+                    border: '1px solid var(--dome-border)',
+                    textAlign: 'left',
+                    background: 'var(--dome-surface)',
+                  }}
+                >
+                  <Text size="sm" fw={500} truncate>
+                    {f.title}
+                  </Text>
+                </UnstyledButton>
+              ))}
+            </Stack>
+          </ScrollArea.Autosize>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setFolderPickOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <MoveToProjectModal
+        opened={moveProjectIds.length > 0}
+        onClose={() => setMoveProjectIds([])}
+        resourceIds={moveProjectIds}
+        resourcesById={resourcesById}
+        onCompleted={() => void fetchResources()}
       />
     </div>
   );

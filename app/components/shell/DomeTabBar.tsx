@@ -1,11 +1,12 @@
-import { useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { Menu } from '@mantine/core';
 import {
   Home,
   Settings,
   Calendar,
   MessageCircle,
-  FileText,
   FileEdit,
   BookOpen,
   Globe,
@@ -23,10 +24,19 @@ import {
   Bot,
   Workflow,
   Activity,
+  MoreHorizontal,
+  ChevronLeft,
 } from 'lucide-react';
-import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
+import {
+  useTabStore,
+  type DomeTab,
+  HOME_TAB_ID,
+} from '@/lib/store/useTabStore';
 import { getDomeTabDisplayTitle } from '@/lib/dome-tab-title';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
+import { FOLDER_COLOR_SWATCHES } from '@/components/home/FolderColorPicker';
+
+const TAB_OVERFLOW_MIN_COUNT = 8;
 
 function TabIcon({ tab }: { tab: DomeTab }) {
   const cls = 'w-3.5 h-3.5 shrink-0';
@@ -56,14 +66,48 @@ function TabIcon({ tab }: { tab: DomeTab }) {
   }
 }
 
+function parseResourceMetadata(raw: unknown): Record<string, unknown> {
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  if (typeof raw === 'object') return { ...(raw as Record<string, unknown>) };
+  return {};
+}
+
+async function persistFolderTabColor(tab: DomeTab, color: string): Promise<void> {
+  if (tab.type !== 'folder' || !tab.resourceId || !window.electron?.db?.resources) return;
+  const res = await window.electron.db.resources.getById(tab.resourceId);
+  if (!res?.success || !res.data) return;
+  const meta = parseResourceMetadata(res.data.metadata);
+  await window.electron.db.resources.update({
+    id: tab.resourceId,
+    metadata: { ...meta, color },
+    updated_at: Date.now(),
+  });
+  useTabStore.getState().updateTab(tab.id, { color });
+}
+
+type TabCtxState = {
+  x: number;
+  y: number;
+  tab: DomeTab;
+  view: 'main' | 'colors';
+};
+
 interface TabItemProps {
   tab: DomeTab;
   isActive: boolean;
   onActivate: () => void;
   onClose: () => void;
+  onContextMenu: (e: React.MouseEvent, tab: DomeTab) => void;
 }
 
-function TabItem({ tab, isActive, onActivate, onClose }: TabItemProps) {
+function TabItem({ tab, isActive, onActivate, onClose, onContextMenu }: TabItemProps) {
   const { t } = useTranslation();
   const displayTitle = getDomeTabDisplayTitle(tab, t);
   const folderColor = tab.type === 'folder' && tab.color ? tab.color : null;
@@ -72,6 +116,7 @@ function TabItem({ tab, isActive, onActivate, onClose }: TabItemProps) {
     <button
       type="button"
       onClick={onActivate}
+      onContextMenu={(e) => onContextMenu(e, tab)}
       className="flex items-center gap-1.5 px-3 shrink-0 relative group transition-colors duration-100"
       style={{
         height: '100%',
@@ -89,7 +134,8 @@ function TabItem({ tab, isActive, onActivate, onClose }: TabItemProps) {
         borderBottom: isActive ? `2px solid ${accentColor}` : '2px solid transparent',
         cursor: 'pointer',
         userSelect: 'none',
-      }}
+        WebkitAppRegion: 'no-drag',
+      } as React.CSSProperties}
       onMouseEnter={(e) => {
         if (!isActive) {
           (e.currentTarget as HTMLButtonElement).style.background = folderColor
@@ -134,55 +180,352 @@ interface DomeTabBarProps {
 
 export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
   const { t } = useTranslation();
-  const { tabs, activeTabId, activateTab, closeTab } = useTabStore();
+  const {
+    tabs,
+    activeTabId,
+    activateTab,
+    closeTab,
+    closeAllUnpinnedTabs,
+    closeAllTabsToHome,
+  } = useTabStore();
+
   const scrollRef = useRef<HTMLDivElement>(null);
   useHorizontalScroll(scrollRef);
 
-  return (
-    <div
-      ref={scrollRef}
-      className="flex items-stretch flex-1 min-w-0 overflow-x-auto scrollbar-none"
-      style={{
-        height: '100%',
-        background: 'var(--dome-bg)',
-      }}
-    >
-      {tabs.map((tab) => (
-        <TabItem
-          key={tab.id}
-          tab={tab}
-          isActive={tab.id === activeTabId}
-          onActivate={() => activateTab(tab.id)}
-          onClose={() => closeTab(tab.id)}
-        />
-      ))}
+  const [hasHorizontalOverflow, setHasHorizontalOverflow] = useState(false);
+  const [ctxMenu, setCtxMenu] = useState<TabCtxState | null>(null);
 
-      {/* New chat / tab button */}
-      <button
-        type="button"
-        onClick={onNewChat}
-        className="flex items-center justify-center shrink-0 transition-colors duration-100"
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = () => {
+      setHasHorizontalOverflow(el.scrollWidth > el.clientWidth + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [tabs.length]);
+
+  const showOverflowList =
+    hasHorizontalOverflow || tabs.length >= TAB_OVERFLOW_MIN_COUNT;
+
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    /* Bubble phase so clicks on menu items run before we close */
+    document.addEventListener('click', close, false);
+    document.addEventListener('contextmenu', close, false);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', close, false);
+      document.removeEventListener('contextmenu', close, false);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [ctxMenu]);
+
+  const openTabContext = useCallback((e: React.MouseEvent, tab: DomeTab) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCtxMenu({ x: e.clientX, y: e.clientY, tab, view: 'main' });
+  }, []);
+
+  const closeCtx = useCallback(() => setCtxMenu(null), []);
+
+  /* Render context menu with local view switch (fix broken color submenu) */
+  const ctxPortal = ctxMenu && (
+    <TabContextMenuBridge
+      state={ctxMenu}
+      onClose={closeCtx}
+      onOpenColors={() => {
+        setCtxMenu((s) => (s ? { ...s, view: 'colors' } : null));
+      }}
+      onBackToMain={() => {
+        setCtxMenu((s) => (s ? { ...s, view: 'main' } : null));
+      }}
+    />
+  );
+
+  return (
+    <>
+      {ctxPortal}
+      <div
+        className="flex items-stretch flex-1 min-w-0"
         style={{
-          width: 36,
           height: '100%',
-          color: 'var(--dome-text-muted)',
-          borderRight: '1px solid var(--dome-border)',
-        }}
-        title={t('workspace.new_conversation')}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
-          (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-          (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)';
+          background: 'var(--dome-bg)',
         }}
       >
-        <Plus className="w-3.5 h-3.5" strokeWidth={2} />
-      </button>
+        {showOverflowList && (
+          <Menu shadow="md" width={260} position="bottom-start" withinPortal>
+            <Menu.Target>
+              <button
+                type="button"
+                className="flex items-center justify-center shrink-0 transition-colors duration-100"
+                style={{
+                  width: 32,
+                  height: '100%',
+                  color: 'var(--dome-text-muted)',
+                  borderRight: '1px solid var(--dome-border)',
+                  background: 'var(--dome-bg)',
+                  cursor: 'pointer',
+                  WebkitAppRegion: 'no-drag',
+                }}
+                title={t('workspace.tab_menu_all_tabs')}
+                aria-label={t('workspace.tab_menu_all_tabs')}
+              >
+                <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
+              </button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {tabs.map((tab) => (
+                <Menu.Item
+                  key={tab.id}
+                  onClick={() => activateTab(tab.id)}
+                  leftSection={<TabIcon tab={tab} />}
+                >
+                  <span className="truncate">{getDomeTabDisplayTitle(tab, t)}</span>
+                </Menu.Item>
+              ))}
+              <Menu.Divider />
+              <Menu.Item onClick={() => closeAllUnpinnedTabs()}>
+                {t('workspace.tab_menu_close_all_unpinned')}
+              </Menu.Item>
+              <Menu.Item color="red" onClick={() => closeAllTabsToHome()}>
+                {t('workspace.tab_menu_close_all')}
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        )}
 
-      {/* Spacer */}
-      <div className="flex-1" />
-    </div>
+        <div
+          ref={scrollRef}
+          className="flex items-stretch flex-1 min-w-0 overflow-x-auto scrollbar-none"
+          style={{ height: '100%' }}
+        >
+          {tabs.map((tab) => (
+            <TabItem
+              key={tab.id}
+              tab={tab}
+              isActive={tab.id === activeTabId}
+              onActivate={() => activateTab(tab.id)}
+              onClose={() => closeTab(tab.id)}
+              onContextMenu={openTabContext}
+            />
+          ))}
+
+          <button
+            type="button"
+            onClick={onNewChat}
+            className="flex items-center justify-center shrink-0 transition-colors duration-100"
+            style={{
+              width: 36,
+              height: '100%',
+              color: 'var(--dome-text-muted)',
+              borderRight: '1px solid var(--dome-border)',
+              WebkitAppRegion: 'no-drag',
+            }}
+            title={t('workspace.new_conversation')}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
+              (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+              (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)';
+            }}
+          >
+            <Plus className="w-3.5 h-3.5" strokeWidth={2} />
+          </button>
+
+          <div className="flex-1 min-w-[12px]" />
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Connects context menu actions and color-submenu navigation */
+function TabContextMenuBridge({
+  state,
+  onClose,
+  onOpenColors,
+  onBackToMain,
+}: {
+  state: TabCtxState;
+  onClose: () => void;
+  onOpenColors: () => void;
+  onBackToMain: () => void;
+}) {
+  const { t } = useTranslation();
+  const {
+    closeTab,
+    closeOtherTabs,
+    closeTabsToTheRight,
+    togglePinTab,
+    duplicateTab,
+    tabs,
+  } = useTabStore();
+
+  const { tab, view, x, y } = state;
+  const displayTitle = getDomeTabDisplayTitle(tab, t);
+  const idx = tabs.findIndex((q) => q.id === tab.id);
+  const hasRight = idx >= 0 && idx < tabs.length - 1;
+  const isHome = tab.id === HOME_TAB_ID;
+  const canPinToggle = !isHome;
+  const showColors = tab.type === 'folder' && Boolean(tab.resourceId);
+
+  const run = (fn: () => void) => {
+    fn();
+    onClose();
+  };
+
+  const menuStyle: React.CSSProperties = {
+    position: 'fixed',
+    left: Math.min(x, window.innerWidth - 240),
+    top: Math.min(y, window.innerHeight - 320),
+    zIndex: 99999,
+    minWidth: 200,
+    maxWidth: 280,
+    background: 'var(--dome-surface)',
+    border: '1px solid var(--dome-border)',
+    borderRadius: 10,
+    boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+    padding: 6,
+  };
+
+  const itemBase: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 9,
+    width: '100%',
+    padding: '8px 10px',
+    border: 'none',
+    borderRadius: 6,
+    background: 'transparent',
+    cursor: 'pointer',
+    textAlign: 'left',
+    fontSize: 12.5,
+    fontWeight: 500,
+    color: 'var(--dome-text)',
+  };
+
+  const Item = ({
+    label,
+    onClick,
+    disabled,
+    danger,
+  }: {
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    danger?: boolean;
+  }) => {
+    const [hover, setHover] = useState(false);
+    return (
+      <button
+        type="button"
+        role="menuitem"
+        disabled={disabled}
+        onClick={() => { if (!disabled) onClick(); }}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        style={{
+          ...itemBase,
+          opacity: disabled ? 0.45 : 1,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          background: hover && !disabled ? 'var(--dome-bg-hover)' : 'transparent',
+          color: danger ? 'var(--dome-danger, #ef4444)' : 'var(--dome-text)',
+        }}
+      >
+        {label}
+      </button>
+    );
+  };
+
+  if (view === 'colors' && showColors) {
+    return ReactDOM.createPortal(
+      <div style={menuStyle} role="menu">
+        <button
+          type="button"
+          onClick={onBackToMain}
+          style={{ ...itemBase, marginBottom: 4 }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+        >
+          <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
+          {t('workspace.tab_menu_back')}
+        </button>
+        <div
+          className="flex flex-wrap gap-1.5 px-1 pb-1"
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.stopPropagation()}
+        >
+          {FOLDER_COLOR_SWATCHES.map((color) => (
+            <button
+              key={color}
+              type="button"
+              onClick={() => {
+                void persistFolderTabColor(tab, color);
+                onClose();
+              }}
+              className="w-6 h-6 rounded border"
+              style={{
+                backgroundColor: color,
+                borderColor: 'var(--dome-border)',
+              }}
+              aria-label={color}
+            />
+          ))}
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
+  return ReactDOM.createPortal(
+    <div
+      style={menuStyle}
+      role="menu"
+      aria-label={displayTitle}
+      onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.stopPropagation()}
+    >
+      <Item
+        label={t('workspace.tab_menu_close')}
+        disabled={Boolean(tab.pinned)}
+        onClick={() => run(() => closeTab(tab.id))}
+      />
+      <Item
+        label={t('workspace.tab_menu_close_others')}
+        onClick={() => run(() => closeOtherTabs(tab.id))}
+      />
+      <Item
+        label={t('workspace.tab_menu_close_to_right')}
+        disabled={!hasRight}
+        onClick={() => run(() => closeTabsToTheRight(tab.id))}
+      />
+      <div style={{ height: 1, margin: '4px 0', background: 'var(--dome-border)' }} />
+      <Item
+        label={tab.pinned ? t('workspace.tab_menu_unpin') : t('workspace.tab_menu_pin')}
+        disabled={!canPinToggle}
+        onClick={() => run(() => togglePinTab(tab.id))}
+      />
+      {showColors && (
+        <Item
+          label={t('workspace.tab_menu_change_color')}
+          onClick={() => onOpenColors()}
+        />
+      )}
+      <Item
+        label={t('workspace.tab_menu_duplicate')}
+        disabled={isHome}
+        onClick={() => run(() => duplicateTab(tab.id))}
+      />
+    </div>,
+    document.body,
   );
 }

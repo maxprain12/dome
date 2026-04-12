@@ -68,9 +68,11 @@ const ALLOWED_CHANNELS = {
     'db:resources:search',
     'db:resources:getAll',
     'db:resources:delete',
+    'db:resources:bulkDelete',
     'db:resources:getByFolder',
     'db:resources:getRoot',
     'db:resources:moveToFolder',
+    'db:resources:moveToProject',
     'db:resources:removeFromFolder',
     'db:resources:searchForMention',
     'db:resources:getBacklinks',
@@ -844,11 +846,14 @@ const electronHandler = {
       search: (query) => ipcRenderer.invoke('db:resources:search', query),
       getAll: (limit) => ipcRenderer.invoke('db:resources:getAll', limit),
       delete: (id) => ipcRenderer.invoke('db:resources:delete', id),
+      bulkDelete: (resourceIds) => ipcRenderer.invoke('db:resources:bulkDelete', resourceIds),
       // Folder containment
       getByFolder: (folderId) => ipcRenderer.invoke('db:resources:getByFolder', folderId),
       getRoot: (projectId) => ipcRenderer.invoke('db:resources:getRoot', projectId),
       moveToFolder: (resourceId, folderId) =>
         ipcRenderer.invoke('db:resources:moveToFolder', { resourceId, folderId }),
+      moveToProject: (resourceId, projectId) =>
+        ipcRenderer.invoke('db:resources:moveToProject', { resourceId, projectId }),
       removeFromFolder: (resourceId) =>
         ipcRenderer.invoke('db:resources:removeFromFolder', resourceId),
       searchForMention: (query) =>

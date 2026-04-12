@@ -8,6 +8,7 @@
  */
 
 const aiToolsHandler = require('./ai-tools-handler.cjs');
+const database = require('./database.cjs');
 
 /**
  * Tool name (normalized) to aiToolsHandler method mapping
@@ -87,9 +88,22 @@ function normalizeToolName(name) {
  * Execute a single tool call in main process
  * @param {string} toolName - Normalized tool name
  * @param {object} args - Tool arguments (parsed from JSON)
+ * @param {{ automationProjectId?: string | null } | null | undefined} [toolContext] - When set, resource tools are scoped to this project (automation / workflow runs).
  * @returns {Promise<object>} Result suitable for appending to conversation
  */
-async function executeToolInMain(toolName, args) {
+async function executeToolInMain(toolName, args, toolContext) {
+  const automationProjectId = toolContext?.automationProjectId ?? null;
+
+  function denyUnlessResourceInScope(resourceId) {
+    if (!automationProjectId || !resourceId) return null;
+    const queries = database.getQueries();
+    const row = queries.getResourceById.get(resourceId);
+    if (!row || row.project_id !== automationProjectId) {
+      return { success: false, error: 'Resource is outside the automation project scope' };
+    }
+    return null;
+  }
+
   const handlerName = TOOL_HANDLER_MAP[toolName];
   if (!handlerName || !aiToolsHandler[handlerName]) {
     return { status: 'error', error: `Tool not supported: ${toolName}` };
@@ -101,58 +115,114 @@ async function executeToolInMain(toolName, args) {
 
     switch (handlerName) {
       case 'resourceSearch':
-        result = await fn(args.query || '', { project_id: args.project_id, type: args.type, limit: args.limit });
-        break;
-      case 'resourceGet':
-        result = await fn(args.resource_id || args.resourceId || args.id, {
-          includeContent: args.include_content !== false,
-          maxContentLength: args.max_content_length,
+        result = await fn(args.query || '', {
+          project_id: automationProjectId || args.project_id,
+          type: args.type,
+          limit: args.limit,
         });
         break;
-      case 'resourceGetSection':
-        result = await fn(
-          args.resource_id || args.resourceId || args.id,
-          args.node_id || args.nodeId,
-        );
+      case 'resourceGet': {
+        const rid = args.resource_id || args.resourceId || args.id;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) {
+          result = denied;
+        } else {
+          result = await fn(rid, {
+            includeContent: args.include_content !== false,
+            maxContentLength: args.max_content_length,
+          });
+        }
         break;
+      }
+      case 'resourceGetSection': {
+        const rid = args.resource_id || args.resourceId || args.id;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) {
+          result = denied;
+        } else {
+          result = await fn(rid, args.node_id || args.nodeId);
+        }
+        break;
+      }
       case 'resourceList':
-        result = await fn({ project_id: args.project_id, folder_id: args.folder_id, type: args.type, limit: args.limit, sort: args.sort });
+        result = await fn({
+          project_id: automationProjectId || args.project_id,
+          folder_id: args.folder_id,
+          type: args.type,
+          limit: args.limit,
+          sort: args.sort,
+        });
         break;
       case 'resourceSemanticSearch':
         result = await fn(args.query || '', {
-          project_id: args.project_id || args.projectId,
+          project_id: automationProjectId || args.project_id || args.projectId,
           limit: args.limit || args.count || 10,
         });
         break;
       case 'projectList':
         result = await fn();
         break;
-      case 'projectGet':
-        result = await fn(args.project_id || args.projectId);
+      case 'projectGet': {
+        const pid = args.project_id || args.projectId;
+        if (automationProjectId && pid && pid !== automationProjectId) {
+          result = { success: false, error: 'Project is outside the automation project scope' };
+        } else {
+          result = await fn(pid);
+        }
         break;
+      }
       case 'getRecentResources':
-        result = await fn(args.limit || 5);
+        result = await fn(args.limit || 5, automationProjectId);
         break;
       case 'getCurrentProject':
-        result = await fn();
+        result = await fn(automationProjectId);
         break;
       case 'getLibraryOverview':
-        result = await fn({ project_id: args.project_id });
+        result = await fn({ project_id: automationProjectId || args.project_id });
         break;
       case 'resourceCreate':
-        result = await fn(args);
+        result = await fn(automationProjectId ? { ...args, project_id: automationProjectId } : args);
         break;
-      case 'resourceUpdate':
-        result = await fn(args.resource_id || args.resourceId, { title: args.title, content: args.content, metadata: args.metadata });
+      case 'resourceUpdate': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) {
+          result = denied;
+        } else {
+          result = await fn(rid, { title: args.title, content: args.content, metadata: args.metadata });
+        }
         break;
-      case 'resourceDelete':
-        result = await fn(args.resource_id || args.resourceId);
+      }
+      case 'resourceDelete': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) {
+          result = denied;
+        } else {
+          result = await fn(rid);
+        }
         break;
-      case 'resourceMoveToFolder':
-        result = await fn(args.resource_id || args.resourceId, args.folder_id ?? args.folderId);
+      }
+      case 'resourceMoveToFolder': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) {
+          result = denied;
+        } else {
+          const fid = args.folder_id ?? args.folderId;
+          if (fid != null && fid !== '') {
+            const fd = denyUnlessResourceInScope(fid);
+            if (fd) {
+              result = fd;
+              break;
+            }
+          }
+          result = await fn(rid, fid);
+        }
         break;
+      }
       case 'flashcardCreate':
-        result = await fn(args);
+        result = await fn(automationProjectId ? { ...args, project_id: automationProjectId } : args);
         break;
       case 'webFetch':
         result = await fn(args);
@@ -163,84 +233,180 @@ async function executeToolInMain(toolName, args) {
       case 'deepResearch':
         result = fn(args);
         break;
-      case 'excelGet':
-        result = await fn(args.resource_id || args.resourceId, { sheet_name: args.sheet_name, range: args.range });
+      case 'excelGet': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid, { sheet_name: args.sheet_name, range: args.range });
         break;
-      case 'excelGetFilePath':
-        result = await fn(args.resource_id || args.resourceId);
+      }
+      case 'excelGetFilePath': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid);
         break;
-      case 'notebookGet':
-        result = await fn(args.resource_id || args.resourceId);
+      }
+      case 'notebookGet': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid);
         break;
-      case 'notebookAddCell':
-        result = await fn(
-          args.resource_id || args.resourceId,
-          args.cell_type || 'code',
-          args.source || '',
-          args.position
-        );
+      }
+      case 'notebookAddCell': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else {
+          result = await fn(
+            rid,
+            args.cell_type || 'code',
+            args.source || '',
+            args.position
+          );
+        }
         break;
-      case 'notebookUpdateCell':
-        result = await fn(args.resource_id || args.resourceId, args.cell_index, args.source || '');
+      }
+      case 'notebookUpdateCell': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid, args.cell_index, args.source || '');
         break;
-      case 'notebookDeleteCell':
-        result = await fn(args.resource_id || args.resourceId, args.cell_index);
+      }
+      case 'notebookDeleteCell': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid, args.cell_index);
         break;
-      case 'excelSetCell':
-        result = await fn(args.resource_id || args.resourceId, args.sheet_name, args.cell, args.value);
+      }
+      case 'excelSetCell': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid, args.sheet_name, args.cell, args.value);
         break;
-      case 'excelSetRange':
-        result = await fn(args.resource_id || args.resourceId, args.sheet_name, args.range, args.values);
+      }
+      case 'excelSetRange': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid, args.sheet_name, args.range, args.values);
         break;
-      case 'excelAddRow':
-        result = await fn(args.resource_id || args.resourceId, args.sheet_name, args.values, args.after_row);
+      }
+      case 'excelAddRow': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid, args.sheet_name, args.values, args.after_row);
         break;
-      case 'excelAddSheet':
-        result = await fn(args.resource_id || args.resourceId, args.sheet_name, args.data);
+      }
+      case 'excelAddSheet': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid, args.sheet_name, args.data);
         break;
-      case 'excelCreate':
-        result = await fn(args.project_id || args.projectId, args.title, {
+      }
+      case 'excelCreate': {
+        if (args.folder_id && automationProjectId) {
+          const fd = denyUnlessResourceInScope(args.folder_id);
+          if (fd) {
+            result = fd;
+            break;
+          }
+        }
+        result = await fn(automationProjectId || args.project_id || args.projectId, args.title, {
           sheet_name: args.sheet_name,
           initial_data: args.initial_data,
           folder_id: args.folder_id,
         });
         break;
-      case 'excelExport':
-        result = await fn(args.resource_id || args.resourceId, { format: args.format, sheet_name: args.sheet_name });
+      }
+      case 'excelExport': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid, { format: args.format, sheet_name: args.sheet_name });
         break;
+      }
       case 'pptCreate': {
         const opts = {};
-        if (args.folder_id) opts.folder_id = args.folder_id;
+        if (args.folder_id) {
+          const fd = denyUnlessResourceInScope(args.folder_id);
+          if (fd) {
+            result = fd;
+            break;
+          }
+          opts.folder_id = args.folder_id;
+        }
         if (args.script) opts.script = args.script;
         result = await fn(
-          args.project_id || args.projectId,
+          automationProjectId || args.project_id || args.projectId,
           args.title,
           args.spec || {},
           opts
         );
         break;
       }
-      case 'pptGetFilePath':
-        result = await fn(args.resource_id || args.resourceId);
+      case 'pptGetFilePath': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid);
         break;
-      case 'pptGetSlides':
-        result = await fn(args.resource_id || args.resourceId);
+      }
+      case 'pptGetSlides': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid);
         break;
-      case 'pptExport':
-        result = await fn(args.resource_id || args.resourceId, args.options || {});
+      }
+      case 'pptExport': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid, args.options || {});
         break;
+      }
       case 'rememberFact':
         result = await fn(args.key || '', args.value || '');
         break;
-      case 'getDocumentStructure':
-        result = await fn({ resource_id: args.resource_id || args.resourceId });
+      case 'getDocumentStructure': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn({ resource_id: rid });
         break;
-      case 'linkResources':
-        result = await fn({ source_id: args.source_id, target_id: args.target_id, relation: args.relation, description: args.description });
+      }
+      case 'linkResources': {
+        const a = denyUnlessResourceInScope(args.source_id);
+        if (a) {
+          result = a;
+        } else {
+          const b = denyUnlessResourceInScope(args.target_id);
+          if (b) result = b;
+          else {
+            result = await fn({
+              source_id: args.source_id,
+              target_id: args.target_id,
+              relation: args.relation,
+              description: args.description,
+            });
+          }
+        }
         break;
-      case 'getRelatedResources':
-        result = await fn({ resource_id: args.resource_id || args.resourceId });
+      }
+      case 'getRelatedResources': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn({ resource_id: rid });
         break;
+      }
       case 'calendarListEvents':
         result = await fn({ start_at: args.start_at, end_at: args.end_at, calendar_ids: args.calendar_ids });
         break;
@@ -259,19 +425,33 @@ async function executeToolInMain(toolName, args) {
       case 'getToolDefinition':
         result = await fn(args.tool_name || args.toolName || '');
         break;
-      case 'doclingGetResourceImages':
-        result = await fn(args.resource_id || args.resourceId);
+      case 'doclingGetResourceImages': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid);
         break;
-      case 'doclingGetImageData':
-        result = await fn(args.image_id || args.imageId, args.resource_id || args.resourceId);
+      }
+      case 'doclingGetImageData': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(args.image_id || args.imageId, rid);
         break;
-      case 'doclingShowPageImages':
-        result = await fn({
-          resource_id: args.resource_id || args.resourceId,
-          page_no: args.page_no,
-          max_images: args.max_images ?? 3,
-        });
+      }
+      case 'doclingShowPageImages': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else {
+          result = await fn({
+            resource_id: rid,
+            page_no: args.page_no,
+            max_images: args.max_images ?? 3,
+          });
+        }
         break;
+      }
       default:
         result = await fn(args);
     }
