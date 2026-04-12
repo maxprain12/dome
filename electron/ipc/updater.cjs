@@ -37,6 +37,20 @@ function register({ ipcMain, windowManager, validateSender }) {
       throw error;
     }
   });
+
+  ipcMain.handle('updater:skip', async (event, version) => {
+    try {
+      validateSender(event, windowManager);
+      if (typeof version !== 'string' || !version.trim()) {
+        return { ok: false, error: 'invalid_version' };
+      }
+      updateService.skipVersion(version.trim());
+      return { ok: true };
+    } catch (error) {
+      console.error('[IPC] Error in updater:skip:', error.message);
+      throw error;
+    }
+  });
 }
 
 module.exports = { register };

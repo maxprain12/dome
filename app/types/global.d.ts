@@ -272,6 +272,7 @@ declare global {
         check: () => Promise<unknown>;
         download: () => Promise<unknown>;
         install: () => Promise<void>;
+        skip: (version: string) => Promise<{ ok: boolean; error?: string }>;
         onStatus: (cb: (s: { status: string; version?: string; percent?: number; error?: string; [key: string]: unknown }) => void) => () => void;
       };
 

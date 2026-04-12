@@ -187,7 +187,7 @@ exports.default = async function afterPack(context) {
       `[AfterPack] ✅ Playwright browsers bundled at ${path.relative(resourcesPath, playwrightBrowsersPath)}: ${browsers.join(', ') || 'none'}`,
     );
   } else {
-    console.warn('[AfterPack] ⚠️  Playwright bundled browsers are missing from resources');
+    console.log('[AfterPack] Playwright browsers not bundled (downloaded on first web scrape to userData; smaller installer).');
   }
 
   const pageIndexRuntimePath = path.join(resourcesPath, 'pageindex-runtime');

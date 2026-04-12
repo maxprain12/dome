@@ -45,6 +45,16 @@ export default function UpdateAlertBanner() {
     window.electron?.updater?.install();
   };
 
+  const handleSkipVersion = async () => {
+    if (!version) return;
+    try {
+      await window.electron?.updater?.skip(version);
+      setUpdaterState({ status: 'not-available', version });
+    } catch (e) {
+      console.error('[UpdateAlertBanner] Skip version failed:', e);
+    }
+  };
+
   if (!shouldShow) return null;
 
   return (
@@ -74,6 +84,18 @@ export default function UpdateAlertBanner() {
             >
               <Download className="w-4 h-4" />
               Descargar
+            </button>
+            <button
+              type="button"
+              onClick={handleSkipVersion}
+              className="btn btn-secondary flex items-center gap-2 shrink-0 text-xs"
+              style={{
+                background: 'transparent',
+                color: 'inherit',
+                border: '1px solid rgba(255,255,255,0.35)',
+              }}
+            >
+              {t('settings.advanced.skip_this_version')}
             </button>
           </>
         )}

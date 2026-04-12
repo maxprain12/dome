@@ -161,13 +161,28 @@ export default function AdvancedSettings() {
               </span>
             )}
             {updaterState.status === 'available' && (
-              <button
-                onClick={() => window.electron?.updater?.download()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
-                style={{ backgroundColor: DOME_GREEN }}
-              >
-                <Download className="w-3 h-3" /> {t('settings.advanced.download_version', { version: updaterState.version })}
-              </button>
+              <div className="flex flex-wrap items-center gap-2 justify-end">
+                <button
+                  onClick={() => window.electron?.updater?.download()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+                  style={{ backgroundColor: DOME_GREEN }}
+                >
+                  <Download className="w-3 h-3" /> {t('settings.advanced.download_version', { version: updaterState.version })}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const v = updaterState.version;
+                    if (!v) return;
+                    await window.electron?.updater?.skip(v);
+                    setUpdaterState({ status: 'not-available', version: v });
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                  style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)', border: '1px solid var(--dome-border)' }}
+                >
+                  {t('settings.advanced.skip_this_version')}
+                </button>
+              </div>
             )}
             {updaterState.status === 'downloaded' && (
               <button

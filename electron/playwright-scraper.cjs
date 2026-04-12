@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 const { chromium } = require('playwright');
 
 const { extractContentFromHtml } = require('./html-content-extractor.cjs');
@@ -122,6 +123,7 @@ const API_PATTERNS = [
 
 let browserPromise = null;
 let resolvedBrowsersRoot = null;
+let chromiumInstallPromise = null;
 
 function isRetryableBrowserError(error) {
   const message = error?.message || String(error);
@@ -147,19 +149,132 @@ function isLikelyApiUrl(url) {
   }
 }
 
+function getUserDataPlaywrightBrowsersDir() {
+  try {
+    const { app } = require('electron');
+    return path.join(app.getPath('userData'), 'playwright-browsers');
+  } catch {
+    return null;
+  }
+}
+
+function resolvePlaywrightCliJs() {
+  try {
+    const { app } = require('electron');
+    if (app?.isPackaged && process.resourcesPath) {
+      const packaged = path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'node_modules',
+        'playwright',
+        'cli.js',
+      );
+      if (fs.existsSync(packaged)) return packaged;
+    }
+  } catch {
+    /* ignore */
+  }
+  const dev = path.join(__dirname, '..', 'node_modules', 'playwright', 'cli.js');
+  return fs.existsSync(dev) ? dev : null;
+}
+
+/**
+ * Run `playwright install chromium` into PLAYWRIGHT_BROWSERS_PATH using Electron's bundled Node
+ * (ELECTRON_RUN_AS_NODE), so packaged apps do not need a system `node` binary.
+ */
+function runPlaywrightInstallChromium(targetDir) {
+  const cli = resolvePlaywrightCliJs();
+  if (!cli) {
+    return Promise.reject(new Error('[PlaywrightScraper] playwright/cli.js not found'));
+  }
+
+  return new Promise((resolve, reject) => {
+    fs.mkdirSync(targetDir, { recursive: true });
+    const child = spawn(process.execPath, [cli, 'install', 'chromium'], {
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
+        PLAYWRIGHT_BROWSERS_PATH: targetDir,
+      },
+      cwd: path.dirname(cli),
+      stdio: 'inherit',
+    });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`playwright install chromium exited with code ${code}`));
+    });
+  });
+}
+
+async function ensureChromiumInstalled() {
+  if (resolveChromiumExecutablePath()) return;
+
+  const userDir = getUserDataPlaywrightBrowsersDir();
+  if (!userDir) {
+    throw new Error('[PlaywrightScraper] Cannot resolve userData path for Playwright browsers');
+  }
+
+  fs.mkdirSync(userDir, { recursive: true });
+  process.env.PLAYWRIGHT_BROWSERS_PATH = userDir;
+  resolvedBrowsersRoot = userDir;
+
+  if (resolveChromiumExecutablePath()) return;
+
+  if (!chromiumInstallPromise) {
+    console.log('[PlaywrightScraper] Downloading Chromium (first use, ~150–400 MB)...');
+    chromiumInstallPromise = runPlaywrightInstallChromium(userDir).finally(() => {
+      chromiumInstallPromise = null;
+    });
+  }
+  await chromiumInstallPromise;
+
+  if (!resolveChromiumExecutablePath()) {
+    throw new Error(
+      '[PlaywrightScraper] Chromium install finished but executable not found. Check network / disk space.',
+    );
+  }
+}
+
 function configurePlaywrightBrowserPath() {
   if (resolvedBrowsersRoot) return resolvedBrowsersRoot;
 
   const candidates = [];
-  if (process.resourcesPath) {
+  let isPackaged = false;
+  try {
+    const { app } = require('electron');
+    isPackaged = Boolean(app?.isPackaged);
+    const userBrowsers = getUserDataPlaywrightBrowsersDir();
+    if (userBrowsers) {
+      if (isPackaged) {
+        candidates.push(userBrowsers);
+      } else {
+        candidates.push(path.join(__dirname, '..', 'node_modules', 'playwright-core', '.local-browsers'));
+        candidates.push(userBrowsers);
+      }
+    }
+  } catch {
+    candidates.push(path.join(__dirname, '..', 'node_modules', 'playwright-core', '.local-browsers'));
+  }
+
+  if (isPackaged && process.resourcesPath) {
+    candidates.push(path.join(process.resourcesPath, 'playwright-browsers'));
+    candidates.push(
+      path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'playwright-core', '.local-browsers'),
+    );
+  } else if (!isPackaged && process.resourcesPath) {
     candidates.push(path.join(process.resourcesPath, 'playwright-browsers'));
     candidates.push(
       path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'playwright-core', '.local-browsers'),
     );
   }
-  candidates.push(path.join(__dirname, '..', 'node_modules', 'playwright-core', '.local-browsers'));
+
+  if (!candidates.includes(path.join(__dirname, '..', 'node_modules', 'playwright-core', '.local-browsers'))) {
+    candidates.push(path.join(__dirname, '..', 'node_modules', 'playwright-core', '.local-browsers'));
+  }
 
   for (const candidate of candidates) {
+    if (!candidate) continue;
     if (fs.existsSync(candidate)) {
       process.env.PLAYWRIGHT_BROWSERS_PATH = candidate;
       resolvedBrowsersRoot = candidate;
@@ -239,6 +354,7 @@ async function getBrowser() {
     return browserPromise;
   }
 
+  await ensureChromiumInstalled();
   const executablePath = resolveChromiumExecutablePath();
 
   browserPromise = chromium.launch({

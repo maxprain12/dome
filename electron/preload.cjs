@@ -407,6 +407,7 @@ const ALLOWED_CHANNELS = {
     'updater:check',
     'updater:download',
     'updater:install',
+    'updater:skip',
     // Sync export/import
     'sync:export',
     'sync:import',
@@ -709,6 +710,7 @@ const electronHandler = {
     check: () => ipcRenderer.invoke('updater:check'),
     download: () => ipcRenderer.invoke('updater:download'),
     install: () => ipcRenderer.invoke('updater:install'),
+    skip: (version) => ipcRenderer.invoke('updater:skip', version),
     onStatus: (callback) => {
       const subscription = (event, data) => callback(data);
       ipcRenderer.on('updater:status', subscription);

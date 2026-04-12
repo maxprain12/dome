@@ -18,6 +18,8 @@
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_OPTIONS=--max-old-space-size=8192 electron .\"",
     "electron:build": "npm run build && npm run rebuild:natives && npm run verify:natives && node scripts/prepare-pageindex-runtime.cjs && node scripts/embed-env.cjs && cross-env DEBUG= electron-builder",
     "electron:build:verbose": "npm run build && npm run rebuild:natives && npm run verify:natives && node scripts/prepare-pageindex-runtime.cjs && node scripts/embed-env.cjs && cross-env DEBUG=electron-builder electron-builder",
+    "electron:pack": "cross-env DEBUG= electron-builder",
+    "electron:pack:verbose": "cross-env DEBUG=electron-builder electron-builder",
     "prepare:pageindex-runtime": "node scripts/prepare-pageindex-runtime.cjs",
     "playwright:install": "cross-env PLAYWRIGHT_BROWSERS_PATH=0 playwright install chromium",
     "rebuild:natives": "electron-rebuild -f -w=better-sqlite3,sharp,@ffmpeg-installer/ffmpeg,@napi-rs/canvas,node-pty",
@@ -205,13 +207,6 @@
         "filter": [
           "**/*"
         ]
-      },
-      {
-        "from": "node_modules/playwright-core/.local-browsers",
-        "to": "playwright-browsers",
-        "filter": [
-          "**/*"
-        ]
       }
     ],
     "asarUnpack": [
@@ -248,13 +243,15 @@
         {
           "target": "dmg",
           "arch": [
-            "arm64"
+            "arm64",
+            "x64"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "arm64"
+            "arm64",
+            "x64"
           ]
         }
       ],
@@ -269,7 +266,8 @@
         "nsis",
         "portable"
       ],
-      "icon": "assets/icon-256.png"
+      "icon": "assets/icon-256.png",
+      "verifyUpdateCodeSignature": false
     },
     "portable": {
       "artifactName": "${productName}-${version}.${ext}"
@@ -277,7 +275,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "${productName}-Setup-${version}.${ext}"
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "compression": "maximum"
     }
   }
 }

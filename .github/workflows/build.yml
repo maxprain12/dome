@@ -35,29 +35,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Rebuild native modules
-        run: npm run rebuild:natives
-
-      - name: Verify native modules
-        run: npm run verify:natives
-
-      - name: Embed build credentials
-        run: node scripts/embed-env.cjs
+      - name: Build Vite, natives, PageIndex, embed env, pack (macOS)
+        run: |
+          npm run build
+          npm run rebuild:natives
+          npm run verify:natives
+          node scripts/prepare-pageindex-runtime.cjs
+          node scripts/embed-env.cjs
+          if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
+            echo "No code signing credentials, building without signing..."
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            npm run electron:pack -- --mac --arm64 --x64 --config.mac.identity=null --config.mac.notarize=false --publish never
+          else
+            echo "Code signing credentials found, building with signing..."
+            npm run electron:pack -- --mac --arm64 --x64 --publish never
+          fi
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
           DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
-
-      - name: Build Electron (macOS)
-        run: |
-          if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
-            echo "⚠️  No code signing credentials, building without signing..."
-            export CSC_IDENTITY_AUTO_DISCOVERY=false
-            npm run electron:build -- --mac --arm64 --config.mac.identity=null --config.mac.notarize=false --publish never
-          else
-            echo "✓ Code signing credentials found, building with signing..."
-            npm run electron:build -- --mac --arm64 --publish never
-          fi
-        env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -99,21 +94,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Rebuild native modules
-        run: npm run rebuild:natives
-
-      - name: Verify native modules
-        run: npm run verify:natives
-
-      - name: Embed build credentials
-        run: node scripts/embed-env.cjs
+      - name: Build Vite, natives, PageIndex, embed env, pack (Windows)
+        run: |
+          npm run build
+          npm run rebuild:natives
+          npm run verify:natives
+          node scripts/prepare-pageindex-runtime.cjs
+          node scripts/embed-env.cjs
+          npm run electron:pack -- --win --publish never
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
           DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
-
-      - name: Build Electron (Windows)
-        run: npm run electron:build -- --win --publish never
-        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
 
