@@ -29,7 +29,21 @@ const {
   Menu,
   Tray,
   protocol,
+  session,
+  desktopCapturer,
+  systemPreferences,
 } = require('electron');
+
+// Pending display-media source ID.
+// The renderer sets this via IPC immediately before calling getDisplayMedia() so the
+// setDisplayMediaRequestHandler can select the correct source without Chromium's picker.
+// Only one getDisplayMedia call can be in-flight at a time per renderer, so a single
+// variable (no per-window keying) is sufficient.
+const pendingDisplayMediaSources = {
+  sourceId: null,
+  set(id) { this.sourceId = id; },
+  consume() { const id = this.sourceId; this.sourceId = null; return id; },
+};
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -707,15 +721,16 @@ app
       aiToolsHandler,
       aiCloudService,
       ttsService,
-    documentExtractor,
-    documentGenerator,
-    docxConverter,
-    authManager,
-    personalityLoader,
-    notebookPython,
-    validateSender,
+      documentExtractor,
+      documentGenerator,
+      docxConverter,
+      authManager,
+      personalityLoader,
+      notebookPython,
+      validateSender,
       sanitizePath,
       validateUrl,
+      pendingDisplayMediaSources,
     });
 
     try {
@@ -729,6 +744,40 @@ app
     // IMPORTANTE: Crear ventana PRIMERO para que la UI se muestre inmediatamente
     // La inicializacion de LanceDB puede fallar o bloquearse con modulos nativos
     const mainWindow = await createWindow();
+
+    // Modern Electron display-media handler for system/meeting audio capture.
+    // The renderer calls window.electron.transcription.setDisplayMediaSource(id)
+    // BEFORE calling navigator.mediaDevices.getDisplayMedia(), storing the desired
+    // source ID here so we can bypass Chromium's own picker and use the right source.
+    session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+      try {
+        // Consume the pending source ID set by the renderer just before calling getDisplayMedia()
+        const sourceId = pendingDisplayMediaSources.consume();
+
+        const sources = await desktopCapturer.getSources({
+          types: ['screen', 'window'],
+          thumbnailSize: { width: 1, height: 1 }, // minimal — we only need IDs
+        });
+
+        let videoSource = sources[0]; // fallback: first screen
+        if (sourceId) {
+          const match = sources.find((s) => s.id === sourceId);
+          if (match) videoSource = match;
+        }
+
+        if (!videoSource) {
+          callback({});
+          return;
+        }
+
+        // 'loopback' captures system audio on macOS 13+ and Windows.
+        // On Linux this is ignored; audio capture depends on PipeWire availability.
+        callback({ video: videoSource, audio: 'loopback' });
+      } catch (err) {
+        console.error('[DisplayMedia] setDisplayMediaRequestHandler error:', err?.message);
+        callback({});
+      }
+    });
 
     try {
       const manyVoiceOverlay = require('./many-voice-overlay.cjs');

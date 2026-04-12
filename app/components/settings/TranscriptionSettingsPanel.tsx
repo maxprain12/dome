@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Mic } from 'lucide-react';
+import { Mic, ShieldCheck, ShieldAlert, ShieldOff, ShieldQuestion } from 'lucide-react';
 import { notifications } from '@mantine/notifications';
+
+type PermStatus = 'granted' | 'denied' | 'not-determined' | 'restricted' | 'unknown';
 
 const DOME_GREEN = '#596037';
 
@@ -32,6 +34,61 @@ function SettingsCard({ children }: { children: React.ReactNode }) {
   );
 }
 
+interface PermissionRowProps {
+  label: string;
+  status: PermStatus;
+  onRequest: () => Promise<void>;
+  onOpenPrefs?: () => void;
+  loading: boolean;
+  t: (key: string) => string;
+}
+
+function PermissionRow({ label, status, onRequest, onOpenPrefs, loading, t }: PermissionRowProps) {
+  const statusConfig: Record<PermStatus, { icon: React.ReactNode; color: string; text: string }> = {
+    granted: { icon: <ShieldCheck className="h-4 w-4" />, color: '#22c55e', text: t('settings.transcription.perm_granted') },
+    denied: { icon: <ShieldOff className="h-4 w-4" />, color: '#ef4444', text: t('settings.transcription.perm_denied') },
+    'not-determined': { icon: <ShieldQuestion className="h-4 w-4" />, color: '#f59e0b', text: t('settings.transcription.perm_not_determined') },
+    restricted: { icon: <ShieldAlert className="h-4 w-4" />, color: '#ef4444', text: t('settings.transcription.perm_restricted') },
+    unknown: { icon: <ShieldQuestion className="h-4 w-4" />, color: 'var(--dome-text-muted)', text: '—' },
+  };
+  const cfg = statusConfig[status];
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 min-w-0">
+        <span style={{ color: cfg.color, flexShrink: 0 }}>{cfg.icon}</span>
+        <div className="min-w-0">
+          <span className="text-sm font-medium block truncate" style={{ color: 'var(--dome-text)' }}>{label}</span>
+          <span className="text-[11px]" style={{ color: cfg.color }}>{cfg.text}</span>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {status === 'denied' && onOpenPrefs && (
+          <button
+            type="button"
+            onClick={onOpenPrefs}
+            className="rounded-md px-2 py-1 text-[11px] font-medium border"
+            style={{ borderColor: '#ef4444', color: '#ef4444', background: 'transparent' }}
+          >
+            {t('settings.transcription.perm_open_prefs')}
+          </button>
+        )}
+        {(status === 'not-determined' || status === 'unknown') && (
+          <button
+            type="button"
+            onClick={() => void onRequest()}
+            disabled={loading}
+            className="rounded-md px-2 py-1 text-[11px] font-medium border disabled:opacity-50"
+            style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)', background: 'var(--dome-bg-hover)' }}
+          >
+            {t('settings.transcription.perm_request')}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function TranscriptionSettingsPanel() {
   const { t } = useTranslation();
   const [sttProvider, setSttProvider] = useState<SttProvider>('openai');
@@ -54,6 +111,19 @@ export default function TranscriptionSettingsPanel() {
   const [hasGroqKey, setHasGroqKey] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [micPerm, setMicPerm] = useState<PermStatus>('unknown');
+  const [screenPerm, setScreenPerm] = useState<PermStatus>('unknown');
+  const [permLoading, setPermLoading] = useState(false);
+  const isMac = window.electron?.isMac ?? false;
+
+  const loadPermissions = useCallback(async () => {
+    if (!window.electron?.transcription?.getPermissionsStatus) return;
+    const res = await window.electron.transcription.getPermissionsStatus();
+    if (res.success) {
+      setMicPerm((res.microphone as PermStatus) ?? 'unknown');
+      setScreenPerm((res.screen as PermStatus) ?? 'unknown');
+    }
+  }, []);
 
   const load = useCallback(async () => {
     if (!window.electron?.transcription?.getSettings) return;
@@ -87,7 +157,8 @@ export default function TranscriptionSettingsPanel() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadPermissions();
+  }, [load, loadPermissions]);
 
   const persist = async (patch: {
     sttProvider?: SttProvider;
@@ -189,6 +260,61 @@ export default function TranscriptionSettingsPanel() {
         <p className="text-[11px] mt-2 leading-relaxed" style={{ color: 'var(--dome-text-muted)', opacity: 0.95 }}>
           {t('settings.transcription.hub_floating_note')}
         </p>
+      </div>
+
+      {/* 0 — Permissions */}
+      <div>
+        <SectionLabel>{t('settings.transcription.section_permissions')}</SectionLabel>
+        <SettingsCard>
+          {!isMac ? (
+            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+              {t('settings.transcription.perm_os_managed')}
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {/* Microphone row */}
+              <PermissionRow
+                label={t('settings.transcription.perm_mic')}
+                status={micPerm}
+                onRequest={async () => {
+                  setPermLoading(true);
+                  try {
+                    await window.electron?.transcription?.requestMicrophoneAccess?.();
+                    await loadPermissions();
+                  } finally {
+                    setPermLoading(false);
+                  }
+                }}
+                loading={permLoading}
+                t={t}
+              />
+              {/* Screen Recording row */}
+              <PermissionRow
+                label={t('settings.transcription.perm_screen')}
+                status={screenPerm}
+                onRequest={async () => {
+                  setPermLoading(true);
+                  try {
+                    await window.electron?.transcription?.requestScreenAccess?.();
+                    await loadPermissions();
+                  } finally {
+                    setPermLoading(false);
+                  }
+                }}
+                onOpenPrefs={() =>
+                  void window.electron?.invoke?.('open-external-url', 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
+                }
+                loading={permLoading}
+                t={t}
+              />
+              {screenPerm === 'granted' && (
+                <p className="text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+                  {t('settings.transcription.perm_screen_restart_hint')}
+                </p>
+              )}
+            </div>
+          )}
+        </SettingsCard>
       </div>
 
       {/* 1 — Inicio rápido (STT) */}

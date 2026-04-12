@@ -52,7 +52,7 @@ function getTranscriptionDefaults(database) {
   return { sttProvider, model, language, apiBaseUrl, prompt, pauseThresholdSec };
 }
 
-function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandler, thumbnail, initModule, ollamaService }) {
+function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandler, thumbnail, initModule, ollamaService, pendingDisplayMediaSources }) {
   const transcriptionService = require('../transcription-service.cjs');
   const transcriptionStructured = require('../transcription-structured.cjs');
   const transcriptionShortcut = require('../transcription-shortcut.cjs');
@@ -74,6 +74,71 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
       return { success: true, granted: true };
     } catch (err) {
       console.error('[Transcription] microphone access error:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  /**
+   * Store the desired desktopCapturer source ID before the renderer calls getDisplayMedia().
+   * The setDisplayMediaRequestHandler in main.cjs reads this to select the right source.
+   */
+  ipcMain.handle('transcription:set-display-media-source', async (event, { sourceId } = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    if (typeof sourceId !== 'string' || !sourceId) {
+      return { success: false, error: 'sourceId required' };
+    }
+    if (pendingDisplayMediaSources && typeof pendingDisplayMediaSources.set === 'function') {
+      pendingDisplayMediaSources.set(sourceId);
+    }
+    return { success: true };
+  });
+
+  /**
+   * Returns current microphone and screen recording permission status.
+   * On macOS uses systemPreferences.getMediaAccessStatus().
+   * On Windows/Linux returns 'granted' (managed by OS).
+   */
+  ipcMain.handle('transcription:get-permissions-status', async (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      if (process.platform === 'darwin') {
+        const { systemPreferences } = require('electron');
+        const microphone = systemPreferences.getMediaAccessStatus('microphone');
+        const screen = systemPreferences.getMediaAccessStatus('screen');
+        return { success: true, microphone, screen };
+      }
+      return { success: true, microphone: 'granted', screen: 'granted' };
+    } catch (err) {
+      console.error('[Transcription] get-permissions-status error:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  /**
+   * Triggers the macOS Screen Recording permission dialog by calling getSources().
+   * On macOS, there is no systemPreferences.askForMediaAccess('screen') — the only
+   * way to prompt is to actually attempt screen capture.
+   * Returns the updated permission status after the attempt.
+   */
+  ipcMain.handle('transcription:request-screen-access', async (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      if (process.platform === 'darwin') {
+        const { desktopCapturer, systemPreferences } = require('electron');
+        // This call triggers the OS permission prompt on first use
+        await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } });
+        const screen = systemPreferences.getMediaAccessStatus('screen');
+        return { success: true, screen };
+      }
+      return { success: true, screen: 'granted' };
+    } catch (err) {
+      console.error('[Transcription] request-screen-access error:', err);
       return { success: false, error: err.message };
     }
   });

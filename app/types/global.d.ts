@@ -1387,6 +1387,18 @@ declare global {
           sources?: Array<{ id: string; name: string }>;
           error?: string;
         }>;
+        setDisplayMediaSource: (sourceId: string) => Promise<{ success: boolean; error?: string }>;
+        getPermissionsStatus: () => Promise<{
+          success: boolean;
+          microphone?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
+          screen?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
+          error?: string;
+        }>;
+        requestScreenAccess: () => Promise<{
+          success: boolean;
+          screen?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
+          error?: string;
+        }>;
         onToggleRecording: (callback: () => void) => RemoveListenerFn;
       };
 

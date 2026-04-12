@@ -28,6 +28,7 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
   const [pickedSourceId, setPickedSourceId] = useState('');
   const [loadingSources, setLoadingSources] = useState(false);
   const [recordingInputKind, setRecordingInputKind] = useState<'microphone' | 'system'>('microphone');
+  const [screenPermStatus, setScreenPermStatus] = useState<'unknown' | 'granted' | 'denied' | 'not-determined' | 'restricted'>('unknown');
 
   const captureKindRef = useRef<'microphone' | 'system'>('microphone');
   const hubContentRef = useRef<HTMLDivElement | null>(null);
@@ -183,20 +184,15 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
     setRecordingInputKind('system');
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          mandatory: {
-            chromeMediaSource: 'desktop',
-            chromeMediaSourceId: pickedSourceId,
-          },
-        },
-        video: {
-          mandatory: {
-            chromeMediaSource: 'desktop',
-            chromeMediaSourceId: pickedSourceId,
-          },
-        },
-      } as MediaStreamConstraints);
+      // Tell the main process which source to use before calling getDisplayMedia.
+      // The setDisplayMediaRequestHandler in main.cjs reads this and bypasses
+      // Chromium's own picker, selecting the correct source directly.
+      await window.electron.transcription.setDisplayMediaSource(pickedSourceId);
+
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
 
       if (desktopCancelRef.current) {
         stream.getTracks().forEach((tr) => tr.stop());
@@ -218,10 +214,44 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
         return;
       }
 
+      // Brief silence check: if the audio track appears completely silent right
+      // after capture, warn the user — this typically means Screen Recording
+      // permission is granted but the OS is providing a muted/empty track.
+      try {
+        const ctx = new AudioContext();
+        const source = ctx.createMediaStreamSource(new MediaStream(audioTracks));
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        await new Promise<void>((resolve) => setTimeout(resolve, 600));
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(data);
+        const maxLevel = data.reduce((a, b) => Math.max(a, b), 0);
+        void ctx.close();
+        if (maxLevel === 0) {
+          notifications.show({
+            title: t('media.dock_recording_unavailable'),
+            message: t('media.dock_silent_audio_warning'),
+            color: 'yellow',
+          });
+          audioTracks.forEach((tr) => tr.stop());
+          setVisible(false);
+          return;
+        }
+      } catch {
+        // If AudioContext check fails for any reason, proceed anyway
+      }
+
       recorder.startFromStream(new MediaStream(audioTracks));
     } catch (err) {
       const name = err instanceof Error ? err.name : '';
       const msg = err instanceof Error ? err.message : String(err);
+
+      // Update local screen permission state on denial
+      if (name === 'NotAllowedError' || /denied|permission/i.test(msg)) {
+        setScreenPermStatus('denied');
+      }
+
       let message = msg;
       if (name === 'NotAllowedError' || /denied|permission/i.test(msg)) {
         message = window.electron?.isMac ? t('media.dock_screen_denied_mac') : t('media.dock_system_hint');
@@ -266,6 +296,15 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
     setVisible(true);
     setDesktopSources(null);
     setPickedSourceId('');
+    // Fetch permission status and sources eagerly when dock opens
+    void (async () => {
+      if (window.electron?.transcription?.getPermissionsStatus) {
+        const perm = await window.electron.transcription.getPermissionsStatus();
+        if (perm.success && perm.screen) {
+          setScreenPermStatus(perm.screen as typeof screenPermStatus);
+        }
+      }
+    })();
   };
 
   useEffect(() => {
@@ -274,6 +313,14 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
       toggleDockRef.current();
     });
   }, []);
+
+  // Auto-load desktop sources when dock opens (skip if permission explicitly denied)
+  useEffect(() => {
+    if (!visible) return;
+    if (screenPermStatus === 'denied') return;
+    void loadDesktopSources();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   useEffect(() => {
     if (isOverlay) return undefined;
@@ -443,9 +490,28 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
                     className="text-[11px] underline"
                     style={{ color: 'var(--dome-accent)', background: 'none', border: 'none', cursor: 'pointer' }}
                   >
-                    {loadingSources ? '…' : t('media.dock_load_sources')}
+                    {loadingSources ? '…' : t('media.dock_refresh_sources')}
                   </button>
                 </div>
+
+                {/* Permission denied banner (macOS only) */}
+                {screenPermStatus === 'denied' && window.electron?.isMac && (
+                  <div
+                    className="mb-2 rounded-md px-2 py-1.5 text-[11px] leading-snug"
+                    style={{ background: 'color-mix(in srgb, #ef4444 12%, transparent)', color: '#ef4444' }}
+                  >
+                    <p className="mb-1">{t('media.dock_perm_screen_denied')}</p>
+                    <button
+                      type="button"
+                      className="underline text-[11px]"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}
+                      onClick={() => void window.electron?.invoke?.('open-external-url', 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')}
+                    >
+                      {t('media.dock_perm_screen_open_prefs')}
+                    </button>
+                  </div>
+                )}
+
                 {desktopSources && desktopSources.length > 0 && (
                   <select
                     value={pickedSourceId}
@@ -467,7 +533,7 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
                 <button
                   type="button"
                   onClick={() => void startRecordingDesktop()}
-                  disabled={!pickedSourceId || !desktopSources?.length}
+                  disabled={!pickedSourceId || !desktopSources?.length || screenPermStatus === 'denied'}
                   className="flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium disabled:opacity-45"
                   style={{
                     borderColor: 'var(--dome-border)',

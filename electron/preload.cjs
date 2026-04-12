@@ -353,6 +353,9 @@ const ALLOWED_CHANNELS = {
     'transcription:regenerate-linked-note',
     'transcription:patch-transcript-speakers',
     'transcription:list-desktop-capture-sources',
+    'transcription:set-display-media-source',
+    'transcription:get-permissions-status',
+    'transcription:request-screen-access',
     // Transcription overlay hub
     'transcription-overlay:toggle-from-ui',
     'transcription-overlay:overlay-set-visible',
@@ -1436,6 +1439,10 @@ const electronHandler = {
     patchTranscriptSpeakers: (args) =>
       ipcRenderer.invoke('transcription:patch-transcript-speakers', args),
     listDesktopCaptureSources: () => ipcRenderer.invoke('transcription:list-desktop-capture-sources'),
+    setDisplayMediaSource: (sourceId) =>
+      ipcRenderer.invoke('transcription:set-display-media-source', { sourceId }),
+    getPermissionsStatus: () => ipcRenderer.invoke('transcription:get-permissions-status'),
+    requestScreenAccess: () => ipcRenderer.invoke('transcription:request-screen-access'),
     onToggleRecording: (callback) => {
       const subscription = () => callback();
       ipcRenderer.on('transcription:toggle-recording', subscription);

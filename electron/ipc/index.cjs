@@ -74,6 +74,7 @@ function registerAll(deps) {
     validateSender,
     sanitizePath,
     validateUrl,
+    pendingDisplayMediaSources,
   } = deps;
 
   const fs = require('fs');
@@ -126,6 +127,7 @@ function registerAll(deps) {
     thumbnail,
     initModule,
     ollamaService,
+    pendingDisplayMediaSources,
   });
   browserContextHandlers.register({ ipcMain, windowManager });
   manyVoiceHandlers.register({ ipcMain, windowManager });
