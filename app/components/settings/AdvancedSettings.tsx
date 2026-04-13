@@ -4,9 +4,14 @@ import { Download, RefreshCw, RotateCw, FileStack, CheckCircle2, Upload, ArrowDo
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { CitationStyle } from '@/types';
-
-const DOME_GREEN = '#596037';
-const DOME_GREEN_LIGHT = '#E0EAB4';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeCard from '@/components/ui/DomeCard';
+import DomeToggle from '@/components/ui/DomeToggle';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeDivider from '@/components/ui/DomeDivider';
+import DomeProgressBar from '@/components/ui/DomeProgressBar';
+import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
 
 type UpdaterStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
 
@@ -26,48 +31,14 @@ const citationStyles: { value: CitationStyle; label: string; description: string
   { value: 'ieee',      label: 'IEEE',      description: 'Electrical & Electronics Engineers' },
 ];
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-      {children}
-    </p>
-  );
-}
-
-function SettingsCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-xl ${className}`} style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-      {children}
-    </div>
-  );
-}
-
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={onChange}
-      className="relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200"
-      style={{ backgroundColor: checked ? DOME_GREEN : 'var(--dome-border)' }}
-    >
-      <span
-        className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
-        style={{ transform: checked ? 'translateX(16px)' : 'translateX(0)' }}
-      />
-    </button>
-  );
-}
-
-function ToggleRow({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: () => void }) {
+function ToggleRow({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (next: boolean) => void }) {
   return (
     <div className="flex items-center justify-between gap-4 px-4 py-3.5">
       <div>
         <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{label}</p>
         <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{description}</p>
       </div>
-      <Toggle checked={checked} onChange={onChange} />
+      <DomeToggle checked={checked} onChange={onChange} size="sm" />
     </div>
   );
 }
@@ -119,20 +90,16 @@ export default function AdvancedSettings() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
-      <div>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>
-          {t('settings.advanced.title')}
-        </h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          {t('settings.advanced.subtitle')}
-        </p>
-      </div>
+      <DomeSubpageHeader
+        className="!border-0 px-0 py-0 bg-transparent"
+        title={t('settings.advanced.title')}
+        subtitle={t('settings.advanced.subtitle')}
+      />
 
       {/* ── Updates ── */}
       <div>
-        <SectionLabel>{t('settings.advanced.updates')}</SectionLabel>
-        <SettingsCard className="p-4 space-y-3">
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.advanced.updates')}</DomeSectionLabel>
+        <DomeCard className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>Dome</p>
@@ -141,58 +108,64 @@ export default function AdvancedSettings() {
               </p>
             </div>
 
-            {updaterState.status === 'idle' && (
-              <button
-                onClick={handleCheckUpdate}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
+            {updaterState.status === 'idle' ? (
+              <DomeButton
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleCheckUpdate()}
+                leftIcon={<RefreshCw className="w-3 h-3" aria-hidden />}
               >
-                <RefreshCw className="w-3 h-3" /> {t('settings.advanced.check_updates')}
-              </button>
-            )}
+                {t('settings.advanced.check_updates')}
+              </DomeButton>
+            ) : null}
             {updaterState.status === 'checking' && (
               <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--dome-text-muted)' }}>
                 <RefreshCw className="w-3 h-3 animate-spin" /> {t('settings.advanced.checking')}
               </span>
             )}
             {updaterState.status === 'not-available' && (
-              <span className="text-xs flex items-center gap-1.5" style={{ color: DOME_GREEN }}>
+              <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--dome-accent)' }}>
                 <CheckCircle2 className="w-3.5 h-3.5" /> {t('settings.advanced.up_to_date')}
               </span>
             )}
-            {updaterState.status === 'available' && (
+            {updaterState.status === 'available' ? (
               <div className="flex flex-wrap items-center gap-2 justify-end">
-                <button
-                  onClick={() => window.electron?.updater?.download()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
-                  style={{ backgroundColor: DOME_GREEN }}
-                >
-                  <Download className="w-3 h-3" /> {t('settings.advanced.download_version', { version: updaterState.version })}
-                </button>
-                <button
+                <DomeButton
                   type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => window.electron?.updater?.download()}
+                  leftIcon={<Download className="w-3 h-3" aria-hidden />}
+                >
+                  {t('settings.advanced.download_version', { version: updaterState.version })}
+                </DomeButton>
+                <DomeButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={async () => {
                     const v = updaterState.version;
                     if (!v) return;
                     await window.electron?.updater?.skip(v);
                     setUpdaterState({ status: 'not-available', version: v });
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-                  style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)', border: '1px solid var(--dome-border)' }}
                 >
                   {t('settings.advanced.skip_this_version')}
-                </button>
+                </DomeButton>
               </div>
-            )}
-            {updaterState.status === 'downloaded' && (
-              <button
+            ) : null}
+            {updaterState.status === 'downloaded' ? (
+              <DomeButton
+                type="button"
+                variant="primary"
+                size="sm"
                 onClick={() => window.electron?.updater?.install()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
-                style={{ backgroundColor: DOME_GREEN }}
+                leftIcon={<RotateCw className="w-3 h-3" aria-hidden />}
               >
-                <RotateCw className="w-3 h-3" /> {t('settings.advanced.restart_install')}
-              </button>
-            )}
+                {t('settings.advanced.restart_install')}
+              </DomeButton>
+            ) : null}
             {updaterState.status === 'error' && (
               <span className="text-xs" style={{ color: 'var(--dome-error, #ef4444)' }}>
                 {updaterState.error || t('settings.advanced.error_update')}
@@ -200,76 +173,61 @@ export default function AdvancedSettings() {
             )}
           </div>
 
-          {updaterState.status === 'downloading' && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.advanced.downloading')}</span>
-                <span className="text-xs font-medium" style={{ color: DOME_GREEN }}>{updaterState.percent?.toFixed(0) ?? 0}%</span>
-              </div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--dome-border)' }}>
-                <div
-                  className="h-full rounded-full transition-all duration-300"
-                  style={{ width: `${updaterState.percent ?? 0}%`, backgroundColor: DOME_GREEN }}
-                />
-              </div>
-            </div>
-          )}
-        </SettingsCard>
+          {updaterState.status === 'downloading' ? (
+            <DomeProgressBar
+              value={updaterState.percent ?? 0}
+              max={100}
+              size="sm"
+              label={
+                <span className="flex w-full justify-between">
+                  <span>{t('settings.advanced.downloading')}</span>
+                  <span className="font-medium text-[var(--dome-accent)]">{updaterState.percent?.toFixed(0) ?? 0}%</span>
+                </span>
+              }
+            />
+          ) : null}
+        </DomeCard>
       </div>
 
       {/* ── Preferences ── */}
       <div>
-        <SectionLabel>{t('settings.advanced.preferences')}</SectionLabel>
-        <SettingsCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.advanced.preferences')}</DomeSectionLabel>
+        <DomeCard>
           <ToggleRow
             label={t('settings.advanced.auto_save')}
             description={t('settings.advanced.auto_save_desc')}
             checked={autoSave}
-            onChange={() => updatePreferences({ autoSave: !autoSave })}
+            onChange={(v) => updatePreferences({ autoSave: v })}
           />
-          <div style={{ height: 1, backgroundColor: 'var(--dome-border)', margin: '0 16px' }} />
+          <DomeDivider spacingClass="!my-0 mx-4" />
           <ToggleRow
             label={t('settings.advanced.auto_backup')}
             description={t('settings.advanced.auto_backup_desc')}
             checked={autoBackup}
-            onChange={() => updatePreferences({ autoBackup: !autoBackup })}
+            onChange={(v) => updatePreferences({ autoBackup: v })}
           />
-        </SettingsCard>
+        </DomeCard>
       </div>
 
       {/* ── Citation style ── */}
       <div>
-        <SectionLabel>{t('settings.advanced.citation_style')}</SectionLabel>
-        <div className="grid grid-cols-3 gap-2">
-          {citationStyles.map((style) => {
-            const isActive = citationStyle === style.value;
-            return (
-              <button
-                key={style.value}
-                onClick={() => updateCitationStyle(style.value)}
-                className="p-3 rounded-xl text-left transition-all"
-                style={{
-                  backgroundColor: isActive ? `${DOME_GREEN}10` : 'var(--dome-surface)',
-                  border: isActive ? `2px solid ${DOME_GREEN}` : '2px solid var(--dome-border)',
-                  boxShadow: isActive ? `0 2px 8px ${DOME_GREEN}15` : 'none',
-                }}
-              >
-                <p className="text-sm font-bold mb-0.5" style={{ color: isActive ? DOME_GREEN : 'var(--dome-text)' }}>
-                  {style.label}
-                </p>
-                <p className="text-[10px] leading-tight" style={{ color: 'var(--dome-text-muted)' }}>
-                  {style.description}
-                </p>
-              </button>
-            );
-          })}
-        </div>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.advanced.citation_style')}</DomeSectionLabel>
+        <DomeSegmentedControl
+          className="w-full"
+          aria-label={t('settings.advanced.citation_style')}
+          options={citationStyles.map((s) => ({ value: s.value, label: s.label }))}
+          value={citationStyle}
+          onChange={(v) => updateCitationStyle(v as CitationStyle)}
+        />
+        <p className="text-[10px] text-[var(--dome-text-muted)] mt-2">
+          {citationStyles.find((s) => s.value === citationStyle)?.description}
+        </p>
       </div>
 
       {/* ── Data ── */}
       <div>
-        <SectionLabel>{t('settings.advanced.data')}</SectionLabel>
-        <SettingsCard className="p-4 space-y-3">
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.advanced.data')}</DomeSectionLabel>
+        <DomeCard className="p-4 space-y-3">
           <div>
             <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>
               {t('settings.advanced.export_import')}
@@ -277,19 +235,24 @@ export default function AdvancedSettings() {
             <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>
               {t('settings.advanced.export_import_desc')}
             </p>
-            <div className="flex gap-2">
-              <button
+            <div className="flex gap-2 flex-wrap">
+              <DomeButton
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={async () => {
                   const r = await window.electron?.sync?.export?.();
                   if (r?.success) alert(t('settings.advanced.export_completed', { path: r.path }));
                   else if (!r?.cancelled) alert('Error: ' + (r?.error || t('common.unknown_error')));
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
-                style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
+                leftIcon={<ArrowDownToLine className="w-3.5 h-3.5" aria-hidden />}
               >
-                <ArrowDownToLine className="w-3.5 h-3.5" /> {t('settings.advanced.export_data')}
-              </button>
-              <button
+                {t('settings.advanced.export_data')}
+              </DomeButton>
+              <DomeButton
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={async () => {
                   const r = await window.electron?.sync?.import?.();
                   if (r?.success) {
@@ -297,21 +260,20 @@ export default function AdvancedSettings() {
                     if (r.restartRequired) window.location.reload();
                   } else if (!r?.cancelled) alert('Error: ' + (r?.error || t('common.unknown_error')));
                 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all"
-                style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
+                leftIcon={<Upload className="w-3.5 h-3.5" aria-hidden />}
               >
-                <Upload className="w-3.5 h-3.5" /> {t('settings.advanced.import_data')}
-              </button>
+                {t('settings.advanced.import_data')}
+              </DomeButton>
             </div>
           </div>
-        </SettingsCard>
+        </DomeCard>
       </div>
 
       {/* ── Notes migration ── */}
       {typeof window !== 'undefined' && window.electron?.migration?.getNotesMigrationStatus && (
         <div>
-          <SectionLabel>{t('settings.advanced.migration')}</SectionLabel>
-          <SettingsCard className="p-4">
+          <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.advanced.migration')}</DomeSectionLabel>
+          <DomeCard className="p-4">
             <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>
               {t('settings.advanced.notes_migration_title')}
             </p>
@@ -323,22 +285,23 @@ export default function AdvancedSettings() {
                 <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
                   {t('settings.advanced.pending_notes', { count: notesMigrationStatus.pendingMigrations })}
                 </span>
-                <button
-                  onClick={handleMigrateNotes}
+                <DomeButton
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void handleMigrateNotes()}
                   disabled={notesMigrating}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white disabled:opacity-50"
-                  style={{ backgroundColor: DOME_GREEN }}
+                  leftIcon={<FileStack className="w-3.5 h-3.5" aria-hidden />}
                 >
-                  <FileStack className="w-3.5 h-3.5" />
                   {notesMigrating ? t('settings.advanced.migrating') : t('settings.advanced.migrate_notes')}
-                </button>
+                </DomeButton>
               </div>
             ) : notesMigrationStatus?.pendingMigrations === 0 ? (
-              <span className="flex items-center gap-1.5 text-xs" style={{ color: DOME_GREEN }}>
+              <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--dome-accent)' }}>
                 <CheckCircle2 className="w-3.5 h-3.5" /> {t('settings.advanced.all_migrated')}
               </span>
             ) : null}
-          </SettingsCard>
+          </DomeCard>
         </div>
       )}
     </div>

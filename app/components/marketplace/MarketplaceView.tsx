@@ -38,6 +38,16 @@ import { loadAvailablePlugins, type AvailablePlugin } from '@/lib/marketplace/lo
 import { loadMcpServersSetting, saveMcpServersSetting } from '@/lib/mcp/settings';
 import { db } from '@/lib/db/client';
 import type { MCPServerConfig } from '@/types';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
+import DomeListState from '@/components/ui/DomeListState';
+import DomeBadge from '@/components/ui/DomeBadge';
+import HubToolbar from '@/components/ui/HubToolbar';
+import HubTitleBlock from '@/components/ui/HubTitleBlock';
+import HubSearchField from '@/components/ui/HubSearchField';
+import HubBentoCard from '@/components/ui/HubBentoCard';
+import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
 import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
@@ -346,7 +356,13 @@ export default function MarketplaceView() {
       const currentResult = await db.getAISkills();
       const currentList: Array<{ id: string; name: string; description: string; prompt: string; enabled: boolean }> =
         currentResult.success && Array.isArray(currentResult.data)
-          ? currentResult.data
+          ? currentResult.data.map((s) => ({
+              id: s.id,
+              name: s.name,
+              description: s.description ?? '',
+              prompt: s.prompt ?? '',
+              enabled: s.enabled !== false,
+            }))
           : [];
 
       // Add the new skill using the marketplace manifest fields
@@ -440,6 +456,28 @@ export default function MarketplaceView() {
     return counts;
   }, [allItems]);
 
+  const typeFilterOptions = useMemo(
+    () =>
+      (['all', 'agents', 'workflows', 'mcp', 'skills', 'plugins'] as FilterType[]).map((type) => ({
+        value: type,
+        label: `${typeMeta[type].label} (${type === 'all' ? allItems.length : totalByType[type] ?? 0})`,
+        selectedColor: 'var(--dome-accent)',
+      })),
+    [typeMeta, allItems.length, totalByType],
+  );
+
+  const categoryFilterOptions = useMemo(
+    () => [
+      { value: 'all', label: t('marketplace.category_all'), selectedColor: 'var(--dome-accent)' },
+      ...availableCategories.map((cat) => ({
+        value: cat,
+        label: categoryLabel(cat),
+        selectedColor: 'var(--dome-accent)',
+      })),
+    ],
+    [availableCategories, categoryLabel, t],
+  );
+
   // ── Card action ───────────────────────────────────────
   function renderAction(item: UnifiedItem) {
     if (item.type === 'agents') {
@@ -456,15 +494,21 @@ export default function MarketplaceView() {
         );
       }
       return (
-        <button
-          onClick={(e) => { e.stopPropagation(); void handleInstallAgent(agent); }}
+        <DomeButton
+          type="button"
+          variant="primary"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            void handleInstallAgent(agent);
+          }}
           disabled={!!installingId}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-          style={{ background: 'var(--dome-accent)', color: 'white' }}
+          loading={isInstalling}
+          className="!bg-[var(--dome-accent)] hover:!brightness-110"
+          leftIcon={!isInstalling ? <Download className="w-3 h-3" aria-hidden /> : undefined}
         >
-          <Download className="w-3 h-3" />
           {isInstalling ? t('marketplace.installing') : hasUpdate ? t('marketplace.update') : t('marketplace.install')}
-        </button>
+        </DomeButton>
       );
     }
 
@@ -475,15 +519,27 @@ export default function MarketplaceView() {
       const hasUpdate = workflowInstall?.version != null && workflowInstall.version !== workflow.version;
       const isInstalling = installingWorkflowId === workflow.id;
       return (
-        <button
-          onClick={(e) => { e.stopPropagation(); void handleInstallWorkflow(workflow); }}
+        <DomeButton
+          type="button"
+          variant="primary"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            void handleInstallWorkflow(workflow);
+          }}
           disabled={!!installingWorkflowId}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-          style={{ background: 'var(--dome-accent)', color: 'white' }}
+          loading={isInstalling}
+          className="!bg-[var(--dome-accent)] hover:!brightness-110"
+          leftIcon={!isInstalling ? <Download className="w-3 h-3" aria-hidden /> : undefined}
         >
-          <Download className="w-3 h-3" />
-          {isInstalling ? t('marketplace.installing') : hasUpdate ? t('marketplace.update') : isInstalled ? t('marketplace.open') : t('marketplace.install')}
-        </button>
+          {isInstalling
+            ? t('marketplace.installing')
+            : hasUpdate
+              ? t('marketplace.update')
+              : isInstalled
+                ? t('marketplace.open')
+                : t('marketplace.install')}
+        </DomeButton>
       );
     }
 
@@ -498,15 +554,21 @@ export default function MarketplaceView() {
         );
       }
       return (
-        <button
-          onClick={(e) => { e.stopPropagation(); void handleInstallPlugin(); }}
+        <DomeButton
+          type="button"
+          variant="primary"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            void handleInstallPlugin();
+          }}
           disabled={!!installingPlugin}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-          style={{ background: 'var(--dome-accent)', color: 'white' }}
+          loading={!!installingPlugin}
+          className="!bg-[var(--dome-accent)] hover:!brightness-110"
+          leftIcon={!installingPlugin ? <Download className="w-3 h-3" aria-hidden /> : undefined}
         >
-          <Download className="w-3 h-3" />
           {installingPlugin ? t('marketplace.installing_plugin') : t('marketplace.install_plugin')}
-        </button>
+        </DomeButton>
       );
     }
 
@@ -522,15 +584,21 @@ export default function MarketplaceView() {
         );
       }
       return (
-        <button
-          onClick={(e) => { e.stopPropagation(); void handleInstallMcp(server); }}
+        <DomeButton
+          type="button"
+          variant="primary"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            void handleInstallMcp(server);
+          }}
           disabled={!!installingMcpId}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-          style={{ background: 'var(--dome-accent)', color: 'white' }}
+          loading={isInstalling}
+          className="!bg-[var(--dome-accent)] hover:!brightness-110"
+          leftIcon={!isInstalling ? <Download className="w-3 h-3" aria-hidden /> : undefined}
         >
-          <Download className="w-3 h-3" />
           {isInstalling ? t('marketplace.adding') : t('marketplace.add')}
-        </button>
+        </DomeButton>
       );
     }
 
@@ -546,15 +614,21 @@ export default function MarketplaceView() {
         );
       }
       return (
-        <button
-          onClick={(e) => { e.stopPropagation(); void handleInstallSkill(skill); }}
+        <DomeButton
+          type="button"
+          variant="primary"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            void handleInstallSkill(skill);
+          }}
           disabled={!!installingSkillId}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:opacity-80"
-          style={{ background: 'var(--dome-accent)', color: 'white' }}
+          loading={isInstalling}
+          className="!bg-[var(--dome-accent)] hover:!brightness-110"
+          leftIcon={!isInstalling ? <Download className="w-3 h-3" aria-hidden /> : undefined}
         >
-          <Download className="w-3 h-3" />
           {isInstalling ? t('marketplace.activating') : t('marketplace.activate')}
-        </button>
+        </DomeButton>
       );
     }
 
@@ -575,63 +649,43 @@ export default function MarketplaceView() {
 
   // ── Render ────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
-      {/* ── Header ── */}
-      <div className="shrink-0 px-5 py-4" style={{ borderBottom: '1px solid var(--dome-border)' }}>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'var(--dome-accent-bg)' }}
-            >
-              <Store className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />
-            </div>
-            <div>
-              <h1 className="text-sm font-bold leading-tight" style={{ color: 'var(--dome-text)' }}>
-                {t('marketplace.title')}
-              </h1>
-              <p className="text-[11px] leading-tight" style={{ color: 'var(--dome-text-muted)' }}>
-                {initialLoading
-                  ? t('marketplace.loading')
-                  : t('marketplace.subtitle_count', { count: allItems.length })}
-              </p>
-            </div>
-          </div>
-          <button
+    <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--dome-bg)' }}>
+      <HubToolbar
+        dense
+        leading={
+          <HubTitleBlock
+            icon={Store}
+            title={t('marketplace.title')}
+            subtitle={
+              initialLoading
+                ? t('marketplace.loading')
+                : t('marketplace.subtitle_count', { count: allItems.length })
+            }
+          />
+        }
+        center={
+          <HubSearchField
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder={t('marketplace.search_placeholder')}
+            ariaLabel={t('marketplace.search_placeholder')}
+            className="max-w-xl"
+          />
+        }
+        trailing={
+          <DomeButton
+            type="button"
+            variant="outline"
+            size="sm"
             onClick={handleRefresh}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all hover:opacity-80"
-            style={{
-              background: 'var(--dome-surface)',
-              border: '1px solid var(--dome-border)',
-              color: 'var(--dome-text-secondary)',
-            }}
+            className="border-[var(--dome-border)] bg-[var(--dome-surface)] text-[var(--dome-text-secondary)]"
+            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />}
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             {t('marketplace.refresh')}
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="relative">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
-            style={{ color: 'var(--dome-text-muted)' }}
-          />
-          <input
-            type="text"
-            placeholder={t('marketplace.search_placeholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-xl text-sm outline-none transition-all"
-            style={{
-              background: 'var(--dome-surface)',
-              border: '1px solid var(--dome-border)',
-              color: 'var(--dome-text)',
-            }}
-          />
-        </div>
-      </div>
+          </DomeButton>
+        }
+      />
 
       {/* ── Body ── */}
       <div className="flex flex-1 overflow-hidden">
@@ -640,84 +694,30 @@ export default function MarketplaceView() {
           className="w-44 shrink-0 overflow-y-auto py-4 px-2 flex flex-col gap-5"
           style={{ borderRight: '1px solid var(--dome-border)', background: 'var(--dome-surface)' }}
         >
-          {/* Type filters */}
           <div>
-            <p
-              className="text-[10px] font-semibold uppercase tracking-wider mb-2 px-2"
-              style={{ color: 'var(--dome-text-muted)' }}
-            >
-              {t('marketplace.filter_type')}
-            </p>
-            <div className="space-y-0.5">
-              {(['all', 'agents', 'workflows', 'mcp', 'skills', 'plugins'] as FilterType[]).map((type) => {
-                const { label, Icon } = typeMeta[type];
-                const count = type === 'all' ? allItems.length : (totalByType[type] ?? 0);
-                const isActive = filterType === type;
-                return (
-                  <button
-                    key={type}
-                    onClick={() => { setFilterType(type); setFilterCategory('all'); }}
-                    className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium transition-all"
-                    style={{
-                      background: isActive ? 'var(--dome-accent)' : 'transparent',
-                      color: isActive ? 'white' : 'var(--dome-text-secondary)',
-                    }}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Icon className="w-3.5 h-3.5 shrink-0" />
-                      {label}
-                    </span>
-                    <span
-                      className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0"
-                      style={{
-                        background: isActive ? 'rgba(255,255,255,0.2)' : 'var(--dome-bg)',
-                        color: isActive ? 'white' : 'var(--dome-text-muted)',
-                      }}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <DomeSectionLabel className="mb-2 px-2 !text-[10px] !tracking-wider">{t('marketplace.filter_type')}</DomeSectionLabel>
+            <DomeFilterChipGroup
+              options={typeFilterOptions}
+              value={filterType}
+              onChange={(v) => {
+                setFilterType(v);
+                setFilterCategory('all');
+              }}
+              layout="vertical"
+              className="gap-0.5"
+            />
           </div>
 
-          {/* Category filters */}
           {availableCategories.length > 0 && (
             <div>
-              <p
-                className="text-[10px] font-semibold uppercase tracking-wider mb-2 px-2"
-                style={{ color: 'var(--dome-text-muted)' }}
-              >
-                {t('marketplace.filter_category')}
-              </p>
-              <div className="space-y-0.5">
-                <button
-                  onClick={() => setFilterCategory('all')}
-                  className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-medium transition-all"
-                  style={{
-                    background: filterCategory === 'all' ? 'var(--dome-bg)' : 'transparent',
-                    color: filterCategory === 'all' ? 'var(--dome-text)' : 'var(--dome-text-secondary)',
-                    fontWeight: filterCategory === 'all' ? '600' : '500',
-                  }}
-                >
-                  {t('marketplace.category_all')}
-                </button>
-                {availableCategories.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setFilterCategory(cat)}
-                    className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-medium transition-all"
-                    style={{
-                      background: filterCategory === cat ? 'var(--dome-bg)' : 'transparent',
-                      color: filterCategory === cat ? 'var(--dome-text)' : 'var(--dome-text-secondary)',
-                      fontWeight: filterCategory === cat ? '600' : '500',
-                    }}
-                  >
-                    {categoryLabel(cat)}
-                  </button>
-                ))}
-              </div>
+              <DomeSectionLabel className="mb-2 px-2 !text-[10px] !tracking-wider">{t('marketplace.filter_category')}</DomeSectionLabel>
+              <DomeFilterChipGroup
+                options={categoryFilterOptions}
+                value={filterCategory}
+                onChange={setFilterCategory}
+                layout="vertical"
+                className="gap-0.5"
+              />
             </div>
           )}
         </div>
@@ -725,20 +725,15 @@ export default function MarketplaceView() {
         {/* Main grid */}
         <div className="flex-1 overflow-y-auto overscroll-contain p-5">
           {initialLoading ? (
-            <div className="grid grid-cols-2 gap-3">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="resource-card-skeleton rounded-xl h-36" aria-hidden="true" />
-              ))}
-            </div>
+            <DomeSkeletonGrid count={8} cellHeightClass="h-36" className="!grid-cols-2 !gap-3" />
           ) : filteredItems.length === 0 ? (
-            <div
-              className="flex flex-col items-center justify-center h-full gap-3"
-              style={{ color: 'var(--dome-text-muted)' }}
-            >
-              <Search className="w-10 h-10 opacity-20" />
-              <p className="text-sm font-medium">{t('marketplace.no_results')}</p>
-              <p className="text-xs">{t('marketplace.no_results_hint')}</p>
-            </div>
+            <DomeListState
+              variant="empty"
+              fullHeight
+              icon={<Search className="w-10 h-10 opacity-20" aria-hidden />}
+              title={t('marketplace.no_results')}
+              description={t('marketplace.no_results_hint')}
+            />
           ) : (
             <div className="grid grid-cols-2 gap-3 animate-in fade-in duration-150 motion-reduce:animate-none">
               {filteredItems.map((item) => {
@@ -747,63 +742,44 @@ export default function MarketplaceView() {
                 const isClickable = item.type === 'agents' || item.type === 'workflows';
 
                 return (
-                  <div
+                  <HubBentoCard
                     key={`${item.type}-${item.id}`}
-                    onClick={() => {
-                      if (item.type === 'agents') setSelectedAgent(item.raw as MarketplaceAgent);
-                      else if (item.type === 'workflows') setSelectedWorkflow(item.raw as WorkflowTemplate);
-                    }}
-                    className="flex flex-col p-4 rounded-xl border transition-colors"
-                    style={{
-                      background: 'var(--dome-surface)',
-                      borderColor: 'var(--dome-border)',
-                      cursor: isClickable ? 'pointer' : 'default',
-                    }}
-                  >
-                    {/* Top row: type badge + featured star */}
-                    <div className="flex items-center justify-between mb-3">
-                      <span
-                        className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                        style={{ background: meta.bgColor, color: meta.textColor }}
-                      >
-                        <Icon className="w-3 h-3" />
-                        {meta.badge}
+                    onClick={
+                      isClickable
+                        ? () => {
+                            if (item.type === 'agents') setSelectedAgent(item.raw as MarketplaceAgent);
+                            else if (item.type === 'workflows') setSelectedWorkflow(item.raw as WorkflowTemplate);
+                          }
+                        : undefined
+                    }
+                    icon={
+                      <span className="inline-flex items-center gap-1">
+                        <Icon className="w-3 h-3 shrink-0" style={{ color: meta.textColor }} aria-hidden />
+                        <DomeBadge label={meta.badge} variant="soft" color={meta.textColor} size="xs" />
                       </span>
-                      {item.featured && (
-                        <Star
-                          className="w-3.5 h-3.5 shrink-0"
-                          style={{ color: '#d97706', fill: '#d97706' }}
-                        />
-                      )}
-                    </div>
-
-                    {/* Name */}
-                    <h3
-                      className="font-semibold text-sm mb-1 line-clamp-1"
-                      style={{ color: 'var(--dome-text)' }}
-                    >
-                      {item.name}
-                    </h3>
-
-                    {/* Description */}
-                    <p
-                      className="text-xs leading-relaxed line-clamp-2 flex-1 mb-3"
-                      style={{ color: 'var(--dome-text-secondary)' }}
-                    >
-                      {item.description}
-                    </p>
-
-                    {/* Bottom row: author + action */}
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className="text-[11px] truncate"
-                        style={{ color: 'var(--dome-text-muted)' }}
-                      >
+                    }
+                    title={
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="truncate font-semibold text-sm" style={{ color: 'var(--dome-text)' }}>
+                          {item.name}
+                        </span>
+                        {item.featured ? (
+                          <Star className="w-3.5 h-3.5 shrink-0 text-amber-500 fill-amber-500" aria-hidden />
+                        ) : null}
+                      </span>
+                    }
+                    subtitle={
+                      <span className="line-clamp-2" style={{ color: 'var(--dome-text-secondary)' }}>
+                        {item.description}
+                      </span>
+                    }
+                    meta={
+                      <span className="text-[11px] truncate" style={{ color: 'var(--dome-text-muted)' }}>
                         {item.author ?? t('marketplace.default_author')}
                       </span>
-                      <div className="shrink-0">{renderAction(item)}</div>
-                    </div>
-                  </div>
+                    }
+                    trailing={renderAction(item)}
+                  />
                 );
               })}
             </div>

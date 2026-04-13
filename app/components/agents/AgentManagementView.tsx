@@ -41,7 +41,10 @@ import HubToolbar from '@/components/ui/HubToolbar';
 import HubTitleBlock from '@/components/ui/HubTitleBlock';
 import HubSearchField from '@/components/ui/HubSearchField';
 import HubListState from '@/components/ui/HubListState';
-import HubListItem from '@/components/ui/HubListItem';
+import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeContextMenu from '@/components/ui/DomeContextMenu';
+import HubBentoCard from '@/components/ui/HubBentoCard';
 
 const DND_AGENT_MIME = 'application/x-dome-agent-id';
 
@@ -327,8 +330,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
     }
   };
 
-  const toggleFavorite = async (e: React.MouseEvent, agent: ManyAgent) => {
-    e.stopPropagation();
+  const toggleFavorite = async (agent: ManyAgent) => {
     const next = !agent.favorite;
     const result = await updateManyAgent(agent.id, { favorite: next });
     if (result.success && result.data) {
@@ -353,7 +355,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
       });
 
     return (
-      <HubListItem
+      <HubBentoCard
         key={agent.id}
         draggable
         onDragStart={(e) => {
@@ -361,10 +363,9 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
           e.dataTransfer.effectAllowed = 'move';
         }}
         onClick={() => onAgentSelect?.(agent.id)}
-        className="!px-3"
         icon={
           <div
-            className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 overflow-hidden"
+            className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
             style={{ background: 'var(--dome-accent-bg)' }}
           >
             <img
@@ -375,7 +376,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
           </div>
         }
         title={
-          <span className="text-xs font-semibold truncate" style={{ color: 'var(--dome-text)' }}>
+          <span className="text-sm font-semibold truncate" style={{ color: 'var(--dome-text)' }}>
             {agent.name}
           </span>
         }
@@ -386,7 +387,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
         }
         meta={
           <div
-            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] mt-1"
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]"
             style={{ color: 'var(--dome-text-muted)' }}
           >
             <span>
@@ -397,7 +398,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               })}
             </span>
             {agent.updatedAt ? (
-              <span className="inline-flex items-center gap-0.5 shrink-0">
+              <span className="inline-flex items-center gap-1 shrink-0">
                 <span aria-hidden>·</span>
                 <Clock className="w-3 h-3 shrink-0" aria-hidden />
                 {formatDate(agent.updatedAt)}
@@ -406,58 +407,55 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
           </div>
         }
         trailing={
-          <>
-            <button
-              type="button"
-              onClick={(e) => void toggleFavorite(e, agent)}
-              className="p-1 rounded-md hover:bg-[var(--dome-bg)] transition-colors"
-              title={t('agents.pin_agent')}
-              aria-pressed={agent.favorite === true}
-            >
-              <Star
-                className="w-3.5 h-3.5"
-                style={{
-                  color: agent.favorite ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-                  fill: agent.favorite ? 'var(--dome-accent)' : 'none',
-                }}
-              />
-            </button>
-            {onShowAutomations ? (
+          <DomeContextMenu
+            align="end"
+            trigger={
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onShowAutomations(agent.id, agent.name);
-                }}
-                className="p-1 rounded-md hover:bg-[var(--dome-bg)] transition-colors"
-                title={t('agents.automations')}
+                className="p-1.5 rounded-md hover:bg-[var(--dome-bg)] transition-colors"
+                title={t('ui.options')}
+                onClick={(e) => e.stopPropagation()}
               >
-                <Zap className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
+                <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingAgent(agent);
-              }}
-              className="p-1 rounded-md hover:bg-[var(--dome-bg)] transition-colors"
-              title={t('ui.edit')}
-            >
-              <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeleteTarget(agent);
-              }}
-              className="p-1 rounded-md hover:bg-[var(--error-bg)] transition-colors"
-              title={t('ui.delete')}
-            >
-              <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--error)' }} />
-            </button>
-          </>
+            }
+            items={[
+              {
+                label: agent.favorite ? t('agents.unpin_agent') : t('agents.pin_agent'),
+                icon: (
+                  <Star
+                    className="w-4 h-4"
+                    style={{
+                      color: agent.favorite ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
+                      fill: agent.favorite ? 'var(--dome-accent)' : 'none',
+                    }}
+                  />
+                ),
+                onClick: () => void toggleFavorite(agent),
+              },
+              ...(onShowAutomations
+                ? [
+                    {
+                      label: t('agents.automations'),
+                      icon: <Zap className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />,
+                      onClick: () => onShowAutomations(agent.id, agent.name),
+                    },
+                  ]
+                : []),
+              {
+                label: t('ui.edit'),
+                icon: <Pencil className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />,
+                onClick: () => setEditingAgent(agent),
+              },
+              {
+                separator: true,
+                label: t('ui.delete'),
+                icon: <Trash2 className="w-4 h-4" />,
+                variant: 'danger' as const,
+                onClick: () => setDeleteTarget(agent),
+              },
+            ]}
+          />
         }
       />
     );
@@ -583,8 +581,8 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
             {kids.map((k) => renderFolder(k, depth + 1))}
             {folderAgents.length > 0 ? (
               <div
-                className="flex flex-col rounded-lg border overflow-hidden"
-                style={{ marginLeft: pad + 8, borderColor: 'var(--dome-border)' }}
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                style={{ marginLeft: pad + 8 }}
               >
                 {folderAgents.map((a) => renderAgentRow(a))}
               </div>
@@ -721,19 +719,10 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
             </p>
           ) : null}
           {isLoading ? (
-            <div
-              className="flex flex-col rounded-lg border overflow-hidden animate-in fade-in duration-150 motion-reduce:animate-none"
-              style={{ borderColor: 'var(--dome-border)' }}
-            >
-              {Array.from({ length: 10 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-[76px] border-b shrink-0 motion-reduce:animate-none animate-pulse"
-                  style={{ background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
-                  aria-hidden="true"
-                />
-              ))}
-            </div>
+            <DomeSkeletonGrid
+              count={10}
+              className="animate-in fade-in duration-150 motion-reduce:animate-none"
+            />
           ) : agents.length === 0 ? (
             <HubListState
               variant="empty"
@@ -741,15 +730,16 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               title={t('agents.no_agents_yet')}
               description={t('agents.no_agents_desc')}
               action={
-                <button
+                <DomeButton
                   type="button"
+                  variant="primary"
+                  size="sm"
                   onClick={() => setShowNewAgent(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium mt-1"
-                  style={{ background: 'var(--dome-accent)', color: 'white' }}
+                  className="mt-1 !bg-[var(--dome-accent)]"
+                  leftIcon={<Plus className="w-3.5 h-3.5" aria-hidden />}
                 >
-                  <Plus className="w-3.5 h-3.5" />
                   {t('agents.create_first_agent')}
-                </button>
+                </DomeButton>
               }
             />
           ) : (
@@ -763,8 +753,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                     </p>
                   ) : null}
                   <div
-                    className="flex flex-col rounded-lg border overflow-hidden"
-                    style={{ borderColor: 'var(--dome-border)' }}
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
                   >
                     {rootAgents.map((a) => renderAgentRow(a))}
                   </div>

@@ -1,12 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, X, Users, Cpu, FileText, Image, Check } from 'lucide-react';
+import { ChevronRight, ChevronLeft, X, Users, Cpu, Image, Check } from 'lucide-react';
 import type { ManyAgent, AgentTeam } from '@/types';
 import { getManyAgents } from '@/lib/agents/api';
 import { createAgentTeam } from '@/lib/agent-team/api';
 import AgentToolsStep from '@/components/agents/steps/AgentToolsStep';
 import AgentMcpStep from '@/components/agents/steps/AgentMcpStep';
+import DomeButton from '@/components/ui/DomeButton';
+import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeCallout from '@/components/ui/DomeCallout';
+import DomeSubpageFooter from '@/components/ui/DomeSubpageFooter';
+import DomeCard from '@/components/ui/DomeCard';
+import { cn } from '@/lib/utils';
 
 type Step = 'basics' | 'members' | 'capabilities' | 'supervisor' | 'icon';
 
@@ -111,25 +118,17 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-6 py-4 shrink-0"
-        style={{ borderBottom: '1px solid var(--dome-border)' }}
+      <header
+        className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-b border-[var(--dome-border,var(--border))] bg-[var(--bg)]"
       >
-        <div className="flex items-center gap-2">
-          <Cpu className="w-4 h-4" style={{ color: 'var(--dome-accent, #6366f1)' }} />
-          <span className="font-semibold text-sm" style={{ color: 'var(--dome-text)' }}>
-            Nuevo Agent Team
-          </span>
+        <div className="flex items-center gap-2 min-w-0">
+          <Cpu className="w-4 h-4 text-[var(--accent)] shrink-0" aria-hidden />
+          <h1 className="text-base font-semibold text-[var(--primary-text)] truncate">Nuevo Agent Team</h1>
         </div>
-        <button
-          onClick={onCancel}
-          className="w-7 h-7 flex items-center justify-center rounded-lg transition-all"
-          style={{ color: 'var(--dome-text-muted)', background: 'var(--dome-bg)' }}
-        >
+        <DomeButton type="button" variant="ghost" size="sm" iconOnly onClick={onCancel} aria-label="Cerrar">
           <X className="w-4 h-4" />
-        </button>
-      </div>
+        </DomeButton>
+      </header>
 
       {/* Step progress */}
       <div className="flex items-center gap-1 px-6 py-3 shrink-0">
@@ -137,19 +136,19 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
           <div key={s} className="flex items-center gap-1">
             <div
               className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium transition-all"
-              style={{
+                style={{
                 background:
                   s === step
-                    ? 'var(--dome-accent, #6366f1)'
+                    ? 'var(--accent)'
                     : i < currentStepIndex
-                    ? 'var(--dome-accent-bg)'
-                    : 'var(--dome-border)',
+                      ? 'color-mix(in srgb, var(--accent) 18%, var(--bg-secondary))'
+                      : 'var(--border)',
                 color:
                   s === step
-                    ? 'white'
+                    ? 'var(--base-text)'
                     : i < currentStepIndex
-                    ? 'var(--dome-accent, #6366f1)'
-                    : 'var(--dome-text-muted)',
+                      ? 'var(--accent)'
+                      : 'var(--dome-text-muted,var(--tertiary-text))',
               }}
             >
               {i < currentStepIndex ? <Check size={12} /> : i + 1}
@@ -163,7 +162,9 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
             {i < STEP_ORDER.length - 1 && (
               <div
                 className="w-4 h-0.5 mx-1"
-                style={{ background: i < currentStepIndex ? 'var(--dome-accent, #6366f1)' : 'var(--dome-border)' }}
+                style={{
+                  background: i < currentStepIndex ? 'var(--accent)' : 'var(--border)',
+                }}
               />
             )}
           </div>
@@ -174,41 +175,24 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {step === 'basics' && (
           <div className="flex flex-col gap-4">
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                Nombre del equipo *
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ej: Equipo de Investigación"
-                autoFocus
-                className="w-full px-3 py-2 rounded-xl text-sm outline-none"
-                style={{
-                  background: 'var(--dome-bg)',
-                  color: 'var(--dome-text)',
-                  border: '1px solid var(--dome-border)',
-                }}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                Descripción (opcional)
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="¿Qué hace este equipo?"
-                rows={3}
-                className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none"
-                style={{
-                  background: 'var(--dome-bg)',
-                  color: 'var(--dome-text)',
-                  border: '1px solid var(--dome-border)',
-                }}
-              />
-            </div>
+            <DomeInput
+              label="Nombre del equipo *"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej: Equipo de Investigación"
+              autoFocus
+              className="[&_label]:text-[var(--dome-text-muted)]"
+              inputClassName="bg-[var(--dome-bg)] text-[var(--dome-text)] border-[var(--dome-border)] rounded-xl"
+            />
+            <DomeTextarea
+              label="Descripción (opcional)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="¿Qué hace este equipo?"
+              rows={3}
+              className="[&_label]:text-[var(--dome-text-muted)]"
+              textareaClassName="bg-[var(--dome-bg)] text-[var(--dome-text)] border-[var(--dome-border)] rounded-xl resize-none"
+            />
           </div>
         )}
 
@@ -230,17 +214,29 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                   const selected = selectedAgentIds.includes(agent.id);
                   const disabled = !selected && selectedAgentIds.length >= MAX_MEMBERS;
                   return (
-                    <button
+                    <DomeCard
                       key={agent.id}
+                      padding="sm"
+                      className={cn(
+                        'flex items-center gap-3 transition-all cursor-pointer border-[var(--dome-border,var(--border))]',
+                        selected && 'ring-2 ring-[var(--accent)]',
+                        disabled && 'opacity-40 cursor-not-allowed pointer-events-none',
+                      )}
+                      style={
+                        selected
+                          ? { backgroundColor: 'color-mix(in srgb, var(--accent) 12%, var(--bg-secondary))' }
+                          : undefined
+                      }
                       onClick={() => !disabled && toggleAgent(agent.id)}
-                      disabled={disabled}
-                      className="flex items-center gap-3 p-3 rounded-xl text-left transition-all"
-                      style={{
-                        background: selected ? 'var(--dome-accent-bg)' : 'var(--dome-bg)',
-                        border: `1px solid ${selected ? 'var(--dome-accent, #6366f1)' : 'var(--dome-border)'}`,
-                        opacity: disabled ? 0.4 : 1,
-                        cursor: disabled ? 'not-allowed' : 'pointer',
+                      onKeyDown={(e) => {
+                        if (disabled) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleAgent(agent.id);
+                        }
                       }}
+                      role="button"
+                      tabIndex={disabled ? -1 : 0}
                     >
                       <img
                         src={`/agents/sprite_${agent.iconIndex}.png`}
@@ -259,13 +255,13 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                       <div
                         className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center"
                         style={{
-                          background: selected ? 'var(--dome-accent, #6366f1)' : 'var(--dome-border)',
-                          color: 'white',
+                          background: selected ? 'var(--accent)' : 'var(--border)',
+                          color: 'var(--base-text)',
                         }}
                       >
                         {selected && <Check size={12} />}
                       </div>
-                    </button>
+                    </DomeCard>
                   );
                 })}
               </div>
@@ -275,59 +271,39 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
 
         {step === 'supervisor' && (
           <div className="flex flex-col gap-4">
-            <div
-              className="flex items-start gap-2 p-3 rounded-xl text-xs"
-              style={{ background: 'var(--dome-accent-bg)', color: 'var(--dome-accent, #6366f1)' }}
-            >
-              <FileText className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>
-                El supervisor recibe la tarea del usuario y coordina los agentes del equipo. Define cómo quieres que organice y distribuya el trabajo.
-              </span>
-            </div>
-            <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                Instrucciones del supervisor *
-              </label>
-              <textarea
-                value={supervisorInstructions}
-                onChange={(e) => setSupervisorInstructions(e.target.value)}
-                rows={10}
-                className="w-full px-3 py-2 rounded-xl text-sm outline-none resize-none font-mono"
-                style={{
-                  background: 'var(--dome-bg)',
-                  color: 'var(--dome-text)',
-                  border: '1px solid var(--dome-border)',
-                  fontSize: '12px',
-                  lineHeight: '1.6',
-                }}
-              />
-            </div>
+            <DomeCallout tone="info" className="!text-xs" title="Rol del supervisor">
+              El supervisor recibe la tarea del usuario y coordina los agentes del equipo. Define cómo quieres que organice
+              y distribuya el trabajo.
+            </DomeCallout>
+            <DomeTextarea
+              label="Instrucciones del supervisor *"
+              value={supervisorInstructions}
+              onChange={(e) => setSupervisorInstructions(e.target.value)}
+              rows={10}
+              className="[&_label]:text-[var(--dome-text-muted)]"
+              textareaClassName="bg-[var(--dome-bg)] text-[var(--dome-text)] border-[var(--dome-border)] rounded-xl resize-none font-mono text-xs leading-relaxed"
+            />
           </div>
         )}
 
         {step === 'capabilities' && (
           <div className="flex flex-col gap-6">
-            <div
-              className="flex items-start gap-2 p-3 rounded-xl text-xs"
-              style={{ background: 'var(--dome-accent-bg)', color: 'var(--dome-accent, #6366f1)' }}
-            >
-              <Cpu className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>
-                Puedes añadir tools y MCPs al nivel del equipo. Se sumarán a las capacidades de los agentes miembros y compartirán la misma configuración global de tools MCP.
-              </span>
-            </div>
+            <DomeCallout tone="info" className="!text-xs" title="Capacidades del equipo">
+              Puedes añadir tools y MCPs al nivel del equipo. Se sumarán a las capacidades de los agentes miembros y
+              compartirán la misma configuración global de tools MCP.
+            </DomeCallout>
 
             <section>
-              <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--dome-text)' }}>
+              <DomeSectionLabel compact={false} className="mb-3 !text-sm !normal-case !tracking-normal text-[var(--dome-text)]">
                 Tools del equipo
-              </h3>
+              </DomeSectionLabel>
               <AgentToolsStep selectedIds={toolIds} onChange={setToolIds} />
             </section>
 
             <section>
-              <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--dome-text)' }}>
+              <DomeSectionLabel compact={false} className="mb-3 !text-sm !normal-case !tracking-normal text-[var(--dome-text)]">
                 MCP del equipo
-              </h3>
+              </DomeSectionLabel>
               <AgentMcpStep selectedIds={mcpServerIds} onChange={setMcpServerIds} />
             </section>
           </div>
@@ -340,96 +316,75 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
             </p>
             <div className="grid grid-cols-6 gap-2">
               {Array.from({ length: ICON_COUNT }, (_, i) => i + 1).map((idx) => (
-                <button
+                <DomeButton
                   key={idx}
+                  type="button"
+                  variant="ghost"
+                  className={cn(
+                    'aspect-square !p-1 rounded-xl overflow-hidden h-auto min-h-0 min-w-0',
+                    iconIndex === idx && 'ring-2 ring-[var(--accent)]',
+                  )}
+                  style={
+                    iconIndex === idx
+                      ? { backgroundColor: 'color-mix(in srgb, var(--accent) 12%, var(--bg-secondary))' }
+                      : undefined
+                  }
                   onClick={() => setIconIndex(idx)}
-                  className="aspect-square rounded-xl overflow-hidden transition-all"
-                  style={{
-                    border: `2px solid ${iconIndex === idx ? 'var(--dome-accent, #6366f1)' : 'transparent'}`,
-                    background: iconIndex === idx ? 'var(--dome-accent-bg)' : 'var(--dome-bg)',
-                    padding: '4px',
-                  }}
                 >
                   <img
                     src={`/agents/sprite_${idx}.png`}
                     alt={`Icono ${idx}`}
                     className="w-full h-full object-contain"
                   />
-                </button>
+                </DomeButton>
               ))}
             </div>
           </div>
         )}
 
-        {error && (
-          <p className="mt-3 text-xs text-red-500">{error}</p>
-        )}
+        {error && <p className="mt-3 text-xs text-[var(--error)]">{error}</p>}
       </div>
 
-      {/* Footer */}
-      <div
-        className="flex items-center justify-between gap-3 px-6 py-4 shrink-0"
-        style={{ borderTop: '1px solid var(--dome-border)' }}
-      >
-        <button
-          onClick={currentStepIndex === 0 ? onCancel : handleBack}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm transition-all"
-          style={{
-            background: 'var(--dome-bg)',
-            color: 'var(--dome-text)',
-            border: '1px solid var(--dome-border)',
-          }}
-        >
-          {currentStepIndex === 0 ? (
-            'Cancelar'
+      <DomeSubpageFooter
+        className="!px-6 !py-4"
+        leading={
+          <DomeButton
+            type="button"
+            variant="outline"
+            size="md"
+            onClick={currentStepIndex === 0 ? onCancel : handleBack}
+            leftIcon={currentStepIndex === 0 ? undefined : <ChevronLeft className="w-4 h-4" />}
+          >
+            {currentStepIndex === 0 ? 'Cancelar' : 'Atrás'}
+          </DomeButton>
+        }
+        trailing={
+          step === 'icon' ? (
+            <DomeButton
+              type="button"
+              variant="primary"
+              size="md"
+              onClick={() => void handleCreate()}
+              disabled={isCreating}
+              loading={isCreating}
+              leftIcon={!isCreating ? <Users className="w-4 h-4" /> : undefined}
+            >
+              {isCreating ? 'Creando...' : 'Crear equipo'}
+            </DomeButton>
           ) : (
-            <>
-              <ChevronLeft className="w-4 h-4" />
-              Atrás
-            </>
-          )}
-        </button>
-
-        {step === 'icon' ? (
-          <button
-            onClick={handleCreate}
-            disabled={isCreating}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-            style={{
-              background: 'var(--dome-accent, #6366f1)',
-              color: 'white',
-              opacity: isCreating ? 0.7 : 1,
-              cursor: isCreating ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {isCreating ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                Creando...
-              </>
-            ) : (
-              <>
-                <Users className="w-4 h-4" />
-                Crear equipo
-              </>
-            )}
-          </button>
-        ) : (
-          <button
-            onClick={handleNext}
-            disabled={!canProceed()}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-            style={{
-              background: canProceed() ? 'var(--dome-accent, #6366f1)' : 'var(--dome-border)',
-              color: canProceed() ? 'white' : 'var(--dome-text-muted)',
-              cursor: canProceed() ? 'pointer' : 'not-allowed',
-            }}
-          >
-            Siguiente
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        )}
-      </div>
+            <DomeButton
+              type="button"
+              variant="primary"
+              size="md"
+              onClick={handleNext}
+              disabled={!canProceed()}
+              rightIcon={<ChevronRight className="w-4 h-4" />}
+            >
+              Siguiente
+            </DomeButton>
+          )
+        }
+      />
     </div>
   );
 }

@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { BookMarked, Loader2, RefreshCw } from 'lucide-react';
+import { BookMarked, RefreshCw } from 'lucide-react';
 import { db } from '@/lib/db/client';
 import type { Project } from '@/types';
 import { showToast } from '@/lib/store/useToastStore';
-
-const DOME_GREEN = '#596037';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeCard from '@/components/ui/DomeCard';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeIconBox from '@/components/ui/DomeIconBox';
+import DomeListState from '@/components/ui/DomeListState';
+import DomeCheckbox from '@/components/ui/DomeCheckbox';
+import { DomeInput } from '@/components/ui/DomeInput';
+import { DomeSelect } from '@/components/ui/DomeSelect';
+import DomeButton from '@/components/ui/DomeButton';
 
 type KbLlmGlobal = {
   enabledGlobal: boolean;
@@ -16,29 +23,13 @@ type KbLlmGlobal = {
   allowAutoWrite: boolean;
 };
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-      {children}
-    </p>
-  );
-}
-
-function SettingsCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-      {children}
-    </div>
-  );
-}
-
 function BulletList({ text }: { text: string }) {
   const lines = text
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
   return (
-    <ul className="list-disc pl-5 space-y-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+    <ul className="list-disc pl-5 space-y-1.5 text-[var(--dome-text-muted,var(--tertiary-text))]">
       {lines.map((line, i) => (
         <li key={i}>{line.replace(/^[-•]\s*/, '')}</li>
       ))}
@@ -50,6 +41,7 @@ export default function KbLlmSettingsPanel() {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [config, setConfig] = useState<KbLlmGlobal | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [statusProjectId, setStatusProjectId] = useState('default');
@@ -129,6 +121,7 @@ export default function KbLlmSettingsPanel() {
   };
 
   const handleSyncAll = async () => {
+    setSyncing(true);
     try {
       const api = window.electron?.kbllm;
       if (!api?.syncAll) return;
@@ -139,179 +132,141 @@ export default function KbLlmSettingsPanel() {
       } else throw new Error(res?.error);
     } catch (e) {
       showToast('error', e instanceof Error ? e.message : 'Sync failed');
+    } finally {
+      setSyncing(false);
     }
   };
 
   if (loading || !config) {
-    return (
-      <div className="flex items-center justify-center p-12">
-        <Loader2 className="h-6 w-6 animate-spin text-[var(--dome-text-muted)]" />
-      </div>
-    );
+    return <DomeListState variant="loading" loadingLabel={t('common.loading')} />;
   }
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
-      <div className="flex items-start gap-3">
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-          style={{ backgroundColor: DOME_GREEN }}
-        >
-          <BookMarked className="w-5 h-5" style={{ color: '#E0EAB4' }} />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
-            {t('settings.kb_llm.title')}
-          </h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.kb_llm.subtitle')}
-          </p>
-        </div>
-      </div>
+      <DomeSubpageHeader
+        title={t('settings.kb_llm.title')}
+        subtitle={t('settings.kb_llm.subtitle')}
+        trailing={
+          <DomeIconBox size="md" className="!w-10 !h-10">
+            <BookMarked className="w-5 h-5 text-[var(--accent)]" aria-hidden />
+          </DomeIconBox>
+        }
+        className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"
+      />
 
-      <SettingsCard>
-        <SectionLabel>{t('settings.kb_llm.section_expectations')}</SectionLabel>
+      <DomeCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+          {t('settings.kb_llm.section_expectations')}
+        </DomeSectionLabel>
         <div className="space-y-4 text-sm">
           <div>
-            <p className="font-semibold mb-1.5" style={{ color: 'var(--dome-text)' }}>
+            <p className="font-semibold mb-1.5 text-[var(--dome-text,var(--primary-text))]">
               {t('settings.kb_llm.expect_good_title')}
             </p>
             <BulletList text={t('settings.kb_llm.expect_good_body')} />
           </div>
           <div>
-            <p className="font-semibold mb-1.5" style={{ color: 'var(--dome-text)' }}>
+            <p className="font-semibold mb-1.5 text-[var(--dome-text,var(--primary-text))]">
               {t('settings.kb_llm.expect_skip_title')}
             </p>
             <BulletList text={t('settings.kb_llm.expect_skip_body')} />
           </div>
           <div>
-            <p className="font-semibold mb-1.5" style={{ color: 'var(--dome-text)' }}>
+            <p className="font-semibold mb-1.5 text-[var(--dome-text,var(--primary-text))]">
               {t('settings.kb_llm.expect_limits_title')}
             </p>
             <BulletList text={t('settings.kb_llm.expect_limits_body')} />
           </div>
-          <p className="text-xs pt-1 border-t" style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}>
+          <p className="text-xs pt-1 border-t border-[var(--dome-border,var(--border))] text-[var(--dome-text-muted,var(--tertiary-text))]">
             {t('settings.kb_llm.projects_hint')}
           </p>
         </div>
-      </SettingsCard>
+      </DomeCard>
 
-      <SettingsCard>
-        <SectionLabel>{t('settings.kb_llm.section_global')}</SectionLabel>
-        <label className="flex items-center justify-between gap-4 py-2 cursor-pointer">
-          <span className="text-sm" style={{ color: 'var(--dome-text)' }}>
-            {t('settings.kb_llm.enabled_global')}
-          </span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-[var(--dome-accent)]"
-            checked={config.enabledGlobal}
-            onChange={(e) => setConfig({ ...config, enabledGlobal: e.target.checked })}
-          />
-        </label>
+      <DomeCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+          {t('settings.kb_llm.section_global')}
+        </DomeSectionLabel>
+        <DomeCheckbox
+          reverse
+          className="py-2"
+          label={t('settings.kb_llm.enabled_global')}
+          checked={config.enabledGlobal}
+          onChange={(e) => setConfig({ ...config, enabledGlobal: e.target.checked })}
+        />
         <div className="grid gap-4 mt-4 sm:grid-cols-2">
-          <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('settings.kb_llm.compile_interval')}
-            </label>
-            <input
-              type="number"
-              min={15}
-              max={1440}
-              className="w-full rounded-lg border px-3 py-2 text-sm bg-[var(--dome-bg)]"
-              style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
-              value={config.compileIntervalMinutes}
-              onChange={(e) =>
-                setConfig({ ...config, compileIntervalMinutes: Math.max(15, Number(e.target.value) || 360) })
-              }
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('settings.kb_llm.health_hour')}
-            </label>
-            <select
-              className="w-full rounded-lg border px-3 py-2 text-sm bg-[var(--dome-bg)]"
-              style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
-              value={config.healthHour}
-              onChange={(e) => setConfig({ ...config, healthHour: Number(e.target.value) })}
-            >
-              {Array.from({ length: 24 }, (_, h) => (
-                <option key={h} value={h}>
-                  {String(h).padStart(2, '0')}:00
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <label className="flex items-center justify-between gap-4 py-2 mt-2 cursor-pointer">
-          <span className="text-sm" style={{ color: 'var(--dome-text)' }}>
-            {t('settings.kb_llm.auto_reindex')}
-          </span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-[var(--dome-accent)]"
-            checked={config.autoReindexWikiOnSave}
-            onChange={(e) => setConfig({ ...config, autoReindexWikiOnSave: e.target.checked })}
+          <DomeInput
+            type="number"
+            min={15}
+            max={1440}
+            label={t('settings.kb_llm.compile_interval')}
+            value={config.compileIntervalMinutes}
+            onChange={(e) =>
+              setConfig({ ...config, compileIntervalMinutes: Math.max(15, Number(e.target.value) || 360) })
+            }
           />
-        </label>
-        <label className="flex items-center justify-between gap-4 py-2 cursor-pointer">
-          <span className="text-sm" style={{ color: 'var(--dome-text)' }}>
-            {t('settings.kb_llm.allow_auto_write')}
-          </span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-[var(--dome-accent)]"
-            checked={config.allowAutoWrite}
-            onChange={(e) => setConfig({ ...config, allowAutoWrite: e.target.checked })}
-          />
-        </label>
-        <div className="flex flex-wrap gap-2 mt-4">
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={saving}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            style={{ background: DOME_GREEN }}
+          <DomeSelect
+            label={t('settings.kb_llm.health_hour')}
+            value={String(config.healthHour)}
+            onChange={(e) => setConfig({ ...config, healthHour: Number(e.target.value) })}
           >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin inline" /> : null}{' '}
-            {t('settings.kb_llm.save')}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSyncAll()}
-            className="inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm"
-            style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
-          >
-            <RefreshCw className="h-4 w-4" />
-            {t('settings.kb_llm.sync_all')}
-          </button>
-        </div>
-      </SettingsCard>
-
-      <SettingsCard>
-        <SectionLabel>{t('settings.kb_llm.section_status')}</SectionLabel>
-        <div className="mb-3">
-          <label className="block text-xs font-medium mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.kb_llm.status_project')}
-          </label>
-          <select
-            className="w-full max-w-xs rounded-lg border px-3 py-2 text-sm bg-[var(--dome-bg)]"
-            style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
-            value={statusProjectId}
-            onChange={(e) => setStatusProjectId(e.target.value)}
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
+            {Array.from({ length: 24 }, (_, h) => (
+              <option key={h} value={h}>
+                {String(h).padStart(2, '0')}:00
               </option>
             ))}
-          </select>
+          </DomeSelect>
         </div>
+        <DomeCheckbox
+          reverse
+          className="py-2 mt-2"
+          label={t('settings.kb_llm.auto_reindex')}
+          checked={config.autoReindexWikiOnSave}
+          onChange={(e) => setConfig({ ...config, autoReindexWikiOnSave: e.target.checked })}
+        />
+        <DomeCheckbox
+          reverse
+          className="py-2"
+          label={t('settings.kb_llm.allow_auto_write')}
+          checked={config.allowAutoWrite}
+          onChange={(e) => setConfig({ ...config, allowAutoWrite: e.target.checked })}
+        />
+        <div className="flex flex-wrap gap-2 mt-4">
+          <DomeButton type="button" variant="primary" loading={saving} onClick={() => void handleSave()}>
+            {t('settings.kb_llm.save')}
+          </DomeButton>
+          <DomeButton
+            type="button"
+            variant="outline"
+            loading={syncing}
+            leftIcon={<RefreshCw className="h-4 w-4" />}
+            onClick={() => void handleSyncAll()}
+          >
+            {t('settings.kb_llm.sync_all')}
+          </DomeButton>
+        </div>
+      </DomeCard>
+
+      <DomeCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+          {t('settings.kb_llm.section_status')}
+        </DomeSectionLabel>
+        <DomeSelect
+          className="max-w-xs"
+          label={t('settings.kb_llm.status_project')}
+          value={statusProjectId}
+          onChange={(e) => setStatusProjectId(e.target.value)}
+        >
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </DomeSelect>
         {status && (
-          <div className="text-sm space-y-2" style={{ color: 'var(--dome-text-muted)' }}>
+          <div className="text-sm space-y-2 mt-3 text-[var(--dome-text-muted,var(--tertiary-text))]">
             <p>
-              <strong style={{ color: 'var(--dome-text)' }}>{t('settings.kb_llm.effective')}:</strong>{' '}
+              <strong className="text-[var(--dome-text,var(--primary-text))]">{t('settings.kb_llm.effective')}:</strong>{' '}
               {status.effectiveEnabled ? t('settings.kb_llm.on') : t('settings.kb_llm.off')}
             </p>
             <p>
@@ -322,7 +277,7 @@ export default function KbLlmSettingsPanel() {
             </p>
           </div>
         )}
-      </SettingsCard>
+      </DomeCard>
     </div>
   );
 }

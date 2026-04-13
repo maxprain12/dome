@@ -110,6 +110,26 @@ function parseToolArguments(rawArguments) {
   return rawArguments && typeof rawArguments === 'object' ? rawArguments : {};
 }
 
+/** Merge LLM token usage chunks (e.g. multiple LangGraph invokes / resume). */
+function mergeLlmUsage(current, delta) {
+  if (!delta || typeof delta !== 'object') return current || null;
+  const dIn = Math.max(0, Math.floor(Number(delta.inputTokens ?? delta.input_tokens ?? 0) || 0));
+  const dOut = Math.max(0, Math.floor(Number(delta.outputTokens ?? delta.output_tokens ?? 0) || 0));
+  const dTotRaw = delta.totalTokens ?? delta.total_tokens;
+  const dTot =
+    dTotRaw != null && dTotRaw !== ''
+      ? Math.max(0, Math.floor(Number(dTotRaw) || 0))
+      : dIn + dOut;
+  if (!current) {
+    return { inputTokens: dIn, outputTokens: dOut, totalTokens: dTot };
+  }
+  return {
+    inputTokens: (current.inputTokens ?? 0) + dIn,
+    outputTokens: (current.outputTokens ?? 0) + dOut,
+    totalTokens: (current.totalTokens ?? 0) + dTot,
+  };
+}
+
 function serializeToolResult(result) {
   if (typeof result === 'string') return result;
   try {
@@ -868,6 +888,10 @@ function createRunChunkEmitter(runId, context) {
       patchRun(runId, { lastHeartbeatAt: heartbeat });
       return;
     }
+    if (data.type === 'usage' && data.usage) {
+      context.llmUsage = mergeLlmUsage(context.llmUsage, data.usage);
+      return;
+    }
     if (data.type === 'interrupt' && data.actionRequests && data.reviewConfigs) {
       context.threadId = data.threadId || context.threadId;
       patchRun(runId, {
@@ -992,6 +1016,7 @@ async function executeLangGraphRun(runId, params) {
         provider: context.provider,
         model: context.model,
         toolCalls: context.toolCalls,
+        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
       },
     });
   } catch (error) {
@@ -1167,6 +1192,7 @@ async function resumeRun(runId, decisions) {
         model: providerConfig.model,
         toolCalls: context.toolCalls,
         pendingApproval: null,
+        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
       },
     });
   } catch (error) {
@@ -1248,11 +1274,15 @@ async function executeWorkflowRun(runId, params, workflow) {
     });
   };
   let finalOutput = '';
+  const workflowProviderConfig = await getProviderConfig(params.provider, params.model);
+  let workflowLlmUsage = null;
   patchRun(runId, {
     status: 'running',
     metadata: {
       kind: 'workflow',
       workflowName: workflow.name,
+      provider: workflowProviderConfig.provider,
+      model: workflowProviderConfig.model,
       inputTemplate: params.inputTemplate ?? null,
     },
   });
@@ -1315,7 +1345,7 @@ async function executeWorkflowRun(runId, params, workflow) {
           const mcpServerIds = Array.isArray(agentDef.mcpServerIds)
             ? agentDef.mcpServerIds
             : (Array.isArray(params.inputTemplate?.mcpServerIds) ? params.inputTemplate.mcpServerIds : []);
-          const providerConfig = await getProviderConfig(params.provider, params.model);
+          const providerConfig = workflowProviderConfig;
           const nodeContext = {
             fullResponse: '',
             fullThinking: '',
@@ -1358,6 +1388,8 @@ async function executeWorkflowRun(runId, params, workflow) {
                 patchRun(runId, { lastHeartbeatAt: now() });
               } else if (chunk.type === 'thinking' && chunk.text) {
                 nodeContext.fullThinking += chunk.text;
+              } else if (chunk.type === 'usage' && chunk.usage) {
+                workflowLlmUsage = mergeLlmUsage(workflowLlmUsage, chunk.usage);
               } else if (chunk.type === 'tool_call' && chunk.toolCall) {
                 const step = appendRunStep({
                   runId,
@@ -1441,12 +1473,15 @@ async function executeWorkflowRun(runId, params, workflow) {
       metadata: {
         kind: 'workflow',
         workflowName: workflow.name,
+        provider: workflowProviderConfig.provider,
+        model: workflowProviderConfig.model,
         progress: {
           ...getWorkflowProgressMetadata(workflow, completedNodeIds),
           completedNodeIds: [...completedNodeIds],
         },
         nodeOutputs,
         createdNoteId: createdNote?.id ?? null,
+        ...(workflowLlmUsage ? { usage: workflowLlmUsage } : {}),
       },
     });
   } catch (error) {
@@ -1463,10 +1498,13 @@ async function executeWorkflowRun(runId, params, workflow) {
       error: error?.message || String(error),
       finishedAt: now(),
       metadata: {
+        provider: workflowProviderConfig.provider,
+        model: workflowProviderConfig.model,
         progress: {
           ...getWorkflowProgressMetadata(workflow, completedNodeIds),
           completedNodeIds: [...completedNodeIds],
         },
+        ...(workflowLlmUsage ? { usage: workflowLlmUsage } : {}),
       },
     });
   } finally {

@@ -1,25 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Calendar, Loader2, Unplug } from 'lucide-react';
+import { Calendar, Unplug } from 'lucide-react';
 import { showToast } from '@/lib/store/useToastStore';
-
-const DOME_GREEN = '#596037';
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-      {children}
-    </p>
-  );
-}
-
-function SettingsCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-      {children}
-    </div>
-  );
-}
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeCard from '@/components/ui/DomeCard';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeToggle from '@/components/ui/DomeToggle';
+import { DomeInput } from '@/components/ui/DomeInput';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeIconBox from '@/components/ui/DomeIconBox';
+import DomeListState from '@/components/ui/DomeListState';
 
 export default function CalendarSettingsPanel() {
   const { t } = useTranslation();
@@ -109,32 +99,25 @@ export default function CalendarSettingsPanel() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24" style={{ color: 'var(--dome-text-muted)' }}>
-        <Loader2 className="w-8 h-8 animate-spin" />
-      </div>
-    );
+    return <DomeListState variant="loading" fullHeight loadingLabel={t('common.loading')} />;
   }
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: DOME_GREEN }}>
-          <Calendar className="w-5 h-5" style={{ color: '#E0EAB4' }} />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
-            {t('settings.calendar.title')}
-          </h2>
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.calendar.subtitle')}
-          </p>
-        </div>
-      </div>
+      <DomeSubpageHeader
+        title={t('settings.calendar.title')}
+        subtitle={t('settings.calendar.subtitle')}
+        trailing={
+          <DomeIconBox size="md" className="!w-10 !h-10" background="var(--accent)">
+            <Calendar className="w-5 h-5 text-[var(--base-text)]" aria-hidden />
+          </DomeIconBox>
+        }
+        className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"
+      />
 
       <div>
-        <SectionLabel>{t('settings.calendar.section_google')}</SectionLabel>
-        <SettingsCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.calendar.section_google')}</DomeSectionLabel>
+        <DomeCard>
           <div className="space-y-3">
             {accounts.length === 0 ? (
               <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
@@ -146,92 +129,76 @@ export default function CalendarSettingsPanel() {
                   <span className="text-sm truncate" style={{ color: 'var(--dome-text)' }}>
                     {a.account_email}
                   </span>
-                  <button
+                  <DomeButton
                     type="button"
+                    variant="outline"
+                    size="xs"
+                    leftIcon={<Unplug className="w-3.5 h-3.5" />}
                     onClick={() => void disconnect(a.id)}
-                    className="flex items-center gap-1 text-xs px-2 py-1 rounded-md border shrink-0"
-                    style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
                   >
-                    <Unplug className="w-3.5 h-3.5" />
                     {t('settings.calendar.disconnect')}
-                  </button>
+                  </DomeButton>
                 </div>
               ))
             )}
-            <button
-              type="button"
-              onClick={() => void connectGoogle()}
-              className="text-sm font-medium px-4 py-2 rounded-lg"
-              style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg)' }}
-            >
+            <DomeButton type="button" variant="primary" size="sm" onClick={() => void connectGoogle()}>
               {t('settings.calendar.connect_google')}
-            </button>
+            </DomeButton>
           </div>
-        </SettingsCard>
+        </DomeCard>
       </div>
 
       <div>
-        <SectionLabel>{t('settings.calendar.section_sync')}</SectionLabel>
-        <SettingsCard>
-          <label className="flex items-center gap-2 cursor-pointer mb-4">
-            <input type="checkbox" checked={syncAuto} onChange={(e) => setSyncAuto(e.target.checked)} />
-            <span className="text-sm" style={{ color: 'var(--dome-text)' }}>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.calendar.section_sync')}</DomeSectionLabel>
+        <DomeCard>
+          <div className="flex items-start gap-3 mb-4">
+            <DomeToggle checked={syncAuto} onChange={setSyncAuto} size="sm" className="mt-0.5" />
+            <span className="text-sm pt-0.5" style={{ color: 'var(--dome-text)' }}>
               {t('settings.calendar.sync_auto')}
             </span>
-          </label>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('settings.calendar.sync_interval')}
-            </label>
-            <input
-              type="number"
-              min={5}
-              max={1440}
-              value={syncInterval}
-              onChange={(e) => setSyncInterval(Math.max(5, Math.min(1440, Number(e.target.value) || 30)))}
-              className="rounded-lg border px-3 py-2 text-sm max-w-[120px]"
-              style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
-            />
           </div>
-        </SettingsCard>
+          <DomeInput
+            label={t('settings.calendar.sync_interval')}
+            type="number"
+            min={5}
+            max={1440}
+            value={String(syncInterval)}
+            onChange={(e) => setSyncInterval(Math.max(5, Math.min(1440, Number(e.target.value) || 30)))}
+            className="max-w-[160px]"
+          />
+        </DomeCard>
       </div>
 
       <div>
-        <SectionLabel>{t('settings.calendar.section_notifications')}</SectionLabel>
-        <SettingsCard>
-          <label className="flex items-center gap-2 cursor-pointer mb-4">
-            <input type="checkbox" checked={inAppOn} onChange={(e) => setInAppOn(e.target.checked)} />
-            <span className="text-sm" style={{ color: 'var(--dome-text)' }}>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.calendar.section_notifications')}</DomeSectionLabel>
+        <DomeCard>
+          <div className="flex items-start gap-3 mb-4">
+            <DomeToggle checked={inAppOn} onChange={setInAppOn} size="sm" className="mt-0.5" />
+            <span className="text-sm pt-0.5" style={{ color: 'var(--dome-text)' }}>
               {t('settings.calendar.in_app_enable')}
             </span>
-          </label>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('settings.calendar.in_app_lead')}
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={10080}
-              value={leadMin}
-              onChange={(e) => setLeadMin(Math.max(1, Math.min(10080, Number(e.target.value) || 15)))}
-              className="rounded-lg border px-3 py-2 text-sm max-w-[120px]"
-              style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
-            />
           </div>
-        </SettingsCard>
+          <DomeInput
+            label={t('settings.calendar.in_app_lead')}
+            type="number"
+            min={1}
+            max={10080}
+            value={String(leadMin)}
+            onChange={(e) => setLeadMin(Math.max(1, Math.min(10080, Number(e.target.value) || 15)))}
+            className="max-w-[160px]"
+          />
+        </DomeCard>
       </div>
 
-      <button
+      <DomeButton
         type="button"
+        variant="primary"
         disabled={saving}
+        loading={saving}
         onClick={() => void save()}
-        className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
-        style={{ background: DOME_GREEN, color: '#E0EAB4' }}
       >
-        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
         {t('settings.calendar.save')}
-      </button>
+      </DomeButton>
     </div>
   );
 }

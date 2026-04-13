@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Brain, ImageIcon, Shield, Gift, Search, Zap, RefreshCw, Lock, HardDrive } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Shield, Search, Zap, RefreshCw, Lock, HardDrive } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -13,11 +13,22 @@ import {
 } from '@/lib/ai/models';
 import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import ModelSelector from './ModelSelector';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeCard from '@/components/ui/DomeCard';
+import { DomeInput } from '@/components/ui/DomeInput';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeBadge from '@/components/ui/DomeBadge';
+import DomeCallout from '@/components/ui/DomeCallout';
+import DomeIconBox from '@/components/ui/DomeIconBox';
+import DomeProgressBar from '@/components/ui/DomeProgressBar';
 
-// Dome brand palette
-const DOME_GREEN = '#596037';
-const DOME_GREEN_LIGHT = '#E0EAB4';
-const DOME_GREEN_DARK = '#4A502E';
+/** Mezcla del acento de marca para fondos/bordes (compatible con temas). */
+function accentMix(pct: number): string {
+  return `color-mix(in srgb, var(--dome-accent) ${pct}%, transparent)`;
+}
+
+const ACCENT_END = 'color-mix(in srgb, var(--dome-accent) 72%, black)';
 
 interface OllamaModel {
   name: string;
@@ -29,61 +40,6 @@ function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
   return n.toString();
-}
-
-/* ─── Shared primitives ─────────────────────────────── */
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-      {children}
-    </p>
-  );
-}
-
-function SettingsCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div
-      className={`rounded-xl p-4 ${className}`}
-      style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
-  return (
-    <label htmlFor={htmlFor} className="block text-xs font-semibold uppercase tracking-wide mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-      {children}
-    </label>
-  );
-}
-
-function SettingsInput({
-  id, type = 'text', value, onChange, placeholder, className = '', autoComplete,
-}: {
-  id?: string; type?: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; className?: string; autoComplete?: string;
-}) {
-  return (
-    <input
-      id={id}
-      type={type}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      autoComplete={autoComplete}
-      className={`w-full px-3 py-2 rounded-lg text-sm outline-none transition-colors ${className}`}
-      style={{
-        backgroundColor: 'var(--dome-bg-hover)',
-        color: 'var(--dome-text)',
-        border: '1px solid var(--dome-border)',
-      }}
-      onFocus={(e) => { e.target.style.borderColor = DOME_GREEN; e.target.style.boxShadow = `0 0 0 3px ${DOME_GREEN}15`; }}
-      onBlur={(e) => { e.target.style.borderColor = 'var(--dome-border)'; e.target.style.boxShadow = 'none'; }}
-    />
-  );
 }
 
 /* ─── Main component ─────────────────────────────────── */
@@ -288,19 +244,15 @@ export default function AISettingsPanel() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Page header */}
-      <div>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>
-          {t('settings.ai.title')}
-        </h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          {t('settings.ai.subtitle')}
-        </p>
-      </div>
+      <DomeSubpageHeader
+        className="!border-0 px-0 py-0 bg-transparent"
+        title={t('settings.ai.title')}
+        subtitle={t('settings.ai.subtitle')}
+      />
 
       {/* ── PROVIDER SELECTION ── */}
       <div>
-        <SectionLabel>{t('settings.ai.provider')}</SectionLabel>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.ai.provider')}</DomeSectionLabel>
 
         <div className="space-y-2">
           {/* Dome featured card */}
@@ -311,31 +263,37 @@ export default function AISettingsPanel() {
               className="relative w-full p-4 rounded-xl text-left transition-all cursor-pointer overflow-hidden"
               style={{
                 background: provider === 'dome'
-                  ? `linear-gradient(135deg, ${DOME_GREEN} 0%, ${DOME_GREEN_DARK} 100%)`
+                  ? `linear-gradient(135deg, var(--dome-accent) 0%, ${ACCENT_END} 100%)`
                   : 'var(--dome-surface)',
-                border: provider === 'dome' ? `2px solid ${DOME_GREEN}` : '2px solid var(--dome-border)',
-                boxShadow: provider === 'dome' ? `0 4px 16px ${DOME_GREEN}25` : 'none',
+                border: provider === 'dome' ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
+                boxShadow: provider === 'dome' ? `0 4px 16px ${accentMix(25)}` : 'none',
               }}
             >
               {provider === 'dome' && (
                 <div className="absolute inset-0 pointer-events-none opacity-10"
-                  style={{ backgroundImage: `radial-gradient(circle at 80% 50%, ${DOME_GREEN_LIGHT}, transparent 60%)` }}
+                  style={{ backgroundImage: 'radial-gradient(circle at 80% 50%, var(--dome-accent-bg), transparent 60%)' }}
                 />
               )}
               <div className="relative flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.15)' : DOME_GREEN_LIGHT }}>
-                  <Shield className="w-4 h-4" style={{ color: provider === 'dome' ? DOME_GREEN_LIGHT : DOME_GREEN }} />
-                </div>
+                <DomeIconBox
+                  size="md"
+                  className="!w-9 !h-9 !rounded-lg"
+                  background={provider === 'dome' ? 'rgba(255,255,255,0.15)' : 'var(--dome-accent-bg)'}
+                >
+                  <Shield className="w-4 h-4" style={{ color: provider === 'dome' ? 'var(--dome-accent-bg)' : 'var(--dome-accent)' }} />
+                </DomeIconBox>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span className="text-sm font-semibold" style={{ color: provider === 'dome' ? '#fff' : 'var(--dome-text)' }}>
                       {PROVIDERS.dome.name}
                     </span>
-                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded tracking-wide"
-                      style={{ backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.2)' : DOME_GREEN_LIGHT, color: provider === 'dome' ? '#fff' : DOME_GREEN }}>
-                      {t('settings.ai.recommended')}
-                    </span>
+                    <DomeBadge
+                      label={t('settings.ai.recommended')}
+                      size="xs"
+                      variant={provider === 'dome' ? 'outline' : 'soft'}
+                      color={provider === 'dome' ? '#ffffff' : 'var(--dome-accent)'}
+                      className={provider === 'dome' ? '!border-white/30 !text-white' : ''}
+                    />
                   </div>
                   <p className="text-xs" style={{ color: provider === 'dome' ? 'rgba(255,255,255,0.7)' : 'var(--dome-text-muted)' }}>
                     {`${PROVIDERS.dome.description}. ${t('settings.ai.no_own_key')}.`}
@@ -344,12 +302,12 @@ export default function AISettingsPanel() {
                 <div className="flex items-center gap-1.5 shrink-0">
                   {[{ icon: Lock, label: t('settings.ai.private') }, { icon: Zap, label: t('settings.ai.fast') }].map(({ icon: Icon, label }) => (
                     <div key={label} className="flex items-center gap-1 px-2 py-1 rounded-md"
-                      style={{ backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.12)' : `${DOME_GREEN}10`, color: provider === 'dome' ? 'rgba(255,255,255,0.85)' : DOME_GREEN }}>
+                      style={{ backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.12)' : accentMix(10), color: provider === 'dome' ? 'rgba(255,255,255,0.85)' : 'var(--dome-accent)' }}>
                       <Icon className="w-2.5 h-2.5" />
                       <span className="text-[10px] font-medium">{label}</span>
                     </div>
                   ))}
-                  {provider === 'dome' && <CheckCircle2 className="w-4 h-4" style={{ color: DOME_GREEN_LIGHT }} />}
+                  {provider === 'dome' && <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--dome-accent-bg)' }} />}
                 </div>
               </div>
             </button>
@@ -368,24 +326,28 @@ export default function AISettingsPanel() {
                   disabled={option.disabled}
                   className="relative p-3 rounded-xl text-left transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{
-                    backgroundColor: isSelected ? `${DOME_GREEN}08` : 'transparent',
-                    border: isSelected ? `2px solid ${DOME_GREEN}` : '2px solid var(--dome-border)',
-                    boxShadow: isSelected ? `0 2px 8px ${DOME_GREEN}15` : 'none',
+                    backgroundColor: isSelected ? accentMix(8) : 'transparent',
+                    border: isSelected ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
+                    boxShadow: isSelected ? `0 2px 8px ${accentMix(15)}` : 'none',
                   }}
                 >
-                  {option.badge && (
-                    <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 text-[8px] font-bold rounded"
-                      style={{ backgroundColor: DOME_GREEN, color: '#fff' }}>
-                      {option.badge}
+                  {option.badge ? (
+                    <span className="absolute -top-1.5 -right-1.5">
+                      <DomeBadge label={option.badge} size="xs" variant="filled" color="var(--dome-accent)" className="!text-[8px] !py-0.5 !px-1.5" />
                     </span>
-                  )}
+                  ) : null}
                   <div className="flex flex-col items-start gap-2">
                     <div className="flex items-center justify-between w-full">
-                      <div className="w-6 h-6 rounded-md flex items-center justify-center"
-                        style={{ backgroundColor: isSelected ? DOME_GREEN_LIGHT : 'var(--dome-bg-hover)' }}>
-                        <Icon className="w-3.5 h-3.5" style={{ color: isSelected ? DOME_GREEN : 'var(--dome-text-muted)' }} />
-                      </div>
-                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />}
+                      <DomeIconBox
+                        size="sm"
+                        className="!w-6 !h-6 !rounded-md"
+                        background={isSelected ? 'var(--dome-accent-bg)' : 'var(--dome-bg-hover)'}
+                      >
+                        <span style={{ color: isSelected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
+                          <Icon className="w-3.5 h-3.5" aria-hidden />
+                        </span>
+                      </DomeIconBox>
+                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />}
                     </div>
                     <div>
                       <p className="text-xs font-semibold leading-none mb-0.5" style={{ color: 'var(--dome-text)' }}>{option.label}</p>
@@ -409,29 +371,34 @@ export default function AISettingsPanel() {
                 onClick={() => handleProviderChange('ollama')}
                 className="relative w-full p-3 rounded-xl text-left transition-all cursor-pointer"
                 style={{
-                  backgroundColor: isSelected ? `${DOME_GREEN}08` : 'transparent',
-                  border: isSelected ? `2px solid ${DOME_GREEN}` : '2px solid var(--dome-border)',
-                  boxShadow: isSelected ? `0 2px 8px ${DOME_GREEN}15` : 'none',
+                  backgroundColor: isSelected ? accentMix(8) : 'transparent',
+                  border: isSelected ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
+                  boxShadow: isSelected ? `0 2px 8px ${accentMix(15)}` : 'none',
                 }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: isSelected ? DOME_GREEN_LIGHT : 'var(--dome-bg-hover)' }}>
-                    <Icon className="w-3.5 h-3.5" style={{ color: isSelected ? DOME_GREEN : 'var(--dome-text-muted)' }} />
-                  </div>
+                  <DomeIconBox
+                    size="sm"
+                    className="!w-7 !h-7"
+                    background={isSelected ? 'var(--dome-accent-bg)' : 'var(--dome-bg-hover)'}
+                  >
+                    <span style={{ color: isSelected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
+                      <Icon className="w-3.5 h-3.5" aria-hidden />
+                    </span>
+                  </DomeIconBox>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <p className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>{ollamaOption.label}</p>
-                      <span className="px-1.5 py-0.5 text-[9px] font-bold rounded" style={{ backgroundColor: `${DOME_GREEN}15`, color: DOME_GREEN }}>{t('settings.ai.local_badge')}</span>
+                      <DomeBadge label={t('settings.ai.local_badge')} size="xs" color="var(--dome-accent)" />
                     </div>
                     <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.private_local')}</p>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ backgroundColor: `${DOME_GREEN}10`, color: DOME_GREEN }}>
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ backgroundColor: accentMix(10), color: 'var(--dome-accent)' }}>
                       <HardDrive className="w-2.5 h-2.5" />
                       <span className="text-[10px] font-medium">Offline</span>
                     </div>
-                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />}
+                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />}
                   </div>
                 </div>
               </button>
@@ -442,40 +409,43 @@ export default function AISettingsPanel() {
 
       {/* ── CONFIGURATION ── */}
       <div>
-        <SectionLabel>{t('settings.ai.configuration')}</SectionLabel>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.ai.configuration')}</DomeSectionLabel>
 
         {/* Cloud API key + model */}
         {(provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax') && (
-          <SettingsCard className="space-y-4">
+          <DomeCard className="space-y-4">
             {/* API Key */}
             <div>
-              <FieldLabel htmlFor="ai-api-key">API Key</FieldLabel>
-              <div className="relative">
-                <input
+              <label htmlFor="ai-api-key" className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
+                API Key
+              </label>
+              <div className="relative w-full">
+                <DomeInput
                   id="ai-api-key"
                   type={showApiKey ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || 'Introduce tu API key...'}
-                  className="w-full px-3 py-2 pr-10 rounded-lg text-sm outline-none transition-colors"
-                  style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
-                  onFocus={(e) => { e.target.style.borderColor = DOME_GREEN; e.target.style.boxShadow = `0 0 0 3px ${DOME_GREEN}15`; }}
-                  onBlur={(e) => { e.target.style.borderColor = 'var(--dome-border)'; e.target.style.boxShadow = 'none'; }}
+                  inputClassName="pr-10"
+                  className="w-full [&_input]:pr-10"
                 />
-                <button
+                <DomeButton
                   type="button"
-                  onClick={() => setShowApiKey(v => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity"
-                  style={{ color: 'var(--dome-text-muted)' }}
+                  variant="ghost"
+                  size="xs"
+                  iconOnly
+                  className="absolute right-1 top-1/2 -translate-y-1/2 text-[var(--dome-text-muted)]"
+                  onClick={() => setShowApiKey((v) => !v)}
+                  aria-label={showApiKey ? 'Ocultar API key' : 'Mostrar API key'}
                 >
                   {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
+                </DomeButton>
               </div>
               {PROVIDERS[provider]?.docsUrl && (
                 <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
                   {t('settings.ai.free_key_at')}{' '}
                   <a href={PROVIDERS[provider].docsUrl} target="_blank" rel="noopener noreferrer"
-                    className="underline hover:opacity-80" style={{ color: DOME_GREEN }}>
+                    className="underline hover:opacity-80" style={{ color: 'var(--dome-accent)' }}>
                     {PROVIDERS[provider].docsUrl.replace('https://', '')}
                   </a>
                 </p>
@@ -486,20 +456,15 @@ export default function AISettingsPanel() {
             {currentProviderModels.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <FieldLabel>{t('settings.ai.model')}</FieldLabel>
-                  <button
-                    type="button"
-                    onClick={() => setCustomModel(v => !v)}
-                    className="text-[11px] font-medium hover:opacity-80"
-                    style={{ color: DOME_GREEN }}
-                  >
+                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--dome-text-muted)]">{t('settings.ai.model')}</span>
+                  <DomeButton type="button" variant="ghost" size="xs" onClick={() => setCustomModel((v) => !v)}>
                     {customModel ? t('settings.ai.use_presets') : t('settings.ai.custom_model')}
-                  </button>
+                  </DomeButton>
                 </div>
                 {customModel ? (
-                  <SettingsInput
+                  <DomeInput
                     value={model}
-                    onChange={setModel}
+                    onChange={(e) => setModel(e.target.value)}
                     placeholder={getDefaultModelId(provider)}
                     autoComplete="off"
                   />
@@ -518,12 +483,12 @@ export default function AISettingsPanel() {
                 )}
               </div>
             )}
-          </SettingsCard>
+          </DomeCard>
         )}
 
         {/* Ollama config */}
         {provider === 'ollama' && (
-          <SettingsCard className="space-y-4">
+          <DomeCard className="space-y-4">
             {/* Status row */}
             <div className="flex items-center justify-between p-3 rounded-lg"
               style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
@@ -534,7 +499,7 @@ export default function AISettingsPanel() {
                     <Loader2 className="w-3 h-3 animate-spin" /> {t('settings.ai.status_checking')}
                   </span>
                 ) : ollamaAvailable === true ? (
-                  <span className="flex items-center gap-1 text-xs font-medium" style={{ color: DOME_GREEN }}>
+                  <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--dome-accent)' }}>
                     <CheckCircle2 className="w-3.5 h-3.5" /> {t('settings.ai.status_connected')}
                   </span>
                 ) : ollamaAvailable === false ? (
@@ -545,33 +510,35 @@ export default function AISettingsPanel() {
                   <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.status_unverified')}</span>
                 )}
               </div>
-              <button
+              <DomeButton
                 type="button"
-                onClick={checkOllamaConnection}
+                variant="primary"
+                size="sm"
+                onClick={() => void checkOllamaConnection()}
                 disabled={checkingOllama}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
-                style={{ backgroundColor: DOME_GREEN, color: '#fff', border: 'none' }}
+                leftIcon={<RefreshCw className={`w-3 h-3 ${checkingOllama ? 'animate-spin' : ''}`} aria-hidden />}
               >
-                <RefreshCw className={`w-3 h-3 ${checkingOllama ? 'animate-spin' : ''}`} />
                 {t('settings.ai.test_btn')}
-              </button>
+              </DomeButton>
             </div>
 
-            {ollamaAvailable === false && (
-              <div className="p-3 rounded-lg text-xs" style={{ backgroundColor: '#f59e0b10', border: '1px solid #f59e0b25', color: '#a37b00' }}>
+            {ollamaAvailable === false ? (
+              <DomeCallout tone="warning">
                 {t('settings.ai.ollama_install')}{' '}
-                <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline font-medium">ollama.ai</a>
-              </div>
-            )}
+                <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+                  ollama.ai
+                </a>
+              </DomeCallout>
+            ) : null}
 
             {/* Base URL */}
             <div>
-              <FieldLabel htmlFor="ai-ollama-url">{t('settings.ai.base_url')}</FieldLabel>
-              <SettingsInput
+              <DomeInput
                 id="ai-ollama-url"
+                label={t('settings.ai.base_url')}
                 type="url"
                 value={ollamaBaseURL}
-                onChange={setOllamaBaseURL}
+                onChange={(e) => setOllamaBaseURL(e.target.value)}
                 placeholder="http://localhost:11434"
               />
               <p className="text-[11px] mt-1" style={{ color: 'var(--dome-text-muted)' }}>
@@ -581,46 +548,48 @@ export default function AISettingsPanel() {
 
             {/* API Key (optional) */}
             <div>
-              <FieldLabel htmlFor="ai-ollama-api-key">
+              <label htmlFor="ai-ollama-api-key" className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
                 API Key <span className="normal-case font-normal opacity-60">(opcional — Ollama Cloud)</span>
-              </FieldLabel>
-              <div className="relative">
-                <input
+              </label>
+              <div className="relative w-full">
+                <DomeInput
                   id="ai-ollama-api-key"
                   type={showOllamaApiKey ? 'text' : 'password'}
                   value={ollamaApiKey}
                   onChange={(e) => setOllamaApiKey(e.target.value)}
                   placeholder="ollama_..."
                   autoComplete="off"
-                  className="w-full px-3 py-2 pr-10 rounded-lg text-sm outline-none"
-                  style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
-                  onFocus={(e) => { e.target.style.borderColor = DOME_GREEN; }}
-                  onBlur={(e) => { e.target.style.borderColor = 'var(--dome-border)'; }}
+                  inputClassName="pr-10"
+                  className="w-full [&_input]:pr-10"
                 />
-                <button
+                <DomeButton
                   type="button"
-                  onClick={() => setShowOllamaApiKey(v => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100 transition-opacity"
+                  variant="ghost"
+                  size="xs"
+                  iconOnly
+                  className="absolute right-1 top-1/2 -translate-y-1/2"
+                  onClick={() => setShowOllamaApiKey((v) => !v)}
+                  aria-label={showOllamaApiKey ? 'Ocultar' : 'Mostrar'}
                 >
                   {showOllamaApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                </button>
+                </DomeButton>
               </div>
             </div>
 
             {/* Chat model */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <FieldLabel>{t('settings.ai.chat_model')}</FieldLabel>
-                <button
+                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--dome-text-muted)]">{t('settings.ai.chat_model')}</span>
+                <DomeButton
                   type="button"
-                  onClick={loadOllamaModels}
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => void loadOllamaModels()}
                   disabled={loadingModels}
-                  className="flex items-center gap-1 text-[11px] font-medium hover:opacity-80 disabled:opacity-50"
-                  style={{ color: DOME_GREEN }}
+                  leftIcon={<RefreshCw className={`w-2.5 h-2.5 ${loadingModels ? 'animate-spin' : ''}`} aria-hidden />}
                 >
-                  <RefreshCw className={`w-2.5 h-2.5 ${loadingModels ? 'animate-spin' : ''}`} />
                   {t('settings.ai.refresh')}
-                </button>
+                </DomeButton>
               </div>
               {loadingModels ? (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
@@ -641,22 +610,21 @@ export default function AISettingsPanel() {
                   providerType="ollama"
                 />
               ) : (
-                <SettingsInput value={ollamaModel} onChange={setOllamaModel} placeholder="llama3.2" />
+                <DomeInput value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.2" />
               )}
             </div>
 
-            {/* OCR notice */}
-            <div className="rounded-lg p-3 text-xs" style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}>
-              <span className="font-semibold" style={{ color: 'var(--dome-text)' }}>OCR en PDFs escaneados:</span>{' '}
-              el modelo debe soportar visión. Compatibles: <code className="font-mono">llava</code>, <code className="font-mono">minicpm-v</code>, <code className="font-mono">glm4v</code>.
-            </div>
-          </SettingsCard>
+            <DomeCallout tone="info" title="OCR en PDFs escaneados:">
+              el modelo debe soportar visión. Compatibles: <code className="font-mono">llava</code>,{' '}
+              <code className="font-mono">minicpm-v</code>, <code className="font-mono">glm4v</code>.
+            </DomeCallout>
+          </DomeCard>
         )}
 
         {/* Dome provider config */}
         {provider === 'dome' && (
-          <SettingsCard className="space-y-4">
-            <div className="rounded-lg p-4" style={{ backgroundColor: `${DOME_GREEN}08`, border: `1px solid ${DOME_GREEN}25` }}>
+          <DomeCard className="space-y-4">
+            <div className="rounded-lg p-4" style={{ backgroundColor: accentMix(8), border: `1px solid ${accentMix(25)}` }}>
               <p className="text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
                 {t('settings.ai.dome_connect_title')}
               </p>
@@ -665,31 +633,20 @@ export default function AISettingsPanel() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleConnectDome}
-                disabled={domeConnecting}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-all disabled:opacity-50"
-                style={{ backgroundColor: DOME_GREEN }}
-              >
+            <div className="flex items-center gap-3 flex-wrap">
+              <DomeButton type="button" variant="primary" size="md" onClick={() => void handleConnectDome()} disabled={domeConnecting}>
                 {domeConnecting ? t('settings.ai.connecting') : domeConnected ? t('settings.ai.reconnect') : t('settings.ai.connect_dome')}
-              </button>
-              {domeConnected && (
-                <button
-                  type="button"
-                  onClick={handleDisconnectDome}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                  style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text)', backgroundColor: 'transparent' }}
-                >
+              </DomeButton>
+              {domeConnected ? (
+                <DomeButton type="button" variant="outline" size="md" onClick={() => void handleDisconnectDome()}>
                   {t('settings.ai.disconnect')}
-                </button>
-              )}
+                </DomeButton>
+              ) : null}
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: domeConnected ? DOME_GREEN : 'var(--dome-text-muted)' }} />
-              <span className="text-xs" style={{ color: domeConnected ? DOME_GREEN : 'var(--dome-text-muted)' }}>
+              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: domeConnected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }} />
+              <span className="text-xs" style={{ color: domeConnected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
                 {domeConnected ? t('settings.ai.status_connected') : t('settings.ai.status_disconnected')}
               </span>
             </div>
@@ -704,15 +661,11 @@ export default function AISettingsPanel() {
                       : '—'}
                   </span>
                 </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--dome-border)' }}>
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: domeQuota.limit && domeQuota.limit > 0 ? `${Math.min((domeQuota.used ?? 0) / domeQuota.limit * 100, 100)}%` : '0%',
-                      backgroundColor: DOME_GREEN,
-                    }}
-                  />
-                </div>
+                <DomeProgressBar
+                  value={domeQuota.limit && domeQuota.limit > 0 ? Math.min((domeQuota.used ?? 0) / domeQuota.limit * 100, 100) : 0}
+                  max={100}
+                  size="sm"
+                />
                 {domeQuota.periodEnd && (
                   <p className="text-[10px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
                     {t('settings.ai.renewal')}: {new Date(domeQuota.periodEnd).toLocaleDateString()}
@@ -720,18 +673,18 @@ export default function AISettingsPanel() {
                 )}
               </div>
             )}
-          </SettingsCard>
+          </DomeCard>
         )}
       </div>
 
       {/* ── WEB SEARCH ── */}
       <div>
-        <SectionLabel>{t('settings.ai.brave_search_title')}</SectionLabel>
-        <SettingsCard className="space-y-4">
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.ai.brave_search_title')}</DomeSectionLabel>
+        <DomeCard className="space-y-4">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: DOME_GREEN_LIGHT }}>
-              <Search className="w-4 h-4" style={{ color: DOME_GREEN }} />
-            </div>
+            <DomeIconBox size="md" background="var(--dome-accent-bg)">
+              <Search className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />
+            </DomeIconBox>
             <div>
               <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>Playwright Web Search</p>
               <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
@@ -740,69 +693,46 @@ export default function AISettingsPanel() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
+          <div className="flex items-center gap-3 flex-wrap">
+            <DomeButton
               type="button"
-              onClick={handleTestWebSearch}
-              disabled={testingWebSearch}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
-              style={{ backgroundColor: DOME_GREEN, color: '#fff' }}
+              variant="primary"
+              size="sm"
+              onClick={() => void handleTestWebSearch()}
+              loading={testingWebSearch}
             >
-              {testingWebSearch ? <><Loader2 className="w-3 h-3 animate-spin" /> {t('settings.ai.testing')}</> : t('settings.ai.test_brave')}
-            </button>
+              {t('settings.ai.test_brave')}
+            </DomeButton>
             <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
               {t('settings.ai.brave_desc')}
             </span>
           </div>
 
-          {webSearchResult && (
-            <div className="rounded-lg px-3 py-2 text-xs"
-              style={{
-                backgroundColor: webSearchResult.success ? `${DOME_GREEN}10` : 'rgba(239,68,68,0.08)',
-                color: webSearchResult.success ? DOME_GREEN : 'var(--dome-error, #ef4444)',
-                border: `1px solid ${webSearchResult.success ? `${DOME_GREEN}25` : 'rgba(239,68,68,0.2)'}`,
-              }}>
-              {webSearchResult.message}
-            </div>
-          )}
-        </SettingsCard>
+          {webSearchResult ? (
+            <DomeCallout tone={webSearchResult.success ? 'success' : 'error'}>{webSearchResult.message}</DomeCallout>
+          ) : null}
+        </DomeCard>
       </div>
 
       {/* ── ACTIONS ── */}
-      <div className="flex items-center gap-3 pt-2">
-        <button
-          type="button"
-          onClick={handleSave}
-          className="px-5 py-2 rounded-lg text-sm font-medium text-white transition-all"
-          style={{ backgroundColor: DOME_GREEN }}
-        >
+      <div className="flex items-center gap-3 pt-2 flex-wrap">
+        <DomeButton type="button" variant="primary" size="md" onClick={() => void handleSave()}>
           {saved ? t('settings.ai.saved_config') : t('settings.ai.save_config')}
-        </button>
-        <button
+        </DomeButton>
+        <DomeButton
           type="button"
-          onClick={handleTestConnection}
-          disabled={testing}
-          className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all disabled:opacity-50"
-          style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+          variant="outline"
+          size="md"
+          onClick={() => void handleTestConnection()}
+          loading={testing}
         >
-          {testing ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('settings.ai.testing')}</> : t('settings.ai.test_connection')}
-        </button>
+          {t('settings.ai.test_connection')}
+        </DomeButton>
       </div>
 
-      {testResult && (
-        <div className="flex items-center gap-2 p-3 rounded-lg"
-          style={{
-            backgroundColor: testResult.success ? `${DOME_GREEN}10` : 'rgba(239,68,68,0.08)',
-            border: `1px solid ${testResult.success ? `${DOME_GREEN}25` : 'rgba(239,68,68,0.2)'}`,
-          }}>
-          {testResult.success
-            ? <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: DOME_GREEN }} />
-            : <XCircle className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-error, #ef4444)' }} />}
-          <span className="text-sm" style={{ color: testResult.success ? DOME_GREEN : 'var(--dome-error, #ef4444)' }}>
-            {testResult.message}
-          </span>
-        </div>
-      )}
+      {testResult ? (
+        <DomeCallout tone={testResult.success ? 'success' : 'error'}>{testResult.message}</DomeCallout>
+      ) : null}
     </div>
   );
 }

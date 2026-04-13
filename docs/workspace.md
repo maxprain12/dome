@@ -88,15 +88,18 @@ Note: AI Chat was removed from SidePanel; use MartinFloatingButton (Many) for ch
 
 ## Key files
 
-| Path | Role |
-|------|------|
-| `app/workspace/[[...params]]/page.tsx` | Route page |
-| `app/workspace/[[...params]]/client.tsx` | Client component; resolves resourceId, renders WorkspaceLayout |
-| `app/workspace/[[...params]]/wrapper.tsx` | Wrapper for loading/redirect |
-| `app/workspace/url/[[...params]]/` | URL workspace route (same pattern) |
+
+| Path                                           | Role                                                                                   |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `app/workspace/[[...params]]/page.tsx`         | Route page                                                                             |
+| `app/workspace/[[...params]]/client.tsx`       | Client component; resolves resourceId, renders WorkspaceLayout                         |
+| `app/workspace/[[...params]]/wrapper.tsx`      | Wrapper for loading/redirect                                                           |
+| `app/workspace/url/[[...params]]/`             | URL workspace route (same pattern)                                                     |
 | `app/components/workspace/WorkspaceLayout.tsx` | Layout: header, viewer, side panel, metadata modal; resource load and resource:updated |
-| `app/components/workspace/WorkspaceHeader.tsx` | Title, back, metadata button, panel toggle |
-| `app/components/workspace/SidePanel.tsx` | Tabs: References, Backlinks, Search, Workspace (notebooks); setContext for Martin |
-| `app/components/workspace/AIChatTab.tsx` | Many chat tab (see ai-chat.md) |
-| `app/components/workspace/MetadataModal.tsx` | Metadata form and save |
-| `app/components/workspace/index.ts` | Exports |
+| `app/components/workspace/WorkspaceHeader.tsx` | Title, back, metadata button, panel toggle                                             |
+| `app/components/workspace/SidePanel.tsx`       | Tabs: References, Backlinks, Search, Workspace (notebooks); setContext for Martin      |
+| `app/components/workspace/AIChatTab.tsx`       | Many chat tab (see ai-chat.md)                                                         |
+| `app/components/workspace/MetadataModal.tsx`   | Metadata form and save                                                                 |
+| `app/components/workspace/index.ts`            | Exports                                                                                |
+
+

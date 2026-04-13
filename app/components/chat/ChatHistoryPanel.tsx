@@ -1,8 +1,14 @@
 import { useState } from 'react';
 import { Search, X, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeButton from '@/components/ui/DomeButton';
+import { DomeInput } from '@/components/ui/DomeInput';
+import DomeListRow from '@/components/ui/DomeListRow';
+import DomeListState from '@/components/ui/DomeListState';
 
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
@@ -29,18 +35,18 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
   const { openChatTab } = useTabStore.getState();
 
   const filteredSessions = sessions.filter((s) =>
-    (s.title || '').toLowerCase().includes(searchQuery.toLowerCase())
+    (s.title || '').toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleNewChat = () => {
     useManyStore.getState().startNewChat();
     const sessionId = useManyStore.getState().currentSessionId;
-    if (sessionId) openChatTab(sessionId, t('shell.new_chat'));
+    if (sessionId) openChatTab(sessionId, t('chat.new_chat'));
   };
 
   const handleOpenSession = (session: { id: string; title: string }) => {
     useManyStore.getState().switchSession(session.id);
-    useTabStore.getState().openChatTab(session.id, session.title || t('shell.new_chat'));
+    useTabStore.getState().openChatTab(session.id, session.title || t('chat.new_chat'));
   };
 
   const handleDeleteSession = (e: React.MouseEvent, sessionId: string) => {
@@ -48,108 +54,103 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
     useManyStore.getState().deleteSession?.(sessionId);
   };
 
+  const newChatLabel = t('chat.new_chat');
+
   return (
     <div
-      className="flex flex-col h-full"
-      style={{ background: 'var(--dome-sidebar-bg)', width: '100%', minWidth: 240, borderLeft: '1px solid var(--dome-border)' }}
+      className="flex flex-col h-full w-full min-w-[240px] border-l border-[var(--dome-border)]"
+      style={{ background: 'var(--dome-sidebar-bg)' }}
     >
-      {/* Header */}
-      <div
-        className="flex items-center justify-between shrink-0 px-3"
-        style={{ height: 40, borderBottom: '1px solid var(--dome-border)' }}
-      >
-        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--dome-text-muted)' }}>
-          Chats
-        </span>
-        <div className="flex items-center gap-0.5">
-          <button
-            type="button"
-            onClick={handleNewChat}
-            className="flex items-center justify-center rounded transition-colors"
-            style={{ width: 26, height: 26, color: 'var(--dome-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-            title={t('chat.newChat')}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
-          >
-            <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center justify-center rounded transition-colors"
-            style={{ width: 26, height: 26, color: 'var(--dome-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
-          >
-            <X className="w-3.5 h-3.5" strokeWidth={2} />
-          </button>
-        </div>
-      </div>
+      <DomeSubpageHeader
+        title={t('chat.chats_title')}
+        className="!py-2 !px-3 !items-center border-b border-[var(--dome-border)] bg-transparent"
+        trailing={
+          <div className="flex items-center gap-0.5">
+            <DomeButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
+              onClick={handleNewChat}
+              className="!p-1 w-[26px] h-[26px] min-w-0 text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-text)]"
+              title={newChatLabel}
+              aria-label={newChatLabel}
+            >
+              <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+            </DomeButton>
+            <DomeButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
+              onClick={onClose}
+              className="!p-1 w-[26px] h-[26px] min-w-0 text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-text)]"
+              aria-label={t('chat.close_chat')}
+            >
+              <X className="w-3.5 h-3.5" strokeWidth={2} />
+            </DomeButton>
+          </div>
+        }
+      />
 
-      {/* Search */}
       {sessions.length > 4 && (
         <div className="px-3 py-2 shrink-0">
-          <div
-            className="flex items-center gap-1.5 rounded-md px-2"
-            style={{ height: 26, background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}
-          >
-            <Search className="w-3 h-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={2} />
-            <input
+          <div className="relative">
+            <Search
+              className="absolute left-2.5 top-1/2 z-10 w-3 h-3 -translate-y-1/2 shrink-0 text-[var(--dome-text-muted)] pointer-events-none"
+              strokeWidth={2}
+              aria-hidden
+            />
+            <DomeInput
+              className="gap-0"
+              inputClassName="!h-[26px] !text-[11.5px] !py-0 pl-8 bg-[var(--dome-bg-hover)] border-[var(--dome-border)] text-[var(--dome-text)] caret-[var(--dome-accent)]"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t('chat.searchPlaceholder')}
-              className="flex-1 bg-transparent outline-none border-none"
-              style={{ fontSize: 11.5, color: 'var(--dome-text)', caretColor: 'var(--dome-accent)' }}
+              placeholder={t('chat.search_placeholder')}
             />
           </div>
         </div>
       )}
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto py-1">
         {filteredSessions.length === 0 ? (
-          <p className="text-center py-8 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            {searchQuery ? t('chat.noResults') : t('chat.noChats')}
-          </p>
+          <DomeListState
+            variant="empty"
+            compact
+            title={searchQuery ? t('chat.no_results') : t('chat.no_chats')}
+          />
         ) : (
           filteredSessions.map((session) => {
             const isActive = session.id === currentSessionId;
             return (
-              <div
+              <DomeListRow
                 key={session.id}
+                title={session.title || newChatLabel}
                 onClick={() => handleOpenSession(session)}
-                className="group flex items-center gap-2 mx-1.5 px-2 rounded-md cursor-pointer transition-colors"
-                style={{
-                  height: 32,
-                  background: isActive ? 'var(--dome-surface)' : 'transparent',
-                }}
-                onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'var(--dome-bg-hover)'; }}
-                onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
-              >
-                <span
-                  className="flex-1 truncate"
-                  style={{ fontSize: 12.5, color: isActive ? 'var(--dome-text)' : 'var(--dome-text-secondary)', fontWeight: isActive ? 500 : 400 }}
-                >
-                  {session.title || t('chat.newChat')}
-                </span>
-                <span
-                  className="shrink-0 group-hover:hidden"
-                  style={{ fontSize: 11, color: 'var(--dome-text-muted)' }}
-                >
-                  {timeAgo(session.createdAt ?? 0)}
-                </span>
-                <button
-                  type="button"
-                  onClick={(e) => handleDeleteSession(e, session.id)}
-                  className="hidden group-hover:flex items-center justify-center rounded shrink-0 transition-colors"
-                  style={{ width: 18, height: 18, color: 'var(--dome-text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-error, #ef4444)'; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
-                >
-                  <X className="w-3 h-3" strokeWidth={2} />
-                </button>
-              </div>
+                trailing={
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="tabular-nums text-[11px] text-[var(--tertiary-text)] group-hover:hidden">
+                      {timeAgo(session.createdAt ?? 0)}
+                    </span>
+                    <DomeButton
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      iconOnly
+                      className="hidden group-hover:flex !p-0 w-[18px] h-[18px] min-w-0 text-[var(--dome-text-muted)] hover:!text-[var(--dome-error,#ef4444)]"
+                      onClick={(e) => handleDeleteSession(e, session.id)}
+                      aria-label={t('chat.clear_chat')}
+                    >
+                      <X className="w-3 h-3" strokeWidth={2} />
+                    </DomeButton>
+                  </div>
+                }
+                className={cn(
+                  'group mx-1.5 px-2 py-1.5 rounded-md border-0',
+                  isActive ? 'bg-[var(--dome-surface)]' : 'hover:bg-[var(--dome-bg-hover)]',
+                )}
+              />
             );
           })
         )}

@@ -3,8 +3,6 @@ import { useTranslation } from 'react-i18next';
 import i18n, { getDateTimeLocaleTag } from '@/lib/i18n';
 import {
   X,
-  ChevronDown,
-  ChevronRight,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -18,8 +16,19 @@ import {
   FileTextIcon,
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
+import DomeDrawerLayout from '@/components/ui/DomeDrawerLayout';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeSubpageFooter from '@/components/ui/DomeSubpageFooter';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeStatusBadge from '@/components/ui/DomeStatusBadge';
+import DomeCallout from '@/components/ui/DomeCallout';
+import DomeProgressBar from '@/components/ui/DomeProgressBar';
+import DomeListState from '@/components/ui/DomeListState';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
 import type { PersistentRun, PersistentRunStep } from '@/lib/automations/api';
 import { getRunProgress } from '@/lib/automations/run-progress';
+import { statusLabel } from '@/lib/automations/run-status';
 
 // ─── Shared helpers (subset of ChatToolCard logic, dependency-free) ──────────
 
@@ -235,83 +244,53 @@ export function RunStepCard({ step }: { step: PersistentRunStep }) {
 
   const hasContent = Boolean(step.content);
 
+  const panelBody = hasContent ? (
+    <div className="px-3 pb-3 bg-[var(--bg)]">
+      {isToolCall ? (
+        <div className="flex justify-end pb-2">
+          <DomeButton type="button" variant="outline" size="xs" onClick={() => setShowRaw(!showRaw)}>
+            {showRaw ? t('runLog.view_pretty') : t('runLog.view_raw')}
+          </DomeButton>
+        </div>
+      ) : null}
+      {renderContent()}
+    </div>
+  ) : undefined;
+
   return (
     <div
-      className="rounded-xl border overflow-hidden"
+      className="rounded-xl border overflow-hidden bg-[var(--bg-secondary)]"
       style={{ borderColor: 'var(--border)', borderLeftWidth: 3, borderLeftColor: accentColor }}
     >
-      {/* Header */}
-      <button
-        type="button"
-        className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
-        style={{ background: 'var(--bg-secondary)' }}
-        onClick={() => hasContent && setExpanded(!expanded)}
+      <DomeCollapsibleRow
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+        triggerClassName="px-3 py-2.5 bg-[var(--bg-secondary)]"
+        trigger={
+          <>
+            <Icon size={14} style={{ color: accentColor, flexShrink: 0 }} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[11px] font-semibold uppercase tracking-wide shrink-0" style={{ color: accentColor }}>
+                  {toolName || step.stepType}
+                </span>
+                <span className="text-sm font-medium truncate text-[var(--primary-text)]">{label}</span>
+              </div>
+              {argsSummary ? (
+                <p className="text-[11px] truncate mt-0.5 text-[var(--tertiary-text)]">{argsSummary}</p>
+              ) : null}
+            </div>
+            <div className="flex items-center shrink-0">{statusIcon}</div>
+          </>
+        }
       >
-        <Icon size={14} style={{ color: accentColor, flexShrink: 0 }} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: accentColor }}>
-              {toolName || step.stepType}
-            </span>
-            <span className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
-              {label}
-            </span>
-          </div>
-          {argsSummary && (
-            <p className="text-[11px] truncate mt-0.5" style={{ color: 'var(--tertiary-text)' }}>
-              {argsSummary}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {statusIcon}
-          {hasContent && (
-            <>
-              {isToolCall && expanded && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); setShowRaw(!showRaw); }}
-                  className="text-[10px] px-1.5 py-0.5 rounded"
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--tertiary-text)' }}
-                >
-                  {showRaw ? t('runLog.view_pretty') : t('runLog.view_raw')}
-                </button>
-              )}
-              {expanded
-                ? <ChevronDown size={14} style={{ color: 'var(--tertiary-text)' }} />
-                : <ChevronRight size={14} style={{ color: 'var(--tertiary-text)' }} />
-              }
-            </>
-          )}
-        </div>
-      </button>
-
-      {/* Content */}
-      {expanded && hasContent && (
-        <div className="px-3 pb-3" style={{ background: 'var(--bg)' }}>
-          {renderContent()}
-        </div>
-      )}
+        {panelBody}
+      </DomeCollapsibleRow>
     </div>
   );
 }
 
-// ─── Status helpers ───────────────────────────────────────────────────────────
-
-export function statusLabel(status: string) {
-  const key = `runLog.status.${status}`;
-  const translated = i18n.t(key);
-  return translated !== key ? translated : status;
-}
-
-export function statusColor(status: string): string {
-  if (status === 'completed') return '#10b981';
-  if (status === 'failed') return 'var(--error)';
-  if (status === 'running') return 'var(--accent)';
-  if (status === 'queued' || status === 'waiting_approval') return '#f59e0b';
-  if (status === 'cancelled') return 'var(--tertiary-text)';
-  return 'var(--secondary-text)';
-}
+export { statusLabel, statusColor } from '@/lib/automations/run-status';
 
 export function formatRunDate(ts?: number | null) {
   if (!ts) return i18n.t('runLog.em_dash');
@@ -331,23 +310,18 @@ export function RunProgressBar({ run }: { run: PersistentRun }) {
   const progress = getRunProgress(run);
   if (!progress) return null;
 
-  return (
-    <div className="w-full">
-      <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: 'var(--bg-tertiary)' }}>
-        {progress.mode === 'determinate' ? (
-          <div
-            className="h-full rounded-full transition-all duration-300"
-            style={{ width: `${progress.percent ?? 0}%`, background: 'var(--accent)' }}
-          />
-        ) : (
-          <div
-            className="h-full w-full animate-pulse rounded-full"
-            style={{ background: 'linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%)' }}
-          />
-        )}
-      </div>
-    </div>
-  );
+  if (progress.mode === 'determinate') {
+    return (
+      <DomeProgressBar
+        value={progress.percent ?? 0}
+        max={100}
+        size="sm"
+        aria-label={statusLabel(run.status)}
+      />
+    );
+  }
+
+  return <DomeProgressBar indeterminate size="sm" aria-label={statusLabel(run.status)} />;
 }
 
 // ─── RunLogView ───────────────────────────────────────────────────────────────
@@ -366,183 +340,150 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
 
   const isRunning = run.status === 'running' || run.status === 'queued';
 
+  const subtitle = (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--tertiary-text)]">
+      <span>
+        {t('runLog.started')} {formatRunDate(run.startedAt)}
+      </span>
+      {run.finishedAt ? (
+        <span>
+          {t('runLog.finished')} {formatRunDate(run.finishedAt)}
+        </span>
+      ) : null}
+      <span>
+        {t('runLog.duration')} {formatDuration(run.startedAt, run.finishedAt)}
+      </span>
+      <span>{steps.length === 1 ? t('runLog.step_singular') : t('runLog.step_plural', { count: steps.length })}</span>
+      {progress?.mode === 'determinate' ? (
+        <span className="font-medium text-[var(--accent)]">
+          {progress.percent ?? 0}% · {progress.completed}/{progress.total}
+        </span>
+      ) : null}
+    </div>
+  );
+
   return (
-    /* Slide-over overlay */
     <div
       className="fixed inset-0 z-50 flex"
       style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)' }}
       onClick={onClose}
     >
-      {/* Panel */}
       <div
-        className="ml-auto h-full flex flex-col"
-        style={{
-          width: 'min(720px, 92vw)',
-          background: 'var(--bg)',
-          borderLeft: '1px solid var(--border)',
-          boxShadow: '-8px 0 32px rgba(0,0,0,0.12)',
-          animation: 'slideInRight 0.2s ease-out',
-        }}
+        className="ml-auto h-full flex flex-col min-h-0 w-[min(720px,92vw)] border-l border-[var(--border)] bg-[var(--bg)] shadow-[-8px_0_32px_rgba(0,0,0,0.12)]"
+        style={{ animation: 'slideInRight 0.2s ease-out' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div
-          className="flex items-start justify-between gap-4 px-5 py-4 shrink-0"
-          style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)' }}
-        >
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-semibold truncate" style={{ color: 'var(--primary-text)' }}>
-                {run.title || run.id}
-              </h2>
-              <span
-                className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                style={{
-                  background: `color-mix(in srgb, ${statusColor(run.status)} 12%, transparent)`,
-                  color: statusColor(run.status),
-                }}
-              >
-                {statusLabel(run.status)}
-              </span>
-            </div>
-            <div className="flex items-center gap-3 mt-1 flex-wrap">
-              <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-                {t('runLog.started')} {formatRunDate(run.startedAt)}
-              </span>
-              {run.finishedAt && (
-                <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-                  {t('runLog.finished')} {formatRunDate(run.finishedAt)}
-                </span>
-              )}
-              <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-                {t('runLog.duration')} {formatDuration(run.startedAt, run.finishedAt)}
-              </span>
-              <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-                {steps.length === 1 ? t('runLog.step_singular') : t('runLog.step_plural', { count: steps.length })}
-              </span>
-              {progress?.mode === 'determinate' && (
-                <span className="text-[11px] font-medium" style={{ color: 'var(--accent)' }}>
-                  {progress.percent ?? 0}% · {progress.completed}/{progress.total}
-                </span>
-              )}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 hover:bg-[var(--bg-hover)] shrink-0"
-            style={{ color: 'var(--tertiary-text)' }}
-            aria-label={t('runLog.close_panel')}
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Progress bar for running */}
-        {isRunning && <RunProgressBar run={run} />}
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-
-          {/* Error */}
-          {run.error && (
-            <div className="rounded-xl border px-4 py-3 text-sm" style={{ borderColor: 'var(--error)', background: 'color-mix(in srgb, var(--error) 8%, transparent)', color: 'var(--error)' }}>
-              <p className="font-semibold mb-1">{t('runLog.error_title')}</p>
-              <p className="text-xs font-mono">{run.error}</p>
-            </div>
-          )}
-
-          {/* Output text */}
-          {run.outputText && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--tertiary-text)' }}>
-                {t('runLog.response')}
-              </p>
-              <div
-                className="rounded-xl border p-4 text-sm"
-                style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
-              >
-                <MarkdownRenderer content={run.outputText} />
-              </div>
-            </div>
-          )}
-
-          {/* Tool calls */}
-          {toolSteps.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--tertiary-text)' }}>
-                {t('runLog.tools_used', { count: toolSteps.length })}
-              </p>
-              <div className="space-y-2">
-                {toolSteps.map((step) => (
-                  <RunStepCard key={step.id} step={step} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Other steps (messages, thinking, etc.) */}
-          {otherSteps.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--tertiary-text)' }}>
-                {t('runLog.agent_steps', { count: otherSteps.length })}
-              </p>
-              <div className="space-y-2">
-                {otherSteps.map((step) => (
-                  <RunStepCard key={step.id} step={step} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {steps.length === 0 && !run.outputText && !run.error && (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              {isRunning ? (
+        <DomeDrawerLayout
+          className="h-full border-0 shadow-none bg-transparent"
+          header={
+            <DomeSubpageHeader
+              className="bg-[var(--bg-secondary)]"
+              title={run.title || run.id}
+              subtitle={subtitle}
+              trailing={
                 <>
-                  <Loader2 size={32} className="animate-spin mb-3" style={{ color: 'var(--accent)' }} />
-                  <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>{t('runLog.executing')}</p>
+                  <DomeStatusBadge status={run.status} />
+                  <DomeButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
+                    onClick={onClose}
+                    aria-label={t('runLog.close_panel')}
+                  >
+                    <X className="w-[18px] h-[18px]" aria-hidden />
+                  </DomeButton>
                 </>
-              ) : (
-                <p className="text-sm" style={{ color: 'var(--tertiary-text)' }}>{t('runLog.no_steps')}</p>
-              )}
-            </div>
-          )}
-
-          {/* Metadata */}
-          {run.summary && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--tertiary-text)' }}>
-                {t('runLog.summary')}
-              </p>
-              <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>{run.summary}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div
-          className="shrink-0 px-5 py-3 flex items-center justify-between"
-          style={{ borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}
+              }
+            />
+          }
+          afterHeader={
+            isRunning ? (
+              <div className="shrink-0 px-5 py-2 border-b border-[var(--border)] bg-[var(--bg)]">
+                <RunProgressBar run={run} />
+              </div>
+            ) : undefined
+          }
+          footer={
+            <DomeSubpageFooter
+              className="bg-[var(--bg-secondary)]"
+              leading={<span className="text-[11px] text-[var(--tertiary-text)]">ID: {run.id}</span>}
+              trailing={
+                <DomeButton type="button" variant="secondary" size="sm" onClick={onClose}>
+                  {t('runLog.close')}
+                </DomeButton>
+              }
+            />
+          }
         >
-          <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-            ID: {run.id}
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-sm px-3 py-1.5 rounded-lg"
-            style={{ background: 'var(--bg-tertiary)', color: 'var(--secondary-text)' }}
-          >
-            {t('runLog.close')}
-          </button>
-        </div>
+          <div className="px-5 py-4 space-y-5">
+            {run.error ? (
+              <DomeCallout tone="error" title={t('runLog.error_title')}>
+                <p className="font-mono text-[11px] whitespace-pre-wrap break-all">{run.error}</p>
+              </DomeCallout>
+            ) : null}
+
+            {run.outputText ? (
+              <div>
+                <DomeSectionLabel compact={false} className="mb-2">
+                  {t('runLog.response')}
+                </DomeSectionLabel>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-secondary)] p-4 text-sm">
+                  <MarkdownRenderer content={run.outputText} />
+                </div>
+              </div>
+            ) : null}
+
+            {toolSteps.length > 0 ? (
+              <div>
+                <DomeSectionLabel compact={false} className="mb-2">
+                  {t('runLog.tools_used', { count: toolSteps.length })}
+                </DomeSectionLabel>
+                <div className="space-y-2">
+                  {toolSteps.map((step) => (
+                    <RunStepCard key={step.id} step={step} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {otherSteps.length > 0 ? (
+              <div>
+                <DomeSectionLabel compact={false} className="mb-2">
+                  {t('runLog.agent_steps', { count: otherSteps.length })}
+                </DomeSectionLabel>
+                <div className="space-y-2">
+                  {otherSteps.map((step) => (
+                    <RunStepCard key={step.id} step={step} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {steps.length === 0 && !run.outputText && !run.error ? (
+              isRunning ? (
+                <DomeListState variant="loading" loadingLabel={t('runLog.executing')} fullHeight />
+              ) : (
+                <DomeListState variant="empty" title={t('runLog.no_steps')} fullHeight />
+              )
+            ) : null}
+
+            {run.summary ? (
+              <div>
+                <DomeSectionLabel compact={false} className="mb-2">
+                  {t('runLog.summary')}
+                </DomeSectionLabel>
+                <p className="text-sm text-[var(--secondary-text)]">{run.summary}</p>
+              </div>
+            ) : null}
+          </div>
+        </DomeDrawerLayout>
       </div>
 
       <style>{`
         @keyframes slideInRight {
           from { transform: translateX(100%); opacity: 0; }
-          to   { transform: translateX(0);    opacity: 1; }
+          to { transform: translateX(0); opacity: 1; }
         }
       `}</style>
     </div>

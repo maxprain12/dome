@@ -3,13 +3,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Bot, Workflow, Zap, Plus, Play, Trash2, Pencil,
-  Clock, CheckCircle2, XCircle, Loader2, ChevronLeft, X,
-  Filter, Download, Upload,
+  Clock, Loader2, X,
+  Download, Upload, MoreHorizontal
 } from 'lucide-react';
-import {
-  statusLabel as runStatusLabel,
-  statusColor as runStatusColor,
-} from '@/components/automations/RunLogView';
 import {
   listAutomations,
   deleteAutomation,
@@ -33,10 +29,23 @@ import {
 } from '@/lib/hub-export/bundle';
 import HubSearchField from '@/components/ui/HubSearchField';
 import HubListState from '@/components/ui/HubListState';
-import HubListItem from '@/components/ui/HubListItem';
+import DomeContextMenu from '@/components/ui/DomeContextMenu';
+import HubBentoCard from '@/components/ui/HubBentoCard';
 import HubEntityIcon from '@/components/ui/HubEntityIcon';
 import HubToolbar from '@/components/ui/HubToolbar';
 import HubTitleBlock from '@/components/ui/HubTitleBlock';
+import DomeStatusBadge from '@/components/ui/DomeStatusBadge';
+import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
+import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
+import DomeActiveFilterBanner from '@/components/ui/DomeActiveFilterBanner';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeSubpageFooter from '@/components/ui/DomeSubpageFooter';
+import DomeDrawerLayout from '@/components/ui/DomeDrawerLayout';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
+import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
+import { DomeSelect } from '@/components/ui/DomeSelect';
+import DomeToggle from '@/components/ui/DomeToggle';
 import { useAppStore } from '@/lib/store/useAppStore';
 
 export interface AutomationFilter {
@@ -72,27 +81,6 @@ function formatHubDate(ts: number | undefined | null, neverLabel: string) {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const color = runStatusColor(status);
-  return (
-    <span
-      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
-      style={{
-        background: `color-mix(in srgb, ${color} 18%, transparent)`,
-        color,
-      }}
-    >
-      {status === 'running' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-      {status === 'queued' && <Clock className="w-2.5 h-2.5" />}
-      {status === 'waiting_approval' && <Clock className="w-2.5 h-2.5" />}
-      {status === 'completed' && <CheckCircle2 className="w-2.5 h-2.5" />}
-      {status === 'failed' && <XCircle className="w-2.5 h-2.5" />}
-      {status === 'cancelled' && <XCircle className="w-2.5 h-2.5" />}
-      {runStatusLabel(status)}
-    </span>
-  );
 }
 
 const EMPTY_DRAFT: DraftState = {
@@ -131,96 +119,68 @@ function AutomationEditDrawer({
 }: AutomationEditDrawerProps) {
   const { t } = useTranslation();
   const formFields = (
-    <div className={embedded ? 'flex flex-col gap-4' : 'flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4'}>
+    <div className={embedded ? 'flex flex-col gap-4' : 'px-5 py-5 flex flex-col gap-4'}>
 
         {/* Target — only shown when creating */}
-        {isNew && (
+        {isNew ? (
           <div className="flex flex-col gap-2">
             <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.destination')}</label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => onDraftChange({ targetType: 'agent', targetId: '' })}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors"
-                style={{
-                  borderColor: draft.targetType === 'agent' ? 'var(--dome-accent)' : 'var(--dome-border)',
-                  background: draft.targetType === 'agent' ? 'var(--dome-accent)' : 'transparent',
-                  color: draft.targetType === 'agent' ? '#fff' : 'var(--dome-text-muted)',
-                }}
-              >
-                <Bot className="w-3.5 h-3.5" /> {t('automation.agent')}
-              </button>
-              <button
-                type="button"
-                onClick={() => onDraftChange({ targetType: 'workflow', targetId: '' })}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors"
-                style={{
-                  borderColor: draft.targetType === 'workflow' ? 'var(--dome-accent)' : 'var(--dome-border)',
-                  background: draft.targetType === 'workflow' ? 'var(--dome-accent)' : 'transparent',
-                  color: draft.targetType === 'workflow' ? '#fff' : 'var(--dome-text-muted)',
-                }}
-              >
-                <Workflow className="w-3.5 h-3.5" /> {t('automation.workflow')}
-              </button>
-            </div>
-            <select
+            <DomeSegmentedControl
+              size="sm"
+              aria-label={t('automation.destination')}
+              options={[
+                { value: 'agent', label: t('automation.agent'), icon: <Bot className="w-3.5 h-3.5" aria-hidden /> },
+                { value: 'workflow', label: t('automation.workflow'), icon: <Workflow className="w-3.5 h-3.5" aria-hidden /> },
+              ]}
+              value={draft.targetType}
+              onChange={(v) => onDraftChange({ targetType: v as 'agent' | 'workflow', targetId: '' })}
+            />
+            <DomeSelect
               value={draft.targetId}
               onChange={(e) => onDraftChange({ targetId: e.target.value })}
-              className="w-full text-sm rounded-lg border px-3 py-2"
-              style={{
-                borderColor: 'var(--dome-border)', background: 'var(--dome-surface)',
-                color: 'var(--dome-text)', outline: 'none',
-              }}
+              className="w-full"
+              selectClassName="text-sm"
             >
               <option value="">{t('automation.select_agent_or_workflow', { type: draft.targetType === 'agent' ? t('automation.agent') : t('automation.workflow') })}</option>
               {draft.targetType === 'agent'
                 ? agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)
-                : workflows.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)
-              }
-            </select>
+                : workflows.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </DomeSelect>
           </div>
-        )}
+        ) : null}
 
         {/* Title */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.name')}</label>
-          <input
-            type="text"
-            value={draft.title}
-            onChange={(e) => onDraftChange({ title: e.target.value })}
-            placeholder={t('automation.name_placeholder')}
-            className="w-full text-sm rounded-lg border px-3 py-2"
-            style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
-          />
-        </div>
+        <DomeInput
+          label={t('automation.name')}
+          type="text"
+          value={draft.title}
+          onChange={(e) => onDraftChange({ title: e.target.value })}
+          placeholder={t('automation.name_placeholder')}
+          className="w-full"
+          inputClassName="text-sm"
+        />
 
-        {/* Description */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.description')}</label>
-          <input
-            type="text"
-            value={draft.description}
-            onChange={(e) => onDraftChange({ description: e.target.value })}
-            placeholder={t('automation.description_placeholder')}
-            className="w-full text-sm rounded-lg border px-3 py-2"
-            style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
-          />
-        </div>
+        <DomeInput
+          label={t('automation.description')}
+          type="text"
+          value={draft.description}
+          onChange={(e) => onDraftChange({ description: e.target.value })}
+          placeholder={t('automation.description_placeholder')}
+          className="w-full"
+          inputClassName="text-sm"
+        />
 
-        {/* Trigger */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.trigger')}</label>
-          <select
-            value={draft.triggerType}
-            onChange={(e) => onDraftChange({ triggerType: e.target.value as DraftState['triggerType'] })}
-            className="w-full text-sm rounded-lg border px-3 py-2"
-            style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
-          >
-            <option value="manual">{t('automation.manual')}</option>
-            <option value="schedule">{t('automation.scheduled')}</option>
-            <option value="contextual">{t('automation.contextual')}</option>
-          </select>
-        </div>
+        <DomeSelect
+          label={t('automation.trigger')}
+          value={draft.triggerType}
+          onChange={(e) => onDraftChange({ triggerType: e.target.value as DraftState['triggerType'] })}
+          className="w-full"
+          selectClassName="text-sm"
+        >
+          <option value="manual">{t('automation.manual')}</option>
+          <option value="schedule">{t('automation.scheduled')}</option>
+          <option value="contextual">{t('automation.contextual')}</option>
+        </DomeSelect>
 
         {draft.triggerType === 'contextual' && (
           <div
@@ -230,18 +190,13 @@ function AutomationEditDrawer({
             <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>
               {t('automation.context_tags_label')}
             </label>
-            <input
+            <DomeInput
               type="text"
               value={draft.contextTags}
               onChange={(e) => onDraftChange({ contextTags: e.target.value })}
               placeholder={t('automation.context_tags_placeholder')}
-              className="w-full text-sm rounded-lg border px-3 py-2"
-              style={{
-                borderColor: 'var(--dome-border)',
-                background: 'var(--dome-bg)',
-                color: 'var(--dome-text)',
-                outline: 'none',
-              }}
+              className="w-full"
+              inputClassName="text-sm"
             />
             <p className="text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
               {t('automation.context_tags_hint')}
@@ -254,55 +209,56 @@ function AutomationEditDrawer({
           <div className="flex flex-col gap-3 rounded-xl p-3" style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.cadence')}</label>
-              <select
+              <DomeSelect
                 value={draft.cadence}
                 onChange={(e) => onDraftChange({ cadence: e.target.value as DraftState['cadence'] })}
-                className="w-full text-sm rounded-lg border px-3 py-2"
-                style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)', outline: 'none' }}
+                className="w-full"
+                selectClassName="text-sm"
               >
                 <option value="daily">{t('automation.daily')}</option>
                 <option value="weekly">{t('automation.weekly')}</option>
                 <option value="cron-lite">{t('automation.cadence_interval')}</option>
-              </select>
+              </DomeSelect>
             </div>
             {draft.cadence !== 'cron-lite' && (
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.schedule_hour_label')}</label>
-                <input
+                <DomeInput
                   type="number"
-                  min={0} max={23}
+                  min={0}
+                  max={23}
                   value={draft.hour}
                   onChange={(e) => onDraftChange({ hour: parseInt(e.target.value) || 0 })}
-                  className="w-full text-sm rounded-lg border px-3 py-2"
-                  style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)', outline: 'none' }}
+                  className="w-full"
+                  inputClassName="text-sm"
                 />
               </div>
             )}
             {draft.cadence === 'weekly' && (
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.weekday_label')}</label>
-                <select
+                <DomeSelect
                   value={draft.weekday}
                   onChange={(e) => onDraftChange({ weekday: parseInt(e.target.value) })}
-                  className="w-full text-sm rounded-lg border px-3 py-2"
-                  style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)', outline: 'none' }}
+                  className="w-full"
+                  selectClassName="text-sm"
                 >
                   {(['day_mon','day_tue','day_wed','day_thu','day_fri','day_sat','day_sun'] as const).map((dayKey, i) => (
                     <option key={dayKey} value={i + 1}>{t(`automation.${dayKey}`)}</option>
                   ))}
-                </select>
+                </DomeSelect>
               </div>
             )}
             {draft.cadence === 'cron-lite' && (
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.interval_minutes_label')}</label>
-                <input
+                <DomeInput
                   type="number"
                   min={1}
                   value={draft.intervalMinutes}
                   onChange={(e) => onDraftChange({ intervalMinutes: parseInt(e.target.value) || 60 })}
-                  className="w-full text-sm rounded-lg border px-3 py-2"
-                  style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)', outline: 'none' }}
+                  className="w-full"
+                  inputClassName="text-sm"
                 />
               </div>
             )}
@@ -310,59 +266,33 @@ function AutomationEditDrawer({
         )}
 
         {/* Prompt */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.base_prompt')}</label>
-          <textarea
-            rows={4}
-            value={draft.prompt}
-            onChange={(e) => onDraftChange({ prompt: e.target.value })}
-            placeholder={t('automation.base_prompt_placeholder')}
-            className="w-full text-sm rounded-lg border px-3 py-2 resize-none"
-            style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
-          />
-        </div>
+        <DomeTextarea
+          label={t('automation.base_prompt')}
+          rows={4}
+          value={draft.prompt}
+          onChange={(e) => onDraftChange({ prompt: e.target.value })}
+          placeholder={t('automation.base_prompt_placeholder')}
+          className="w-full"
+          textareaClassName="text-sm resize-none"
+        />
 
-        {/* Output mode */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('automation.output')}</label>
-          <select
-            value={draft.outputMode}
-            onChange={(e) => onDraftChange({ outputMode: e.target.value as AutomationOutputMode })}
-            className="w-full text-sm rounded-lg border px-3 py-2"
-            style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)', color: 'var(--dome-text)', outline: 'none' }}
-          >
-            <option value="chat_only">{t('automation.output_chat_only')}</option>
-            <option value="studio_output">{t('automation.studio')}</option>
-            <option value="mixed">{t('automation.mixed')}</option>
-          </select>
-        </div>
-
-        {/* Enabled — whole row + switch are clickable (previously only the label text toggled) */}
-        <div
-          className="flex items-center gap-3 cursor-pointer select-none"
-          role="switch"
-          aria-checked={draft.enabled}
-          tabIndex={0}
-          onClick={() => onDraftChange({ enabled: !draft.enabled })}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onDraftChange({ enabled: !draft.enabled });
-            }
-          }}
+        <DomeSelect
+          label={t('automation.output')}
+          value={draft.outputMode}
+          onChange={(e) => onDraftChange({ outputMode: e.target.value as AutomationOutputMode })}
+          className="w-full"
+          selectClassName="text-sm"
         >
-          <div
-            className="relative w-9 h-5 rounded-full transition-colors shrink-0 pointer-events-none"
-            style={{ background: draft.enabled ? 'var(--dome-accent)' : 'var(--dome-border)' }}
-          >
-            <div
-              className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform"
-              style={{ left: draft.enabled ? '18px' : '2px' }}
-            />
-          </div>
+          <option value="chat_only">{t('automation.output_chat_only')}</option>
+          <option value="studio_output">{t('automation.studio')}</option>
+          <option value="mixed">{t('automation.mixed')}</option>
+        </DomeSelect>
+
+        <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
             {draft.enabled ? t('automation.enabled_on_save') : t('automation.paused_on_save')}
           </span>
+          <DomeToggle checked={draft.enabled} onChange={(v) => onDraftChange({ enabled: v })} size="sm" />
         </div>
       </div>
   );
@@ -370,55 +300,58 @@ function AutomationEditDrawer({
   if (embedded) return formFields;
 
   return (
-    <div
-      className="flex flex-col h-full"
-      style={{ background: 'var(--dome-bg)', borderLeft: '1px solid var(--dome-border)' }}
-    >
-      {/* Header */}
-      <div
-        className="flex items-center justify-between px-5 py-4 shrink-0"
-        style={{ borderBottom: '1px solid var(--dome-border)' }}
-      >
-        <div>
-          <p className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
-            {isNew ? t('automation.drawer_new_title') : t('automation.drawer_edit_title')}
-          </p>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-            {isNew ? t('automation.drawer_new_subtitle') : draft.title}
-          </p>
+    <DomeDrawerLayout
+      className="border-l border-[var(--dome-border)]"
+      style={{ background: 'var(--dome-bg)' }}
+      header={
+        <div
+          className="flex items-center justify-between px-5 py-4 shrink-0 border-b border-[var(--dome-border)] bg-[var(--dome-bg)]"
+        >
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
+              {isNew ? t('automation.drawer_new_title') : t('automation.drawer_edit_title')}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
+              {isNew ? t('automation.drawer_new_subtitle') : draft.title}
+            </p>
+          </div>
+          <DomeButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            iconOnly
+            onClick={onCancel}
+            aria-label={t('ui.close')}
+            className="text-[var(--dome-text-muted)]"
+          >
+            <X className="w-4 h-4" aria-hidden />
+          </DomeButton>
         </div>
-        <button type="button" onClick={onCancel} className="rounded-lg p-1.5 hover:bg-[var(--dome-surface)]">
-          <X className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
-        </button>
-      </div>
-
+      }
+      footer={
+        <DomeSubpageFooter
+          trailing={
+            <>
+              <DomeButton type="button" variant="secondary" size="sm" onClick={onCancel}>
+                {t('automation.cancel')}
+              </DomeButton>
+              <DomeButton
+                type="button"
+                variant="primary"
+                size="sm"
+                loading={saving}
+                disabled={saving || !draft.title.trim() || !draft.targetId}
+                onClick={onSave}
+              >
+                {isNew ? t('common.create') : t('automation.save_changes')}
+              </DomeButton>
+            </>
+          }
+        />
+      }
+    >
       {formFields}
-
-      {/* Footer */}
-      <div
-        className="shrink-0 flex items-center justify-end gap-2 px-5 py-3"
-        style={{ borderTop: '1px solid var(--dome-border)' }}
-      >
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 rounded-lg text-xs font-medium transition-colors"
-          style={{ background: 'var(--dome-surface)', color: 'var(--dome-text)' }}
-        >
-          {t('automation.cancel')}
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={saving || !draft.title.trim() || !draft.targetId}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-          style={{ background: 'var(--dome-accent)', color: '#fff' }}
-        >
-          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          {isNew ? t('common.create') : t('automation.save_changes')}
-        </button>
-      </div>
-    </div>
+    </DomeDrawerLayout>
   );
 }
 
@@ -657,68 +590,54 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
   // Full-screen creation page — replaces the list entirely
   if (formMode === 'new') {
     return (
-      <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-        {/* Header */}
-        <div
-          className="flex items-center gap-3 px-5 py-4 shrink-0"
-          style={{ borderBottom: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}
-        >
-          <button
-            type="button"
-            onClick={() => setFormMode('hidden')}
-            className="rounded-lg p-1.5 hover:bg-[var(--dome-surface)] shrink-0"
-            style={{ color: 'var(--dome-text-muted)' }}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <div>
-            <p className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>{t('automation.new_page_title')}</p>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('automation.new_page_subtitle')}
-            </p>
-          </div>
+      <DomeDrawerLayout
+        className="bg-[var(--dome-bg)]"
+        header={
+          <DomeSubpageHeader
+            title={t('automation.new_page_title')}
+            subtitle={t('automation.new_page_subtitle')}
+            onBack={() => setFormMode('hidden')}
+            backLabel={t('common.back')}
+            className="border-[var(--dome-border)] bg-[var(--dome-bg)]"
+          />
+        }
+        footer={
+          <DomeSubpageFooter
+            className="px-6 border-[var(--dome-border)] bg-[var(--dome-bg)]"
+            trailing={
+              <>
+                <DomeButton type="button" variant="secondary" size="sm" onClick={() => setFormMode('hidden')}>
+                  {t('automation.cancel')}
+                </DomeButton>
+                <DomeButton
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  loading={saving}
+                  disabled={saving || !draft.title.trim() || !draft.targetId}
+                  onClick={() => void handleSave()}
+                >
+                  {t('automation.create_footer')}
+                </DomeButton>
+              </>
+            }
+          />
+        }
+      >
+        <div className="max-w-2xl mx-auto px-6 py-6">
+          <AutomationEditDrawer
+            draft={draft}
+            agents={agents}
+            workflows={workflows}
+            isNew={true}
+            saving={saving}
+            onDraftChange={(partial) => setDraft((prev) => ({ ...prev, ...partial }))}
+            onSave={() => void handleSave()}
+            onCancel={() => setFormMode('hidden')}
+            embedded
+          />
         </div>
-        {/* Form body */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-6 py-6">
-            <AutomationEditDrawer
-              draft={draft}
-              agents={agents}
-              workflows={workflows}
-              isNew={true}
-              saving={saving}
-              onDraftChange={(partial) => setDraft((prev) => ({ ...prev, ...partial }))}
-              onSave={() => void handleSave()}
-              onCancel={() => setFormMode('hidden')}
-              embedded
-            />
-          </div>
-        </div>
-        {/* Footer */}
-        <div
-          className="shrink-0 flex items-center justify-end gap-2 px-6 py-3"
-          style={{ borderTop: '1px solid var(--dome-border)' }}
-        >
-          <button
-            type="button"
-            onClick={() => setFormMode('hidden')}
-            className="px-4 py-2 rounded-lg text-xs font-medium transition-colors"
-            style={{ background: 'var(--dome-surface)', color: 'var(--dome-text)' }}
-          >
-            {t('automation.cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={saving || !draft.title.trim() || !draft.targetId}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-            style={{ background: 'var(--dome-accent)', color: '#fff' }}
-          >
-            {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-            {t('automation.create_footer')}
-          </button>
-        </div>
-      </div>
+      </DomeDrawerLayout>
     );
   }
 
@@ -759,87 +678,59 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
           }
           trailing={
             <>
-              <button
+              <DomeButton
                 type="button"
+                variant="outline"
+                size="xs"
                 disabled={importingAutomationBundle}
                 onClick={() => handlePickAutomationImport()}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-colors shrink-0 disabled:opacity-50"
-                style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
+                className="shrink-0 border-[var(--dome-border)] text-[var(--dome-text)]"
+                leftIcon={<Upload className="w-3 h-3" aria-hidden />}
               >
-                <Upload className="w-3 h-3" />
                 {t('hubExport.import_automation')}
-              </button>
-              <div className="flex items-center gap-0.5">
-                {(['all', 'agent', 'workflow'] as const).map((targetKind) => (
-                  <button
-                    key={targetKind}
-                    type="button"
-                    onClick={() => setFilter((f) => ({ ...f, targetType: targetKind, targetId: undefined }))}
-                    className="px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors"
-                    style={{
-                      background: filter.targetType === targetKind ? 'var(--dome-accent)' : 'var(--dome-surface)',
-                      color: filter.targetType === targetKind ? '#fff' : 'var(--dome-text-muted)',
-                      border: '1px solid',
-                      borderColor: filter.targetType === targetKind ? 'var(--dome-accent)' : 'var(--dome-border)',
-                    }}
-                  >
-                    {targetKind === 'all'
-                      ? t('automation.filter_target_all')
-                      : targetKind === 'agent'
-                        ? t('automation.filter_target_agent')
-                        : t('automation.filter_target_workflow')}
-                  </button>
-                ))}
-              </div>
-              <button
+              </DomeButton>
+              <DomeFilterChipGroup
+                dense
+                options={[
+                  { value: 'all' as const, label: t('automation.filter_target_all'), selectedColor: 'var(--dome-accent)' },
+                  { value: 'agent' as const, label: t('automation.filter_target_agent'), selectedColor: 'var(--dome-accent)' },
+                  { value: 'workflow' as const, label: t('automation.filter_target_workflow'), selectedColor: 'var(--dome-accent)' },
+                ]}
+                value={filter.targetType}
+                onChange={(targetKind) => setFilter((f) => ({ ...f, targetType: targetKind, targetId: undefined }))}
+              />
+              <DomeButton
                 type="button"
+                variant="primary"
+                size="xs"
                 onClick={handleNew}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-colors shrink-0"
-                style={{ background: 'var(--dome-accent)', color: '#fff' }}
+                className="shrink-0 !bg-[var(--dome-accent)] hover:!brightness-110"
+                leftIcon={<Plus className="w-3 h-3" aria-hidden />}
               >
-                <Plus className="w-3 h-3" /> {t('automation.button_new')}
-              </button>
+                {t('automation.button_new')}
+              </DomeButton>
             </>
           }
         />
 
         {/* Active filter label */}
         {filter.targetId && (
-          <div
-            className="flex items-center gap-2 px-5 py-2 text-xs"
-            style={{ background: 'var(--dome-accent)10', borderBottom: '1px solid var(--dome-border)' }}
-          >
-            <Filter className="w-3 h-3" style={{ color: 'var(--dome-accent)' }} />
-            <span style={{ color: 'var(--dome-text)' }}>
-              {t('automation.filter_by')} <b>{filter.targetLabel}</b>
-            </span>
-            <button
-              type="button"
-              onClick={() => setFilter({ targetType: 'all' })}
-              className="ml-auto"
-              style={{ color: 'var(--dome-accent)' }}
-            >
-              {t('automation.clear_filter')}
-            </button>
-          </div>
+          <DomeActiveFilterBanner
+            label={
+              <>
+                {t('automation.filter_by')} <b>{filter.targetLabel}</b>
+              </>
+            }
+            clearLabel={t('automation.clear_filter')}
+            onClear={() => setFilter({ targetType: 'all' })}
+            className="px-5"
+          />
         )}
 
         <div className="flex-1 min-h-0 overflow-y-auto">
           {loading ? (
             <div className="p-4">
-              <div
-                className="flex flex-col rounded-lg border overflow-hidden"
-                style={{ borderColor: 'var(--dome-border)' }}
-              >
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-[76px] border-b shrink-0 motion-reduce:animate-none animate-pulse"
-                    style={{ background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
-                    aria-hidden="true"
-                  />
-                ))}
-              </div>
+              <DomeSkeletonGrid count={8} />
             </div>
           ) : filtered.length === 0 ? (
             <HubListState
@@ -849,40 +740,44 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
               title={t('automation.no_automations')}
               description={t('automation.empty_list_hint')}
               action={
-                <button
+                <DomeButton
                   type="button"
+                  variant="primary"
+                  size="sm"
                   onClick={handleNew}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium mt-1"
-                  style={{ background: 'var(--dome-accent)', color: '#fff' }}
+                  className="mt-1 !bg-[var(--dome-accent)]"
+                  leftIcon={<Plus className="w-3.5 h-3.5" aria-hidden />}
                 >
-                  <Plus className="w-3.5 h-3.5" /> {t('automation.empty_create_cta')}
-                </button>
+                  {t('automation.empty_create_cta')}
+                </DomeButton>
               }
             />
           ) : (
             <div className="p-4">
               <div
-                className="flex flex-col rounded-lg border overflow-hidden"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
                 role="list"
-                style={{ borderColor: 'var(--dome-border)' }}
               >
                 {filtered.map((a) => {
                   const desc = (a.description || '').trim();
                   const targetLine = `${targetName(a)} · ${triggerLabel(a.triggerType)}`;
                   return (
-                    <HubListItem
+                    <HubBentoCard
                       key={a.id}
-                      className="!px-3"
                       icon={
                         <HubEntityIcon kind={a.targetType === 'agent' ? 'agent' : 'workflow'} size="md" />
                       }
                       title={
-                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                          <span className="text-xs font-semibold truncate" style={{ color: 'var(--dome-text)' }}>
+                        <div className="flex items-start gap-2 min-w-0 flex-wrap">
+                          <span
+                            className="text-sm font-semibold min-w-0 break-words line-clamp-2 flex-1"
+                            style={{ color: 'var(--dome-text)' }}
+                            title={a.title}
+                          >
                             {a.title}
                           </span>
                           <span
-                            className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md max-w-[140px] truncate"
+                            className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md max-w-[140px] break-words line-clamp-2"
                             title={t('automation.project_scope_tooltip')}
                             style={{
                               background: 'var(--dome-bg-hover)',
@@ -892,79 +787,96 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                           >
                             {t('automation.project_row_badge', { name: scopeProjectName ?? a.projectId ?? projectId })}
                           </span>
-                          <StatusBadge status={a.enabled ? 'completed' : 'cancelled'} />
+                          <span
+                            className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md"
+                            style={{
+                              background: a.enabled ? 'color-mix(in srgb, var(--dome-accent) 12%, transparent)' : 'var(--dome-bg-hover)',
+                              color: a.enabled ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
+                              border: '1px solid var(--dome-border)',
+                            }}
+                          >
+                            {a.enabled ? t('automation.state_enabled') : t('automation.state_disabled')}
+                          </span>
                         </div>
                       }
                       subtitle={
                         desc ? (
-                          <span className="line-clamp-2" title={desc}>
+                          <span className="line-clamp-3 break-words" title={desc}>
                             {desc}
                           </span>
                         ) : (
-                          <span className="line-clamp-1 text-[10px]">{targetLine}</span>
+                          <span className="line-clamp-2 text-[11px] break-words">{targetLine}</span>
                         )
                       }
                       meta={
                         <div
-                          className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] mt-1"
+                          className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] mt-1 min-w-0"
                           style={{ color: 'var(--dome-text-muted)' }}
                         >
-                          {desc ? <span>{targetLine}</span> : null}
-                          <span className="inline-flex items-center gap-0.5 shrink-0">
+                          {desc ? <span className="min-w-0 break-words">{targetLine}</span> : null}
+                          <span className="inline-flex items-center gap-1 shrink-0 min-w-0 flex-wrap">
                             {desc ? <span aria-hidden>·</span> : null}
                             <Clock className="w-3 h-3 shrink-0" aria-hidden />
-                            {t('automation.last_run')} {formatHubDate(a.lastRunAt, t('automation.never'))}
-                          </span>
-                          {a.lastRunStatus ? (
-                            <span className="inline-flex items-center shrink-0">
-                              <span aria-hidden className="mx-0.5">
-                                ·
-                              </span>
-                              <StatusBadge status={a.lastRunStatus} />
+                            <span className="break-words">
+                              {t('automation.last_run')} {formatHubDate(a.lastRunAt, t('automation.never'))}
                             </span>
-                          ) : null}
+                            {a.lastRunStatus ? (
+                              <>
+                                <span aria-hidden className="mx-0.5">
+                                  ·
+                                </span>
+                                <DomeStatusBadge status={a.lastRunStatus} />
+                              </>
+                            ) : null}
+                          </span>
                         </div>
                       }
                       trailing={
-                        <>
-                          <button
-                            type="button"
-                            title={t('hubExport.title_export_automation')}
-                            onClick={() => void handleExportAutomation(a)}
-                            className="p-1 rounded-md hover:bg-[var(--dome-bg)] transition-colors"
-                          >
-                            <Download className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} />
-                          </button>
-                          <button
-                            type="button"
-                            title={t('automation.title_edit')}
-                            onClick={() => handleEdit(a)}
-                            className="p-1 rounded-md hover:bg-[var(--dome-bg)] transition-colors"
-                          >
-                            <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} />
-                          </button>
-                          <button
-                            type="button"
-                            title={t('automation.title_run_now')}
-                            onClick={() => void handleRun(a.id)}
-                            disabled={runningId === a.id}
-                            className="p-1 rounded-md hover:bg-[var(--dome-bg)] transition-colors disabled:opacity-50"
-                          >
-                            {runningId === a.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
-                            ) : (
-                              <Play className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            title={t('automation.title_delete')}
-                            onClick={() => void handleDelete(a.id)}
-                            className="p-1 rounded-md hover:bg-[var(--dome-bg)] transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" style={{ color: 'var(--error)' }} />
-                          </button>
-                        </>
+                        <DomeContextMenu
+                          align="end"
+                          trigger={
+                            <button
+                              type="button"
+                              className="p-1.5 rounded-md hover:bg-[var(--dome-bg)] transition-colors"
+                              title={t('ui.options')}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+                            </button>
+                          }
+                          items={[
+                            {
+                              label: t('hubExport.title_export_automation'),
+                              icon: (
+                                <Download className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+                              ),
+                              onClick: () => void handleExportAutomation(a),
+                            },
+                            {
+                              label: t('automation.title_edit'),
+                              icon: <Pencil className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />,
+                              onClick: () => handleEdit(a),
+                            },
+                            {
+                              label: t('automation.title_run_now'),
+                              icon:
+                                runningId === a.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                                ) : (
+                                  <Play className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />
+                                ),
+                              onClick: () => void handleRun(a.id),
+                              disabled: runningId === a.id,
+                            },
+                            {
+                              separator: true,
+                              label: t('automation.title_delete'),
+                              icon: <Trash2 className="w-4 h-4" />,
+                              variant: 'danger' as const,
+                              onClick: () => void handleDelete(a.id),
+                            },
+                          ]}
+                        />
                       }
                     />
                   );

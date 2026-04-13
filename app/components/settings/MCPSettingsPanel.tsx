@@ -11,7 +11,6 @@ import {
   Loader2,
   CheckCircle2,
   Wifi,
-  AlertCircle,
 } from 'lucide-react';
 import { db } from '@/lib/db/client';
 import {
@@ -23,9 +22,17 @@ import {
   updateServerTools,
 } from '@/lib/mcp/settings';
 import type { MCPServerConfig, MCPToolConfig } from '@/types';
-
-const DOME_GREEN = '#596037';
-const DOME_GREEN_LIGHT = '#E0EAB4';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeCard from '@/components/ui/DomeCard';
+import DomeToggle from '@/components/ui/DomeToggle';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeButton from '@/components/ui/DomeButton';
+import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
+import { DomeSelect } from '@/components/ui/DomeSelect';
+import DomeCallout from '@/components/ui/DomeCallout';
+import DomeListState from '@/components/ui/DomeListState';
+import DomeModal from '@/components/ui/DomeModal';
+import DomeCheckbox from '@/components/ui/DomeCheckbox';
 
 const FORMAT_EXAMPLE = '{ "mcpServers": { "nombre": { "command", "args", "env" } } }';
 
@@ -45,47 +52,6 @@ function parseArgsInput(value: string): string[] {
   }
   return trimmed.split(/\s+/).map((s) => s.trim().replace(/^["'\s,]+|["'\s,]+$/g, '')).filter(Boolean);
 }
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-      {children}
-    </p>
-  );
-}
-
-function SettingsCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-xl ${className}`} style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-      {children}
-    </div>
-  );
-}
-
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={onChange}
-      className="relative shrink-0 w-9 h-5 rounded-full transition-colors duration-200"
-      style={{ backgroundColor: checked ? DOME_GREEN : 'var(--dome-border)' }}
-    >
-      <span
-        className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
-        style={{ transform: checked ? 'translateX(16px)' : 'translateX(0)' }}
-      />
-    </button>
-  );
-}
-
-const inputStyle: React.CSSProperties = {
-  backgroundColor: 'var(--dome-bg-hover)',
-  border: '1px solid var(--dome-border)',
-  color: 'var(--dome-text)',
-  outline: 'none',
-};
 
 export default function MCPSettingsPanel() {
   const { t } = useTranslation();
@@ -125,8 +91,7 @@ export default function MCPSettingsPanel() {
   useEffect(() => { loadServers(); }, [loadServers]);
   useEffect(() => { loadMcpEnabled(); }, [loadMcpEnabled]);
 
-  const handleMcpEnabledToggle = async () => {
-    const next = !mcpEnabled;
+  const handleMcpEnabledToggle = async (next: boolean) => {
     setMcpEnabled(next);
     if (db.isAvailable()) await db.setMcpGlobalEnabled(next);
   };
@@ -215,97 +180,83 @@ export default function MCPSettingsPanel() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center gap-2 text-xs animate-pulse" style={{ color: 'var(--dome-text-muted)' }}>
-        {t('settings.mcp.loading')}
-      </div>
-    );
+    return <DomeListState variant="loading" loadingLabel={t('settings.mcp.loading')} />;
   }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
-      <div>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>MCP</h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          {t('settings.mcp.subtitle')}
-        </p>
-      </div>
+      <DomeSubpageHeader
+        className="!border-0 px-0 py-0 bg-transparent"
+        title="MCP"
+        subtitle={t('settings.mcp.subtitle')}
+      />
 
-      {/* Error */}
-      {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm"
-          style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--dome-error, #ef4444)' }}>
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          {error}
-        </div>
-      )}
+      {error ? <DomeCallout tone="error">{error}</DomeCallout> : null}
 
       {/* Global toggle */}
       <div>
-        <SectionLabel>{t('settings.mcp.section_global')}</SectionLabel>
-        <SettingsCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.mcp.section_global')}</DomeSectionLabel>
+        <DomeCard>
           <div className="flex items-center justify-between px-4 py-3.5">
             <div>
               <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('settings.mcp.mcp_enabled')}</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.mcp.mcp_enabled_desc')}</p>
             </div>
-            <Toggle checked={mcpEnabled} onChange={handleMcpEnabledToggle} />
+            <DomeToggle checked={mcpEnabled} onChange={(v) => void handleMcpEnabledToggle(v)} size="sm" />
           </div>
-        </SettingsCard>
+        </DomeCard>
       </div>
 
       {/* Servers */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <SectionLabel>{t('settings.mcp.section_servers')}</SectionLabel>
+          <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.mcp.section_servers')}</DomeSectionLabel>
           <div className="flex items-center gap-1.5">
-            <button
+            <DomeButton
               type="button"
-              onClick={() => { setShowImport(true); setError(null); setImportJson(''); }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all"
-              style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowImport(true);
+                setError(null);
+                setImportJson('');
+              }}
+              leftIcon={<FileJson className="w-3.5 h-3.5" aria-hidden />}
             >
-              <FileJson className="w-3.5 h-3.5" />
               {t('settings.mcp.import_json')}
-            </button>
-            <button
-              type="button"
-              onClick={addServer}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white transition-all"
-              style={{ backgroundColor: DOME_GREEN }}
-            >
-              <Plus className="w-3.5 h-3.5" />
+            </DomeButton>
+            <DomeButton type="button" variant="primary" size="sm" onClick={addServer} leftIcon={<Plus className="w-3.5 h-3.5" aria-hidden />}>
               {t('settings.mcp.add_server')}
-            </button>
+            </DomeButton>
           </div>
         </div>
 
         {servers.length === 0 ? (
-          <div className="py-10 rounded-xl text-center" style={{ border: '1.5px dashed var(--dome-border)' }}>
-            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.mcp.no_servers')}</p>
+          <div className="rounded-xl border border-dashed border-[var(--dome-border)]">
+            <DomeListState variant="empty" title={t('settings.mcp.no_servers')} compact />
           </div>
         ) : (
           <div className="space-y-3">
             {servers.map((server, index) => (
-              <SettingsCard key={index} className="p-4">
+              <DomeCard key={index} className="p-4">
                 <div className="flex items-start gap-3 min-w-0">
                   <div className="flex-1 min-w-0 space-y-3 overflow-hidden">
                     {/* Row 1: toggle + name + type */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Toggle
+                      <DomeToggle
                         checked={server.enabled !== false}
-                        onChange={() => updateServer(index, { enabled: server.enabled === false })}
+                        onChange={(v) => updateServer(index, { enabled: v })}
+                        size="sm"
                       />
-                      <input
+                      <DomeInput
                         type="text"
                         placeholder={t('settings.mcp.field_name')}
                         value={server.name}
                         onChange={(e) => updateServer(index, { name: e.target.value })}
-                        className="rounded-lg px-3 py-1.5 text-xs w-40"
-                        style={inputStyle}
+                        className="w-40"
+                        inputClassName="py-1.5 text-xs"
                       />
-                      <select
+                      <DomeSelect
                         value={server.type}
                         onChange={(e) => {
                           const nextType = e.target.value as 'stdio' | 'http' | 'sse';
@@ -317,13 +268,13 @@ export default function MCPSettingsPanel() {
                             headers: nextType === 'http' || nextType === 'sse' ? server.headers : undefined,
                           });
                         }}
-                        className="rounded-lg px-3 py-1.5 text-xs"
-                        style={inputStyle}
+                        className="w-auto shrink-0"
+                        selectClassName="py-1.5 text-xs"
                       >
                         <option value="stdio">{t('settings.mcp.type_stdio')}</option>
                         <option value="http">{t('settings.mcp.type_http')}</option>
                         <option value="sse">{t('settings.mcp.type_sse')}</option>
-                      </select>
+                      </DomeSelect>
                     </div>
 
                     {/* stdio fields */}
@@ -332,40 +283,52 @@ export default function MCPSettingsPanel() {
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="flex items-center gap-1.5">
                             <Server className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-                            <input
+                            <DomeInput
                               type="text"
                               placeholder={t('settings.mcp.field_command')}
                               value={server.command || ''}
                               onChange={(e) => updateServer(index, { command: e.target.value })}
-                              className="rounded-lg px-3 py-1.5 text-xs w-24 font-mono"
-                              style={inputStyle}
+                              className="w-24"
+                              inputClassName="py-1.5 text-xs font-mono"
                             />
                           </div>
-                          <input
+                          <DomeInput
                             type="text"
                             placeholder={t('settings.mcp.field_args')}
                             value={(server.args || []).join(' ')}
                             onChange={(e) => updateServer(index, { args: parseArgsInput(e.target.value) })}
-                            className="flex-1 min-w-0 rounded-lg px-3 py-1.5 text-xs font-mono"
-                            style={inputStyle}
+                            className="flex-1 min-w-0"
+                            inputClassName="py-1.5 text-xs font-mono"
                           />
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
                             env (JSON)
                           </label>
-                          <textarea
+                          <DomeTextarea
                             placeholder='{"API_KEY":"valor"}'
                             value={envDrafts[index] ?? (server.env ? JSON.stringify(server.env) : '')}
                             onChange={(e) => setEnvDrafts((d) => ({ ...d, [index]: e.target.value }))}
                             onBlur={(e) => {
                               const v = e.target.value.trim();
-                              setEnvDrafts((d) => { const n = { ...d }; delete n[index]; return n; });
-                              if (!v) { updateServer(index, { env: undefined }); return; }
-                              try { updateServer(index, { env: JSON.parse(v) }); } catch { updateServer(index, { env: undefined }); }
+                              setEnvDrafts((d) => {
+                                const n = { ...d };
+                                delete n[index];
+                                return n;
+                              });
+                              if (!v) {
+                                updateServer(index, { env: undefined });
+                                return;
+                              }
+                              try {
+                                updateServer(index, { env: JSON.parse(v) });
+                              } catch {
+                                updateServer(index, { env: undefined });
+                              }
                             }}
-                            className="w-full rounded-lg px-3 py-2 text-xs font-mono min-h-[48px] resize-y"
-                            style={{ ...inputStyle, wordBreak: 'break-all', overflowWrap: 'break-word' }}
+                            rows={3}
+                            className="w-full"
+                            textareaClassName="text-xs font-mono min-h-[48px] break-all"
                           />
                         </div>
                       </div>
@@ -373,52 +336,59 @@ export default function MCPSettingsPanel() {
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <Globe className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-                          <input
+                          <DomeInput
                             type="url"
                             placeholder="URL (http:// o https://)"
                             value={server.url || ''}
                             onChange={(e) => updateServer(index, { url: e.target.value })}
-                            className="flex-1 rounded-lg px-3 py-1.5 text-xs font-mono"
-                            style={inputStyle}
+                            className="flex-1 min-w-0"
+                            inputClassName="py-1.5 text-xs font-mono"
                           />
                         </div>
                         <div>
                           <label className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
                             Headers (JSON, opcional)
                           </label>
-                          <textarea
+                          <DomeTextarea
                             placeholder='{"Authorization": "Bearer token"}'
                             value={headersDrafts[index] ?? (server.headers ? JSON.stringify(server.headers) : '')}
                             onChange={(e) => setHeadersDrafts((d) => ({ ...d, [index]: e.target.value }))}
                             onBlur={(e) => {
                               const v = e.target.value.trim();
-                              setHeadersDrafts((d) => { const n = { ...d }; delete n[index]; return n; });
-                              if (!v) { updateServer(index, { headers: undefined }); return; }
-                              try { updateServer(index, { headers: JSON.parse(v) }); } catch { updateServer(index, { headers: undefined }); }
+                              setHeadersDrafts((d) => {
+                                const n = { ...d };
+                                delete n[index];
+                                return n;
+                              });
+                              if (!v) {
+                                updateServer(index, { headers: undefined });
+                                return;
+                              }
+                              try {
+                                updateServer(index, { headers: JSON.parse(v) });
+                              } catch {
+                                updateServer(index, { headers: undefined });
+                              }
                             }}
-                            className="w-full rounded-lg px-3 py-2 text-xs font-mono min-h-[48px]"
-                            style={inputStyle}
+                            rows={3}
+                            className="w-full"
+                            textareaClassName="text-xs font-mono min-h-[48px]"
                           />
                         </div>
                       </div>
                     )}
 
                     {/* Test result */}
-                    {serverTestStatus[index] === 'ok' && serverTestResult[index]?.toolCount !== undefined && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-                        style={{ backgroundColor: `${DOME_GREEN}12`, border: `1px solid ${DOME_GREEN}30`, color: DOME_GREEN }}>
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    {serverTestStatus[index] === 'ok' && serverTestResult[index]?.toolCount !== undefined ? (
+                      <DomeCallout tone="success" icon={CheckCircle2}>
                         {serverTestResult[index]!.toolCount === 1
                           ? t('settings.mcp.connected_tools_one', { count: serverTestResult[index]!.toolCount })
                           : t('settings.mcp.connected_tools_many', { count: serverTestResult[index]!.toolCount })}
-                      </div>
-                    )}
-                    {serverTestStatus[index] === 'error' && serverTestResult[index]?.error && (
-                      <div className="px-3 py-2 rounded-lg text-xs"
-                        style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--dome-error, #ef4444)' }}>
-                        {serverTestResult[index]!.error}
-                      </div>
-                    )}
+                      </DomeCallout>
+                    ) : null}
+                    {serverTestStatus[index] === 'error' && serverTestResult[index]?.error ? (
+                      <DomeCallout tone="error">{serverTestResult[index]!.error}</DomeCallout>
+                    ) : null}
 
                     {/* Tools list */}
                     {Array.isArray(server.tools) && server.tools.length > 0 && (
@@ -429,146 +399,153 @@ export default function MCPSettingsPanel() {
                             <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.mcp.tools_reused')}</p>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <button
+                            <DomeButton
                               type="button"
+                              variant="primary"
+                              size="xs"
                               onClick={() => replaceServer(index, toggleAllGlobalMcpTools(server, true))}
-                              className="rounded-lg px-2 py-1 text-[11px] font-medium"
-                              style={{ backgroundColor: `${DOME_GREEN}15`, color: DOME_GREEN }}
                             >
                               {t('settings.mcp.enable_all')}
-                            </button>
-                            <button
+                            </DomeButton>
+                            <DomeButton
                               type="button"
+                              variant="outline"
+                              size="xs"
                               onClick={() => replaceServer(index, toggleAllGlobalMcpTools(server, false))}
-                              className="rounded-lg px-2 py-1 text-[11px] font-medium"
-                              style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
                             >
                               {t('settings.mcp.disable_all')}
-                            </button>
+                            </DomeButton>
                           </div>
                         </div>
                         <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
                           {server.tools.map((tool) => (
-                            <label
+                            <DomeCheckbox
                               key={tool.id}
-                              className="flex items-start justify-between gap-3 px-2 py-2 rounded-lg cursor-pointer"
-                              style={{ backgroundColor: 'transparent' }}
-                            >
-                              <div className="min-w-0 overflow-hidden">
-                                <p className="text-xs truncate" style={{ color: 'var(--dome-text)' }}>{tool.name}</p>
-                                {tool.description && (
-                                  <p className="text-[11px] mt-0.5 line-clamp-2" style={{ color: 'var(--dome-text-muted)' }}>{tool.description}</p>
-                                )}
-                              </div>
-                              <input
-                                type="checkbox"
-                                className="mt-0.5 rounded shrink-0"
-                                checked={tool.enabled !== false}
-                                onChange={(e) => replaceServer(index, toggleGlobalMcpTool(server, tool.id || tool.name, e.target.checked))}
-                                style={{ accentColor: DOME_GREEN }}
-                              />
-                            </label>
+                              reverse
+                              className="px-2 py-2 rounded-lg cursor-pointer"
+                              label={tool.name}
+                              description={tool.description || undefined}
+                              checked={tool.enabled !== false}
+                              onChange={(e) =>
+                                replaceServer(index, toggleGlobalMcpTool(server, tool.id || tool.name, e.target.checked))
+                              }
+                            />
                           ))}
                         </div>
                       </div>
                     )}
 
                     {/* Test button */}
-                    {(server.command || server.url) && (
-                      <button
+                    {(server.command || server.url) ? (
+                      <DomeButton
                         type="button"
-                        onClick={() => handleTestServer(index)}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleTestServer(index)}
                         disabled={serverTestStatus[index] === 'testing'}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
-                        style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
-                      >
-                        {serverTestStatus[index] === 'testing'
-                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          : <Wifi className="w-3.5 h-3.5" />
+                        leftIcon={
+                          serverTestStatus[index] === 'testing' ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+                          ) : (
+                            <Wifi className="w-3.5 h-3.5" aria-hidden />
+                          )
                         }
+                      >
                         {serverTestStatus[index] === 'testing' ? t('settings.mcp.discovering') : t('settings.mcp.test_discover')}
-                      </button>
-                    )}
+                      </DomeButton>
+                    ) : null}
                   </div>
 
-                  <button
+                  <DomeButton
                     type="button"
+                    variant="ghost"
+                    size="sm"
+                    iconOnly
                     onClick={() => removeServer(index)}
-                    className="p-1.5 rounded-lg shrink-0 transition-colors"
-                    style={{ color: 'var(--dome-text-muted)' }}
                     aria-label={t('settings.mcp.delete_server')}
+                    className="shrink-0 text-[var(--dome-text-muted)]"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  </DomeButton>
                 </div>
-              </SettingsCard>
+              </DomeCard>
             ))}
           </div>
         )}
       </div>
 
       {/* Save */}
-      <div className="flex items-center gap-3">
-        <button
+      <div className="flex items-center gap-3 flex-wrap">
+        <DomeButton
           type="button"
-          onClick={saveServers}
+          variant="primary"
+          size="sm"
+          onClick={() => void saveServers()}
           disabled={saving}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium text-white transition-all disabled:opacity-50"
-          style={{ backgroundColor: DOME_GREEN }}
+          leftIcon={
+            saving ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Save className="w-3.5 h-3.5" aria-hidden />
+            )
+          }
         >
-          <Save className="w-3.5 h-3.5" />
           {saving ? t('settings.mcp.saving') : t('settings.mcp.save_config')}
-        </button>
+        </DomeButton>
         {saved && (
-          <span className="flex items-center gap-1.5 text-xs animate-in fade-in" style={{ color: DOME_GREEN }}>
+          <span className="flex items-center gap-1.5 text-xs animate-in fade-in" style={{ color: 'var(--dome-accent)' }}>
             <CheckCircle2 className="w-3.5 h-3.5" />
             {t('settings.mcp.saved')}
           </span>
         )}
       </div>
 
-      {/* Import modal */}
-      {showImport && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-          onClick={() => setShowImport(false)}
-        >
-          <div
-            className="rounded-xl p-6 max-w-2xl w-full max-h-[80vh] flex flex-col"
-            style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--dome-text)' }}>{t('settings.mcp.import_title')}</h3>
-            <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.mcp.import_format', { format: FORMAT_EXAMPLE })}</p>
-            <textarea
-              placeholder={t('settings.mcp.import_placeholder')}
-              value={importJson}
-              onChange={(e) => setImportJson(e.target.value)}
-              className="flex-1 min-h-[200px] rounded-lg px-3 py-2 text-xs font-mono resize-none"
-              style={inputStyle}
-            />
-            <div className="flex gap-2 mt-4">
-              <button
-                type="button"
-                onClick={handleImport}
-                className="px-4 py-2 rounded-lg text-xs font-medium text-white"
-                style={{ backgroundColor: DOME_GREEN }}
-              >
-                {t('settings.mcp.import_btn')}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowImport(false); setImportJson(''); setError(null); }}
-                className="px-4 py-2 rounded-lg text-xs font-medium"
-                style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
-              >
-                {t('common.cancel')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DomeModal
+        open={showImport}
+        size="lg"
+        title={t('settings.mcp.import_title')}
+        onClose={() => {
+          setShowImport(false);
+          setImportJson('');
+          setError(null);
+        }}
+        footer={
+          <>
+            <DomeButton
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowImport(false);
+                setImportJson('');
+                setError(null);
+              }}
+            >
+              {t('common.cancel')}
+            </DomeButton>
+            <DomeButton type="button" variant="primary" size="sm" onClick={handleImport}>
+              {t('settings.mcp.import_btn')}
+            </DomeButton>
+          </>
+        }
+      >
+        <p className="text-xs mb-3 text-[var(--dome-text-muted,var(--tertiary-text))]">
+          {t('settings.mcp.import_format', { format: FORMAT_EXAMPLE })}
+        </p>
+        {error ? (
+          <p className="text-xs text-[var(--error)] mb-2" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <DomeTextarea
+          placeholder={t('settings.mcp.import_placeholder')}
+          value={importJson}
+          onChange={(e) => setImportJson(e.target.value)}
+          rows={12}
+          className="flex-1 min-h-[200px]"
+          textareaClassName="text-xs font-mono resize-none min-h-[200px]"
+        />
+      </DomeModal>
     </div>
   );
 }

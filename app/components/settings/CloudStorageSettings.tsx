@@ -1,8 +1,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Cloud, Trash2, CheckCircle2, Loader2 } from 'lucide-react';
+import { Cloud, Trash2, Loader2 } from 'lucide-react';
 import { showToast } from '@/lib/store/useToastStore';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeCard from '@/components/ui/DomeCard';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeIconBox from '@/components/ui/DomeIconBox';
+import DomeBadge from '@/components/ui/DomeBadge';
+import DomeListState from '@/components/ui/DomeListState';
 
 const DOME_GREEN = '#596037';
 const DOME_GREEN_LIGHT = '#E0EAB4';
@@ -17,22 +24,6 @@ interface CloudAccount {
 const PROVIDER_LABELS: Record<string, string> = {
   google: 'Google Drive',
 };
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-      {children}
-    </p>
-  );
-}
-
-function SettingsCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-xl ${className}`} style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-      {children}
-    </div>
-  );
-}
 
 export default function CloudStorageSettings() {
   const { t } = useTranslation();
@@ -118,30 +109,26 @@ export default function CloudStorageSettings() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
-      <div>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>Cloud Storage</h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          Conecta Google Drive para explorar e importar archivos directamente en Dome.
-        </p>
-      </div>
+      <DomeSubpageHeader
+        className="!border-0 px-0 py-0 bg-transparent"
+        title="Cloud Storage"
+        subtitle="Conecta Google Drive para explorar e importar archivos directamente en Dome."
+      />
 
       {/* Connected accounts */}
       {loading ? (
-        <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          <Loader2 className="w-3.5 h-3.5 animate-spin" /> {t('settings.cloud.loading_accounts')}
-        </div>
-      ) : accounts.length > 0 && (
+        <DomeListState variant="loading" loadingLabel={t('settings.cloud.loading_accounts')} compact />
+      ) : accounts.length > 0 ? (
         <div>
-          <SectionLabel>{t('settings.cloud.section_connected')}</SectionLabel>
+          <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.cloud.section_connected')}</DomeSectionLabel>
           <div className="space-y-2">
             {accounts.map((account) => (
-              <SettingsCard key={account.accountId} className="px-4 py-3">
+              <DomeCard key={account.accountId} className="px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: DOME_GREEN_LIGHT }}>
+                    <DomeIconBox size="md" className="!w-8 !h-8" background={DOME_GREEN_LIGHT}>
                       <Cloud className="w-4 h-4" style={{ color: DOME_GREEN }} />
-                    </div>
+                    </DomeIconBox>
                     <div>
                       <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                         {PROVIDER_LABELS[account.provider] ?? account.provider}
@@ -150,43 +137,53 @@ export default function CloudStorageSettings() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />
-                    <button
-                      onClick={() => handleDisconnect(account.accountId)}
-                      className="p-1.5 rounded-lg transition-colors"
-                      style={{ color: 'var(--dome-text-muted)' }}
+                    <DomeBadge label="Conectado" size="xs" color={DOME_GREEN} />
+                    <DomeButton
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      onClick={() => void handleDisconnect(account.accountId)}
+                      className="text-[var(--dome-text-muted)]"
                       title={t('settings.cloud.disconnect')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    </DomeButton>
                   </div>
                 </div>
-              </SettingsCard>
+              </DomeCard>
             ))}
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Connect button */}
       <div>
-        <SectionLabel>{googleConnected ? t('settings.cloud.section_add') : t('settings.cloud.section_connect')}</SectionLabel>
-        <button
-          onClick={handleConnect}
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{googleConnected ? t('settings.cloud.section_add') : t('settings.cloud.section_connect')}</DomeSectionLabel>
+        <DomeButton
+          type="button"
+          variant="outline"
+          size="md"
+          onClick={() => void handleConnect()}
           disabled={connecting === 'google'}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all disabled:opacity-60"
-          style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+          className="w-full !justify-start !h-auto py-3 px-4 text-left"
+          leftIcon={
+            <DomeIconBox size="md" className="!w-8 !h-8" background="var(--dome-bg-hover)">
+              {connecting === 'google' ? (
+                <Loader2 className="w-4 h-4 animate-spin" style={{ color: DOME_GREEN }} aria-hidden />
+              ) : (
+                <Cloud className="w-4 h-4" style={{ color: DOME_GREEN }} aria-hidden />
+              )}
+            </DomeIconBox>
+          }
         >
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
-            {connecting === 'google'
-              ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: DOME_GREEN }} />
-              : <Cloud className="w-4 h-4" style={{ color: DOME_GREEN }} />
-            }
+          <div className="min-w-0 text-left">
+            <p className="text-sm font-medium text-[var(--dome-text)]">
+              {googleConnected ? t('settings.cloud.connect_google_another') : t('settings.cloud.connect_google')}
+            </p>
+            <p className="text-xs text-[var(--dome-text-muted)]">{t('settings.cloud.oauth_google')}</p>
           </div>
-          <div>
-            <p className="text-sm font-medium">{googleConnected ? t('settings.cloud.connect_google_another') : t('settings.cloud.connect_google')}</p>
-            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.cloud.oauth_google')}</p>
-          </div>
-        </button>
+        </DomeButton>
       </div>
     </div>
   );

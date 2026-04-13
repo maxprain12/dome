@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCw, X } from 'lucide-react';
 import type { DomePluginInfo } from '@/types/plugin';
+import DomeButton from '@/components/ui/DomeButton';
 
 type PluginRuntimeModalProps = {
   plugin: DomePluginInfo;
@@ -158,22 +159,30 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
             <p className="text-xs text-[var(--dome-text-muted)]">{entry}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <DomeButton
               type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
               onClick={() => setReloadKey((value) => value + 1)}
-              className="rounded-lg p-2 text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)]"
               title="Recargar plugin"
+              className="text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)]"
+              aria-label="Recargar plugin"
             >
               <RefreshCw className="h-4 w-4" />
-            </button>
-            <button
+            </DomeButton>
+            <DomeButton
               type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
               onClick={onClose}
-              className="rounded-lg p-2 text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)]"
               title="Cerrar"
+              className="text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)]"
+              aria-label="Cerrar"
             >
               <X className="h-4 w-4" />
-            </button>
+            </DomeButton>
           </div>
         </div>
         <div className="relative flex-1 bg-white">

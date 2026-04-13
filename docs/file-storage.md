@@ -81,10 +81,11 @@ Documentation for Dome's internal file storage in the main process: directory la
 
 ## Key files
 
-| Path | Role |
-|------|------|
-| `electron/file-storage.cjs` | getStorageDir, getTypeDir, getMimeType, calculateHash, ensureDir, importFile, getFilePath, readFile, deleteFile, getUsage, cleanup, export (if present) |
-| `electron/main.cjs` | IPC handlers resource:import, resource:readFile, resource:getFilePath, resource:export, resource:delete, storage:getUsage, storage:cleanup, storage:getPath; call file-storage and database |
-| `electron/thumbnail.cjs` | Generate thumbnail for image/PDF/video; return base64 or path; used after import |
-| `electron/preload.cjs` | Exposes resource.* and storage.* to renderer |
-| `app/lib/db/client.ts` | db.importFile, readResourceFile, exportResource, deleteResource, getStorageUsage, cleanupStorage, getStoragePath (see docs/resources.md) |
+
+| Path                        | Role                                                                                                                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `electron/file-storage.cjs` | getStorageDir, getTypeDir, getMimeType, calculateHash, ensureDir, importFile, getFilePath, readFile, deleteFile, getUsage, cleanup, export (if present)                                     |
+| `electron/main.cjs`         | IPC handlers resource:import, resource:readFile, resource:getFilePath, resource:export, resource:delete, storage:getUsage, storage:cleanup, storage:getPath; call file-storage and database |
+| `electron/thumbnail.cjs`    | Generate thumbnail for image/PDF/video; return base64 or path; used after import                                                                                                            |
+| `electron/preload.cjs`      | Exposes resource.* and storage.* to renderer                                                                                                                                                |
+| `app/lib/db/client.ts`      | db.importFile, readResourceFile, exportResource, deleteResource, getStorageUsage, cleanupStorage, getStoragePath (see docs/resources.md)                                                    |

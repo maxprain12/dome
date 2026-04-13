@@ -1,5 +1,6 @@
-
 import { useState } from 'react';
+import DomeBadge from '@/components/ui/DomeBadge';
+import DomeCard from '@/components/ui/DomeCard';
 
 interface CitationBadgeProps {
   number: number;
@@ -23,45 +24,39 @@ export default function CitationBadge({
   return (
     <span className="relative inline-flex">
       <button
+        type="button"
         onClick={() => onClickCitation?.(number)}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
-        className="citation-badge"
+        className="inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
         aria-label={`Citation ${number}${sourceTitle ? `: ${sourceTitle}` : ''}`}
       >
-        {number}
+        <DomeBadge label={String(number)} variant="soft" size="xs" color="var(--accent)" />
       </button>
 
-      {/* Tooltip */}
       {showTooltip && (sourceTitle || sourcePassage || pageLabel || nodeTitle) ? (
-        <div
-          className="absolute z-dropdown bottom-full left-1/2 -translate-x-1/2 mb-2 animate-in"
-          style={{
-            width: '280px',
-            padding: '12px',
-            borderRadius: '8px',
-            background: 'var(--bg)',
-            border: '1px solid var(--border)',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-            pointerEvents: 'none',
-          }}
+        <DomeCard
+          padding="sm"
+          className="absolute z-dropdown bottom-full left-1/2 -translate-x-1/2 mb-2 w-[280px] pointer-events-none shadow-lg animate-in"
+          style={{ boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)' }}
         >
           {sourceTitle && (
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--dome-text)', marginBottom: '4px' }}>
-              {sourceTitle}
-            </div>
+            <div className="text-xs font-semibold text-[var(--dome-text)] mb-1">{sourceTitle}</div>
           )}
           {(pageLabel || nodeTitle) && (
-            <div style={{ fontSize: '11px', color: 'var(--tertiary-text)', marginBottom: sourcePassage ? '6px' : 0 }}>
+            <div
+              className="text-[11px] text-[var(--tertiary-text)] mb-1.5"
+              style={{ marginBottom: sourcePassage ? 6 : 0 }}
+            >
               {[nodeTitle, pageLabel].filter(Boolean).join(' · ')}
             </div>
           )}
           {sourcePassage && (
-            <div style={{ fontSize: '12px', color: 'var(--secondary-text)', lineHeight: 1.5, maxHeight: '80px', overflow: 'hidden' }}>
+            <div className="text-xs text-[var(--secondary-text)] leading-relaxed max-h-[80px] overflow-hidden">
               &ldquo;{sourcePassage}&rdquo;
             </div>
           )}
-        </div>
+        </DomeCard>
       ) : null}
     </span>
   );

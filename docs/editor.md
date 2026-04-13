@@ -87,16 +87,18 @@ interface SlashCommandItem {
 
 ### Custom extensions (app/components/editor/extensions/)
 
-| Extension | Node name | Content | Role |
-|-----------|-----------|---------|------|
-| CalloutExtension | `callout` | block+ | Colored callout with icon (data-icon, data-color) |
-| ToggleExtension | `toggle` | block+ | Collapsible section (collapsed attr) |
-| DividerExtension | `divider` | - | Horizontal divider (variant: line/dots/space) |
-| PDFEmbedExtension | `pdfEmbed` | - | Inline PDF page(s) (resourceId, pageStart, pageEnd, zoom) |
-| ResourceMentionExtension | `resourceMention` | - | @mention linking to resource (resourceId, title, type) |
-| FileBlockExtension | `fileBlock` | - | Embedded file reference (resourceId, filename, mimeType, size) |
-| DragHandleExtension | - | - | Drag handle for reordering blocks |
-| SlashCommandExtension | - | - | Plugin: on "/" opens command menu; commands from getSlashCommandItems() |
+
+| Extension                | Node name         | Content | Role                                                                    |
+| ------------------------ | ----------------- | ------- | ----------------------------------------------------------------------- |
+| CalloutExtension         | `callout`         | block+  | Colored callout with icon (data-icon, data-color)                       |
+| ToggleExtension          | `toggle`          | block+  | Collapsible section (collapsed attr)                                    |
+| DividerExtension         | `divider`         | -       | Horizontal divider (variant: line/dots/space)                           |
+| PDFEmbedExtension        | `pdfEmbed`        | -       | Inline PDF page(s) (resourceId, pageStart, pageEnd, zoom)               |
+| ResourceMentionExtension | `resourceMention` | -       | @mention linking to resource (resourceId, title, type)                  |
+| FileBlockExtension       | `fileBlock`       | -       | Embedded file reference (resourceId, filename, mimeType, size)          |
+| DragHandleExtension      | -                 | -       | Drag handle for reordering blocks                                       |
+| SlashCommandExtension    | -                 | -       | Plugin: on "/" opens command menu; commands from getSlashCommandItems() |
+
 
 ### Slash commands
 
@@ -143,20 +145,23 @@ interface SlashCommandItem {
 
 ## Key files
 
-| Path | Role |
-|------|------|
-| `app/components/editor/NotionEditor.tsx` | useEditor config, extensions, onUpdate, file drop, BubbleMenu/FloatingMenu/SlashCommandMenu |
-| `app/components/Editor.tsx` | Wrapper around NotionEditor (e.g. for note page) |
-| `app/components/editor/extensions/Callout.ts` | CalloutExtension; CalloutBlock React view |
-| `app/components/editor/extensions/Toggle.ts` | ToggleExtension; ToggleBlock React view |
-| `app/components/editor/extensions/Divider.ts` | DividerExtension |
-| `app/components/editor/extensions/PDFEmbed.ts` | PDFEmbedExtension; PDFEmbedBlock React view |
-| `app/components/editor/extensions/ResourceMention.ts` | ResourceMentionExtension; ResourceMentionBlock React view |
-| `app/components/editor/extensions/FileBlock.ts` | FileBlockExtension; FileBlock React view |
-| `app/components/editor/extensions/DragHandle.ts` | DragHandleExtension |
-| `app/components/editor/extensions/SlashCommand.ts` | SlashCommandExtension config; getSlashCommandItems() |
-| `app/components/editor/extensions/SlashCommandPlugin.ts` | Plugin state for "/" and filter |
-| `app/components/editor/SlashCommand.tsx` | SlashCommandMenu UI, keyboard, run command |
-| `app/components/editor/FloatingMenu.tsx` | Floating menu UI |
-| `app/components/editor/BubbleMenu.tsx` | Bubble menu UI |
-| `app/types/index.ts` | CalloutBlockAttributes, ToggleBlockAttributes, PDFEmbedAttributes, ResourceMentionAttributes, FileBlockAttributes, DividerAttributes |
+
+| Path                                                     | Role                                                                                                                                 |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `app/components/editor/NotionEditor.tsx`                 | useEditor config, extensions, onUpdate, file drop, BubbleMenu/FloatingMenu/SlashCommandMenu                                          |
+| `app/components/Editor.tsx`                              | Wrapper around NotionEditor (e.g. for note page)                                                                                     |
+| `app/components/editor/extensions/Callout.ts`            | CalloutExtension; CalloutBlock React view                                                                                            |
+| `app/components/editor/extensions/Toggle.ts`             | ToggleExtension; ToggleBlock React view                                                                                              |
+| `app/components/editor/extensions/Divider.ts`            | DividerExtension                                                                                                                     |
+| `app/components/editor/extensions/PDFEmbed.ts`           | PDFEmbedExtension; PDFEmbedBlock React view                                                                                          |
+| `app/components/editor/extensions/ResourceMention.ts`    | ResourceMentionExtension; ResourceMentionBlock React view                                                                            |
+| `app/components/editor/extensions/FileBlock.ts`          | FileBlockExtension; FileBlock React view                                                                                             |
+| `app/components/editor/extensions/DragHandle.ts`         | DragHandleExtension                                                                                                                  |
+| `app/components/editor/extensions/SlashCommand.ts`       | SlashCommandExtension config; getSlashCommandItems()                                                                                 |
+| `app/components/editor/extensions/SlashCommandPlugin.ts` | Plugin state for "/" and filter                                                                                                      |
+| `app/components/editor/SlashCommand.tsx`                 | SlashCommandMenu UI, keyboard, run command                                                                                           |
+| `app/components/editor/FloatingMenu.tsx`                 | Floating menu UI                                                                                                                     |
+| `app/components/editor/BubbleMenu.tsx`                   | Bubble menu UI                                                                                                                       |
+| `app/types/index.ts`                                     | CalloutBlockAttributes, ToggleBlockAttributes, PDFEmbedAttributes, ResourceMentionAttributes, FileBlockAttributes, DividerAttributes |
+
+

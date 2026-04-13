@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import DomeIconBox from '@/components/ui/DomeIconBox';
 
 export interface HubTitleBlockProps {
   icon: LucideIcon;
@@ -11,12 +12,14 @@ export interface HubTitleBlockProps {
 export default function HubTitleBlock({ icon: Icon, title, subtitle, iconAriaHidden = true }: HubTitleBlockProps) {
   return (
     <>
-      <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-        style={{ background: 'var(--dome-accent-bg)' }}
-      >
-        <Icon className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} strokeWidth={1.75} aria-hidden={iconAriaHidden} />
-      </div>
+      <DomeIconBox size="md" background="var(--dome-accent-bg)">
+        <Icon
+          className="w-4 h-4"
+          style={{ color: 'var(--dome-accent)' }}
+          strokeWidth={1.75}
+          aria-hidden={iconAriaHidden}
+        />
+      </DomeIconBox>
       <div className="min-w-0">
         <h1 className="text-sm font-semibold truncate leading-tight" style={{ color: 'var(--dome-text)' }}>
           {title}

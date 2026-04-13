@@ -82,20 +82,21 @@ Documentation for Dome's resource viewers: PDF, Video, Audio, Image, and URL. Li
 
 ## Key files
 
-| Path | Role |
-|------|------|
-| `app/components/viewers/PDFViewer.tsx` | PDF container, pages, toolbar |
-| `app/components/viewers/pdf/PDFPage.tsx` | Single page canvas |
-| `app/components/viewers/pdf/AnnotationLayer.tsx` | Annotation overlay |
-| `app/components/viewers/pdf/AnnotationToolbar.tsx` | Annotation tools |
-| `app/components/viewers/VideoPlayer.tsx` | Video element, src from readFile |
-| `app/components/viewers/AudioPlayer.tsx` | Audio element, src from readFile |
-| `app/components/viewers/ImageViewer.tsx` | Image element, src from readFile |
-| `app/components/viewers/URLViewer.tsx` | iframe or scraped content |
-| `app/components/viewers/index.ts` | Exports |
-| `app/lib/pdf/pdf-loader.ts` | Load PDF document (PDF.js) |
-| `app/lib/pdf/annotation-utils.ts` | Annotation position/serialization |
-| `app/lib/hooks/useInteractions.ts` | Load interactions by resourceId and type |
-| `electron/thumbnail.cjs` | Thumbnail generation (main) |
-| `electron/web-scraper.cjs` | Scrape URL content (main) |
-| `electron/youtube-service.cjs` | YouTube metadata (main) |
+
+| Path                                               | Role                                     |
+| -------------------------------------------------- | ---------------------------------------- |
+| `app/components/viewers/PDFViewer.tsx`             | PDF container, pages, toolbar            |
+| `app/components/viewers/pdf/PDFPage.tsx`           | Single page canvas                       |
+| `app/components/viewers/pdf/AnnotationLayer.tsx`   | Annotation overlay                       |
+| `app/components/viewers/pdf/AnnotationToolbar.tsx` | Annotation tools                         |
+| `app/components/viewers/VideoPlayer.tsx`           | Video element, src from readFile         |
+| `app/components/viewers/AudioPlayer.tsx`           | Audio element, src from readFile         |
+| `app/components/viewers/ImageViewer.tsx`           | Image element, src from readFile         |
+| `app/components/viewers/URLViewer.tsx`             | iframe or scraped content                |
+| `app/components/viewers/index.ts`                  | Exports                                  |
+| `app/lib/pdf/pdf-loader.ts`                        | Load PDF document (PDF.js)               |
+| `app/lib/pdf/annotation-utils.ts`                  | Annotation position/serialization        |
+| `app/lib/hooks/useInteractions.ts`                 | Load interactions by resourceId and type |
+| `electron/thumbnail.cjs`                           | Thumbnail generation (main)              |
+| `electron/web-scraper.cjs`                         | Scrape URL content (main)                |
+| `electron/youtube-service.cjs`                     | YouTube metadata (main)                  |

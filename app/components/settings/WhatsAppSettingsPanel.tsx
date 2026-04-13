@@ -21,10 +21,14 @@ import {
   MapPin,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-
-const DOME_GREEN = '#596037';
-const DOME_GREEN_LIGHT = '#E0EAB4';
-const WA_GREEN = '#25D366';
+import { cn } from '@/lib/utils';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeCard from '@/components/ui/DomeCard';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeIconBox from '@/components/ui/DomeIconBox';
+import DomeButton from '@/components/ui/DomeButton';
+import { DomeInput } from '@/components/ui/DomeInput';
+import DomeListState from '@/components/ui/DomeListState';
 
 interface WhatsAppStatus {
   isRunning: boolean;
@@ -35,22 +39,6 @@ interface WhatsAppStatus {
 }
 
 type ConnectionState = 'connected' | 'disconnected' | 'pending' | 'needs_qr';
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-      {children}
-    </p>
-  );
-}
-
-function SettingsCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-xl ${className}`} style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-      {children}
-    </div>
-  );
-}
 
 export default function WhatsAppSettingsPanel() {
   const { t } = useTranslation();
@@ -172,28 +160,47 @@ export default function WhatsAppSettingsPanel() {
   };
 
   const stateConfig = {
-    connected: { label: t('settings.whatsapp.state_connected'), color: WA_GREEN, bg: `${WA_GREEN}15` },
-    pending: { label: t('settings.whatsapp.state_pending'), color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
-    needs_qr: { label: t('settings.whatsapp.state_needs_qr'), color: 'var(--dome-text-muted)', bg: 'var(--dome-bg-hover)' },
-    disconnected: { label: t('settings.whatsapp.state_disconnected'), color: 'var(--dome-text-muted)', bg: 'var(--dome-bg-hover)' },
+    connected: {
+      label: t('settings.whatsapp.state_connected'),
+      color: 'var(--success)',
+      bg: 'var(--success-bg)',
+    },
+    pending: {
+      label: t('settings.whatsapp.state_pending'),
+      color: 'var(--warning)',
+      bg: 'var(--warning-bg)',
+    },
+    needs_qr: {
+      label: t('settings.whatsapp.state_needs_qr'),
+      color: 'var(--dome-text-muted,var(--tertiary-text))',
+      bg: 'var(--dome-bg-hover,var(--bg-hover))',
+    },
+    disconnected: {
+      label: t('settings.whatsapp.state_disconnected'),
+      color: 'var(--dome-text-muted,var(--tertiary-text))',
+      bg: 'var(--dome-bg-hover,var(--bg-hover))',
+    },
   };
 
   const cfg = stateConfig[connectionState];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
-      <div>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>WhatsApp</h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          Conecta tu WhatsApp para enviar contenido a Dome y hablar con Many desde tu teléfono.
-        </p>
-      </div>
+      <DomeSubpageHeader
+        title={t('settings.whatsapp.title')}
+        subtitle={t('settings.whatsapp.subtitle')}
+        trailing={
+          <DomeIconBox size="md" className="!w-10 !h-10">
+            <MessageCircle className="w-5 h-5 text-[var(--accent)]" aria-hidden />
+          </DomeIconBox>
+        }
+        className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"
+      />
 
       {/* Connection card */}
       <div>
-        <SectionLabel>{t('settings.whatsapp.section_connection')}</SectionLabel>
-        <SettingsCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.whatsapp.section_connection')}</DomeSectionLabel>
+        <DomeCard>
           {/* Status header */}
           <div
             className="px-4 py-4 flex items-center justify-between rounded-t-xl"
@@ -202,14 +209,19 @@ export default function WhatsAppSettingsPanel() {
             <div className="flex items-center gap-3">
               <div
                 className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                style={{ backgroundColor: connectionState === 'connected' ? `${WA_GREEN}25` : 'var(--dome-bg-hover)' }}
+                style={{
+                  backgroundColor:
+                    connectionState === 'connected'
+                      ? 'color-mix(in srgb, var(--success) 18%, transparent)'
+                      : 'var(--dome-bg-hover,var(--bg-hover))',
+                }}
               >
                 {connectionState === 'connected' ? (
-                  <Wifi className="w-5 h-5" style={{ color: WA_GREEN }} />
+                  <Wifi className="w-5 h-5 text-[var(--success)]" />
                 ) : connectionState === 'pending' ? (
-                  <Scan className="w-5 h-5 animate-pulse" style={{ color: '#f59e0b' }} />
+                  <Scan className="w-5 h-5 animate-pulse text-[var(--warning)]" />
                 ) : (
-                  <WifiOff className="w-5 h-5" style={{ color: 'var(--dome-text-muted)' }} />
+                  <WifiOff className="w-5 h-5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
                 )}
               </div>
               <div>
@@ -241,8 +253,15 @@ export default function WhatsAppSettingsPanel() {
           {/* QR code */}
           {connectionState === 'pending' && status?.qrCode && (
             <div className="p-6 flex flex-col items-center gap-4">
-              <div className="p-3 rounded-2xl" style={{ backgroundColor: 'white' }}>
-                <QRCodeSVG value={status.qrCode} size={200} level="M" includeMargin={false} bgColor="white" fgColor="#111111" />
+              <div className="p-3 rounded-2xl bg-[var(--bg)]">
+                <QRCodeSVG
+                  value={status.qrCode}
+                  size={200}
+                  level="M"
+                  includeMargin={false}
+                  bgColor="var(--bg)"
+                  fgColor="var(--primary-text)"
+                />
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('settings.whatsapp.qr_title')}</p>
@@ -256,8 +275,14 @@ export default function WhatsAppSettingsPanel() {
           {/* Saved session notice */}
           {connectionState === 'disconnected' && status?.hasAuth && (
             <div className="p-4">
-              <div className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: `${DOME_GREEN}08`, border: `1px solid ${DOME_GREEN}20` }}>
-                <Smartphone className="w-4 h-4 shrink-0" style={{ color: DOME_GREEN }} />
+              <div
+                className="flex items-center gap-3 p-3 rounded-xl border"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--accent) 8%, transparent)',
+                  borderColor: 'color-mix(in srgb, var(--accent) 25%, var(--border))',
+                }}
+              >
+                <Smartphone className="w-4 h-4 shrink-0 text-[var(--accent)]" />
                 <div>
                   <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('settings.whatsapp.session_saved')}</p>
                   <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.whatsapp.reconnect')}</p>
@@ -269,8 +294,10 @@ export default function WhatsAppSettingsPanel() {
           {/* Error */}
           {error && (
             <div className="px-4 pb-3">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
-                style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--dome-error, #ef4444)' }}>
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs border text-[var(--error)]"
+                style={{ backgroundColor: 'var(--error-bg)' }}
+              >
                 <X className="w-3.5 h-3.5 shrink-0" />
                 {error}
               </div>
@@ -278,61 +305,72 @@ export default function WhatsAppSettingsPanel() {
           )}
 
           {/* Actions */}
-          <div className="px-4 py-3 flex items-center gap-2" style={{ borderTop: '1px solid var(--dome-border)' }}>
+          <div className="px-4 py-3 flex items-center gap-2 border-t border-[var(--dome-border,var(--border))]">
             {connectionState === 'connected' ? (
               <>
-                <button
-                  onClick={handleDisconnect}
-                  disabled={isLoading}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
-                  style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+                <DomeButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<Power className="w-3.5 h-3.5" />}
+                  loading={isLoading}
+                  onClick={() => void handleDisconnect()}
                 >
-                  <Power className="w-3.5 h-3.5" />
                   {t('settings.whatsapp.pause')}
-                </button>
-                <button
-                  onClick={handleLogout}
-                  disabled={isLoading}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
-                  style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--dome-error, #ef4444)' }}
+                </DomeButton>
+                <DomeButton
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  leftIcon={<LogOut className="w-3.5 h-3.5" />}
+                  loading={isLoading}
+                  onClick={() => void handleLogout()}
                 >
-                  <LogOut className="w-3.5 h-3.5" />
                   {t('settings.whatsapp.logout')}
-                </button>
+                </DomeButton>
               </>
             ) : (
-              <button
-                onClick={handleConnect}
-                disabled={isLoading}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium text-white transition-all disabled:opacity-50"
-                style={{ backgroundColor: WA_GREEN }}
+              <DomeButton
+                type="button"
+                variant="primary"
+                size="sm"
+                loading={isLoading}
+                leftIcon={
+                  isLoading ? undefined : <MessageCircle className="w-3.5 h-3.5" />
+                }
+                onClick={() => void handleConnect()}
               >
-                {isLoading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />}
-                {connectionState === 'needs_qr' || connectionState === 'pending' ? t('settings.whatsapp.connect') : t('settings.whatsapp.reconnect')}
-              </button>
+                {connectionState === 'needs_qr' || connectionState === 'pending'
+                  ? t('settings.whatsapp.connect')
+                  : t('settings.whatsapp.reconnect')}
+              </DomeButton>
             )}
-            <button
-              onClick={loadStatus}
-              disabled={isLoading}
-              className="ml-auto flex items-center justify-center w-8 h-8 rounded-lg transition-all"
-              style={{ backgroundColor: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}
+            <DomeButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
+              className="ml-auto"
+              loading={isLoading}
               title={t('settings.whatsapp.refresh')}
+              aria-label={t('settings.whatsapp.refresh')}
+              onClick={() => void loadStatus()}
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
+              <RefreshCw className="w-3.5 h-3.5" />
+            </DomeButton>
           </div>
-        </SettingsCard>
+        </DomeCard>
       </div>
 
       {/* Allowlist */}
       <div>
-        <SectionLabel>{t('settings.whatsapp.section_allowlist')}</SectionLabel>
-        <SettingsCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.whatsapp.section_allowlist')}</DomeSectionLabel>
+        <DomeCard>
           <div className="p-4" style={{ borderBottom: '1px solid var(--dome-border)' }}>
             <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: DOME_GREEN_LIGHT }}>
-                <Shield className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />
-              </div>
+              <DomeIconBox size="sm" className="!rounded-lg">
+                <Shield className="w-3.5 h-3.5 text-[var(--accent)]" />
+              </DomeIconBox>
               <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
                 {allowlist.length === 0
                   ? t('settings.whatsapp.allowlist_no_restrictions')
@@ -345,26 +383,27 @@ export default function WhatsAppSettingsPanel() {
 
           <div className="p-4 space-y-3">
             {/* Add input */}
-            <div className="flex gap-2">
-              <input
+            <div className="flex gap-2 items-end">
+              <DomeInput
                 type="tel"
+                className="flex-1"
+                inputClassName="text-xs"
                 value={newNumber}
                 onChange={(e) => setNewNumber(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddNumber()}
+                onKeyDown={(e) => e.key === 'Enter' && void handleAddNumber()}
                 placeholder={t('settings.whatsapp.phone_placeholder')}
                 aria-label={t('settings.whatsapp.phone_label')}
-                className="flex-1 px-3 py-2 rounded-lg text-xs"
-                style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)', outline: 'none' }}
               />
-              <button
-                onClick={handleAddNumber}
+              <DomeButton
+                type="button"
+                variant="primary"
+                size="sm"
                 disabled={!newNumber.trim()}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white transition-all disabled:opacity-40"
-                style={{ backgroundColor: DOME_GREEN }}
+                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                onClick={() => void handleAddNumber()}
               >
-                <Plus className="w-3.5 h-3.5" />
                 {t('settings.whatsapp.add_number')}
-              </button>
+              </DomeButton>
             </div>
 
             {/* List */}
@@ -377,52 +416,63 @@ export default function WhatsAppSettingsPanel() {
                     style={{ backgroundColor: 'var(--dome-bg-hover)' }}
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: `${WA_GREEN}20` }}>
-                        <Smartphone className="w-3.5 h-3.5" style={{ color: WA_GREEN }} />
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: 'color-mix(in srgb, var(--success) 20%, transparent)' }}
+                      >
+                        <Smartphone className="w-3.5 h-3.5 text-[var(--success)]" />
                       </div>
                       <span className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{formatPhoneNumber(number)}</span>
                     </div>
-                    <button
-                      onClick={() => handleRemoveNumber(number)}
-                      className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ color: 'var(--dome-error, #ef4444)' }}
-                      aria-label={`Eliminar ${formatPhoneNumber(number)}`}
+                    <DomeButton
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      iconOnly
+                      className="opacity-0 group-hover:opacity-100 transition-opacity !text-[var(--error)]"
+                      aria-label={t('common.delete')}
+                      onClick={() => void handleRemoveNumber(number)}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    </DomeButton>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="py-6 text-center rounded-xl" style={{ border: '1.5px dashed var(--dome-border)' }}>
-                <Shield className="w-7 h-7 mx-auto mb-2 opacity-30" style={{ color: 'var(--dome-text-muted)' }} />
-                <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.whatsapp.empty_list')}</p>
-              </div>
+              <DomeListState
+                variant="empty"
+                compact
+                icon={<Shield className="w-7 h-7 text-[var(--tertiary-text)] opacity-40" aria-hidden />}
+                title={t('settings.whatsapp.empty_list')}
+              />
             )}
           </div>
-        </SettingsCard>
+        </DomeCard>
       </div>
 
       {/* Instructions collapsible */}
       <div>
-        <SettingsCard>
-          <button
+        <DomeCard>
+          <DomeButton
+            type="button"
+            variant="ghost"
+            className="w-full !px-4 !py-3.5 flex items-center justify-between rounded-none"
             onClick={() => setShowInstructions(!showInstructions)}
-            className="w-full px-4 py-3.5 flex items-center justify-between"
-            style={{ color: 'var(--dome-text)' }}
           >
-            <p className="text-sm font-medium">{t('settings.whatsapp.instructions_title')}</p>
+            <span className="text-sm font-medium text-[var(--primary-text)]">{t('settings.whatsapp.instructions_title')}</span>
             <ChevronDown
-              className="w-4 h-4 transition-transform duration-200"
-              style={{ color: 'var(--dome-text-muted)', transform: showInstructions ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              className={cn(
+                'w-4 h-4 transition-transform duration-200 text-[var(--tertiary-text)]',
+                showInstructions && 'rotate-180',
+              )}
             />
-          </button>
+          </DomeButton>
 
           {showInstructions && (
             <div className="px-4 pb-4">
               <div className="rounded-xl p-4 space-y-2.5" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
-                <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>
-                  Envía mensajes a tu propio chat de WhatsApp:
+                <p className="text-xs font-medium text-[var(--dome-text,var(--primary-text))]">
+                  {t('settings.whatsapp.instructions_send')}
                 </p>
                 <ul className="space-y-2">
                   {[
@@ -431,32 +481,38 @@ export default function WhatsAppSettingsPanel() {
                     { icon: null, cmd: '/pregunta', desc: t('settings.whatsapp.cmd_question') },
                   ].map(({ cmd, desc }) => (
                     <li key={cmd} className="flex items-start gap-2">
-                      <code className="px-1.5 py-0.5 rounded text-[10px] shrink-0 font-mono" style={{ backgroundColor: 'var(--dome-surface)', color: DOME_GREEN }}>
+                      <code className="px-1.5 py-0.5 rounded text-[10px] shrink-0 font-mono bg-[var(--dome-surface,var(--bg-secondary))] text-[var(--accent)]">
                         {cmd}
                       </code>
                       <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{desc}</span>
                     </li>
                   ))}
                   <li className="flex items-start gap-2">
-                    <Mic className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--dome-text-muted)' }} />
-                    <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Envía un audio para transcribirlo y guardarlo</span>
+                    <Mic className="w-4 h-4 shrink-0 mt-0.5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
+                    <span className="text-xs text-[var(--dome-text-muted,var(--tertiary-text))]">
+                      {t('settings.whatsapp.instructions_audio')}
+                    </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Paperclip className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--dome-text-muted)' }} />
-                    <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Imágenes y documentos se guardan automáticamente</span>
+                    <Paperclip className="w-4 h-4 shrink-0 mt-0.5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
+                    <span className="text-xs text-[var(--dome-text-muted,var(--tertiary-text))]">
+                      {t('settings.whatsapp.instructions_attachments')}
+                    </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--dome-text-muted)' }} />
-                    <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>Ubicaciones se guardan como nota con enlace</span>
+                    <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
+                    <span className="text-xs text-[var(--dome-text-muted,var(--tertiary-text))]">
+                      {t('settings.whatsapp.instructions_location')}
+                    </span>
                   </li>
                 </ul>
-                <p className="text-xs pt-2" style={{ color: 'var(--dome-text-muted)', borderTop: '1px solid var(--dome-border)' }}>
-                  Los mensajes de texto normales se envían a Many para que te responda.
+                <p className="text-xs pt-2 border-t border-[var(--dome-border,var(--border))] text-[var(--dome-text-muted,var(--tertiary-text))]">
+                  {t('settings.whatsapp.instructions_default')}
                 </p>
               </div>
             </div>
           )}
-        </SettingsCard>
+        </DomeCard>
       </div>
     </div>
   );

@@ -47,12 +47,14 @@ ollama serve  # Si no corre como servicio
 
 Abre **Ollama** → **Settings** y ajusta lo siguiente:
 
-| Opción | Valor recomendado | Descripción |
-|--------|-------------------|-------------|
-| **Expose Ollama to the network** | Apagado (OFF) | Mantiene Ollama solo en tu máquina; Dome accede por localhost |
-| **Model location** | `C:\Users\<usuario>\.ollama\models` (Windows) / `~/.ollama/models` (macOS/Linux) | Ruta donde se guardan los modelos |
-| **Context length** | **256k** | Mayor contexto para respuestas largas y búsqueda semántica |
-| **Airplane mode** | Apagado (OFF) | Necesario para descargar modelos; apagar solo si quieres máxima privacidad offline |
+
+| Opción                           | Valor recomendado                                                                | Descripción                                                                        |
+| -------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Expose Ollama to the network** | Apagado (OFF)                                                                    | Mantiene Ollama solo en tu máquina; Dome accede por localhost                      |
+| **Model location**               | `C:\Users\<usuario>\.ollama\models` (Windows) / `~/.ollama/models` (macOS/Linux) | Ruta donde se guardan los modelos                                                  |
+| **Context length**               | **256k**                                                                         | Mayor contexto para respuestas largas y búsqueda semántica                         |
+| **Airplane mode**                | Apagado (OFF)                                                                    | Necesario para descargar modelos; apagar solo si quieres máxima privacidad offline |
+
 
 Guarda los cambios con **Saved**.
 
@@ -100,23 +102,27 @@ mxbai-embed-large:latest  def456...       670 MB
 
 ### Configuración básica
 
-| Campo | Valor |
-|-------|-------|
-| **Base URL** | `http://localhost:11434` |
-| **Chat Model** | `glm-5:cloud` (usa Refresh si no aparece) |
-| **Embedding Model** | `mxbai-embed-large:latest` |
+
+| Campo               | Valor                                     |
+| ------------------- | ----------------------------------------- |
+| **Base URL**        | `http://localhost:11434`                  |
+| **Chat Model**      | `glm-5:cloud` (usa Refresh si no aparece) |
+| **Embedding Model** | `mxbai-embed-large:latest`                |
+
 
 ### Ajuste fino (Fine tuning)
 
-| Parámetro | Valor recomendado | Descripción |
-|-----------|-------------------|-------------|
-| **Temperature** | `0.7` | Creatividad vs consistencia (0 = más determinista) |
-| **Top P** | `0.9` | Muestra las respuestas más probables |
-| **Num Predict** | `4000` | Tokens máximos por respuesta |
-| **Show thinking** | OFF | Desactivado para no mostrar razonamiento interno (chain-of-thought) |
 
-5. Haz clic en **Refresh** junto a Chat Model para cargar los modelos disponibles
-6. Guarda los cambios
+| Parámetro         | Valor recomendado | Descripción                                                         |
+| ----------------- | ----------------- | ------------------------------------------------------------------- |
+| **Temperature**   | `0.7`             | Creatividad vs consistencia (0 = más determinista)                  |
+| **Top P**         | `0.9`             | Muestra las respuestas más probables                                |
+| **Num Predict**   | `4000`            | Tokens máximos por respuesta                                        |
+| **Show thinking** | OFF               | Desactivado para no mostrar razonamiento interno (chain-of-thought) |
+
+
+1. Haz clic en **Refresh** junto a Chat Model para cargar los modelos disponibles
+2. Guarda los cambios
 
 ---
 
@@ -147,7 +153,7 @@ Si Ollama no está corriendo, Dome indicará que no puede conectar con el provee
 - Temperature: 0.7  
 - Top P: 0.9  
 - Num Predict: 4000  
-- Show thinking: OFF  
+- Show thinking: OFF
 
 ---
 
@@ -172,12 +178,14 @@ Si Ollama no está corriendo, Dome indicará que no puede conectar con el provee
 
 ### Otros modelos recomendados (alternativas)
 
-| Uso | Modelo | Comando | Notas |
-|-----|--------|---------|-------|
-| Chat (recomendado) | GLM-5 Cloud | `ollama pull glm-5:cloud` | **Requiere cuenta Ollama e iniciar sesión en la app** |
-| Chat (más ligero) | Llama 3.2 | `ollama pull llama3.2` | Sin registro |
-| Chat (más potente) | Qwen 2.5 | `ollama pull qwen2.5` | Sin registro |
-| Embeddings (alternativa) | nomic-embed-text | `ollama pull nomic-embed-text` | Sin registro |
+
+| Uso                      | Modelo           | Comando                        | Notas                                                 |
+| ------------------------ | ---------------- | ------------------------------ | ----------------------------------------------------- |
+| Chat (recomendado)       | GLM-5 Cloud      | `ollama pull glm-5:cloud`      | **Requiere cuenta Ollama e iniciar sesión en la app** |
+| Chat (más ligero)        | Llama 3.2        | `ollama pull llama3.2`         | Sin registro                                          |
+| Chat (más potente)       | Qwen 2.5         | `ollama pull qwen2.5`          | Sin registro                                          |
+| Embeddings (alternativa) | nomic-embed-text | `ollama pull nomic-embed-text` | Sin registro                                          |
+
 
 ---
 
@@ -186,3 +194,4 @@ Si Ollama no está corriendo, Dome indicará que no puede conectar con el provee
 - [Uso del asistente Many](./ai-chat.md)
 - [Workspace y pestañas](./workspace.md) (búsqueda en la página de inicio con ⌘K cuando el widget está visible)
 - [Configuración general](./settings.md)
+

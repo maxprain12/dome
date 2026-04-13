@@ -1,6 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, CheckCircle2, AlertCircle, BookOpen, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle2, BookOpen, RefreshCw } from 'lucide-react';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeCard from '@/components/ui/DomeCard';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeProgressBar from '@/components/ui/DomeProgressBar';
+import DomeCallout from '@/components/ui/DomeCallout';
 
 const DOME_GREEN = '#596037';
 const DOME_GREEN_LIGHT = '#E0EAB4';
@@ -20,22 +26,6 @@ interface IndexProgress {
   status: 'starting' | 'indexing' | 'done' | 'error' | 'skipped' | 'finished';
   indexed?: number;
   failed?: number;
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-      {children}
-    </p>
-  );
-}
-
-function SettingsCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-xl ${className}`} style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-      {children}
-    </div>
-  );
 }
 
 export default function IndexingSettings() {
@@ -120,25 +110,26 @@ export default function IndexingSettings() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>{t('settings.indexing.title')}</h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.indexing.subtitle')}</p>
-      </div>
+      <DomeSubpageHeader
+        className="!border-0 px-0 py-0 bg-transparent"
+        title={t('settings.indexing.title')}
+        subtitle={t('settings.indexing.subtitle')}
+      />
 
       {/* Stats */}
       {pageIndexStatus?.success && (
         <div>
-          <SectionLabel>{t('settings.indexing.section_status')}</SectionLabel>
+          <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.indexing.section_status')}</DomeSectionLabel>
           <div className="grid grid-cols-3 gap-2">
             {[
               { label: t('settings.indexing.total'), value: pageIndexStatus.total_indexable, color: DOME_GREEN },
               { label: t('settings.indexing.indexed'), value: pageIndexStatus.indexed_documents, color: DOME_GREEN },
               { label: t('settings.indexing.pending'), value: pageIndexStatus.unindexed, color: pageIndexStatus.unindexed > 0 ? '#a37b00' : DOME_GREEN },
             ].map(({ label, value, color }) => (
-              <SettingsCard key={label} className="p-4">
+              <DomeCard key={label} className="p-4">
                 <p className="text-2xl font-bold" style={{ color }}>{value}</p>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{label}</p>
-              </SettingsCard>
+              </DomeCard>
             ))}
           </div>
           {lastIndexedDate && (
@@ -151,7 +142,7 @@ export default function IndexingSettings() {
 
       {/* Progress */}
       {indexingMissing && indexProgress && indexProgress.total > 0 && (
-        <SettingsCard className="p-4 space-y-2">
+        <DomeCard className="p-4 space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-xs truncate max-w-xs" style={{ color: 'var(--dome-text-muted)' }}>
               {indexProgress.status === 'indexing' && indexProgress.title ? `${t('settings.indexing.progress_indexing')}: ${indexProgress.title}` : t('settings.indexing.progress_preparing')}
@@ -160,35 +151,25 @@ export default function IndexingSettings() {
               {indexProgress.current} / {indexProgress.total}
             </span>
           </div>
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--dome-border)' }}>
-            <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: DOME_GREEN }} />
-          </div>
-        </SettingsCard>
+          <DomeProgressBar value={progressPercent} max={100} size="sm" variant="success" />
+        </DomeCard>
       )}
 
       {/* Result */}
-      {indexResult && !indexingMissing && (
-        <div className="flex items-center gap-2 p-3 rounded-xl text-sm"
-          style={{ backgroundColor: `${DOME_GREEN}12`, border: `1px solid ${DOME_GREEN}30`, color: DOME_GREEN }}>
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
+      {indexResult && !indexingMissing ? (
+        <DomeCallout tone="success" icon={CheckCircle2}>
           {indexResult.indexed === 1
             ? t('settings.indexing.result_indexed_one', { count: indexResult.indexed })
             : t('settings.indexing.result_indexed_many', { count: indexResult.indexed })}
-          {indexResult.failed > 0 && t('settings.indexing.result_with_errors', { count: indexResult.failed })}
-        </div>
-      )}
+          {indexResult.failed > 0 ? t('settings.indexing.result_with_errors', { count: indexResult.failed }) : null}
+        </DomeCallout>
+      ) : null}
 
-      {lastError && (
-        <div className="flex items-center gap-2 p-3 rounded-xl text-sm"
-          style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: 'var(--dome-error, #ef4444)' }}>
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          {lastError}
-        </div>
-      )}
+      {lastError ? <DomeCallout tone="error">{lastError}</DomeCallout> : null}
 
       {/* Actions */}
       <div>
-        <SectionLabel>{t('settings.indexing.section_actions')}</SectionLabel>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.indexing.section_actions')}</DomeSectionLabel>
         <div className="flex flex-wrap gap-2">
           {pageIndexStatus?.unindexed === 0 && !indexingMissing && !indexResult ? (
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs"
@@ -197,29 +178,41 @@ export default function IndexingSettings() {
               {t('settings.indexing.all_indexed')}
             </div>
           ) : (
-            <button
+            <DomeButton
               type="button"
-              onClick={handleIndexMissing}
+              variant="primary"
+              size="sm"
+              onClick={() => void handleIndexMissing()}
               disabled={isBusy}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium text-white transition-all disabled:opacity-50"
-              style={{ backgroundColor: DOME_GREEN }}
+              leftIcon={
+                indexingMissing ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <BookOpen className="w-3.5 h-3.5" aria-hidden />
+                )
+              }
             >
-              {indexingMissing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
               {indexingMissing
                 ? t('settings.indexing.indexing_btn')
                 : t('settings.indexing.index_pending', { count: pageIndexStatus?.unindexed ?? 0 })}
-            </button>
+            </DomeButton>
           )}
-          <button
+          <DomeButton
             type="button"
-            onClick={handleReindexAll}
+            variant="outline"
+            size="sm"
+            onClick={() => void handleReindexAll()}
             disabled={isBusy}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
-            style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+            leftIcon={
+              reindexingAll ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+              ) : (
+                <RefreshCw className="w-3.5 h-3.5" aria-hidden />
+              )
+            }
           >
-            {reindexingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
             {reindexingAll ? t('settings.indexing.reindexing') : t('settings.indexing.reindex_all')}
-          </button>
+          </DomeButton>
         </div>
       </div>
     </div>

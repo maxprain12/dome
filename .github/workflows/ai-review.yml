@@ -1,0 +1,47 @@
+name: AI Code Review
+
+# Runs on every PR opened or updated.
+# Posts a 3-pass AI review as a PR comment.
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  ai-review:
+    name: AI Review
+    runs-on: ubuntu-latest
+    # Only run if the API key secret is configured
+    if: ${{ vars.AI_REVIEW_ENABLED == 'true' || secrets.AI_REVIEW_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Generate PR diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr.diff
+          DIFF_SIZE=$(wc -c < /tmp/pr.diff)
+          echo "Diff size: $DIFF_SIZE bytes"
+          echo "DIFF_SIZE=$DIFF_SIZE" >> $GITHUB_ENV
+
+      - name: Run AI review
+        if: env.DIFF_SIZE > '100'
+        env:
+          AI_REVIEW_API_KEY: ${{ secrets.AI_REVIEW_API_KEY }}
+          AI_REVIEW_BASE_URL: ${{ secrets.AI_REVIEW_BASE_URL }}
+          AI_REVIEW_MODEL: ${{ secrets.AI_REVIEW_MODEL }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: node scripts/ai-review.mjs < /tmp/pr.diff
+
+      - name: Skip (diff too small)
+        if: env.DIFF_SIZE <= '100'
+        run: echo "Diff is too small to review, skipping."

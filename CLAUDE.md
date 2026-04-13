@@ -272,5 +272,15 @@ Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron
 - `.claude/rules/architecture-rules.md` — Critical architecture rules
 - `.claude/rules/electron-best-practices.md` — Electron patterns and security
 - `.claude/rules/dome-style-guide.md` — Code style (note: references to "bun:sqlite" and "Next.js" in that file are outdated)
+
+## Standard Operating Procedures (SOPs)
+
+Actionable checklists for common tasks — follow these before opening a PR or implementing a feature:
+
+- `.claude/sops/pr-checklist.md` — Mandatory checks before every PR
+- `.claude/sops/new-ipc-channel.md` — Step-by-step for adding a new IPC domain
+- `.claude/sops/new-feature.md` — Full feature implementation workflow
+- `.claude/sops/feature-flags.md` — Feature flag naming, usage, and rollout process
+- `.claude/sops/release.md` — How to cut a release
 - `.claude/rules/ui-style-guidelines.md` — UI design system
 - `.claude/rules/new-color-palette.md` — Current color palette variables

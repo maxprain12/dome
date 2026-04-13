@@ -1,7 +1,7 @@
-
 import React from 'react';
 import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import DomeButton from '@/components/ui/DomeButton';
 
 interface ZoomControlsProps {
   zoom: number;
@@ -26,54 +26,57 @@ function ZoomControlsComponent({
   const isMinZoom = zoom <= minZoom;
   const isMaxZoom = zoom >= maxZoom;
 
+  const iconBtn =
+    'min-w-[44px] min-h-[44px] !text-[var(--secondary-text)] hover:bg-[var(--bg-tertiary)]';
+
   return (
     <div className="flex items-center gap-1">
-      <button
+      <DomeButton
+        type="button"
+        variant="ghost"
+        size="md"
+        iconOnly
         onClick={onZoomOut}
         disabled={isMinZoom}
-        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-tertiary)]"
-        style={{
-          color: 'var(--secondary-text)',
-        }}
         title={t('viewer.zoom_out')}
         aria-label={t('viewer.zoom_out')}
+        className={iconBtn}
       >
         <ZoomOut size={18} />
-      </button>
+      </DomeButton>
 
       {showPercentage && (
-        <span
-          className="text-xs font-medium min-w-[3rem] text-center"
-          style={{ color: 'var(--secondary-text)' }}
-        >
+        <span className="text-xs font-medium min-w-[3rem] text-center text-[var(--secondary-text)]">
           {Math.round(zoom * 100)}%
         </span>
       )}
 
-      <button
+      <DomeButton
+        type="button"
+        variant="ghost"
+        size="md"
+        iconOnly
         onClick={onZoomIn}
         disabled={isMaxZoom}
-        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--bg-tertiary)]"
-        style={{
-          color: 'var(--secondary-text)',
-        }}
         title={t('viewer.zoom_in')}
         aria-label={t('viewer.zoom_in')}
+        className={iconBtn}
       >
         <ZoomIn size={18} />
-      </button>
+      </DomeButton>
 
-      <button
+      <DomeButton
+        type="button"
+        variant="ghost"
+        size="md"
+        iconOnly
         onClick={onReset}
-        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-md transition-colors duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 hover:bg-[var(--bg-tertiary)]"
-        style={{
-          color: 'var(--secondary-text)',
-        }}
         title={t('viewer.reset_zoom')}
         aria-label={t('viewer.reset_zoom')}
+        className={iconBtn}
       >
         <Maximize2 size={18} />
-      </button>
+      </DomeButton>
     </div>
   );
 }

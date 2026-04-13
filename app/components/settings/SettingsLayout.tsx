@@ -5,6 +5,9 @@ import {
   MessageCircle, Puzzle, Plug2, Wand2, Database, Cloud,
   Globe, BookMarked, Calendar,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 
 export type SettingsSection =
   | 'general'
@@ -104,61 +107,38 @@ export default function SettingsLayout({ activeSection, onSectionChange, childre
       >
         {/* Header */}
         <div className="px-4 pt-5 pb-4 shrink-0">
-          <span
-            className="text-xs font-bold tracking-widest uppercase"
-            style={{ color: 'var(--dome-text-muted)' }}
-          >
+          <DomeSectionLabel compact={false} className="!text-xs !font-bold !tracking-widest text-[var(--dome-text-muted)]">
             {t('settings.title')}
-          </span>
+          </DomeSectionLabel>
         </div>
 
         {/* Nav groups */}
         <nav className="flex-1 px-2 pb-6 space-y-4" aria-label="Settings navigation">
           {NAV_GROUPS.map((group) => (
-            <div key={group.labelKey}>
-              {/* Group label */}
-              <p
-                className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-widest"
-                style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}
-              >
+                       <div key={group.labelKey}>
+              <DomeSectionLabel className="px-2 mb-1 opacity-60 text-[var(--dome-text-muted)]">
                 {t(group.labelKey)}
-              </p>
+              </DomeSectionLabel>
 
-              {/* Items */}
               {group.items.map(({ id, icon }) => {
                 const isActive = activeSection === id;
                 return (
-                  <button
+                  <DomeButton
                     key={id}
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => onSectionChange(id)}
-                    className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-left transition-colors mb-0.5"
-                    style={{
-                      backgroundColor: isActive ? 'var(--dome-accent-subtle, rgba(101,93,197,0.12))' : 'transparent',
-                      color: isActive ? 'var(--dome-accent, #7b76d0)' : 'var(--dome-text-secondary, var(--dome-text-muted))',
-                      fontWeight: isActive ? 500 : 400,
-                      fontSize: 13,
-                      border: 'none',
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                          'var(--dome-bg-hover, rgba(0,0,0,0.04))';
-                        (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
-                        (e.currentTarget as HTMLButtonElement).style.color =
-                          'var(--dome-text-secondary, var(--dome-text-muted))';
-                      }
-                    }}
+                    className={cn(
+                      'w-full justify-start gap-2.5 px-2.5 py-1.5 mb-0.5 rounded-md text-[13px] font-normal h-auto min-h-0',
+                      isActive
+                        ? 'bg-[var(--dome-accent-subtle,rgba(101,93,197,0.12))] text-[var(--dome-accent,#7b76d0)] font-medium hover:bg-[var(--dome-accent-subtle,rgba(101,93,197,0.12))]'
+                        : 'text-[var(--dome-text-secondary,var(--dome-text-muted))] hover:bg-[var(--dome-bg-hover,rgba(0,0,0,0.04))] hover:text-[var(--dome-text)]',
+                    )}
                   >
-                    <span style={{ opacity: isActive ? 1 : 0.65 }}>{icon}</span>
+                    <span className={cn('shrink-0', !isActive && 'opacity-65')}>{icon}</span>
                     {t(`settings.tabs.${id}`)}
-                  </button>
+                  </DomeButton>
                 );
               })}
             </div>

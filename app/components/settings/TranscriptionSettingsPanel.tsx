@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mic, ShieldCheck, ShieldAlert, ShieldOff, ShieldQuestion } from 'lucide-react';
-import { notifications } from '@mantine/notifications';
+import { showToast } from '@/lib/store/useToastStore';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import DomeCard from '@/components/ui/DomeCard';
+import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeIconBox from '@/components/ui/DomeIconBox';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeCheckbox from '@/components/ui/DomeCheckbox';
+import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
+import { DomeSelect } from '@/components/ui/DomeSelect';
 
 type PermStatus = 'granted' | 'denied' | 'not-determined' | 'restricted' | 'unknown';
-
-const DOME_GREEN = '#596037';
 
 const GROQ_ORIGIN = 'https://api.groq.com';
 const MODEL_GROQ_TURBO = 'whisper-large-v3-turbo';
@@ -14,25 +20,6 @@ const MODEL_GROQ_LARGE = 'whisper-large-v3';
 const REALTIME_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'] as const;
 
 type SttProvider = 'openai' | 'groq' | 'custom';
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-      {children}
-    </p>
-  );
-}
-
-function SettingsCard({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="rounded-xl p-4"
-      style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-    >
-      {children}
-    </div>
-  );
-}
 
 interface PermissionRowProps {
   label: string;
@@ -45,44 +32,39 @@ interface PermissionRowProps {
 
 function PermissionRow({ label, status, onRequest, onOpenPrefs, loading, t }: PermissionRowProps) {
   const statusConfig: Record<PermStatus, { icon: React.ReactNode; color: string; text: string }> = {
-    granted: { icon: <ShieldCheck className="h-4 w-4" />, color: '#22c55e', text: t('settings.transcription.perm_granted') },
-    denied: { icon: <ShieldOff className="h-4 w-4" />, color: '#ef4444', text: t('settings.transcription.perm_denied') },
-    'not-determined': { icon: <ShieldQuestion className="h-4 w-4" />, color: '#f59e0b', text: t('settings.transcription.perm_not_determined') },
-    restricted: { icon: <ShieldAlert className="h-4 w-4" />, color: '#ef4444', text: t('settings.transcription.perm_restricted') },
-    unknown: { icon: <ShieldQuestion className="h-4 w-4" />, color: 'var(--dome-text-muted)', text: '—' },
+    granted: { icon: <ShieldCheck className="h-4 w-4" />, color: 'var(--success)', text: t('settings.transcription.perm_granted') },
+    denied: { icon: <ShieldOff className="h-4 w-4" />, color: 'var(--error)', text: t('settings.transcription.perm_denied') },
+    'not-determined': { icon: <ShieldQuestion className="h-4 w-4" />, color: 'var(--warning)', text: t('settings.transcription.perm_not_determined') },
+    restricted: { icon: <ShieldAlert className="h-4 w-4" />, color: 'var(--error)', text: t('settings.transcription.perm_restricted') },
+    unknown: { icon: <ShieldQuestion className="h-4 w-4" />, color: 'var(--dome-text-muted,var(--tertiary-text))', text: '—' },
   };
   const cfg = statusConfig[status];
 
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
-        <span style={{ color: cfg.color, flexShrink: 0 }}>{cfg.icon}</span>
+        <span className="shrink-0" style={{ color: cfg.color }}>
+          {cfg.icon}
+        </span>
         <div className="min-w-0">
-          <span className="text-sm font-medium block truncate" style={{ color: 'var(--dome-text)' }}>{label}</span>
-          <span className="text-[11px]" style={{ color: cfg.color }}>{cfg.text}</span>
+          <span className="text-sm font-medium block truncate text-[var(--dome-text,var(--primary-text))]">
+            {label}
+          </span>
+          <span className="text-[11px]" style={{ color: cfg.color }}>
+            {cfg.text}
+          </span>
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {status === 'denied' && onOpenPrefs && (
-          <button
-            type="button"
-            onClick={onOpenPrefs}
-            className="rounded-md px-2 py-1 text-[11px] font-medium border"
-            style={{ borderColor: '#ef4444', color: '#ef4444', background: 'transparent' }}
-          >
+          <DomeButton type="button" variant="outline" size="xs" onClick={onOpenPrefs} className="!text-[var(--error)] !border-[var(--error)]">
             {t('settings.transcription.perm_open_prefs')}
-          </button>
+          </DomeButton>
         )}
         {(status === 'not-determined' || status === 'unknown') && (
-          <button
-            type="button"
-            onClick={() => void onRequest()}
-            disabled={loading}
-            className="rounded-md px-2 py-1 text-[11px] font-medium border disabled:opacity-50"
-            style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)', background: 'var(--dome-bg-hover)' }}
-          >
+          <DomeButton type="button" variant="outline" size="xs" loading={loading} onClick={() => void onRequest()}>
             {t('settings.transcription.perm_request')}
-          </button>
+          </DomeButton>
         )}
       </div>
     </div>
@@ -196,7 +178,7 @@ export default function TranscriptionSettingsPanel() {
       globalShortcut: globalShortcut.trim(),
       manyVoiceGlobalShortcut: manyVoiceShortcut.trim(),
       transcriptionGlobalShortcutEnabled: transcriptionShortcutEnabled,
-      manyVoiceGlobalShortcutEnabled,
+      manyVoiceGlobalShortcutEnabled: manyVoiceShortcutEnabled,
       manyVoiceRealtimeEnabled,
       realtimeVoice: realtimeVoice.trim(),
       realtimeModel: realtimeModel.trim(),
@@ -211,61 +193,50 @@ export default function TranscriptionSettingsPanel() {
 
   const handleClearDedicatedKey = async () => {
     await persist({ dedicatedOpenaiKey: '' });
-    notifications.show({ message: t('settings.transcription.clear_key'), color: 'gray' });
+    showToast('success', t('settings.transcription.clear_key'));
   };
 
   const handleClearGroqKey = async () => {
     await persist({ groqApiKey: '' });
-    notifications.show({ message: t('settings.transcription.clear_groq_key'), color: 'gray' });
+    showToast('success', t('settings.transcription.clear_groq_key'));
   };
 
   const applyGroqPreset = () => {
     setSttProvider('groq');
     setModel(MODEL_GROQ_TURBO);
     setApiBaseUrl(GROQ_ORIGIN);
-    notifications.show({
-      message: t('settings.transcription.preset_groq_desc'),
-      color: 'teal',
-    });
+    showToast('success', t('settings.transcription.preset_groq_desc'));
   };
 
   const applyOpenaiPreset = () => {
     setSttProvider('openai');
     setModel('whisper-1');
     setApiBaseUrl('');
-    notifications.show({
-      message: t('settings.transcription.preset_openai_desc'),
-      color: 'gray',
-    });
+    showToast('success', t('settings.transcription.preset_openai_desc'));
   };
-
-  const inputClass =
-    'w-full px-3 py-2 rounded-lg text-sm outline-none';
-  const inputStyle = {
-    backgroundColor: 'var(--dome-bg-hover)',
-    color: 'var(--dome-text)',
-    border: '1px solid var(--dome-border)',
-  } as const;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h2 className="text-lg font-semibold mb-0.5 flex items-center gap-2" style={{ color: 'var(--dome-text)' }}>
-          <Mic className="w-5 h-5" style={{ color: DOME_GREEN }} />
-          {t('settings.transcription.title')}
-        </h2>
-        <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          {t('settings.transcription.subtitle')}
-        </p>
-        <p className="text-[11px] mt-2 leading-relaxed" style={{ color: 'var(--dome-text-muted)', opacity: 0.95 }}>
-          {t('settings.transcription.hub_floating_note')}
-        </p>
-      </div>
+      <DomeSubpageHeader
+        title={t('settings.transcription.title')}
+        subtitle={
+          <div className="space-y-2">
+            <p>{t('settings.transcription.subtitle')}</p>
+            <p className="text-[11px] leading-relaxed opacity-95">{t('settings.transcription.hub_floating_note')}</p>
+          </div>
+        }
+        trailing={
+          <DomeIconBox size="md" className="!w-10 !h-10">
+            <Mic className="w-5 h-5 text-[var(--accent)]" aria-hidden />
+          </DomeIconBox>
+        }
+        className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"
+      />
 
       {/* 0 — Permissions */}
       <div>
-        <SectionLabel>{t('settings.transcription.section_permissions')}</SectionLabel>
-        <SettingsCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.transcription.section_permissions')}</DomeSectionLabel>
+        <DomeCard>
           {!isMac ? (
             <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
               {t('settings.transcription.perm_os_managed')}
@@ -314,81 +285,61 @@ export default function TranscriptionSettingsPanel() {
               )}
             </div>
           )}
-        </SettingsCard>
+        </DomeCard>
       </div>
 
       {/* 1 — Inicio rápido (STT) */}
       <div>
-        <SectionLabel>{t('settings.transcription.section_quick_start')}</SectionLabel>
-        <SettingsCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.transcription.section_quick_start')}</DomeSectionLabel>
+        <DomeCard>
           <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>
             {t('settings.transcription.help')}
           </p>
           <div className="flex flex-wrap gap-2 mb-3">
-            <button
-              type="button"
-              onClick={applyGroqPreset}
-              className="rounded-lg border px-3 py-1.5 text-xs font-medium"
-              style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg-hover)' }}
-            >
+            <DomeButton type="button" variant="outline" size="sm" onClick={applyGroqPreset}>
               {t('settings.transcription.preset_groq')}
-            </button>
-            <button
-              type="button"
-              onClick={applyOpenaiPreset}
-              className="rounded-lg border px-3 py-1.5 text-xs font-medium"
-              style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg-hover)' }}
-            >
+            </DomeButton>
+            <DomeButton type="button" variant="outline" size="sm" onClick={applyOpenaiPreset}>
               {t('settings.transcription.preset_openai')}
-            </button>
+            </DomeButton>
           </div>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.stt_provider')}
-          </label>
-          <select
+          <DomeSelect
+            className="max-w-md mb-3"
+            label={t('settings.transcription.stt_provider')}
             value={sttProvider}
             onChange={(e) => setSttProvider(e.target.value as SttProvider)}
-            className="w-full max-w-md px-3 py-2 rounded-lg text-sm mb-3 outline-none"
-            style={inputStyle}
           >
             <option value="groq">{t('settings.transcription.stt_provider_groq')}</option>
             <option value="openai">{t('settings.transcription.stt_provider_openai')}</option>
             <option value="custom">{t('settings.transcription.stt_provider_custom')}</option>
-          </select>
+          </DomeSelect>
 
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.model')}
-          </label>
           {sttProvider === 'groq' ? (
-            <select
+            <DomeSelect
+              className="mb-3"
+              label={t('settings.transcription.model')}
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className={`${inputClass} mb-3`}
-              style={inputStyle}
             >
               <option value={MODEL_GROQ_TURBO}>{t('settings.transcription.model_option_groq_turbo')}</option>
               <option value={MODEL_GROQ_LARGE}>{t('settings.transcription.model_option_groq_large')}</option>
-            </select>
+            </DomeSelect>
           ) : (
-            <select
+            <DomeSelect
+              className="mb-3"
+              label={t('settings.transcription.model')}
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className={`${inputClass} mb-3`}
-              style={inputStyle}
             >
               <option value="whisper-1">{t('settings.transcription.model_option_whisper1')}</option>
               <option value={MODEL_GROQ_TURBO}>whisper-large-v3-turbo</option>
               <option value={MODEL_GROQ_LARGE}>whisper-large-v3</option>
-            </select>
+            </DomeSelect>
           )}
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.language')}
-          </label>
-          <input
+          <DomeInput
+            label={t('settings.transcription.language')}
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className={inputClass}
-            style={inputStyle}
             placeholder={t('settings.transcription.language_placeholder')}
           />
           {sttProvider === 'groq' && !hasGroqKey ? (
@@ -396,146 +347,119 @@ export default function TranscriptionSettingsPanel() {
               {t('settings.transcription.groq_key_hint_quick')}
             </p>
           ) : null}
-        </SettingsCard>
+        </DomeCard>
       </div>
 
       {/* 2 — Atajos globales */}
       <div>
-        <SectionLabel>{t('settings.transcription.section_shortcuts_global')}</SectionLabel>
-        <SettingsCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.transcription.section_shortcuts_global')}</DomeSectionLabel>
+        <DomeCard>
           <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>
             {t('settings.transcription.shortcut_opt_in_help')}
           </p>
-          <label className="flex cursor-pointer items-center gap-2 text-xs mb-2" style={{ color: 'var(--dome-text)' }}>
-            <input
-              type="checkbox"
-              checked={transcriptionShortcutEnabled}
-              onChange={(e) => setTranscriptionShortcutEnabled(e.target.checked)}
-              className="cursor-pointer"
-            />
-            {t('settings.transcription.shortcut_enable_dictation')}
-          </label>
-          <p className="text-[10px] mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+          <DomeCheckbox
+            className="mb-2"
+            label={t('settings.transcription.shortcut_enable_dictation')}
+            checked={transcriptionShortcutEnabled}
+            onChange={(e) => setTranscriptionShortcutEnabled(e.target.checked)}
+          />
+          <p className="text-[10px] mb-2 text-[var(--dome-text-muted,var(--tertiary-text))]">
             {t('settings.transcription.shortcut_dictation_hint')}
           </p>
-          <input
+          <DomeInput
+            className="mb-4"
             value={globalShortcut}
             onChange={(e) => setGlobalShortcut(e.target.value)}
             disabled={!transcriptionShortcutEnabled}
-            className={`${inputClass} mb-4 disabled:opacity-45`}
-            style={inputStyle}
             placeholder="CommandOrControl+Shift+D"
           />
           {typeof window !== 'undefined' && window.electron?.isMac ? (
             <>
-              <label className="flex cursor-pointer items-center gap-2 text-xs mb-2" style={{ color: 'var(--dome-text)' }}>
-                <input
-                  type="checkbox"
-                  checked={manyVoiceShortcutEnabled}
-                  onChange={(e) => setManyVoiceShortcutEnabled(e.target.checked)}
-                  className="cursor-pointer"
-                />
-                {t('settings.transcription.shortcut_enable_many')}
-              </label>
-              <p className="text-[10px] mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+              <DomeCheckbox
+                className="mb-2"
+                label={t('settings.transcription.shortcut_enable_many')}
+                checked={manyVoiceShortcutEnabled}
+                onChange={(e) => setManyVoiceShortcutEnabled(e.target.checked)}
+              />
+              <p className="text-[10px] mb-2 text-[var(--dome-text-muted,var(--tertiary-text))]">
                 {t('manyVoice.many_shortcut_hint')}
               </p>
-              <input
+              <DomeInput
                 value={manyVoiceShortcut}
                 onChange={(e) => setManyVoiceShortcut(e.target.value)}
                 disabled={!manyVoiceShortcutEnabled}
-                className={`${inputClass} disabled:opacity-45`}
-                style={inputStyle}
                 placeholder="Option+Shift+M"
               />
             </>
           ) : (
             <>
-              <label className="flex cursor-pointer items-center gap-2 text-xs mb-2" style={{ color: 'var(--dome-text)' }}>
-                <input
-                  type="checkbox"
-                  checked={manyVoiceShortcutEnabled}
-                  onChange={(e) => setManyVoiceShortcutEnabled(e.target.checked)}
-                  className="cursor-pointer"
-                />
-                {t('settings.transcription.shortcut_enable_many')}
-              </label>
-              <input
+              <DomeCheckbox
+                className="mb-2"
+                label={t('settings.transcription.shortcut_enable_many')}
+                checked={manyVoiceShortcutEnabled}
+                onChange={(e) => setManyVoiceShortcutEnabled(e.target.checked)}
+              />
+              <DomeInput
                 value={manyVoiceShortcut}
                 onChange={(e) => setManyVoiceShortcut(e.target.value)}
                 disabled={!manyVoiceShortcutEnabled}
-                className={`${inputClass} disabled:opacity-45`}
-                style={inputStyle}
                 placeholder="Alt+Shift+M"
               />
             </>
           )}
-        </SettingsCard>
+        </DomeCard>
       </div>
 
       {/* 3 — Many voz en tiempo real */}
       <div>
-        <SectionLabel>{t('settings.transcription.section_realtime_voice')}</SectionLabel>
-        <SettingsCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.transcription.section_realtime_voice')}</DomeSectionLabel>
+        <DomeCard>
           <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>
             {t('settings.transcription.realtime_voice_help')}
           </p>
-          <label className="flex cursor-pointer items-center gap-2 text-xs mb-3" style={{ color: 'var(--dome-text)' }}>
-            <input
-              type="checkbox"
-              checked={manyVoiceRealtimeEnabled}
-              onChange={(e) => setManyVoiceRealtimeEnabled(e.target.checked)}
-              className="cursor-pointer"
-            />
-            {t('settings.transcription.realtime_enable')}
-          </label>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.realtime_voice_label')}
-          </label>
-          <select
+          <DomeCheckbox
+            className="mb-3"
+            label={t('settings.transcription.realtime_enable')}
+            checked={manyVoiceRealtimeEnabled}
+            onChange={(e) => setManyVoiceRealtimeEnabled(e.target.checked)}
+          />
+          <DomeSelect
+            className="max-w-md mb-3"
+            label={t('settings.transcription.realtime_voice_label')}
             value={realtimeVoice}
             onChange={(e) => setRealtimeVoice(e.target.value)}
-            className="w-full max-w-md px-3 py-2 rounded-lg text-sm mb-3 outline-none"
-            style={inputStyle}
           >
             {REALTIME_VOICES.map((v) => (
               <option key={v} value={v}>
                 {v}
               </option>
             ))}
-          </select>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.realtime_model_label')}
-          </label>
-          <input
+          </DomeSelect>
+          <DomeInput
+            className="mb-3"
+            label={t('settings.transcription.realtime_model_label')}
             value={realtimeModel}
             onChange={(e) => setRealtimeModel(e.target.value)}
-            className={`${inputClass} mb-3 font-mono text-[11px]`}
-            style={inputStyle}
+            inputClassName="font-mono text-[11px]"
             placeholder="gpt-4o-realtime-preview-2024-12-17"
             autoComplete="off"
           />
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.realtime_suffix_label')}
-          </label>
-          <p className="text-[10px] mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.realtime_suffix_help')}
-          </p>
-          <textarea
+          <DomeTextarea
+            label={t('settings.transcription.realtime_suffix_label')}
+            hint={t('settings.transcription.realtime_suffix_help')}
             value={realtimeInstructionsSuffix}
             onChange={(e) => setRealtimeInstructionsSuffix(e.target.value)}
             rows={2}
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-y min-h-[52px]"
-            style={inputStyle}
+            textareaClassName="min-h-[52px]"
             placeholder={t('settings.transcription.realtime_suffix_placeholder')}
           />
-        </SettingsCard>
+        </DomeCard>
       </div>
 
       {/* 4 — Reuniones y formato de nota */}
       <div>
-        <SectionLabel>{t('settings.transcription.section_meetings_output')}</SectionLabel>
-        <SettingsCard>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.transcription.section_meetings_output')}</DomeSectionLabel>
+        <DomeCard>
           <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
             {t('settings.transcription.pause_threshold')}
           </label>
@@ -545,38 +469,38 @@ export default function TranscriptionSettingsPanel() {
           <p className="text-[10px] mb-2" style={{ color: 'var(--dome-text-muted)', opacity: 0.9 }}>
             {t('settings.transcription.future_diarization_note')}
           </p>
-          <input
+          <DomeInput
             type="number"
             min={0.4}
             max={8}
             step={0.05}
+            className="max-w-[140px]"
             value={pauseThresholdSec}
             onChange={(e) => setPauseThresholdSec(e.target.value)}
-            className="w-full max-w-[140px] px-3 py-2 rounded-lg text-sm outline-none"
-            style={inputStyle}
           />
           <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--dome-border)' }}>
             <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
               {t('settings.transcription.capture_help')}
             </p>
           </div>
-        </SettingsCard>
+        </DomeCard>
       </div>
 
       {/* 5 — Avanzado */}
       <div>
-        <button
+        <DomeButton
           type="button"
+          variant="ghost"
+          size="sm"
+          className="mb-2 !px-0 !text-[var(--dome-accent,var(--accent))]"
           onClick={() => setShowAdvanced((v) => !v)}
-          className="text-xs font-semibold mb-2 underline-offset-2 hover:underline"
-          style={{ color: 'var(--dome-accent)', background: 'none', border: 'none', cursor: 'pointer' }}
         >
           {showAdvanced ? t('settings.transcription.advanced_hide') : t('settings.transcription.advanced_show')}
-        </button>
+        </DomeButton>
         {showAdvanced ? (
           <div className="space-y-6 pl-0 border-l-2 border-[var(--dome-border)] pl-3">
             {sttProvider === 'groq' ? (
-              <SettingsCard>
+              <DomeCard>
                 <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
                   {t('settings.transcription.section_groq_key')}
                 </p>
@@ -584,29 +508,28 @@ export default function TranscriptionSettingsPanel() {
                   {t('settings.transcription.groq_key_help')}
                   {hasGroqKey ? ` (${t('settings.transcription.groq_key_saved')})` : ''}
                 </p>
-                <input
+                <DomeInput
                   type="password"
                   value={groqKey}
                   onChange={(e) => setGroqKey(e.target.value)}
-                  className={inputClass}
-                  style={inputStyle}
                   placeholder={t('settings.transcription.groq_key_placeholder')}
                   autoComplete="off"
                 />
                 {hasGroqKey && (
-                  <button
+                  <DomeButton
                     type="button"
+                    variant="ghost"
+                    size="xs"
+                    className="mt-2 !px-0"
                     onClick={() => void handleClearGroqKey()}
-                    className="mt-2 text-xs underline"
-                    style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
                   >
                     {t('settings.transcription.clear_groq_key')}
-                  </button>
+                  </DomeButton>
                 )}
-              </SettingsCard>
+              </DomeCard>
             ) : null}
 
-            <SettingsCard>
+            <DomeCard>
               <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
                 {t('settings.transcription.section_key')}
               </p>
@@ -614,72 +537,56 @@ export default function TranscriptionSettingsPanel() {
                 {t('settings.transcription.key_help')}
                 {hasDedicatedKey ? ` (${t('settings.transcription.key_saved')})` : ''}
               </p>
-              <input
+              <DomeInput
                 type="password"
                 value={dedicatedKey}
                 onChange={(e) => setDedicatedKey(e.target.value)}
-                className={inputClass}
-                style={inputStyle}
                 placeholder={t('settings.transcription.key_placeholder')}
                 autoComplete="off"
               />
               {hasDedicatedKey && (
-                <button
+                <DomeButton
                   type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="mt-2 !px-0"
                   onClick={() => void handleClearDedicatedKey()}
-                  className="mt-2 text-xs underline"
-                  style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
                   {t('settings.transcription.clear_key')}
-                </button>
+                </DomeButton>
               )}
-            </SettingsCard>
+            </DomeCard>
 
-            <SettingsCard>
+            <DomeCard>
               <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
                 {t('settings.transcription.section_api_prompt')}
               </p>
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('settings.transcription.api_base_url')}
-              </label>
-              <p className="text-[10px] mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('settings.transcription.api_base_url_help')}
-              </p>
-              <input
+              <DomeInput
+                className="mb-3"
+                label={t('settings.transcription.api_base_url')}
+                hint={t('settings.transcription.api_base_url_help')}
                 value={apiBaseUrl}
                 onChange={(e) => setApiBaseUrl(e.target.value)}
-                className={`${inputClass} mb-3`}
-                style={inputStyle}
                 placeholder={t('settings.transcription.api_base_url_placeholder')}
                 autoComplete="off"
               />
-              <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('settings.transcription.prompt')}
-              </label>
-              <p className="text-[10px] mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('settings.transcription.prompt_help')}
-              </p>
-              <textarea
+              <DomeTextarea
+                label={t('settings.transcription.prompt')}
+                hint={t('settings.transcription.prompt_help')}
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none resize-y min-h-[72px]"
-                style={inputStyle}
+                textareaClassName="min-h-[72px]"
                 placeholder={t('settings.transcription.prompt_placeholder')}
               />
-            </SettingsCard>
+            </DomeCard>
           </div>
         ) : null}
       </div>
 
-      <button
-        type="button"
-        onClick={() => void handleSave()}
-        className="px-5 py-2 rounded-lg text-sm font-medium text-white"
-        style={{ backgroundColor: DOME_GREEN }}
-      >
+      <DomeButton type="button" variant="primary" onClick={() => void handleSave()}>
         {saved ? t('settings.transcription.saved') : t('settings.transcription.save')}
-      </button>
+      </DomeButton>
     </div>
   );
 }

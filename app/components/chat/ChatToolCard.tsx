@@ -2,7 +2,6 @@
 import { useState, useMemo } from 'react';
 import {
   ChevronDown,
-  ChevronRight,
   Globe,
   Search,
   FileText,
@@ -19,6 +18,9 @@ import MarkdownRenderer from './MarkdownRenderer';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { parseContentImages, parseImageResult } from '@/lib/chat/docling-utils';
+import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeBadge from '@/components/ui/DomeBadge';
 
 /**
  * ChatToolCard - Polished display for tool calls with category color system
@@ -463,11 +465,19 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
                   )}
                 </div>
                 {item.similarity != null && (
-                  <span style={{ fontSize: 10, color: 'var(--tertiary-text)', flexShrink: 0, marginTop: 2 }}>
-                    {Math.round(item.similarity * 100)}%
-                  </span>
+                  <DomeBadge
+                    label={`${Math.round(item.similarity * 100)}%`}
+                    variant="soft"
+                    size="xs"
+                    color="var(--tertiary-text)"
+                    className="shrink-0 mt-0.5"
+                  />
                 )}
-                <button
+                <DomeButton
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  iconOnly
                   onClick={() => {
                     if (isPinned) {
                       removePinnedResource(item.id);
@@ -476,26 +486,14 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
                     }
                   }}
                   title={isPinned ? 'Quitar del contexto' : 'Añadir al contexto del chat'}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 20,
-                    height: 20,
-                    flexShrink: 0,
-                    borderRadius: 4,
-                    border: 'none',
-                    background: 'transparent',
-                    color: isPinned ? 'var(--accent)' : 'var(--tertiary-text)',
-                    cursor: 'pointer',
-                    transition: 'color 150ms ease',
-                  }}
+                  className="!p-0 w-5 h-5 min-w-0 shrink-0 text-[var(--tertiary-text)] hover:text-[var(--accent)]"
                 >
-                  {isPinned
-                    ? <CheckCircle2 style={{ width: 13, height: 13 }} />
-                    : <PlusCircle style={{ width: 13, height: 13 }} />
-                  }
-                </button>
+                  {isPinned ? (
+                    <CheckCircle2 className="w-[13px] h-[13px]" />
+                  ) : (
+                    <PlusCircle className="w-[13px] h-[13px]" />
+                  )}
+                </DomeButton>
               </div>
             );
           })}
@@ -557,124 +555,62 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
         transition: 'background 150ms ease',
       }}
     >
-      <button
-        type="button"
-        onClick={() => canExpand && setExpanded(!expanded)}
-        disabled={isPending}
-        style={{
-          display: 'flex',
-          width: '100%',
-          minWidth: 0,
-          alignItems: 'center',
-          gap: 8,
-          padding: '5px 8px',
-          borderRadius: '0 4px 4px 0',
-          textAlign: 'left',
-          background: 'transparent',
-          border: 'none',
-          cursor: canExpand ? 'pointer' : 'default',
-          transition: 'background 150ms ease',
+      <DomeCollapsibleRow
+        expanded={expanded}
+        onExpandedChange={(next) => {
+          if (canExpand) setExpanded(next);
         }}
-        onMouseOver={(e) => {
-          if (canExpand) (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)';
-        }}
-        onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-      >
-        {/* Status indicator */}
-        <div style={{ flexShrink: 0, width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {isPending ? (
-            <Loader2
-              style={{ width: 13, height: 13, color: accentColor, animation: 'spin 1s linear infinite' }}
-            />
-          ) : toolCall.status === 'error' ? (
-            <XCircle style={{ width: 13, height: 13, color: 'var(--error)' }} />
-          ) : toolCall.status === 'success' ? (
-            <CheckCircle2 style={{ width: 13, height: 13, color: '#10b981' }} />
-          ) : (
-            <Icon style={{ width: 13, height: 13, color: 'var(--tertiary-text)' }} />
-          )}
-        </div>
-
-        {/* Label + args */}
-        <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: isPending ? 'var(--primary-text)' : 'var(--secondary-text)',
-              lineHeight: 1.4,
-            }}
-          >
-            {label}
-          </span>
-          {argsSummary && (
-            <span
-              style={{
-                fontSize: 11,
-                color: 'var(--tertiary-text)',
-                lineHeight: 1.4,
-                marginTop: 1,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {argsSummary}
-            </span>
-          )}
-        </span>
-
-        {/* Expand chevron */}
-        {canExpand && (
-          <div style={{ flexShrink: 0, color: 'var(--tertiary-text)', opacity: 0.6 }}>
-            {expanded ? (
-              <ChevronDown style={{ width: 13, height: 13 }} />
-            ) : (
-              <ChevronRight style={{ width: 13, height: 13 }} />
-            )}
-          </div>
-        )}
-      </button>
-
-      {/* Expandable Result Area */}
-      {expanded && canExpand && (
-        <div
-          style={{
-            marginTop: 2,
-            marginLeft: 8,
-            paddingLeft: 16,
-            paddingTop: 6,
-            paddingBottom: 6,
-            borderLeft: '1px solid var(--border)',
-          }}
-        >
-          {/* JSON toggle button */}
-          {!toolCall.error && hasResult && (
-            <div style={{ marginBottom: 6 }}>
-              <button
-                type="button"
-                style={{
-                  fontSize: 10,
-                  color: 'var(--tertiary-text)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: 0,
-                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                  textDecoration: 'underline',
-                  opacity: 0.7,
-                }}
-                onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
-                onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.7'; }}
-                onClick={() => setShowRawJson(!showRawJson)}
-              >
-                {showRawJson ? 'Vista formateada' : 'Ver JSON'}
-              </button>
+        disabled={isPending || !canExpand}
+        triggerClassName="!px-2 !py-1.5 rounded-r-md"
+        trigger={
+          <>
+            <div className="flex shrink-0 w-4 h-4 items-center justify-center">
+              {isPending ? (
+                <Loader2 className="w-[13px] h-[13px] animate-spin" style={{ color: accentColor }} />
+              ) : toolCall.status === 'error' ? (
+                <XCircle className="w-[13px] h-[13px] text-[var(--error)]" />
+              ) : toolCall.status === 'success' ? (
+                <CheckCircle2 className="w-[13px] h-[13px] text-[#10b981]" />
+              ) : (
+                <Icon className="w-[13px] h-[13px] text-[var(--tertiary-text)]" />
+              )}
             </div>
-          )}
-          {renderResultContent()}
-        </div>
-      )}
+            <span className="flex flex-col min-w-0 flex-1">
+              <span
+                className="text-[13px] font-semibold leading-snug"
+                style={{ color: isPending ? 'var(--primary-text)' : 'var(--secondary-text)' }}
+              >
+                {label}
+              </span>
+              {argsSummary ? (
+                <span className="text-[11px] text-[var(--tertiary-text)] leading-snug mt-px truncate">
+                  {argsSummary}
+                </span>
+              ) : null}
+            </span>
+          </>
+        }
+        panelClassName="!pl-2 !pb-1.5 !ml-2 border-l border-[var(--border)]"
+      >
+        {canExpand ? (
+          <div className="pt-1.5 pl-4">
+            {!toolCall.error && hasResult ? (
+              <div className="mb-1.5">
+                <DomeButton
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => setShowRawJson(!showRawJson)}
+                  className="!h-auto !px-0 !py-0 font-mono text-[10px] underline text-[var(--tertiary-text)] opacity-70 hover:opacity-100"
+                >
+                  {showRawJson ? 'Vista formateada' : 'Ver JSON'}
+                </DomeButton>
+              </div>
+            ) : null}
+            {renderResultContent()}
+          </div>
+        ) : null}
+      </DomeCollapsibleRow>
     </div>
   );
 }
@@ -709,58 +645,34 @@ export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardG
         transition: 'background 150ms ease',
       }}
     >
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        style={{
-          display: 'flex',
-          width: '100%',
-          minWidth: 0,
-          alignItems: 'center',
-          gap: 8,
-          padding: '5px 8px',
-          borderRadius: '0 4px 4px 0',
-          textAlign: 'left',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          transition: 'background 150ms ease',
-        }}
-        onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-        onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+      <DomeCollapsibleRow
+        expanded={expanded}
+        onExpandedChange={setExpanded}
+        triggerClassName="!px-2 !py-1.5 rounded-r-md"
+        trigger={
+          <>
+            <div className="flex shrink-0 w-4 h-4 items-center justify-center">
+              {hasPending ? (
+                <Loader2 className="w-[13px] h-[13px] animate-spin" style={{ color: accentColor }} />
+              ) : hasError ? (
+                <XCircle className="w-[13px] h-[13px] text-[var(--error)]" />
+              ) : allSuccess ? (
+                <CheckCircle2 className="w-[13px] h-[13px] text-[#10b981]" />
+              ) : (
+                <Icon className="w-[13px] h-[13px] text-[var(--tertiary-text)]" />
+              )}
+            </div>
+            <span className="text-[13px] font-semibold text-[var(--secondary-text)] leading-snug">
+              {label} ({count})
+            </span>
+          </>
+        }
+        panelClassName="!mt-0.5 !ml-2 !pl-3 border-l border-[var(--border)] flex flex-col gap-1"
       >
-        <div style={{ flexShrink: 0, width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {hasPending ? (
-            <Loader2 style={{ width: 13, height: 13, color: accentColor, animation: 'spin 1s linear infinite' }} />
-          ) : hasError ? (
-            <XCircle style={{ width: 13, height: 13, color: 'var(--error)' }} />
-          ) : allSuccess ? (
-            <CheckCircle2 style={{ width: 13, height: 13, color: '#10b981' }} />
-          ) : (
-            <Icon style={{ width: 13, height: 13, color: 'var(--tertiary-text)' }} />
-          )}
-        </div>
-        <span
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--secondary-text)',
-            lineHeight: 1.4,
-          }}
-        >
-          {label} ({count})
-        </span>
-        <div style={{ flexShrink: 0, color: 'var(--tertiary-text)', opacity: 0.6 }}>
-          {expanded ? <ChevronDown style={{ width: 13, height: 13 }} /> : <ChevronRight style={{ width: 13, height: 13 }} />}
-        </div>
-      </button>
-      {expanded && (
-        <div style={{ marginTop: 2, marginLeft: 8, paddingLeft: 12, borderLeft: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {calls.map((tc) => (
-            <ChatToolCard key={tc.id} toolCall={tc} />
-          ))}
-        </div>
-      )}
+        {calls.map((tc) => (
+          <ChatToolCard key={tc.id} toolCall={tc} />
+        ))}
+      </DomeCollapsibleRow>
     </div>
   );
 }

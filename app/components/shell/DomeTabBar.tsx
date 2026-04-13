@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Menu } from '@mantine/core';
 import {
   Home,
   Settings,
@@ -35,6 +34,8 @@ import {
 import { getDomeTabDisplayTitle } from '@/lib/dome-tab-title';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import { FOLDER_COLOR_SWATCHES } from '@/components/home/FolderColorPicker';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeDivider from '@/components/ui/DomeDivider';
 
 const TAB_OVERFLOW_MIN_COUNT = 8;
 
@@ -194,6 +195,8 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
 
   const [hasHorizontalOverflow, setHasHorizontalOverflow] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<TabCtxState | null>(null);
+  const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
+  const overflowWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -209,6 +212,16 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
 
   const showOverflowList =
     hasHorizontalOverflow || tabs.length >= TAB_OVERFLOW_MIN_COUNT;
+
+  useEffect(() => {
+    if (!overflowMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (overflowWrapRef.current?.contains(e.target as Node)) return;
+      setOverflowMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [overflowMenuOpen]);
 
   useEffect(() => {
     if (!ctxMenu) return;
@@ -260,45 +273,77 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
         }}
       >
         {showOverflowList && (
-          <Menu shadow="md" width={260} position="bottom-start" withinPortal>
-            <Menu.Target>
-              <button
-                type="button"
-                className="flex items-center justify-center shrink-0 transition-colors duration-100"
-                style={{
-                  width: 32,
-                  height: '100%',
-                  color: 'var(--dome-text-muted)',
-                  borderRight: '1px solid var(--dome-border)',
-                  background: 'var(--dome-bg)',
-                  cursor: 'pointer',
-                  WebkitAppRegion: 'no-drag',
-                }}
-                title={t('workspace.tab_menu_all_tabs')}
-                aria-label={t('workspace.tab_menu_all_tabs')}
+          <div
+            ref={overflowWrapRef}
+            className="relative shrink-0 self-stretch"
+            style={{ WebkitAppRegion: 'no-drag' }}
+          >
+            <DomeButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
+              onClick={() => setOverflowMenuOpen((o) => !o)}
+              aria-expanded={overflowMenuOpen}
+              aria-haspopup="menu"
+              className="!rounded-none h-full w-8 min-h-0 rounded-none border-r border-[var(--dome-border)] text-[var(--dome-text-muted)] bg-[var(--dome-bg)] hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-text)]"
+              title={t('workspace.tab_menu_all_tabs')}
+              aria-label={t('workspace.tab_menu_all_tabs')}
+            >
+              <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
+            </DomeButton>
+            {overflowMenuOpen && (
+              <div
+                className="absolute left-0 top-full z-[9999] mt-0 w-[260px] overflow-hidden rounded-lg border border-[var(--dome-border)] bg-[var(--dome-surface)] py-1 shadow-lg"
+                role="menu"
               >
-                <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
-              </button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              {tabs.map((tab) => (
-                <Menu.Item
-                  key={tab.id}
-                  onClick={() => activateTab(tab.id)}
-                  leftSection={<TabIcon tab={tab} />}
+                {tabs.map((tab) => (
+                  <DomeButton
+                    key={tab.id}
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    role="menuitem"
+                    className="w-full justify-start gap-2 rounded-none px-2.5 py-2 h-auto min-h-0 font-normal text-[var(--dome-text)] hover:bg-[var(--dome-bg-hover)]"
+                    leftIcon={<TabIcon tab={tab} />}
+                    onClick={() => {
+                      activateTab(tab.id);
+                      setOverflowMenuOpen(false);
+                    }}
+                  >
+                    <span className="truncate">{getDomeTabDisplayTitle(tab, t)}</span>
+                  </DomeButton>
+                ))}
+                <DomeDivider spacingClass="my-1" className="mx-1" />
+                <DomeButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  role="menuitem"
+                  className="w-full justify-start rounded-none px-2.5 py-2 h-auto min-h-0 font-normal text-[var(--dome-text)] hover:bg-[var(--dome-bg-hover)]"
+                  onClick={() => {
+                    closeAllUnpinnedTabs();
+                    setOverflowMenuOpen(false);
+                  }}
                 >
-                  <span className="truncate">{getDomeTabDisplayTitle(tab, t)}</span>
-                </Menu.Item>
-              ))}
-              <Menu.Divider />
-              <Menu.Item onClick={() => closeAllUnpinnedTabs()}>
-                {t('workspace.tab_menu_close_all_unpinned')}
-              </Menu.Item>
-              <Menu.Item color="red" onClick={() => closeAllTabsToHome()}>
-                {t('workspace.tab_menu_close_all')}
-              </Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
+                  {t('workspace.tab_menu_close_all_unpinned')}
+                </DomeButton>
+                <DomeButton
+                  type="button"
+                  variant="danger"
+                  size="sm"
+                  role="menuitem"
+                  className="w-full justify-start rounded-none px-2.5 py-2 h-auto min-h-0 font-normal"
+                  onClick={() => {
+                    closeAllTabsToHome();
+                    setOverflowMenuOpen(false);
+                  }}
+                >
+                  {t('workspace.tab_menu_close_all')}
+                </DomeButton>
+              </div>
+            )}
+          </div>
         )}
 
         <div
@@ -317,29 +362,19 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
             />
           ))}
 
-          <button
+          <DomeButton
             type="button"
+            variant="ghost"
+            size="sm"
+            iconOnly
             onClick={onNewChat}
-            className="flex items-center justify-center shrink-0 transition-colors duration-100"
-            style={{
-              width: 36,
-              height: '100%',
-              color: 'var(--dome-text-muted)',
-              borderRight: '1px solid var(--dome-border)',
-              WebkitAppRegion: 'no-drag',
-            }}
+            className="!rounded-none h-full w-9 min-h-0 shrink-0 rounded-none border-r border-[var(--dome-border)] text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-text)]"
+            style={{ WebkitAppRegion: 'no-drag' }}
             title={t('workspace.new_conversation')}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
-              (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-              (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)';
-            }}
+            aria-label={t('workspace.new_conversation')}
           >
             <Plus className="w-3.5 h-3.5" strokeWidth={2} />
-          </button>
+          </DomeButton>
 
           <div className="flex-1 min-w-[12px]" />
         </div>
@@ -508,7 +543,7 @@ function TabContextMenuBridge({
         disabled={!hasRight}
         onClick={() => run(() => closeTabsToTheRight(tab.id))}
       />
-      <div style={{ height: 1, margin: '4px 0', background: 'var(--dome-border)' }} />
+      <DomeDivider spacingClass="my-1" className="mx-1" />
       <Item
         label={tab.pinned ? t('workspace.tab_menu_unpin') : t('workspace.tab_menu_pin')}
         disabled={!canPinToggle}

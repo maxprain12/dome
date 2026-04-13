@@ -15,10 +15,12 @@ En `package.json`, en `build.win`, la opcion `verifyUpdateCodeSignature: false` 
 
 Añade estos **secrets** al repositorio:
 
-| Secret              | Contenido |
-|---------------------|-----------|
-| `CSC_LINK`          | Base64 del `.pfx` o URL al archivo (según cómo configures el export) |
-| `CSC_KEY_PASSWORD` | Contraseña del certificado |
+
+| Secret             | Contenido                                                            |
+| ------------------ | -------------------------------------------------------------------- |
+| `CSC_LINK`         | Base64 del `.pfx` o URL al archivo (según cómo configures el export) |
+| `CSC_KEY_PASSWORD` | Contraseña del certificado                                           |
+
 
 `electron-builder` detecta `CSC_LINK` y `CSC_KEY_PASSWORD` y firma el `.exe` automáticamente.
 
@@ -50,3 +52,4 @@ npm run electron:pack -- --win --publish never
 
 - [electron-builder: Code Signing](https://www.electron.build/code-signing)
 - [Microsoft: SmartScreen](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/windows-defender-application-control/design/application-reputation-based-smartscreen)
+

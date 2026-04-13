@@ -26,9 +26,11 @@ import {
   MessageCircle,
   ArrowUpRight,
   Image,
-  Maximize2,
+   Maximize2,
   X,
 } from 'lucide-react';
+import DomeIconBox from '@/components/ui/DomeIconBox';
+import DomeButton from '@/components/ui/DomeButton';
 
 export type ArtifactType = 'pdf_summary' | 'table' | 'action_items' | 'chart' | 'code' | 'list' | 'created_entity' | 'docling_images';
 
@@ -178,88 +180,52 @@ function ArtifactHeader({
   const Icon = ARTIFACT_ICONS[artifact.type];
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '8px 12px',
-        borderBottom: '1px solid var(--border)',
-      }}
-    >
-      <button
+    <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border)]">
+      <DomeButton
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={onToggle}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: 0,
-          opacity: 1,
-          transition: 'opacity 150ms ease',
-        }}
-        onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.75'; }}
-        onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+        className="flex-1 min-w-0 justify-start gap-2 h-auto py-1 px-1 font-normal"
+        leftIcon={
+          <DomeIconBox
+            size="sm"
+            background={`color-mix(in srgb, ${styles.iconColor} 15%, transparent)`}
+            className="!w-[26px] !h-[26px] !rounded-md"
+          >
+            <Icon className="w-3.5 h-3.5" style={{ color: styles.iconColor }} />
+          </DomeIconBox>
+        }
+        rightIcon={
+          expanded ? (
+            <ChevronUp className="w-3.5 h-3.5 shrink-0 text-[var(--secondary-text)]" aria-hidden />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5 shrink-0 text-[var(--secondary-text)]" aria-hidden />
+          )
+        }
       >
-        <div
-          style={{
-            padding: '5px',
-            borderRadius: 6,
-            background: `color-mix(in srgb, ${styles.iconColor} 15%, transparent)`,
-            color: styles.iconColor,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-          }}
-        >
-          <Icon style={{ width: 14, height: 14 }} />
-        </div>
-        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-text)' }}>
+        <span className="text-[13px] font-semibold text-[var(--primary-text)] truncate text-left">
           {artifact.title || getArtifactTitle(artifact)}
         </span>
-        {expanded ? (
-          <ChevronUp style={{ width: 14, height: 14, color: 'var(--secondary-text)' }} />
-        ) : (
-          <ChevronDown style={{ width: 14, height: 14, color: 'var(--secondary-text)' }} />
-        )}
-      </button>
+      </DomeButton>
 
-      <button
+      <DomeButton
         type="button"
+        variant="ghost"
+        size="xs"
         onClick={onCopy}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          padding: '3px 8px',
-          borderRadius: 4,
-          fontSize: 11,
-          cursor: 'pointer',
-          color: 'var(--secondary-text)',
-          background: 'none',
-          border: 'none',
-          transition: 'background 150ms ease',
-        }}
-        onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
-        onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.background = 'none'; }}
         title={t('ui.copy_content')}
+        className="shrink-0 gap-1 h-auto py-1 px-2 text-[11px] text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+        leftIcon={
+          copied ? (
+            <Check className="w-3 h-3 text-[var(--success)]" aria-hidden />
+          ) : (
+            <Copy className="w-3 h-3" aria-hidden />
+          )
+        }
       >
-        {copied ? (
-          <>
-            <Check style={{ width: 12, height: 12, color: 'var(--success)' }} />
-            <span style={{ color: 'var(--success)' }}>{t('common.copied')}</span>
-          </>
-        ) : (
-          <>
-            <Copy style={{ width: 12, height: 12 }} />
-            <span>{t('common.copy')}</span>
-          </>
-        )}
-      </button>
+        {copied ? <span className="text-[var(--success)]">{t('common.copied')}</span> : t('common.copy')}
+      </DomeButton>
     </div>
   );
 }

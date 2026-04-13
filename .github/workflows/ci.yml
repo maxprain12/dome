@@ -1,0 +1,100 @@
+name: CI
+
+# Runs on every push to main and on every PR targeting main.
+# Keeps checks fast: no native module rebuild, no Electron packaging.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: '24'
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      # Skip postinstall (electron-rebuild, playwright, etc.) — not needed for tsc
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint renderer
+        run: npx eslint app/ --max-warnings 0
+
+  build:
+    name: Vite Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build renderer (Vite)
+        run: npm run build
+
+  architecture-check:
+    name: Architecture Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check no Node.js modules imported in renderer
+        run: |
+          # These imports are forbidden in app/ (renderer process)
+          PATTERNS=(
+            "from 'better-sqlite3'"
+            "require('better-sqlite3')"
+            "from 'bun:sqlite'"
+            "require('bun:sqlite')"
+            "from 'node:fs'"
+            "require('node:fs')"
+          )
+
+          FOUND=0
+          for pattern in "${PATTERNS[@]}"; do
+            if grep -rn "$pattern" app/ --include="*.ts" --include="*.tsx" 2>/dev/null; then
+              FOUND=1
+            fi
+          done
+
+          if [ $FOUND -eq 1 ]; then
+            echo ""
+            echo "❌ Node.js module imports found in renderer process (app/)."
+            echo "   Use IPC via window.electron.invoke() instead."
+            exit 1
+          fi
+
+          echo "✅ Architecture check passed — no forbidden imports in renderer."

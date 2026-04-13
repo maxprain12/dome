@@ -76,6 +76,13 @@ export interface PersistentRunLink {
   createdAt: number;
 }
 
+/** Token usage persisted on `PersistentRun.metadata.usage` (see run-engine / langgraph-agent). */
+export interface PersistentRunUsage {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
 export interface PersistentRun {
   id: string;
   projectId?: string;

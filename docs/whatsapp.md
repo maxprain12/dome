@@ -88,13 +88,16 @@ interface WhatsAppMessage {
 
 ## Key files
 
-| Path | Role |
-|------|------|
-| `electron/whatsapp/service.cjs` | init, start, stop, getStatus, send; broadcast whatsapp:qr, connected, disconnected |
-| `electron/whatsapp/session.cjs` | connect, disconnect, getConnectionState, getQrCode, getSelfId, sendMessage; auth persistence |
-| `electron/whatsapp/message-handler.cjs` | handleMessage; allowlist check; DB insert; optional resource + AI |
-| `electron/main.cjs` | IPC whatsapp:status, start, stop, logout, send, allowlist get/add/remove |
-| `electron/preload.cjs` | window.electron.whatsapp.*; ALLOWED_CHANNELS invoke + on (whatsapp:qr, connected, disconnected) |
-| `app/components/settings/WhatsAppSettingsPanel.tsx` | Status UI, QR display, Start/Stop, allowlist, config |
-| `app/types/index.ts` | WhatsAppStatus, WhatsAppMessage, WhatsAppConnectionState, WhatsAppMessageType |
-| `electron/database.cjs` | whatsapp_sessions, whatsapp_messages tables (migration 4) |
+
+| Path                                                | Role                                                                                            |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `electron/whatsapp/service.cjs`                     | init, start, stop, getStatus, send; broadcast whatsapp:qr, connected, disconnected              |
+| `electron/whatsapp/session.cjs`                     | connect, disconnect, getConnectionState, getQrCode, getSelfId, sendMessage; auth persistence    |
+| `electron/whatsapp/message-handler.cjs`             | handleMessage; allowlist check; DB insert; optional resource + AI                               |
+| `electron/main.cjs`                                 | IPC whatsapp:status, start, stop, logout, send, allowlist get/add/remove                        |
+| `electron/preload.cjs`                              | window.electron.whatsapp.*; ALLOWED_CHANNELS invoke + on (whatsapp:qr, connected, disconnected) |
+| `app/components/settings/WhatsAppSettingsPanel.tsx` | Status UI, QR display, Start/Stop, allowlist, config                                            |
+| `app/types/index.ts`                                | WhatsAppStatus, WhatsAppMessage, WhatsAppConnectionState, WhatsAppMessageType                   |
+| `electron/database.cjs`                             | whatsapp_sessions, whatsapp_messages tables (migration 4)                                       |
+
+

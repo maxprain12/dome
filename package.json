@@ -26,6 +26,8 @@
     "verify:natives": "node scripts/verify-natives.cjs",
     "copy:pdf-worker": "node scripts/copy-pdf-worker.cjs",
     "postinstall": "electron-builder install-app-deps && npm run rebuild:natives && npm run copy:pdf-worker && npm run playwright:install",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint app/ --max-warnings 0",
     "test:db": "tsx scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "bun scripts/generate-icons.ts"
@@ -167,6 +169,8 @@
     "electron": "^32.0.0",
     "electron-builder": "^25.0.0",
     "electron-devtools-installer": "^4.0.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "png2icons": "^2.0.1",
     "postcss": "^8.4.0",
     "postcss-preset-mantine": "^1.17.0",
@@ -174,6 +178,7 @@
     "tailwindcss": "^3.4.0",
     "tsx": "^4.19.4",
     "typescript": "^5",
+    "typescript-eslint": "^8.58.2",
     "vite": "^7.3.1",
     "wait-on": "^8.0.0"
   },

@@ -12,6 +12,7 @@ import UnifiedSidebar from '@/components/workspace/UnifiedSidebar';
 import PetPluginSlot from '@/components/plugins/PetPluginSlot';
 import ResizeHandle from '@/components/workspace/ResizeHandle';
 import WindowControls from '@/components/ui/WindowControls';
+import DomeButton from '@/components/ui/DomeButton';
 import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
 const MANY_WIDTH_KEY = 'dome:many-panel-width-v1';
 const MANY_MIN = 280;
@@ -209,24 +210,21 @@ export default function AppShell() {
             {/* Hueco arrastrable (mover ventana); la marca Dome está en el sidebar */}
             <div className="flex-1 min-w-0 h-full self-stretch" aria-hidden />
             <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-              <button
+              <DomeButton
                 type="button"
+                variant="ghost"
+                size="sm"
+                iconOnly
                 onClick={toggleLeftSidebar}
-                className="flex items-center justify-center rounded shrink-0 transition-colors"
-                style={{
-                  width: 22, height: 22,
-                  background: 'transparent',
-                  color: 'var(--dome-text-muted)',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
+                className="!p-1 w-[22px] h-[22px] min-w-0 text-[var(--dome-text-muted)] hover:text-[var(--dome-text)]"
                 title={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
+                aria-label={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                   <line x1="9" y1="3" x2="9" y2="21" />
                 </svg>
-              </button>
+              </DomeButton>
             </div>
           </div>
         </div>
@@ -262,24 +260,22 @@ export default function AppShell() {
             className="flex shrink-0 items-stretch gap-0.5 pr-1"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            {/* Dictation dock button */}
-            <button
+            <DomeButton
               type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
               onClick={handleToggleDictationDock}
-              className="relative flex items-center justify-center shrink-0 transition-colors rounded-md"
+              className="relative !rounded-md w-[34px] h-full min-h-0 shrink-0 px-0 transition-colors"
               style={{
-                width: 34,
-                height: '100%',
                 background: dictationActive
                   ? 'color-mix(in srgb, var(--dome-accent) 12%, transparent)'
-                  : 'transparent',
+                  : undefined,
                 color: dictationActive ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'color 200ms ease, background 200ms ease',
               }}
               title={t('shell.dictation_dock')}
               aria-pressed={dictationActive}
+              aria-label={t('shell.dictation_dock')}
             >
               <Mic className="h-[15px] w-[15px]" aria-hidden />
               {dictationActive && (
@@ -293,26 +289,24 @@ export default function AppShell() {
                   aria-hidden
                 />
               )}
-            </button>
+            </DomeButton>
 
-            {/* Many voice overlay button */}
-            <button
+            <DomeButton
               type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
               onClick={() => void handleToggleManyVoiceOverlay()}
-              className="relative flex items-center justify-center shrink-0 transition-colors rounded-md"
+              className="relative !rounded-md w-[34px] h-full min-h-0 shrink-0 px-0 transition-colors"
               style={{
-                width: 34,
-                height: '100%',
                 background: manyVoiceActive
                   ? 'color-mix(in srgb, var(--dome-accent) 12%, transparent)'
-                  : 'transparent',
+                  : undefined,
                 color: manyVoiceActive ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'color 200ms ease, background 200ms ease',
               }}
               title={t('shell.many_voice_overlay')}
               aria-pressed={manyVoiceActive}
+              aria-label={t('shell.many_voice_overlay')}
             >
               <Radio className="h-[15px] w-[15px]" aria-hidden />
               {manyVoiceActive && (
@@ -326,7 +320,7 @@ export default function AppShell() {
                   aria-hidden
                 />
               )}
-            </button>
+            </DomeButton>
           </div>
 
           {/* Right sidebar toggle */}
@@ -334,25 +328,24 @@ export default function AppShell() {
             className="flex shrink-0 items-stretch"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            <button
+            <DomeButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
               onClick={handleToggleRightSidebar}
-              className="flex items-center justify-center shrink-0 transition-colors"
+              className="!rounded-none w-9 h-full min-h-0 shrink-0 rounded-none border-0 border-l border-solid border-[var(--dome-border)] !px-0"
               style={{
-                width: 36, height: '100%',
-                background: 'transparent',
                 color: rightSidebarOpen ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-                border: 'none',
-                borderLeft: '1px solid var(--dome-border)',
-                cursor: 'pointer',
               }}
               title={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
+              aria-label={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
             >
-              {/* Panel-right icon */}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                 <line x1="15" y1="3" x2="15" y2="21" />
               </svg>
-            </button>
+            </DomeButton>
           </div>
         </div>
 

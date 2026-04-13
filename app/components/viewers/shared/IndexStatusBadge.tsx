@@ -3,6 +3,8 @@ import { Brain, Loader2, AlertCircle, HelpCircle, RefreshCw } from 'lucide-react
 import { useTranslation } from 'react-i18next';
 import type { IndexingStatus, ResourceIndexStatus } from '@/lib/db/pageindex';
 import { getResourceIndexStatus, indexResource } from '@/lib/db/pageindex';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeBadge from '@/components/ui/DomeBadge';
 
 interface IndexStatusBadgeProps {
   resourceId: string;
@@ -11,7 +13,7 @@ interface IndexStatusBadgeProps {
 
 const POLL_INTERVAL_MS = 2000;
 
-export default function IndexStatusBadge({ resourceId, resourceType }: IndexStatusBadgeProps) {
+export default function IndexStatusBadge({ resourceId, resourceType: _resourceType }: IndexStatusBadgeProps) {
   const { t } = useTranslation();
   const [statusData, setStatusData] = useState<ResourceIndexStatus | null>(null);
   const [doclingPhase, setDoclingPhase] = useState<{ status: string; progress: number } | null>(null);
@@ -27,7 +29,6 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
     return data;
   };
 
-  // Start polling when processing, stop when done/error
   useEffect(() => {
     mountedRef.current = true;
 
@@ -48,36 +49,39 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
 
     init();
 
-    // Listen for Docling conversion progress (automatic indexer)
     const unsubDocling = window.electron?.on?.(
       'docling:progress',
       (event: { resourceId: string; status: string; progress?: number }) => {
         if (!mountedRef.current) return;
         if (event.resourceId !== resourceId) return;
         setDoclingPhase({ status: event.status, progress: event.progress ?? 0 });
-      }
+      },
     );
 
-    // Listen for live progress events from the main process (PageIndex)
     const unsubPageIndex = window.electron?.on?.(
       'pageindex:progress',
       (event: ResourceIndexStatus & { resourceId: string }) => {
         if (!mountedRef.current) return;
         if (event.resourceId !== resourceId) return;
-        setDoclingPhase(null); // Docling done, now in PageIndex phase
-        setStatusData(prev => ({ ...(prev ?? { success: true }), ...event }));
+        setDoclingPhase(null);
+        setStatusData((prev) => ({ ...(prev ?? { success: true }), ...event }));
 
-        // When done, do a final fetch to get indexed_at from DB
         if (event.status === 'done' || event.status === 'error') {
-          if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
           setTimeout(fetchStatus, 500);
         }
-      }
+      },
     );
 
     return () => {
       mountedRef.current = false;
-      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
       unsubDocling?.();
       unsubPageIndex?.();
     };
@@ -87,10 +91,11 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
   const handleRetry = async () => {
     if (isRetrying) return;
     setIsRetrying(true);
-    setStatusData(prev => prev ? { ...prev, status: 'pending', progress: 0, step: t('viewer.retrying') } : null);
+    setStatusData((prev) =>
+      prev ? { ...prev, status: 'pending' as IndexingStatus, progress: 0, step: t('viewer.retrying') } : null,
+    );
     await indexResource(resourceId);
     setIsRetrying(false);
-    // Poll for progress
     pollRef.current = setInterval(async () => {
       const updated = await fetchStatus();
       if (updated?.status !== 'processing' && updated?.status !== 'pending') {
@@ -100,17 +105,14 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
     }, POLL_INTERVAL_MS);
   };
 
-  // Docling phase takes priority (conversion before indexing)
   if (doclingPhase) {
     const stepLabel = t(`viewer.docling_${doclingPhase.status}`) ?? t('viewer.converting');
+    const pct = doclingPhase.progress > 0 ? ` ${doclingPhase.progress}%` : '';
     return (
-      <div className="index-status-badge index-status-processing">
-        <Loader2 size={12} className="index-status-spinner" />
-        <span>{stepLabel}</span>
-        {doclingPhase.progress > 0 && (
-          <span className="index-status-progress">{doclingPhase.progress}%</span>
-        )}
-      </div>
+      <span className="inline-flex items-center gap-1.5 max-w-full min-w-0">
+        <Loader2 size={12} className="animate-spin shrink-0 text-[var(--accent)]" aria-hidden />
+        <DomeBadge label={`${stepLabel}${pct}`} color="var(--accent)" size="xs" />
+      </span>
     );
   }
 
@@ -119,50 +121,55 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
   const { status, progress, step, error } = statusData;
 
   if (status === 'none') {
-    // Document not indexed yet — show a subtle hint
     return (
-      <div className="index-status-badge index-status-none" title={t('viewer.not_indexed_title')}>
-        <HelpCircle size={12} />
-        <span>{t('viewer.not_indexed')}</span>
-      </div>
+      <span className="inline-flex items-center gap-1 min-w-0" title={t('viewer.not_indexed_title')}>
+        <HelpCircle size={12} className="shrink-0 text-[var(--tertiary-text)]" aria-hidden />
+        <DomeBadge label={t('viewer.not_indexed')} variant="outline" color="var(--tertiary-text)" size="xs" />
+      </span>
     );
   }
 
   if (status === 'processing' || status === 'pending') {
+    const pct = status === 'processing' && progress > 0 ? ` ${progress}%` : '';
     return (
-      <div className="index-status-badge index-status-processing">
-        <Loader2 size={12} className="index-status-spinner" />
-        <span>{step || t('viewer.indexing')}</span>
-        {status === 'processing' && progress > 0 && (
-          <span className="index-status-progress">{progress}%</span>
-        )}
-      </div>
+      <span className="inline-flex items-center gap-1.5 max-w-full min-w-0">
+        <Loader2 size={12} className="animate-spin shrink-0 text-[var(--accent)]" aria-hidden />
+        <DomeBadge label={`${step || t('viewer.indexing')}${pct}`} color="var(--accent)" size="xs" />
+      </span>
     );
   }
 
   if (status === 'done') {
     return (
-      <div className="index-status-badge index-status-done" title={t('viewer.ready_for_ai_title')}>
-        <Brain size={12} />
-        <span>{t('viewer.ready_for_ai')}</span>
-      </div>
+      <span className="inline-flex items-center gap-1 min-w-0" title={t('viewer.ready_for_ai_title')}>
+        <Brain size={12} className="shrink-0 text-[#16a34a]" aria-hidden />
+        <DomeBadge label={t('viewer.ready_for_ai')} color="#16a34a" size="xs" />
+      </span>
     );
   }
 
   if (status === 'error') {
     return (
-      <div className="index-status-badge index-status-error" title={error || t('viewer.indexing_error_title')}>
-        <AlertCircle size={12} />
-        <span>{t('viewer.indexing_error')}</span>
-        <button
-          className="index-status-retry"
+      <span
+        className="inline-flex items-center gap-1 min-w-0"
+        title={error || t('viewer.indexing_error_title')}
+      >
+        <AlertCircle size={12} className="shrink-0 text-[#dc2626]" aria-hidden />
+        <DomeBadge label={t('viewer.indexing_error')} color="#dc2626" size="xs" />
+        <DomeButton
+          type="button"
+          variant="ghost"
+          size="xs"
+          iconOnly
           onClick={handleRetry}
           disabled={isRetrying}
           title={t('viewer.retry_indexing')}
+          className="!p-0.5 ml-0.5 min-w-0 h-auto text-inherit opacity-70 hover:opacity-100"
+          aria-label={t('viewer.retry_indexing')}
         >
-          <RefreshCw size={11} />
-        </button>
-      </div>
+          <RefreshCw size={11} className={isRetrying ? 'animate-spin' : ''} />
+        </DomeButton>
+      </span>
     );
   }
 

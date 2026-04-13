@@ -3,6 +3,7 @@ import {
   Cloud, Folder, File, ChevronRight, ChevronLeft,
   Search, X, Download, Loader2, AlertCircle, CheckCircle2,
 } from 'lucide-react';
+import DomeButton from '@/components/ui/DomeButton';
 
 interface CloudFile {
   id: string;
@@ -330,18 +331,20 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                           ) : alreadyImported ? (
                             <CheckCircle2 className="w-4 h-4" style={{ color: '#10b981' }} />
                           ) : canImport ? (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleImport(file); }}
+                            <DomeButton
+                              type="button"
+                              variant="primary"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleImport(file);
+                              }}
                               disabled={!!importing}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-40"
-                              style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+                              loading={isImportingThis}
+                              leftIcon={!isImportingThis ? <Download className="w-3 h-3" aria-hidden /> : undefined}
                             >
-                              {isImportingThis
-                                ? <Loader2 className="w-3 h-3 animate-spin" />
-                                : <Download className="w-3 h-3" />
-                              }
                               {isImportingThis ? 'Importando...' : 'Importar'}
-                            </button>
+                            </DomeButton>
                           ) : null}
                         </div>
                       </div>
@@ -356,9 +359,9 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
               <span className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
                 {selectedAccount.email} · {files.filter((f) => !f.isFolder).length} archivos
               </span>
-              <button onClick={onClose} className="px-4 py-1.5 rounded-lg text-xs font-medium transition-colors" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--secondary-text)', border: '1px solid var(--border)' }}>
+              <DomeButton type="button" variant="secondary" size="sm" onClick={onClose}>
                 Cerrar
-              </button>
+              </DomeButton>
             </div>
           </>
         )}

@@ -42,6 +42,68 @@ function emitTextWithThinking(text, onChunk) {
     onChunk({ type: 'text', text: remaining.trimStart() });
   }
 }
+
+function pickTokenNumber(obj, keys) {
+  if (!obj || typeof obj !== 'object') return null;
+  for (let i = 0; i < keys.length; i += 1) {
+    const k = keys[i];
+    const v = obj[k];
+    if (v != null && Number.isFinite(Number(v))) return Math.max(0, Math.floor(Number(v)));
+  }
+  return null;
+}
+
+function extractUsageFromAiMessage(msg) {
+  if (!msg || typeof msg !== 'object') return null;
+  const um = msg.usage_metadata || msg.lc_kwargs?.usage_metadata;
+  const rm = msg.response_metadata;
+  const tokenUsage = rm?.tokenUsage || rm?.token_usage;
+  const input =
+    pickTokenNumber(um, ['input_tokens', 'prompt_tokens', 'inputTokens']) ??
+    pickTokenNumber(tokenUsage, ['promptTokens', 'prompt_tokens', 'input_tokens']);
+  const output =
+    pickTokenNumber(um, ['output_tokens', 'completion_tokens', 'outputTokens']) ??
+    pickTokenNumber(tokenUsage, ['completionTokens', 'completion_tokens', 'output_tokens']);
+  let total =
+    pickTokenNumber(um, ['total_tokens', 'totalTokens']) ??
+    pickTokenNumber(tokenUsage, ['totalTokens', 'total_tokens']);
+  if (total == null && input != null && output != null) total = input + output;
+  if (input == null && output == null && total == null) return null;
+  const i = input ?? 0;
+  const o = output ?? 0;
+  return {
+    inputTokens: i,
+    outputTokens: o,
+    totalTokens: total ?? i + o,
+  };
+}
+
+/**
+ * Sum token usage across all AI messages in a LangGraph invoke result (defensive / multi-provider).
+ * @param {unknown[]} resultMessages
+ * @returns {{ inputTokens: number, outputTokens: number, totalTokens: number } | null}
+ */
+function aggregateUsageFromMessages(resultMessages) {
+  if (!Array.isArray(resultMessages)) return null;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let totalTokens = 0;
+  let any = false;
+  for (let i = 0; i < resultMessages.length; i += 1) {
+    const msg = resultMessages[i];
+    if (!msg || typeof msg._getType !== 'function') continue;
+    if (msg._getType() !== 'ai') continue;
+    const u = extractUsageFromAiMessage(msg);
+    if (!u) continue;
+    any = true;
+    inputTokens += u.inputTokens;
+    outputTokens += u.outputTokens;
+    totalTokens += u.totalTokens;
+  }
+  if (!any) return null;
+  return { inputTokens, outputTokens, totalTokens };
+}
+
 function getSharedCheckpointer() {
   if (!sharedCheckpointer) {
     const { MemorySaver } = require('@langchain/langgraph-checkpoint');
@@ -565,6 +627,10 @@ async function invokeLangGraphAgent(opts) {
       }
     }
 
+    const aggregatedUsage = aggregateUsageFromMessages(resultMessages);
+    if (aggregatedUsage && onChunk) {
+      onChunk({ type: 'usage', usage: aggregatedUsage });
+    }
     if (onChunk) onChunk({ type: 'done' });
   } catch (err) {
     const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
@@ -740,6 +806,10 @@ async function resumeLangGraphAgent(opts) {
       }
     }
 
+    const resumeAggregatedUsage = aggregateUsageFromMessages(resultMessages);
+    if (resumeAggregatedUsage && onChunk) {
+      onChunk({ type: 'usage', usage: resumeAggregatedUsage });
+    }
     if (onChunk) onChunk({ type: 'done' });
   } catch (err) {
     const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
@@ -758,4 +828,5 @@ module.exports = {
   resumeLangGraphAgent,
   runLangGraphAgentSync,
   createLangChainToolsFromOpenAIDefinitions,
+  aggregateUsageFromMessages,
 };

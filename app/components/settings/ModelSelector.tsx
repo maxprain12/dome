@@ -1,6 +1,11 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
 import { ChevronDown, Search, CheckCircle2, Gift, Shield, Brain, ImageIcon } from 'lucide-react';
 import type { ModelDefinition } from '@/lib/ai/models';
+import { cn } from '@/lib/utils';
+import DomeBadge from '@/components/ui/DomeBadge';
+import DomeButton from '@/components/ui/DomeButton';
+import { DomeInput } from '@/components/ui/DomeInput';
+import DomeListRow from '@/components/ui/DomeListRow';
 
 interface ModelSelectorProps {
   models: ModelDefinition[];
@@ -38,7 +43,7 @@ export default function ModelSelector({
 
   const selectedModel = useMemo(
     () => models.find((m) => m.id === selectedModelId),
-    [models, selectedModelId]
+    [models, selectedModelId],
   );
 
   const filteredModels = useMemo(() => {
@@ -48,7 +53,7 @@ export default function ModelSelector({
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.id.toLowerCase().includes(q) ||
-        m.description?.toLowerCase().includes(q)
+        m.description?.toLowerCase().includes(q),
     );
   }, [models, searchQuery]);
 
@@ -74,46 +79,84 @@ export default function ModelSelector({
 
   const renderBadges = (model: ModelDefinition) => {
     if (!showBadges) return null;
-    const badges: JSX.Element[] = [];
-    if (model.recommended) badges.push(<span key="rec" className="model-badge recommended">Recommended</span>);
-    if (isFreeProvider) badges.push(<span key="free" className="model-badge free inline-flex items-center gap-1"><Gift size={10} />Free</span>);
-    if (isPrivateProvider) badges.push(<span key="priv" className="model-badge private inline-flex items-center gap-1"><Shield size={10} />Private</span>);
-    if (model.reasoning) badges.push(<span key="reason" className="model-badge reasoning inline-flex items-center gap-1"><Brain size={10} />Reasoning</span>);
-    if (model.input?.includes('image')) badges.push(<span key="vision" className="model-badge vision inline-flex items-center gap-1"><ImageIcon size={10} />Vision</span>);
-    return badges.length ? <>{badges}</> : null;
+    const nodes: ReactNode[] = [];
+    if (model.recommended) {
+      nodes.push(<DomeBadge key="rec" label="Recommended" variant="soft" color="var(--accent)" size="xs" />);
+    }
+    if (isFreeProvider) {
+      nodes.push(
+        <span key="free" className="inline-flex items-center gap-0.5">
+          <Gift size={10} className="shrink-0 text-[var(--accent)]" aria-hidden />
+          <DomeBadge label="Free" variant="soft" color="var(--accent)" size="xs" />
+        </span>,
+      );
+    }
+    if (isPrivateProvider) {
+      nodes.push(
+        <span key="priv" className="inline-flex items-center gap-0.5">
+          <Shield size={10} className="shrink-0 text-[var(--secondary-text)]" aria-hidden />
+          <DomeBadge label="Private" variant="soft" color="var(--secondary-text)" size="xs" />
+        </span>,
+      );
+    }
+    if (model.reasoning) {
+      nodes.push(
+        <span key="reason" className="inline-flex items-center gap-0.5">
+          <Brain size={10} className="shrink-0 text-[var(--accent)]" aria-hidden />
+          <DomeBadge label="Reasoning" variant="soft" color="var(--accent)" size="xs" />
+        </span>,
+      );
+    }
+    if (model.input?.includes('image')) {
+      nodes.push(
+        <span key="vision" className="inline-flex items-center gap-0.5">
+          <ImageIcon size={10} className="shrink-0 text-[var(--accent)]" aria-hidden />
+          <DomeBadge label="Vision" variant="soft" color="var(--accent)" size="xs" />
+        </span>,
+      );
+    }
+    return nodes.length ? <span className="flex flex-wrap items-center gap-1.5">{nodes}</span> : null;
   };
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <button
+      <DomeButton
         type="button"
+        variant="outline"
+        size="md"
+        disabled={disabled}
         onClick={() => !disabled && setIsOpen((o) => !o)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') setIsOpen(false);
         }}
-        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-lg text-left border transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderColor: isOpen ? 'var(--accent)' : 'var(--border)',
-        }}
+        className={cn(
+          'w-full justify-between gap-3 px-4 py-3 h-auto min-h-0 rounded-lg text-left font-normal',
+          'bg-[var(--bg-secondary)]',
+          isOpen && 'ring-2 ring-[var(--accent)] border-[var(--accent)]',
+        )}
+        rightIcon={
+          <ChevronDown
+            size={18}
+            className="shrink-0 text-[var(--secondary-text)] transition-transform"
+            style={{ transform: isOpen ? 'rotate(180deg)' : undefined }}
+            aria-hidden
+          />
+        }
       >
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 text-left">
           {selectedModel ? (
             <>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
-                  {selectedModel.name}
-                </span>
+                <span className="text-sm font-medium truncate text-[var(--primary-text)]">{selectedModel.name}</span>
                 {renderBadges(selectedModel)}
               </div>
               {showDescription && selectedModel.description && (
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs truncate" style={{ color: 'var(--secondary-text)' }}>{selectedModel.description}</span>
+                  <span className="text-xs truncate text-[var(--secondary-text)]">{selectedModel.description}</span>
                   {showContextWindow && selectedModel.contextWindow > 0 && (
-                    <span className="text-xs tabular-nums shrink-0" style={{ color: 'var(--secondary-text)' }}>
+                    <span className="text-xs tabular-nums shrink-0 text-[var(--secondary-text)]">
                       {formatContextWindow(selectedModel.contextWindow)} ctx
                     </span>
                   )}
@@ -121,32 +164,31 @@ export default function ModelSelector({
               )}
             </>
           ) : (
-            <span className="text-sm" style={{ color: 'var(--tertiary-text)' }}>{placeholder}</span>
+            <span className="text-sm text-[var(--tertiary-text)]">{placeholder}</span>
           )}
         </div>
-        <ChevronDown size={18} style={{ color: 'var(--secondary-text)', flexShrink: 0, transform: isOpen ? 'rotate(180deg)' : 'none' }} />
-      </button>
+      </DomeButton>
 
       {isOpen && (
         <div
           role="listbox"
-          className="absolute left-0 right-0 top-full mt-1 z-[600] rounded-xl border overflow-hidden shadow-lg"
-          style={{
-            backgroundColor: 'var(--bg)',
-            borderColor: 'var(--border)',
-          }}
+          className="absolute left-0 right-0 top-full mt-1 z-[600] rounded-xl border overflow-hidden shadow-lg bg-[var(--bg)] border-[var(--border)]"
         >
           {searchable && (
-            <div className="p-2 border-b" style={{ borderColor: 'var(--border)' }}>
+            <div className="p-2 border-b border-[var(--border)]">
               <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--tertiary-text)' }} />
-                <input
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none z-10 text-[var(--tertiary-text)]"
+                  aria-hidden
+                />
+                <DomeInput
+                  className="gap-0"
+                  inputClassName="pl-9"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar modelos..."
-                  className="w-full pl-9 pr-3 py-2 text-sm rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                  style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
                   autoFocus
                 />
               </div>
@@ -154,47 +196,45 @@ export default function ModelSelector({
           )}
           <div className="max-h-60 overflow-y-auto">
             {filteredModels.length === 0 ? (
-              <div className="p-4 text-center text-sm" style={{ color: 'var(--secondary-text)' }}>
+              <div className="p-4 text-center text-sm text-[var(--secondary-text)]">
                 {searchQuery ? `No se encontraron modelos con "${searchQuery}"` : emptyMessage}
               </div>
             ) : (
               filteredModels.map((model) => {
                 const sel = model.id === selectedModelId;
                 return (
-                  <button
+                  <DomeListRow
                     key={model.id}
-                    role="option"
-                    aria-selected={sel}
-                    type="button"
+                    rowButtonProps={{ role: 'option', 'aria-selected': sel }}
+                    icon={
+                      sel ? <CheckCircle2 size={16} className="text-[var(--accent)] shrink-0" aria-hidden /> : undefined
+                    }
+                    title={
+                      <span className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                        <span>{model.name}</span>
+                        {renderBadges(model)}
+                      </span>
+                    }
+                    subtitle={
+                      showDescription && model.description ? (
+                        <span className="truncate">{model.description}</span>
+                      ) : undefined
+                    }
+                    meta={
+                      showContextWindow && model.contextWindow > 0 ? (
+                        <span className="tabular-nums">{formatContextWindow(model.contextWindow)}</span>
+                      ) : undefined
+                    }
                     onClick={() => {
                       onChange(model.id);
                       setIsOpen(false);
                       setSearchQuery('');
                     }}
-                    className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-[var(--bg-secondary)] cursor-pointer"
-                    style={{
-                      backgroundColor: sel ? 'var(--bg-tertiary)' : 'transparent',
-                      borderLeft: sel ? '3px solid var(--accent)' : '3px solid transparent',
-                    }}
-                  >
-                    <div className="flex items-center min-w-0 flex-1 gap-2">
-                      {sel && <CheckCircle2 size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
-                          <span className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>{model.name}</span>
-                          {renderBadges(model)}
-                        </div>
-                        {showDescription && model.description && (
-                          <span className="text-xs block truncate mt-0.5" style={{ color: 'var(--secondary-text)' }}>{model.description}</span>
-                        )}
-                      </div>
-                    </div>
-                    {showContextWindow && model.contextWindow > 0 && (
-                      <span className="text-xs tabular-nums shrink-0" style={{ color: 'var(--secondary-text)' }}>
-                        {formatContextWindow(model.contextWindow)}
-                      </span>
+                    className={cn(
+                      'rounded-none border-l-[3px] border-transparent px-3 py-2.5',
+                      sel && 'bg-[var(--bg-tertiary)] border-l-[var(--accent)]',
                     )}
-                  </button>
+                  />
                 );
               })
             )}

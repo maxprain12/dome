@@ -11,6 +11,7 @@ Las **Flashcards** de Dome implementan el algoritmo **SM-2** (SuperMemo 2) para 
 ### ¿Qué es SM-2?
 
 SM-2 es un algoritmo de repetición espaciada que:
+
 - Muestra las tarjetas que estás a punto de olvidar (antes de que lo hagas)
 - Si recuerdas bien una tarjeta, el intervalo hasta verla de nuevo se alarga (1d → 3d → 7d → 15d...)
 - Si fallas una tarjeta, el intervalo se resetea
@@ -53,13 +54,15 @@ interface Flashcard {
 
 En cada sesión de estudio, tras ver la respuesta, califica tu recuerdo:
 
-| Calificación | Botón | Descripción | Efecto en SM-2 |
-|-------------|-------|-------------|----------------|
-| 0 — Nada | 😵 Olvidado | No recordé nada | Resetea: intervalo = 1 día |
-| 1 — Mal | 😕 Difícil | Apenas recordé, incorrecto | Resetea: intervalo = 1 día |
-| 2 — Regular | 😐 Regular | Recordé con dificultad, correcto | Intervalo corto (≤ 3 días) |
-| 3 — Bien | 😊 Fácil | Recordé con pequeño esfuerzo | Intervalo estándar (efactor normal) |
-| 4 — Muy bien | 😄 Muy fácil | Recordé con facilidad | Intervalo largo (efactor aumenta) |
+
+| Calificación | Botón        | Descripción                      | Efecto en SM-2                      |
+| ------------ | ------------ | -------------------------------- | ----------------------------------- |
+| 0 — Nada     | 😵 Olvidado  | No recordé nada                  | Resetea: intervalo = 1 día          |
+| 1 — Mal      | 😕 Difícil   | Apenas recordé, incorrecto       | Resetea: intervalo = 1 día          |
+| 2 — Regular  | 😐 Regular   | Recordé con dificultad, correcto | Intervalo corto (≤ 3 días)          |
+| 3 — Bien     | 😊 Fácil     | Recordé con pequeño esfuerzo     | Intervalo estándar (efactor normal) |
+| 4 — Muy bien | 😄 Muy fácil | Recordé con facilidad            | Intervalo largo (efactor aumenta)   |
+
 
 > **Consejo**: Sé honesto en tu calificación. La efectividad del algoritmo depende de ello.
 
@@ -122,13 +125,14 @@ Esta es la forma más rápida de crear decks a partir de tus documentos:
   [😵]  [😕]  [😐]  [😊]  [😄]
 ```
 
-4. Evalúa tu respuesta con los botones
-5. La sesión continúa hasta completar todas las tarjetas del día
-6. Al terminar, aparece el resumen de la sesión
+1. Evalúa tu respuesta con los botones
+2. La sesión continúa hasta completar todas las tarjetas del día
+3. Al terminar, aparece el resumen de la sesión
 
 ### Resumen de sesión
 
 Al finalizar, Dome muestra:
+
 - Tarjetas estudiadas
 - Porcentaje de recordadas correctamente
 - Próxima sesión programada
@@ -138,6 +142,7 @@ Al finalizar, Dome muestra:
 ## Panel del deck
 
 En cada deck puedes ver:
+
 - **Pendientes hoy**: tarjetas con revisión programada para hoy
 - **Nuevas**: tarjetas que nunca se han estudiado
 - **Aprendidas**: tarjetas con intervalo > 21 días (bien consolidadas)
@@ -147,19 +152,21 @@ En cada deck puedes ver:
 
 ## IPC Channels
 
-| Canal | Parámetros | Descripción |
-|-------|-----------|-------------|
-| `flashcards:listDecks` | `{ projectId? }` | Lista todos los decks |
-| `flashcards:getDeck` | `deckId` | Obtener deck por ID |
-| `flashcards:createDeck` | `DeckData` | Crear nuevo deck |
-| `flashcards:updateDeck` | `{ id, updates }` | Actualizar deck |
-| `flashcards:deleteDeck` | `deckId` | Eliminar deck y sus tarjetas |
-| `flashcards:getCards` | `{ deckId, dueOnly? }` | Obtener tarjetas (opcionalmente solo las de hoy) |
-| `flashcards:createCard` | `CardData` | Crear tarjeta |
-| `flashcards:updateCard` | `{ id, updates }` | Editar tarjeta |
-| `flashcards:deleteCard` | `id` | Eliminar tarjeta |
-| `flashcards:review` | `{ cardId, grade }` | Registrar resultado de revisión (aplica SM-2) |
-| `flashcards:getDueCount` | `deckId` | Número de tarjetas pendientes hoy |
+
+| Canal                    | Parámetros             | Descripción                                      |
+| ------------------------ | ---------------------- | ------------------------------------------------ |
+| `flashcards:listDecks`   | `{ projectId? }`       | Lista todos los decks                            |
+| `flashcards:getDeck`     | `deckId`               | Obtener deck por ID                              |
+| `flashcards:createDeck`  | `DeckData`             | Crear nuevo deck                                 |
+| `flashcards:updateDeck`  | `{ id, updates }`      | Actualizar deck                                  |
+| `flashcards:deleteDeck`  | `deckId`               | Eliminar deck y sus tarjetas                     |
+| `flashcards:getCards`    | `{ deckId, dueOnly? }` | Obtener tarjetas (opcionalmente solo las de hoy) |
+| `flashcards:createCard`  | `CardData`             | Crear tarjeta                                    |
+| `flashcards:updateCard`  | `{ id, updates }`      | Editar tarjeta                                   |
+| `flashcards:deleteCard`  | `id`                   | Eliminar tarjeta                                 |
+| `flashcards:review`      | `{ cardId, grade }`    | Registrar resultado de revisión (aplica SM-2)    |
+| `flashcards:getDueCount` | `deckId`               | Número de tarjetas pendientes hoy                |
+
 
 ---
 

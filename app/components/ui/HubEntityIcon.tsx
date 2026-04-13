@@ -1,4 +1,5 @@
 import { Bot, Workflow } from 'lucide-react';
+import DomeIconBox from '@/components/ui/DomeIconBox';
 
 export type HubEntityKind = 'agent' | 'workflow';
 
@@ -12,17 +13,16 @@ export interface HubEntityIconProps {
 
 /** Consistent agent / workflow glyphs for hub lists (uses dome tokens, no hardcoded purple/blue). */
 export default function HubEntityIcon({ kind, size = 'sm' }: HubEntityIconProps) {
-  const box = size === 'sm' ? 'w-7 h-7 rounded-md' : 'w-8 h-8 rounded-lg';
   const iconSz = size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4';
   const bg = kind === 'agent' ? AGENT_TINT : WF_TINT;
 
   return (
-    <div className={`shrink-0 flex items-center justify-center ${box}`} style={{ background: bg }}>
+    <DomeIconBox size={size} background={bg}>
       {kind === 'agent' ? (
         <Bot className={iconSz} style={{ color: 'var(--dome-accent)' }} strokeWidth={1.5} aria-hidden />
       ) : (
         <Workflow className={iconSz} style={{ color: 'var(--dome-text-muted)' }} strokeWidth={1.5} aria-hidden />
       )}
-    </div>
+    </DomeIconBox>
   );
 }
