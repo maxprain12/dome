@@ -1,179 +1,212 @@
-# AGENTS.md - Dome Development Guide
+# Dome — Agent Task Protocol
 
-This file provides guidance for agentic coding agents operating in this repository.
+This file is the **execution harness** for AI agents working on this codebase.
+It applies to Claude Code, Cursor, Windsurf, GitHub Copilot, or any AI coding tool.
 
-## Project Overview
-
-**Dome** is an Electron-based desktop application for knowledge management and academic research. It combines Vite + React (renderer) with Electron (main process) to provide a native desktop experience.
-
-- **Runtime**: Bun for development/build, Node.js for Electron main process
-- **Desktop**: Electron 32 with strict security (contextIsolation, no nodeIntegration)
-- **Frontend**: Vite 7 + React 18 + React Router 7
-- **Database**: SQLite via better-sqlite3 (main process only)
-- **Vector DB**: LanceDB for semantic search
-- **AI**: LangChain + LangGraph
-- **Editor**: Tiptap
-- **State**: Zustand + Jotai
-- **Styling**: Tailwind CSS + CSS Variables + Mantine UI
+**The only manual step is writing the initial prompt.**
+Everything else — branch, implementation, PR, CI, review, merge, flag activation — is automated.
+Execute the steps below in order. Do not stop between steps unless you hit an irreversible decision.
 
 ---
 
-## Build/Lint/Test Commands
+## Project overview (read before coding)
 
-### Development
-
-```bash
-bun run electron:dev     # Recommended - Full app with hot reload
-bun run dev              # Vite dev server only (http://localhost:5173)
-bun run electron         # Electron only (requires pre-built Vite)
-```
-
-### Production Build
-
-```bash
-bun run build            # Build Vite for production (output: dist/)
-bun run electron:build   # Package Electron app for distribution
-bun run electron:build:verbose  # Package with verbose debug output
-```
-
-### Native Modules
-
-```bash
-bun run rebuild:natives  # Rebuild native modules for Electron
-bun run verify:natives   # Verify native modules are correctly compiled
-```
-
-### Testing & Utilities
-
-```bash
-bun run test:db          # Test database connection and queries
-bun run clean            # Clean build artifacts and user data
-bun run generate-icons  # Generate app icons
-bun run copy:pdf-worker  # Copy pdfjs-dist worker to public/
-```
-
-**Note**: This project does NOT have a standard test runner (Vitest/Jest). Testing is primarily done via manual testing and `bun run test:db`.
+- **Stack**: Electron 32 + Vite 7 + React 18 + React Router 7 + TypeScript (strict)
+- **Renderer** (`app/`): Vite + React SPA. Entry: `app/main.tsx`. **No Node.js APIs.**
+- **Main process** (`electron/`): Node.js. SQLite via `better-sqlite3`. Full OS access.
+- **IPC bridge** (`electron/preload.cjs`): `contextBridge` exposes `window.electron` to renderer.
+- **State**: Zustand stores in `app/lib/store/`, Jotai atoms for local UI state.
+- **Styling**: Tailwind (layout) + CSS variables (colors). Never hardcode hex values.
+- **i18n**: `app/lib/i18n.ts`, 4 languages: **en, es, fr, pt**. Default: `es`.
+- **Tabs**: all major views open as tabs via `useTabStore`, not new Electron windows.
 
 ---
 
-## Code Style Guidelines
+## Execution protocol
 
-### General Formatting
+### Step 0 — Classify the task
 
-- **Indentation**: 2 spaces (no tabs)
-- **Line endings**: LF (Unix)
-- **Charset**: UTF-8
-- **Trailing whitespace**: Remove
-- **Final newline**: Always insert
+| Task type | Signal words | Branch prefix | Flag needed? |
+|---|---|---|---|
+| New feature | add, implement, create, build | `feat/` | Yes (if user-visible) |
+| Bug fix | fix, broken, error, crash, wrong | `fix/` | No |
+| Refactor | rename, move, extract, clean | `refactor/` | No |
+| Docs/config | only `.md`, `.yml`, `.json` | `docs/` | No |
 
-### TypeScript
+### Step 1 — Create a branch
 
-```typescript
-// ✅ GOOD - Explicit types
-interface Resource { id: string; title: string; type: 'note' | 'pdf' | 'video'; }
-function createResource(data: Partial<Resource>): Resource { return { id: generateId(), ...data }; }
-// ❌ BAD - Using any
-function createResource(data: any): any { return data; }
+```bash
+git checkout main && git pull
+git checkout -b feat/<short-description>
+# e.g.: feat/export-to-pdf  |  fix/crash-on-empty-list  |  refactor/extract-quota
 ```
 
-**Critical**: Due to `verbatimModuleSyntax: true`, you MUST use `import type { }` for type-only imports.
+### Step 2 — Decide on feature flag (features only)
 
-### React Components
+Skip for bug fixes and refactors.
+
+If the feature is **user-visible or experimental**:
+- Choose flag name: `dome-<feature>` (e.g. `dome-export-pdf`, `dome-new-onboarding`)
+- Wrap new UI/logic behind the flag gate:
 
 ```tsx
-// ✅ GOOD - Typed props with destructuring
-interface Props { resource: Resource; onEdit?: (id: string) => void; }
-export default function ResourceCard({ resource, onEdit }: Props) {
-  return <div className="card">{resource.title}</div>;
-}
+import { FeatureFlagGate } from '@/components/analytics/FeatureFlagGate';
+// or
+import { useFeatureFlagEnabled } from '@/lib/analytics';
+
+// Whole section
+<FeatureFlagGate flag="dome-my-feature" fallback={<OldVersion />}>
+  <NewVersion />
+</FeatureFlagGate>
+
+// Conditional logic
+const isEnabled = useFeatureFlagEnabled('dome-my-feature');
 ```
 
-### Imports
+If the feature is **internal / infrastructure** (no user-visible change): skip the flag.
 
+### Step 3 — Implement
+
+**The non-negotiable rules CI enforces:**
+
+#### Renderer/main process boundary
 ```typescript
-// ✅ GOOD - Correct order and path aliases
-import { useState } from 'react';
-import type { Resource } from '@/types';
-import { useAppStore } from '@/lib/store/useAppStore';
-import { formatDate } from '@/lib/utils';
-```
+// ✅ In app/ — use IPC
+const result = await window.electron.invoke('resources:create', data);
 
-### CSS Variables vs Tailwind
-
-```tsx
-// ✅ GOOD - CSS Variables for colors, Tailwind for layout
-<div style={{ backgroundColor: 'var(--bg-secondary)' }}>
-<div className="flex flex-col gap-4 p-6">
-// ❌ BAD - Hardcoded colors
-<div style={{ backgroundColor: '#f9fafb' }}>
-```
-
----
-
-## Critical Architecture Rules
-
-### Process Separation (MUST FOLLOW)
-
-**Main Process** (`electron/*.cjs`): Has full Node.js/Electron API access, manages SQLite via better-sqlite3, handles file system operations. NEVER import Node.js modules in `app/`.
-
-**Renderer Process** (`app/**/*.ts`, `app/**/*.tsx`): Runs Vite + React application. NO direct Node.js module access. Uses `window.electron` API via IPC. NEVER use better-sqlite3 in renderer.
-
-```typescript
-// ✅ CORRECT - Renderer uses IPC client
-const projects = await window.electron.invoke('db:projects:getAll');
-// ❌ WRONG - Never do this in app/
+// ❌ NEVER in app/ — these will be caught by the architecture guard
 import Database from 'better-sqlite3';
+import fs from 'fs';
+import { ipcRenderer } from 'electron';
 ```
 
-### IPC Communication Pattern
+#### New IPC channel (follow every step or it silently fails)
+1. Handler in `electron/ipc/<domain>.cjs` — validate inputs, return `{ success, data/error }`
+2. Register in `electron/ipc/index.cjs`
+3. Add channel name to `electron/preload.cjs` ALLOWED_CHANNELS array
+4. Call from renderer via `window.electron.invoke('domain:action', args)`
 
-1. **IPC Handler**: Define in `electron/ipc/<domain>.cjs`
-2. **Register**: Import in `electron/ipc/index.cjs`
-3. **Whitelist**: Add channel to `electron/preload.cjs` ALLOWED_CHANNELS
-4. **Renderer**: Call via `window.electron.invoke('channel', args)`
+Full guide: `.claude/sops/new-ipc-channel.md`
 
-### Database (SQLite)
-
+#### i18n — required for all user-visible strings
 ```typescript
-// ✅ GOOD - Prepared statements
-const query = db.prepare('SELECT * FROM resources WHERE id = ?');
-const resource = query.get(resourceId);
-// ❌ BAD - String concatenation (SQL injection risk)
-const query = db.exec(`SELECT * FROM resources WHERE id = '${resourceId}'`);
+// In the component
+const { t } = useTranslation();
+return <span>{t('my_feature.title')}</span>;
+
+// In app/lib/i18n.ts — add to ALL 4 language objects (en, es, fr, pt)
+'my_feature.title': 'My Feature',        // en
+'my_feature.title': 'Mi Función',        // es
+'my_feature.title': 'Ma Fonctionnalité', // fr
+'my_feature.title': 'Minha Funcionalidade', // pt
 ```
 
-### Security Configuration
-
-```javascript
-// ✅ CORRECT - Secure Electron window
-const mainWindow = new BrowserWindow({
-  webPreferences: {
-    nodeIntegration: false, contextIsolation: true, sandbox: true,
-    preload: path.join(__dirname, 'preload.cjs'),
-  }
-});
+#### Colors — always CSS variables
+```tsx
+// ✅
+style={{ color: 'var(--primary-text)', background: 'var(--bg-secondary)' }}
+// ❌ will be flagged in AI review
+style={{ color: '#040316', background: '#f2f2f9' }}
 ```
+
+#### Type imports — verbatimModuleSyntax is ON
+```typescript
+import type { Resource } from '@/types'; // ✅ type-only
+import { Resource } from '@/types';      // ❌ if Resource is only a type
+```
+
+#### TypeScript — no any
+```typescript
+// ✅
+function createResource(data: Partial<Resource>): Resource { ... }
+// ❌
+function createResource(data: any): any { ... }
+```
+
+### Step 4 — Validate locally
+
+Run before opening the PR. Fix any failures before proceeding.
+
+```bash
+npm run typecheck   # 0 errors required
+npm run lint        # 0 warnings required
+npm run build       # must succeed
+```
+
+Quick architecture self-check (must return 0 lines):
+```bash
+grep -rn "better-sqlite3\|bun:sqlite\|from 'fs'" app/ --include="*.ts" --include="*.tsx"
+```
+
+### Step 5 — Open the PR
+
+The `Flag:` field in the description is parsed by the post-merge automation.
+If there is no flag, write `none`.
+
+```bash
+gh pr create \
+  --title "feat: <short description>" \
+  --body "$(cat <<'EOF'
+## Summary
+- <what changed and why, 1-3 bullets>
+
+## Flag
+<!-- Feature flag name (dome-xxx) or "none" -->
+Flag: dome-REPLACE_ME
+
+## Type
+- [ ] New feature
+- [ ] Bug fix
+- [ ] Refactor
+- [ ] Docs/config
+
+## Checklist
+- [ ] typecheck passes
+- [ ] lint passes
+- [ ] build passes
+- [ ] i18n keys in all 4 languages (if new strings)
+- [ ] No hardcoded colors
+EOF
+)"
+```
+
+### Step 6 — Enable auto-merge
+
+```bash
+gh pr merge --auto --squash
+```
+
+GitHub will merge the PR automatically the moment all required CI checks pass.
+
+### Step 7 — Done ✓
+
+Your work is complete. The automated pipeline takes over:
+
+```
+PR open
+  ├─► CI: typecheck + lint + build + architecture guard   (~3 min)
+  ├─► AI Code Review: 3 passes posted as PR comment       (~2 min)
+  └─► Auto-merge when all checks pass
+        └─► Post-merge: feature flag enabled for team in PostHog
+```
+
+You do not need to merge, enable flags, monitor, or do anything else.
 
 ---
 
-## Naming Conventions
+## Reference — where to look
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Files (components) | PascalCase | `ResourceCard.tsx` |
-| Files (utilities) | kebab-case | `format-date.ts` |
-| Functions | camelCase | `getUserData()` |
-| Components | PascalCase | `ResourceCard` |
-| Interfaces | PascalCase | `Resource` |
-| Constants | UPPER_SNAKE_CASE | `MAX_FILE_SIZE` |
-| CSS Variables | kebab-case | `--bg-secondary` |
-
----
-
-## Common Development Notes
-
-1. **Bun as runtime** - Use `bun` not `npm`/`node` for scripts
-2. **Type-only imports** - Always use `import type { }` for types due to `verbatimModuleSyntax`
-3. **No test framework** - Manual testing + `bun run test:db`
-4. **Electron security** - Always validate inputs in main process, never trust renderer
-5. **File paths** - Always use IPC handlers, never access filesystem directly from renderer
+| Need | Location |
+|---|---|
+| Architecture rules | `.claude/rules/architecture-rules.md` |
+| New IPC step-by-step | `.claude/sops/new-ipc-channel.md` |
+| Feature flags usage | `.claude/sops/feature-flags.md` |
+| PR checklist | `.claude/sops/pr-checklist.md` |
+| Release process | `.claude/sops/release.md` |
+| Color palette variables | `.claude/rules/new-color-palette.md` |
+| All translations | `app/lib/i18n.ts` |
+| Existing IPC domains | `electron/ipc/` (one file per domain) |
+| Zustand stores | `app/lib/store/` |
+| Tab system | `app/lib/store/useTabStore.ts` |
+| Existing components | `app/components/` |
+| Electron window creation | `electron/window-manager.cjs` |
