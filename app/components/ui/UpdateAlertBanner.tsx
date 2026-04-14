@@ -70,7 +70,7 @@ export default function UpdateAlertBanner() {
         {status === 'available' && (
           <>
             <span className="text-sm font-medium truncate">
-              Nueva versión {version ?? ''} disponible
+              {t('updateBanner.version_available', { version: version ?? '' })}
             </span>
             <button
               type="button"
@@ -83,7 +83,7 @@ export default function UpdateAlertBanner() {
               }}
             >
               <Download className="w-4 h-4" />
-              Descargar
+              {t('updateBanner.download')}
             </button>
             <button
               type="button"
@@ -102,7 +102,7 @@ export default function UpdateAlertBanner() {
         {status === 'downloading' && (
           <div className="flex flex-col gap-1.5 min-w-0 flex-1">
             <span className="text-sm font-medium">
-              Descargando actualización... {percent?.toFixed(0) ?? 0}%
+              {t('updateBanner.downloading', { percent: percent?.toFixed(0) ?? 0 })}
             </span>
             <div className="h-1.5 rounded-full overflow-hidden bg-[rgba(255,255,255,0.3)] max-w-[200px]">
               <div
@@ -114,7 +114,7 @@ export default function UpdateAlertBanner() {
         )}
         {status === 'downloaded' && (
           <>
-            <span className="text-sm font-medium">Actualización lista para instalar</span>
+            <span className="text-sm font-medium">{t('updateBanner.ready_to_install')}</span>
             <button
               type="button"
               onClick={handleInstall}
@@ -126,7 +126,7 @@ export default function UpdateAlertBanner() {
               }}
             >
               <RotateCw className="w-4 h-4" />
-              Reiniciar para instalar
+              {t('updateBanner.restart_to_install')}
             </button>
           </>
         )}
