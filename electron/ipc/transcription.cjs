@@ -677,7 +677,16 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
       };
     } catch (err) {
       console.error('[Transcription] list-desktop-capture-sources:', err);
-      return { success: false, error: err.message };
+      const base = err instanceof Error ? err.message : String(err);
+      const error =
+        process.platform === 'darwin'
+          ? `${base} Si persiste, concede a Dome permiso de «Grabación de pantalla» en Preferencias del Sistema → Privacidad y seguridad.`
+          : base;
+      return {
+        success: false,
+        error,
+        ...(process.platform === 'darwin' ? { errorCode: 'screen_capture_permission' } : {}),
+      };
     }
   });
 }

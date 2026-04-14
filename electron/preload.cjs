@@ -8,6 +8,77 @@ console.log('[Preload] Electron version:', process.versions.electron);
 console.log('[Preload] Chrome version:', process.versions.chrome);
 
 /**
+ * Dictation toggle from main may arrive before React registers a listener (overlay cold start).
+ * Buffer one toggle per preload context until onToggleRecording runs.
+ */
+const transcriptionToggleCallbacks = new Set();
+let pendingTranscriptionToggle = false;
+ipcRenderer.on('transcription:toggle-recording', () => {
+  if (transcriptionToggleCallbacks.size === 0) {
+    pendingTranscriptionToggle = true;
+    return;
+  }
+  for (const cb of transcriptionToggleCallbacks) {
+    try {
+      cb();
+    } catch (_) {
+      /* ignore renderer callback errors */
+    }
+  }
+});
+
+/**
+ * Many Voice (STS / Realtime) overlay: toolbar & global shortcut send toggle before React mounts.
+ */
+const manyVoiceToggleCallbacks = new Set();
+let pendingManyVoiceToggle = false;
+ipcRenderer.on('many-voice-assistant:toggle', () => {
+  if (manyVoiceToggleCallbacks.size === 0) {
+    pendingManyVoiceToggle = true;
+    return;
+  }
+  for (const cb of manyVoiceToggleCallbacks) {
+    try {
+      cb();
+    } catch (_) {
+      /* ignore */
+    }
+  }
+});
+
+const manyVoicePttStartCallbacks = new Set();
+let pendingManyVoicePttStart = false;
+ipcRenderer.on('many-voice-assistant:ptt-start', () => {
+  if (manyVoicePttStartCallbacks.size === 0) {
+    pendingManyVoicePttStart = true;
+    return;
+  }
+  for (const cb of manyVoicePttStartCallbacks) {
+    try {
+      cb();
+    } catch (_) {
+      /* ignore */
+    }
+  }
+});
+
+const manyVoicePttEndCallbacks = new Set();
+let pendingManyVoicePttEnd = false;
+ipcRenderer.on('many-voice-assistant:ptt-end', () => {
+  if (manyVoicePttEndCallbacks.size === 0) {
+    pendingManyVoicePttEnd = true;
+    return;
+  }
+  for (const cb of manyVoicePttEndCallbacks) {
+    try {
+      cb();
+    } catch (_) {
+      /* ignore */
+    }
+  }
+});
+
+/**
  * Electron Handler
  * Expone APIs de Electron de manera segura usando contextBridge
  * Basado en las mejores prácticas de Pile
@@ -1444,9 +1515,18 @@ const electronHandler = {
     getPermissionsStatus: () => ipcRenderer.invoke('transcription:get-permissions-status'),
     requestScreenAccess: () => ipcRenderer.invoke('transcription:request-screen-access'),
     onToggleRecording: (callback) => {
-      const subscription = () => callback();
-      ipcRenderer.on('transcription:toggle-recording', subscription);
-      return () => ipcRenderer.removeListener('transcription:toggle-recording', subscription);
+      transcriptionToggleCallbacks.add(callback);
+      if (pendingTranscriptionToggle) {
+        pendingTranscriptionToggle = false;
+        try {
+          callback();
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      return () => {
+        transcriptionToggleCallbacks.delete(callback);
+      };
     },
   },
 
@@ -1465,19 +1545,46 @@ const electronHandler = {
 
   manyVoice: {
     onToggle: (callback) => {
-      const subscription = () => callback();
-      ipcRenderer.on('many-voice-assistant:toggle', subscription);
-      return () => ipcRenderer.removeListener('many-voice-assistant:toggle', subscription);
+      manyVoiceToggleCallbacks.add(callback);
+      if (pendingManyVoiceToggle) {
+        pendingManyVoiceToggle = false;
+        try {
+          callback();
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      return () => {
+        manyVoiceToggleCallbacks.delete(callback);
+      };
     },
     onPttStart: (callback) => {
-      const subscription = () => callback();
-      ipcRenderer.on('many-voice-assistant:ptt-start', subscription);
-      return () => ipcRenderer.removeListener('many-voice-assistant:ptt-start', subscription);
+      manyVoicePttStartCallbacks.add(callback);
+      if (pendingManyVoicePttStart) {
+        pendingManyVoicePttStart = false;
+        try {
+          callback();
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      return () => {
+        manyVoicePttStartCallbacks.delete(callback);
+      };
     },
     onPttEnd: (callback) => {
-      const subscription = () => callback();
-      ipcRenderer.on('many-voice-assistant:ptt-end', subscription);
-      return () => ipcRenderer.removeListener('many-voice-assistant:ptt-end', subscription);
+      manyVoicePttEndCallbacks.add(callback);
+      if (pendingManyVoicePttEnd) {
+        pendingManyVoicePttEnd = false;
+        try {
+          callback();
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      return () => {
+        manyVoicePttEndCallbacks.delete(callback);
+      };
     },
     relaySend: (args) => ipcRenderer.invoke('many-voice:relay-send', args),
     pushStateToOverlay: (payload) =>

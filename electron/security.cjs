@@ -100,10 +100,18 @@ function validateUrl(url) {
 
   try {
     const parsed = new URL(url);
-    
-    // Only allow http and https protocols
-    if (!['http:', 'https:'].includes(parsed.protocol)) {
-      throw new Error(`Unsafe URL protocol: ${parsed.protocol}. Only http: and https: are allowed`);
+
+    const allowed = ['http:', 'https:'];
+    if (process.platform === 'darwin') {
+      allowed.push('x-apple.systempreferences:');
+    }
+
+    if (!allowed.includes(parsed.protocol)) {
+      const hint =
+        process.platform === 'darwin'
+          ? 'Only http:, https:, and x-apple.systempreferences: are allowed'
+          : 'Only http: and https: are allowed';
+      throw new Error(`Unsafe URL protocol: ${parsed.protocol}. ${hint}`);
     }
 
     return url;

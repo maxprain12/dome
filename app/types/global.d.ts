@@ -1404,6 +1404,7 @@ declare global {
           success: boolean;
           sources?: Array<{ id: string; name: string }>;
           error?: string;
+          errorCode?: 'screen_capture_permission';
         }>;
         setDisplayMediaSource: (sourceId: string) => Promise<{ success: boolean; error?: string }>;
         getPermissionsStatus: () => Promise<{

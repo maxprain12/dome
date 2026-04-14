@@ -14,7 +14,6 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { app } = require('electron');
-const aiToolsHandler = require('../ai-tools-handler.cjs');
 const { chatWithToolsInMain, getWhatsAppToolDefinitions } = require('../ai-chat-with-tools.cjs');
 
 // Dependencias que se inyectan
