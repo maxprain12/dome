@@ -80,6 +80,7 @@ function EventChip({
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
 }) {
+  const { t } = useTranslation();
   const bg = event.calendar_color ?? 'var(--dome-accent)';
   const start = new Date(event.start_at);
   return (
@@ -95,7 +96,7 @@ function EventChip({
       {!event.all_day && (
         <span className="opacity-70 mr-1">{format(start, 'HH:mm')}</span>
       )}
-      {event.title || 'Sin título'}
+      {event.title || t('workspace.untitled')}
     </button>
   );
 }
@@ -249,6 +250,7 @@ function DraggableTimeEvent({
   onEventClick?: (e: CalendarEvent) => void;
   onEventDateChange?: (p: EventDateChangePayload) => void;
 }) {
+  const { t } = useTranslation();
   const startDate = new Date(event.start_at);
   const endDate = new Date(event.end_at);
 
@@ -326,7 +328,7 @@ function DraggableTimeEvent({
       onClick={(e) => { if (!dragging) { e.stopPropagation(); onEventClick?.(event); } }}
       title={event.title}
     >
-      <div className="font-medium leading-[16px] truncate">{event.title || 'Sin título'}</div>
+      <div className="font-medium leading-[16px] truncate">{event.title || t('workspace.untitled')}</div>
       {renderHeight > 28 && (
         <div className="opacity-75 text-[10px] truncate">{format(startDate, 'HH:mm')} – {format(endDate, 'HH:mm')}</div>
       )}
