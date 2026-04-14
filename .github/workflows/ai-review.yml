@@ -13,8 +13,8 @@ jobs:
   ai-review:
     name: AI Review
     runs-on: ubuntu-latest
-    # Only run if the API key secret is configured
-    if: ${{ vars.AI_REVIEW_ENABLED == 'true' || secrets.AI_REVIEW_API_KEY != '' }}
+    # Only run when explicitly enabled via repository variable AI_REVIEW_ENABLED=true
+    if: ${{ vars.AI_REVIEW_ENABLED == 'true' }}
     steps:
       - uses: actions/checkout@v4
         with:
