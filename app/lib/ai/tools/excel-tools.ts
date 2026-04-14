@@ -226,7 +226,7 @@ export function createExcelSetCellTool(): AnyAgentTool {
           resourceId,
           readStringParam(params, 'sheet_name'),
           cell,
-          value
+          value as string | number | boolean,
         );
         return jsonResult(result);
       } catch (err) {

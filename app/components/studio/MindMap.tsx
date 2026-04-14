@@ -279,7 +279,6 @@ export default function MindMap({ data, title, onClose, onExport }: MindMapProps
                       style={{ overflow: 'hidden', pointerEvents: 'none' }}
                     >
                       <div
-                        xmlns="http://www.w3.org/1999/xhtml"
                         style={{
                           width: '100%',
                           height: '100%',

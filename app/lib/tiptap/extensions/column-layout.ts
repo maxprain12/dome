@@ -1,13 +1,16 @@
 import { Extension, Node, mergeAttributes } from '@tiptap/core';
+import type { CommandProps, JSONContent } from '@tiptap/core';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    insertTwoColumns: () => ReturnType;
-    insertThreeColumns: () => ReturnType;
+    columnLayoutCommands: {
+      insertTwoColumns: () => ReturnType;
+      insertThreeColumns: () => ReturnType;
+    };
   }
 }
 
-const columnChild = (content: unknown[] = [{ type: 'paragraph' }]) => ({
+const columnChild = (content: JSONContent[] = [{ type: 'paragraph' }]): JSONContent => ({
   type: 'column',
   content,
 });
@@ -96,14 +99,14 @@ export const ColumnLayoutCommands = Extension.create({
     return {
       insertTwoColumns:
         () =>
-        ({ commands }) =>
+        ({ commands }: CommandProps) =>
           commands.insertContent({
             type: 'twoColumnLayout',
             content: [columnChild(), columnChild()],
           }),
       insertThreeColumns:
         () =>
-        ({ commands }) =>
+        ({ commands }: CommandProps) =>
           commands.insertContent({
             type: 'threeColumnLayout',
             content: [columnChild(), columnChild(), columnChild()],

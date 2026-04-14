@@ -143,7 +143,7 @@ async function loadManifests<Index, Full>(
     })
   );
 
-  return results.filter((r): r is Full => r !== null);
+  return results.filter((r) => r != null) as Full[];
 }
 
 // ─── Public loaders ──────────────────────────────────────────────────────────

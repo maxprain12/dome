@@ -790,8 +790,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     addMessage({ role: 'user', content: userMessage });
     scrollToBottom(true);
 
-    let fullResponse = '';
-    let fullThinking = '';
+    const fullResponse = '';
+    const fullThinking = '';
     let chatSuccess = true;
     let providerForAnalytics: string | null = null;
     let delegatedToRunEngine = false;

@@ -78,7 +78,7 @@ export default function KbLlmSettingsPanel() {
       const res = await api.getStatus(statusProjectId);
       if (res?.success && res.data) {
         setStatus({
-          effectiveEnabled: res.data.effectiveEnabled,
+          effectiveEnabled: res.data.effectiveEnabled ?? false,
           lastRuns: res.data.lastRuns as {
             compile: { status?: string; finishedAt?: number | null; updatedAt?: number } | null;
             health: unknown;

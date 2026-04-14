@@ -88,7 +88,7 @@ function HeaderIconBtn({
   active?: boolean;
   activeColor?: string;
   onClick: () => void;
-  forwardRef?: React.RefObject<HTMLButtonElement | null>;
+  forwardRef?: React.Ref<HTMLButtonElement>;
 }) {
   return (
     <button

@@ -206,6 +206,9 @@ export async function startLangGraphRun(params: {
   model?: string;
   threadId?: string;
   skipHitl?: boolean;
+  /** Many voice: read reply with TTS when run completes */
+  autoSpeak?: boolean;
+  voiceLanguage?: string;
 }): Promise<PersistentRun> {
   return invoke<PersistentRun>('runs:startLangGraph', params);
 }

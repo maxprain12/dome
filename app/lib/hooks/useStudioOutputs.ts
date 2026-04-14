@@ -7,6 +7,7 @@
 
 import { useEffect, useCallback, useState, useTransition } from 'react';
 import { useAppStore } from '@/lib/store/useAppStore';
+import type { StudioOutput } from '@/types';
 
 export function useStudioOutputs(projectId?: string | null) {
   const setStudioOutputs = useAppStore((s) => s.setStudioOutputs);
@@ -23,7 +24,7 @@ export function useStudioOutputs(projectId?: string | null) {
       const result = await window.electron.db.studio.getByProject(projectId);
       if (result.success && result.data) {
         startTransition(() => {
-          setStudioOutputs(result.data);
+          setStudioOutputs(result.data as StudioOutput[]);
         });
       }
     } catch (err) {
@@ -43,8 +44,9 @@ export function useStudioOutputs(projectId?: string | null) {
 
     const unsubscribe = window.electron.on('studio:outputCreated', (output: { project_id?: string }) => {
       if (projectId && output.project_id === projectId) {
-        addStudioOutput(output as Parameters<typeof addStudioOutput>[0]);
-        setActiveStudioOutput(output as Parameters<typeof setActiveStudioOutput>[1]);
+        const studioOutput = output as StudioOutput;
+        addStudioOutput(studioOutput);
+        setActiveStudioOutput(studioOutput);
       }
     });
 

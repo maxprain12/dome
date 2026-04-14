@@ -1,5 +1,5 @@
-import { Type } from '@sinclair/typebox';
-import type { AnyAgentTool } from 'agentlang';
+import { Type, type Static } from '@sinclair/typebox';
+import type { AnyAgentTool } from './types';
 import { generateGraph } from '@/lib/graph';
 import { jsonResult, errorResult } from './common';
 
@@ -20,37 +20,51 @@ export function createGraphTools(): AnyAgentTool[] {
  * Generates a complete knowledge graph for a resource or project
  */
 function createGenerateKnowledgeGraphTool(): AnyAgentTool {
+  const parameters = Type.Object({
+    focus_resource_id: Type.Optional(Type.String({
+      description: 'ID of the resource to focus on (center of the graph)',
+    })),
+    project_id: Type.Optional(Type.String({
+      description: 'ID of the project to generate graph for (all project resources)',
+    })),
+    max_depth: Type.Optional(
+      Type.Number({
+        description:
+          'Maximum depth of graph traversal (1-5). Default: 3. Higher = more connections but slower.',
+        minimum: 1,
+        maximum: 5,
+      }),
+    ),
+    strategies: Type.Optional(
+      Type.Array(
+        Type.String({
+          description:
+            "Strategies to use: 'mentions', 'links', 'semantic', 'tags', 'ai'. Default: all except 'ai'",
+        }),
+      ),
+    ),
+    max_nodes: Type.Optional(
+      Type.Number({
+        description: 'Maximum number of nodes to return. Default: 500.',
+        minimum: 10,
+        maximum: 1000,
+      }),
+    ),
+    min_weight: Type.Optional(
+      Type.Number({
+        description:
+          'Minimum edge weight (0-1). Default: 0.3. Higher = fewer but stronger connections.',
+        minimum: 0,
+        maximum: 1,
+      }),
+    ),
+  });
   return {
     label: 'Generate Knowledge Graph',
     name: 'generate_knowledge_graph',
     description: `Generate a knowledge graph showing connections between documents. The graph uses multiple strategies: mentions (@links), backlinks, semantic similarity, and shared tags. Returns nodes and edges with relationship information. Useful for visualizing how documents relate to each other and discovering hidden connections.`,
-    parameters: Type.Object({
-      focus_resource_id: Type.Optional(Type.String({
-        description: 'ID of the resource to focus on (center of the graph)'
-      })),
-      project_id: Type.Optional(Type.String({
-        description: 'ID of the project to generate graph for (all project resources)'
-      })),
-      max_depth: Type.Optional(Type.Number({
-        description: 'Maximum depth of graph traversal (1-5). Default: 3. Higher = more connections but slower.',
-        minimum: 1,
-        maximum: 5
-      })),
-      strategies: Type.Optional(Type.Array(Type.String({
-        description: "Strategies to use: 'mentions', 'links', 'semantic', 'tags', 'ai'. Default: all except 'ai'"
-      }))),
-      max_nodes: Type.Optional(Type.Number({
-        description: 'Maximum number of nodes to return. Default: 500.',
-        minimum: 10,
-        maximum: 1000
-      })),
-      min_weight: Type.Optional(Type.Number({
-        description: 'Minimum edge weight (0-1). Default: 0.3. Higher = fewer but stronger connections.',
-        minimum: 0,
-        maximum: 1
-      })),
-    }),
-    execute: async (_toolCallId, args) => {
+    parameters,
+    execute: async (_toolCallId: string, args: Static<typeof parameters>) => {
       try {
         if (!args.focus_resource_id && !args.project_id) {
           return errorResult('Must provide either focus_resource_id or project_id');
@@ -99,34 +113,46 @@ function createGenerateKnowledgeGraphTool(): AnyAgentTool {
  * Find resources related to a given resource via graph traversal
  */
 function createGetRelatedResourcesTool(): AnyAgentTool {
+  const parameters = Type.Object({
+    resource_id: Type.String({
+      description: 'ID of the resource to find relations for',
+    }),
+    max_depth: Type.Optional(
+      Type.Number({
+        description: 'Maximum depth of graph traversal (1-3). Default: 2.',
+        minimum: 1,
+        maximum: 3,
+      }),
+    ),
+    relation_types: Type.Optional(
+      Type.Array(
+        Type.String({
+          description:
+            "Filter by relation types: 'mentions', 'related', 'similar', 'shared_tags', etc.",
+        }),
+      ),
+    ),
+    min_weight: Type.Optional(
+      Type.Number({
+        description: 'Minimum relationship strength (0-1). Default: 0.3.',
+        minimum: 0,
+        maximum: 1,
+      }),
+    ),
+    limit: Type.Optional(
+      Type.Number({
+        description: 'Maximum number of related resources to return. Default: 10.',
+        minimum: 1,
+        maximum: 50,
+      }),
+    ),
+  });
   return {
     label: 'Get Related Resources',
     name: 'get_related_resources',
     description: `Find resources related to a given resource by traversing the knowledge graph. Returns a ranked list of related resources with relationship information. Useful for finding relevant documents, discovering connections, and building context.`,
-    parameters: Type.Object({
-      resource_id: Type.String({
-        description: 'ID of the resource to find relations for'
-      }),
-      max_depth: Type.Optional(Type.Number({
-        description: 'Maximum depth of graph traversal (1-3). Default: 2.',
-        minimum: 1,
-        maximum: 3
-      })),
-      relation_types: Type.Optional(Type.Array(Type.String({
-        description: "Filter by relation types: 'mentions', 'related', 'similar', 'shared_tags', etc."
-      }))),
-      min_weight: Type.Optional(Type.Number({
-        description: 'Minimum relationship strength (0-1). Default: 0.3.',
-        minimum: 0,
-        maximum: 1
-      })),
-      limit: Type.Optional(Type.Number({
-        description: 'Maximum number of related resources to return. Default: 10.',
-        minimum: 1,
-        maximum: 50
-      })),
-    }),
-    execute: async (_toolCallId, args) => {
+    parameters,
+    execute: async (_toolCallId: string, args: Static<typeof parameters>) => {
       try {
         if (typeof window === 'undefined' || !window.electron) {
           return errorResult('Window or electron not available');
@@ -210,31 +236,39 @@ function createGetRelatedResourcesTool(): AnyAgentTool {
  * Manually create a link between two resources
  */
 function createResourceLinkTool(): AnyAgentTool {
+  const parameters = Type.Object({
+    source_id: Type.String({
+      description: 'ID of the source resource',
+    }),
+    target_id: Type.String({
+      description: 'ID of the target resource',
+    }),
+    relation_type: Type.Optional(
+      Type.String({
+        description:
+          "Type of relationship: 'related', 'references', 'contradicts', 'supports', etc. Default: 'related'",
+      }),
+    ),
+    weight: Type.Optional(
+      Type.Number({
+        description: 'Strength of the relationship (0-1). Default: 0.7.',
+        minimum: 0,
+        maximum: 1,
+      }),
+    ),
+    bidirectional: Type.Optional(
+      Type.Boolean({
+        description: 'If true, creates links in both directions. Default: false.',
+      }),
+    ),
+    metadata: Type.Optional(Type.Object({}, { additionalProperties: true })),
+  });
   return {
     label: 'Create Resource Link',
     name: 'create_resource_link',
     description: `Create a link between two resources to establish a relationship. The link will appear in the knowledge graph and can have a custom relation type and weight. Useful for manually connecting related documents, creating references, or organizing knowledge.`,
-    parameters: Type.Object({
-      source_id: Type.String({
-        description: 'ID of the source resource'
-      }),
-      target_id: Type.String({
-        description: 'ID of the target resource'
-      }),
-      relation_type: Type.Optional(Type.String({
-        description: "Type of relationship: 'related', 'references', 'contradicts', 'supports', etc. Default: 'related'"
-      })),
-      weight: Type.Optional(Type.Number({
-        description: 'Strength of the relationship (0-1). Default: 0.7.',
-        minimum: 0,
-        maximum: 1
-      })),
-      bidirectional: Type.Optional(Type.Boolean({
-        description: 'If true, creates links in both directions. Default: false.'
-      })),
-      metadata: Type.Optional(Type.Object({}, { additionalProperties: true })),
-    }),
-    execute: async (_toolCallId, args) => {
+    parameters,
+    execute: async (_toolCallId: string, args: Static<typeof parameters>) => {
       try {
         if (typeof window === 'undefined' || !window.electron) {
           return errorResult('Window or electron not available');
@@ -251,7 +285,7 @@ function createResourceLinkTool(): AnyAgentTool {
           metadata: args.metadata ? JSON.stringify(args.metadata) : undefined,
         });
 
-        if (!forwardResult.success) {
+        if (!forwardResult.success || !forwardResult.data) {
           return errorResult(`Failed to create link: ${forwardResult.error || 'Unknown error'}`);
         }
 
@@ -272,7 +306,7 @@ function createResourceLinkTool(): AnyAgentTool {
             metadata: args.metadata ? JSON.stringify(args.metadata) : undefined,
           });
 
-          if (backwardResult.success) {
+          if (backwardResult.success && backwardResult.data) {
             links.push({
               id: backwardResult.data.id,
               source: args.target_id,
@@ -299,23 +333,30 @@ function createResourceLinkTool(): AnyAgentTool {
  * Analyze the knowledge graph to find hubs, clusters, and isolated nodes
  */
 function createAnalyzeGraphStructureTool(): AnyAgentTool {
+  const parameters = Type.Object({
+    project_id: Type.Optional(
+      Type.String({
+        description: 'ID of the project to analyze. If not provided, analyzes current project.',
+      }),
+    ),
+    analysis_type: Type.Optional(
+      Type.String({
+        description: "Type of analysis: 'hubs', 'clusters', 'isolated', or 'all'. Default: 'all'",
+      }),
+    ),
+    min_hub_degree: Type.Optional(
+      Type.Number({
+        description: 'Minimum number of connections to be considered a hub. Default: 5.',
+        minimum: 2,
+      }),
+    ),
+  });
   return {
     label: 'Analyze Graph Structure',
     name: 'analyze_graph_structure',
     description: `Analyze the structure of the knowledge graph to identify important patterns: hub nodes (highly connected), clusters (groups of related documents), isolated nodes (disconnected documents), and overall statistics. Useful for understanding the knowledge base structure and finding gaps.`,
-    parameters: Type.Object({
-      project_id: Type.Optional(Type.String({
-        description: 'ID of the project to analyze. If not provided, analyzes current project.'
-      })),
-      analysis_type: Type.Optional(Type.String({
-        description: "Type of analysis: 'hubs', 'clusters', 'isolated', or 'all'. Default: 'all'"
-      })),
-      min_hub_degree: Type.Optional(Type.Number({
-        description: 'Minimum number of connections to be considered a hub. Default: 5.',
-        minimum: 2
-      })),
-    }),
-    execute: async (_toolCallId, args) => {
+    parameters,
+    execute: async (_toolCallId: string, args: Static<typeof parameters>) => {
       try {
         if (typeof window === 'undefined' || !window.electron) {
           return errorResult('Window or electron not available');

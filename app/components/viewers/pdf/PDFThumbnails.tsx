@@ -16,7 +16,7 @@ function PDFThumbnailItem({ page, pageNumber, isActive, onClick }: PDFThumbnailI
   const [isRendering, setIsRendering] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
+    const isMounted = true;
 
     async function render() {
       if (!canvasRef.current || !page) return;

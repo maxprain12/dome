@@ -191,14 +191,23 @@ export function createAutomationCreateTool(): AnyAgentTool {
         const outputMode = (readStringParam(params, 'outputMode') ?? 'chat_only') as 'chat_only' | 'studio_output' | 'mixed';
         const enabled = typeof params.enabled === 'boolean' ? params.enabled : true;
 
-        let schedule: { cadence?: string; hour?: number; weekday?: number | null; intervalMinutes?: number | null } | null = null;
+        let schedule: {
+          cadence?: 'daily' | 'weekly' | 'cron-lite';
+          hour?: number;
+          weekday?: number | null;
+          intervalMinutes?: number;
+        } | null = null;
         if (triggerType === 'schedule' && params.schedule && typeof params.schedule === 'object') {
           const s = params.schedule as Record<string, unknown>;
+          const rawCadence = String(s.cadence ?? 'daily');
+          const cadence: 'daily' | 'weekly' | 'cron-lite' =
+            rawCadence === 'weekly' || rawCadence === 'cron-lite' ? rawCadence : 'daily';
           schedule = {
-            cadence: ['daily', 'weekly', 'cron-lite'].includes(String(s.cadence ?? '')) ? String(s.cadence) : 'daily',
+            cadence,
             hour: typeof s.hour === 'number' ? Math.max(0, Math.min(23, s.hour)) : 0,
             weekday: typeof s.weekday === 'number' ? s.weekday : null,
-            intervalMinutes: typeof s.intervalMinutes === 'number' ? Math.max(1, s.intervalMinutes) : null,
+            intervalMinutes:
+              typeof s.intervalMinutes === 'number' ? Math.max(1, s.intervalMinutes) : undefined,
           };
         }
 

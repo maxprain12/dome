@@ -40,7 +40,7 @@ export function useSafeMediaSource(resourceId: string | undefined): UseSafeMedia
         const res = await window.electron.resource.readFileBuffer(resourceId);
         if (cancelled) return;
         if (!res.success || !res.data) {
-          setError(res.error || 'Failed to load media');
+          setError(!res.success ? (res.error ?? 'Failed to load media') : 'Failed to load media');
           setLoading(false);
           return;
         }

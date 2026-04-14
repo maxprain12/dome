@@ -89,7 +89,11 @@ export default memo(function ManyChatInput({
       }
     },
     onEmpty: () => {
-      notifications.show({ title: t('media.dock_empty_recording'), color: 'yellow' });
+      notifications.show({
+        title: t('media.dock_empty_recording'),
+        message: t('media.dock_empty_recording'),
+        color: 'yellow',
+      });
     },
     onError: (msg) => {
       notifications.show({ title: t('media.dock_mic_permission'), message: msg, color: 'red' });

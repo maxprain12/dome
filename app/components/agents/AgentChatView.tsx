@@ -241,11 +241,11 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
       if (payload.type === 'text' && payload.text) {
         setStreamingMessage((prev) =>
           prev
-            ? { ...prev, content: `${prev.content || ''}${payload.text}` }
+            ? { ...prev, content: `${prev.content ?? ''}${payload.text ?? ''}` }
             : {
                 id: `run-${payload.runId}`,
                 role: 'assistant',
-                content: payload.text,
+                content: payload.text ?? '',
                 timestamp: Date.now(),
                 isStreaming: true,
                 toolCalls: [],
@@ -255,30 +255,31 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
       } else if (payload.type === 'thinking' && payload.text) {
         setStreamingMessage((prev) => (prev ? { ...prev, thinking: `${prev.thinking || ''}${payload.text}` } : prev));
       } else if (payload.type === 'tool_call' && payload.toolCall) {
+        const toolCall = payload.toolCall;
         const args = (() => {
           try {
-            return typeof payload.toolCall.arguments === 'string'
-              ? JSON.parse(payload.toolCall.arguments)
+            return typeof toolCall.arguments === 'string'
+              ? JSON.parse(toolCall.arguments)
               : {};
           } catch {
             return {};
           }
         })();
         setStreamingMessage((prev) => {
-          const nextToolCalls = [
+          const nextToolCalls: ToolCallData[] = [
             ...(prev?.toolCalls || []),
             {
-              id: payload.toolCall.id,
-              name: payload.toolCall.name,
+              id: toolCall.id,
+              name: toolCall.name,
               arguments: args,
-              status: 'running',
+              status: 'running' as ToolCallData['status'],
             },
           ];
           return prev
             ? {
                 ...prev,
                 toolCalls: nextToolCalls,
-                streamingLabel: `${TOOL_LABELS[payload.toolCall.name || ''] || payload.toolCall.name || 'Herramienta'}...`,
+                streamingLabel: `${TOOL_LABELS[toolCall.name || ''] || toolCall.name || 'Herramienta'}...`,
               }
             : {
                 id: `run-${payload.runId}`,
@@ -287,7 +288,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
                 timestamp: Date.now(),
                 isStreaming: true,
                 toolCalls: nextToolCalls,
-                streamingLabel: `${payload.toolCall.name}...`,
+                streamingLabel: `${toolCall.name}...`,
               };
         });
       } else if (payload.type === 'tool_result' && payload.toolCallId) {

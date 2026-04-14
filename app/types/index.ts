@@ -116,7 +116,18 @@ export interface AgentTeam {
 }
 
 // Tipos de recursos
-export type ResourceType = 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'folder' | 'notebook' | 'excel' | 'ppt' | 'note';
+export type ResourceType =
+  | 'pdf'
+  | 'video'
+  | 'audio'
+  | 'image'
+  | 'url'
+  | 'folder'
+  | 'notebook'
+  | 'excel'
+  | 'ppt'
+  | 'note'
+  | 'document';
 
 export interface Resource {
   id: string;
@@ -147,6 +158,8 @@ export interface Resource {
   folder_id?: string | null;
 
   metadata?: ResourceMetadata;
+  /** Set by main process when URL/YouTube thumbnail fetch completes */
+  thumbnail_ready?: boolean;
   created_at: number;
   updated_at: number;
 }
@@ -874,7 +887,7 @@ export interface GraphGenerationOptions {
   projectId?: string;
   focusResourceId?: string;
   maxDepth?: number;
-  strategies?: Array<'mentions' | 'links' | 'semantic' | 'tags' | 'ai'>;
+  strategies?: Array<'mentions' | 'links' | 'semantic' | 'tags' | 'studio' | 'ai'>;
   maxNodes?: number;
   minWeight?: number;
 }

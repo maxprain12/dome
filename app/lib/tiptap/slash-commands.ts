@@ -280,11 +280,13 @@ export const SlashCommandExtension = Extension.create<{ suggestion: Partial<Slas
   },
 
   addProseMirrorPlugins() {
+    const suggestion = (this.options.suggestion ?? {}) as Partial<SuggestionOptions<SlashCommand>>;
+    const { editor: _ignoreEditorFromOptions, ...suggestionRest } = suggestion;
     return [
       Suggestion({
+        ...suggestionRest,
         editor: this.editor,
-        ...(this.options.suggestion as SuggestionOptions<SlashCommand>),
-      }),
+      } as SuggestionOptions<SlashCommand>),
     ];
   },
 });

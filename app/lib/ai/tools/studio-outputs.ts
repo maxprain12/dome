@@ -227,7 +227,7 @@ export function createGenerateQuizTool(): AnyAgentTool {
         const difficulty = validateDifficulty(difficultyRaw);
 
         // Gather source content from resources
-        let sourceContent: Array<{ id: string; title: string; content: string }> = [];
+        const sourceContent: Array<{ id: string; title: string; content: string }> = [];
 
         if (sourceIds && sourceIds.length > 0) {
           for (const sourceId of sourceIds) {

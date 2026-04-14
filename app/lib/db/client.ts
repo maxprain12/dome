@@ -9,8 +9,16 @@
 import { generateId } from '../utils';
 import { capturePostHog } from '../analytics/posthog';
 import { ANALYTICS_EVENTS } from '../analytics/events';
-import type { DomeAgentFolder, DomeWorkflowFolder, ManyAgent, MCPServerConfig } from '@/types';
+import type {
+  DomeAgentFolder,
+  DomeWorkflowFolder,
+  ManyAgent,
+  MCPServerConfig,
+  Resource,
+} from '@/types';
 import type { CanvasWorkflow, WorkflowExecution } from '@/types/canvas';
+
+export type { Resource };
 
 // Type definitions
 export interface Project {
@@ -18,28 +26,6 @@ export interface Project {
   name: string;
   description?: string;
   parent_id?: string;
-  created_at: number;
-  updated_at: number;
-}
-
-export interface Resource {
-  id: string;
-  project_id: string;
-  type: 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'folder' | 'notebook';
-  title: string;
-  content?: string;
-  // Legacy external file path (deprecated)
-  file_path?: string;
-  // Internal file storage (new system)
-  internal_path?: string;
-  file_mime_type?: string;
-  file_size?: number;
-  file_hash?: string;
-  thumbnail_data?: string;
-  original_filename?: string;
-  // Folder containment
-  folder_id?: string | null;
-  metadata?: Record<string, any>;
   created_at: number;
   updated_at: number;
 }

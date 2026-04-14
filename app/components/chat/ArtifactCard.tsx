@@ -577,13 +577,14 @@ function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact })
 
   useEffect(() => {
     const docling = (window as Window & { electron?: { docling?: { getImageData?: (id: string) => Promise<{ success: boolean; data?: string; error?: string }> } } }).electron?.docling;
-    if (!artifact.images?.length || !docling?.getImageData) return;
+    const getImageData = docling?.getImageData;
+    if (!artifact.images?.length || !getImageData) return;
     const load = async () => {
       const results: Record<string, string> = {};
       const errs: Record<string, string> = {};
       for (const img of artifact.images) {
         try {
-          const res = await docling.getImageData(img.image_id);
+          const res = await getImageData(img.image_id);
           if (res.success && res.data) results[img.image_id] = res.data;
           else if (res.error) errs[img.image_id] = res.error;
         } catch (e) {

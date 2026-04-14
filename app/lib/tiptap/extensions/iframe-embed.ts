@@ -1,8 +1,11 @@
 import { Node, mergeAttributes } from '@tiptap/core';
+import type { CommandProps } from '@tiptap/core';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    insertIframeEmbed: (attrs: { src: string; width?: string | null; height?: string | null }) => ReturnType;
+    iframeEmbed: {
+      insertIframeEmbed: (attrs: { src: string; width?: string | null; height?: string | null }) => ReturnType;
+    };
   }
 }
 
@@ -81,8 +84,8 @@ export const IframeEmbed = Node.create({
   addCommands() {
     return {
       insertIframeEmbed:
-        (attrs) =>
-        ({ commands }) =>
+        (attrs: { src: string; width?: string | null; height?: string | null }) =>
+        ({ commands }: CommandProps) =>
           commands.insertContent({
             type: this.name,
             attrs: {

@@ -1,13 +1,16 @@
 import { InputRule, Node, mergeAttributes } from '@tiptap/core';
+import type { CommandProps } from '@tiptap/core';
 import type { ResourceType } from '@/types';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    insertResourceLink: (attrs: {
-      resourceId: string;
-      title: string;
-      resourceType: ResourceType | string;
-    }) => ReturnType;
+    resourceLink: {
+      insertResourceLink: (attrs: {
+        resourceId: string;
+        title: string;
+        resourceType: ResourceType | string;
+      }) => ReturnType;
+    };
   }
 }
 
@@ -67,8 +70,8 @@ export const ResourceLink = Node.create({
   addCommands() {
     return {
       insertResourceLink:
-        (attrs) =>
-        ({ commands }) =>
+        (attrs: { resourceId: string; title: string; resourceType: ResourceType | string }) =>
+        ({ commands }: CommandProps) =>
           commands.insertContent({
             type: this.name,
             attrs: {

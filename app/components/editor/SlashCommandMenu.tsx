@@ -191,7 +191,7 @@ export function SlashMenuPortal({ items, command, clientRect, menuRef }: SlashMe
       ref={containerRef}
       style={{ position: 'fixed', top: position.top, left: position.left, zIndex: 9999 }}
     >
-      <SlashCommandMenu ref={menuRef} items={items} command={command} />
+      <SlashCommandMenu ref={menuRef as React.Ref<SlashMenuHandle>} items={items} command={command} />
     </div>,
     document.body,
   );

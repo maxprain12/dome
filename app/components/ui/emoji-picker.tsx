@@ -1,4 +1,4 @@
-import React, { ReactNode, useState } from "react";
+import React, { useState, type ReactNode } from "react";
 import {
   ActionIcon,
   Popover,
@@ -11,7 +11,7 @@ const Picker = React.lazy(() => import("@emoji-mart/react"));
 import { useTranslation } from "react-i18next";
 
 export interface EmojiPickerInterface {
-  onEmojiSelect: (emoji: any) => void;
+  onEmojiSelect: (emoji: { native?: string; [key: string]: unknown }) => void;
   icon: ReactNode;
   removeEmojiAction: () => void;
   readOnly: boolean;
@@ -50,7 +50,7 @@ function EmojiPicker({
     }
   });
 
-  const handleEmojiSelect = (emoji) => {
+  const handleEmojiSelect = (emoji: { native?: string; [key: string]: unknown }) => {
     onEmojiSelect(emoji);
     handlers.close();
   };

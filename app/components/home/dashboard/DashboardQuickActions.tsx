@@ -6,10 +6,11 @@ import {
   WalletCards,
   Calendar,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { HomeQuickActionId } from '@/types';
 import { DashboardSectionLabel } from '@/components/home/dashboard/DashboardSectionLabel';
 
-const ICONS: Record<HomeQuickActionId, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
+const ICONS: Record<HomeQuickActionId, LucideIcon> = {
   newNote: Plus,
   upload: Upload,
   newChat: MessageSquarePlus,
@@ -26,7 +27,7 @@ function QuickActionBtn({
 }: {
   label: string;
   description: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>;
+  icon: LucideIcon;
   onClick: () => void;
   variant?: 'primary' | 'default';
 }) {

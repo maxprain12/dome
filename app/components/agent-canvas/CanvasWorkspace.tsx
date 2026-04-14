@@ -7,6 +7,7 @@ import ReactFlow, {
   Background,
   BackgroundVariant,
   ConnectionMode,
+  ConnectionLineType,
   MarkerType,
   type Connection,
   type Edge,
@@ -232,7 +233,7 @@ export default function CanvasWorkspace({
         proOptions={{ hideAttribution: true }}
         deleteKeyCode={['Backspace', 'Delete']}
         style={{ background: 'transparent' }}
-        connectionLineType="default"
+        connectionLineType={ConnectionLineType.Bezier}
         connectionLineStyle={connectionLineStyle}
       >
         <Background

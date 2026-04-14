@@ -46,7 +46,7 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Lint renderer
-        run: npx eslint app/ --max-warnings 0
+        run: npm run lint
 
   build:
     name: Vite Build

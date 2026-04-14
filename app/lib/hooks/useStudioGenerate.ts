@@ -97,7 +97,7 @@ async function fetchContextForStudio(projectId: string, sourceIds?: string[]): P
 function extractStudioJson(text: string): Record<string, unknown> | null {
   if (!text || typeof text !== 'string') return null;
 
-  let trimmed = text.trim();
+  const trimmed = text.trim();
   if (!trimmed) return null;
 
   function tryParse(raw: string): Record<string, unknown> | null {
@@ -180,7 +180,7 @@ function extractStudioJson(text: string): Record<string, unknown> | null {
   // 4. Greedy fallback: first { to last }, try truncation repair
   const greedyMatch = trimmed.match(/\{[\s\S]*\}/);
   if (greedyMatch) {
-    let candidate = greedyMatch[0];
+    const candidate = greedyMatch[0];
     let parsed = tryParse(candidate);
     if (parsed) return parsed;
     const lastClose = candidate.lastIndexOf('}');

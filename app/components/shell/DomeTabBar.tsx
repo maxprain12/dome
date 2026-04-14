@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -276,7 +276,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
           <div
             ref={overflowWrapRef}
             className="relative shrink-0 self-stretch"
-            style={{ WebkitAppRegion: 'no-drag' }}
+            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
           >
             <DomeButton
               type="button"
@@ -369,7 +369,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
             iconOnly
             onClick={onNewChat}
             className="!rounded-none h-full w-9 min-h-0 shrink-0 rounded-none border-r border-[var(--dome-border)] text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-text)]"
-            style={{ WebkitAppRegion: 'no-drag' }}
+            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
             title={t('workspace.new_conversation')}
             aria-label={t('workspace.new_conversation')}
           >

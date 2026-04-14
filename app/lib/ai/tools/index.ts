@@ -201,6 +201,12 @@ export {
   createMemoryGetStub,
   createMemoryTools,
 } from './memory';
+export type {
+  MemorySearchConfig,
+  MemorySearchResult,
+  MemoryGetConfig,
+  MemoryDocument,
+} from './memory';
 
 // Tools - PPT
 export {
