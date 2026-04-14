@@ -403,7 +403,140 @@ const MAX_SECTION_SNIPPET_CHARS = 3500;
 const MAX_RECURSIVE_DEPTH = 2;
 const RECURSIVE_SECTION_PAGE_THRESHOLD = 4;
 const SECTION_NUMBER_REGEX = /^(\d+(?:\.\d+)*)(?:[\s).:-]+|$)/;
+/** Top-level Roman numerals (I–XXX) before section titles, e.g. "II. Related work" */
+const SECTION_ROMAN_TOP_REGEX = /^([IVXLCDM]{1,5})(?:[\s).:-]+|$)/i;
+/** Single-letter outline prefixes, e.g. "A. Motivation", "B. Methods" */
+const SECTION_LETTER_TOP_REGEX = /^([A-H])(?:[\s).:-]+|$)/i;
 const HEADING_PREFIX_REGEX = /^([A-Z]\.|(?:\d+(?:\.\d+)*)|(?:[IVXLCDM]+))(?:[\s).:-]+)(.+)$/i;
+
+const ROMAN_VALUES = {
+  m: 1000, d: 500, c: 100, l: 50, x: 10, v: 5, i: 1,
+};
+
+/**
+ * Parse a Roman numeral string (I–MMM, conservative) to integer, or NaN.
+ * @param {string} raw
+ * @returns {number}
+ */
+function parseRomanNumeral(raw) {
+  const s = String(raw || '').trim().toLowerCase();
+  if (!s || !/^[mdclxvi]+$/.test(s)) return NaN;
+  let total = 0;
+  for (let i = 0; i < s.length; i += 1) {
+    const cur = ROMAN_VALUES[s[i]];
+    const next = ROMAN_VALUES[s[i + 1]] || 0;
+    if (cur < next) total -= cur;
+    else total += cur;
+  }
+  if (total <= 0 || total > 3999) return NaN;
+  return total;
+}
+
+/**
+ * Extract outline numbering for hierarchy (supports 1.2.3, II., A., etc.).
+ * @param {string} title
+ * @returns {string|null}
+ */
+function extractStructureCode(title) {
+  const cleaned = cleanSectionTitle(title);
+  if (!cleaned) return null;
+  const decimal = cleaned.match(SECTION_NUMBER_REGEX);
+  if (decimal?.[1]) return decimal[1];
+  const roman = cleaned.match(SECTION_ROMAN_TOP_REGEX);
+  if (roman?.[1]) {
+    const n = parseRomanNumeral(roman[1]);
+    if (Number.isFinite(n)) return `~r${n}`;
+  }
+  const letter = cleaned.match(SECTION_LETTER_TOP_REGEX);
+  if (letter?.[1]) {
+    const code = letter[1].toUpperCase().charCodeAt(0) - 64;
+    if (code >= 1 && code <= 26) return `~l${code}`;
+  }
+  return null;
+}
+
+/**
+ * @param {string} code
+ * @returns {{ kind: 'num'|'roman'|'letter'|'str', n: number, s: string }}
+ */
+function parseStructureSegment(code) {
+  const c = String(code || '').trim();
+  if (!c) return { kind: 'str', n: 0, s: '' };
+  if (/^~r\d+$/.test(c)) return { kind: 'roman', n: Number(c.slice(2)), s: c };
+  if (/^~l\d+$/.test(c)) return { kind: 'letter', n: Number(c.slice(2)), s: c };
+  if (/^~s\d+$/.test(c)) return { kind: 'seq', n: Number(c.slice(2)), s: c };
+  if (/^\d+$/.test(c)) return { kind: 'num', n: Number(c), s: c };
+  return { kind: 'str', n: 0, s: c.toLowerCase() };
+}
+
+/**
+ * Compare two structure codes for ordering (Introduction before Methods, 2 before 10).
+ * @param {string} a
+ * @param {string} b
+ * @returns {number}
+ */
+function compareStructureOrder(a, b) {
+  const as = String(a || '').split('.').filter(Boolean);
+  const bs = String(b || '').split('.').filter(Boolean);
+  const len = Math.max(as.length, bs.length);
+  for (let i = 0; i < len; i += 1) {
+    const pa = parseStructureSegment(as[i] ?? '');
+    const pb = parseStructureSegment(bs[i] ?? '');
+    /** Unnumbered sections (~s) before decimal/Roman (front matter on same page). */
+    const order = (k) => ({ seq: 0, num: 1, roman: 2, letter: 3, str: 4 }[k] ?? 4);
+    if (pa.kind !== pb.kind) return order(pa.kind) - order(pb.kind);
+    if (pa.kind === 'str') {
+      const cmp = pa.s.localeCompare(pb.s);
+      if (cmp !== 0) return cmp;
+    } else if (pa.n !== pb.n) {
+      return pa.n - pb.n;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Parent structure code for nested outline (e.g. 3.2 -> 3, ~r2 -> ~r1).
+ * @param {string} structure
+ * @returns {string|null}
+ */
+function parentStructureFromCode(structure) {
+  const s = String(structure || '').trim();
+  if (!s) return null;
+  if (s.includes('.')) return s.split('.').slice(0, -1).join('.');
+  const seg = parseStructureSegment(s);
+  if (seg.kind === 'seq' && seg.n > 1) return `~s${seg.n - 1}`;
+  if (seg.kind === 'roman' && seg.n > 1) return `~r${seg.n - 1}`;
+  if (seg.kind === 'letter' && seg.n > 1) return `~l${seg.n - 1}`;
+  return null;
+}
+
+/**
+ * Normalize outline `structure` from the LLM or headings into internal codes
+ * (decimal, ~rN Roman, ~lN letter) for consistent parent/child linking.
+ * @param {string|null|undefined} rawStructure
+ * @param {string} title
+ * @returns {string|null}
+ */
+function normalizeOutlineStructure(rawStructure, title) {
+  const fromTitle = extractStructureCode(title);
+  const raw = typeof rawStructure === 'string' ? rawStructure.trim() : '';
+  if (!raw) return fromTitle;
+  const compact = raw.replace(/\s+/g, '');
+  const dec = compact.match(/^(\d+(?:\.\d+)*)/);
+  if (dec?.[1]) return dec[1];
+  const rom = compact.match(/^([IVXLCDM]{1,5})(?:\.|,|$)/i);
+  if (rom?.[1]) {
+    const n = parseRomanNumeral(rom[1]);
+    if (Number.isFinite(n)) return `~r${n}`;
+  }
+  const letMatch = compact.match(/^([A-Z])(?:\.|,|$)/i);
+  if (letMatch?.[1]) {
+    const code = letMatch[1].toUpperCase().charCodeAt(0) - 64;
+    if (code >= 1 && code <= 26) return `~l${code}`;
+  }
+  return fromTitle;
+}
 
 function normalizeWhitespace(text) {
   return String(text || '').replace(/\s+/g, ' ').trim();
@@ -425,19 +558,18 @@ function cleanSectionTitle(rawTitle) {
   return title.slice(0, 220);
 }
 
-function extractStructureCode(title) {
-  const match = cleanSectionTitle(title).match(SECTION_NUMBER_REGEX);
-  return match?.[1] || null;
-}
-
 function isLikelyHeadingLine(line) {
   const trimmed = cleanSectionTitle(line);
   if (!trimmed || trimmed.length < 3 || trimmed.length > 140) return false;
   if (/^[\W\d_]+$/.test(trimmed)) return false;
-  if (/^[a-z]/.test(trimmed) && !SECTION_NUMBER_REGEX.test(trimmed)) return false;
+  const hasOutlinePrefix =
+    SECTION_NUMBER_REGEX.test(trimmed)
+    || SECTION_ROMAN_TOP_REGEX.test(trimmed)
+    || SECTION_LETTER_TOP_REGEX.test(trimmed);
+  if (/^[a-z]/.test(trimmed) && !hasOutlinePrefix) return false;
   if (/[:;,.!?]$/.test(trimmed) && trimmed.length > 90) return false;
   if (trimmed.split(' ').length > 14) return false;
-  if (SECTION_NUMBER_REGEX.test(trimmed)) return true;
+  if (hasOutlinePrefix) return true;
   if (/^(cap[ií]tulo|secci[oó]n|tema|parte|anexo|appendix|chapter)\b/i.test(trimmed)) return true;
   if (/^[A-ZÁÉÍÓÚÑ0-9][A-ZÁÉÍÓÚÑ0-9\s()\-/:]{4,}$/.test(trimmed) && trimmed.length <= 90) return true;
   const alphaWords = trimmed.split(/\s+/).filter(Boolean);
@@ -503,15 +635,20 @@ async function extractSectionCandidatesWithLLM(pageTexts, database, startPage = 
   if (!taggedText.trim()) return [];
 
   const prompt =
-    `Analiza este documento PDF etiquetado por páginas y extrae únicamente las secciones visibles.\n` +
+    `Analiza este documento PDF etiquetado por páginas y extrae únicamente las secciones visibles ` +
+    `(papers académicos, informes, libros).\n` +
     `Devuelve SOLO JSON con este formato exacto:\n` +
     `{"sections":[{"title":"<título visible>","physical_index":<número de página 1-based>,"structure":"<numeración visible o null>"}]}\n\n` +
     `Reglas:\n` +
     `- Usa sólo títulos que realmente aparezcan en el texto.\n` +
     `- physical_index debe ser la primera página donde aparece la sección.\n` +
+    `- En structure usa la numeración jerárquica tal como en el PDF: decimales "1", "2.3", "4.1.2"; ` +
+    `romanos de primer nivel "I", "II"; letras de primer nivel "A", "B" cuando sean el esquema principal.\n` +
     `- Si la sección no tiene numeración explícita, usa null en structure.\n` +
     `- No añadas una raíz global para el documento.\n` +
-    `- Conserva subtítulos como "5.1 ..." cuando existan.\n\n` +
+    `- Conserva subtítulos como "5.1 ..." cuando existan.\n` +
+    `- Incluye secciones típicas de papers (Abstract, Introduction, Methods, Results, Discussion, References) ` +
+    `solo si aparecen como encabezados claros.\n\n` +
     `Documento:\n${taggedText}\n\n` +
     `Responde SOLO con el JSON.`;
 
@@ -524,12 +661,13 @@ async function extractSectionCandidatesWithLLM(pageTexts, database, startPage = 
       ? Math.max(startPage, Math.min(endPage, rawPage - 1))
       : startPage;
     const title = cleanSectionTitle(section?.title);
+    const rawStruct = typeof section?.structure === 'string' && section.structure.trim()
+      ? section.structure.trim()
+      : null;
     return {
       title,
       physical_index: clampedPage,
-      structure: typeof section?.structure === 'string' && section.structure.trim()
-        ? section.structure.trim()
-        : extractStructureCode(title),
+      structure: normalizeOutlineStructure(rawStruct, title),
     };
   }).filter((section) => section.title);
 }
@@ -555,9 +693,9 @@ function dedupeSectionCandidates(candidates, totalPages) {
 
   normalized.sort((a, b) => {
     if (a.physical_index !== b.physical_index) return a.physical_index - b.physical_index;
-    const aStructure = a.structure || '';
-    const bStructure = b.structure || '';
-    return aStructure.localeCompare(bStructure);
+    const cmp = compareStructureOrder(a.structure || '', b.structure || '');
+    if (cmp !== 0) return cmp;
+    return a.title.localeCompare(b.title);
   });
 
   return normalized;
@@ -591,7 +729,7 @@ function assignImplicitStructures(candidates) {
     rootCounter += 1;
     return {
       ...candidate,
-      structure: String(rootCounter),
+      structure: `~s${rootCounter}`,
     };
   });
 }
@@ -623,9 +761,7 @@ function buildTreeFromSectionCandidates(candidates, totalPages, endPage = totalP
 
   for (const item of items) {
     byStructure.set(item.structure, item);
-    const parentStructure = item.structure.includes('.')
-      ? item.structure.split('.').slice(0, -1).join('.')
-      : null;
+    const parentStructure = parentStructureFromCode(item.structure);
     if (parentStructure && byStructure.has(parentStructure)) {
       byStructure.get(parentStructure).nodes.push(item);
     } else {
