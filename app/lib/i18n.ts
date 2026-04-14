@@ -2067,6 +2067,13 @@ const en = {
     move_up: 'Move up',
     move_down: 'Move down',
   },
+  updateBanner: {
+    version_available: 'New version {{version}} available',
+    download: 'Download',
+    downloading: 'Downloading update... {{percent}}%',
+    ready_to_install: 'Update ready to install',
+    restart_to_install: 'Restart to install',
+  },
 };
 
 // ─── Spanish ──────────────────────────────────────────────────────────────────
@@ -4082,6 +4089,13 @@ const es = {
     move_up: 'Subir',
     move_down: 'Bajar',
   },
+  updateBanner: {
+    version_available: 'Nueva versión {{version}} disponible',
+    download: 'Descargar',
+    downloading: 'Descargando actualización... {{percent}}%',
+    ready_to_install: 'Actualización lista para instalar',
+    restart_to_install: 'Reiniciar para instalar',
+  },
 };
 
 // ─── French ───────────────────────────────────────────────────────────────────
@@ -6096,6 +6110,13 @@ const fr = {
     move_up: 'Monter',
     move_down: 'Descendre',
   },
+  updateBanner: {
+    version_available: 'Nouvelle version {{version}} disponible',
+    download: 'Télécharger',
+    downloading: 'Téléchargement de la mise à jour... {{percent}}%',
+    ready_to_install: 'Mise à jour prête à installer',
+    restart_to_install: 'Redémarrer pour installer',
+  },
 };
 
 // ─── Portuguese ───────────────────────────────────────────────────────────────
@@ -8109,6 +8130,13 @@ const pt = {
     widget_continueActivity: 'Atividade e continuar',
     move_up: 'Subir',
     move_down: 'Descer',
+  },
+  updateBanner: {
+    version_available: 'Nova versão {{version}} disponível',
+    download: 'Baixar',
+    downloading: 'Baixando atualização... {{percent}}%',
+    ready_to_install: 'Atualização pronta para instalar',
+    restart_to_install: 'Reiniciar para instalar',
   },
 };
 
