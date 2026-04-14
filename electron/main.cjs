@@ -672,6 +672,46 @@ app
 
     console.log('[Protocol] app:// protocol registered successfully');
 
+    // ─── Permission request/check handlers ──────────────────────────────────
+    // Without these, Chromium auto-grants every Web API permission request.
+    // Deny all by default; allow only the media permissions Dome actually uses,
+    // and only from trusted first-party origins.
+    const _TRUSTED_ORIGIN_PREFIXES = [
+      'file://',
+      'http://localhost',
+      'app://dome/',
+      'app://dome',
+    ];
+    const _ALLOWED_PERMISSIONS = new Set(['media', 'microphone', 'camera', 'display-capture']);
+
+    function _isTrustedOrigin(origin) {
+      if (!origin) return false;
+      return _TRUSTED_ORIGIN_PREFIXES.some((prefix) => origin.startsWith(prefix));
+    }
+
+    // Async handler: called when a renderer explicitly requests a permission
+    // (e.g. getUserMedia, getDisplayMedia). Must call callback(boolean).
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      const origin = details?.requestingUrl || webContents?.getURL?.() || '';
+      const trusted = _isTrustedOrigin(origin) && _ALLOWED_PERMISSIONS.has(permission);
+      if (!trusted) {
+        console.warn(`[Permissions] Denied "${permission}" request from "${origin || '(unknown)'}"`);
+      }
+      callback(trusted);
+    });
+
+    // Sync handler: called for background permission checks (navigator.permissions.query,
+    // feature-policy evaluation) before the user-facing prompt. Must return boolean.
+    session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+      const origin = requestingOrigin || details?.requestingUrl || webContents?.getURL?.() || '';
+      const trusted = _isTrustedOrigin(origin) && _ALLOWED_PERMISSIONS.has(permission);
+      if (!trusted) {
+        console.warn(`[Permissions] Check denied "${permission}" from "${origin || '(unknown)'}"`);
+      }
+      return trusted;
+    });
+    // ─── End permission handlers ─────────────────────────────────────────────
+
     // Register dome:// for OAuth callbacks (MCP backlinks)
     if (process.defaultApp && process.argv.length >= 2) {
       app.setAsDefaultProtocolClient('dome', process.execPath, [path.resolve(process.argv[1])]);
