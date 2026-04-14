@@ -16,6 +16,7 @@ import {
   PlayCircle,
   GripVertical,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { HomeDashboardPreferences, HomeQuickActionId } from '@/types';
 import { DEFAULT_HOME_DASHBOARD_PREFERENCES } from '@/types';
 import { normalizeHomeDashboardPreferences } from '@/lib/settings/home-dashboard';
@@ -28,7 +29,7 @@ const ALL_QUICK_IDS: HomeQuickActionId[] = [
   'calendar',
 ];
 
-const ACTION_ICONS: Record<HomeQuickActionId, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
+const ACTION_ICONS: Record<HomeQuickActionId, LucideIcon> = {
   newNote: Plus,
   upload: Upload,
   newChat: MessageSquarePlus,
@@ -38,7 +39,7 @@ const ACTION_ICONS: Record<HomeQuickActionId, React.ComponentType<{ className?: 
 
 type WidgetKey = keyof HomeDashboardPreferences['widgets'];
 
-const WIDGET_ICONS: Record<WidgetKey, React.ComponentType<{ className?: string; strokeWidth?: number }>> = {
+const WIDGET_ICONS: Record<WidgetKey, LucideIcon> = {
   momentum: Zap,
   weeklyActivity: Activity,
   pendingToday: CalendarClock,

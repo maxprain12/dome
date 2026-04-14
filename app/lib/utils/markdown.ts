@@ -1,6 +1,9 @@
 import { marked } from 'marked';
 import TurndownService from 'turndown';
 
+/** DOM nodes passed to Turndown custom rules (browser). */
+type TdEl = HTMLElement;
+
 marked.setOptions({ gfm: true, breaks: true });
 
 /**
@@ -24,8 +27,8 @@ function getTurndown(): TurndownService {
   });
   // Callout: <div data-type="callout" data-icon="x" data-color="y">content</div>
   _turndown.addRule('callout', {
-    filter: (node) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'callout',
-    replacement: (_content, node) => {
+    filter: (node: TdEl) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'callout',
+    replacement: (_content: string, node: TdEl) => {
       const icon = node.getAttribute('data-icon') || 'lightbulb';
       const color = node.getAttribute('data-color') || 'yellow';
       const inner = _content.trim();
@@ -34,18 +37,18 @@ function getTurndown(): TurndownService {
   });
   // Toggle: <div data-type="toggle">
   _turndown.addRule('toggle', {
-    filter: (node) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'toggle',
-    replacement: (_content) => `\n:::toggle\n${_content.trim()}\n:::\n\n`,
+    filter: (node: TdEl) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'toggle',
+    replacement: (_content: string) => `\n:::toggle\n${_content.trim()}\n:::\n\n`,
   });
   // Divider: <hr data-type="divider">
   _turndown.addRule('divider', {
-    filter: (node) => node.nodeName === 'HR' && node.getAttribute('data-type') === 'divider',
+    filter: (node: TdEl) => node.nodeName === 'HR' && node.getAttribute('data-type') === 'divider',
     replacement: () => '\n---\n\n',
   });
   // PDF embed, Video embed, etc. - extract from data attrs
   _turndown.addRule('pdfEmbed', {
-    filter: (node) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'pdf-embed',
-    replacement: (_content, node) => {
+    filter: (node: TdEl) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'pdf-embed',
+    replacement: (_content: string, node: TdEl) => {
       const rid = node.getAttribute('data-resource-id') || '';
       const ps = node.getAttribute('data-page-start') || '1';
       const pe = node.getAttribute('data-page-end');
@@ -56,8 +59,8 @@ function getTurndown(): TurndownService {
     },
   });
   _turndown.addRule('videoEmbed', {
-    filter: (node) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'video-embed',
-    replacement: (_content, node) => {
+    filter: (node: TdEl) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'video-embed',
+    replacement: (_content: string, node: TdEl) => {
       const src = node.getAttribute('data-src') || '';
       const prov = node.getAttribute('data-provider') || 'direct';
       const vid = node.getAttribute('data-video-id') || '';
@@ -67,8 +70,8 @@ function getTurndown(): TurndownService {
     },
   });
   _turndown.addRule('audioEmbed', {
-    filter: (node) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'audio-embed',
-    replacement: (_content, node) => {
+    filter: (node: TdEl) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'audio-embed',
+    replacement: (_content: string, node: TdEl) => {
       const src = node.getAttribute('data-src') || '';
       const local = node.getAttribute('data-is-local') === 'true';
       const attrs = `src="${src.replace(/"/g, '&quot;')}"${local ? ' isLocal="true"' : ''}`;
@@ -76,8 +79,8 @@ function getTurndown(): TurndownService {
     },
   });
   _turndown.addRule('fileBlock', {
-    filter: (node) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'file-block',
-    replacement: (_content, node) => {
+    filter: (node: TdEl) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'file-block',
+    replacement: (_content: string, node: TdEl) => {
       const rid = node.getAttribute('data-resource-id') || '';
       const fn = node.getAttribute('data-filename') || '';
       const attrs = `resourceId="${rid}" filename="${(fn || '').replace(/"/g, '&quot;')}"`;
@@ -86,23 +89,23 @@ function getTurndown(): TurndownService {
   });
   // Mermaid: <div data-type="mermaid" data-code="...">
   _turndown.addRule('mermaid', {
-    filter: (node) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'mermaid',
-    replacement: (_content, node) => {
+    filter: (node: TdEl) => node.nodeName === 'DIV' && node.getAttribute('data-type') === 'mermaid',
+    replacement: (_content: string, node: TdEl) => {
       const code = node.getAttribute('data-code') || node.textContent || '';
       return `\n:::mermaid\n\`\`\`mermaid\n${code.trim()}\n\`\`\`\n:::\n\n`;
     },
   });
   // Resource mention: <span data-type="resource-mention" data-resource-id="x" data-title="y">
   _turndown.addRule('status', {
-    filter: (node) => node.nodeName === 'SPAN' && node.getAttribute('data-type') === 'status',
-    replacement: (_content, node) => {
+    filter: (node: TdEl) => node.nodeName === 'SPAN' && node.getAttribute('data-type') === 'status',
+    replacement: (_content: string, node: TdEl) => {
       const text = (node as HTMLElement).textContent || 'Status';
       return `\`[${text}]\``;
     },
   });
   _turndown.addRule('resourceMention', {
-    filter: (node) => node.nodeName === 'SPAN' && node.getAttribute('data-type') === 'resource-mention',
-    replacement: (_content, node) => {
+    filter: (node: TdEl) => node.nodeName === 'SPAN' && node.getAttribute('data-type') === 'resource-mention',
+    replacement: (_content: string, node: TdEl) => {
       const rid = node.getAttribute('data-resource-id') || '';
       const label = node.textContent || node.getAttribute('data-title') || 'Resource';
       return `@[${label}](${rid})`;
@@ -110,11 +113,11 @@ function getTurndown(): TurndownService {
   });
   // Task list: <li data-type="taskItem"> with checkbox
   _turndown.addRule('taskListItem', {
-    filter: (node) =>
+    filter: (node: TdEl) =>
       node.nodeName === 'LI' &&
       node.getAttribute('data-type') === 'taskItem' &&
       node.parentElement?.getAttribute('data-type') === 'taskList',
-    replacement: (content, node) => {
+    replacement: (content: string, node: TdEl) => {
       const checkbox = node.querySelector(
         'input[type="checkbox"]'
       ) as HTMLInputElement | null;

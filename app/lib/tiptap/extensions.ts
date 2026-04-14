@@ -40,7 +40,6 @@ export function buildCoreNoteExtensions(placeholder = 'Escribe algo...') {
     NoteEditorBridge,
     StarterKit.configure({
       codeBlock: false,
-      history: true,
     }),
     Underline,
     TextStyle,

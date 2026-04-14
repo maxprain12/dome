@@ -352,7 +352,7 @@ export default function ManyVoiceHud() {
       recog.interimResults = false;
       recog.maxAlternatives = 3;
 
-      recog.onresult = (e) => {
+      recog.onresult = (e: SpeechRecognitionEvent) => {
         consecutiveErrors = 0;
         for (let i = 0; i < e.results.length; i++) {
           for (let j = 0; j < e.results[i].length; j++) {
@@ -385,11 +385,11 @@ export default function ManyVoiceHud() {
         }
       };
 
-      recog.onerror = (e) => {
+      recog.onerror = (e: SpeechRecognitionErrorEvent) => {
         wakeWordRecogRef.current = null;
         recog = null;
         // 'no-speech' is expected and not a real error
-        if ((e as SpeechRecognitionErrorEvent).error !== 'no-speech') {
+        if (e.error !== 'no-speech') {
           consecutiveErrors++;
         }
         if (!stopped && consecutiveErrors < MAX_ERRORS) {

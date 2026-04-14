@@ -1,9 +1,12 @@
 import { Node, mergeAttributes } from '@tiptap/core';
+import type { CommandProps } from '@tiptap/core';
 import type { ToggleBlockAttributes } from '@/types';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    setToggle: (attributes?: ToggleBlockAttributes) => ReturnType;
+    toggleBlock: {
+      setToggle: (attributes?: ToggleBlockAttributes) => ReturnType;
+    };
   }
 }
 
@@ -45,8 +48,8 @@ export const ToggleBlock = Node.create({
   addCommands() {
     return {
       setToggle:
-        (attrs = {}) =>
-        ({ commands }) =>
+        (attrs: ToggleBlockAttributes = {}) =>
+        ({ commands }: CommandProps) =>
           commands.insertContent({
             type: this.name,
             attrs: { collapsed: attrs.collapsed ?? false },

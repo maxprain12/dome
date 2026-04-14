@@ -64,14 +64,14 @@ export function splitTextWithCitations(text: string): Array<{ type: 'text' | 'ci
  * When the AI uses resource_search or resource_get tools, we can map [N] to actual sources.
  */
 export function buildCitationMap(
-  toolResults: Array<{ name: string; result: any }> | undefined
+  toolResults: Array<{ name: string; result?: unknown }> | undefined,
 ): Map<number, ParsedCitation> {
   const map = new Map<number, ParsedCitation>();
   if (!toolResults) return map;
 
   let citationCounter = 1;
 
-  const parseResult = (value: unknown): any => {
+  const parseResult = (value: unknown): unknown => {
     if (typeof value !== 'string') return value;
     try {
       return JSON.parse(value);
@@ -81,37 +81,53 @@ export function buildCitationMap(
   };
 
   for (const toolResult of toolResults) {
-    const parsedResult = parseResult(toolResult.result);
+    const parsedResultRaw = parseResult(toolResult.result);
+    const parsedResult =
+      parsedResultRaw !== null && typeof parsedResultRaw === 'object'
+        ? (parsedResultRaw as Record<string, unknown>)
+        : null;
     if (toolResult.name === 'resource_search' || toolResult.name === 'resource_semantic_search') {
-      const results = parsedResult?.results || [];
+      const results = (Array.isArray(parsedResult?.results) ? parsedResult.results : []) as Record<
+        string,
+        unknown
+      >[];
       for (const r of results) {
         const pages = Array.isArray(r.pages)
           ? r.pages.map((page: unknown) => Number(page)).filter((page: number) => Number.isFinite(page))
           : undefined;
+        const contentVal = r.content;
+        const contentStr = typeof contentVal === 'string' ? contentVal : undefined;
         map.set(citationCounter, {
           number: citationCounter,
-          sourceId: r.id,
-          sourceTitle: r.title,
-          resourceType: r.type,
-          passage: r.snippet || r.content?.slice(0, 200),
+          sourceId: typeof r.id === 'string' ? r.id : undefined,
+          sourceTitle: typeof r.title === 'string' ? r.title : undefined,
+          resourceType: typeof r.type === 'string' ? r.type : undefined,
+          passage: (typeof r.snippet === 'string' ? r.snippet : undefined) || contentStr?.slice(0, 200),
           pages,
           page: pages && pages.length > 0 ? pages[0] : undefined,
-          pageLabel: r.page_range,
-          nodeTitle: r.node_title,
-          nodeId: r.node_id,
-          nodePath: Array.isArray(r.node_path) ? r.node_path : undefined,
+          pageLabel: typeof r.page_range === 'string' ? r.page_range : undefined,
+          nodeTitle: typeof r.node_title === 'string' ? r.node_title : undefined,
+          nodeId: typeof r.node_id === 'string' ? r.node_id : undefined,
+          nodePath: Array.isArray(r.node_path) ? (r.node_path as string[]) : undefined,
         });
         citationCounter++;
       }
     } else if (toolResult.name === 'resource_get') {
-      const resource = parsedResult?.resource ?? parsedResult;
-      if (resource?.id) {
+      const resourceRaw = parsedResult?.resource ?? parsedResult;
+      const resource =
+        resourceRaw !== null && typeof resourceRaw === 'object'
+          ? (resourceRaw as Record<string, unknown>)
+          : null;
+      if (resource && typeof resource.id === 'string') {
+        const passageContent = resource.content;
+        const passageStr = typeof passageContent === 'string' ? passageContent.slice(0, 200) : undefined;
+        const summaryStr = typeof resource.summary === 'string' ? resource.summary : undefined;
         map.set(citationCounter, {
           number: citationCounter,
           sourceId: resource.id,
-          sourceTitle: resource.title,
-          resourceType: resource.type,
-          passage: resource.content?.slice(0, 200) || resource.summary,
+          sourceTitle: typeof resource.title === 'string' ? resource.title : undefined,
+          resourceType: typeof resource.type === 'string' ? resource.type : undefined,
+          passage: passageStr || summaryStr,
         });
         citationCounter++;
       }

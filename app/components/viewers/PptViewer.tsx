@@ -11,9 +11,8 @@ import { fixDarkSlideTextColors } from '@/lib/pptx-color-fix';
 const SLIDE_W = 960;
 const SLIDE_H = 540;
 
-export interface PptViewerHandle {
-  // Navigation is controlled via activeIndex prop — no imperative scroll needed
-}
+/** Imperative handle reserved for future navigation APIs. */
+export type PptViewerHandle = Record<string, never>;
 
 interface PptViewerProps {
   resource: Resource;
@@ -147,9 +146,11 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
 
         // Fix near-black text on dark slides (pptx-preview applies dk1 inline
         // which overrides any CSS rule — must be done with DOM manipulation).
-        await new Promise<void>((r) =>
-          requestAnimationFrame(() => requestAnimationFrame(r)),
-        );
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve());
+          });
+        });
         if (containerRef.current) {
           fixDarkSlideTextColors(containerRef.current, lightColor);
         }

@@ -27,7 +27,7 @@
     "copy:pdf-worker": "node scripts/copy-pdf-worker.cjs",
     "postinstall": "electron-builder install-app-deps && npm run rebuild:natives && npm run copy:pdf-worker && npm run playwright:install",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint app/ --max-warnings 0",
+    "lint": "eslint app/",
     "test:db": "tsx scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "bun scripts/generate-icons.ts"

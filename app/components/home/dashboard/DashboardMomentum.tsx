@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { FileText, MessageSquare, Zap, WalletCards } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { DashboardStats, HomeGamification } from '@/lib/hooks/useDashboardData';
 import { DashboardSectionLabel } from '@/components/home/dashboard/DashboardSectionLabel';
 
@@ -13,7 +14,7 @@ function MiniStat({
 }: {
   label: string;
   value: string | number;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon: LucideIcon;
   iconColor: string;
   iconBg: string;
   loading?: boolean;

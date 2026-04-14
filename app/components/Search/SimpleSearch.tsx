@@ -423,6 +423,8 @@ interface AdvancedResult {
   folderColor?: string;
 }
 
+const DEFAULT_TYPE_META = { label: 'Nota', color: '#7c6fcd', bg: 'rgba(124,111,205,0.1)' };
+
 const TYPE_META: Record<string, { label: string; color: string; bg: string }> = {
   note:         { label: 'Nota',         color: '#7c6fcd', bg: 'rgba(124,111,205,0.1)' },
   notebook:     { label: 'Cuaderno',     color: '#7c6fcd', bg: 'rgba(124,111,205,0.1)' },
@@ -494,7 +496,11 @@ function extractPlainText(content: string | null | undefined): string {
       const parts: string[] = [];
       function walk(node: { type?: string; text?: string; content?: unknown[] }) {
         if (node.type === 'text' && node.text) parts.push(node.text);
-        if (Array.isArray(node.content)) node.content.forEach(walk);
+        if (Array.isArray(node.content)) {
+          for (const child of node.content) {
+            if (child && typeof child === 'object') walk(child as { type?: string; text?: string; content?: unknown[] });
+          }
+        }
       }
       walk(doc);
       return parts.join(' ').replace(/\s+/g, ' ').trim();
@@ -768,10 +774,10 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
                             const isFolder = result.type === 'folder';
                             const iconColor = isFolder && result.folderColor
                               ? result.folderColor
-                              : (TYPE_META[result.type] ?? TYPE_META.note).color;
+                              : (TYPE_META[result.type] ?? DEFAULT_TYPE_META).color;
                             const iconBg = isFolder && result.folderColor
                               ? `${result.folderColor}22`
-                              : (TYPE_META[result.type] ?? TYPE_META.note).bg;
+                              : (TYPE_META[result.type] ?? DEFAULT_TYPE_META).bg;
                             return (
                               <span
                                 className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"

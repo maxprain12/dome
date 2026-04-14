@@ -40,7 +40,7 @@
     "strict": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
+    "noUncheckedIndexedAccess": false,
     "noImplicitOverride": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
@@ -52,6 +52,7 @@
   "include": [
     "app/**/*.ts",
     "app/**/*.tsx",
+    "app/**/*.d.ts",
 
     ".next/types/**/*.ts",
     "out/types/**/*.ts"

@@ -106,7 +106,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     const loadConfig = async () => {
       const config = await getAIConfig();
       if (config?.provider) {
-        const loadedProvider = config.provider === 'local' ? 'ollama' : config.provider;
+        const loadedProvider = (config.provider as string) === 'local' ? 'ollama' : config.provider;
         setProvider(loadedProvider as OnboardingProviderType);
         setApiKey(config.api_key || '');
         setModel(config.model || getDefaultModelId(loadedProvider as AIProviderType));
@@ -302,10 +302,12 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                         backgroundColor: isSelected ? DOME_GREEN_LIGHT : 'var(--dome-bg-hover)',
                       }}
                     >
-                      <IconComponent
-                        className="w-3.5 h-3.5"
+                      <span
+                        className="flex items-center justify-center"
                         style={{ color: isSelected ? DOME_GREEN : 'var(--dome-text-muted)' }}
-                      />
+                      >
+                        <IconComponent className="w-3.5 h-3.5" />
+                      </span>
                     </div>
                     {isSelected && (
                       <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />
@@ -349,10 +351,12 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                     backgroundColor: isSelected ? DOME_GREEN_LIGHT : 'var(--dome-bg-hover)',
                   }}
                 >
-                  <IconComponent
-                    className="w-3.5 h-3.5"
+                  <span
+                    className="flex items-center justify-center shrink-0"
                     style={{ color: isSelected ? DOME_GREEN : 'var(--dome-text-muted)' }}
-                  />
+                  >
+                    <IconComponent className="w-3.5 h-3.5" />
+                  </span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">

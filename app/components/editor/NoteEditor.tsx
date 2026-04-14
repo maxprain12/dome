@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { JSONContent, Editor } from '@tiptap/core';
+import type { SuggestionProps } from '@tiptap/suggestion';
 import ReactDOM from 'react-dom';
 import { buildCoreNoteExtensions } from '@/lib/tiptap/extensions';
 import { SlashCommandExtension, SLASH_COMMANDS, type SlashCommand } from '@/lib/tiptap/slash-commands';
@@ -59,25 +60,17 @@ export default function NoteEditor({
 
   const mentionRender = useCallback(() => {
     return {
-      onStart: (props: {
-        items: DomeMentionItem[];
-        clientRect: () => DOMRect | null;
-        command: (item: DomeMentionItem) => void;
-      }) => {
+      onStart: (props: SuggestionProps<DomeMentionItem, unknown>) => {
         setMentionUi({
           items: props.items,
-          clientRect: props.clientRect,
+          clientRect: () => props.clientRect?.() ?? null,
           onPick: (item) => props.command(item),
         });
       },
-      onUpdate: (props: {
-        items: DomeMentionItem[];
-        clientRect: () => DOMRect | null;
-        command: (item: DomeMentionItem) => void;
-      }) => {
+      onUpdate: (props: SuggestionProps<DomeMentionItem, unknown>) => {
         setMentionUi({
           items: props.items,
-          clientRect: props.clientRect,
+          clientRect: () => props.clientRect?.() ?? null,
           onPick: (item) => props.command(item),
         });
       },
@@ -109,22 +102,14 @@ export default function NoteEditor({
           },
           render: () => {
             return {
-              onStart: (props: {
-                items: SlashCommand[];
-                clientRect: () => DOMRect | null;
-                command: (item: SlashCommand) => void;
-              }) => {
+              onStart: (props: SuggestionProps<SlashCommand, unknown>) => {
                 setSlashItems(props.items);
-                setSlashClientRect(() => props.clientRect);
+                setSlashClientRect(() => () => props.clientRect?.() ?? null);
                 slashCommandRef.current = props.command;
               },
-              onUpdate: (props: {
-                items: SlashCommand[];
-                clientRect: () => DOMRect | null;
-                command: (item: SlashCommand) => void;
-              }) => {
+              onUpdate: (props: SuggestionProps<SlashCommand, unknown>) => {
                 setSlashItems(props.items);
-                setSlashClientRect(() => props.clientRect);
+                setSlashClientRect(() => () => props.clientRect?.() ?? null);
                 slashCommandRef.current = props.command;
               },
               onKeyDown: (props: { event: KeyboardEvent }) => {

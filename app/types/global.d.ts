@@ -7,46 +7,7 @@ declare module '*.txt?raw' {
 }
 
 // Tiptap custom commands declaration
-import type {
-  CalloutBlockAttributes,
-  DividerAttributes,
-  ToggleBlockAttributes,
-  PDFEmbedAttributes,
-  FileBlockAttributes,
-  VideoEmbedAttributes,
-  AudioEmbedAttributes,
-  MCPServerConfig,
-  MCPToolConfig,
-} from '@/types';
-
-declare module '@tiptap/core' {
-  interface Commands<ReturnType> {
-    callout: {
-      setCallout: (attributes?: CalloutBlockAttributes) => ReturnType;
-    };
-    divider: {
-      setDivider: (attributes?: DividerAttributes) => ReturnType;
-    };
-    toggle: {
-      setToggle: (attributes?: ToggleBlockAttributes) => ReturnType;
-    };
-    pdfEmbed: {
-      setPDFEmbed: (attributes: PDFEmbedAttributes) => ReturnType;
-    };
-    fileBlock: {
-      setFileBlock: (attributes: FileBlockAttributes) => ReturnType;
-    };
-    mermaid: {
-      setMermaid: (attributes?: { code?: string }) => ReturnType;
-    };
-    videoEmbed: {
-      setVideoEmbed: (attributes: VideoEmbedAttributes) => ReturnType;
-    };
-    audioEmbed: {
-      setAudioEmbed: (attributes: AudioEmbedAttributes) => ReturnType;
-    };
-  }
-}
+import type { MCPServerConfig, MCPToolConfig, Resource } from '@/types';
 
 type ThemeChangeCallback = (theme: 'light' | 'dark') => void;
 type RemoveListenerFn = () => void;
@@ -63,28 +24,6 @@ interface Project {
   name: string;
   description?: string;
   parent_id?: string;
-  created_at: number;
-  updated_at: number;
-}
-
-interface Resource {
-  id: string;
-  project_id: string;
-  type: 'pdf' | 'video' | 'audio' | 'image' | 'url' | 'document' | 'folder' | 'notebook';
-  title: string;
-  content?: string;
-  // Legacy external file path (deprecated)
-  file_path?: string;
-  // Internal file storage (new system)
-  internal_path?: string;
-  file_mime_type?: string;
-  file_size?: number;
-  file_hash?: string;
-  thumbnail_data?: string;
-  original_filename?: string;
-  // Folder containment
-  folder_id?: string | null;
-  metadata?: Record<string, any>;
   created_at: number;
   updated_at: number;
 }
@@ -155,6 +94,12 @@ interface ResourceLink {
 interface UnifiedSearchResult {
   resources: Resource[];
   interactions: (ResourceInteraction & { resource_title: string })[];
+  studioOutputs?: Array<{
+    id: string;
+    title?: string;
+    content?: string;
+    updated_at?: number;
+  }>;
 }
 
 // Knowledge Graph Types
@@ -240,7 +185,17 @@ declare global {
         }) => Promise<{ success: boolean; data?: unknown; error?: string }>;
         syncProject: (projectId: string) => Promise<{ success: boolean; data?: unknown; error?: string }>;
         syncAll: () => Promise<{ success: boolean; data?: unknown; error?: string }>;
-        getStatus: (projectId?: string) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        getStatus: (projectId?: string) => Promise<{
+          success: boolean;
+          data?: {
+            effectiveEnabled?: boolean;
+            lastRuns?: {
+              compile: { status?: string; finishedAt?: number | null; updatedAt?: number } | null;
+              health: unknown;
+            };
+          };
+          error?: string;
+        }>;
       };
       on: (channel: string, callback: (...args: any[]) => void) => RemoveListenerFn;
       once: (channel: string, callback: (...args: any[]) => void) => void;
@@ -621,6 +576,19 @@ declare global {
       migration: {
         migrateResources: () => Promise<DBResponse<MigrationResult>>;
         getStatus: () => Promise<DBResponse<MigrationStatus>>;
+        getNotesMigrationStatus: () => Promise<
+          DBResponse<{ pendingMigrations: number; notes: Array<{ id: string; title: string }> }>
+        >;
+        migrateNotesToDomain: () => Promise<DBResponse<{ migrated?: number; error?: string }>>;
+      };
+
+      /** Docling: PDF conversion progress and image APIs */
+      docling?: {
+        onProgress: (
+          callback: (event: { resourceId: string; status: string; progress?: number }) => void,
+        ) => RemoveListenerFn;
+        convertResource: (resourceId: string) => Promise<{ success?: boolean; error?: string }>;
+        getImageData?: (imageId: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       };
 
       // Web Scraping API
@@ -967,6 +935,11 @@ declare global {
               created_at: number;
               updated_at: number;
               metadata?: Record<string, any>;
+              node_id?: string;
+              pages?: number[];
+              page_range?: string;
+              node_title?: string;
+              node_path?: string[];
             }>;
             error?: string;
           }>;
@@ -1129,6 +1102,7 @@ declare global {
           }>;
           flashcardCreate: (data: {
             resource_id?: string;
+            source_ids?: string[];
             project_id: string;
             title: string;
             description?: string;
@@ -1213,6 +1187,50 @@ declare global {
           pptGetSlideImages: (
             resourceId: string
           ) => Promise<{ success: boolean; slides?: Array<{ index: number; image_base64: string }>; error?: string }>;
+          pdfExtractText: (
+            resourceId: string,
+            options?: { maxChars?: number; pages?: string },
+          ) => Promise<{
+            success: boolean;
+            title?: string;
+            text?: string;
+            pages?: unknown;
+            totalPages?: number;
+            error?: string;
+          }>;
+          pdfGetMetadata: (resourceId: string) => Promise<{
+            success: boolean;
+            title?: string;
+            metadata?: Record<string, unknown>;
+            error?: string;
+          }>;
+          pdfGetStructure: (resourceId: string) => Promise<{
+            success: boolean;
+            title?: string;
+            structure?: unknown;
+            totalPages?: number;
+            error?: string;
+          }>;
+          pdfSummarize: (
+            resourceId: string,
+            options?: { maxChars?: number; prompt?: string },
+          ) => Promise<{
+            success: boolean;
+            title?: string;
+            text?: string;
+            metadata?: unknown;
+            totalPages?: number;
+            extractedPages?: unknown;
+            prompt?: string;
+            error?: string;
+          }>;
+          pdfExtractTables: (resourceId: string) => Promise<{
+            success: boolean;
+            title?: string;
+            tables?: unknown;
+            count?: number;
+            error?: string;
+          }>;
         };
       };
 
@@ -1418,10 +1436,12 @@ declare global {
           text: string;
           autoSpeak?: boolean;
           openPanel?: boolean;
+          voiceLanguage?: string;
         }) => Promise<{ success: boolean; error?: string }>;
         pushStateToOverlay: (payload: {
           status: 'idle' | 'thinking' | 'speaking' | 'listening';
           ttsError?: string | null;
+          currentSentence?: string | null;
         }) => Promise<{ success: boolean; error?: string }>;
         overlayMounted: () => Promise<{ success: boolean; error?: string }>;
         overlaySetVisible: (visible: boolean) => Promise<{ success: boolean; error?: string }>;
@@ -1433,7 +1453,11 @@ declare global {
           callback: (payload: { text: string; autoSpeak?: boolean; openPanel?: boolean; voiceLanguage?: string }) => void
         ) => RemoveListenerFn;
         onHudState: (
-          callback: (payload: { status?: string; ttsError?: string | null; currentSentence?: string | null }) => void
+          callback: (payload: {
+            status?: 'idle' | 'thinking' | 'speaking' | 'listening';
+            ttsError?: string | null;
+            currentSentence?: string | null;
+          }) => void,
         ) => RemoveListenerFn;
         onRequestStatePush: (callback: () => void) => RemoveListenerFn;
         onOpenPanelRequest: (callback: () => void) => RemoveListenerFn;

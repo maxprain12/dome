@@ -231,7 +231,7 @@ export async function executeToolCall(
     toolTraceLog('tool executed', {
       name: toolCall.name,
       durationMs: Date.now() - start,
-      resultType: result?.type,
+      resultType: result?.content?.[0]?.type,
       status: (result?.details as Record<string, unknown>)?.status,
     });
   } catch (err) {

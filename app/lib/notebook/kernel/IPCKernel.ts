@@ -41,7 +41,7 @@ export async function runPythonCode(code: string, options?: RunPythonOptions): P
       error: 'Electron notebook API not available',
     };
   }
-  return electron.notebook.runPython(code, options);
+  return electron.notebook.runPython(code, options) as Promise<PyodideRunResult>;
 }
 
 /**

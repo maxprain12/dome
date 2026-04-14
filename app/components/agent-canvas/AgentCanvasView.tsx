@@ -46,7 +46,7 @@ function AgentCanvasInner() {
   const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
 
   const onNodesChange = useCallback(
-    (changes: NodeChange<CanvasNodeData>[]) => {
+    (changes: NodeChange[]) => {
       setNodes(applyNodeChanges(changes, useCanvasStore.getState().nodes));
     },
     [setNodes]

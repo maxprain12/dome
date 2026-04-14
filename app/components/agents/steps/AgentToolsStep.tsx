@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { MANY_TOOL_CATALOG, getToolsByGroup, getGroupLabel } from '@/lib/agents/catalog';
+import { MANY_TOOL_CATALOG, getToolsByGroup, getGroupLabel, type ToolCatalogEntry } from '@/lib/agents/catalog';
 
 interface AgentToolsStepProps {
   selectedIds: string[];
@@ -21,7 +21,7 @@ export default function AgentToolsStep({ selectedIds, onChange }: AgentToolsStep
   };
 
   const toggleGroup = (group: string, select: boolean) => {
-    const tools = byGroup.get(group as keyof typeof byGroup);
+    const tools = byGroup.get(group as ToolCatalogEntry['group']);
     if (!tools) return;
     if (select) {
       const next = new Set(selectedIds);

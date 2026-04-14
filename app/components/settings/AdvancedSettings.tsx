@@ -270,7 +270,7 @@ export default function AdvancedSettings() {
       </div>
 
       {/* ── Notes migration ── */}
-      {typeof window !== 'undefined' && window.electron?.migration?.getNotesMigrationStatus && (
+      {typeof window !== 'undefined' && window.electron?.migration && (
         <div>
           <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.advanced.migration')}</DomeSectionLabel>
           <DomeCard className="p-4">

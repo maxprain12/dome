@@ -70,7 +70,8 @@ export function captureExceptionPostHog(
 export function shutdownPostHog(): void {
   if (!initialized) return;
   try {
-    posthog.shutdown();
+    const client = posthog as { shutdown?: () => void };
+    client.shutdown?.();
     initialized = false;
   } catch {
     // ignore

@@ -189,7 +189,11 @@ export default function StructuredTranscriptWorkspace({
     try {
       const res = await window.electron.transcription.regenerateLinkedNote({ resourceId: resource.id });
       if (res.success) {
-        notifications.show({ title: t('media.regenerate_note_done'), color: 'green' });
+        notifications.show({
+          title: t('media.regenerate_note_done'),
+          message: t('media.regenerate_note_done'),
+          color: 'green',
+        });
       } else {
         notifications.show({
           title: t('media.regenerate_note_failed'),

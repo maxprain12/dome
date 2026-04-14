@@ -13,8 +13,6 @@ import { getUserDataPath } from '../utils/paths';
 
 // Note: FILES_DIR calculation may not work in renderer without Electron
 // In Electron, this should use app.getPath('userData') from main process
-let FILES_DIR: string;
-
 function getFilesDir(): string {
   if (typeof window !== 'undefined' && window.electron) {
     // In Electron, we should get this from main process via IPC
@@ -27,7 +25,7 @@ function getFilesDir(): string {
   return path.join(userDataPath, 'dome-files');
 }
 
-FILES_DIR = getFilesDir();
+const FILES_DIR = getFilesDir();
 
 // Tipos de archivo soportados
 export const SUPPORTED_FILE_TYPES = {

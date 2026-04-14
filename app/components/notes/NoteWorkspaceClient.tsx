@@ -262,7 +262,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
           <StudioOutputViewer output={activeStudioOutput} onClose={() => setActiveStudioOutput(null)} />
         )}
         {graphPanelOpen && resource && (
-          <GraphPanel resourceId={resource.id} />
+          <GraphPanel resource={resource} />
         )}
         <SidePanel
           resourceId={resource.id}
@@ -274,6 +274,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
 
       {showMetadata && resource && (
         <MetadataModal
+          isOpen={showMetadata}
           resource={resource}
           onClose={() => setShowMetadata(false)}
           onSave={handleSaveMetadata}

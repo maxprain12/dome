@@ -115,7 +115,7 @@ export function MentionMenuPortal({ items, command, clientRect, menuRef }: Menti
 
   return createPortal(
     <div style={{ position: 'fixed', top: position.top, left: position.left, zIndex: 10000 }}>
-      <MentionSuggestionMenu ref={menuRef} items={items} command={command} clientRect={clientRect} />
+      <MentionSuggestionMenu ref={menuRef as React.Ref<MentionMenuHandle>} items={items} command={command} clientRect={clientRect} />
     </div>,
     document.body,
   );

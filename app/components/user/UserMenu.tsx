@@ -50,7 +50,7 @@ export default function UserMenu() {
     
     try {
       await Promise.all([
-        updateUserProfile({ name: '', email: '', avatarPath: null, avatarData: null }),
+        updateUserProfile({ name: '', email: '', avatarPath: undefined, avatarData: undefined }),
         resetOnboarding(),
       ]);
       

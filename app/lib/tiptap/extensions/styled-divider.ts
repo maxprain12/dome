@@ -1,9 +1,12 @@
 import { Node, mergeAttributes } from '@tiptap/core';
+import type { CommandProps } from '@tiptap/core';
 import type { DividerAttributes } from '@/types';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    setDivider: (attributes?: DividerAttributes) => ReturnType;
+    styledDivider: {
+      setDivider: (attributes?: DividerAttributes) => ReturnType;
+    };
   }
 }
 
@@ -46,8 +49,8 @@ export const StyledDivider = Node.create({
   addCommands() {
     return {
       setDivider:
-        (attributes = {}) =>
-        ({ commands }) =>
+        (attributes: DividerAttributes = {}) =>
+        ({ commands }: CommandProps) =>
           commands.insertContent({
             type: this.name,
             attrs: { variant: attributes.variant ?? 'line' },

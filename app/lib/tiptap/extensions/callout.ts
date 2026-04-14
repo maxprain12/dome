@@ -1,9 +1,12 @@
 import { Node, mergeAttributes } from '@tiptap/core';
+import type { CommandProps } from '@tiptap/core';
 import type { CalloutBlockAttributes } from '@/types';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
-    setCallout: (attributes?: CalloutBlockAttributes) => ReturnType;
+    callout: {
+      setCallout: (attributes?: CalloutBlockAttributes) => ReturnType;
+    };
   }
 }
 
@@ -56,7 +59,7 @@ export const Callout = Node.create({
     return {
       setCallout:
         (attributes = {}) =>
-        ({ commands }) =>
+        ({ commands }: CommandProps) =>
           commands.insertContent({
             type: this.name,
             attrs: {

@@ -7,7 +7,14 @@
  * - Error handling with graceful degradation
  */
 
-import { useMarketplaceStore, type MarketplaceAgent, type MarketplaceWorkflow, type MCPServerConfig, type MarketplaceSkill, type MarketplacePlugin } from '../store/useMarketplaceStore';
+import type { MarketplaceAgent } from '@/types';
+import {
+  useMarketplaceStore,
+  type MarketplaceWorkflow,
+  type MCPServerConfig,
+  type MarketplaceSkill,
+  type MarketplacePlugin,
+} from '../store/useMarketplaceStore';
 
 // Source type labels for display
 export const SOURCE_LABELS: Record<string, string> = {
@@ -257,9 +264,17 @@ export function searchItems<T extends { name?: string; description?: string; tag
 /**
  * Sort items by various criteria
  */
-export function sortItems<T extends { downloads?: number; featured?: boolean; installs?: number }>(
+export function sortItems<
+  T extends {
+    downloads?: number;
+    featured?: boolean;
+    installs?: number;
+    name?: string;
+    createdAt?: number;
+  },
+>(
   items: T[],
-  sortBy: 'downloads' | 'name' | 'featured' | 'recent' = 'downloads',
+  sortBy: 'downloads' | 'installs' | 'name' | 'featured' | 'recent' = 'downloads',
   descending = true
 ): T[] {
   const sorted = [...items];

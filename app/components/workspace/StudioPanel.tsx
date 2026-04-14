@@ -150,13 +150,13 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
         isOpen={pendingGenerateType !== null}
         onClose={() => setPendingGenerateType(null)}
         onConfirm={handleModalConfirm}
-        projectId={effectiveProjectId}
+        projectId={effectiveProjectId ?? null}
         tileTitle={
           pendingGenerateType
             ? (STUDIO_TILES.find((t) => t.type === pendingGenerateType)?.title ?? pendingGenerateType)
             : ''
         }
-        focusResourceId={resourceId}
+        focusResourceId={resourceId ?? null}
       />
 
       {/* Tiles grid */}

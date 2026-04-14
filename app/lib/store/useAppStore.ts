@@ -52,8 +52,38 @@ interface AppState {
   // UI Estado
   sidebarOpen: boolean;
   toggleSidebar: () => void;
-  homeSidebarSection: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | `agent:${string}` | `team:${string}` | `workflow:${string}`;
-  setHomeSidebarSection: (section: 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | `agent:${string}` | `team:${string}` | `workflow:${string}`) => void;
+  homeSidebarSection:
+    | 'library'
+    | 'flashcards'
+    | 'chat'
+    | 'projects'
+    | 'recent'
+    | 'tags'
+    | 'studio'
+    | 'agents'
+    | 'marketplace'
+    | 'agent-teams'
+    | 'automations-hub'
+    | `agent:${string}`
+    | `team:${string}`
+    | `workflow:${string}`;
+  setHomeSidebarSection: (
+    section:
+      | 'library'
+      | 'flashcards'
+      | 'chat'
+      | 'projects'
+      | 'recent'
+      | 'tags'
+      | 'studio'
+      | 'agents'
+      | 'marketplace'
+      | 'agent-teams'
+      | 'automations-hub'
+      | `agent:${string}`
+      | `team:${string}`
+      | `workflow:${string}`,
+  ) => void;
   homeSidebarCollapsed: boolean;
   toggleHomeSidebar: () => void;
   viewMode: 'grid' | 'list';

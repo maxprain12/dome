@@ -14,9 +14,7 @@ import type { AIProviderType } from '../models';
 /**
  * Configuration for creating providers
  */
-export interface ProviderFactoryConfig {
-  // Add provider configs as they are implemented
-}
+export type ProviderFactoryConfig = Record<string, never>;
 
 /**
  * Create a provider instance by type.

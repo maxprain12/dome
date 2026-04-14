@@ -91,7 +91,7 @@ export function normalizeImportedNotebook(parsed: unknown): NotebookContent | nu
   return {
     nbformat,
     nbformat_minor,
-    cells: cells as NotebookContent['cells'],
+    cells: cells as unknown as NotebookContent['cells'],
     metadata: metadata as NotebookContent['metadata'],
   };
 }

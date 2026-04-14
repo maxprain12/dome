@@ -29,17 +29,19 @@ export default memo(function ChatMessageGroup({
   className = '',
 }: ChatMessageGroupProps) {
   const firstMessage = messages[0];
+
+  // Format group timestamp (first message in group)
+  const groupTime = useMemo(() => {
+    if (!firstMessage) return '';
+    const date = new Date(firstMessage.timestamp);
+    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  }, [firstMessage]);
+
   if (!firstMessage) return null;
 
   const role = firstMessage.role;
   const isUser = role === 'user';
   const isAssistant = role === 'assistant';
-
-  // Format group timestamp (first message in group)
-  const groupTime = useMemo(() => {
-    const date = new Date(firstMessage.timestamp);
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  }, [firstMessage.timestamp]);
 
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''} ${className}`}>
