@@ -20,6 +20,12 @@ if (fs_env.existsSync(dotenvPath)) {
   }
 }
 
+// Child processes read NODE_OPTIONS before JS runs far enough for app.isPackaged; strip it when this
+// file is loaded from the packaged asar (not from the dev repo path).
+if (process.env.NODE_OPTIONS && __dirname.includes('app.asar')) {
+  delete process.env.NODE_OPTIONS;
+}
+
 const {
   app,
   BrowserWindow,

@@ -164,7 +164,7 @@ async function initializeApp() {
 
   // If already initialized, return immediately
   if (isInitialized) {
-    console.log('[Init] ⚠️ App already initialized');
+    console.debug('[Init] App already initialized (idempotent IPC)');
     return {
       success: true,
       needsOnboarding: checkOnboardingStatus(),

@@ -443,9 +443,18 @@ export default function ManyVoiceHud() {
       remoteManyStatus === 'thinking'
     );
 
+  // Defer hiding slightly so a cold-start toggle can start STS before we call hide()
+  // (startRealtimeSession is async; hudOpen stays false for a few ms after onToggle runs).
   useEffect(() => {
-    if (!window.electron?.manyVoice?.overlaySetVisible) return;
-    void window.electron.manyVoice.overlaySetVisible(hudOpen);
+    if (!window.electron?.manyVoice?.overlaySetVisible) return undefined;
+    if (hudOpen) {
+      void window.electron.manyVoice.overlaySetVisible(true);
+      return undefined;
+    }
+    const t = window.setTimeout(() => {
+      void window.electron.manyVoice.overlaySetVisible(false);
+    }, 150);
+    return () => clearTimeout(t);
   }, [hudOpen]);
 
   // ── Notify AppShell top-bar indicators ─────────────────────────────────
