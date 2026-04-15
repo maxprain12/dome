@@ -120,7 +120,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           zipfile.readEntry();
           zipfile.on('entry', (entry) => {
             if (/\/$/.test(entry.fileName)) {
-              const dirPath = path.join(tempDir, entry.fileName);
+              const safeName = entry.fileName.replace(/\.\.\//g, '');
+              const dirPath = path.join(tempDir, safeName);
               fs.mkdirSync(dirPath, { recursive: true });
               zipfile.readEntry();
               return;
@@ -128,7 +129,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
             zipfile.openReadStream(entry, (openErr, readStream) => {
               if (openErr) return reject(openErr);
-              const destPath = path.join(tempDir, entry.fileName);
+              const safeName = entry.fileName.replace(/\.\.\//g, '');
+              const destPath = path.join(tempDir, safeName);
               fs.mkdirSync(path.dirname(destPath), { recursive: true });
               const writeStream = fs.createWriteStream(destPath);
               readStream.pipe(writeStream);
