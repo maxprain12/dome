@@ -137,15 +137,17 @@ export default function ManyVoiceHud() {
   }, []);
 
   // ── Check realtime availability ───────────────────────
-  const checkRealtimeAvailable = useCallback(async (): Promise<boolean> => {
-    if (realtimeAvailableRef.current !== null) return realtimeAvailableRef.current;
+  // Only cache positive results; negative results are re-checked on every attempt
+  // so a transiently missing key or disabled setting doesn't get stuck permanently.
+  const checkRealtimeAvailable = useCallback(async (forceRefresh = false): Promise<boolean> => {
+    if (!forceRefresh && realtimeAvailableRef.current === true) return true;
     try {
       const cfg = await window.electron?.realtime?.getSessionConfig?.();
       const ok = cfg?.success === true;
-      realtimeAvailableRef.current = ok;
+      realtimeAvailableRef.current = ok ? true : null;
       return ok;
     } catch {
-      realtimeAvailableRef.current = false;
+      realtimeAvailableRef.current = null;
       return false;
     }
   }, []);
@@ -272,7 +274,7 @@ export default function ManyVoiceHud() {
       if (phase === 'processing') return;
       if (phase === 'recording') { legacyRecorder.stopRecording(); return; }
       clearMainTts();
-      void checkRealtimeAvailable().then((available) => {
+      void checkRealtimeAvailable(true).then((available) => {
         if (available) void startRealtimeSession('server_vad');
         else void startLegacyMic();
       });
@@ -287,7 +289,7 @@ export default function ManyVoiceHud() {
     const unA = start(() => {
       if (phase === 'processing') return;
       clearMainTts();
-      void checkRealtimeAvailable().then((available) => {
+      void checkRealtimeAvailable(true).then((available) => {
         if (available) void startRealtimeSession('ptt');
         else void startLegacyMic();
       });

@@ -93,6 +93,9 @@ const en = {
     home: 'Home',
     noResourceSelected: 'No resource selected',
     no_results: 'No results',
+    select: 'Select',
+    select_all: 'Select all',
+    deselect_all: 'Deselect all',
   },
   app: {
     loading: 'Loading Dome...',
@@ -1756,6 +1759,7 @@ const en = {
     kb_llm_on: 'Force on',
     kb_llm_off: 'Force off',
     kb_llm_helper: 'Overrides global Knowledge Base setting for this project only.',
+    active: 'Active',
   },
   userMenu: {
     open_settings: 'Open settings',
@@ -2112,6 +2116,9 @@ const es = {
     home: 'Inicio',
     noResourceSelected: 'Ningún recurso seleccionado',
     no_results: 'Sin resultados',
+    select: 'Seleccionar',
+    select_all: 'Seleccionar todo',
+    deselect_all: 'Deseleccionar todo',
   },
   app: {
     loading: 'Cargando Dome...',
@@ -3778,6 +3785,7 @@ const es = {
     kb_llm_on: 'Forzar activado',
     kb_llm_off: 'Forzar desactivado',
     kb_llm_helper: 'Sustituye solo para este proyecto el ajuste global de Base de conocimiento.',
+    active: 'Activo',
   },
   userMenu: {
     open_settings: 'Abrir ajustes',
@@ -4134,6 +4142,9 @@ const fr = {
     home: 'Accueil',
     noResourceSelected: 'Aucune ressource sélectionnée',
     no_results: 'Aucun résultat',
+    select: 'Sélectionner',
+    select_all: 'Tout sélectionner',
+    deselect_all: 'Tout désélectionner',
   },
   app: {
     loading: 'Chargement de Dome...',
@@ -5800,6 +5811,7 @@ const fr = {
     kb_llm_on: 'Forcer activé',
     kb_llm_off: 'Forcer désactivé',
     kb_llm_helper: 'Remplace le réglage global de la base de connaissances pour ce projet uniquement.',
+    active: 'Actif',
   },
   userMenu: {
     open_settings: 'Ouvrir les paramètres',
@@ -6156,6 +6168,9 @@ const pt = {
     home: 'Início',
     noResourceSelected: 'Nenhum recurso selecionado',
     no_results: 'Sem resultados',
+    select: 'Selecionar',
+    select_all: 'Selecionar tudo',
+    deselect_all: 'Desmarcar tudo',
   },
   app: {
     loading: 'Carregando Dome...',
@@ -7822,6 +7837,7 @@ const pt = {
     kb_llm_on: 'Forçar ativo',
     kb_llm_off: 'Forçar inativo',
     kb_llm_helper: 'Substitui só neste projeto a configuração global da base de conhecimento.',
+    active: 'Ativo',
   },
   userMenu: {
     open_settings: 'Abrir configurações',
