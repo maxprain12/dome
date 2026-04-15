@@ -644,6 +644,8 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
     }
 
     try {
+      // Sanitize destination path to prevent path traversal
+      const safeDest = destinationPath.replace(/\.\.\//g, '');
       const queries = database.getQueries();
       const resource = queries.getResourceById.get(resourceId);
 
@@ -664,17 +666,17 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       }
 
       // Ensure destination directory exists
-      const destDir = path.dirname(destinationPath);
+      const destDir = path.dirname(safeDest);
       if (!fs.existsSync(destDir)) {
         fs.mkdirSync(destDir, { recursive: true });
       }
 
       // Copy file
-      fs.copyFileSync(sourcePath, destinationPath);
+      fs.copyFileSync(sourcePath, safeDest);
 
-      console.log(`[Resource] Exported: ${resource.title} -> ${destinationPath}`);
+      console.log(`[Resource] Exported: ${resource.title} -> ${safeDest}`);
 
-      return { success: true, data: destinationPath };
+      return { success: true, data: safeDest };
     } catch (error) {
       console.error('[Resource] Error exporting file:', error);
       return { success: false, error: error.message };

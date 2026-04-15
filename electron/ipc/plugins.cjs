@@ -165,7 +165,8 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
             }
             zipfile.openReadStream(entry, (openErr, readStream) => {
               if (openErr) return reject(openErr);
-              const destPath = path.join(extractDir, entry.fileName);
+              const safeName = entry.fileName.replace(/\.\.\//g, '');
+              const destPath = path.join(extractDir, safeName);
               fs.mkdirSync(path.dirname(destPath), { recursive: true });
               const writeStream = fs.createWriteStream(destPath);
               readStream.pipe(writeStream);

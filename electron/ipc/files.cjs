@@ -10,11 +10,12 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
-      if (!fs.existsSync(filePath)) {
+      const safePath = sanitizePath(filePath, true);
+      if (!fs.existsSync(safePath)) {
         return { success: false, error: 'File not found' };
       }
 
-      const buffer = fs.readFileSync(filePath);
+      const buffer = fs.readFileSync(safePath);
       const hash = crypto.createHash('sha256')
         .update(buffer)
         .digest('hex')
@@ -36,7 +37,8 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
-      const buffer = fs.readFileSync(filePath);
+      const safePath = sanitizePath(filePath, true);
+      const buffer = fs.readFileSync(safePath);
       return { success: true, data: buffer };
     } catch (error) {
       console.error('[File] Error reading file:', error);
@@ -165,11 +167,12 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
-      if (!fs.existsSync(filePath)) {
+      const safePath = sanitizePath(filePath, true);
+      if (!fs.existsSync(safePath)) {
         return { success: false, error: 'File not found' };
       }
 
-      const stats = fs.statSync(filePath);
+      const stats = fs.statSync(safePath);
       const info = {
         size: stats.size,
         created: stats.birthtime,
@@ -194,8 +197,9 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
-      const buffer = fs.readFileSync(filePath);
-      const ext = path.extname(filePath).toLowerCase();
+      const safePath = sanitizePath(filePath, true);
+      const buffer = fs.readFileSync(safePath);
+      const ext = path.extname(safePath).toLowerCase();
       const mimeTypes = {
         '.jpg': 'image/jpeg',
         '.jpeg': 'image/jpeg',
@@ -256,8 +260,9 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
+      const safePath = sanitizePath(filePath, true);
       const documentExtractor = require('../document-extractor.cjs');
-      const text = await documentExtractor.extractTextFromPDF(filePath);
+      const text = await documentExtractor.extractTextFromPDF(safePath);
       return { success: true, data: text };
     } catch (error) {
       console.error('[File] Error extracting PDF text:', error);
