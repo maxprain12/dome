@@ -136,7 +136,7 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     setIsDirty(true);
   }, []);
 
-  const handleEditorReady = useCallback((editor: any) => {
+  const handleEditorReady = useCallback((editor: Editor) => {
     editorRef.current = editor;
     setEditorReady(true);
   }, []);

@@ -1086,7 +1086,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           content: m.content,
           timestamp: m.timestamp,
           toolCalls,
-          citationMap: buildCitationMap(toolCalls as Array<{ name: string; result: any }> | undefined),
+          citationMap: buildCitationMap(toolCalls as Array<{ name: string; result?: unknown }> | undefined),
           thinking: m.thinking,
         };
       }),
@@ -1095,7 +1095,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
   const messageGroups = useMemo(() => {
     const liveStreamingMessage = streamingMessage
-      ? { ...streamingMessage, citationMap: buildCitationMap(streamingMessage.toolCalls as Array<{ name: string; result: any }> | undefined) }
+      ? { ...streamingMessage, citationMap: buildCitationMap(streamingMessage.toolCalls as Array<{ name: string; result?: unknown }> | undefined) }
       : null;
     const all = liveStreamingMessage ? [...chatMessages, liveStreamingMessage] : chatMessages;
     return groupMessagesByRole(all);

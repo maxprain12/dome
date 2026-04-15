@@ -91,34 +91,42 @@ export function convertPDFRectToViewport(
   };
 }
 
+interface ParsedAnnotationData {
+  id: string;
+  metadata?: Record<string, unknown> | null;
+  position_data?: Record<string, unknown> | null;
+  content?: string;
+}
+
 /**
  * Convert annotation from database format to PDFAnnotation
  */
 export function parseAnnotationFromDB(
-  interaction: any
+  interaction: ParsedAnnotationData
 ): PDFAnnotation | null {
   try {
-    const metadata = interaction.metadata || {};
-    const positionData = interaction.position_data || {};
+    const metadata = interaction.metadata ?? {};
+    const positionData = interaction.position_data ?? {};
 
-    if (metadata.type && ['highlight', 'note'].includes(metadata.type)) {
+    const annotationType = metadata['type'] as string | undefined;
+    if (annotationType && ['highlight', 'note'].includes(annotationType)) {
       return {
         id: interaction.id,
-        type: metadata.type as AnnotationType,
-        pageIndex: positionData.pageIndex ?? 0,
+        type: annotationType as AnnotationType,
+        pageIndex: (positionData['pageIndex'] as number | undefined) ?? 0,
         coordinates: {
-          x: positionData.x ?? 0,
-          y: positionData.y ?? 0,
-          width: positionData.width,
-          height: positionData.height,
+          x: (positionData['x'] as number | undefined) ?? 0,
+          y: (positionData['y'] as number | undefined) ?? 0,
+          width: positionData['width'] as number | undefined,
+          height: positionData['height'] as number | undefined,
         },
         style: {
-          color: metadata.color ?? '#ffeb3b',
-          opacity: metadata.opacity ?? 0.3,
-          strokeWidth: metadata.strokeWidth ?? 2,
+          color: (metadata['color'] as string | undefined) ?? '#ffeb3b',
+          opacity: (metadata['opacity'] as number | undefined) ?? 0.3,
+          strokeWidth: (metadata['strokeWidth'] as number | undefined) ?? 2,
         },
         content: interaction.content || undefined,
-        selectedText: positionData.selectedText || undefined,
+        selectedText: positionData['selectedText'] as string | undefined,
       };
     }
   } catch (error) {
@@ -133,8 +141,8 @@ export function parseAnnotationFromDB(
 export function serializeAnnotationForDB(
   annotation: PDFAnnotation
 ): {
-  position_data: Record<string, any>;
-  metadata: Record<string, any>;
+  position_data: Record<string, unknown>;
+  metadata: Record<string, unknown>;
   content: string;
 } {
   return {
