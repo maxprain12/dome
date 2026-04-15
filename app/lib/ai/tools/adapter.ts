@@ -185,7 +185,7 @@ const TOOL_TRACE =
 function toolTraceLog(msg: string, data?: Record<string, unknown>) {
   if (TOOL_TRACE) {
     const payload = data ? ` ${JSON.stringify(data)}` : '';
-    console.log(`[AI:Tools] ${msg}${payload}`);
+    console.debug(`[AI:Tools] ${msg}${payload}`);
   }
 }
 

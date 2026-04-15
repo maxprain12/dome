@@ -181,7 +181,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
 
   if (loading) {
     return (
-      <div className="flex flex-1 min-h-0 w-full items-center justify-center" style={{ backgroundColor: '#111118' }}>
+      <div className="flex flex-1 min-h-0 w-full items-center justify-center" style={{ backgroundColor: 'var(--bg-secondary, #111118)' }}>
         <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Loading presentation...</div>
       </div>
     );
@@ -224,7 +224,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
           <div
             ref={slidesContainerRef}
             className="flex-1 flex min-h-0 slides-presentation-container"
-            style={{ overflow: 'hidden', background: '#111118' }}
+            style={{ overflow: 'hidden', background: 'var(--bg-secondary, #111118)' }}
           >
             {/* Thumbnail strip */}
             {slideCount > 0 && (
