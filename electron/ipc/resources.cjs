@@ -9,7 +9,7 @@ function generateId() {
   return crypto.randomUUID();
 }
 
-function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService }) {
+function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService, sanitizePath }) {
   const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
   /**
    * Import a file: copy to internal storage and create resource
@@ -644,8 +644,6 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
     }
 
     try {
-      // Sanitize destination path to prevent path traversal
-      const safeDest = destinationPath.replace(/\.\.\//g, '');
       const queries = database.getQueries();
       const resource = queries.getResourceById.get(resourceId);
 
@@ -664,6 +662,9 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       if (!sourcePath || !fs.existsSync(sourcePath)) {
         return { success: false, error: 'Source file not found' };
       }
+
+      // Sanitize destination path to prevent path traversal
+      const safeDest = sanitizePath(destinationPath, true);
 
       // Ensure destination directory exists
       const destDir = path.dirname(safeDest);
