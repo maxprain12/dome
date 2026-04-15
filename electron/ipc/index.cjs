@@ -89,7 +89,7 @@ function registerAll(deps) {
   linksHandlers.register({ ipcMain, windowManager, database, validateSender });
   tagsHandlers.register({ ipcMain, windowManager, database, validateSender });
   graphHandlers.register({ ipcMain, windowManager, database, validateSender });
-  resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService });
+  resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService, sanitizePath });
   storageHandlers.register({ ipcMain, windowManager, database, fileStorage });
   filesHandlers.register({ ipcMain, app, windowManager, sanitizePath });
   migrationHandlers.register({ ipcMain, fs, windowManager, database, fileStorage, thumbnail });
