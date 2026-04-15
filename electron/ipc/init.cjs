@@ -38,11 +38,16 @@ function register({ ipcMain, windowManager, initModule, validateSender }) {
       validateSender(event, windowManager);
       return {
         success: true,
-        isInitialized: initModule.isInitialized(),
+        data: {
+          isInitialized: initModule.isInitialized(),
+        },
       };
     } catch (error) {
       console.error('[IPC] Error in init:get-status:', error.message);
-      throw error;
+      return {
+        success: false,
+        error: error.message,
+      };
     }
   });
 }

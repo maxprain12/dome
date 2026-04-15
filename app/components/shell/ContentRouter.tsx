@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import HubListState from '@/components/ui/HubListState';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
 import { useManyStore } from '@/lib/store/useManyStore';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 // Lazy-load heavy workspace components
 const WorkspaceClient = lazy(() => import('@/workspace/[[...params]]/client'));
@@ -58,179 +59,221 @@ function TabContent({ tab }: { tab: DomeTab }) {
   switch (tab.type) {
     case 'home':
       return (
-        <Suspense fallback={<Loading />}>
-          <HomePage />
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <HomePage />
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'note':
       if (!tab.resourceId) return <NoResource />;
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-hidden">
-            <NoteWorkspaceClient resourceId={tab.resourceId} />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-hidden">
+              <NoteWorkspaceClient resourceId={tab.resourceId} />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'notebook':
       if (!tab.resourceId) return <NoResource />;
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-hidden">
-            <NotebookWorkspaceClient resourceId={tab.resourceId} />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-hidden">
+              <NotebookWorkspaceClient resourceId={tab.resourceId} />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'resource':
       if (!tab.resourceId) return <NoResource />;
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-hidden">
-            <WorkspaceClient resourceId={tab.resourceId} />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-hidden">
+              <WorkspaceClient resourceId={tab.resourceId} />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'url':
       if (!tab.resourceId) return <NoResource />;
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-hidden">
-            <URLWorkspaceClient resourceId={tab.resourceId} />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-hidden">
+              <URLWorkspaceClient resourceId={tab.resourceId} />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'youtube':
       if (!tab.resourceId) return <NoResource />;
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-hidden">
-            <YouTubeWorkspaceClient resourceId={tab.resourceId} />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-hidden">
+              <YouTubeWorkspaceClient resourceId={tab.resourceId} />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'ppt':
       if (!tab.resourceId) return <NoResource />;
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-hidden">
-            <PptWorkspaceClient resourceId={tab.resourceId} />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-hidden">
+              <PptWorkspaceClient resourceId={tab.resourceId} />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'settings':
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
-            <SettingsPage />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+              <SettingsPage />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'calendar':
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
-            <CalendarPage />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+              <CalendarPage />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'chat':
-      return <ChatTabView sessionId={tab.resourceId ?? ''} onClose={() => closeTab(tab.id)} />;
+      return (
+        <ErrorBoundary>
+          <ChatTabView sessionId={tab.resourceId ?? ''} onClose={() => closeTab(tab.id)} />
+        </ErrorBoundary>
+      );
 
     case 'learn':
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
-            <LearnPage />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+              <LearnPage />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'studio':
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
-            <LearnTabShell initialSection="all" />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+              <LearnTabShell initialSection="all" />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'flashcards':
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
-            <LearnTabShell initialSection="decks" />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+              <LearnTabShell initialSection="decks" />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'tags':
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
-            <TagsPage />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+              <TagsPage />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'marketplace':
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
-            <MarketplacePage />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+              <MarketplacePage />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'agents':
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-            <AgentsPage shellHubTab="agents" />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <AgentsPage shellHubTab="agents" />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'workflows':
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-            <AgentsPage shellHubTab="workflows" />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <AgentsPage shellHubTab="workflows" />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'automations':
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-            <AgentsPage shellHubTab="automations" />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <AgentsPage shellHubTab="automations" />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'runs':
       return (
-        <Suspense fallback={<Loading />}>
-          <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-            <AgentsPage shellHubTab="runs" />
-          </div>
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <AgentsPage shellHubTab="runs" />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
       );
 
     case 'folder':
       if (!tab.resourceId) return <NoResource />;
       return (
-        <Suspense fallback={<Loading />}>
-          <FolderTabView folderId={tab.resourceId} folderTitle={tab.title} />
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <FolderTabView folderId={tab.resourceId} folderTitle={tab.title} />
+          </Suspense>
+        </ErrorBoundary>
       );
 
     default:

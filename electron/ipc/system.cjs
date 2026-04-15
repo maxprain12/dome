@@ -6,30 +6,30 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   ipcMain.handle('get-user-data-path', (event) => {
     try {
       validateSender(event, windowManager);
-      return app.getPath('userData');
+      return { success: true, data: app.getPath('userData') };
     } catch (error) {
       console.error('[IPC] Error in get-user-data-path:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
   ipcMain.handle('get-home-path', (event) => {
     try {
       validateSender(event, windowManager);
-      return app.getPath('home');
+      return { success: true, data: app.getPath('home') };
     } catch (error) {
       console.error('[IPC] Error in get-home-path:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
   ipcMain.handle('get-app-version', (event) => {
     try {
       validateSender(event, windowManager);
-      return app.getVersion();
+      return { success: true, data: app.getVersion() };
     } catch (error) {
       console.error('[IPC] Error in get-app-version:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -38,17 +38,17 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     try {
       validateSender(event, windowManager);
       const win = BrowserWindow.fromWebContents(event.sender) || windowManager.get('main');
-      if (!win || win.isDestroyed()) return [];
+      if (!win || win.isDestroyed()) return { success: true, data: [] };
 
       const result = await dialog.showOpenDialog(win, {
         properties: ['openFile'],
         ...options,
       });
 
-      return result.filePaths;
+      return { success: true, data: result.filePaths };
     } catch (error) {
       console.error('[IPC] Error in select-file:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -56,17 +56,17 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     try {
       validateSender(event, windowManager);
       const win = BrowserWindow.fromWebContents(event.sender) || windowManager.get('main');
-      if (!win || win.isDestroyed()) return [];
+      if (!win || win.isDestroyed()) return { success: true, data: [] };
 
       const result = await dialog.showOpenDialog(win, {
         properties: ['openFile', 'multiSelections'],
         ...options,
       });
 
-      return result.filePaths;
+      return { success: true, data: result.filePaths };
     } catch (error) {
       console.error('[IPC] Error in select-files:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -77,7 +77,7 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
         BrowserWindow.fromWebContents(event.sender) ||
         (windowManager.getFocused && windowManager.getFocused()) ||
         windowManager.get('main');
-      if (!win || win.isDestroyed()) return undefined;
+      if (!win || win.isDestroyed()) return { success: true, data: undefined };
       if (win.isMinimized()) win.restore();
       win.focus();
 
@@ -85,10 +85,10 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
         properties: ['openDirectory'],
       });
 
-      return result.filePaths[0];
+      return { success: true, data: result.filePaths[0] };
     } catch (error) {
       console.error('[IPC] Error in select-folder:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -96,13 +96,13 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     try {
       validateSender(event, windowManager);
       const win = BrowserWindow.fromWebContents(event.sender) || windowManager.get('main');
-      if (!win || win.isDestroyed()) return undefined;
+      if (!win || win.isDestroyed()) return { success: true, data: undefined };
 
       const result = await dialog.showSaveDialog(win, options);
-      return result.filePath;
+      return { success: true, data: result.filePath };
     } catch (error) {
       console.error('[IPC] Error in show-save-dialog:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -111,10 +111,10 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     try {
       validateSender(event, windowManager);
       const safePath = sanitizePath(filePath, true);
-      return shell.openPath(safePath);
+      return { success: true, data: await shell.openPath(safePath) };
     } catch (error) {
       console.error('[IPC] Error in open-path:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -122,10 +122,10 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     try {
       validateSender(event, windowManager);
       const safePath = sanitizePath(filePath, true);
-      return shell.showItemInFolder(safePath);
+      return { success: true, data: await shell.showItemInFolder(safePath) };
     } catch (error) {
       console.error('[IPC] Error in show-item-in-folder:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -134,10 +134,10 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     try {
       validateSender(event, windowManager);
       const safeUrl = validateUrl(url);
-      return shell.openExternal(safeUrl);
+      return { success: true, data: await shell.openExternal(safeUrl) };
     } catch (error) {
       console.error('[IPC] Error in open-external-url:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -146,11 +146,11 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     try {
       validateSender(event, windowManager);
       const source = nativeTheme.themeSource;
-      if (source === 'system') return 'auto';
-      return source; // 'light' | 'dark'
+      if (source === 'system') return { success: true, data: 'auto' };
+      return { success: true, data: source }; // 'light' | 'dark'
     } catch (error) {
       console.error('[IPC] Error in get-theme:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -158,13 +158,13 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     try {
       validateSender(event, windowManager);
       if (!['light', 'dark', 'auto'].includes(theme)) {
-        throw new Error(`Invalid theme: ${theme}`);
+        return { success: false, error: `Invalid theme: ${theme}` };
       }
       nativeTheme.themeSource = theme === 'auto' ? 'system' : theme;
-      return theme;
+      return { success: true, data: theme };
     } catch (error) {
       console.error('[IPC] Error in set-theme:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -178,10 +178,10 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     try {
       validateSender(event, windowManager);
       const settings = app.getLoginItemSettings();
-      return { openAtLogin: settings.openAtLogin };
+      return { success: true, data: { openAtLogin: settings.openAtLogin } };
     } catch (error) {
       console.error('[IPC] Error in system:get-login-item:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -189,20 +189,20 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     try {
       validateSender(event, windowManager);
       app.setLoginItemSettings({ openAtLogin: Boolean(openAtLogin) });
-      return { openAtLogin: Boolean(openAtLogin) };
+      return { success: true, data: { openAtLogin: Boolean(openAtLogin) } };
     } catch (error) {
       console.error('[IPC] Error in system:set-login-item:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
   ipcMain.handle('system:get-app-locale', (event) => {
     try {
       validateSender(event, windowManager);
-      return app.getLocale();
+      return { success: true, data: app.getLocale() };
     } catch (error) {
       console.error('[IPC] Error in system:get-app-locale:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -211,9 +211,10 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     try {
       validateSender(event, windowManager);
       app.quit();
+      return { success: true };
     } catch (error) {
       console.error('[IPC] Error in system:quit:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 }
