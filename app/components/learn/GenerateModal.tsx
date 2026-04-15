@@ -40,6 +40,7 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
     setIsGenerating(true);
     try {
       // TODO: Implement actual generation logic
+      // eslint-disable-next-line no-console
       console.log('Generating', selectedType);
       await new Promise(resolve => setTimeout(resolve, 1000));
       onClose();
