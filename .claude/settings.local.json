@@ -31,7 +31,11 @@
       "Bash(node --check /Users/maxprain/Documents/dome/electron/ipc/audio.cjs)",
       "Bash(node --check /Users/maxprain/Documents/dome/electron/ipc/realtime.cjs)",
       "Bash(node --check /Users/maxprain/Documents/dome/electron/transcription-service.cjs)",
-      "Bash(node --check /Users/maxprain/Documents/dome/electron/run-engine.cjs)"
+      "Bash(node --check /Users/maxprain/Documents/dome/electron/run-engine.cjs)",
+      "Bash(gh pr:*)",
+      "Bash(npm audit:*)",
+      "Bash(find app/components -name '*.tsx' -exec wc -l {} \\\\;)",
+      "Bash(awk '$1 > 300 {print $1, $2}')"
     ]
   }
 }

@@ -41,7 +41,7 @@ function register({ ipcMain, windowManager, database }) {
       return {
         success: true,
         voice: voiceRow?.value || 'shimmer',
-        model: modelRow?.value || 'gpt-4o-realtime-preview-2024-12-17',
+        model: modelRow?.value || 'gpt-4o-realtime-preview',
         instructionsSuffix: suffixRow?.value ? String(suffixRow.value) : '',
       };
     } catch (err) {
@@ -144,9 +144,17 @@ function register({ ipcMain, windowManager, database }) {
   });
 
   // ─────────────────────────────────────────────────────
-  // realtime:exchange-sdp  (unified interface)
-  // Main process sends SDP + full session config to
-  // POST /v1/realtime/calls with the real API key.
+  // realtime:exchange-sdp  (WebRTC SDP exchange)
+  //
+  // Correct OpenAI Realtime WebRTC flow:
+  //   1. Create ephemeral token: POST /v1/realtime/sessions
+  //      → { client_secret: { value: "ek_..." } }
+  //   2. SDP exchange: POST /v1/realtime?model={model}
+  //      Authorization: Bearer {ephemeral_token}
+  //      Content-Type: application/sdp
+  //      Body: SDP offer text
+  //      → SDP answer text
+  //
   // The renderer never touches the API key.
   // ─────────────────────────────────────────────────────
   ipcMain.handle('realtime:exchange-sdp', async (event, { sdp, sessionConfig }) => {
@@ -162,15 +170,62 @@ function register({ ipcMain, windowManager, database }) {
         return { success: false, error: 'Missing SDP offer' };
       }
 
-      // FormData available in Node.js 18+ (Electron 32 uses Node 20)
-      const fd = new globalThis.FormData();
-      fd.append('sdp', sdp);
-      fd.append('session', JSON.stringify(sessionConfig));
+      const model = (sessionConfig && typeof sessionConfig.model === 'string')
+        ? sessionConfig.model
+        : 'gpt-4o-realtime-preview';
+      const voice = (sessionConfig && typeof sessionConfig.audio?.output?.voice === 'string')
+        ? sessionConfig.audio.output.voice
+        : 'echo';
 
-      const response = await globalThis.fetch('https://api.openai.com/v1/realtime/calls', {
+      // Step 1: Create ephemeral session token via POST /v1/realtime/sessions
+      let ephemeralToken = null;
+      try {
+        // Include instructions, tools, and tool_choice if provided so the
+        // session is fully configured before the WebRTC call is established.
+        const sessionPayload = {
+          model,
+          voice,
+          modalities: ['audio', 'text'],
+        };
+        if (sessionConfig?.instructions) {
+          Object.assign(sessionPayload, { instructions: sessionConfig.instructions });
+        }
+        if (Array.isArray(sessionConfig?.tools) && sessionConfig.tools.length > 0) {
+          Object.assign(sessionPayload, { tools: sessionConfig.tools, tool_choice: sessionConfig.tool_choice ?? 'auto' });
+        }
+        const sessionBody = JSON.stringify(sessionPayload);
+        const sessionResp = await globalThis.fetch('https://api.openai.com/v1/realtime/sessions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: sessionBody,
+        });
+        if (sessionResp.ok) {
+          const sessionData = await sessionResp.json();
+          ephemeralToken = sessionData?.client_secret?.value ?? null;
+          console.log('[Realtime IPC] Ephemeral token created for model:', model);
+        } else {
+          const errText = await sessionResp.text().catch(() => `HTTP ${sessionResp.status}`);
+          console.warn('[Realtime IPC] Session creation failed:', errText);
+        }
+      } catch (e) {
+        console.warn('[Realtime IPC] Session creation error:', e?.message);
+      }
+
+      // Fall back to using the raw API key if ephemeral token creation fails
+      const authToken = ephemeralToken ?? apiKey;
+
+      // Step 2: SDP exchange — POST /v1/realtime?model={model} with SDP as body
+      const sdpUrl = `https://api.openai.com/v1/realtime?model=${encodeURIComponent(model)}`;
+      const response = await globalThis.fetch(sdpUrl, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}` },
-        body: fd,
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'Content-Type': 'application/sdp',
+        },
+        body: sdp,
       });
 
       if (!response.ok) {

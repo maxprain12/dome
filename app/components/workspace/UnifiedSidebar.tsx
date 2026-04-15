@@ -478,12 +478,16 @@ interface TreeNodeProps {
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent, targetNode: TreeNodeData) => void;
   onDragEnd: () => void;
+  /** Selection mode props */
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
 function TreeNode({
   node, depth, expandedIds, onToggle, onSelect, onOpenFolder, renameId, dragOverId,
   onContextMenu, onRenameCommit, onRenameCancel,
   onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd,
+  selectedIds, onToggleSelect,
 }: TreeNodeProps) {
   const isFolder = node.type === 'folder';
   const isExpanded = expandedIds.has(node.id);
@@ -515,8 +519,12 @@ function TreeNode({
 
   const folderColor = isFolder && node.resource ? getFolderColor(node.resource) : 'var(--dome-accent)';
 
+  const isSelected = selectedIds?.has(node.id) ?? false;
+  const inSelectionMode = Boolean(onToggleSelect);
+
   let rowBg = 'transparent';
-  if (isDragOver && isFolder) rowBg = `${folderColor}22`;
+  if (isSelected) rowBg = 'color-mix(in srgb, var(--dome-accent) 10%, transparent)';
+  else if (isDragOver && isFolder) rowBg = `${folderColor}22`;
   else if (hovered) rowBg = 'var(--dome-bg-hover)';
 
   return (
@@ -529,22 +537,44 @@ function TreeNode({
           height: 28,
           background: rowBg,
           minWidth: 0,
-          outline: isDragOver && isFolder ? `1.5px dashed ${folderColor}` : 'none',
+          outline: isSelected ? '1px solid color-mix(in srgb, var(--dome-accent) 40%, transparent)' : isDragOver && isFolder ? `1.5px dashed ${folderColor}` : 'none',
           outlineOffset: -1,
         }}
-        draggable={!isRenaming}
-        onDragStart={() => onDragStart(node)}
-        onDragOver={(e) => onDragOver(e, node)}
+        draggable={!isRenaming && !inSelectionMode}
+        onDragStart={() => !inSelectionMode && onDragStart(node)}
+        onDragOver={(e) => !inSelectionMode && onDragOver(e, node)}
         onDragLeave={onDragLeave}
-        onDrop={(e) => onDrop(e, node)}
+        onDrop={(e) => !inSelectionMode && onDrop(e, node)}
         onDragEnd={onDragEnd}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        onContextMenu={(e) => { if (node.resource) { e.preventDefault(); onContextMenu(e, node.resource); } }}
+        onContextMenu={(e) => { if (node.resource && !inSelectionMode) { e.preventDefault(); onContextMenu(e, node.resource); } }}
       >
+        {/* Selection checkbox — only shown in selection mode */}
+        {inSelectionMode && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleSelect!(node.id); }}
+            className="shrink-0 flex items-center justify-center rounded mr-1 transition-colors"
+            style={{
+              width: 14, height: 14,
+              border: `1.5px solid ${isSelected ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
+              background: isSelected ? 'var(--dome-accent)' : 'var(--dome-bg)',
+              flexShrink: 0,
+            }}
+            aria-checked={isSelected}
+          >
+            {isSelected && (
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
+                <path d="M1.5 4L3.5 6L6.5 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
+        )}
+
         <button
           type="button"
-          onClick={handleClick}
+          onClick={inSelectionMode ? () => onToggleSelect!(node.id) : handleClick}
           className="flex items-center flex-1 text-left min-w-0"
           style={{ gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: hovered ? 'var(--dome-text)' : 'var(--dome-text-secondary)', padding: 0, minWidth: 0 }}
         >
@@ -623,6 +653,8 @@ function TreeNode({
               onDragLeave={onDragLeave}
               onDrop={onDrop}
               onDragEnd={onDragEnd}
+              selectedIds={selectedIds}
+              onToggleSelect={onToggleSelect}
             />
           ))}
         </div>
@@ -662,6 +694,40 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
   const [dragNode, setDragNode] = useState<TreeNodeData | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragEnterCountRef = useRef<Record<string, number>>({});
+
+  // ── Multi-selection ────────────────────────────────────────────────────────
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    setBulkDeleteConfirm(false);
+  }, []);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      for (const id of selectedIds) {
+        await window.electron?.resource?.delete(id);
+      }
+      exitSelectionMode();
+      onRefresh();
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [selectedIds, exitSelectionMode, onRefresh]);
 
   const { openResourceTab, openFolderTab } = useTabStore.getState();
   const folders = resources.filter((r) => r.type === 'folder');
@@ -789,9 +855,9 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Search */}
-      <div className="px-3 pt-2 pb-1.5">
-        <div className="flex items-center gap-1.5 rounded px-2" style={{ height: 26, background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
+      {/* Search + selection toggle */}
+      <div className="px-3 pt-2 pb-1.5 flex items-center gap-1.5">
+        <div className="flex-1 flex items-center gap-1.5 rounded px-2" style={{ height: 26, background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
           <Search className="w-3 h-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={2} />
           <input
             type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
@@ -799,7 +865,54 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
             style={{ fontSize: 11, color: 'var(--dome-text)', caretColor: 'var(--dome-accent)' }}
           />
         </div>
+        {!selectionMode ? (
+          <button
+            type="button"
+            title={t('common.select')}
+            onClick={() => setSelectionMode(true)}
+            className="shrink-0 flex items-center justify-center rounded"
+            style={{ width: 24, height: 26, background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', cursor: 'pointer', color: 'var(--dome-text-muted)' }}
+          >
+            <Check className="w-3 h-3" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            title={t('common.cancel')}
+            onClick={exitSelectionMode}
+            className="shrink-0 flex items-center justify-center rounded"
+            style={{ width: 24, height: 26, background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)', border: '1px solid var(--dome-accent)', cursor: 'pointer', color: 'var(--dome-accent)' }}
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
       </div>
+
+      {/* Selection action bar */}
+      {selectionMode && (
+        <div className="px-3 pb-1.5 flex items-center gap-1.5">
+          <span className="flex-1 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+            {selectedIds.size > 0 ? `${selectedIds.size} sel.` : t('common.select')}
+          </span>
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setBulkDeleteConfirm(true)}
+              disabled={bulkDeleting}
+              className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium"
+              style={{
+                background: 'color-mix(in srgb, var(--dome-error, #ef4444) 10%, transparent)',
+                color: 'var(--dome-error, #ef4444)',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <Trash2 className="w-3 h-3" />
+              {t('common.delete')}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Tree */}
       <div className="flex-1 overflow-y-auto px-2 pb-2">
@@ -827,6 +940,8 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onDragEnd={handleDragEnd}
+              selectedIds={selectionMode ? selectedIds : undefined}
+              onToggleSelect={selectionMode ? handleToggleSelect : undefined}
             />
           ))
         )}
@@ -854,6 +969,35 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
       {newFolderParentId !== undefined && (
         <NewFolderModal parentId={newFolderParentId}
           onConfirm={handleNewFolderConfirm} onClose={() => setNewFolderParentId(undefined)} />
+      )}
+
+      {/* Bulk delete confirm modal */}
+      {bulkDeleteConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}>
+          <div className="rounded-xl shadow-xl border p-4 flex flex-col gap-3" style={{ width: 270, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}>
+            <p className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>
+              {t('ui.delete_confirm', { type: 'items' })}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+              {selectedIds.size} {t('common.select')}
+            </p>
+            <div className="flex items-center justify-end gap-2">
+              <button type="button" onClick={() => setBulkDeleteConfirm(false)}
+                className="px-3 py-1.5 rounded-md text-xs"
+                style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>
+                {t('ui.cancel')}
+              </button>
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={() => void handleBulkDelete()}
+                className="px-3 py-1.5 rounded-md text-xs font-medium"
+                style={{ background: 'var(--dome-error, #ef4444)', border: 'none', cursor: 'pointer', color: 'white', opacity: bulkDeleting ? 0.6 : 1 }}>
+                {bulkDeleting ? '...' : t('ui.delete')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
