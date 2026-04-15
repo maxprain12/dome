@@ -115,7 +115,7 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
     await db.setSetting('ollama_embedding_model', config.ollamaEmbeddingModel);
   }
 
-  console.log('AI config saved');
+  console.info('AI config saved');
 }
 
 // =============================================================================

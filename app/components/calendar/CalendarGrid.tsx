@@ -90,7 +90,7 @@ function EventChip({
       onDragStart={onDragStart}
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
       className="text-left rounded px-1.5 truncate w-full text-[11px] py-0.5 transition-opacity hover:opacity-80"
-      style={{ backgroundColor: bg, color: '#fff', lineHeight: '18px' }}
+      style={{ backgroundColor: bg, color: 'var(--dome-on-accent)', lineHeight: '18px' }}
       title={event.title}
     >
       {!event.all_day && (
@@ -204,7 +204,7 @@ function MonthView({
                   className="w-6 h-6 flex items-center justify-center text-xs rounded-full"
                   style={{
                     background: today ? 'var(--dome-accent)' : undefined,
-                    color: today ? '#fff' : 'var(--dome-text-muted)',
+                    color: today ? 'var(--dome-on-accent)' : 'var(--dome-text-muted)',
                     fontWeight: today ? 700 : 400,
                   }}
                 >

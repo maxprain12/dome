@@ -27,7 +27,7 @@ export async function ingestResource(
       return { success: true, chunksProcessed: 0 };
     }
 
-    console.log(`[Ingestion] Starting PageIndex indexing for resource ${resourceId}`);
+    console.info(`[Ingestion] Starting PageIndex indexing for resource ${resourceId}`);
     const result = await indexResource(resourceId);
 
     if (!result.success) {
@@ -35,7 +35,7 @@ export async function ingestResource(
       return { success: false, chunksProcessed: 0, error: result.error };
     }
 
-    console.log(`[Ingestion] PageIndex indexing complete for resource ${resourceId}`);
+    console.info(`[Ingestion] PageIndex indexing complete for resource ${resourceId}`);
     return { success: true, chunksProcessed: result.nodeCount ?? 0 };
 
   } catch (error) {

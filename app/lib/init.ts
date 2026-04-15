@@ -21,13 +21,11 @@ export interface InitResult {
  */
 export async function initializeApp(): Promise<InitResult> {
   const startTime = Date.now();
-  console.log('[Init-Renderer] 🚀 Inicializando Dome...');
-  console.log('[Init-Renderer] Protocol:', typeof window !== 'undefined' ? window.location.protocol : 'N/A');
-  console.log('[Init-Renderer] URL:', typeof window !== 'undefined' ? window.location.href : 'N/A');
+  console.info('[Init-Renderer] Dome initialized');
 
   // Check if we're running in a browser environment
   if (typeof window === 'undefined') {
-    console.warn('[Init-Renderer] ⚠️ Window not available (SSR), using fallback');
+    console.warn('[Init-Renderer] Window not available (SSR), using fallback');
     return {
       success: true,
       needsOnboarding: true,
@@ -35,10 +33,9 @@ export async function initializeApp(): Promise<InitResult> {
   }
 
   // Check if Electron API is available
-  console.log('[Init-Renderer] window.electron:', !!window.electron);
   if (!window.electron) {
-    console.warn('[Init-Renderer] ⚠️ Electron API not available, using fallback initialization');
-    console.warn('[Init-Renderer] ⚠️ This is expected in development without Electron');
+    console.warn('[Init-Renderer] Electron API not available, using fallback initialization');
+    console.warn('[Init-Renderer] This is expected in development without Electron');
     return {
       success: true,
       needsOnboarding: true,
@@ -46,15 +43,12 @@ export async function initializeApp(): Promise<InitResult> {
   }
 
   // Log available APIs
-  console.log('[Init-Renderer] Available electron APIs:', Object.keys(window.electron));
+  console.info('[Init-Renderer] Available electron APIs:', Object.keys(window.electron));
 
   // Check if init API is available
-  console.log('[Init-Renderer] window.electron.init:', !!window.electron.init);
-  console.log('[Init-Renderer] window.electron.init?.initialize:', !!window.electron.init?.initialize);
-  
   if (!window.electron.init?.initialize) {
-    console.warn('[Init-Renderer] ⚠️ Electron init API not available, using fallback');
-    console.warn('[Init-Renderer] ⚠️ The preload script may not have loaded correctly');
+    console.warn('[Init-Renderer] Electron init API not available, using fallback');
+    console.warn('[Init-Renderer] The preload script may not have loaded correctly');
     return {
       success: true,
       needsOnboarding: true,
@@ -63,15 +57,12 @@ export async function initializeApp(): Promise<InitResult> {
   }
 
   try {
-    console.log('[Init-Renderer] Calling IPC init:initialize...');
     // Use IPC to initialize app in main process
     const result = await window.electron.init.initialize();
     
-    console.log('[Init-Renderer] IPC result received:', result);
-    
     // Validate response
     if (!result || typeof result !== 'object') {
-      console.warn('[Init-Renderer] ⚠️ Invalid init response, using defaults');
+      console.warn('[Init-Renderer] Invalid init response, using defaults');
       return {
         success: true,
         needsOnboarding: true,
@@ -79,7 +70,7 @@ export async function initializeApp(): Promise<InitResult> {
       };
     }
 
-    console.log(`[Init-Renderer] ✅ Dome inicializado en ${Date.now() - startTime}ms:`, result);
+    console.info(`[Init-Renderer] Dome initialized in ${Date.now() - startTime}ms`);
     return {
       success: result.success ?? true,
       needsOnboarding: result.needsOnboarding ?? true,
@@ -105,6 +96,6 @@ export function cleanDevelopmentData() {
     return;
   }
 
-  console.log('🧹 Limpiando datos de desarrollo...');
+  console.info('Cleaning development data...');
   // TODO: Implementar limpieza de bases de datos vía IPC
 }
