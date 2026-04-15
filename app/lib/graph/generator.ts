@@ -4,10 +4,34 @@ import type {
   GraphEdgeData,
   GraphGenerationOptions,
   Resource,
-  GraphNode,
-  GraphEdge,
+  ResourceType,
   ResourceLink,
 } from '@/types';
+
+interface GraphResourceNode {
+  id: string;
+  data: {
+    id: string;
+    label: string;
+    type: 'resource' | 'concept' | 'person' | 'location' | 'event' | 'topic' | 'study_material';
+    resourceId?: string;
+    resourceType?: ResourceType;
+    metadata: Record<string, unknown>;
+  };
+  position: { x: number; y: number };
+  type: 'custom';
+}
+
+interface GraphResourceEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+  data: GraphEdgeData;
+}
+
+type GraphNodeEntry = GraphResourceNode;
+type GraphEdgeEntry = GraphResourceEdge;
 
 /**
  * Generate a complete knowledge graph using multiple strategies
@@ -22,8 +46,8 @@ export async function generateGraph(options: GraphGenerationOptions): Promise<Gr
     minWeight = 0.3,
   } = options;
 
-  const nodesMap = new Map<string, any>();
-  const edgesMap = new Map<string, any>();
+  const nodesMap = new Map<string, GraphNodeEntry>();
+  const edgesMap = new Map<string, GraphEdgeEntry>();
 
   // Strategy 1: Resource Mentions (@links in editor)
   if (strategies.includes('mentions')) {
@@ -94,9 +118,9 @@ export async function generateGraph(options: GraphGenerationOptions): Promise<Gr
 async function generateGraphFromMentions(
   focusResourceId?: string,
   maxDepth: number = 3
-): Promise<{ nodes: Map<string, any>; edges: Map<string, any> }> {
-  const nodes = new Map();
-  const edges = new Map();
+): Promise<{ nodes: Map<string, GraphNodeEntry>; edges: Map<string, GraphEdgeEntry> }> {
+  const nodes = new Map<string, GraphNodeEntry>();
+  const edges = new Map<string, GraphEdgeEntry>();
   const visited = new Set<string>();
   const queue: Array<{ id: string; depth: number }> = [];
 
@@ -153,9 +177,9 @@ async function generateGraphFromMentions(
 async function generateGraphFromLinks(
   focusResourceId?: string,
   maxDepth: number = 3
-): Promise<{ nodes: Map<string, any>; edges: Map<string, any> }> {
-  const nodes = new Map();
-  const edges = new Map();
+): Promise<{ nodes: Map<string, GraphNodeEntry>; edges: Map<string, GraphEdgeEntry> }> {
+  const nodes = new Map<string, GraphNodeEntry>();
+  const edges = new Map<string, GraphEdgeEntry>();
   const visited = new Set<string>();
   const queue: Array<{ id: string; depth: number }> = [];
 
@@ -241,9 +265,9 @@ async function generateGraphFromSemantics(
   focusResourceId?: string,
   maxDepth: number = 3,
   minWeight: number = 0.7
-): Promise<{ nodes: Map<string, any>; edges: Map<string, any> }> {
-  const nodes = new Map();
-  const edges = new Map();
+): Promise<{ nodes: Map<string, GraphNodeEntry>; edges: Map<string, GraphEdgeEntry> }> {
+  const nodes = new Map<string, GraphNodeEntry>();
+  const edges = new Map<string, GraphEdgeEntry>();
   const visited = new Set<string>();
   const queue: Array<{ id: string; depth: number }> = [];
 
@@ -285,9 +309,9 @@ async function generateGraphFromTags(
   focusResourceId?: string,
   projectId?: string,
   minWeight: number = 0.3
-): Promise<{ nodes: Map<string, any>; edges: Map<string, any> }> {
-  const nodes = new Map();
-  const edges = new Map();
+): Promise<{ nodes: Map<string, GraphNodeEntry>; edges: Map<string, GraphEdgeEntry> }> {
+  const nodes = new Map<string, GraphNodeEntry>();
+  const edges = new Map<string, GraphEdgeEntry>();
 
   if (!focusResourceId || typeof window === 'undefined' || !window.electron) {
     return { nodes, edges };
@@ -372,9 +396,9 @@ async function generateGraphFromTags(
 async function generateGraphFromStudioOutputs(
   focusResourceId?: string,
   projectId?: string
-): Promise<{ nodes: Map<string, any>; edges: Map<string, any> }> {
-  const nodes = new Map();
-  const edges = new Map();
+): Promise<{ nodes: Map<string, GraphNodeEntry>; edges: Map<string, GraphEdgeEntry> }> {
+  const nodes = new Map<string, GraphNodeEntry>();
+  const edges = new Map<string, GraphEdgeEntry>();
 
   if (!focusResourceId || typeof window === 'undefined' || !window.electron) {
     return { nodes, edges };
@@ -447,7 +471,7 @@ async function generateGraphFromStudioOutputs(
 
 // Helper Functions
 
-function createResourceNode(resource: Resource, isFocus: boolean): any {
+function createResourceNode(resource: Resource, isFocus: boolean): GraphNodeEntry {
   return {
     id: resource.id,
     data: {
@@ -472,7 +496,7 @@ function createEdge(
   target: string,
   relation: string,
   weight: number
-): any {
+): GraphEdgeEntry {
   return {
     id,
     source,
@@ -501,7 +525,10 @@ function parseResourceMentions(content: string): string[] {
   return [...new Set(mentions)]; // Remove duplicates
 }
 
-function mergeMaps(target: Map<string, any>, source: Map<string, any>) {
+function mergeMaps(
+  target: Map<string, GraphNodeEntry | GraphEdgeEntry>,
+  source: Map<string, GraphNodeEntry | GraphEdgeEntry>
+) {
   for (const [key, value] of source) {
     if (!target.has(key)) {
       target.set(key, value);
@@ -510,11 +537,11 @@ function mergeMaps(target: Map<string, any>, source: Map<string, any>) {
 }
 
 function limitNodes(
-  nodes: any[],
-  edges: any[],
+  nodes: GraphNodeEntry[],
+  edges: GraphEdgeEntry[],
   focusId?: string,
   maxNodes: number = 500
-): any[] {
+): GraphNodeEntry[] {
   // Always keep focus node
   const focusNode = nodes.find(n => n.id === focusId);
   const otherNodes = nodes.filter(n => n.id !== focusId);
@@ -540,7 +567,10 @@ function limitNodes(
   return focusNode ? [focusNode, ...limitedNodes] : limitedNodes;
 }
 
-function applyForceLayout(nodes: any[], edges: any[]): any[] {
+function applyForceLayout(
+  nodes: GraphNodeEntry[],
+  edges: GraphEdgeEntry[]
+): GraphNodeEntry[] {
   // Simple force-directed layout
   // For now, use a circular layout around focus node
   const focusNode = nodes.find(n => n.data?.metadata?.isFocus);
