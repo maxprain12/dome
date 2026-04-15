@@ -10,20 +10,21 @@ function register({ ipcMain, windowManager, validateSender }) {
     try {
       validateSender(event, windowManager);
       const result = await updateService.checkForUpdates();
-      return result;
+      return { success: true, data: result };
     } catch (error) {
       console.error('[IPC] Error in updater:check:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
   ipcMain.handle('updater:download', async (event) => {
     try {
       validateSender(event, windowManager);
-      return await updateService.downloadUpdate();
+      const result = await updateService.downloadUpdate();
+      return { success: true, data: result };
     } catch (error) {
       console.error('[IPC] Error in updater:download:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -31,10 +32,10 @@ function register({ ipcMain, windowManager, validateSender }) {
     try {
       validateSender(event, windowManager);
       updateService.quitAndInstall();
-      return { ok: true };
+      return { success: true, data: { ok: true } };
     } catch (error) {
       console.error('[IPC] Error in updater:install:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 
@@ -42,13 +43,13 @@ function register({ ipcMain, windowManager, validateSender }) {
     try {
       validateSender(event, windowManager);
       if (typeof version !== 'string' || !version.trim()) {
-        return { ok: false, error: 'invalid_version' };
+        return { success: false, error: 'invalid_version' };
       }
       updateService.skipVersion(version.trim());
-      return { ok: true };
+      return { success: true, data: { ok: true } };
     } catch (error) {
       console.error('[IPC] Error in updater:skip:', error.message);
-      throw error;
+      return { success: false, error: error.message };
     }
   });
 }
