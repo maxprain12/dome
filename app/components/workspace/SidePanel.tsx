@@ -453,7 +453,7 @@ function SearchTab({ resourceId }: { resourceId: string; resource: Resource }) {
     try {
       const result = await window.electron.db.resources.searchForMention(q);
       if (result.success) {
-        setResults((result.data || []).filter((r: any) => r.id !== resourceId));
+        setResults((result.data || []).filter((r: Resource) => r.id !== resourceId));
       }
     } catch (error) {
       console.error('Error searching:', error);

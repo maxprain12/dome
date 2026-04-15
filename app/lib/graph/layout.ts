@@ -4,13 +4,13 @@ import type { GraphLayoutType } from '@/types';
 interface LayoutNode {
   id: string;
   position: { x: number; y: number };
-  [key: string]: any;
+  data?: unknown;
 }
 
 interface LayoutEdge {
   source: string;
   target: string;
-  [key: string]: any;
+  data?: unknown;
 }
 
 /**

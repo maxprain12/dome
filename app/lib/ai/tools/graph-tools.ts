@@ -3,6 +3,22 @@ import type { AnyAgentTool } from './types';
 import { generateGraph } from '@/lib/graph';
 import { jsonResult, errorResult } from './common';
 
+interface GraphAnalysisBaseResult {
+  status: 'success';
+  stats: {
+    node_count: number;
+    edge_count: number;
+    avg_degree: number;
+    density: number;
+  };
+}
+
+interface GraphAnalysisResult extends GraphAnalysisBaseResult {
+  hubs?: Array<{ id: string; label: string; type: string; degree: number }>;
+  isolated?: Array<{ id: string; label: string; type: string }>;
+  clusters?: Array<{ id: number; size: number; nodes: string[]; total_nodes: number }>;
+}
+
 /**
  * Create all graph-related tools for Many assistant
  */
@@ -74,7 +90,7 @@ function createGenerateKnowledgeGraphTool(): AnyAgentTool {
           focusResourceId: args.focus_resource_id,
           projectId: args.project_id,
           maxDepth: args.max_depth || 3,
-          strategies: args.strategies as any || ['mentions', 'links', 'semantic', 'tags'],
+          strategies: (args.strategies as Array<'mentions' | 'links' | 'semantic' | 'tags'>) || ['mentions', 'links', 'semantic', 'tags'],
           maxNodes: args.max_nodes || 500,
           minWeight: args.min_weight || 0.3,
         });
@@ -383,7 +399,7 @@ function createAnalyzeGraphStructureTool(): AnyAgentTool {
           degree.set(edge.target, (degree.get(edge.target) || 0) + 1);
         }
 
-        const result: any = {
+        const result: GraphAnalysisResult = {
           status: 'success',
           stats: {
             node_count: graphState.nodes.length,

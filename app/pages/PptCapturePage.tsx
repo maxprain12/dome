@@ -14,6 +14,18 @@ import { fixDarkSlideTextColors } from '@/lib/pptx-color-fix';
 const SLIDE_W = 960;
 const SLIDE_H = 540;
 
+interface PptxTheme {
+  clrScheme?: {
+    lt1?: string;
+  };
+}
+
+interface PptxPreviewer {
+  pptx?: {
+    themes?: PptxTheme[];
+  };
+}
+
 export default function PptCapturePage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -95,7 +107,7 @@ export default function PptCapturePage() {
         // doesn't explicitly color (theme-inherited) still renders correctly.
         let lightColor = '#ffffff';
         try {
-          const themes: any[] = (previewer as any).pptx?.themes ?? [];
+          const themes = (previewer as PptxPreviewer).pptx?.themes ?? [];
           const lt1 = themes[0]?.clrScheme?.lt1;
           if (lt1 && containerRef.current) {
             // lt1 is stored without the '#' prefix in pptx-preview's clrScheme

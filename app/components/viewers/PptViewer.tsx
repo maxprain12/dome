@@ -14,6 +14,20 @@ const SLIDE_H = 540;
 /** Imperative handle reserved for future navigation APIs. */
 export type PptViewerHandle = Record<string, never>;
 
+interface PptxTheme {
+  clrScheme?: {
+    lt1?: string;
+  };
+}
+
+interface PptxPreviewer {
+  pptx?: {
+    themes?: PptxTheme[];
+  };
+  renderSingleSlide?: (index: number) => void;
+  destroy?: () => void;
+}
+
 interface PptViewerProps {
   resource: Resource;
   /** Currently visible slide (0-based). Controlled by parent. */
@@ -27,10 +41,10 @@ interface PptViewerProps {
  * Read the PPTX theme's lt1 (Light 1) color, apply it as --ppt-text-default
  * on the container, and return the resolved hex value for downstream use.
  */
-function applyThemeTextColor(previewer: any, container: HTMLElement): string {
+function applyThemeTextColor(previewer: PptxPreviewer, container: HTMLElement): string {
   let hex = '#ffffff';
   try {
-    const themes: any[] = previewer?.pptx?.themes ?? [];
+    const themes = previewer?.pptx?.themes ?? [];
     const lt1: string | undefined = themes[0]?.clrScheme?.lt1;
     if (lt1) {
       hex = lt1.startsWith('#') ? lt1 : `#${lt1}`;
@@ -46,7 +60,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
   function PptViewerComponent({ resource, activeIndex, onSlidesLoaded, onThumbnailElementsReady }, ref) {
     const hostRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const previewerRef = useRef<any>(null);
+    const previewerRef = useRef<PptxPreviewer | null>(null);
     const thumbDivRef = useRef<HTMLDivElement | null>(null);
     const lightColorRef = useRef<string>('#ffffff');
     const [isLoading, setIsLoading] = useState(true);
@@ -80,7 +94,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
     useEffect(() => {
       const previewer = previewerRef.current;
       if (!previewer || isLoading) return;
-      previewer.renderSingleSlide(activeIndex);
+      previewer.renderSingleSlide?.(activeIndex);
       // pptx-preview re-renders the DOM synchronously; we need one paint cycle
       // before getComputedStyle reliably reflects the new slide's background.
       const rafId = requestAnimationFrame(() =>

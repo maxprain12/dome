@@ -13,7 +13,27 @@ interface SearchResult {
   type: string;
   score: number;
   source: 'vector' | 'graph' | 'fts' | 'hybrid';
-  metadata?: any;
+  metadata?: Record<string, unknown>;
+}
+
+interface PageIndexSearchItem {
+  resource_id?: string;
+  title?: string;
+  type?: string;
+  score?: number;
+  pages?: number;
+  node_title?: string;
+  text?: string;
+}
+
+interface GraphNodeData {
+  id: string;
+  resource_id?: string;
+  label?: string;
+  type?: string;
+  properties?: Record<string, unknown>;
+  weight?: number;
+  relation?: string;
 }
 
 interface HybridSearchOptions {
@@ -133,10 +153,10 @@ export async function hybridSearch(
     });
 
     if (pageIndexResponse.success && pageIndexResponse.results) {
-      vectorResults = pageIndexResponse.results
-        .filter((r: any) => (r.score || 0) >= opts.semanticThreshold)
-        .map((result: any) => ({
-          id: result.resource_id,
+      vectorResults = (pageIndexResponse.results as PageIndexSearchItem[])
+        .filter((r) => (r.score || 0) >= opts.semanticThreshold)
+        .map((result) => ({
+          id: result.resource_id ?? '',
           title: result.title || 'Untitled',
           type: result.type || 'pdf',
           score: result.score || 0,
@@ -156,10 +176,10 @@ export async function hybridSearch(
     const graphResponse = await window.electron.db.graph.searchNodes(query);
 
     if (graphResponse.success && graphResponse.data) {
-      graphResults = graphResponse.data.map((node: any) => ({
+      graphResults = (graphResponse.data as GraphNodeData[]).map((node) => ({
         id: node.resource_id || node.id,
-        title: node.label,
-        type: node.properties?.resource_type || node.type,
+        title: node.label ?? '',
+        type: (node.properties?.resource_type as string | undefined) || node.type || 'unknown',
         score: 1.0, // Exact match in graph
         source: 'graph' as const,
         metadata: {
@@ -172,13 +192,13 @@ export async function hybridSearch(
       // Optionally include backlinks
       if (opts.includeBacklinks && graphResponse.data.length > 0) {
         // For each matched node, get neighbors
-        for (const node of graphResponse.data.slice(0, 5)) {
+        for (const node of graphResponse.data.slice(0, 5) as GraphNodeData[]) {
           const neighborsResponse = await window.electron.db.graph.getNeighbors(node.id);
           if (neighborsResponse.success && neighborsResponse.data) {
-            const neighbors = neighborsResponse.data.map((neighbor: any) => ({
+            const neighbors = (neighborsResponse.data as GraphNodeData[]).map((neighbor) => ({
               id: neighbor.resource_id || neighbor.id,
-              title: neighbor.label,
-              type: neighbor.properties?.resource_type || neighbor.type,
+              title: neighbor.label ?? '',
+              type: (neighbor.properties?.resource_type as string | undefined) || neighbor.type || 'unknown',
               score: neighbor.weight || 0.5,
               source: 'graph' as const,
               metadata: {
@@ -202,7 +222,7 @@ export async function hybridSearch(
     const ftsResponse = await window.electron.db.search.unified(query);
 
     if (ftsResponse.success && ftsResponse.data) {
-      ftsResults = ftsResponse.data.resources.map((resource: any) => ({
+      ftsResults = ftsResponse.data.resources.map((resource) => ({
         id: resource.id,
         title: resource.title,
         type: resource.type,
@@ -238,18 +258,18 @@ export async function getRelatedResources(
     try {
       const response = await window.electron.db.graph.getNeighbors(nodeId);
       if (response.success && response.data) {
-        for (const neighbor of response.data) {
+        for (const neighbor of response.data as GraphNodeData[]) {
           const neighborId = neighbor.resource_id || neighbor.id;
           if (!visited.has(neighborId)) {
             results.push({
               id: neighborId,
-              title: neighbor.label,
-              type: neighbor.properties?.resource_type || neighbor.type,
-              score: weight * ((neighbor as any).weight || 0.5),
+              title: neighbor.label ?? '',
+              type: (neighbor.properties?.resource_type as string | undefined) || neighbor.type || 'unknown',
+              score: weight * (neighbor.weight || 0.5),
               source: 'graph',
               metadata: {
                 depth,
-                relation: (neighbor as any).relation,
+                relation: neighbor.relation,
                 nodeType: neighbor.type,
               },
             });
