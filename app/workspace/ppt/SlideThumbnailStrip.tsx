@@ -57,7 +57,7 @@ function ThumbnailCell({
           height: THUMB_H,
           overflow: 'hidden',
           position: 'relative',
-          background: '#fff',
+          background: 'var(--bg, #fff)',
           flexShrink: 0,
         }}
       >
@@ -106,7 +106,7 @@ function ThumbnailCell({
           height: THUMB_H,
           overflow: 'hidden',
           position: 'relative',
-          background: '#fff',
+          background: 'var(--bg, #fff)',
           flexShrink: 0,
         }}
       >
@@ -159,7 +159,7 @@ function ThumbnailCell({
       style={{
         width: THUMB_W,
         height: THUMB_H,
-        background: '#1e1e2e',
+        background: 'var(--bg-secondary, #1e1e2e)',
         position: 'relative',
         overflow: 'hidden',
         flexShrink: 0,
@@ -240,8 +240,8 @@ function SlideThumbnailStripComponent({
       style={{
         width: collapsed ? 44 : 218,
         minWidth: collapsed ? 44 : 218,
-        background: '#0e0e18',
-        borderRight: '1px solid #1c1c2c',
+        background: 'var(--bg, #0e0e18)',
+        borderRight: '1px solid var(--border, #1c1c2c)',
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
@@ -266,9 +266,9 @@ function SlideThumbnailStripComponent({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: '#0e0e18',
+            background: 'var(--bg, #0e0e18)',
             color: 'rgba(255,255,255,0.45)',
-            border: '1px solid #1c1c2c',
+            border: '1px solid var(--border, #1c1c2c)',
             borderLeft: 'none',
             borderRadius: '0 6px 6px 0',
             cursor: 'pointer',
