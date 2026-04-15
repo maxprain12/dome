@@ -158,15 +158,36 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
           if (err) return reject(err);
           zipfile.readEntry();
           zipfile.on('entry', (entry) => {
+            const sanitizeEntryPath = (entryFileName) => {
+              const normalized = path.normalize(entryFileName);
+              if (normalized.includes('\0')) {
+                throw new Error('Path contains null byte');
+              }
+              return normalized;
+            };
+
+            const resolveWithinExtractDir = (fileName) => {
+              const sanitized = sanitizeEntryPath(fileName);
+              const joined = path.join(extractDir, sanitized);
+              const resolved = path.resolve(joined);
+              const resolvedExtractDir = path.resolve(extractDir);
+              if (!resolved.startsWith(resolvedExtractDir + path.sep)) {
+                throw new Error('Path traversal detected: ' + fileName);
+              }
+              return resolved;
+            };
+
             if (/\/$/.test(entry.fileName)) {
-              fs.mkdirSync(path.join(extractDir, entry.fileName), { recursive: true });
+              const dirName = entry.fileName.replace(/\.\.\//g, '');
+              const dirPath = resolveWithinExtractDir(dirName);
+              fs.mkdirSync(dirPath, { recursive: true });
               zipfile.readEntry();
               return;
             }
             zipfile.openReadStream(entry, (openErr, readStream) => {
               if (openErr) return reject(openErr);
               const safeName = entry.fileName.replace(/\.\.\//g, '');
-              const destPath = path.join(extractDir, safeName);
+              const destPath = resolveWithinExtractDir(safeName);
               fs.mkdirSync(path.dirname(destPath), { recursive: true });
               const writeStream = fs.createWriteStream(destPath);
               readStream.pipe(writeStream);

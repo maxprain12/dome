@@ -119,9 +119,28 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
           zipfile.readEntry();
           zipfile.on('entry', (entry) => {
+            const sanitizeEntryPath = (entryFileName) => {
+              const normalized = path.normalize(entryFileName);
+              if (normalized.includes('\0')) {
+                throw new Error('Path contains null byte');
+              }
+              return normalized;
+            };
+
+            const resolveWithinTempDir = (fileName) => {
+              const sanitized = sanitizeEntryPath(fileName);
+              const joined = path.join(tempDir, sanitized);
+              const resolved = path.resolve(joined);
+              const resolvedTempDir = path.resolve(tempDir);
+              if (!resolved.startsWith(resolvedTempDir + path.sep)) {
+                throw new Error('Path traversal detected: ' + fileName);
+              }
+              return resolved;
+            };
+
             if (/\/$/.test(entry.fileName)) {
-              const safeName = entry.fileName.replace(/\.\.\//g, '');
-              const dirPath = path.join(tempDir, safeName);
+              const dirName = entry.fileName.replace(/\.\.\//g, '');
+              const dirPath = resolveWithinTempDir(dirName);
               fs.mkdirSync(dirPath, { recursive: true });
               zipfile.readEntry();
               return;
@@ -130,7 +149,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             zipfile.openReadStream(entry, (openErr, readStream) => {
               if (openErr) return reject(openErr);
               const safeName = entry.fileName.replace(/\.\.\//g, '');
-              const destPath = path.join(tempDir, safeName);
+              const destPath = resolveWithinTempDir(safeName);
               fs.mkdirSync(path.dirname(destPath), { recursive: true });
               const writeStream = fs.createWriteStream(destPath);
               readStream.pipe(writeStream);
