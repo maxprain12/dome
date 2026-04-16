@@ -49,10 +49,25 @@ function ImageViewerComponent({ resource }: ImageViewerProps) {
     loadImage();
   }, [resource.id, resource.thumbnail_data]);
 
-  // Keyboard shortcuts
+  const handleZoomIn = useCallback(() => {
+    setZoom((prev) => Math.min(prev + 0.25, 4));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom((prev) => Math.max(prev - 0.25, 0.25));
+  }, []);
+
+  const handleRotate = useCallback(() => {
+    setRotation((prev) => (prev + 90) % 360);
+  }, []);
+
+  const handleResetView = useCallback(() => {
+    setZoom(1);
+    setRotation(0);
+  }, []);
+
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
@@ -80,24 +95,7 @@ function ImageViewerComponent({ resource }: ImageViewerProps) {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
-
-  const handleZoomIn = useCallback(() => {
-    setZoom((prev) => Math.min(prev + 0.25, 4));
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    setZoom((prev) => Math.max(prev - 0.25, 0.25));
-  }, []);
-
-  const handleRotate = useCallback(() => {
-    setRotation((prev) => (prev + 90) % 360);
-  }, []);
-
-  const handleResetView = useCallback(() => {
-    setZoom(1);
-    setRotation(0);
-  }, []);
+  }, [handleZoomIn, handleZoomOut, handleResetView, handleRotate]);
 
   if (error) {
     return <ErrorState error={error} />;

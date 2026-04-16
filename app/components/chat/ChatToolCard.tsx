@@ -191,8 +191,8 @@ function parseArtifactResult(result: unknown): AnyArtifact | null {
  */
 function JsonPrettyPrinter({ value, depth = 0 }: { value: unknown; depth?: number }) {
   if (value === null) return <span style={{ color: 'var(--tertiary-text)' }}>null</span>;
-  if (typeof value === 'boolean') return <span style={{ color: '#f59e0b' }}>{String(value)}</span>;
-  if (typeof value === 'number') return <span style={{ color: '#10b981' }}>{value}</span>;
+  if (typeof value === 'boolean') return <span style={{ color: 'var(--warning)' }}>{String(value)}</span>;
+  if (typeof value === 'number') return <span style={{ color: 'var(--success)' }}>{value}</span>;
   if (typeof value === 'string') {
     return <span style={{ color: 'var(--secondary-text)' }}>"{value}"</span>;
   }
