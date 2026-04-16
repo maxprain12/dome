@@ -187,7 +187,7 @@ function SubfolderCard({
       type="button"
       onClick={(e) => { e.stopPropagation(); setMenuOpen(false); action(); }}
       className="flex items-center gap-2 w-full px-3 py-2 text-xs text-left"
-      style={{ color: danger ? '#ef4444' : 'var(--dome-text)', background: 'none', border: 'none', cursor: 'pointer' }}
+      style={{ color: danger ? 'var(--dome-error)' : 'var(--dome-text)', background: 'none', border: 'none', cursor: 'pointer' }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
     >
@@ -643,9 +643,9 @@ function AddMenu({ onNewNote, onNewFolder, onUpload, onAddUrl }: {
           className="absolute right-0 top-full mt-1.5 z-[var(--z-popover)] rounded-xl shadow-xl py-1.5 min-w-[200px]"
           style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
         >
-          {item(<FileText className="w-4 h-4" style={{ color: '#7c6fcd' }} />, t('toolbar.note', 'Nueva nota'), onNewNote)}
-          {item(<Upload className="w-4 h-4" style={{ color: '#3b82f6' }} />, t('toolbar.import', 'Subir archivo'), onUpload)}
-          {item(<Link2 className="w-4 h-4" style={{ color: '#10b981' }} />, t('toolbar.link', 'Añadir enlace'), onAddUrl)}
+          {item(<FileText className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />, t('toolbar.note', 'Nueva nota'), onNewNote)}
+          {item(<Upload className="w-4 h-4" style={{ color: 'var(--accent)' }} />, t('toolbar.import', 'Subir archivo'), onUpload)}
+          {item(<Link2 className="w-4 h-4" style={{ color: 'var(--success)' }} />, t('toolbar.link', 'Añadir enlace'), onAddUrl)}
           <div className="my-1" style={{ height: 1, background: 'var(--dome-border)' }} />
           {item(<Folder className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />, t('folder.newFolderBtn', 'Nueva carpeta'), onNewFolder)}
         </div>
@@ -1037,7 +1037,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                 type="button"
                 onClick={handleNewNote}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent, #fff)', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(124,111,205,0.3)' }}
+                style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent)', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(124,111,205,0.3)' }}
               >
                 <Plus className="w-3.5 h-3.5" />
                 {t('toolbar.note', 'Nueva nota')}

@@ -225,7 +225,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 <div className="flex items-center gap-2 mb-0.5">
                   <span
                     className="font-semibold text-sm"
-                    style={{ color: provider === 'dome' ? '#fff' : 'var(--dome-text)' }}
+                    style={{ color: provider === 'dome' ? 'var(--base-text)' : 'var(--dome-text)' }}
                   >
                     {PROVIDERS.dome.name}
                   </span>
@@ -521,7 +521,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
           </div>
 
           {ollamaAvailable === false && (
-            <div className="p-3 rounded-lg" style={{ backgroundColor: '#f59e0b10', border: '1px solid #f59e0b25', color: '#a37b00' }}>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--warning)', border: '1px solid var(--warning)', color: 'var(--warning)' }}>
               <p className="text-xs">
                 {t('onboarding.ollama_install_hint')}{' '}
                 <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline font-medium">{t('onboarding.download_ollama')}</a>

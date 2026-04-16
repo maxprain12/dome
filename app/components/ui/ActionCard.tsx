@@ -43,7 +43,7 @@ export default function ActionCard({
       <Icon
         className="h-5 w-5 shrink-0"
         strokeWidth={1.5}
-        style={{ color: isPrimary ? '#ffffff' : 'var(--dome-accent)' }}
+        style={{ color: isPrimary ? 'var(--base-text)' : 'var(--dome-accent)' }}
       />
       <span className="text-xs font-medium whitespace-nowrap">{label}</span>
     </button>
