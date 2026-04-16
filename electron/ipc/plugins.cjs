@@ -178,16 +178,14 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
             };
 
             if (/\/$/.test(entry.fileName)) {
-              const dirName = entry.fileName.replace(/\.\.\//g, '');
-              const dirPath = resolveWithinExtractDir(dirName);
+              const dirPath = resolveWithinExtractDir(entry.fileName);
               fs.mkdirSync(dirPath, { recursive: true });
               zipfile.readEntry();
               return;
             }
             zipfile.openReadStream(entry, (openErr, readStream) => {
               if (openErr) return reject(openErr);
-              const safeName = entry.fileName.replace(/\.\.\//g, '');
-              const destPath = resolveWithinExtractDir(safeName);
+              const destPath = resolveWithinExtractDir(entry.fileName);
               fs.mkdirSync(path.dirname(destPath), { recursive: true });
               const writeStream = fs.createWriteStream(destPath);
               readStream.pipe(writeStream);
