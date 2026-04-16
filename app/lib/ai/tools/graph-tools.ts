@@ -86,11 +86,12 @@ function createGenerateKnowledgeGraphTool(): AnyAgentTool {
           return errorResult('Must provide either focus_resource_id or project_id');
         }
 
+        const validStrategies: Array<'mentions' | 'links' | 'semantic' | 'tags'> = ['mentions', 'links', 'semantic', 'tags'];
         const graphState = await generateGraph({
           focusResourceId: args.focus_resource_id,
           projectId: args.project_id,
           maxDepth: args.max_depth || 3,
-          strategies: (args.strategies as Array<'mentions' | 'links' | 'semantic' | 'tags'>) || ['mentions', 'links', 'semantic', 'tags'],
+          strategies: (args.strategies?.filter(s => validStrategies.includes(s as 'mentions' | 'links' | 'semantic' | 'tags')) as typeof validStrategies) || validStrategies,
           maxNodes: args.max_nodes || 500,
           minWeight: args.min_weight || 0.3,
         });
