@@ -103,7 +103,7 @@ function CountBadge({ count, muted = false }: { count: number; muted?: boolean }
       style={
         muted
           ? { background: 'var(--dome-border, var(--border))', color: 'var(--dome-text-secondary, var(--secondary-text))' }
-          : { background: 'var(--dome-accent, var(--accent))', color: '#fff' }
+          : { background: 'var(--dome-accent, var(--accent))', color: 'var(--base-text)' }
       }
     >
       {count}
