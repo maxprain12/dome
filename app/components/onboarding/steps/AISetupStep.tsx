@@ -494,7 +494,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                   <span className="text-xs font-medium" style={{ color: DOME_GREEN }}>{t('onboarding.connected')}</span>
                 </div>
               ) : ollamaAvailable === false ? (
-                <div className="flex items-center gap-1.5" style={{ color: '#ef4444' }}>
+                <div className="flex items-center gap-1.5" style={{ color: 'var(--dome-error, #ef4444)' }}>
                   <XCircle className="w-3.5 h-3.5" />
                   <span className="text-xs font-medium">{t('onboarding.not_available')}</span>
                 </div>
@@ -509,7 +509,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               className="px-3 py-1.5 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5"
               style={{
                 backgroundColor: DOME_GREEN,
-                color: '#fff',
+                color: 'var(--dome-on-accent, #fff)',
                 border: 'none',
                 cursor: checkingOllama ? 'not-allowed' : 'pointer',
                 opacity: checkingOllama ? 0.6 : 1,

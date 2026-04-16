@@ -19,7 +19,6 @@ const THUMBNAIL_CONFIG = {
 let sharp = null;
 try {
   sharp = require('sharp');
-  console.log('[Thumbnail] sharp module loaded successfully');
 } catch (error) {
   console.warn('[Thumbnail] sharp module not available, image thumbnails disabled');
 }
@@ -32,7 +31,6 @@ try {
   const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
   ffmpegPath = ffmpegInstaller.path;
   ffmpeg.setFfmpegPath(ffmpegPath);
-  console.log('[Thumbnail] ffmpeg loaded successfully from:', ffmpegPath);
 } catch (error) {
   console.warn('[Thumbnail] fluent-ffmpeg not available, video thumbnails will use placeholders');
 }
@@ -416,7 +414,6 @@ async function generatePdfThumbnail(filePath) {
     napiCanvasLoadAttempted = true;
     try {
       napiCanvas = require('@napi-rs/canvas');
-      console.log('[Thumbnail] @napi-rs/canvas loaded for PDF page rendering');
     } catch (error) {
       console.warn('[Thumbnail] @napi-rs/canvas not available, PDF thumbnails will use placeholders:', error.message);
     }
@@ -430,7 +427,6 @@ async function generatePdfThumbnail(filePath) {
       if (pdfjsLib.VerbosityLevel) {
         pdfjsLib.GlobalWorkerOptions.verbosity = pdfjsLib.VerbosityLevel.ERRORS;
       }
-      console.log('[Thumbnail] pdfjs-dist loaded successfully (ESM dynamic import)');
     } catch (error) {
       console.warn('[Thumbnail] pdfjs-dist not available, PDF thumbnails will use SVG placeholders:', error.message);
     }

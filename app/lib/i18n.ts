@@ -15,6 +15,7 @@ function mapLocaleTagToSupported(raw: string): SupportedLanguage | null {
   return null;
 }
 
+// TODO: Verify if mapAppLocaleToSupported is used - appears unused
 export function mapAppLocaleToSupported(raw: string): SupportedLanguage | null {
   return mapLocaleTagToSupported(raw);
 }

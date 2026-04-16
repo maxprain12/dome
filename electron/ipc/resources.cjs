@@ -627,7 +627,6 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       const updated = queries.getResourceById.get(resourceId);
       windowManager.broadcast('resource:updated', { id: resourceId, updates: updated });
 
-      console.log(`[Resource] DOCX saved: ${resource.title}`);
       return { success: true, data: updated };
     } catch (error) {
       console.error('[Resource] Error saving DOCX:', error);
@@ -678,8 +677,6 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       // Copy file
       fs.copyFileSync(sourcePath, safeDest);
 
-      console.log(`[Resource] Exported: ${resource.title} -> ${safeDest}`);
-
       return { success: true, data: safeDest };
     } catch (error) {
       console.error('[Resource] Error exporting file:', error);
@@ -713,8 +710,6 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
       // Broadcast so Home and other windows update immediately
       windowManager.broadcast('resource:deleted', { id: resourceId });
-
-      console.log(`[Resource] Deleted: ${resource.title}`);
 
       return { success: true };
     } catch (error) {

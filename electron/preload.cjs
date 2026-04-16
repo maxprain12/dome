@@ -1,11 +1,7 @@
 /* eslint-disable no-unused-vars */
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
-// Log to verify preload script is loading
-console.log('[Preload] Script loading...');
-console.log('[Preload] Node version:', process.versions.node);
-console.log('[Preload] Electron version:', process.versions.electron);
-console.log('[Preload] Chrome version:', process.versions.chrome);
+// NOTE: Console logs removed for production - debug logging for preload initialization
 
 /**
  * Dictation toggle from main may arrive before React registers a listener (overlay cold start).
@@ -1024,12 +1020,7 @@ const electronHandler = {
     settings: {
       get: (key) => ipcRenderer.invoke('db:settings:get', key),
       set: (key, value) => {
-        // Debug: log email details to diagnose truncation issue
-        if (key === 'user_email') {
-          console.log(`[Preload] Setting user_email:`);
-          console.log(`[Preload]   - Value: "${value}"`);
-          console.log(`[Preload]   - Length: ${value?.length}`);
-        }
+        // TODO: Remove debug logging once user_email truncation issue is resolved
         return ipcRenderer.invoke('db:settings:set', key, value);
       },
       saveAI: (config) => ipcRenderer.invoke('db:settings:saveAI', config),
@@ -1808,13 +1799,9 @@ const electronHandler = {
 // Expose to renderer
 try {
   contextBridge.exposeInMainWorld('electron', electronHandler);
-  console.log('[Preload] contextBridge.exposeInMainWorld succeeded');
-  console.log('[Preload] Available APIs:', Object.keys(electronHandler).join(', '));
 } catch (error) {
   console.error('[Preload] Failed to expose electron API:', error);
 }
-
-console.log('[Preload] Script loaded successfully');
 
 // Export type for TypeScript
 // (will be used in global.d.ts)

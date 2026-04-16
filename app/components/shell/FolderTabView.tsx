@@ -502,7 +502,7 @@ function FileRow({
                 type="button"
                 onClick={() => { setMenuOpen(false); onDelete(); }}
                 className="flex items-center gap-2 w-full px-3 py-2 text-xs text-left"
-                style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}
+                style={{ color: 'var(--dome-error, #ef4444)', background: 'none', border: 'none', cursor: 'pointer' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
               >
@@ -626,7 +626,7 @@ function AddMenu({ onNewNote, onNewFolder, onUpload, onAddUrl }: {
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
         style={{
           background: 'var(--dome-accent)',
-          color: '#fff',
+          color: 'var(--dome-on-accent, #fff)',
           border: 'none',
           cursor: 'pointer',
           boxShadow: '0 2px 8px rgba(124,111,205,0.35)',
@@ -1037,7 +1037,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                 type="button"
                 onClick={handleNewNote}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-                style={{ background: 'var(--dome-accent)', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(124,111,205,0.3)' }}
+                style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent, #fff)', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(124,111,205,0.3)' }}
               >
                 <Plus className="w-3.5 h-3.5" />
                 {t('toolbar.note', 'Nueva nota')}

@@ -498,13 +498,13 @@ export default function VoiceRecordingDock({ variant = 'shell' }: Props) {
                 {screenPermStatus === 'denied' && window.electron?.isMac && (
                   <div
                     className="mb-2 rounded-md px-2 py-1.5 text-[11px] leading-snug"
-                    style={{ background: 'color-mix(in srgb, #ef4444 12%, transparent)', color: '#ef4444' }}
+                    style={{ background: 'color-mix(in srgb, var(--dome-error, #ef4444) 12%, transparent)', color: 'var(--dome-error, #ef4444)' }}
                   >
                     <p className="mb-1">{t('media.dock_perm_screen_denied')}</p>
                     <button
                       type="button"
                       className="underline text-[11px]"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dome-error, #ef4444)' }}
                       onClick={() => void window.electron?.invoke?.('open-external-url', 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')}
                     >
                       {t('media.dock_perm_screen_open_prefs')}
