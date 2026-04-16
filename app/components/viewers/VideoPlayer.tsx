@@ -229,18 +229,18 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
       }
     };
 
+    const onMouseLeave = () => { if (isPlaying) setShowControls(false); };
     const container = containerRef.current;
     if (container) {
       container.addEventListener('mousemove', handleMouseMove);
-      container.addEventListener('mouseleave', () => {
-        if (isPlaying) setShowControls(false);
-      });
+      container.addEventListener('mouseleave', onMouseLeave);
     }
 
     return () => {
       clearTimeout(timeout);
       if (container) {
         container.removeEventListener('mousemove', handleMouseMove);
+        container.removeEventListener('mouseleave', onMouseLeave);
       }
     };
   }, [isPlaying]);
