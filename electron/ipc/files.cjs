@@ -1,4 +1,13 @@
 /* eslint-disable no-console */
+/**
+ * IPC handlers for file operations.
+ *
+ * NOTE: Error messages returned by these handlers (e.g., 'File not found')
+ * are English strings displayed directly to users. The proper approach would be
+ * to return error codes (e.g., 'file_not_found') that the renderer maps to i18n
+ * strings, but that requires architectural changes to the IPC error handling.
+ */
+
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
