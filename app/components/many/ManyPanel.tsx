@@ -677,9 +677,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
   useEffect(() => {
     if (isHeadless) return;
-    if (inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    const timeoutId = setTimeout(() => inputRef.current?.focus(), 100);
+    return () => clearTimeout(timeoutId);
   }, [isHeadless]);
 
   const hadPendingApprovalRef = useRef(false);
