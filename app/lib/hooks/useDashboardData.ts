@@ -63,6 +63,8 @@ export interface DashboardData {
   runs: PersistentRun[];
   upcomingEventsList: DashboardUpcomingEvent[];
   gamification: HomeGamification;
+  /** Conteo de señales de actividad por día local (`yyyy-mm-dd`) para heatmap estilo GitHub */
+  activityDayCounts: Record<string, number>;
   pendingToday: PendingTodayItem[];
   loading: boolean;
   refresh: () => void;
@@ -145,6 +147,7 @@ export function useDashboardData(projectId: string | null = null): DashboardData
   const [upcomingEventsList, setUpcomingEventsList] = useState<DashboardUpcomingEvent[]>([]);
   const [gamification, setGamification] = useState<HomeGamification>(EMPTY_GAMIFICATION);
   const [pendingToday, setPendingToday] = useState<PendingTodayItem[]>([]);
+  const [activityDayCounts, setActivityDayCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -232,6 +235,12 @@ export function useDashboardData(projectId: string | null = null): DashboardData
       setRuns(runsSafe.slice(0, 8));
 
       const activityDays = new Set<string>();
+      const dayCountMap: Record<string, number> = {};
+      const bumpDay = (key: string) => {
+        if (!key) return;
+        dayCountMap[key] = (dayCountMap[key] ?? 0) + 1;
+      };
+
       let weeklyResourcesCreated = 0;
       let weeklyResourceTouches = 0;
       let resourcesCreatedToday = 0;
@@ -243,6 +252,10 @@ export function useDashboardData(projectId: string | null = null): DashboardData
         const uMs = r.updated_at * 1000;
         activityDays.add(localDayKey(cMs));
         activityDays.add(localDayKey(uMs));
+        bumpDay(localDayKey(cMs));
+        const uk = localDayKey(uMs);
+        if (uk !== localDayKey(cMs)) bumpDay(uk);
+        else if (uMs > cMs + 1000) bumpDay(uk);
         if (cMs >= weekStartMs) weeklyResourcesCreated++;
         if (uMs >= weekStartMs) weeklyResourceTouches++;
         if (cMs >= startToday && cMs < endToday) resourcesCreatedToday++;
@@ -256,6 +269,9 @@ export function useDashboardData(projectId: string | null = null): DashboardData
         const ua = (s.updated_at ?? s.created_at) * 1000;
         activityDays.add(localDayKey(ca));
         activityDays.add(localDayKey(ua));
+        bumpDay(localDayKey(ca));
+        const uak = localDayKey(ua);
+        if (uak !== localDayKey(ca)) bumpDay(uak);
         if (Math.max(ca, ua) >= weekStartMs) weeklyChatSessions++;
         if (ua >= startToday && ua < endToday) chatsToday++;
       }
@@ -267,6 +283,8 @@ export function useDashboardData(projectId: string | null = null): DashboardData
         activityDays.add(localDayKey(run.startedAt));
         activityDays.add(localDayKey(run.updatedAt));
         if (run.finishedAt) activityDays.add(localDayKey(run.finishedAt));
+        bumpDay(localDayKey(run.startedAt));
+        if (run.finishedAt) bumpDay(localDayKey(run.finishedAt));
         if (run.status === 'completed') {
           if (finished >= weekStartMs) weeklyRunsCompleted++;
           if (finished >= startToday && finished < endToday) runsCompletedToday++;
@@ -299,6 +317,8 @@ export function useDashboardData(projectId: string | null = null): DashboardData
         weeklyChatSessions,
         weeklyRunsCompleted,
       });
+
+      setActivityDayCounts(dayCountMap);
 
       const resourcesById = new Map(allResources.map((r) => [r.id, r]));
       const sevenDaysAgoSecs = (Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000;
@@ -371,6 +391,7 @@ export function useDashboardData(projectId: string | null = null): DashboardData
       setPendingToday(pending.slice(0, 8));
     } catch (error) {
       console.error('[useDashboardData] Error loading dashboard data:', error);
+      setActivityDayCounts({});
     } finally {
       setLoading(false);
     }
@@ -405,6 +426,7 @@ export function useDashboardData(projectId: string | null = null): DashboardData
     runs,
     upcomingEventsList,
     gamification,
+    activityDayCounts,
     pendingToday,
     loading,
     refresh: load,

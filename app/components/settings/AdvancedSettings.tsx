@@ -51,7 +51,19 @@ export default function AdvancedSettings() {
   const [notesMigrationStatus, setNotesMigrationStatus] = useState<{ pendingMigrations: number; notes: { id: string; title: string }[] } | null>(null);
   const [notesMigrating, setNotesMigrating] = useState(false);
 
-  useEffect(() => { window.electron?.getAppVersion?.().then((v) => setAppVersion(v || '0.1.0')); }, []);
+  useEffect(() => {
+    void window.electron?.getAppVersion?.().then((r) => {
+      if (typeof r === 'string') {
+        setAppVersion(r || '0.1.0');
+        return;
+      }
+      if (r && typeof r === 'object' && 'success' in r && r.success === true && typeof (r as { data?: unknown }).data === 'string') {
+        setAppVersion((r as { data: string }).data || '0.1.0');
+        return;
+      }
+      setAppVersion('0.1.0');
+    });
+  }, []);
 
   useEffect(() => {
     if (!window.electron?.updater?.onStatus) return;

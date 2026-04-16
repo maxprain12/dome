@@ -6,6 +6,7 @@ import ManyChatHeader from './ManyChatHeader';
 import ManyChatInput from './ManyChatInput';
 import { useManyStore, type ManyChatSession, type ManyMessage } from '@/lib/store/useManyStore';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useTabStore } from '@/lib/store/useTabStore';
 import {
   getAIConfig,
   createManyToolsForContext,
@@ -171,6 +172,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   } = useManyStore();
   const currentFolderId = useAppStore((s) => s.currentFolderId);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
+  const activeShellTabType = useTabStore((s) => s.tabs.find((t) => t.id === s.activeTabId)?.type);
   const chatProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
   const [input, setInput] = useState('');
@@ -695,7 +697,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     if (petPromptOverride) {
       return petPromptOverride;
     }
-    const context = getUiLocationDescription(pathname || '/', homeSidebarSection);
+    const context = getUiLocationDescription(pathname || '/', homeSidebarSection, activeShellTabType);
     const now = new Date();
     let prompt = buildManyFloatingPrompt({
       location: context.location,
@@ -708,6 +710,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     prompt += `\n\n${APP_SECTION_GUIDE}\n\n${buildSharedUiContextBlock({
       pathname: pathname || '/',
       homeSidebarSection,
+      shellTabType: activeShellTabType,
       currentFolderId,
       currentResourceId: effectiveResourceId,
       currentResourceTitle: currentResourceTitle || null,
@@ -748,6 +751,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
     return prompt;
   }, [
+    activeShellTabType,
     currentFolderId,
     currentResourceTitle,
     effectiveResourceId,
@@ -1108,7 +1112,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     }
   }, [clearMessages]);
 
-  const context = getUiLocationDescription(pathname || '/', homeSidebarSection);
+  const context = getUiLocationDescription(pathname || '/', homeSidebarSection, activeShellTabType);
 
   const loadingHint = useMemo(() => {
     if (pendingApproval) return 'Esperando aprobación';

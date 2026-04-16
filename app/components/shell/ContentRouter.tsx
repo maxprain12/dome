@@ -16,6 +16,7 @@ const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
 const ManyPanel = lazy(() => import('@/components/many/ManyPanel'));
 const HomePage = lazy(() => import('@/pages/HomePage'));
+const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
 const LearnPage = lazy(() => import('@/components/learn/LearnPage'));
 const LearnTabShell = lazy(() => import('@/components/learn/LearnTabShell'));
 const TagsPage = lazy(() => import('@/components/home/TagBrowser'));
@@ -62,6 +63,17 @@ function TabContent({ tab }: { tab: DomeTab }) {
         <ErrorBoundary>
           <Suspense fallback={<Loading />}>
             <HomePage />
+          </Suspense>
+        </ErrorBoundary>
+      );
+
+    case 'projects':
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <ProjectsPage />
+            </div>
           </Suspense>
         </ErrorBoundary>
       );
@@ -289,6 +301,7 @@ function TabContent({ tab }: { tab: DomeTab }) {
  */
 const PERSISTENT_TAB_TYPES = new Set([
   'home',
+  'projects',
   'chat',
   'learn',
   'studio',

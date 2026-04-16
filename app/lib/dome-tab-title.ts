@@ -6,6 +6,8 @@ export function getDomeTabDisplayTitle(tab: DomeTab, t: TFunction): string {
   switch (tab.type) {
     case 'home':
       return t('tabs.home');
+    case 'projects':
+      return t('tabs.projects');
     case 'settings':
       return t('tabs.settings');
     case 'calendar':

@@ -9,6 +9,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import type { HomeQuickActionId } from '@/types';
 import { DashboardSectionLabel } from '@/components/home/dashboard/DashboardSectionLabel';
+import DomeButton from '@/components/ui/DomeButton';
 
 const ICONS: Record<HomeQuickActionId, LucideIcon> = {
   newNote: Plus,
@@ -17,75 +18,6 @@ const ICONS: Record<HomeQuickActionId, LucideIcon> = {
   learn: WalletCards,
   calendar: Calendar,
 };
-
-function QuickActionBtn({
-  label,
-  description,
-  icon: Icon,
-  onClick,
-  variant = 'default',
-}: {
-  label: string;
-  description: string;
-  icon: LucideIcon;
-  onClick: () => void;
-  variant?: 'primary' | 'default';
-}) {
-  const isPrimary = variant === 'primary';
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex w-full cursor-pointer items-center gap-4 rounded-[20px] border px-5 py-4 text-left transition-all duration-150"
-      style={{
-        background: isPrimary ? 'var(--dome-accent)' : 'var(--dome-surface)',
-        borderColor: isPrimary ? 'transparent' : 'var(--dome-border)',
-        color: isPrimary ? '#fff' : 'var(--dome-text)',
-        boxShadow: isPrimary ? '0 4px 16px rgba(124,111,205,0.25)' : 'none',
-      }}
-      onMouseEnter={(e) => {
-        const el = e.currentTarget as HTMLElement;
-        if (isPrimary) {
-          el.style.boxShadow = '0 6px 20px rgba(124,111,205,0.35)';
-          el.style.transform = 'translateY(-2px)';
-        } else {
-          el.style.borderColor = 'var(--dome-accent)';
-          el.style.boxShadow = '0 0 0 1px rgba(124,111,205,0.15)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget as HTMLElement;
-        if (isPrimary) {
-          el.style.boxShadow = '0 4px 16px rgba(124,111,205,0.25)';
-          el.style.transform = '';
-        } else {
-          el.style.borderColor = 'var(--dome-border)';
-          el.style.boxShadow = 'none';
-        }
-      }}
-    >
-      <span
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-        style={{
-          background: isPrimary ? 'rgba(255,255,255,0.25)' : 'var(--dome-bg)',
-          color: isPrimary ? '#fff' : 'var(--dome-text-secondary)',
-          border: isPrimary ? '1px solid rgba(255,255,255,0.2)' : 'none',
-        }}
-      >
-        <Icon className="h-5 w-5" strokeWidth={2} />
-      </span>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-bold leading-tight">{label}</p>
-        <p
-          className="mt-1 truncate text-xs font-medium"
-          style={{ color: isPrimary ? 'rgba(255,255,255,0.8)' : 'var(--dome-text-muted)' }}
-        >
-          {description}
-        </p>
-      </div>
-    </button>
-  );
-}
 
 export function DashboardQuickActions({
   orderedIds,
@@ -120,15 +52,24 @@ export function DashboardQuickActions({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {orderedIds.map((id, index) => {
           const Icon = ICONS[id];
+          const isPrimary = index === 0;
           return (
-            <QuickActionBtn
+            <DomeButton
               key={id}
-              label={t(labelKey[id])}
-              description={t(descKey[id])}
-              icon={Icon}
+              type="button"
+              variant={isPrimary ? 'primary' : 'outline'}
+              size="md"
+              className="h-auto min-h-[4.25rem] w-full justify-start gap-3 py-3.5 text-left"
+              leftIcon={<Icon className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />}
               onClick={() => onAction(id)}
-              variant={index === 0 ? 'primary' : 'default'}
-            />
+            >
+              <span className="flex min-w-0 flex-col items-start gap-0.5 text-left">
+                <span className="text-sm font-semibold leading-tight">{t(labelKey[id])}</span>
+                <span className={`text-xs font-medium ${isPrimary ? 'text-white/80' : 'text-[var(--tertiary-text)]'}`}>
+                  {t(descKey[id])}
+                </span>
+              </span>
+            </DomeButton>
           );
         })}
       </div>

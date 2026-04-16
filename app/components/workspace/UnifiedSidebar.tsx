@@ -37,6 +37,7 @@ import {
   Workflow,
   Zap,
   Activity,
+  Layers,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -1178,6 +1179,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   const {
     openSettingsTab,
     openCalendarTab,
+    openProjectsTab,
     openLearnTab,
     openTagsTab,
     openAgentsTab,
@@ -1469,6 +1471,14 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         icon: <Home className="w-4 h-4 shrink-0" strokeWidth={sw} />,
       },
       {
+        key: 'projects',
+        kind: 'tab',
+        tabType: 'projects',
+        label: t('tabs.projects'),
+        icon: <Layers className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        onOpen: openProjectsTab,
+      },
+      {
         key: 'calendar',
         kind: 'tab',
         tabType: 'calendar',
@@ -1520,6 +1530,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     hubCounts.automations,
     hubCounts.runs,
     openCalendarTab,
+    openProjectsTab,
     openAgentsTab,
     openWorkflowsTab,
     openAutomationsTab,
@@ -1677,7 +1688,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
               type="button"
               onClick={() => {
                 setProjectMenuOpen(false);
-                setSection('projects');
+                openProjectsTab();
               }}
               className="text-left px-2.5 py-1.5 text-xs border-t transition-colors"
               style={{

@@ -25,6 +25,7 @@ import {
   Activity,
   MoreHorizontal,
   ChevronLeft,
+  Layers,
 } from 'lucide-react';
 import {
   useTabStore,
@@ -44,6 +45,7 @@ function TabIcon({ tab }: { tab: DomeTab }) {
   const sw = 1.75;
   switch (tab.type) {
     case 'home': return <Home className={cls} strokeWidth={sw} />;
+    case 'projects': return <Layers className={cls} strokeWidth={sw} />;
     case 'settings': return <Settings className={cls} strokeWidth={sw} />;
     case 'calendar': return <Calendar className={cls} strokeWidth={sw} />;
     case 'chat': return <MessageCircle className={cls} strokeWidth={sw} />;

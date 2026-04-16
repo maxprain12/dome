@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -14,7 +14,7 @@ import { DashboardMomentum } from '@/components/home/dashboard/DashboardMomentum
 import { DashboardWeeklyActivity } from '@/components/home/dashboard/DashboardWeeklyActivity';
 import { DashboardPending } from '@/components/home/dashboard/DashboardPending';
 import { DashboardActivityContinue } from '@/components/home/dashboard/DashboardActivityContinue';
-import { HomeCustomizeModal } from '@/components/home/dashboard/HomeCustomizeModal';
+import { DashboardCanvas } from '@/components/home/dashboard/DashboardCanvas';
 
 export default function DashboardView() {
   const { t } = useTranslation();
@@ -31,13 +31,27 @@ export default function DashboardView() {
   const homeDashboard = useAppStore((s) => s.homeDashboard);
   const updateHomeDashboard = useAppStore((s) => s.updateHomeDashboard);
 
-  const { stats, activity, gamification, pendingToday, loading } = useDashboardData(
+  const { stats, activity, gamification, activityDayCounts, pendingToday, loading } = useDashboardData(
     currentProject?.id ?? 'default',
   );
 
-  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   const firstName = name?.split(' ')[0] || '';
+
+  const widgets = homeDashboard.widgets;
+  const quickActionsOrder = homeDashboard.quickActions;
+
+  const visibleIds = useMemo(() => {
+    const s = new Set<string>(['hero']);
+    if (widgets.search) s.add('search');
+    if (quickActionsOrder.length > 0) s.add('quickActions');
+    if (widgets.momentum) s.add('momentum');
+    if (widgets.weeklyActivity) s.add('weeklyActivity');
+    if (widgets.pendingToday) s.add('pendingToday');
+    if (widgets.continueActivity) s.add('continueActivity');
+    return s;
+  }, [widgets, quickActionsOrder]);
 
   const handleResourceSelect = useCallback(
     (resource: { id: string; type: string; title: string }) => {
@@ -143,50 +157,45 @@ export default function DashboardView() {
     [openFolderTab, openResourceTab, openChatTab, t],
   );
 
-  const widgets = homeDashboard.widgets;
-  const quickActionsOrder = homeDashboard.quickActions;
-
   return (
     <div className="h-full overflow-y-auto" style={{ background: 'var(--dome-bg)' }}>
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
-        <DashboardHero
-          nameFirst={firstName}
-          gamification={gamification}
-          loading={loading}
-          onCustomize={() => setCustomizeOpen(true)}
+        <DashboardCanvas
+          isEditing={isEditing}
+          preferences={homeDashboard}
+          onUpdatePreferences={updateHomeDashboard}
+          visibleIds={visibleIds}
+          slots={{
+            hero: (
+              <DashboardHero
+                nameFirst={firstName}
+                gamification={gamification}
+                loading={loading}
+                isEditing={isEditing}
+                onStartCustomize={() => setIsEditing(true)}
+                onDoneEditing={() => setIsEditing(false)}
+              />
+            ),
+            search: widgets.search ? <InlineSearch onResourceSelect={handleResourceSelect} /> : undefined,
+            quickActions:
+              quickActionsOrder.length > 0 ? (
+                <DashboardQuickActions orderedIds={quickActionsOrder} onAction={onQuickAction} />
+              ) : undefined,
+            momentum: widgets.momentum ? (
+              <DashboardMomentum stats={stats} gamification={gamification} loading={loading} />
+            ) : undefined,
+            weeklyActivity: widgets.weeklyActivity ? (
+              <DashboardWeeklyActivity activityDayCounts={activityDayCounts} loading={loading} />
+            ) : undefined,
+            pendingToday: widgets.pendingToday ? (
+              <DashboardPending items={pendingToday} loading={loading} onItemClick={onPendingClick} />
+            ) : undefined,
+            continueActivity: widgets.continueActivity ? (
+              <DashboardActivityContinue activity={activity} loading={loading} onContinue={onContinueActivity} />
+            ) : undefined,
+          }}
         />
-
-        {widgets.search ? (
-          <div className="mb-8">
-            <InlineSearch onResourceSelect={handleResourceSelect} />
-          </div>
-        ) : null}
-
-        <DashboardQuickActions orderedIds={quickActionsOrder} onAction={onQuickAction} />
-
-        {widgets.momentum ? (
-          <DashboardMomentum stats={stats} gamification={gamification} loading={loading} />
-        ) : null}
-
-        {widgets.weeklyActivity ? (
-          <DashboardWeeklyActivity gamification={gamification} loading={loading} />
-        ) : null}
-
-        {widgets.pendingToday ? (
-          <DashboardPending items={pendingToday} loading={loading} onItemClick={onPendingClick} />
-        ) : null}
-
-        {widgets.continueActivity ? (
-          <DashboardActivityContinue activity={activity} loading={loading} onContinue={onContinueActivity} />
-        ) : null}
       </div>
-
-      <HomeCustomizeModal
-        isOpen={customizeOpen}
-        preferences={homeDashboard}
-        onClose={() => setCustomizeOpen(false)}
-        onSave={updateHomeDashboard}
-      />
     </div>
   );
 }
