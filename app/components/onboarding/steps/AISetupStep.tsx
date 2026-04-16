@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ComponentType } from 'react';
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Shield, Sparkles, Globe, Cpu, Zap, Lock, Wifi, HardDrive, ArrowRight } from 'lucide-react';
@@ -93,14 +93,11 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     }
   };
 
-  const handleNextRef = useRef(handleNext);
-  handleNextRef.current = handleNext;
-
   useEffect(() => {
-    const handleFinalize = () => handleNextRef.current();
+    const handleFinalize = () => handleNext();
     window.addEventListener('onboarding:finalize', handleFinalize);
     return () => window.removeEventListener('onboarding:finalize', handleFinalize);
-  }, []);
+  }, [handleNext]);
 
   useEffect(() => {
     const loadConfig = async () => {

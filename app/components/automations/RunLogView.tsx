@@ -77,8 +77,8 @@ function parseJson(raw: unknown): unknown {
 // are code decoration colors, not theme colors. No CSS variables exist for these.
 export function JsonPrettyPrinter({ value, depth = 0 }: { value: unknown; depth?: number }) {
   if (value === null) return <span style={{ color: 'var(--tertiary-text)' }}>null</span>;
-  if (typeof value === 'boolean') return <span style={{ color: '#f59e0b' }}>{String(value)}</span>;
-  if (typeof value === 'number') return <span style={{ color: '#10b981' }}>{value}</span>;
+  if (typeof value === 'boolean') return <span style={{ color: 'var(--warning)' }}>{String(value)}</span>;
+  if (typeof value === 'number') return <span style={{ color: 'var(--success)' }}>{value}</span>;
   if (typeof value === 'string') return <span style={{ color: 'var(--secondary-text)' }}>"{value}"</span>;
   if (Array.isArray(value)) {
     if (value.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>[]</span>;
