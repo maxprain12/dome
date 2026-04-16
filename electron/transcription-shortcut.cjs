@@ -53,7 +53,6 @@ function registerFromDatabase(database, windowManager) {
     const ok = globalShortcut.register(accel, () => sendToggleToMain(windowManager));
     if (ok) {
       registeredAccelerator = accel;
-      console.log('[Transcription] Global shortcut registered:', accel);
     } else {
       console.warn('[Transcription] Global shortcut registration returned false:', accel);
     }

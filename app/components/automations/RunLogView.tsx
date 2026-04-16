@@ -73,7 +73,8 @@ function parseJson(raw: unknown): unknown {
 }
 
 // ─── JsonPrettyPrinter (same as ChatToolCard) ─────────────────────────────
-
+// Note: JSON syntax highlighting colors (#f59e0b for boolean, #10b981 for number)
+// are code decoration colors, not theme colors. No CSS variables exist for these.
 export function JsonPrettyPrinter({ value, depth = 0 }: { value: unknown; depth?: number }) {
   if (value === null) return <span style={{ color: 'var(--tertiary-text)' }}>null</span>;
   if (typeof value === 'boolean') return <span style={{ color: '#f59e0b' }}>{String(value)}</span>;

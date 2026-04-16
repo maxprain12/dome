@@ -97,7 +97,7 @@ export default function LearnPage() {
             type="button"
             onClick={() => setGenerateModalOpen(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-            style={{ background: 'var(--dome-accent)', color: '#fff' }}
+            style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent, #fff)' }}
           >
             <Wand2 className="w-3.5 h-3.5" />
             {t('learn.generate')}

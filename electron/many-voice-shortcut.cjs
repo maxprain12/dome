@@ -55,7 +55,6 @@ async function registerFromDatabase(database, windowManager) {
     const ok = globalShortcut.register(accel, () => sendToggleToMain(windowManager));
     if (ok) {
       registeredAccelerator = accel;
-      console.log('[ManyVoice] Global shortcut (toggle) registered:', accel);
     } else {
       console.warn('[ManyVoice] Global shortcut registration returned false:', accel);
     }

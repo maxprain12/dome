@@ -316,7 +316,7 @@ function DraggableTimeEvent({
         top: renderTop,
         height: renderHeight,
         backgroundColor: event.calendar_color ?? 'var(--dome-accent)',
-        color: '#fff',
+        color: 'var(--dome-on-accent, #fff)',
         zIndex: dragging ? 20 : 2,
         cursor: onEventDateChange ? (dragging === 'move' ? 'grabbing' : 'grab') : 'pointer',
         opacity: dragging ? 0.85 : 1,
@@ -420,7 +420,7 @@ function WeekView({
               className="text-base mx-auto mt-0.5 w-8 h-8 flex items-center justify-center rounded-full font-medium"
               style={{
                 background: isToday(day) ? 'var(--dome-accent)' : undefined,
-                color: isToday(day) ? '#fff' : 'var(--dome-text)',
+                color: isToday(day) ? 'var(--dome-on-accent, #fff)' : 'var(--dome-text)',
                 fontWeight: isToday(day) ? 700 : 500,
               }}
             >
@@ -611,7 +611,7 @@ function YearView({
                       className="w-4 h-4 flex items-center justify-center rounded-full text-[9px]"
                       style={{
                         background: today && inMonth ? 'var(--dome-accent)' : undefined,
-                        color: !inMonth ? 'transparent' : today ? '#fff' : 'var(--dome-text)',
+                        color: !inMonth ? 'transparent' : today ? 'var(--dome-on-accent, #fff)' : 'var(--dome-text)',
                         fontWeight: today ? 700 : 400,
                       }}
                     >
@@ -717,7 +717,7 @@ export default function CalendarGrid({
               className="text-[11px] px-3 py-1 transition-colors"
               style={{
                 background: m === viewMode ? 'var(--dome-accent)' : 'var(--dome-surface)',
-                color: m === viewMode ? '#fff' : 'var(--dome-text-muted)',
+                color: m === viewMode ? 'var(--dome-on-accent, #fff)' : 'var(--dome-text-muted)',
                 borderRight: i < MODES.length - 1 ? '1px solid var(--dome-border)' : undefined,
               }}
             >

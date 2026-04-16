@@ -285,4 +285,5 @@ class LayoutCache {
   }
 }
 
+// TODO: Check if layoutCache is actually used before removing
 export const layoutCache = new LayoutCache();
