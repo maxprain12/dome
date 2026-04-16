@@ -32,7 +32,7 @@ AUDIT_PRS=$(gh pr list \
   --state all \
   --limit 50 \
   --search "audit in:title" \
-  --json number,title,state,createdAt,mergedAt,url,additions,deletions,changedFiles \
+  --json number,title,state,createdAt,mergedAt,url,additions,deletions,changedFiles,reviews \
   2>/dev/null || echo "[]")
 
 TOTAL_PRS=$(echo "$AUDIT_PRS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d))" 2>/dev/null || echo "0")
@@ -96,7 +96,20 @@ else
   HEALTH_LABEL="Needs Work"
 fi
 
-# ── Recent timeline (last 10 PRs) ────────────────────────────────────────────
+# ── VPS status ────────────────────────────────────────────────────────────────
+# Count AI review failures in last 24h from log file
+AI_REVIEW_FAILURES_24H=0
+if [ -f "$LOG_FILE" ]; then
+  AI_REVIEW_FAILURES_24H=$(grep -c "AI review.*fail\|Review pass failed\|API error" "$LOG_FILE" 2>/dev/null || echo "0")
+fi
+
+# Count pending findings jobs
+PENDING_COUNT=0
+if [ -d "/var/log/dome-audit-findings/pending" ]; then
+  PENDING_COUNT=$(find /var/log/dome-audit-findings/pending -name "*.pending" 2>/dev/null | wc -l | tr -d ' ')
+fi
+
+# ── Recent timeline (last 15 PRs) ────────────────────────────────────────────
 RECENT_PRS_HTML=$(echo "$AUDIT_PRS" | python3 -c "
 import sys, json, re
 from datetime import datetime
@@ -112,6 +125,25 @@ def format_date(s):
         return dt.strftime('%b %d, %H:%M')
     except:
         return s[:10]
+
+def ai_review_status(reviews):
+    '''Parse reviews list to determine AI review status.'''
+    if not reviews:
+        return 'dot-gray', '—', 'No review'
+    ai_reviews = [r for r in reviews if '🤖 AI Code Review' in (r.get('body') or '')]
+    if not ai_reviews:
+        return 'dot-gray', '?', 'No AI review'
+    body = ai_reviews[-1].get('body', '')
+    if 'All 3 passes completed' in body:
+        return 'dot-green', '✓', 'All passes OK'
+    if 'pass failed' in body or 'Review pass failed' in body or 'API error' in body.lower():
+        # Count how many passes had errors
+        fail_count = body.count('Review pass failed')
+        if fail_count == 3:
+            return 'dot-red', '✗', 'All passes failed'
+        return 'dot-yellow', f'⚠ {fail_count}f', f'{fail_count} pass(es) failed'
+    # Has a review but status line is ambiguous — assume ok
+    return 'dot-green', '✓', 'Review posted'
 
 focus_colors = {
     'security': '#ef4444', 'types': '#3b82f6', 'i18n': '#8b5cf6',
@@ -138,6 +170,7 @@ for p in data:
     additions = p.get('additions', 0)
     deletions = p.get('deletions', 0)
     files = p.get('changedFiles', 0)
+    review_dot, review_short, review_tip = ai_review_status(p.get('reviews', []))
     rows.append(f'''
     <tr class=\"timeline-row\">
       <td><a href=\"{p['url']}\" target=\"_blank\" class=\"pr-link\">#{p['number']}</a></td>
@@ -145,11 +178,12 @@ for p in data:
       <td><span class=\"badge {badge_class}\">{badge_text}</span></td>
       <td class=\"stat-cell\"><span class=\"additions\">+{additions}</span> / <span class=\"deletions\">-{deletions}</span></td>
       <td class=\"stat-cell muted\">{files} files</td>
+      <td class=\"stat-cell\" title=\"{review_tip}\"><span class=\"status-dot {review_dot}\"></span>{review_short}</td>
       <td class=\"stat-cell muted\">{date_str}</td>
     </tr>''')
 
 print(''.join(rows))
-" 2>/dev/null || echo "<tr><td colspan='6' class='muted'>No PR data available</td></tr>")
+" 2>/dev/null || echo "<tr><td colspan='7' class='muted'>No PR data available</td></tr>")
 
 # ── Per-focus cards HTML ───────────────────────────────────────────────────────
 FOCUS_CARDS_HTML=$(python3 -c "
@@ -400,6 +434,7 @@ cat > "$OUTPUT_FILE" << HTML
     .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
     .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
     .dot-red { background: var(--red); }
+    .dot-yellow { background: var(--yellow); }
     .dot-gray { background: var(--text2); }
     .clean-label { color: var(--green); font-size: 13px; }
     .findings-count { color: var(--yellow); font-size: 13px; font-weight: 600; }
@@ -559,6 +594,18 @@ cat > "$OUTPUT_FILE" << HTML
         <div class="sub">from VPS log</div>
       </div>
 
+      <div class="summary-card">
+        <div class="label">AI Review Errors (log)</div>
+        <div class="value" style="color: $([ "${AI_REVIEW_FAILURES_24H:-0}" -gt 0 ] && echo 'var(--red)' || echo 'var(--green)')">${AI_REVIEW_FAILURES_24H:-0}</div>
+        <div class="sub">API/post failures in log</div>
+      </div>
+
+      <div class="summary-card">
+        <div class="label">Pending Queue</div>
+        <div class="value" style="color: $([ "${PENDING_COUNT:-0}" -gt 0 ] && echo 'var(--yellow)' || echo 'var(--green)')">${PENDING_COUNT:-0}</div>
+        <div class="sub">reviews awaiting extract</div>
+      </div>
+
     </div>
   </div>
 
@@ -590,6 +637,7 @@ ${OPEN_FINDINGS_HTML}
             <th>Status</th>
             <th>Changes</th>
             <th>Files</th>
+            <th title="AI Code Review status (✓ all passes OK / ⚠ partial / ✗ all failed / — no review)">AI Review</th>
             <th>Date</th>
           </tr>
         </thead>

@@ -63,6 +63,42 @@ You are performing a periodic code audit of Dome, an Electron + React desktop ap
 
 Read AGENTS.md first to understand the codebase architecture.
 
+## Project-specific context (read before auditing)
+
+### Valid CSS variables (defined in app/globals.css)
+The following CSS custom properties ARE defined and valid. NEVER flag them as "unknown", "undocumented",
+or "should be replaced". They are real variables used throughout the codebase:
+
+Text colors:
+  --primary-text, --secondary-text, --tertiary-text
+  --dome-text (→ --primary-text), --dome-text-secondary (→ --secondary-text), --dome-text-muted (→ --tertiary-text)
+  --base-text  ← text on accent-colored buttons (#FFFFFF light / #121212 dark — intentionally hardcoded in globals.css)
+
+Backgrounds:
+  --bg, --bg-secondary, --bg-tertiary, --bg-hover
+  --dome-bg (→ --bg), --dome-bg-hover (→ --bg-hover), --dome-accent-bg (translucent accent)
+
+Interactive:
+  --accent, --accent-hover
+  --dome-accent (→ --accent), --dome-accent-hover (→ --accent-hover)
+
+Semantic:
+  --error, --warning, --success
+  --dome-error (→ --error)
+
+Borders:
+  --border, --border-hover, --dome-border (→ --border)
+
+Only flag LITERAL hex values (e.g. color: '#ef4444') that appear in style= attributes or TSX WITHOUT
+being wrapped in a CSS var(). Fallback values inside var(--x, fallback) are acceptable.
+
+### Stack clarification
+- Runtime: Bun for dev/build; Electron uses Node.js (better-sqlite3, NOT bun:sqlite)
+- Frontend: Vite + React 18 (NOT Next.js — ignore any Next.js references in style guides)
+- Routes: React Router v7 (client-side SPA), entry: app/main.tsx
+- i18n: react-i18next, all translations inline in app/lib/i18n.ts (en/es/fr/pt), default language: es
+- verbatimModuleSyntax: true → ALL type-only imports MUST use \`import type { }\`
+
 $(if [ -n "$PREVIOUS_FINDINGS" ]; then
   echo "## Unresolved findings from the previous audit run"
   echo "The AI reviewer flagged these issues in the last PR for this focus."
@@ -113,27 +149,44 @@ to see the total count before and after."
 Audit the codebase for i18n issues:
 1. User-visible strings hardcoded in components instead of using t()
 2. Translation keys that exist in 'en' but are missing in 'es', 'fr', or 'pt' in app/lib/i18n.ts
-3. Components using useTranslation() inconsistently
+3. Components that import useTranslation but don't use t() for user-facing strings
 
 Fix all missing translation keys in app/lib/i18n.ts.
 For hardcoded strings: wrap them with t() and add the key to all 4 languages.
 
-IMPORTANT: Do NOT reformat or reindent existing keys in i18n.ts.
-Only add missing keys or change actual string values. Indentation-only changes
-create noise without value and will be reverted."
+IMPORTANT rules for i18n.ts edits:
+- Do NOT reformat, reindent, or reorder existing keys — only add/change values
+- The default language is Spanish (es) — Spanish strings should be natural, not machine-translated
+- French (fr) and Portuguese (pt) translations should be grammatically correct
+- Use the same key nesting structure as existing keys for consistency
+- Never add a key in one language without adding it in all 4 (en/es/fr/pt)"
     ;;
   debt)
     echo "## Focus: Technical Debt
 Audit the codebase for technical debt:
-1. Dead code: exported functions/components that are never imported
-2. Duplicate logic: same pattern repeated 3+ times that could be extracted
-3. Hardcoded colors (hex values) instead of CSS variables — use CSS variables from AGENTS.md
-4. Console.log statements left in production code (not console.error/warn)
+1. Dead code: exported functions/components that are never imported anywhere
+2. Duplicate logic: same pattern repeated 3+ times that could be extracted to a shared util
+3. Hardcoded colors: literal hex values (e.g. color: '#ef4444') in style= attributes that should use CSS variables
+4. Console.log statements left in production code (console.error/warn are fine)
 5. TODO/FIXME comments older than 30 days
+
+IMPORTANT for color fixes:
+- Replace hardcoded hex values with the CSS variables listed in the 'Valid CSS variables' section above
+- Do NOT replace CSS variable usages — they are already correct
+- Mapping guide:
+    '#ef4444' or red-ish errors → var(--dome-error) or var(--error)
+    '#ffffff' or '#fff' on buttons → var(--base-text)
+    '#0ea5e9' or blue → var(--accent)
+    '#111827' or dark text → var(--primary-text)
+    '#6b7280' or medium text → var(--secondary-text)
+    '#9ca3af' or muted text → var(--tertiary-text)
+    '#f9fafb' or light bg → var(--bg-secondary)
+    '#f3f4f6' → var(--bg-tertiary)
+    '#e5e7eb' borders → var(--border)
 
 There are currently ~468 hardcoded hex colors and ~233 console.logs in the codebase.
 Focus on the files with the most occurrences first.
-Fix the hardcoded colors and console.logs. Flag the rest with a comment."
+Fix the hardcoded colors and console.logs. Flag the rest with a TODO comment."
     ;;
   vulns)
     echo "## Focus: Dependency Vulnerabilities
