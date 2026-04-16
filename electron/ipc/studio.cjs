@@ -97,6 +97,8 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Update studio output
+  const ALLOWED_UPDATE_FIELDS = ['title', 'content', 'source_ids', 'file_path', 'metadata', 'deck_id', 'resource_id'];
+
   ipcMain.handle('db:studio:update', (event, id, updates) => {
     try {
       validateSender(event, windowManager);
@@ -104,33 +106,16 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const fields = [];
       const values = [];
 
-      if (updates.title !== undefined) {
-        fields.push('title = ?');
-        values.push(updates.title);
-      }
-      if (updates.content !== undefined) {
-        fields.push('content = ?');
-        values.push(updates.content);
-      }
-      if (updates.source_ids !== undefined) {
-        fields.push('source_ids = ?');
-        values.push(typeof updates.source_ids === 'string' ? updates.source_ids : JSON.stringify(updates.source_ids));
-      }
-      if (updates.file_path !== undefined) {
-        fields.push('file_path = ?');
-        values.push(updates.file_path);
-      }
-      if (updates.metadata !== undefined) {
-        fields.push('metadata = ?');
-        values.push(typeof updates.metadata === 'string' ? updates.metadata : JSON.stringify(updates.metadata));
-      }
-      if (updates.deck_id !== undefined) {
-        fields.push('deck_id = ?');
-        values.push(updates.deck_id);
-      }
-      if (updates.resource_id !== undefined) {
-        fields.push('resource_id = ?');
-        values.push(updates.resource_id);
+      for (const key of Object.keys(updates)) {
+        if (!ALLOWED_UPDATE_FIELDS.includes(key)) {
+          continue;
+        }
+        fields.push(`${key} = ?`);
+        if (key === 'source_ids' || key === 'metadata') {
+          values.push(typeof updates[key] === 'string' ? updates[key] : JSON.stringify(updates[key]));
+        } else {
+          values.push(updates[key]);
+        }
       }
 
       fields.push('updated_at = ?');
