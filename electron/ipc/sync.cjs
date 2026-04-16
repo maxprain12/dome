@@ -124,6 +124,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
               if (normalized.includes('\0')) {
                 throw new Error('Path contains null byte');
               }
+              // Note: '..' is allowed through here because resolveWithinTempDir
+              // catches path traversal via containment check (startsWith baseDir + sep).
+              // This is secure because path.resolve normalizes '..' components.
               return normalized;
             };
 
