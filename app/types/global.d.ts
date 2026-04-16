@@ -130,7 +130,11 @@ declare global {
       // System Paths
       getUserDataPath: () => Promise<string>;
       getHomePath: () => Promise<string>;
-      getAppVersion: () => Promise<string>;
+      getAppVersion: () => Promise<
+        | { success: true; data: string }
+        | { success: false; error: string }
+        | string
+      >;
 
       // File Dialogs
       selectFile: (options?: {

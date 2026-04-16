@@ -1,10 +1,11 @@
-export function DashboardSectionLabel({ children }: { children: React.ReactNode }) {
+import type { ReactNode } from 'react';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import { cn } from '@/lib/utils';
+
+export function DashboardSectionLabel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <h2
-      className="text-[11px] font-semibold uppercase tracking-widest mb-3"
-      style={{ color: 'var(--dome-text-secondary, #4a4766)' }}
-    >
+    <DomeSectionLabel compact className={cn('mb-3 tracking-widest text-[var(--dome-text-muted,var(--tertiary-text))]', className)}>
       {children}
-    </h2>
+    </DomeSectionLabel>
   );
 }

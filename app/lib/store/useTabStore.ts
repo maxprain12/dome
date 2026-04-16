@@ -1,7 +1,9 @@
 import { create } from 'zustand';
+import i18n from '@/lib/i18n';
 
 export type TabType =
   | 'home'
+  | 'projects'
   | 'note'
   | 'notebook'
   | 'resource'
@@ -33,6 +35,7 @@ export interface DomeTab {
 }
 
 export const HOME_TAB_ID = 'home';
+export const PROJECTS_TAB_ID = 'projects';
 export const SETTINGS_TAB_ID = 'settings';
 export const CALENDAR_TAB_ID = 'calendar';
 export const CHAT_TAB_PREFIX = 'chat:';
@@ -105,6 +108,7 @@ interface TabStore {
   openWorkflowsTab: () => void;
   openAutomationsTab: () => void;
   openRunsTab: () => void;
+  openProjectsTab: () => void;
   openFolderTab: (folderId: string, title: string, color?: string) => void;
   updateTab: (tabId: string, updates: Partial<Pick<DomeTab, 'title' | 'color'>>) => void;
 }
@@ -141,6 +145,7 @@ export const useTabStore = create<TabStore>((set, get) => {
         'automations',
         'runs',
         'learn',
+        'projects',
       ];
       if (singletonTypes.includes(tabSpec.type)) {
         const existing = tabs.find((t) => t.type === tabSpec.type);
@@ -367,6 +372,15 @@ export const useTabStore = create<TabStore>((set, get) => {
 
     openRunsTab: () => {
       get().openTab({ id: RUNS_TAB_ID, type: 'runs', title: 'Runs', pinned: false });
+    },
+
+    openProjectsTab: () => {
+      get().openTab({
+        id: PROJECTS_TAB_ID,
+        type: 'projects',
+        title: i18n.t('tabs.projects'),
+        pinned: false,
+      });
     },
 
     openFolderTab: (folderId, title, color) => {

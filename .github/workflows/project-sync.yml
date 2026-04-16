@@ -1,0 +1,19 @@
+name: Sync audit PRs to Code Health Project
+
+on:
+  pull_request:
+    types: [opened, closed, reopened]
+
+jobs:
+  add-to-project:
+    # Only run for audit PRs
+    if: contains(github.event.pull_request.title, 'audit')
+    runs-on: ubuntu-latest
+    permissions:
+      repository-projects: write
+    steps:
+      - name: Add PR to Code Health project
+        uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: https://github.com/users/maxprain12/projects/1
+          github-token: ${{ secrets.PROJECT_TOKEN }}

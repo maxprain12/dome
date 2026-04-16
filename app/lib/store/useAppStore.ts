@@ -56,7 +56,6 @@ interface AppState {
     | 'library'
     | 'flashcards'
     | 'chat'
-    | 'projects'
     | 'recent'
     | 'tags'
     | 'studio'
@@ -72,7 +71,6 @@ interface AppState {
       | 'library'
       | 'flashcards'
       | 'chat'
-      | 'projects'
       | 'recent'
       | 'tags'
       | 'studio'
@@ -295,7 +293,7 @@ export const useAppStore = create<AppState>((set) => ({
       autoSave: prefs.autoSave,
       autoBackup: prefs.autoBackup,
       shortcuts: prefs.shortcuts,
-      homeDashboard: prefs.homeDashboard ?? DEFAULT_HOME_DASHBOARD_PREFERENCES,
+      homeDashboard: normalizeHomeDashboardPreferences(prefs.homeDashboard ?? DEFAULT_HOME_DASHBOARD_PREFERENCES),
     });
 
     // Sync theme with Electron on load

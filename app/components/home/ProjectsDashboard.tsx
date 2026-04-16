@@ -46,16 +46,17 @@ const DELETE_IMPACT_ORDER = [
 ] as const;
 
 function KbBadge({ value }: { value: 'inherit' | 'enabled' | 'disabled' }) {
+  const { t } = useTranslation();
   if (value === 'enabled') return (
     <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
       style={{ background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)', color: 'var(--dome-accent)' }}>
-      <Brain className="w-2.5 h-2.5" /> KB On
+      <Brain className="w-2.5 h-2.5" /> {t('projects.kb_llm_on')}
     </span>
   );
   if (value === 'disabled') return (
     <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-      style={{ background: 'color-mix(in srgb, var(--dome-error, #ef4444) 10%, transparent)', color: 'var(--dome-text-muted)' }}>
-      KB Off
+      style={{ background: 'color-mix(in srgb, var(--dome-error) 10%, transparent)', color: 'var(--dome-text-muted)' }}>
+      {t('projects.kb_llm_off')}
     </span>
   );
   return null;
@@ -226,6 +227,8 @@ export default function ProjectsDashboard({
   const executeBulkDelete = useCallback(async () => {
     const idsToDelete = [...selectedIds].filter((id) => id !== 'default');
     if (idsToDelete.length === 0) return;
+    const currentId = currentProject?.id;
+    const currentWasDeleted = Boolean(currentId && idsToDelete.includes(currentId));
     setBulkDeleteSubmitting(true);
     try {
       let anyFailed = false;
@@ -242,7 +245,7 @@ export default function ProjectsDashboard({
       setSelectionMode(false);
       setBulkDeleteOpen(false);
       await loadProjects();
-      if (selectedIds.has(currentProject?.id ?? '')) {
+      if (currentWasDeleted) {
         const pr = await db.getProjects();
         const dome = pr.data?.find((p) => p.id === 'default') ?? null;
         onSelectProject(dome);
@@ -298,10 +301,10 @@ export default function ProjectsDashboard({
 
   const cards = [
     { label: t('projects.resources'), value: stats.resourceCount, icon: Layers3, color: 'var(--dome-accent)' },
-    { label: t('projects.studio'), value: stats.studioCount, icon: Sparkles, color: '#f59e0b' },
-    { label: t('projects.flashcards'), value: stats.dueFlashcards, icon: WalletCards, color: '#10b981' },
-    { label: t('projects.agenda_7d'), value: stats.upcomingEvents, icon: CalendarDays, color: '#3b82f6' },
-    { label: t('projects.chats'), value: stats.recentChats, icon: MessageCircle, color: '#ec4899' },
+    { label: t('projects.studio'), value: stats.studioCount, icon: Sparkles, color: 'var(--warning)' },
+    { label: t('projects.flashcards'), value: stats.dueFlashcards, icon: WalletCards, color: 'var(--success)' },
+    { label: t('projects.agenda_7d'), value: stats.upcomingEvents, icon: CalendarDays, color: 'var(--info)' },
+    { label: t('projects.chats'), value: stats.recentChats, icon: MessageCircle, color: 'var(--secondary)' },
   ];
 
   return (
@@ -329,7 +332,7 @@ export default function ProjectsDashboard({
                     style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
                   >
                     <span className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-colors ${allSelected ? 'border-[var(--dome-accent)] bg-[var(--dome-accent)]' : 'border-[var(--dome-border)]'}`}>
-                      {allSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                      {allSelected && <Check className="w-2.5 h-2.5" style={{ color: 'var(--base-text)' }} />}
                     </span>
                     {allSelected ? t('common.deselect_all') : t('common.select_all')}
                   </button>
@@ -338,7 +341,7 @@ export default function ProjectsDashboard({
                       type="button"
                       onClick={() => setBulkDeleteOpen(true)}
                       className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
-                      style={{ background: 'color-mix(in srgb, var(--dome-error, #ef4444) 10%, transparent)', color: 'var(--dome-error, #ef4444)' }}
+                      style={{ background: 'color-mix(in srgb, var(--dome-error) 10%, transparent)', color: 'var(--dome-error)' }}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       {t('common.delete')} ({selectedIds.size})
@@ -378,7 +381,7 @@ export default function ProjectsDashboard({
                     type="button"
                     onClick={() => setShowCreateForm((v) => !v)}
                     className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
-                    style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg, #fff)' }}
+                    style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
                   >
                     <Plus className="w-3.5 h-3.5" />
                     {t('projects.create_project')}
@@ -452,7 +455,7 @@ export default function ProjectsDashboard({
                   onClick={() => void handleCreateProject()}
                   disabled={creating || !newProjectName.trim()}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
-                  style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg, #fff)' }}
+                  style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
                 >
                   <Plus className="w-3.5 h-3.5" />
                   {creating ? t('projects.creating') : t('projects.create_project')}
@@ -501,7 +504,7 @@ export default function ProjectsDashboard({
                   type="button"
                   onClick={() => setShowCreateForm(true)}
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
-                  style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg, #fff)' }}
+                  style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
                 >
                   <Plus className="w-3.5 h-3.5" />
                   {t('projects.create_project')}
@@ -544,9 +547,9 @@ export default function ProjectsDashboard({
                             background: isSelected ? 'var(--dome-accent)' : 'var(--dome-bg)',
                           }}
                           aria-checked={isSelected}
-                          aria-label={`Select ${project.name}`}
+                          aria-label={t('projects.select_project_aria', { name: project.name })}
                         >
-                          {isSelected && <Check className="w-3 h-3 text-white" />}
+                          {isSelected && <Check className="w-3 h-3" style={{ color: 'var(--base-text)' }} />}
                         </button>
                       )}
 
@@ -568,7 +571,7 @@ export default function ProjectsDashboard({
                               </p>
                               {isActive && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
-                                  style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg, #fff)' }}>
+                                  style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}>
                                   {t('projects.active')}
                                 </span>
                               )}
@@ -649,8 +652,8 @@ export default function ProjectsDashboard({
                               type="button"
                               title={t('projects.delete_project')}
                               onClick={(e) => { e.stopPropagation(); openDeleteProject(project); }}
-                              className="shrink-0 p-1.5 rounded-lg mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[color-mix(in_srgb,var(--dome-error,#ef4444)_10%,transparent)]"
-                              style={{ color: 'var(--dome-error, #ef4444)' }}
+                              className="shrink-0 p-1.5 rounded-lg mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[color-mix(in_srgb,var(--dome-error)_10%,transparent)]"
+                              style={{ color: 'var(--dome-error)' }}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -686,7 +689,7 @@ export default function ProjectsDashboard({
             <h3 id="delete-project-title" className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
               {t('projects.delete_critical_title')}
             </h3>
-            <p className="mt-2 text-sm font-medium" style={{ color: 'var(--dome-error, #ef4444)' }}>
+            <p className="mt-2 text-sm font-medium" style={{ color: 'var(--dome-error)' }}>
               {t('projects.delete_critical_warning')}
             </p>
             <p className="mt-3 text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{deleteTarget.name}</p>
@@ -723,7 +726,7 @@ export default function ProjectsDashboard({
               style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
             />
             {deleteConfirmName && deleteConfirmName !== deleteTarget.name ? (
-              <p className="mt-2 text-xs" style={{ color: 'var(--dome-error, #ef4444)' }}>{t('projects.delete_confirm_mismatch')}</p>
+              <p className="mt-2 text-xs" style={{ color: 'var(--dome-error)' }}>{t('projects.delete_confirm_mismatch')}</p>
             ) : null}
 
             <div className="mt-5 flex flex-wrap justify-end gap-2">
@@ -740,8 +743,8 @@ export default function ProjectsDashboard({
                 type="button"
                 disabled={deleteSubmitting || deleteImpactLoading || deleteConfirmName !== deleteTarget.name}
                 onClick={() => void executeDeleteProject()}
-                className="rounded-xl px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: 'var(--dome-error, #ef4444)' }}
+                className="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
+                style={{ background: 'var(--dome-error)', color: 'var(--base-text)' }}
               >
                 {deleteSubmitting ? t('projects.delete_deleting') : t('projects.delete_execute')}
               </button>
@@ -792,8 +795,8 @@ export default function ProjectsDashboard({
                 type="button"
                 disabled={bulkDeleteSubmitting}
                 onClick={() => void executeBulkDelete()}
-                className="rounded-xl px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: 'var(--dome-error, #ef4444)' }}
+                className="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
+                style={{ background: 'var(--dome-error)', color: 'var(--base-text)' }}
               >
                 {bulkDeleteSubmitting ? t('projects.delete_deleting') : t('projects.delete_execute')}
               </button>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type ReactNode } from 'react';
 import {
   Activity,
   Trash2,
@@ -8,15 +8,9 @@ import {
   Filter,
   Clock,
   MoreHorizontal,
-  Brain,
-  MessageSquare,
-  Plug,
-  AlertCircle,
   CheckCircle2,
   XCircle,
   ArrowLeft,
-  CircleDot,
-  Bot,
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { statusColor as runStatusColor } from '@/lib/automations/run-status';
@@ -56,10 +50,7 @@ import DomeDivider from '@/components/ui/DomeDivider';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeSubpageFooter from '@/components/ui/DomeSubpageFooter';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
-import DomeBadge from '@/components/ui/DomeBadge';
-import DomeCard from '@/components/ui/DomeCard';
 import DomeListState from '@/components/ui/DomeListState';
-import DomeIconBox from '@/components/ui/DomeIconBox';
 
 interface RunFilter {
   ownerType: 'all' | 'agent' | 'workflow';
@@ -82,9 +73,13 @@ function formatIntToken(n: number, locale: string) {
 
 function RunOverviewStatRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="flex flex-col gap-0.5 py-2 border-b border-[var(--border)] last:border-b-0 last:pb-0 first:pt-0">
-      <p className="text-[10px] font-medium text-[var(--dome-text-muted)]">{label}</p>
-      <div className="text-xs min-w-0 break-words text-[var(--dome-text)]">{value}</div>
+    <div className="flex flex-col gap-0.5 py-1.5">
+      <p className="text-[10px] leading-tight" style={{ color: 'var(--dome-text-muted)' }}>
+        {label}
+      </p>
+      <div className="text-xs min-w-0 break-words leading-snug" style={{ color: 'var(--dome-text)' }}>
+        {value}
+      </div>
     </div>
   );
 }
@@ -114,14 +109,11 @@ function getStepVisualKind(step: PersistentRunStep): StepVisualKind {
   return 'other';
 }
 
-/** Pastel / high-contrast accents inspired by multi-agent transcript UIs (agent blue, tools pink). */
+/** Muted accent for timelines / status (minimal UI). */
 function getStepAccent(step: PersistentRunStep): string {
   const k = getStepVisualKind(step);
-  if (k === 'agent' || k === 'message') return '#3b82f6';
-  if (k === 'tool') return '#db2777';
-  if (k === 'thinking') return '#8b5cf6';
   if (k === 'error') return 'var(--error)';
-  return '#64748b';
+  return 'color-mix(in srgb, var(--dome-text) 26%, var(--dome-border))';
 }
 
 function getStepBadgeLabel(
@@ -143,32 +135,6 @@ function getStepBadgeLabel(
     default:
       return t('runLog.detail_badge_step');
   }
-}
-
-function StepKindIcon({ step }: { step: PersistentRunStep }) {
-  const kind = getStepVisualKind(step);
-  const accent = getStepAccent(step);
-  const Icon =
-    kind === 'tool'
-      ? Plug
-      : kind === 'agent'
-        ? Bot
-        : kind === 'message'
-          ? MessageSquare
-          : kind === 'thinking'
-            ? Brain
-            : kind === 'error'
-              ? AlertCircle
-              : CircleDot;
-  return (
-    <DomeIconBox
-      size="sm"
-      background={`color-mix(in srgb, ${accent} 22%, var(--dome-surface, var(--bg-secondary)))`}
-      className="shrink-0"
-    >
-      <Icon className="w-3.5 h-3.5" style={{ color: accent }} aria-hidden />
-    </DomeIconBox>
-  );
 }
 
 function getToolDisplayTitle(step: PersistentRunStep): string {
@@ -368,69 +334,46 @@ function buildTranscriptRows(
   return rows;
 }
 
-const AGENT_LANE_PALETTE = ['#93c5fd', '#f9a8d4', '#5eead4', '#c4b5fd', '#fcd34d'];
+const AGENT_LANE_PALETTE = [
+  'color-mix(in srgb, var(--dome-text) 34%, var(--dome-border))',
+  'color-mix(in srgb, var(--dome-text) 22%, var(--dome-border))',
+  'color-mix(in srgb, var(--dome-text) 44%, var(--dome-border))',
+  'color-mix(in srgb, var(--dome-accent) 24%, var(--dome-border))',
+  'color-mix(in srgb, var(--dome-text) 16%, var(--dome-border))',
+];
 
 function WorkflowGroupHeader({ group, accentColor }: { group: WorkflowStepGroup; accentColor?: string }) {
   const { t } = useTranslation();
   const toolSteps = group.steps.filter((s) => s.stepType === 'tool_call' || s.stepType === 'tool');
   const toolNames = [...new Set(toolSteps.map((s) => extractWorkflowToolShortName(s)).filter(Boolean))];
-  const iconKind = group.sectionKind === 'agent' ? 'agent' : 'workflow';
-  const accent = accentColor ?? 'var(--dome-accent)';
+  const accent = accentColor ?? 'var(--dome-border)';
 
   return (
     <div
-      className="sticky top-0 z-[1] mb-2 rounded-lg border shadow-sm overflow-hidden"
-      style={{
-        borderColor: 'var(--dome-border)',
-        background: 'var(--dome-surface)',
-        boxShadow: '0 1px 2px color-mix(in srgb, var(--dome-text) 6%, transparent)',
-      }}
+      className="sticky top-0 z-[1] mb-1.5 border-b border-[var(--dome-border)] bg-[var(--dome-bg)] py-2 pl-1 pr-2"
     >
-      <div className="flex min-w-0">
-        <div className="w-1 shrink-0 self-stretch" style={{ background: accent }} aria-hidden />
-        <div className="flex min-w-0 flex-1 items-start gap-2.5 px-2.5 py-2.5">
-          <HubEntityIcon kind={iconKind} size="sm" />
-          <div className="min-w-0 flex-1 space-y-1">
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-              <p className="text-xs font-semibold leading-snug break-words" style={{ color: 'var(--dome-text)' }}>
-                {group.label}
-              </p>
-              <DomeBadge
-                label={t('runLog.detail_group_contains_steps', { count: group.steps.length })}
-                variant="soft"
-                size="xs"
-                color="var(--dome-text-muted)"
-                className="shrink-0 tabular-nums font-medium"
-              />
-            </div>
-            {group.sectionKind === 'agent' && toolSteps.length > 0 ? (
-              <>
-                <p className="text-[10px] font-medium" style={{ color: 'var(--dome-text-muted)' }}>
-                  {t('runLog.detail_workflow_tools_used', { count: toolSteps.length })}
-                </p>
-                {toolNames.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {toolNames.slice(0, 14).map((name) => (
-                      <span key={name} className="max-w-[10rem] min-w-0 inline-block" title={name}>
-                        <DomeBadge
-                          label={name}
-                          variant="outline"
-                          size="xs"
-                          color="var(--dome-text)"
-                          className="max-w-full font-medium"
-                        />
-                      </span>
-                    ))}
-                    {toolNames.length > 14 ? (
-                      <span className="text-[9px] px-1" style={{ color: 'var(--dome-text-muted)' }}>
-                        +{toolNames.length - 14}
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-          </div>
+      <div className="flex min-w-0 gap-2">
+        <div className="w-0.5 shrink-0 self-stretch rounded-full" style={{ background: accent }} aria-hidden />
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-xs font-medium leading-snug break-words" style={{ color: 'var(--dome-text)' }}>
+            {group.label}
+            <span className="font-normal tabular-nums" style={{ color: 'var(--dome-text-muted)' }}>
+              {' '}
+              · {group.steps.length}
+            </span>
+          </p>
+          {group.sectionKind === 'agent' && toolSteps.length > 0 ? (
+            <p className="text-[11px] leading-relaxed break-words" style={{ color: 'var(--dome-text-muted)' }}>
+              {toolNames.length > 0 ? (
+                <>
+                  {toolNames.slice(0, 12).join(' · ')}
+                  {toolNames.length > 12 ? ` · +${toolNames.length - 12}` : ''}
+                </>
+              ) : (
+                t('runLog.detail_workflow_tools_used', { count: toolSteps.length })
+              )}
+            </p>
+          ) : null}
         </div>
       </div>
     </div>
@@ -492,9 +435,9 @@ function RunTimelineBar({
   const sum = segments.reduce((a, s) => a + s.widthPct, 0);
 
   return (
-    <div className="shrink-0 space-y-2">
+    <div className="shrink-0 space-y-1.5">
       <div
-        className="flex h-2.5 w-full min-w-0 overflow-hidden rounded-full"
+        className="flex h-1 w-full min-w-0 overflow-hidden rounded-sm"
         style={{ background: 'var(--dome-border)' }}
         role="img"
         aria-label={t('runLog.detail_timeline')}
@@ -503,7 +446,7 @@ function RunTimelineBar({
           <div
             key={step.id}
             title={title}
-            className="h-full min-w-px shrink-0 transition-opacity hover:opacity-90"
+            className="h-full min-w-px shrink-0"
             style={{
               width: `${(widthPct / sum) * 100}%`,
               background: color,
@@ -513,22 +456,22 @@ function RunTimelineBar({
       </div>
 
       {agents.length > 1 ? (
-        <div className="space-y-1.5 pl-0">
+        <div className="space-y-1 pl-0">
           {agents.map((g) => {
             const laneColor = agentColorByKey.get(g.key) ?? AGENT_LANE_PALETTE[0];
             const laneSteps = g.steps;
             return (
               <div key={g.key} className="flex items-center gap-2 min-w-0">
                 <span
-                  className="w-[5.5rem] sm:w-36 md:w-44 shrink-0 truncate text-[9px] font-medium leading-tight"
+                  className="w-[5.5rem] sm:w-36 md:w-44 shrink-0 truncate text-[10px] leading-tight"
                   style={{ color: 'var(--dome-text-muted)' }}
                   title={g.label}
                 >
                   {g.label}
                 </span>
                 <div
-                  className="relative h-1.5 min-w-0 flex-1 rounded-full overflow-hidden"
-                  style={{ background: 'color-mix(in srgb, var(--dome-border) 65%, transparent)' }}
+                  className="relative h-1 min-w-0 flex-1 rounded-sm overflow-hidden"
+                  style={{ background: 'color-mix(in srgb, var(--dome-border) 55%, transparent)' }}
                 >
                   {laneSteps.map((step, idx) => {
                     const next = laneSteps[idx + 1];
@@ -540,7 +483,7 @@ function RunTimelineBar({
                       <div
                         key={step.id}
                         title={`${getStepListSummary(step)} · ${t('runLog.detail_relative_time', { seconds: rel })}`}
-                        className="absolute top-0 h-full rounded-sm opacity-95 hover:opacity-100 transition-opacity"
+                        className="absolute top-0 h-full rounded-sm"
                         style={{
                           left: `${left}%`,
                           width: `${w}%`,
@@ -579,10 +522,10 @@ function WorkflowAgentTabBar({
       label: `${t('runLog.detail_transcript_all')} (${totalStepCount})`,
       selectedColor: 'var(--dome-accent)',
     },
-    ...agentGroups.map((g, i) => ({
+    ...agentGroups.map((g) => ({
       value: g.key,
       label: `${g.label} (${g.steps.length})`,
-      selectedColor: AGENT_LANE_PALETTE[i % AGENT_LANE_PALETTE.length],
+      selectedColor: 'var(--dome-accent)',
     })),
   ];
   return (
@@ -626,21 +569,21 @@ function getStepUsageShort(step: PersistentRunStep, locale: string): string | nu
 }
 
 function StepStatusIcon({ step }: { step: PersistentRunStep }) {
-  const color = getStepAccent(step);
+  const muted = 'var(--dome-text-muted)';
   if (step.status === 'failed' || step.status === 'error' || getStepVisualKind(step) === 'error') {
-    return <XCircle className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--error)' }} aria-hidden />;
+    return <XCircle className="w-3 h-3 shrink-0" style={{ color: 'var(--error)' }} aria-hidden />;
   }
   if (step.status === 'cancelled') {
-    return <XCircle className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />;
+    return <XCircle className="w-3 h-3 shrink-0 opacity-60" style={{ color: muted }} aria-hidden />;
   }
   if (step.status === 'waiting_approval') {
-    return <Clock className="w-3.5 h-3.5 shrink-0" style={{ color: '#f59e0b' }} aria-hidden />;
+    return <Clock className="w-3 h-3 shrink-0 opacity-80" style={{ color: muted }} aria-hidden />;
   }
   if (step.status === 'running') {
-    return <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" style={{ color }} aria-hidden />;
+    return <Loader2 className="w-3 h-3 shrink-0 animate-spin" style={{ color: muted }} aria-hidden />;
   }
   if (step.status === 'completed' || step.status === 'done') {
-    return <CheckCircle2 className="w-3.5 h-3.5 shrink-0" style={{ color: '#10b981' }} aria-hidden />;
+    return <CheckCircle2 className="w-3 h-3 shrink-0 opacity-70" style={{ color: muted }} aria-hidden />;
   }
   return null;
 }
@@ -668,7 +611,6 @@ function StepListItem({
   const durSec = getStepDurationSec(step, nextStep ?? undefined, runEndAt);
   const clock = formatSessionClock(step.createdAt, runStartedAt);
   const usageLine = getStepUsageShort(step, i18n.language);
-  const accent = getStepAccent(step);
 
   return (
     <button
@@ -676,46 +618,39 @@ function StepListItem({
       onClick={onSelect}
       aria-label={t('runLog.detail_trace_step_of', { current: stepOrdinal, total: totalSteps })}
       className={cn(
-        'group flex w-full min-w-0 items-start gap-2 sm:gap-3 rounded-lg border py-2 pl-2 pr-2 sm:pl-2.5 sm:pr-2.5 text-left transition-all',
-        'border-l-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2',
-        selected ? 'shadow-sm' : 'hover:shadow-sm',
+        'group flex w-full min-w-0 items-start gap-2 rounded-md border py-1.5 pl-2 pr-2 text-left transition-colors',
+        'border-l-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2',
       )}
       style={{
         borderColor: 'var(--dome-border)',
-        borderLeftColor: accent,
-        background: selected ? 'color-mix(in srgb, var(--dome-accent) 9%, var(--dome-surface))' : 'var(--dome-surface)',
+        borderLeftColor: selected ? 'var(--dome-accent)' : 'var(--dome-border)',
+        background: selected
+          ? 'color-mix(in srgb, var(--dome-text) 5%, var(--dome-bg))'
+          : 'transparent',
       }}
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:gap-2">
-        <div className="flex min-w-0 items-start gap-2">
+      <div className="flex min-h-0 min-w-0 flex-1 basis-0 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
           <span
-            className="mt-0.5 w-7 shrink-0 text-right text-[9px] font-semibold tabular-nums leading-none"
+            className="w-6 shrink-0 text-right text-[10px] font-medium tabular-nums leading-none"
             style={{ color: 'var(--dome-text-muted)' }}
           >
             {stepOrdinal}
           </span>
-          <StepKindIcon step={step} />
-          <DomeBadge
-            label={getStepBadgeLabel(step, t)}
-            color={accent}
-            size="xs"
-            dot
-            className="shrink-0 uppercase tracking-wide"
-          />
+          <span className="text-[10px] leading-none" style={{ color: 'var(--dome-text-muted)' }}>
+            {getStepBadgeLabel(step, t)}
+          </span>
         </div>
-        <p
-          className="min-w-0 flex-1 text-xs font-medium leading-snug break-words line-clamp-3 sm:line-clamp-none sm:pt-0.5"
-          style={{ color: 'var(--dome-text)' }}
-        >
+        <p className="w-full min-w-0 text-xs font-normal leading-snug break-words" style={{ color: 'var(--dome-text)' }}>
           {getStepListSummary(step)}
         </p>
       </div>
       <div
-        className="flex shrink-0 flex-col items-end gap-0.5 text-[9px] sm:text-[10px] tabular-nums text-right min-w-[3.5rem] sm:min-w-[7.5rem]"
+        className="flex shrink-0 flex-col items-end gap-0.5 text-[10px] tabular-nums text-right min-w-[3.25rem] sm:min-w-[6.5rem]"
         style={{ color: 'var(--dome-text-muted)' }}
       >
         {usageLine ? <span className="max-w-[6.5rem] sm:max-w-[7rem] truncate">{usageLine}</span> : null}
-        <span>
+        <span className="whitespace-nowrap">
           {durSec}s · {clock}
         </span>
         <StepStatusIcon step={step} />
@@ -759,37 +694,27 @@ function StepDetailPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
-        className="shrink-0 border-b px-4 py-3"
-        style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
+        className="shrink-0 border-b px-4 py-2.5"
+        style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
       >
-        <div className="flex flex-wrap items-center gap-2">
-          <span
-            className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
-            style={{
-              background: 'color-mix(in srgb, var(--dome-text) 8%, transparent)',
-              color: 'var(--dome-text-muted)',
-            }}
-          >
-            {t('runLog.detail_trace_step_of', { current: stepOrdinal, total: totalSteps })}
-          </span>
-          <StepKindIcon step={step} />
-          <DomeBadge
-            label={getStepBadgeLabel(step, t)}
-            color={getStepAccent(step)}
-            size="xs"
-            dot
-            className="shrink-0 uppercase tracking-wide"
-          />
-          <h2 className="text-sm font-semibold break-words" style={{ color: 'var(--dome-text)' }}>
+        <div className="flex flex-col gap-1 min-w-0">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+            <span className="tabular-nums">
+              {t('runLog.detail_trace_step_of', { current: stepOrdinal, total: totalSteps })}
+            </span>
+            <span aria-hidden>·</span>
+            <span>{getStepBadgeLabel(step, t)}</span>
+          </div>
+          <h2 className="text-sm font-medium break-words leading-snug" style={{ color: 'var(--dome-text)' }}>
             {headerTitle}
           </h2>
         </div>
         {workflowAgentCtx ? (
-          <p className="mt-1 text-[10px] font-medium break-words" style={{ color: 'var(--dome-accent)' }}>
+          <p className="mt-1.5 text-[11px] break-words" style={{ color: 'var(--dome-text-muted)' }}>
             {t('runLog.detail_workflow_under_agent', { name: workflowAgentCtx })}
           </p>
         ) : null}
-        <p className="mt-1 text-[10px] break-words" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="mt-1 text-[11px] break-words" style={{ color: 'var(--dome-text-muted)' }}>
           {formatRunDate(step.createdAt)}
           {' · '}
           {t('runLog.detail_relative_time', { seconds: offsetSec })}
@@ -898,11 +823,15 @@ function RunRightOverview({
   modelId,
 }: RunRightOverviewProps) {
   const { t, i18n } = useTranslation();
+  const panelClass =
+    'min-w-0 rounded-md border border-[var(--dome-border)] bg-[var(--dome-surface)] px-3 py-2.5';
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-4">
-      <DomeCard padding="sm" className="min-w-0 overflow-hidden border-[var(--dome-border)] bg-[var(--dome-surface)]">
-        <DomeSectionLabel className="mb-2.5 text-[var(--dome-text-muted)]">{t('runLog.detail_run_overview')}</DomeSectionLabel>
-        <div className="min-w-0">
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-3">
+      <section className={panelClass}>
+        <h3 className="text-[11px] font-medium mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+          {t('runLog.detail_run_overview')}
+        </h3>
+        <div className="min-w-0 divide-y divide-[var(--dome-border)]">
           <RunOverviewStatRow label={t('runLog.detail_owner')} value={ownerKindLabel} />
           {providerLabel || modelId ? (
             <RunOverviewStatRow
@@ -925,11 +854,13 @@ function RunRightOverview({
             <RunOverviewStatRow label={t('runLog.summary')} value={<span className="break-words">{run.summary}</span>} />
           ) : null}
         </div>
-      </DomeCard>
+      </section>
 
-      <DomeCard padding="sm" className="min-w-0 overflow-hidden border-[var(--dome-border)] bg-[var(--dome-surface)]">
-        <DomeSectionLabel className="mb-2.5 text-[var(--dome-text-muted)]">{t('runLog.detail_section_time')}</DomeSectionLabel>
-        <div className="min-w-0">
+      <section className={panelClass}>
+        <h3 className="text-[11px] font-medium mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+          {t('runLog.detail_section_time')}
+        </h3>
+        <div className="min-w-0 divide-y divide-[var(--dome-border)]">
           <RunOverviewStatRow label={t('runLog.duration')} value={formatDuration(run.startedAt, run.finishedAt)} />
           {run.lastHeartbeatAt ? (
             <RunOverviewStatRow label={t('runLog.detail_heartbeat')} value={formatRunDate(run.lastHeartbeatAt)} />
@@ -941,67 +872,67 @@ function RunRightOverview({
             />
           ) : null}
         </div>
-      </DomeCard>
+      </section>
 
-      <DomeCard padding="sm" className="min-w-0 overflow-hidden border-[var(--dome-border)] bg-[var(--dome-surface)]">
-        <DomeSectionLabel className="mb-2.5 text-[var(--dome-text-muted)]">{t('runLog.detail_section_usage')}</DomeSectionLabel>
-        <div className="min-w-0">
-          {usage ? (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {[
-                { k: 'in' as const, label: t('runLog.detail_tokens_in'), v: usage.inputTokens },
-                { k: 'out' as const, label: t('runLog.detail_tokens_out'), v: usage.outputTokens },
-                { k: 'tot' as const, label: t('runLog.detail_tokens_total'), v: usage.totalTokens },
-              ].map(({ k, label, v }) => (
-                <DomeCard key={k} padding="sm" className="min-w-0 border-[var(--dome-border)] bg-[var(--dome-bg)]">
-                  <DomeSectionLabel compact className="mb-0.5 text-[var(--dome-text-muted)]">
-                    {label}
-                  </DomeSectionLabel>
-                  <p className="text-sm font-semibold tabular-nums break-all text-[var(--dome-text)]">
-                    {formatIntToken(v, i18n.language)}
-                  </p>
-                </DomeCard>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-[var(--dome-text-muted)]">{t('runLog.detail_no_usage')}</p>
-          )}
+      <section className={panelClass}>
+        <h3 className="text-[11px] font-medium mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+          {t('runLog.detail_section_usage')}
+        </h3>
+        {usage ? (
+          <dl className="grid grid-cols-3 gap-2 text-[11px] min-w-0">
+            {[
+              { k: 'in' as const, label: t('runLog.detail_tokens_in'), v: usage.inputTokens },
+              { k: 'out' as const, label: t('runLog.detail_tokens_out'), v: usage.outputTokens },
+              { k: 'tot' as const, label: t('runLog.detail_tokens_total'), v: usage.totalTokens },
+            ].map(({ k, label, v }) => (
+              <div key={k} className="min-w-0">
+                <dt style={{ color: 'var(--dome-text-muted)' }}>{label}</dt>
+                <dd className="mt-0.5 tabular-nums font-medium break-all" style={{ color: 'var(--dome-text)' }}>
+                  {formatIntToken(v, i18n.language)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+            {t('runLog.detail_no_usage')}
+          </p>
+        )}
+        <div className="mt-3 pt-2 border-t border-[var(--dome-border)]">
+          <p className="text-xs tabular-nums" style={{ color: 'var(--dome-text)' }}>
+            {t('runLog.detail_estimated_cost')}: {costLabel}
+          </p>
+          <p className="text-[10px] mt-1.5 leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+            {t('runLog.detail_cost_disclaimer')}
+          </p>
         </div>
-      </DomeCard>
-
-      <DomeCard padding="sm" className="min-w-0 overflow-hidden border-[var(--dome-border)] bg-[var(--dome-surface)]">
-        <DomeSectionLabel className="mb-2.5 text-[var(--dome-text-muted)]">{t('runLog.detail_section_cost')}</DomeSectionLabel>
-        <p className="text-sm font-medium tabular-nums text-[var(--dome-text)]">
-          {t('runLog.detail_estimated_cost')}: {costLabel}
-        </p>
-        <p className="text-[10px] mt-2 leading-relaxed text-[var(--dome-text-muted)]">
-          {t('runLog.detail_cost_disclaimer')}
-        </p>
-      </DomeCard>
+      </section>
 
       {run.error ? (
         <div
-          className="rounded-xl border px-3 py-2.5 text-sm min-w-0 overflow-hidden"
+          className="rounded-md border px-3 py-2 text-sm min-w-0 overflow-hidden"
           style={{
             borderColor: 'var(--error)',
-            background: 'color-mix(in srgb, var(--error) 8%, transparent)',
+            background: 'color-mix(in srgb, var(--error) 6%, transparent)',
             color: 'var(--error)',
           }}
         >
-          <p className="font-semibold mb-1 text-xs">{t('runLog.error_title')}</p>
+          <p className="font-medium mb-1 text-xs">{t('runLog.error_title')}</p>
           <p className="text-[11px] font-mono break-words whitespace-pre-wrap">{run.error}</p>
         </div>
       ) : null}
 
       {run.outputText ? (
-        <DomeCard padding="sm" className="min-w-0 overflow-hidden border-[var(--dome-border)] bg-[var(--dome-surface)]">
-          <DomeSectionLabel className="mb-2.5 text-[var(--dome-text-muted)]">{t('runLog.response')}</DomeSectionLabel>
-          <div className="rounded-lg border border-[var(--dome-border)] bg-[var(--dome-bg)] p-3 sm:p-4 text-sm min-w-0 overflow-x-auto">
+        <section className={panelClass}>
+          <h3 className="text-[11px] font-medium mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+            {t('runLog.response')}
+          </h3>
+          <div className="text-sm min-w-0 overflow-x-auto border-t border-[var(--dome-border)] pt-2 -mx-1 px-1">
             <div className="min-w-0 break-words">
               <MarkdownRenderer content={run.outputText} />
             </div>
           </div>
-        </DomeCard>
+        </section>
       ) : null}
     </div>
   );
@@ -1128,65 +1059,54 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
       ? `${formatIntToken(usage.inputTokens, i18n.language)} in / ${formatIntToken(usage.outputTokens, i18n.language)} out`
       : null;
 
+  const metaParts: ReactNode[] = [
+    <span key="s" className="tabular-nums">
+      {t('runLog.started')} {formatRunDate(run.startedAt)}
+    </span>,
+    <span key="d" className="tabular-nums">
+      {t('runLog.duration')} {formatDuration(run.startedAt, run.finishedAt)}
+    </span>,
+    <span key="n">
+      {sortedSteps.length === 1 ? t('runLog.step_singular') : t('runLog.step_plural', { count: sortedSteps.length })}
+    </span>,
+  ];
+  if (usageShort) {
+    metaParts.push(
+      <span key="u" className="tabular-nums">
+        {usageShort}
+      </span>,
+    );
+  }
+  if (costUsd != null && Number.isFinite(costUsd)) {
+    metaParts.push(
+      <span key="c" className="tabular-nums">
+        ~{costLabel}
+      </span>,
+    );
+  }
+  if (providerLabel || modelId) {
+    metaParts.push(
+      <span key="p" className="min-w-0 break-all" title={[providerLabel, modelId].filter(Boolean).join(' · ')}>
+        {[providerLabel, modelId].filter(Boolean).join(' · ')}
+      </span>,
+    );
+  }
+
   const metadataStrip = (
     <div
-      className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 border-b border-[var(--dome-border)] bg-[var(--dome-bg)]"
+      className="flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2 border-b border-[var(--dome-border)] bg-[var(--dome-bg)] text-[11px]"
+      style={{ color: 'var(--dome-text-muted)' }}
     >
-      <DomeBadge
-        variant="outline"
-        size="sm"
-        color="var(--dome-text-muted)"
-        label={`${t('runLog.started')} ${formatRunDate(run.startedAt)}`}
-        className="max-w-full tabular-nums"
-      />
-      <DomeBadge
-        variant="outline"
-        size="sm"
-        color="var(--dome-text-muted)"
-        label={`${t('runLog.duration')} ${formatDuration(run.startedAt, run.finishedAt)}`}
-        className="max-w-full"
-      />
-      <DomeBadge
-        variant="outline"
-        size="sm"
-        color="var(--dome-text-muted)"
-        label={
-          sortedSteps.length === 1 ? t('runLog.step_singular') : t('runLog.step_plural', { count: sortedSteps.length })
-        }
-        className="max-w-full"
-      />
-      {usageShort ? (
-        <DomeBadge
-          variant="outline"
-          size="sm"
-          color="var(--dome-text-muted)"
-          label={usageShort}
-          className="max-w-full tabular-nums"
-        />
-      ) : null}
-      {costUsd != null && Number.isFinite(costUsd) ? (
-        <DomeBadge
-          variant="outline"
-          size="sm"
-          color="var(--dome-text-muted)"
-          label={`~${costLabel}`}
-          className="max-w-full tabular-nums"
-        />
-      ) : null}
-      {providerLabel || modelId ? (
-        <span
-          className="max-w-full min-w-0"
-          title={[providerLabel, modelId].filter(Boolean).join(' · ')}
-        >
-          <DomeBadge
-            variant="outline"
-            size="sm"
-            color="var(--dome-text-muted)"
-            label={[providerLabel, modelId].filter(Boolean).join(' · ')}
-            className="max-w-full break-all"
-          />
-        </span>
-      ) : null}
+      {metaParts.map((node, i) => (
+        <Fragment key={i}>
+          {i > 0 ? (
+            <span aria-hidden className="select-none px-0.5 text-[var(--dome-border)]">
+              ·
+            </span>
+          ) : null}
+          {node}
+        </Fragment>
+      ))}
     </div>
   );
 
@@ -1222,7 +1142,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
         className="shrink-0 border-b px-4 pt-2 pb-3"
         style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
       >
-        <p className="text-[10px] font-medium mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="text-[11px] mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
           {t('runLog.detail_timeline')}
         </p>
         <RunTimelineBar
@@ -1252,9 +1172,9 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
         >
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 pb-3 lg:max-h-full">
             {sortedSteps.length > 0 ? (
-              <DomeSectionLabel compact className="mb-1.5 text-[var(--dome-text-muted)]">
+              <p className="text-[11px] mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
                 {t('runLog.detail_transcript_feed')}
-              </DomeSectionLabel>
+              </p>
             ) : null}
             {sortedSteps.length === 0 ? (
               <DomeListState

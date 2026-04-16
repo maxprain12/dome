@@ -419,9 +419,37 @@ export interface HomeDashboardWidgets {
   continueActivity: boolean;
 }
 
+/** Celda del grid del dashboard (react-grid-layout); `i` es el id del bloque */
+export interface DashboardLayoutItem {
+  i: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  minH?: number;
+  maxW?: number;
+  maxH?: number;
+  static?: boolean;
+}
+
+/** Orden e ids válidos del layout del home (hero siempre presente) */
+export const DASHBOARD_LAYOUT_WIDGET_IDS = [
+  'hero',
+  'search',
+  'quickActions',
+  'momentum',
+  'weeklyActivity',
+  'pendingToday',
+  'continueActivity',
+] as const;
+
+export type DashboardLayoutWidgetId = (typeof DASHBOARD_LAYOUT_WIDGET_IDS)[number];
+
 export interface HomeDashboardPreferences {
   quickActions: HomeQuickActionId[];
   widgets: HomeDashboardWidgets;
+  layout: DashboardLayoutItem[];
 }
 
 /** Valores por defecto del home dashboard */
@@ -441,9 +469,21 @@ export const DEFAULT_HOME_WIDGETS: HomeDashboardWidgets = {
   continueActivity: true,
 };
 
+/** Layout inicial del canvas (12 columnas; altura de fila definida en el componente) */
+export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayoutItem[] = [
+  { i: 'hero', x: 0, y: 0, w: 12, h: 10, minW: 6, minH: 6, static: true },
+  { i: 'search', x: 0, y: 10, w: 12, h: 3, minW: 4, minH: 2 },
+  { i: 'quickActions', x: 0, y: 13, w: 12, h: 5, minW: 4, minH: 3 },
+  { i: 'momentum', x: 0, y: 18, w: 12, h: 5, minW: 4, minH: 4 },
+  { i: 'weeklyActivity', x: 0, y: 23, w: 12, h: 8, minW: 4, minH: 5 },
+  { i: 'pendingToday', x: 0, y: 31, w: 6, h: 8, minW: 3, minH: 4 },
+  { i: 'continueActivity', x: 6, y: 31, w: 6, h: 9, minW: 3, minH: 5 },
+];
+
 export const DEFAULT_HOME_DASHBOARD_PREFERENCES: HomeDashboardPreferences = {
   quickActions: [...DEFAULT_HOME_QUICK_ACTIONS],
   widgets: { ...DEFAULT_HOME_WIDGETS },
+  layout: DEFAULT_DASHBOARD_LAYOUT.map((item) => ({ ...item })),
 };
 
 // Preferencias de la aplicación

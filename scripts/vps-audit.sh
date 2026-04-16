@@ -275,16 +275,76 @@ fi
 echo "$LOG_PREFIX Validating changes..."
 npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null
 
-VALIDATION_FAILED=0
-npm run typecheck 2>&1 || VALIDATION_FAILED=1
-npm run lint 2>&1 || VALIDATION_FAILED=1
-npm run build 2>&1 || VALIDATION_FAILED=1
+VALIDATION_OUTPUT_FILE=$(mktemp /tmp/audit-validation-XXXXXX.log)
 
-if [ $VALIDATION_FAILED -eq 1 ]; then
-  echo "$LOG_PREFIX Validation failed — discarding changes and aborting PR creation"
-  git checkout main
-  git branch -D "$ACTUAL_BRANCH" 2>/dev/null || true
-  exit 1
+run_validation() {
+  local failed=0
+  { npm run typecheck 2>&1; echo "EXIT:$?"; } | tee -a "$VALIDATION_OUTPUT_FILE" | grep -v "EXIT:" || true
+  { npm run lint 2>&1; echo "EXIT:$?"; } | tee -a "$VALIDATION_OUTPUT_FILE" | grep -v "EXIT:" || true
+  { npm run build 2>&1; echo "EXIT:$?"; } | tee -a "$VALIDATION_OUTPUT_FILE" | grep -v "EXIT:" || true
+  # Check for actual errors (not just warnings) in typecheck/build
+  if grep -qE "error TS[0-9]+|Error:" "$VALIDATION_OUTPUT_FILE" 2>/dev/null; then
+    failed=1
+  fi
+  # Check build explicitly
+  if ! npm run build > /dev/null 2>&1; then
+    failed=1
+  fi
+  echo $failed
+}
+
+VALIDATION_FAILED=$(run_validation)
+
+# ── Auto-repair: re-run OpenCode to fix validation errors ────────────────────
+if [ "$VALIDATION_FAILED" = "1" ]; then
+  echo "$LOG_PREFIX Validation failed — asking OpenCode to fix the errors (attempt 1/2)..."
+
+  REPAIR_PROMPT=$(mktemp /tmp/audit-repair-XXXXXX.md)
+  VALIDATION_ERRORS=$(grep -E "error TS[0-9]+|Error:|✖.*error" "$VALIDATION_OUTPUT_FILE" 2>/dev/null | head -30 || true)
+
+  cat > "$REPAIR_PROMPT" << REPAIR
+The previous audit introduced validation errors. Fix ONLY the errors below — do not make other changes.
+
+## Validation errors to fix:
+\`\`\`
+${VALIDATION_ERRORS}
+\`\`\`
+
+## Rules
+- Fix only what is broken. Do not touch unrelated code.
+- Run: npm run typecheck && npm run build
+- If you cannot fix an error without breaking something else, revert that specific change with git checkout HEAD -- <file>
+REPAIR
+
+  opencode run \
+    --dangerously-skip-permissions \
+    --dir "$REPO_DIR" \
+    -f "$REPAIR_PROMPT" \
+    -- "Fix only the TypeScript/build errors listed in the attached file. Run npm run typecheck && npm run build to verify." \
+    2>&1 | tee -a /tmp/audit-output-${TIMESTAMP}.log
+
+  rm -f "$REPAIR_PROMPT"
+  echo "" > "$VALIDATION_OUTPUT_FILE"
+  VALIDATION_FAILED=$(run_validation)
+
+  if [ "$VALIDATION_FAILED" = "1" ]; then
+    echo "$LOG_PREFIX Repair attempt failed — discarding changes to avoid broken PR"
+    REMAINING_ERRORS=$(grep -E "error TS[0-9]+|Error:" "$VALIDATION_OUTPUT_FILE" 2>/dev/null | head -10 || true)
+    echo "$LOG_PREFIX Errors that could not be auto-repaired:"
+    echo "$REMAINING_ERRORS"
+    rm -f "$VALIDATION_OUTPUT_FILE"
+    git checkout main
+    git branch -D "$ACTUAL_BRANCH" 2>/dev/null || true
+    exit 1
+  else
+    echo "$LOG_PREFIX Auto-repair succeeded — continuing with PR creation"
+  fi
+fi
+
+rm -f "$VALIDATION_OUTPUT_FILE"
+ACTUAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$ACTUAL_BRANCH" = "HEAD" ] || [ "$ACTUAL_BRANCH" = "main" ]; then
+  ACTUAL_BRANCH="$BRANCH"
 fi
 
 # ── Commit and push ───────────────────────────────────────────────────────────

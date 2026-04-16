@@ -32,27 +32,6 @@ import { statusLabel } from '@/lib/automations/run-status';
 
 // ─── Shared helpers (subset of ChatToolCard logic, dependency-free) ──────────
 
-type ToolCategory = 'search' | 'file' | 'agent' | 'db' | 'mcp' | 'default';
-
-const CATEGORY_COLORS: Record<ToolCategory, string> = {
-  search: '#3b82f6',
-  file: '#10b981',
-  agent: '#8b5cf6',
-  db: '#f59e0b',
-  mcp: '#6b7280',
-  default: '#6b7280',
-};
-
-function getCategory(name: string): ToolCategory {
-  const n = (name || '').toLowerCase();
-  if (n.includes('search') || n.includes('web_fetch') || n.includes('fetch')) return 'search';
-  if (n.includes('pdf') || n.includes('file') || n.includes('resource') || n.includes('image')) return 'file';
-  if (n.includes('agent') || n.includes('call_') || n.includes('delegate')) return 'agent';
-  if (n.includes('postgres') || n.includes('sql') || n.includes('query') || n.includes('database')) return 'db';
-  if (n.startsWith('mcp') || n.includes('mcp_')) return 'mcp';
-  return 'default';
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const TOOL_ICONS: Record<string, any> = {
   web_search: Search, web_fetch: Globe,
@@ -153,14 +132,6 @@ export function RunStepCard({ step }: { step: PersistentRunStep }) {
   const toolName = isToolCall ? step.title : '';
   const Icon = isToolCall ? getIconForTool(toolName) : isThinking ? Clock : isMessage ? FileText : Globe;
   const label = isToolCall ? getLabelForTool(toolName) : step.title;
-  const category = isToolCall ? getCategory(toolName) : 'default';
-  const accentColor = isError
-    ? 'var(--error)'
-    : isCancelled
-      ? 'var(--tertiary-text)'
-      : isWaitingApproval
-        ? '#f59e0b'
-        : CATEGORY_COLORS[category];
 
   // Parse tool args from metadata
   const toolArgs = useMemo(() => {
@@ -178,13 +149,13 @@ export function RunStepCard({ step }: { step: PersistentRunStep }) {
   const statusIcon = isError
     ? <XCircle size={13} style={{ color: 'var(--error)', flexShrink: 0 }} />
     : isCancelled
-      ? <XCircle size={13} style={{ color: 'var(--tertiary-text)', flexShrink: 0 }} />
+      ? <XCircle size={13} className="opacity-60" style={{ color: 'var(--tertiary-text)', flexShrink: 0 }} />
       : isWaitingApproval
-        ? <Clock size={13} style={{ color: '#f59e0b', flexShrink: 0 }} />
+        ? <Clock size={13} className="opacity-80" style={{ color: 'var(--tertiary-text)', flexShrink: 0 }} />
     : step.status === 'running'
-      ? <Loader2 size={13} className="animate-spin" style={{ color: accentColor, flexShrink: 0 }} />
+      ? <Loader2 size={13} className="animate-spin opacity-80" style={{ color: 'var(--tertiary-text)', flexShrink: 0 }} />
       : step.status === 'completed' || step.status === 'done'
-        ? <CheckCircle2 size={13} style={{ color: '#10b981', flexShrink: 0 }} />
+        ? <CheckCircle2 size={13} className="opacity-70" style={{ color: 'var(--tertiary-text)', flexShrink: 0 }} />
         : null;
 
   // Render content based on type
@@ -259,25 +230,24 @@ export function RunStepCard({ step }: { step: PersistentRunStep }) {
 
   return (
     <div
-      className="rounded-xl border overflow-hidden bg-[var(--bg-secondary)]"
-      style={{ borderColor: 'var(--border)', borderLeftWidth: 3, borderLeftColor: accentColor }}
+      className="rounded-md border border-[var(--border)] overflow-hidden bg-[var(--bg-secondary)]"
     >
       <DomeCollapsibleRow
         expanded={expanded}
         onExpandedChange={setExpanded}
-        triggerClassName="px-3 py-2.5 bg-[var(--bg-secondary)]"
+        triggerClassName="px-3 py-2 bg-[var(--bg-secondary)] hover:bg-[var(--bg-hover)]"
         trigger={
           <>
-            <Icon size={14} style={{ color: accentColor, flexShrink: 0 }} />
+            <Icon size={13} className="shrink-0 opacity-60" style={{ color: 'var(--tertiary-text)' }} />
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-[11px] font-semibold uppercase tracking-wide shrink-0" style={{ color: accentColor }}>
+              <div className="flex flex-col gap-0.5 min-w-0 sm:flex-row sm:items-baseline sm:gap-2">
+                <span className="text-[11px] shrink-0 tabular-nums" style={{ color: 'var(--tertiary-text)' }}>
                   {toolName || step.stepType}
                 </span>
-                <span className="text-sm font-medium truncate text-[var(--primary-text)]">{label}</span>
+                <span className="text-sm font-normal leading-snug break-words text-[var(--primary-text)]">{label}</span>
               </div>
               {argsSummary ? (
-                <p className="text-[11px] truncate mt-0.5 text-[var(--tertiary-text)]">{argsSummary}</p>
+                <p className="text-[11px] mt-0.5 line-clamp-2 text-[var(--tertiary-text)]">{argsSummary}</p>
               ) : null}
             </div>
             <div className="flex items-center shrink-0">{statusIcon}</div>
@@ -369,7 +339,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
       onClick={onClose}
     >
       <div
-        className="ml-auto h-full flex flex-col min-h-0 w-[min(720px,92vw)] border-l border-[var(--border)] bg-[var(--bg)] shadow-[-8px_0_32px_rgba(0,0,0,0.12)]"
+        className="ml-auto h-full flex flex-col min-h-0 w-[min(720px,92vw)] border-l border-[var(--border)] bg-[var(--bg)] shadow-[-4px_0_16px_rgba(0,0,0,0.06)]"
         style={{ animation: 'slideInRight 0.2s ease-out' }}
         onClick={(e) => e.stopPropagation()}
       >

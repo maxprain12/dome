@@ -1,6 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { Settings2, Flame } from 'lucide-react';
+import { Settings2, Flame, Check } from 'lucide-react';
 import type { HomeGamification } from '@/lib/hooks/useDashboardData';
+import DomeCard from '@/components/ui/DomeCard';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeProgressBar from '@/components/ui/DomeProgressBar';
 
 function getGreeting(t: (k: string) => string): string {
   const h = new Date().getHours();
@@ -13,12 +16,16 @@ export function DashboardHero({
   nameFirst,
   gamification,
   loading,
-  onCustomize,
+  isEditing,
+  onStartCustomize,
+  onDoneEditing,
 }: {
   nameFirst: string;
   gamification: HomeGamification;
   loading: boolean;
-  onCustomize: () => void;
+  isEditing: boolean;
+  onStartCustomize: () => void;
+  onDoneEditing: () => void;
 }) {
   const { t } = useTranslation();
   const greeting = getGreeting(t);
@@ -34,64 +41,56 @@ export function DashboardHero({
   const pct = target > 0 ? Math.round((progress / target) * 100) : 0;
 
   return (
-    <div className="mb-8 rounded-[24px] border p-6 sm:p-8" style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}>
+    <DomeCard
+      padding="lg"
+      className="rounded-2xl border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] sm:p-8"
+    >
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl" style={{ color: 'var(--dome-text)' }}>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl" style={{ color: 'var(--dome-text, var(--primary-text))' }}>
             {greeting}
             {nameFirst ? `, ${nameFirst}` : ''}
           </h1>
-          <p className="mt-1.5 text-sm font-medium" style={{ color: 'var(--dome-text-secondary, #4a4766)' }}>
+          <p className="mt-1.5 text-sm font-medium" style={{ color: 'var(--dome-text-secondary, var(--tertiary-text))' }}>
             {today}
           </p>
         </div>
-        <button
+        <DomeButton
           type="button"
-          onClick={onCustomize}
-          className="inline-flex cursor-pointer items-center gap-2 self-start rounded-xl border px-4 py-2.5 text-xs font-semibold transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/5"
-          style={{
-            borderColor: 'var(--dome-border)',
-            color: 'var(--dome-text)',
-            background: 'var(--dome-bg)',
-          }}
+          variant="outline"
+          size="sm"
+          leftIcon={
+            isEditing ? (
+              <Check className="h-4 w-4" strokeWidth={2} aria-hidden />
+            ) : (
+              <Settings2 className="h-4 w-4" strokeWidth={2} aria-hidden />
+            )
+          }
+          onClick={isEditing ? onDoneEditing : onStartCustomize}
+          className="self-start shrink-0"
         >
-          <Settings2 className="h-4 w-4" strokeWidth={2} aria-hidden />
-          {t('dashboard.customize_home')}
-        </button>
+          {isEditing ? t('dashboard.edit_mode_done') : t('dashboard.customize_home')}
+        </DomeButton>
       </div>
 
       <div className="mt-10">
-        <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--dome-text-secondary)' }}>
+        <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--dome-text-secondary, var(--tertiary-text))' }}>
           {t('dashboard.goal_today')}
         </p>
-        
+
         <div className="mt-3 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex-1 min-w-0 max-w-md">
+          <div className="min-w-0 max-w-md flex-1">
             {loading ? (
-              <div className="h-10 w-full animate-pulse motion-reduce:animate-none rounded-xl" style={{ background: 'var(--dome-border)' }} />
+              <div
+                className="h-10 w-full animate-pulse motion-reduce:animate-none rounded-xl"
+                style={{ background: 'var(--dome-border, var(--border))' }}
+              />
             ) : (
               <>
-                <p className="text-sm font-medium mb-3" style={{ color: 'var(--dome-text-muted)' }}>
+                <p className="mb-3 text-sm font-medium" style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}>
                   {t('dashboard.goal_progress', { current: progress, target })}
                 </p>
-                <div
-                  className="h-3.5 w-full overflow-hidden rounded-full"
-                  style={{ background: 'var(--dome-border)' }}
-                  role="progressbar"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={pct}
-                  aria-label={t('dashboard.goal_today')}
-                >
-                  <div
-                    className="h-full rounded-full transition-all duration-500 motion-reduce:transition-none"
-                    style={{
-                      width: `${pct}%`,
-                      background: 'var(--dome-accent)',
-                      boxShadow: '0 0 12px rgba(124,111,205,0.35)',
-                    }}
-                  />
-                </div>
+                <DomeProgressBar value={pct} max={100} size="md" aria-label={t('dashboard.goal_today')} />
               </>
             )}
           </div>
@@ -99,16 +98,28 @@ export function DashboardHero({
           {!loading && (
             <div
               className="flex shrink-0 items-center gap-3 rounded-2xl border px-4 py-2.5"
-              style={{ borderColor: 'rgba(249,115,22,0.2)', background: 'rgba(249,115,22,0.04)' }}
+              style={{
+                borderColor: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 28%, var(--dome-border, var(--border)))',
+                background: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 8%, var(--dome-surface, var(--bg-secondary)))',
+              }}
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full" style={{ background: 'rgba(249,115,22,0.12)', color: '#f97316' }}>
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-full"
+                style={{
+                  background: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 18%, transparent)',
+                  color: 'var(--dome-accent, var(--accent))',
+                }}
+              >
                 <Flame className="h-4 w-4" strokeWidth={2.5} aria-hidden />
               </span>
               <div className="flex items-baseline gap-1.5">
-                <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: '#f97316' }}>
+                <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: 'var(--dome-accent, var(--accent))' }}>
                   {gamification.streakDays}
                 </p>
-                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'rgba(249,115,22,0.8)' }}>
+                <p
+                  className="text-[10px] font-bold uppercase tracking-wider"
+                  style={{ color: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 75%, var(--dome-text-muted, var(--tertiary-text)))' }}
+                >
                   {t('dashboard.streak_label')}
                 </p>
               </div>
@@ -116,6 +127,6 @@ export function DashboardHero({
           )}
         </div>
       </div>
-    </div>
+    </DomeCard>
   );
 }

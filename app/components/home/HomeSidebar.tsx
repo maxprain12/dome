@@ -11,7 +11,7 @@ import type { ManyAgent, AgentTeam } from '@/types';
 import AgentOnboarding from '@/components/agents/AgentOnboarding';
 import { startDomeTour } from '@/lib/tour/domeTour';
 
-type SidebarSection = 'library' | 'flashcards' | 'chat' | 'projects' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | 'automations-hub';
+type SidebarSection = 'library' | 'flashcards' | 'chat' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | 'automations-hub';
 
 type NavAction = 'navigate' | 'section';
 

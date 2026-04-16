@@ -5,6 +5,8 @@ export type SharedSubagentId = 'research' | 'library' | 'writer' | 'data';
 export interface SharedAgentContext {
   pathname: string;
   homeSidebarSection?: string;
+  /** Active shell tab (e.g. `projects` is separate from Home). */
+  shellTabType?: string;
   currentFolderId?: string | null;
   currentResourceId?: string | null;
   currentResourceTitle?: string | null;
@@ -30,7 +32,6 @@ const HOME_SECTION_LOCATIONS: Record<string, { location: string; description: st
   agents: { location: 'Home > Agents', description: 'managing specialized agents' },
   'agent-teams': { location: 'Home > Workflows', description: 'working with workflows and agent teams' },
   marketplace: { location: 'Home > Marketplace', description: 'exploring marketplace items, agents, and workflows' },
-  projects: { location: 'Home > Projects', description: 'managing projects' },
   chat: { location: 'Home > Many Chat', description: 'chatting with Many from Home' },
   recent: { location: 'Home > Recent', description: 'reviewing recently updated resources and links' },
   library: { location: 'Home > Library', description: 'browsing the main library of folders and resources' },
@@ -50,10 +51,20 @@ export function describeHomeSection(section?: string): { location: string; descr
   return HOME_SECTION_LOCATIONS[section] ?? DEFAULT_HOME_SECTION;
 }
 
-export function getUiLocationDescription(pathname: string, homeSidebarSection?: string): {
+export function getUiLocationDescription(
+  pathname: string,
+  homeSidebarSection?: string,
+  shellTabType?: string,
+): {
   location: string;
   description: string;
 } {
+  if (shellTabType === 'projects') {
+    return {
+      location: 'Projects',
+      description: 'managing workspace projects (create, delete, switch active project)',
+    };
+  }
   if (pathname === '/' || pathname === '/home') {
     return describeHomeSection(homeSidebarSection);
   }
@@ -84,7 +95,9 @@ export function getUiLocationDescription(pathname: string, homeSidebarSection?: 
 export function buildSharedUiContextBlock(context: SharedAgentContext): string {
   const lines = ['## Current UI Context', `- Route: ${context.pathname || '/'}`];
 
-  if (context.pathname === '/' || context.pathname === '/home') {
+  if (context.shellTabType === 'projects') {
+    lines.push('- Active shell tab: Projects (project management, not the Home library)');
+  } else if (context.pathname === '/' || context.pathname === '/home') {
     lines.push(`- Active Home section: ${context.homeSidebarSection || 'library'}`);
   }
   if (context.currentFolderId) {
