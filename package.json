@@ -89,8 +89,10 @@
     "@tiptap/starter-kit": "^3.17.1",
     "@types/katex": "^0.16.7",
     "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "@xmldom/xmldom": "^0.8.12",
     "archiver": "^7.0.1",
     "archiver-utils": "^5.0.2",
+    "axios": "^1.15.0",
     "better-sqlite3": "^12.6.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
@@ -181,7 +183,7 @@
     "tsx": "^4.19.4",
     "typescript": "^5",
     "typescript-eslint": "^8.58.2",
-    "vite": "^7.3.1",
+    "vite": "^7.3.2",
     "wait-on": "^8.0.0"
   },
   "build": {
