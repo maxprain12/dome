@@ -180,7 +180,7 @@ export default function WorkflowDetail({
               {workflow.estimatedTime && (
                 <span
                   className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium"
-                  style={{ background: '#e0f2fe', color: '#0369a1' }}
+                  style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
                 >
                   <Clock className="w-3 h-3" />
                   {workflow.estimatedTime}

@@ -488,7 +488,7 @@ export default function MarketplaceView() {
       const isInstalling = installingId === agent.id;
       if (isInstalled && !hasUpdate) {
         return (
-          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#059669' }}>
+          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
             <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.installed')}
           </span>
         );
@@ -548,7 +548,7 @@ export default function MarketplaceView() {
       const isInstalled = installedPluginIds.has(plugin.id);
       if (isInstalled) {
         return (
-          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#059669' }}>
+          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
             <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.installed')}
           </span>
         );
@@ -578,7 +578,7 @@ export default function MarketplaceView() {
       const isInstalling = installingMcpId === server.id;
       if (isInstalled) {
         return (
-          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#059669' }}>
+          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
             <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.added')}
           </span>
         );
@@ -608,7 +608,7 @@ export default function MarketplaceView() {
       const isInstalling = installingSkillId === skill.id;
       if (isInstalled) {
         return (
-          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: '#059669' }}>
+          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
             <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.active')}
           </span>
         );

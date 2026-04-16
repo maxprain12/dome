@@ -271,7 +271,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 mx-5 mt-3 px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.08)', color: '#ef4444' }}>
+              <div className="flex items-center gap-2 mx-5 mt-3 px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.08)', color: 'var(--dome-error)' }}>
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                 {error}
               </div>
@@ -329,7 +329,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                           {file.isFolder ? (
                             <ChevronRight className="w-3.5 h-3.5 opacity-40" style={{ color: 'var(--tertiary-text)' }} />
                           ) : alreadyImported ? (
-                            <CheckCircle2 className="w-4 h-4" style={{ color: '#10b981' }} />
+                            <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--success)' }} />
                           ) : canImport ? (
                             <DomeButton
                               type="button"
