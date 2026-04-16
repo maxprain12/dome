@@ -38,6 +38,9 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
 
     try {
       const safePath = sanitizePath(filePath, true);
+      if (!fs.existsSync(safePath)) {
+        return { success: false, error: 'File not found' };
+      }
       const buffer = fs.readFileSync(safePath);
       return { success: true, data: buffer };
     } catch (error) {
