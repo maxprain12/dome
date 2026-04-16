@@ -78,18 +78,6 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
     if (resourceId) useAppStore.getState().setSelectedSourceIds([resourceId]);
   }, [resourceId]);
 
-  // ── Keyboard shortcut Cmd/Ctrl+S ──────────────────────────────────────────
-  useEffect(() => {
-    const handle = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        handleSave();
-      }
-    };
-    window.addEventListener('keydown', handle);
-    return () => window.removeEventListener('keydown', handle);
-  });
-
   // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (!resource || !window.electron?.db?.resources || !editorRef.current) return;
@@ -112,6 +100,18 @@ export default function NoteWorkspaceClient({ resourceId }: NoteWorkspaceClientP
       setIsSaving(false);
     }
   }, [resource, resourceId, title]);
+
+  // ── Keyboard shortcut Cmd/Ctrl+S ──────────────────────────────────────────
+  useEffect(() => {
+    const handle = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        void handleSave();
+      }
+    };
+    window.addEventListener('keydown', handle);
+    return () => window.removeEventListener('keydown', handle);
+  }, [handleSave]);
 
   // ── Title save on blur ────────────────────────────────────────────────────
   const handleTitleBlur = useCallback(async () => {
