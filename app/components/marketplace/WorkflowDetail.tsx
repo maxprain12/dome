@@ -23,9 +23,9 @@ const NODE_TYPE_META: Record<string, { label: string; color: string; Icon: React
 };
 
 const DIFFICULTY_STYLES = {
-  beginner: { bg: '#f0fdf4', text: '#15803d', label: 'Básico', icon: '🟢' },
-  intermediate: { bg: '#fffbeb', text: '#92400e', label: 'Medio', icon: '🟡' },
-  advanced: { bg: '#fef2f2', text: '#991b1b', label: 'Avanzado', icon: '🔴' },
+  beginner: { bg: 'var(--bg-secondary)', text: 'var(--success)', label: 'Básico', icon: '🟢' },
+  intermediate: { bg: 'var(--bg-secondary)', text: 'var(--warning)', label: 'Medio', icon: '🟡' },
+  advanced: { bg: 'var(--bg-secondary)', text: 'var(--error)', label: 'Avanzado', icon: '🔴' },
 };
 
 export default function WorkflowDetail({

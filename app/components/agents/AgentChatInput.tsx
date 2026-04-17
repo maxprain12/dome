@@ -240,7 +240,7 @@ export default memo(function AgentChatInput({
                 onClick={onAbort}
                 className="flex h-7 w-7 items-center justify-center rounded transition-colors hover:bg-[var(--dome-bg)]"
                 style={{
-                  color: '#ef4444',
+                  color: 'var(--error)',
                   backgroundColor: 'transparent',
                 }}
                 title="Stop"

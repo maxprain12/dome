@@ -569,7 +569,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
               ) : toolCall.status === 'error' ? (
                 <XCircle className="w-[13px] h-[13px] text-[var(--error)]" />
               ) : toolCall.status === 'success' ? (
-                <CheckCircle2 className="w-[13px] h-[13px] text-[#10b981]" />
+                <CheckCircle2 className="w-[13px] h-[13px] text-[var(--success)]" />
               ) : (
                 <Icon className="w-[13px] h-[13px] text-[var(--tertiary-text)]" />
               )}
@@ -656,7 +656,7 @@ export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardG
               ) : hasError ? (
                 <XCircle className="w-[13px] h-[13px] text-[var(--error)]" />
               ) : allSuccess ? (
-                <CheckCircle2 className="w-[13px] h-[13px] text-[#10b981]" />
+                <CheckCircle2 className="w-[13px] h-[13px] text-[var(--success)]" />
               ) : (
                 <Icon className="w-[13px] h-[13px] text-[var(--tertiary-text)]" />
               )}

@@ -94,14 +94,14 @@ export default memo(function ResourceCard({
   const getTypeColor = () => {
     if (resource.type === 'excel') {
       switch (excelSubType) {
-        case 'xlsx': return '#217346';
+        case 'xlsx': return 'var(--success)';
         default: return 'var(--tertiary-text)';
       }
     }
     switch (resource.type) {
       case 'note': return 'var(--accent)';
       case 'notebook': return 'var(--success)';
-      case 'ppt': return '#D24726';
+      case 'ppt': return 'var(--warning)';
       case 'image': return 'var(--brand-accent)';
       case 'video': return 'var(--info)';
       case 'audio': return 'var(--warning)';
