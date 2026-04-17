@@ -1016,7 +1016,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
         {colorPickerPos && (
           <ColorPickerPopover
             pos={colorPickerPos}
-            currentColor={folderColorHex ?? '#596037'}
+            currentColor={folderColorHex ?? 'var(--accent)'}
             onSave={handleCurrentFolderColor}
             onClose={() => setColorPickerPos(null)}
           />

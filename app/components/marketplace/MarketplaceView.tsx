@@ -104,11 +104,11 @@ export default function MarketplaceView() {
     });
     return {
       all: row('all', Store, 'var(--dome-surface)', 'var(--dome-text-muted)'),
-      agents: row('agents', Bot, '#ede9fe', '#7c3aed'),
-      workflows: row('workflows', Workflow, '#d1fae5', '#059669'),
-      mcp: row('mcp', FolderCog, '#fef3c7', '#d97706'),
-      skills: row('skills', Sparkles, '#fce7f3', '#db2777'),
-      plugins: row('plugins', Plug, '#e0f2fe', '#0284c7'),
+      agents: row('agents', Bot, 'var(--dome-accent-bg)', 'var(--dome-accent)'),
+      workflows: row('workflows', Workflow, 'var(--success)', 'var(--dome-surface)'),
+      mcp: row('mcp', FolderCog, 'var(--warning)', 'var(--dome-surface)'),
+      skills: row('skills', Sparkles, 'var(--dome-accent)', 'var(--dome-surface)'),
+      plugins: row('plugins', Plug, 'var(--info)', 'var(--dome-surface)'),
     } satisfies Record<FilterType, { label: string; Icon: React.ElementType; badge: string; bgColor: string; textColor: string }>;
   }, [t]);
 

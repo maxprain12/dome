@@ -27,7 +27,7 @@ export default function ActionCard({
       style={{
         background: isPrimary ? 'var(--dome-accent)' : 'var(--dome-surface)',
         borderColor: isPrimary ? 'var(--dome-accent)' : 'var(--dome-border)',
-        color: isPrimary ? '#ffffff' : 'var(--dome-text)',
+        color: isPrimary ? 'var(--base-text)' : 'var(--dome-text)',
       }}
       onMouseEnter={(e) => {
         if (!isPrimary) {
