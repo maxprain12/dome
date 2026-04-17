@@ -1,6 +1,17 @@
 /* eslint-disable no-console */
 /**
  * IPC handlers for plugin management
+ *
+ * SECURITY NOTE on path traversal:
+ * Zip extraction (install-from-repo) uses resolveWithinExtractDir() which performs
+ * containment checking via path.resolve() + startsWith(baseDir + path.sep).
+ * This correctly handles '..' components because path.resolve() normalizes them
+ * and the containment check prevents escape. The explicit replace(/\.\.\//g, '')
+ * was removed because the resolver provides stronger guarantees (handles all
+ * path forms including Windows, symbolic links, etc.).
+ *
+ * For install-from-folder, the path comes from Electron's native dialog (user-selected),
+ * so path traversal is not a concern in that flow.
  */
 
 const path = require('path');
