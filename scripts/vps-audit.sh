@@ -12,10 +12,18 @@
 #   - Repo cloned at REPO_DIR
 #
 # Usage:
-#   ./scripts/vps-audit.sh [--focus security|types|i18n|debt]
+#   ./scripts/vps-audit.sh <focus>                       # positional (legacy)
+#   ./scripts/vps-audit.sh --focus security              # flag form
+#   ./scripts/vps-audit.sh --focus types --chain-context /tmp/chain-ctx.md
+#   ./scripts/vps-audit.sh --focus types --dry-run       # print prompt + exit
+#
+# Prompts are now sourced from the repo:
+#   prompts/shared/project-context.md  (shared)
+#   prompts/audits/<focus>.md          (focus-specific, with YAML frontmatter)
+#   prompts/audits/_chain-header.md    (chained mode only)
 #
 # Cron (daily at 3am):
-#   0 3 * * * /opt/dome-audit/scripts/vps-audit.sh >> /var/log/dome-audit.log 2>&1
+#   0 3 * * * /opt/dome-audit/scripts/vps-audit.sh --focus all >> /var/log/dome-audit.log 2>&1
 # =============================================================================
 
 set -euo pipefail
@@ -25,12 +33,42 @@ REPO_DIR="${REPO_DIR:-/opt/dome-audit/dome}"
 REPO_URL="${REPO_URL:-https://github.com/maxprain12/dome.git}"
 REPO_SLUG=$(echo "$REPO_URL" | sed 's|https://github.com/||; s|\.git$||')
 BRANCH_PREFIX="audit"
-FOCUS="${1:-all}"  # security | types | i18n | debt | all
 TIMESTAMP=$(date +%Y%m%d-%H%M)
-BRANCH="${BRANCH_PREFIX}/${FOCUS}-${TIMESTAMP}"
 LOG_PREFIX="[dome-audit $(date '+%Y-%m-%d %H:%M')]"
 
-echo "$LOG_PREFIX Starting audit (focus: $FOCUS)"
+# ── Parse args ────────────────────────────────────────────────────────────────
+FOCUS=""
+CHAIN_CONTEXT_FILE=""
+DRY_RUN=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --focus)
+      FOCUS="$2"
+      shift 2
+      ;;
+    --chain-context)
+      CHAIN_CONTEXT_FILE="$2"
+      shift 2
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    -h|--help)
+      sed -n '2,22p' "$0"
+      exit 0
+      ;;
+    *)
+      # First bare positional is focus (backwards compat with `./vps-audit.sh security`)
+      if [ -z "$FOCUS" ]; then FOCUS="$1"; fi
+      shift
+      ;;
+  esac
+done
+FOCUS="${FOCUS:-all}"
+BRANCH="${BRANCH_PREFIX}/${FOCUS}-${TIMESTAMP}"
+
+echo "$LOG_PREFIX Starting audit (focus: $FOCUS${CHAIN_CONTEXT_FILE:+, chained})"
 
 # ── Ensure repo is up to date ─────────────────────────────────────────────────
 if [ ! -d "$REPO_DIR/.git" ]; then
@@ -56,227 +94,76 @@ if [ -f "$FINDINGS_FILE" ] && [ -s "$FINDINGS_FILE" ]; then
   echo "$LOG_PREFIX Loaded $(wc -l < "$FINDINGS_FILE" | tr -d ' ') unresolved findings from previous run"
 fi
 
-# ── Build the audit prompt ────────────────────────────────────────────────────
+# ── Build the audit prompt (from prompts/ on disk) ────────────────────────────
+PROMPTS_DIR="${PROMPTS_DIR:-$REPO_DIR/prompts}"
+SHARED_PROMPT="$PROMPTS_DIR/shared/project-context.md"
+FOCUS_PROMPT="$PROMPTS_DIR/audits/${FOCUS}.md"
+CHAIN_HEADER_PROMPT="$PROMPTS_DIR/audits/_chain-header.md"
+
+# Fall back to 'all' if the focus file is missing (e.g. new focus flag before prompt is added)
+if [ ! -f "$FOCUS_PROMPT" ]; then
+  echo "$LOG_PREFIX ⚠️  Prompt file not found: $FOCUS_PROMPT — falling back to all.md"
+  FOCUS_PROMPT="$PROMPTS_DIR/audits/all.md"
+fi
+
+if [ ! -f "$SHARED_PROMPT" ] || [ ! -f "$FOCUS_PROMPT" ]; then
+  echo "$LOG_PREFIX ❌ Required prompt files missing. Expected $SHARED_PROMPT and $FOCUS_PROMPT"
+  exit 1
+fi
+
+# Strip YAML frontmatter (everything between the first two `---` lines)
+strip_frontmatter() {
+  awk 'BEGIN{c=0} /^---$/{c++; next} c>=2{print} c<2 && !/^---$/ && !/^(name|description|version|focus|pass|last_updated):/{next}' "$1"
+}
+
+# Read 'version:' value from frontmatter
+read_prompt_version() {
+  awk '/^---$/{c++; if(c==2) exit} c==1 && /^version:/{sub(/^version:[[:space:]]*/, ""); print; exit}' "$1"
+}
+
+FOCUS_PROMPT_VERSION=$(read_prompt_version "$FOCUS_PROMPT")
+SHARED_PROMPT_VERSION=$(read_prompt_version "$SHARED_PROMPT")
+PROMPT_VERSION_TAG="shared@${SHARED_PROMPT_VERSION:-0}+${FOCUS}@${FOCUS_PROMPT_VERSION:-0}"
+echo "$LOG_PREFIX Prompt versions: $PROMPT_VERSION_TAG"
+
+CHAIN_CONTEXT_BODY=""
+if [ -n "$CHAIN_CONTEXT_FILE" ] && [ -f "$CHAIN_CONTEXT_FILE" ]; then
+  CHAIN_CONTEXT_BODY=$(cat "$CHAIN_CONTEXT_FILE")
+fi
+
 PROMPT_FILE=$(mktemp /tmp/audit-prompt-XXXXXX.md)
-cat > "$PROMPT_FILE" << PROMPT
-You are performing a periodic code audit of Dome, an Electron + React desktop app.
 
-Read AGENTS.md first to understand the codebase architecture.
-
-## Project-specific context (read before auditing)
-
-### Valid CSS variables (defined in app/globals.css)
-The following CSS custom properties ARE defined and valid. NEVER flag them as "unknown", "undocumented",
-or "should be replaced". They are real variables used throughout the codebase:
-
-Text colors:
-  --primary-text, --secondary-text, --tertiary-text
-  --dome-text (→ --primary-text), --dome-text-secondary (→ --secondary-text), --dome-text-muted (→ --tertiary-text)
-  --base-text  ← text on accent-colored buttons (#FFFFFF light / #121212 dark — intentionally hardcoded in globals.css)
-
-Backgrounds:
-  --bg, --bg-secondary, --bg-tertiary, --bg-hover
-  --dome-bg (→ --bg), --dome-bg-hover (→ --bg-hover), --dome-accent-bg (translucent accent)
-
-Interactive:
-  --accent, --accent-hover
-  --dome-accent (→ --accent), --dome-accent-hover (→ --accent-hover)
-
-Semantic:
-  --error, --warning, --success
-  --dome-error (→ --error)
-
-Borders:
-  --border, --border-hover, --dome-border (→ --border)
-
-Only flag LITERAL hex values (e.g. color: '#ef4444') that appear in style= attributes or TSX WITHOUT
-being wrapped in a CSS var(). Fallback values inside var(--x, fallback) are acceptable.
-
-### Stack clarification
-- Runtime: Bun for dev/build; Electron uses Node.js (better-sqlite3, NOT bun:sqlite)
-- Frontend: Vite + React 18 (NOT Next.js — ignore any Next.js references in style guides)
-- Routes: React Router v7 (client-side SPA), entry: app/main.tsx
-- i18n: react-i18next, all translations inline in app/lib/i18n.ts (en/es/fr/pt), default language: es
-- verbatimModuleSyntax: true → ALL type-only imports MUST use \`import type { }\`
-
-$(if [ -n "$PREVIOUS_FINDINGS" ]; then
-  echo "## Unresolved findings from the previous audit run"
-  echo "The AI reviewer flagged these issues in the last PR for this focus."
-  echo "Address these FIRST before looking for new issues:"
+{
+  echo "You are performing a periodic code audit of Dome, an Electron + React desktop app."
   echo ""
-  echo "$PREVIOUS_FINDINGS"
+  echo "Read AGENTS.md first to understand the codebase architecture."
   echo ""
-fi)
+  echo "Prompt bundle: $PROMPT_VERSION_TAG"
+  echo ""
+  strip_frontmatter "$SHARED_PROMPT"
+  echo ""
 
-$(case "$FOCUS" in
-  security)
-    echo "## Focus: Security Audit
-Audit the codebase for security issues:
-1. IPC handlers in electron/ipc/ that don't validate sender or sanitize inputs
-2. SQL injection risks (string concatenation in queries instead of prepared statements)
-3. Path traversal vulnerabilities (user-provided paths used without sanitizePath())
-4. Hardcoded secrets, API keys, or credentials in source files
-5. electron/preload.cjs exposing APIs that shouldn't be exposed to renderer
-6. Missing input validation on IPC channels
+  if [ -n "$PREVIOUS_FINDINGS" ]; then
+    echo "## Unresolved findings from the previous audit run"
+    echo ""
+    echo "The AI reviewer flagged these issues in the last PR for this focus."
+    echo "Address these FIRST before looking for new issues:"
+    echo ""
+    echo "$PREVIOUS_FINDINGS"
+    echo ""
+  fi
 
-CRITICAL path traversal rules:
-- ALWAYS use sanitizePath(filePath, true) — never use .replace(/\.\.\//g, '')
-- The replace() approach is bypassable with ....// and does not handle Windows paths
-- After sanitization, always validate containment with:
-    const resolved = path.resolve(baseDir, userInput);
-    if (!resolved.startsWith(path.resolve(baseDir) + path.sep)) throw new Error('Path traversal');
-- Check BOTH source and destination paths in copy/move operations
+  if [ -n "$CHAIN_CONTEXT_BODY" ] && [ -f "$CHAIN_HEADER_PROMPT" ]; then
+    # Interpolate ${CHAIN_CONTEXT} into the chain header template
+    CHAIN_HEADER_BODY=$(strip_frontmatter "$CHAIN_HEADER_PROMPT")
+    printf '%s\n' "${CHAIN_HEADER_BODY//\$\{CHAIN_CONTEXT\}/$CHAIN_CONTEXT_BODY}"
+    echo ""
+  fi
 
-For each issue found: create a fix. If the fix is straightforward, implement it.
-If the fix is complex, create a TODO comment with the specific issue described."
-    ;;
-  types)
-    echo "## Focus: TypeScript Quality
-Audit the codebase for TypeScript issues:
-1. Files using 'any' type where a proper type can be inferred
-2. Missing 'import type' for type-only imports (verbatimModuleSyntax is ON)
-3. Non-null assertions (!) that could be replaced with proper null checks
-4. Inconsistent return types on functions
-5. Missing types on exported functions/components
+  strip_frontmatter "$FOCUS_PROMPT"
+  echo ""
 
-Scan ALL of: app/lib/, app/components/, electron/ipc/.
-Fix what you can. Focus on files with the most 'any' types first.
-Run: grep -rn ': any' app/ --include='*.ts' --include='*.tsx' | wc -l
-to see the total count before and after."
-    ;;
-  i18n)
-    echo "## Focus: i18n Completeness
-Audit the codebase for i18n issues:
-1. User-visible strings hardcoded in components instead of using t()
-2. Translation keys that exist in 'en' but are missing in 'es', 'fr', or 'pt' in app/lib/i18n.ts
-3. Components that import useTranslation but don't use t() for user-facing strings
-
-Fix all missing translation keys in app/lib/i18n.ts.
-For hardcoded strings: wrap them with t() and add the key to all 4 languages.
-
-IMPORTANT rules for i18n.ts edits:
-- Do NOT reformat, reindent, or reorder existing keys — only add/change values
-- The default language is Spanish (es) — Spanish strings should be natural, not machine-translated
-- French (fr) and Portuguese (pt) translations should be grammatically correct
-- Use the same key nesting structure as existing keys for consistency
-- Never add a key in one language without adding it in all 4 (en/es/fr/pt)"
-    ;;
-  debt)
-    echo "## Focus: Technical Debt
-Audit the codebase for technical debt:
-1. Dead code: exported functions/components that are never imported anywhere
-2. Duplicate logic: same pattern repeated 3+ times that could be extracted to a shared util
-3. Hardcoded colors: literal hex values (e.g. color: '#ef4444') in style= attributes that should use CSS variables
-4. Console.log statements left in production code (console.error/warn are fine)
-5. TODO/FIXME comments older than 30 days
-
-IMPORTANT for color fixes:
-- Replace hardcoded hex values with the CSS variables listed in the 'Valid CSS variables' section above
-- Do NOT replace CSS variable usages — they are already correct
-- Mapping guide:
-    '#ef4444' or red-ish errors → var(--dome-error) or var(--error)
-    '#ffffff' or '#fff' on buttons → var(--base-text)
-    '#0ea5e9' or blue → var(--accent)
-    '#111827' or dark text → var(--primary-text)
-    '#6b7280' or medium text → var(--secondary-text)
-    '#9ca3af' or muted text → var(--tertiary-text)
-    '#f9fafb' or light bg → var(--bg-secondary)
-    '#f3f4f6' → var(--bg-tertiary)
-    '#e5e7eb' borders → var(--border)
-
-There are currently ~468 hardcoded hex colors and ~233 console.logs in the codebase.
-Focus on the files with the most occurrences first.
-Fix the hardcoded colors and console.logs. Flag the rest with a TODO comment."
-    ;;
-  vulns)
-    echo "## Focus: Dependency Vulnerabilities
-Audit npm dependencies for security vulnerabilities and outdated packages.
-
-Step 1 — Run npm audit and read the output:
-  npm audit --json
-
-Step 2 — For each HIGH or CRITICAL vulnerability:
-  - Read the advisory to understand the attack vector
-  - Check if Dome actually uses the vulnerable code path
-  - If a safe fix exists (npm audit fix --dry-run shows it): apply it
-  - If it requires a major version bump: add a TODO comment in package.json with the issue
-
-Step 3 — Check for packages with known safer alternatives:
-  - Any 'request' package → should be 'node-fetch' or native fetch
-  - Any 'node-uuid' → should be 'crypto.randomUUID()'
-
-IMPORTANT:
-- Run 'npm install --ignore-scripts' after any package.json change
-- Do NOT bump major versions of electron, better-sqlite3, or @langchain/* — these have breaking changes
-- Do NOT run 'npm audit fix --force' — apply fixes selectively"
-    ;;
-  react)
-    echo "## Focus: React Patterns & Performance
-Audit the codebase for React anti-patterns that cause bugs and performance issues.
-
-1. useEffect with addEventListener/setTimeout/setInterval that has NO cleanup return:
-   Bad:  useEffect(() => { window.addEventListener('x', fn) }, [])
-   Good: useEffect(() => { window.addEventListener('x', fn); return () => window.removeEventListener('x', fn) }, [])
-
-2. Direct state mutations in Zustand stores or React state:
-   Bad:  state.items.push(item)
-   Good: set(s => ({ items: [...s.items, item] }))
-
-3. useEffect with missing dependency array (runs on every render):
-   Bad:  useEffect(() => { fetchData() })
-   Good: useEffect(() => { fetchData() }, [id])
-
-4. Components that re-render unnecessarily because they receive new object/array literals as props:
-   Bad:  <Component options={{ key: val }} />
-   Good: const options = useMemo(() => ({ key: val }), [val]); <Component options={options} />
-
-5. Large components over 400 lines that mix data fetching + business logic + rendering.
-   These are the biggest ones — split them if the split is clean:
-   $(find app/components -name '*.tsx' -exec wc -l {} \; 2>/dev/null | awk '$1 > 400 {print "   " $1 " lines: " $2}' | sort -rn | head -8)
-
-Fix the useEffect cleanup issues first (they cause memory leaks).
-For large components: only split if you can identify a clear sub-component boundary.
-Do NOT refactor working logic just to reduce line count."
-    ;;
-  errors)
-    echo "## Focus: Error Handling & Resilience
-Audit the codebase for missing error handling that causes silent failures or crashes.
-
-1. React Error Boundaries — there are currently ZERO in the codebase.
-   Add an ErrorBoundary component at app/components/ErrorBoundary.tsx:
-   - Wrap each major tab/view in AppShell with it
-   - Show a friendly fallback UI instead of crashing the whole app
-   - Log the error to console.error (and PostHog if available)
-
-2. IPC handlers that throw instead of returning { success: false, error }:
-   Bad:  ipcMain.handle('x', () => { throw new Error('...') })
-   Good: ipcMain.handle('x', () => { try {...} catch(e) { return { success: false, error: e.message } } })
-   Scan electron/ipc/*.cjs for handlers missing try/catch.
-
-3. window.electron.invoke() calls in the renderer with no .catch() or try/catch:
-   Bad:  const result = await window.electron.invoke('x', data)
-   Good: const result = await window.electron.invoke('x', data).catch(e => ({ success: false, error: e.message }))
-
-4. Zustand store actions that call IPC without error handling — the store should never crash
-   silently; log errors and optionally show a toast.
-
-Priority: ErrorBoundary first (highest impact), then IPC try/catch, then renderer catch."
-    ;;
-  *)
-    echo "## Focus: Full Audit (all areas)
-Perform a comprehensive audit covering:
-1. Security: IPC validation, SQL injection, path traversal
-2. TypeScript: 'any' types, missing import type, null safety
-3. i18n: missing translations in app/lib/i18n.ts
-4. Code quality: hardcoded colors, dead code, console.logs
-5. React: useEffect cleanup, direct state mutations
-6. Errors: missing Error Boundaries, IPC try/catch
-
-Prioritize by severity: Security > Errors > TypeScript > React > Code quality > i18n.
-Fix the top 5-10 most impactful issues. Do not try to fix everything at once."
-    ;;
-esac)
-
+  cat << 'RULES'
 ## Rules
 - Follow AGENTS.md exactly: process separation, IPC pattern, CSS variables, i18n
 - Only fix real issues. Do not refactor working code just to change style.
@@ -292,7 +179,17 @@ After making fixes, run:
   npm run build
 
 If all pass, your work is complete. The CI pipeline will validate everything.
-PROMPT
+RULES
+} > "$PROMPT_FILE"
+
+if [ "$DRY_RUN" = "1" ]; then
+  echo "$LOG_PREFIX --dry-run: assembled prompt below"
+  echo "========================================"
+  cat "$PROMPT_FILE"
+  echo "========================================"
+  rm -f "$PROMPT_FILE"
+  exit 0
+fi
 
 echo "$LOG_PREFIX Running OpenCode audit..."
 
@@ -427,6 +324,8 @@ Automated periodic audit by OpenCode + MiniMax.
 
 **Focus:** ${FOCUS}
 **Generated:** ${TIMESTAMP}
+**Prompt bundle:** \`${PROMPT_VERSION_TAG}\`${CHAIN_CONTEXT_FILE:+
+**Chain context:** yes (upstream findings fed in)}
 **Changed files:**
 ${CHANGED_FILES}
 
@@ -461,5 +360,5 @@ echo "$LOG_PREFIX PR URL: https://github.com/${REPO_SLUG}/pull/${PR_NUMBER}"
 # Write a pending findings job — picked up by vps-audit-findings-cron.sh
 PENDING_DIR="/var/log/dome-audit-findings/pending"
 mkdir -p "$PENDING_DIR"
-echo "${FOCUS} ${PR_NUMBER} ${REPO_SLUG}" > "${PENDING_DIR}/${FOCUS}-${PR_NUMBER}.pending"
+echo "${FOCUS} ${PR_NUMBER} ${REPO_SLUG} ${PROMPT_VERSION_TAG}" > "${PENDING_DIR}/${FOCUS}-${PR_NUMBER}.pending"
 echo "$LOG_PREFIX Findings job queued for PR #${PR_NUMBER} (will run within 30 min)"

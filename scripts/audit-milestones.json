@@ -1,0 +1,19 @@
+{
+  "$comment": "Milestones tracked by vps-audit-dashboard.sh. Edit to set new targets.",
+  "per_focus": [
+    { "focus": "security", "metric": "open_findings", "target": 0,  "deadline": "2026-06-01", "label": "Zero security findings" },
+    { "focus": "vulns",    "metric": "open_findings", "target": 0,  "deadline": "2026-06-01", "label": "Zero vulnerabilities" },
+    { "focus": "errors",   "metric": "open_findings", "target": 5,  "deadline": "2026-05-15", "label": "≤5 error findings" },
+    { "focus": "types",    "metric": "open_findings", "target": 20, "deadline": "2026-05-15", "label": "≤20 type findings" },
+    { "focus": "react",    "metric": "open_findings", "target": 10, "deadline": "2026-06-15", "label": "≤10 React findings" },
+    { "focus": "i18n",     "metric": "open_findings", "target": 5,  "deadline": "2026-06-15", "label": "≤5 i18n findings" },
+    { "focus": "debt",     "metric": "open_findings", "target": 15, "deadline": "2026-07-01", "label": "≤15 debt findings" },
+    { "focus": "deps",     "metric": "open_findings", "target": 0,  "deadline": "2026-06-01", "label": "Zero outdated deps" }
+  ],
+  "global": {
+    "metric": "health_score",
+    "target": 90,
+    "deadline": "2026-07-01",
+    "label": "Health score ≥ 90"
+  }
+}

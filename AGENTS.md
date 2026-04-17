@@ -26,12 +26,14 @@ Execute the steps below in order. Do not stop between steps unless you hit an ir
 
 ### Step 0 — Classify the task
 
-| Task type | Signal words | Branch prefix | Flag needed? |
-|---|---|---|---|
-| New feature | add, implement, create, build | `feat/` | Yes (if user-visible) |
-| Bug fix | fix, broken, error, crash, wrong | `fix/` | No |
-| Refactor | rename, move, extract, clean | `refactor/` | No |
-| Docs/config | only `.md`, `.yml`, `.json` | `docs/` | No |
+
+| Task type   | Signal words                     | Branch prefix | Flag needed?          |
+| ----------- | -------------------------------- | ------------- | --------------------- |
+| New feature | add, implement, create, build    | `feat/`       | Yes (if user-visible) |
+| Bug fix     | fix, broken, error, crash, wrong | `fix/`        | No                    |
+| Refactor    | rename, move, extract, clean     | `refactor/`   | No                    |
+| Docs/config | only `.md`, `.yml`, `.json`      | `docs/`       | No                    |
+
 
 ### Step 1 — Create a branch
 
@@ -46,6 +48,7 @@ git checkout -b feat/<short-description>
 Skip for bug fixes and refactors.
 
 If the feature is **user-visible or experimental**:
+
 - Choose flag name: `dome-<feature>` (e.g. `dome-export-pdf`, `dome-new-onboarding`)
 - Wrap new UI/logic behind the flag gate:
 
@@ -70,6 +73,7 @@ If the feature is **internal / infrastructure** (no user-visible change): skip t
 **The non-negotiable rules CI enforces:**
 
 #### Renderer/main process boundary
+
 ```typescript
 // ✅ In app/ — use IPC
 const result = await window.electron.invoke('resources:create', data);
@@ -81,6 +85,7 @@ import { ipcRenderer } from 'electron';
 ```
 
 #### New IPC channel (follow every step or it silently fails)
+
 1. Handler in `electron/ipc/<domain>.cjs` — validate inputs, return `{ success, data/error }`
 2. Register in `electron/ipc/index.cjs`
 3. Add channel name to `electron/preload.cjs` ALLOWED_CHANNELS array
@@ -89,6 +94,7 @@ import { ipcRenderer } from 'electron';
 Full guide: `.claude/sops/new-ipc-channel.md`
 
 #### i18n — required for all user-visible strings
+
 ```typescript
 // In the component
 const { t } = useTranslation();
@@ -102,6 +108,7 @@ return <span>{t('my_feature.title')}</span>;
 ```
 
 #### Colors — always CSS variables
+
 ```tsx
 // ✅
 style={{ color: 'var(--primary-text)', background: 'var(--bg-secondary)' }}
@@ -110,12 +117,14 @@ style={{ color: '#040316', background: '#f2f2f9' }}
 ```
 
 #### Type imports — verbatimModuleSyntax is ON
+
 ```typescript
 import type { Resource } from '@/types'; // ✅ type-only
 import { Resource } from '@/types';      // ❌ if Resource is only a type
 ```
 
 #### TypeScript — no any
+
 ```typescript
 // ✅
 function createResource(data: Partial<Resource>): Resource { ... }
@@ -134,6 +143,7 @@ npm run build       # must succeed
 ```
 
 Quick architecture self-check (must return 0 lines):
+
 ```bash
 grep -rn "better-sqlite3\|bun:sqlite\|from 'fs'" app/ --include="*.ts" --include="*.tsx"
 ```
@@ -185,7 +195,7 @@ Your work is complete. The automated pipeline takes over:
 ```
 PR open
   ├─► CI: typecheck + lint + build + architecture guard   (~3 min)
-  ├─► AI Code Review: 3 passes posted as PR comment       (~2 min)
+  ├─► AI Code Review: 3 passes with line-level comments   (~2 min)
   └─► Auto-merge when all checks pass
         └─► Post-merge: feature flag enabled for team in PostHog
 ```
@@ -194,19 +204,65 @@ You do not need to merge, enable flags, monitor, or do anything else.
 
 ---
 
+## Automated agents — editing prompts
+
+Two agent pipelines run against the repo. Their prompts are **versioned files
+on disk**, not inlined in scripts — edit the markdown to tune behavior.
+
+### AI review (GitHub Actions, `.github/workflows/ai-review.yml`)
+
+Runs 3 passes per PR, posting a review with line-level comments anchored to
+the diff. Each pass has its own prompt; the model returns strict JSON.
+
+- `prompts/review/architecture.md` — process separation, IPC whitelist, import type
+- `prompts/review/logic.md` — runtime errors, security, async correctness
+- `prompts/review/style.md` — CSS vars, i18n coverage, `any` types, React anti-patterns
+
+The driver is `scripts/ai-review.mjs`. Diffs are split by file (no 40KB
+truncation); large files are clipped at 60KB with a note in the summary.
+
+### VPS audits (OpenCode + MiniMax on a cron-driven VPS)
+
+Periodic sweeps per focus domain. Each focus has one prompt + a shared context
+block. Prompts include explicit "run `bun tsc --noEmit` / `grep` before fixing"
+instructions so the agent verifies findings against live code.
+
+- `prompts/shared/project-context.md` — shared across all audit prompts
+- `prompts/audits/<focus>.md` — one per focus (security, types, i18n, debt, vulns,
+  react, errors, deps, all)
+- `prompts/audits/_chain-header.md` — injected when multiple focuses run in a
+  chain via `scripts/vps-audit-chain.sh`
+
+### Frontmatter versioning rule
+
+Every prompt file carries YAML frontmatter with `version:` (integer). **Bump
+the version when you change the prompt semantics.** The driver stamps each PR
+body with a `Prompt bundle` tag (e.g. `shared@1+security@2`) and persists
+`first_seen_prompt_version` on each finding, so regressions can be correlated
+to a specific prompt version.
+
+---
+
 ## Reference — where to look
 
-| Need | Location |
-|---|---|
-| Architecture rules | `.claude/rules/architecture-rules.md` |
-| New IPC step-by-step | `.claude/sops/new-ipc-channel.md` |
-| Feature flags usage | `.claude/sops/feature-flags.md` |
-| PR checklist | `.claude/sops/pr-checklist.md` |
-| Release process | `.claude/sops/release.md` |
-| Color palette variables | `.claude/rules/new-color-palette.md` |
-| All translations | `app/lib/i18n.ts` |
-| Existing IPC domains | `electron/ipc/` (one file per domain) |
-| Zustand stores | `app/lib/store/` |
-| Tab system | `app/lib/store/useTabStore.ts` |
-| Existing components | `app/components/` |
-| Electron window creation | `electron/window-manager.cjs` |
+
+| Need                        | Location                              |
+| --------------------------- | ------------------------------------- |
+| Architecture rules          | `.claude/rules/architecture-rules.md` |
+| New IPC step-by-step        | `.claude/sops/new-ipc-channel.md`     |
+| Feature flags usage         | `.claude/sops/feature-flags.md`       |
+| PR checklist                | `.claude/sops/pr-checklist.md`        |
+| Release process             | `.claude/sops/release.md`             |
+| Color palette variables     | `.claude/rules/new-color-palette.md`  |
+| All translations            | `app/lib/i18n.ts`                     |
+| Existing IPC domains        | `electron/ipc/` (one file per domain) |
+| Zustand stores              | `app/lib/store/`                      |
+| Tab system                  | `app/lib/store/useTabStore.ts`        |
+| Existing components         | `app/components/`                     |
+| Electron window creation    | `electron/window-manager.cjs`         |
+| AI review prompts           | `prompts/review/*.md`                 |
+| VPS audit prompts           | `prompts/audits/*.md` + `prompts/shared/` |
+| Audit milestones / targets  | `scripts/audit-milestones.json`       |
+| VPS audit + dashboard setup | `docs/vps-audit-setup.md`             |
+
+
