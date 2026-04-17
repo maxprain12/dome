@@ -1,14 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
-import { Copy, Check, RefreshCw, ChevronDown, ChevronRight, BookmarkPlus } from 'lucide-react';
+import { Copy, Check, RefreshCw, ChevronRight, BookmarkPlus } from 'lucide-react';
 import ChatToolCard, { ChatToolCardGroup, type ToolCallData } from './ChatToolCard';
 import ReadingIndicator from './ReadingIndicator';
 import MarkdownRenderer from './MarkdownRenderer';
 import SourceReference from './SourceReference';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
 import { extractCitationNumbers, type ParsedCitation } from '@/lib/utils/citations';
-import { showToast } from '@/lib/store/useToastStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import {
   extractDoclingImagesFromToolCalls,
@@ -49,9 +48,9 @@ interface ChatMessageProps {
 
 export default function ChatMessage({
   message,
-  showAvatar = true,
-  isFirstInGroup = true,
-  isLastInGroup = true,
+  showAvatar: _showAvatar = true,
+  isFirstInGroup: _isFirstInGroup = true,
+  isLastInGroup: _isLastInGroup = true,
   onRegenerate,
   onSaveAsNote,
   onClickCitation,

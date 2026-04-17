@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useLearnStore } from '@/lib/store/useLearnStore';
-import type { Flashcard, FlashcardDeck } from '@/types';
+import type { FlashcardDeck } from '@/types';
 
 interface DeckEditorProps {
   onClose: () => void;
@@ -18,7 +18,7 @@ interface EditableCard {
 
 export default function DeckEditor({ onClose }: DeckEditorProps) {
   const { t } = useTranslation();
-  const { editingDeckId, decks, loadDecks } = useLearnStore();
+  const { editingDeckId, loadDecks } = useLearnStore();
   const [deck, setDeck] = useState<FlashcardDeck | null>(null);
   const [cards, setCards] = useState<EditableCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);

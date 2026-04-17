@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Send, StopCircle, Plug2 } from 'lucide-react';
+import { Send, Plug2 } from 'lucide-react';
 import { getToolById } from '@/lib/agents/catalog';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
 import { useTranslation } from 'react-i18next';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChevronRight, ChevronLeft, X, Users, Cpu, Image, Check } from 'lucide-react';
+import { ChevronRight, ChevronLeft, X, Users, Cpu, Check } from 'lucide-react';
 import type { ManyAgent, AgentTeam } from '@/types';
 import { getManyAgents } from '@/lib/agents/api';
 import { createAgentTeam } from '@/lib/agent-team/api';

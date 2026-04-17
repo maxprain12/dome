@@ -250,7 +250,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
       const resourceMatch = href.match(/^dome:\/\/resource\/([^/]+)(?:\/([^?#]+))?(?:\?([^#]*))?/);
       if (resourceMatch) {
         const [, resourceId, explicitResourceType, queryString] = resourceMatch;
-        const page = parsePageFromQuery(queryString);
+        const _page = parsePageFromQuery(queryString);
         let resourceType = explicitResourceType?.trim();
         let resourceTitle = 'Recurso';
 

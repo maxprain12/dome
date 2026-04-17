@@ -159,10 +159,8 @@ export function DashboardCanvas({
   );
 
   // ── Hidden widget keys ────────────────────────────────────────────────────
-  const hiddenWidgetKeys = useMemo(
-    () => (Object.keys(preferences.widgets) as WidgetKey[]).filter((k) => !preferences.widgets[k]),
-    [preferences.widgets],
-  );
+  // NOTE: hiddenWidgetKeys computed but not currently used in render
+  // (Object.keys(preferences.widgets) as WidgetKey[]).filter((k) => !preferences.widgets[k]),
 
   // ── Available quick actions (not active) ─────────────────────────────────
   const availableQuickIds = ALL_QUICK_IDS.filter((id) => !preferences.quickActions.includes(id));
@@ -281,7 +279,7 @@ export function DashboardCanvas({
 
               {/* Visible sections */}
               <ul className="space-y-1.5">
-                {reorderableSections.map((id, i) => {
+                {reorderableSections.map((id, _i) => {
                   const isVisible = visibleIds.has(id) && slots[id] != null;
                   const canHide = widgetKeyForId(id) != null;
                   const Icon = SECTION_ICONS[id] ?? Layers;
@@ -479,7 +477,7 @@ export function DashboardCanvas({
 
       {/* ── Dashboard sections — simple vertical stack ── */}
       <div className="flex flex-col gap-3">
-        {visibleSections.map((id, i) => {
+        {visibleSections.map((id, _i) => {
           const node = slots[id];
           if (node == null) return null;
           const canHide = widgetKeyForId(id) != null;

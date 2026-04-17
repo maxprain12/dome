@@ -179,7 +179,7 @@ function AgentCanvasInner() {
         await saveExecution(execution);
         setExecutionHistory((prev) => [execution, ...prev]);
       }
-    } catch (err) {
+    } catch {
       if (storeSnapshot.activeWorkflowId) {
         const nodeOutputs = Object.fromEntries(
           Object.entries(useCanvasStore.getState().executionStates).map(([nodeId, state]) => [

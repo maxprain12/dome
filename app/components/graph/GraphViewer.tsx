@@ -66,7 +66,7 @@ export default function GraphViewer({ graphState, onNodeClick, onNodeHover }: Gr
   }, [graphState.nodes, graphState.edges, graphState.layout, graphState.focusNodeId]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(graphState.edges);
+  const [edges, , onEdgesChange] = useEdgesState(graphState.edges);
 
   useEffect(() => {
     setNodes(layoutedNodes);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, SlidersHorizontal, Layout, Download, X } from 'lucide-react';
+import { Search, SlidersHorizontal, Download, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { GraphLayoutType, GraphFilterOptions } from '@/types';
 

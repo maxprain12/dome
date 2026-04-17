@@ -1,5 +1,5 @@
 
-import { useMemo, memo } from 'react';
+import { memo } from 'react';
 import { User } from 'lucide-react';
 import ChatMessage, { type ChatMessageData } from './ChatMessage';
 import ManyAvatar from '@/components/many/ManyAvatar';
@@ -29,13 +29,6 @@ export default memo(function ChatMessageGroup({
   className = '',
 }: ChatMessageGroupProps) {
   const firstMessage = messages[0];
-
-  // Format group timestamp (first message in group)
-  const groupTime = useMemo(() => {
-    if (!firstMessage) return '';
-    const date = new Date(firstMessage.timestamp);
-    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  }, [firstMessage]);
 
   if (!firstMessage) return null;
 

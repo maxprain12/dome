@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Tag, ChevronLeft, Loader2, FileText, Video, Music, FileImage, Globe, Folder } from 'lucide-react';
+import { Tag, ChevronLeft, FileText, Video, Music, FileImage, Globe, Folder } from 'lucide-react';
 
 interface TagWithCount {
   id: string;

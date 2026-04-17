@@ -8,7 +8,6 @@ import {
   FolderOpen,
   ChevronRight,
   Home as HomeIcon,
-  Plus,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/lib/hooks/useResources';

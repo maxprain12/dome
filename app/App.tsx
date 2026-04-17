@@ -128,7 +128,7 @@ function MainApp() {
       unsubCreated?.();
       unsubFailed?.();
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.calendar?.onUpcoming) return;

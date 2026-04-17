@@ -1,7 +1,6 @@
 
 import { useState, useMemo } from 'react';
 import {
-  ChevronDown,
   Globe,
   Search,
   FileText,
