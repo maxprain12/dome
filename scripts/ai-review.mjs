@@ -2,22 +2,33 @@
 /**
  * AI Code Review Script for Dome
  *
- * Reads a git diff from stdin, runs 3 review passes via AI, and posts
- * a review comment on the PR via GitHub API.
+ * Reads a git diff from stdin, runs 3 structured review passes (architecture,
+ * logic, style) per file, and posts a GitHub PR review with line-level
+ * comments anchored to the diff.
  *
- * Multi-provider: works with MiniMax, DeepSeek, OpenAI, Anthropic-compatible,
- * or any OpenAI-compatible endpoint.
+ * Prompts live in `prompts/review/*.md` (externalized — previously inline).
+ * Diffs are split by file so large PRs are fully covered (no 40KB truncation).
+ * Model replies are strict JSON (`{ findings: [...] }`); fallbacks are robust.
  *
  * Config via env vars:
- *   AI_REVIEW_API_KEY    - API key (required)
- *   AI_REVIEW_BASE_URL   - Base URL (default: https://api.openai.com/v1)
- *   AI_REVIEW_MODEL      - Model name (default: gpt-4o)
- *   GITHUB_TOKEN         - GitHub token for posting review (required in CI)
- *   PR_NUMBER            - PR number (set by GitHub Actions)
- *   REPO                 - owner/repo (set by GitHub Actions)
+ *   AI_REVIEW_API_KEY       - API key (required)
+ *   AI_REVIEW_BASE_URL      - Base URL (default: https://api.openai.com/v1)
+ *   AI_REVIEW_MODEL         - Model name (default: gpt-4o)
+ *   AI_REVIEW_CONCURRENCY   - Max concurrent AI calls (default: 5)
+ *   AI_REVIEW_MAX_FILE_KB   - Max size per file chunk before per-file truncation (default: 60)
+ *   AI_REVIEW_IGNORE_GLOBS  - Comma-separated file patterns to skip
+ *   AI_REVIEW_DRY_RUN       - "1" prints the review body without posting
+ *   GITHUB_TOKEN            - GitHub token for posting review (required in CI)
+ *   PR_NUMBER               - PR number (set by GitHub Actions)
+ *   REPO                    - owner/repo (set by GitHub Actions)
  */
 
 import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(__dirname, '..');
 
 const API_KEY = process.env.AI_REVIEW_API_KEY;
 const BASE_URL = (process.env.AI_REVIEW_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
@@ -26,19 +37,50 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const PR_NUMBER = process.env.PR_NUMBER;
 const REPO = process.env.REPO;
 
-// Timeout per AI call (ms) — 50s is generous, avoids hanging forever
+const CONCURRENCY = Math.max(1, parseInt(process.env.AI_REVIEW_CONCURRENCY || '5', 10));
+const MAX_FILE_KB = Math.max(10, parseInt(process.env.AI_REVIEW_MAX_FILE_KB || '60', 10));
+const MAX_FILE_BYTES = MAX_FILE_KB * 1024;
+const DRY_RUN = process.env.AI_REVIEW_DRY_RUN === '1' || process.argv.includes('--dry-run');
+
+const DEFAULT_IGNORE = [
+  'package-lock.json',
+  'bun.lock',
+  'bun.lockb',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'dist/',
+  'out/',
+  'build/',
+  'node_modules/',
+  '.min.js',
+  '.min.css',
+  '.map',
+  '.ico',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.webp',
+  '.pdf',
+  '.woff',
+  '.woff2',
+];
+const IGNORE_GLOBS = (process.env.AI_REVIEW_IGNORE_GLOBS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+const IGNORE = [...DEFAULT_IGNORE, ...IGNORE_GLOBS];
+
 const CALL_TIMEOUT_MS = 50_000;
-// Retries per pass before giving up
 const MAX_RETRIES = 2;
-// Delay between retries (ms) — doubles each attempt
 const RETRY_BASE_DELAY_MS = 6_000;
 
-if (!API_KEY) {
-  console.error('❌ AI_REVIEW_API_KEY is required');
+if (!API_KEY && !DRY_RUN) {
+  console.error('❌ AI_REVIEW_API_KEY is required (or set AI_REVIEW_DRY_RUN=1)');
   process.exit(1);
 }
 
-// Read diff from stdin
+// ── Read diff from stdin ──────────────────────────────────────────────────────
+
 let diff = '';
 try {
   diff = readFileSync('/dev/stdin', 'utf-8');
@@ -51,16 +93,8 @@ if (!diff || diff.trim().length < 50) {
   process.exit(0);
 }
 
-// Truncate diff if too large (context window limit)
-const MAX_DIFF_CHARS = 40_000;
-const truncated = diff.length > MAX_DIFF_CHARS;
-const diffContent = truncated
-  ? diff.slice(0, MAX_DIFF_CHARS) + '\n\n[... diff truncated for length ...]'
-  : diff;
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Strip <think>…</think> blocks emitted by reasoning models (e.g. MiniMax-M2.7). */
 function stripThinking(text) {
   return text
     .replace(/<think>[\s\S]*?<\/think>/gi, '')
@@ -68,226 +102,409 @@ function stripThinking(text) {
     .trim();
 }
 
-/** Sleep for ms milliseconds. */
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Call the AI API (OpenAI-compatible format) with timeout and retries.
- * Returns the model's text content, with <think> blocks stripped.
- * Throws only if all retries are exhausted.
- */
-async function callAI(systemPrompt, userContent) {
-  let lastError;
+function isIgnored(path) {
+  return IGNORE.some((pattern) => {
+    if (pattern.endsWith('/')) return path.startsWith(pattern) || path.includes(`/${pattern}`);
+    return path.endsWith(pattern) || path.includes(pattern);
+  });
+}
 
+/**
+ * Split a unified diff into per-file chunks.
+ * Returns [{ path, diff, newLineSet: Set<number>, isBinary }].
+ */
+function splitDiffByFile(raw) {
+  const files = [];
+  const lines = raw.split('\n');
+  let current = null;
+
+  const flush = () => {
+    if (!current) return;
+    const lineSet = new Set();
+    let newLine = 0;
+    let inHunk = false;
+    for (const l of current.lines) {
+      const hunk = l.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (hunk) {
+        newLine = parseInt(hunk[1], 10);
+        inHunk = true;
+        continue;
+      }
+      if (!inHunk) continue;
+      if (l.startsWith('+') && !l.startsWith('+++')) {
+        lineSet.add(newLine);
+        newLine += 1;
+      } else if (l.startsWith('-') && !l.startsWith('---')) {
+        // deletion — old-side line, don't advance new-side counter
+      } else if (l.startsWith(' ')) {
+        lineSet.add(newLine);
+        newLine += 1;
+      } else if (l.startsWith('\\')) {
+        // "\ No newline at end of file"
+      }
+    }
+    current.newLineSet = lineSet;
+    current.diff = current.lines.join('\n');
+    delete current.lines;
+    files.push(current);
+    current = null;
+  };
+
+  for (const l of lines) {
+    const header = l.match(/^diff --git a\/(.+) b\/(.+)$/);
+    if (header) {
+      flush();
+      current = { path: header[2], oldPath: header[1], lines: [l], isBinary: false };
+      continue;
+    }
+    if (!current) continue;
+    if (l.startsWith('Binary files ') || l.startsWith('GIT binary patch')) {
+      current.isBinary = true;
+    }
+    current.lines.push(l);
+  }
+  flush();
+
+  return files;
+}
+
+function truncateFileDiff(fileChunk) {
+  if (fileChunk.diff.length <= MAX_FILE_BYTES) return { truncated: false, chunk: fileChunk };
+  const truncated = {
+    ...fileChunk,
+    diff: fileChunk.diff.slice(0, MAX_FILE_BYTES) + '\n\n[... file diff truncated for length ...]',
+  };
+  return { truncated: true, chunk: truncated };
+}
+
+// ── Prompt loading ────────────────────────────────────────────────────────────
+
+function stripFrontmatter(md) {
+  if (!md.startsWith('---')) return md;
+  const end = md.indexOf('\n---', 3);
+  if (end === -1) return md;
+  return md.slice(end + 4).replace(/^\n+/, '');
+}
+
+function readFrontmatterField(md, field) {
+  const match = md.match(new RegExp(`^${field}:\\s*(.+)$`, 'm'));
+  return match ? match[1].trim() : '';
+}
+
+const FALLBACK_PROMPTS = {
+  architecture:
+    'Review the diff for architecture violations. Respond with JSON: {"findings":[{"file":"","line":0,"severity":"error","comment":""}]}.',
+  logic:
+    'Review the diff for logic bugs and security issues. Respond with JSON: {"findings":[{"file":"","line":0,"severity":"error","comment":""}]}.',
+  style:
+    'Review the diff for style issues. Respond with JSON: {"findings":[{"file":"","line":0,"severity":"warn","comment":""}]}.',
+};
+
+function loadPrompt(name) {
+  const path = join(REPO_ROOT, 'prompts', 'review', `${name}.md`);
+  try {
+    const raw = readFileSync(path, 'utf-8');
+    const version = readFrontmatterField(raw, 'version') || '0';
+    const body = stripFrontmatter(raw);
+    return { body, version, source: path };
+  } catch {
+    return { body: FALLBACK_PROMPTS[name] || FALLBACK_PROMPTS.architecture, version: 'fallback', source: 'builtin' };
+  }
+}
+
+// ── AI call with retry/timeout ────────────────────────────────────────────────
+
+async function callAI(systemPrompt, userContent, { wantJson = true } = {}) {
+  let lastError;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 0) {
       const delay = RETRY_BASE_DELAY_MS * attempt;
-      console.log(`    ↻ Retry ${attempt}/${MAX_RETRIES} after ${delay / 1000}s…`);
       await sleep(delay);
     }
-
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(new Error('AI call timed out')), CALL_TIMEOUT_MS);
-
       let response;
       try {
+        const body = {
+          model: MODEL,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent },
+          ],
+          temperature: 0.2,
+          max_tokens: 1500,
+        };
+        if (wantJson) body.response_format = { type: 'json_object' };
         response = await fetch(`${BASE_URL}/chat/completions`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: MODEL,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userContent },
-            ],
-            temperature: 0.2,
-            max_tokens: 1200,
-          }),
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` },
+          body: JSON.stringify(body),
           signal: controller.signal,
         });
       } finally {
         clearTimeout(timer);
       }
-
       if (!response.ok) {
         const text = await response.text().catch(() => '');
+        // Some providers reject response_format — retry without it
+        if (wantJson && (response.status === 400 || text.includes('response_format'))) {
+          wantJson = false;
+          throw new Error(`response_format unsupported, retrying plain (status ${response.status})`);
+        }
         throw new Error(`HTTP ${response.status}: ${text.slice(0, 300)}`);
       }
-
       const data = await response.json();
       const raw = data.choices?.[0]?.message?.content ?? '';
       if (!raw) throw new Error('Empty response from model');
       return stripThinking(raw);
     } catch (err) {
       lastError = err;
-      console.log(`    ✗ Attempt ${attempt + 1} failed: ${err.message}`);
     }
   }
-
   throw lastError;
 }
 
-// ─── Review Pass Prompts ──────────────────────────────────────────────────────
+/** Parse a model response into { findings: [...] }. Tolerant of markdown fences. */
+function parseFindings(text) {
+  if (!text) return { findings: [], parseError: 'empty' };
+  const tries = [text, text.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1], text.match(/\{[\s\S]*\}/)?.[0]].filter(Boolean);
+  for (const candidate of tries) {
+    try {
+      const obj = JSON.parse(candidate);
+      const findings = Array.isArray(obj.findings) ? obj.findings : Array.isArray(obj) ? obj : [];
+      return { findings: findings.filter((f) => f && typeof f === 'object'), parseError: null };
+    } catch {
+      // try next
+    }
+  }
+  return { findings: [], parseError: 'invalid-json' };
+}
 
-// Shared CSS variable context injected into relevant passes to prevent false positives.
-const CSS_VAR_CONTEXT = `
-## Known valid CSS variables (defined in app/globals.css)
-These are ALL valid — never flag them as "undocumented" or "undefined":
+// ── Concurrency-limited mapper ────────────────────────────────────────────────
 
-Text colors:
-  --primary-text, --secondary-text, --tertiary-text
-  --dome-text (alias → --primary-text)
-  --dome-text-secondary (alias → --secondary-text)
-  --dome-text-muted (alias → --tertiary-text)
-  --base-text (#FFFFFF in light, #121212 in dark — for text ON colored backgrounds like buttons)
+async function mapConcurrent(items, limit, fn) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= items.length) return;
+      try {
+        results[i] = { ok: true, value: await fn(items[i], i) };
+      } catch (err) {
+        results[i] = { ok: false, error: err };
+      }
+    }
+  }
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
 
-Backgrounds:
-  --bg, --bg-secondary, --bg-tertiary, --bg-hover
-  --dome-bg (alias → --bg)
-  --dome-bg-hover (alias → --bg-hover)
-  --dome-accent-bg (translucent accent for highlights)
+// ── Main ──────────────────────────────────────────────────────────────────────
 
-Interactive / accent:
-  --accent, --accent-hover
-  --dome-accent (alias → --accent)
-  --dome-accent-hover (alias → --accent-hover)
-
-Semantic:
-  --dome-error (alias → --error, maps to #ef4444-equivalent)
-  --error, --warning, --success
-
-Borders:
-  --border, --border-hover
-  --dome-border (alias → --border)
-
-Only flag LITERAL hex values (#rrggbb / #rgb / rgb()) that appear OUTSIDE of a CSS var() wrapper.
-Do NOT flag fallback values inside var(--x, fallback) as errors — fallbacks are acceptable.
-`.trim();
-
-const ARCH_PROMPT = `You are a senior code reviewer for Dome, an Electron + React desktop app.
-
-## Your job
-Review the diff ONLY for architecture violations. Be direct — no preamble, no summaries.
-
-## Critical rules to enforce
-1. Code in app/ (renderer) must NEVER import Node.js modules: fs, path, better-sqlite3, bun:sqlite, electron, child_process, etc.
-2. New IPC channels must be whitelisted in electron/preload.cjs ALLOWED_CHANNELS.
-3. IPC handlers in electron/ipc/*.cjs must validate the sender (event.sender) and sanitize inputs.
-4. ALL type-only imports must use \`import type { }\` (verbatimModuleSyntax is ON).
-5. File system and database access must go through IPC from the renderer — never directly.
-
-## Format
-- One bullet per finding: ✅ (ok) | ❌ (violation) | ⚠️ (warning)
-- If nothing wrong: a single line "✅ No architecture violations found."
-- Maximum 10 bullets. Be precise.`;
-
-const LOGIC_PROMPT = `You are a senior code reviewer for Dome, an Electron + React desktop app.
-
-## Your job
-Review the diff for logic bugs, runtime errors, and security issues. Be direct — no preamble, no summaries.
-
-## Focus on
-- Unhandled promise rejections or async operations without try/catch where a crash would occur
-- Race conditions in React hooks (stale closures, missing cleanup in useEffect)
-- SQL injection risks (string concatenation in queries instead of parameterized statements)
-- Null/undefined dereferences that would throw at runtime
-- Incorrect Zustand store mutations (direct array/object mutation instead of returning new state)
-- IPC handlers that throw errors to the renderer instead of returning \`{ success: false, error }\`
-
-## Format
-- One bullet per finding: ❌ (bug/crash risk) | ⚠️ (risk/warning) | ✅ (ok)
-- If nothing wrong: a single line "✅ No logic issues found."
-- Maximum 10 bullets. Be precise. Skip minor style opinions.`;
-
-const STYLE_PROMPT = `You are a senior code reviewer for Dome, an Electron + React desktop app.
-
-## Your job
-Review the diff for style and convention issues. Be direct — no preamble, no summaries.
-
-${CSS_VAR_CONTEXT}
-
-## Check for
-1. Literal hex color values hardcoded in style= or className= attributes OUTSIDE of a var() wrapper (e.g. style={{ color: '#ff0000' }})
-2. User-visible strings in JSX that are NOT wrapped in t() from react-i18next
-3. Translation keys added to one language but missing from others (en/es/fr/pt) in app/lib/i18n.ts
-4. TypeScript \`any\` types where a proper type is clearly derivable
-5. React anti-patterns: useEffect missing dependencies, inline object/array literals as props that cause re-renders
-
-## Format
-- One bullet per finding: ❌ (must fix) | ⚠️ (suggestion) | ✅ (ok)
-- If nothing wrong: a single line "✅ No style issues found."
-- Maximum 10 bullets. Be precise.`;
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
+const PASSES = [
+  { key: 'architecture', label: 'Architecture & Process Separation' },
+  { key: 'logic', label: 'Logic & Security' },
+  { key: 'style', label: 'Style & Conventions' },
+];
 
 async function main() {
-  console.log(`🤖 Running AI code review`);
-  console.log(`   Model: ${MODEL}`);
-  console.log(`   Endpoint: ${BASE_URL}`);
-  console.log(`   Diff: ${diffContent.length} chars${truncated ? ' (truncated)' : ''}`);
+  const prompts = Object.fromEntries(PASSES.map((p) => [p.key, loadPrompt(p.key)]));
+  const promptVersions = PASSES.map((p) => `${p.key}@${prompts[p.key].version}`).join(', ');
 
-  const userContent = `Here is the PR diff to review:\n\n\`\`\`diff\n${diffContent}\n\`\`\``;
+  const allFiles = splitDiffByFile(diff);
+  const reviewedFiles = [];
+  const skipped = [];
+  const truncatedFiles = [];
 
-  const passes = [
-    { name: 'Architecture & Process Separation', prompt: ARCH_PROMPT },
-    { name: 'Logic & Security',                  prompt: LOGIC_PROMPT },
-    { name: 'Style & Conventions',               prompt: STYLE_PROMPT },
-  ];
+  for (const f of allFiles) {
+    if (f.isBinary) { skipped.push({ ...f, reason: 'binary' }); continue; }
+    if (isIgnored(f.path)) { skipped.push({ ...f, reason: 'ignored' }); continue; }
+    const { truncated, chunk } = truncateFileDiff(f);
+    if (truncated) truncatedFiles.push(chunk.path);
+    reviewedFiles.push(chunk);
+  }
 
-  const results = [];
+  console.log(`🤖 AI review — model=${MODEL}, concurrency=${CONCURRENCY}`);
+  console.log(`   prompts: ${promptVersions}`);
+  console.log(`   files: ${allFiles.length} total (${reviewedFiles.length} reviewed, ${skipped.length} skipped, ${truncatedFiles.length} clipped)`);
 
-  for (let i = 0; i < passes.length; i++) {
-    const { name, prompt } = passes[i];
-    console.log(`\n  Pass ${i + 1}/${passes.length}: ${name}…`);
-    try {
-      const text = await callAI(prompt, userContent);
-      results.push({ name, text, ok: true });
-      console.log(`  ✓ Done (${text.length} chars)`);
-    } catch (err) {
-      const errorMsg = `⚠️ Review pass failed after ${MAX_RETRIES + 1} attempts.\n**Error:** \`${err.message}\`\n\nThis pass will need to be re-run manually.`;
-      results.push({ name, text: errorMsg, ok: false });
-      console.error(`  ✗ Failed: ${err.message}`);
+  // Build one task per (file × pass)
+  const tasks = [];
+  for (const file of reviewedFiles) {
+    for (const pass of PASSES) {
+      tasks.push({ file, pass });
     }
   }
 
-  // Compute status line
-  const failedCount = results.filter((r) => !r.ok).length;
-  const statusLine = failedCount === 0
-    ? `✅ All 3 passes completed`
-    : `⚠️ ${failedCount}/3 pass${failedCount > 1 ? 'es' : ''} failed — API errors, see below`;
+  const taskFn = async ({ file, pass }) => {
+    if (DRY_RUN) return { pass: pass.key, file: file.path, findings: [{ file: file.path, line: [...file.newLineSet][0] || 1, severity: 'warn', comment: `[dry-run fake finding from ${pass.key} pass]` }] };
+    const userContent = `Review this file's diff chunk.\n\nFile: ${file.path}\n\n\`\`\`diff\n${file.diff}\n\`\`\``;
+    try {
+      const raw = await callAI(prompts[pass.key].body, userContent);
+      const { findings, parseError } = parseFindings(raw);
+      return { pass: pass.key, file: file.path, findings, parseError };
+    } catch (err) {
+      return { pass: pass.key, file: file.path, findings: [], callError: err.message };
+    }
+  };
 
-  const reviewBody = [
+  const taskResults = await mapConcurrent(tasks, CONCURRENCY, taskFn);
+
+  // Aggregate
+  const allFindings = [];
+  const passStats = Object.fromEntries(PASSES.map((p) => [p.key, { ok: 0, err: 0, findings: 0 }]));
+  const callErrors = [];
+  const parseErrors = [];
+
+  for (const r of taskResults) {
+    if (!r.ok) { callErrors.push(String(r.error)); continue; }
+    const { pass, file, findings, callError, parseError } = r.value;
+    if (callError) { passStats[pass].err++; callErrors.push(`${pass}:${file} — ${callError}`); continue; }
+    passStats[pass].ok++;
+    if (parseError) parseErrors.push(`${pass}:${file} — ${parseError}`);
+    for (const f of findings) {
+      allFindings.push({ ...f, pass, _file: file });
+    }
+    passStats[pass].findings += findings.length;
+  }
+
+  // Validate & shape findings
+  const fileIndex = Object.fromEntries(reviewedFiles.map((f) => [f.path, f]));
+  const reviewComments = [];
+  const droppedForInvalidLine = [];
+  const seenKey = new Set();
+
+  for (const f of allFindings) {
+    const path = typeof f.file === 'string' && f.file.trim() ? f.file.trim() : f._file;
+    const line = Number.isInteger(f.line) ? f.line : parseInt(f.line, 10);
+    const severity = f.severity === 'error' ? 'error' : 'warn';
+    const comment = typeof f.comment === 'string' ? f.comment.trim() : '';
+    if (!path || !comment) continue;
+    const meta = fileIndex[path];
+    if (!meta || !Number.isFinite(line) || !meta.newLineSet.has(line)) {
+      droppedForInvalidLine.push({ path, line, comment });
+      continue;
+    }
+    const dedupeKey = `${path}:${line}:${comment}`;
+    if (seenKey.has(dedupeKey)) continue;
+    seenKey.add(dedupeKey);
+    const icon = severity === 'error' ? '❌' : '⚠️';
+    const passLabel = PASSES.find((p) => p.key === f.pass)?.label || f.pass;
+    reviewComments.push({
+      path,
+      line,
+      side: 'RIGHT',
+      body: `${icon} **${passLabel}** — ${comment}`,
+    });
+  }
+
+  // Build summary body
+  const totalFindings = reviewComments.length;
+  const failedPasses = Object.entries(passStats).filter(([, s]) => s.err > 0);
+  const statusLine =
+    failedPasses.length === 0
+      ? `✅ All passes completed across ${reviewedFiles.length} file(s)`
+      : `⚠️ ${failedPasses.length}/${PASSES.length} pass(es) had errors — see below`;
+
+  const summaryLines = [
     `## 🤖 AI Code Review`,
     ``,
-    `> Model: \`${MODEL}\` | ${truncated ? '⚠️ Diff was truncated' : 'Full diff reviewed'} | ${statusLine}`,
+    `> Model: \`${MODEL}\` · Prompts: \`${promptVersions}\` · ${statusLine}`,
     ``,
-    ...results.flatMap(({ name }, idx) => [
-      `---`,
-      ``,
-      `### Pass ${idx + 1} — ${name}`,
-      ``,
-      results[idx].text,
-      ``,
-    ]),
-    `---`,
-    `<sub>This review is automated. Treat it as a helpful sanity check, not a final verdict.</sub>`,
-  ].join('\n');
+    `**Files:** ${reviewedFiles.length} reviewed · ${skipped.length} skipped · ${truncatedFiles.length} clipped`,
+    `**Findings:** ${totalFindings} total`,
+    ``,
+    `| Pass | Files OK | Files errored | Findings |`,
+    `| --- | --- | --- | --- |`,
+    ...PASSES.map((p) => `| ${p.label} | ${passStats[p.key].ok} | ${passStats[p.key].err} | ${passStats[p.key].findings} |`),
+    ``,
+  ];
 
-  console.log('\n📋 Review assembled.');
+  if (truncatedFiles.length) {
+    summaryLines.push(`<details><summary>Clipped files (${truncatedFiles.length})</summary>\n\n- ${truncatedFiles.join('\n- ')}\n\n</details>`, '');
+  }
+  if (skipped.length) {
+    summaryLines.push(
+      `<details><summary>Skipped files (${skipped.length})</summary>\n\n- ${skipped.map((s) => `${s.path} (${s.reason})`).join('\n- ')}\n\n</details>`,
+      ''
+    );
+  }
+  if (callErrors.length) {
+    summaryLines.push(
+      `<details><summary>API call errors (${callErrors.length})</summary>\n\n\`\`\`\n${callErrors.slice(0, 10).join('\n')}\n\`\`\`\n\n</details>`,
+      ''
+    );
+  }
+  if (parseErrors.length) {
+    summaryLines.push(
+      `<details><summary>Unparsable model responses (${parseErrors.length})</summary>\n\n\`\`\`\n${parseErrors.slice(0, 10).join('\n')}\n\`\`\`\n\n</details>`,
+      ''
+    );
+  }
+  if (droppedForInvalidLine.length) {
+    summaryLines.push(
+      `<details><summary>Dropped findings (line not in diff) — ${droppedForInvalidLine.length}</summary>\n\n` +
+        droppedForInvalidLine.slice(0, 15).map((d) => `- ❌ \`${d.path}:${d.line}\` — ${d.comment}`).join('\n') +
+        `\n\n</details>`,
+      ''
+    );
+  }
+  summaryLines.push(`---`, `<sub>Line-level comments anchored to the diff. Automated sanity check — not a final verdict.</sub>`);
 
-  // Post to GitHub PR
-  if (GITHUB_TOKEN && PR_NUMBER && REPO) {
-    let posted = false;
-    let postError = '';
+  const reviewBody = summaryLines.join('\n');
+
+  if (DRY_RUN || !GITHUB_TOKEN || !PR_NUMBER || !REPO) {
+    console.log('\n--- Review Output (dry run / local) ---\n');
+    console.log(reviewBody);
+    console.log(`\n--- ${reviewComments.length} line comments would be posted ---`);
+    for (const c of reviewComments.slice(0, 20)) {
+      console.log(`  ${c.path}:${c.line} — ${c.body}`);
+    }
+    if (reviewComments.length > 20) console.log(`  ... and ${reviewComments.length - 20} more`);
+    if (failedPasses.length === PASSES.length) process.exit(1);
+    return;
+  }
+
+  // Post the review with comments[]
+  const url = `https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}/reviews`;
+  let posted = false;
+  let postError = '';
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+      body: JSON.stringify({ body: reviewBody, event: 'COMMENT', comments: reviewComments }),
+    });
+    if (res.ok) {
+      console.log(`✅ Review posted to PR #${PR_NUMBER} with ${reviewComments.length} line comments`);
+      posted = true;
+    } else {
+      const text = await res.text().catch(() => '');
+      postError = `GitHub API ${res.status}: ${text.slice(0, 300)}`;
+      console.error(`❌ Failed to post review: ${postError}`);
+    }
+  } catch (err) {
+    postError = err.message;
+    console.error('❌ Failed to post review:', err.message);
+  }
+
+  // Fallback: post the summary as a regular issue comment if the formal review failed
+  if (!posted) {
     try {
-      const url = `https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}/reviews`;
-      const res = await fetch(url, {
+      const fallbackUrl = `https://api.github.com/repos/${REPO}/issues/${PR_NUMBER}/comments`;
+      await fetch(fallbackUrl, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${GITHUB_TOKEN}`,
@@ -295,53 +512,18 @@ async function main() {
           Accept: 'application/vnd.github+json',
           'X-GitHub-Api-Version': '2022-11-28',
         },
-        body: JSON.stringify({ body: reviewBody, event: 'COMMENT' }),
+        body: JSON.stringify({
+          body: `## 🤖 AI Code Review — ⚠️ Partial Failure\n\n> ${statusLine}\n\nThe line-level review could not be posted.\n**Error:** \`${postError}\`\n\n<details><summary>Summary</summary>\n\n${reviewBody}\n\n</details>`,
+        }),
       });
-
-      if (res.ok) {
-        console.log(`✅ Review posted to PR #${PR_NUMBER}`);
-        posted = true;
-      } else {
-        const text = await res.text().catch(() => '');
-        postError = `GitHub API ${res.status}: ${text.slice(0, 200)}`;
-        console.error(`❌ Failed to post review: ${postError}`);
-      }
-    } catch (err) {
-      postError = err.message;
-      console.error('❌ Failed to post review to GitHub:', err.message);
+      console.log('⚠️  Posted fallback issue comment instead.');
+    } catch {
+      console.log('\n--- Review Output (fallback stdout) ---\n');
+      console.log(reviewBody);
     }
-
-    // If posting failed, post a minimal error comment so there's a visible signal in the PR
-    if (!posted && GITHUB_TOKEN) {
-      try {
-        const url = `https://api.github.com/repos/${REPO}/issues/${PR_NUMBER}/comments`;
-        await fetch(url, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${GITHUB_TOKEN}`,
-            'Content-Type': 'application/json',
-            Accept: 'application/vnd.github+json',
-            'X-GitHub-Api-Version': '2022-11-28',
-          },
-          body: JSON.stringify({
-            body: `## 🤖 AI Code Review — ⚠️ Partial Failure\n\n> Model: \`${MODEL}\` | ${statusLine}\n\nThe review was generated but could not be posted as a formal PR review.\n**Error:** \`${postError}\`\n\n<details><summary>Review content</summary>\n\n${reviewBody}\n\n</details>`,
-          }),
-        });
-        console.log('⚠️  Posted fallback issue comment instead.');
-      } catch {
-        // Last resort: print to stdout so it appears in the CI logs
-        console.log('\n--- Review Output (fallback stdout) ---\n');
-        console.log(reviewBody);
-      }
-    }
-  } else {
-    // Dry run: print to stdout
-    console.log('\n--- Review Output (dry run) ---\n');
-    console.log(reviewBody);
   }
 
-  // Exit non-zero if all passes failed so CI can surface the problem
-  if (failedCount === passes.length) {
+  if (failedPasses.length === PASSES.length) {
     console.error('❌ All review passes failed.');
     process.exit(1);
   }

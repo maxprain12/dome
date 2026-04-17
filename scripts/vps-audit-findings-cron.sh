@@ -11,15 +11,17 @@
 
 PENDING_DIR="/var/log/dome-audit-findings/pending"
 FINDINGS_SCRIPT="/opt/dome-audit/vps-audit-findings.sh"
+RESOLVE_SCRIPT="/opt/dome-audit/vps-audit-resolve.sh"
 LOG_PREFIX="[dome-findings $(date '+%Y-%m-%d %H:%M')]"
 
 [ -d "$PENDING_DIR" ] || exit 0
 [ -f "$FINDINGS_SCRIPT" ] || exit 0
 
+PROCESSED=0
 for pending in "$PENDING_DIR"/*.pending; do
   [ -f "$pending" ] || continue
 
-  read -r FOCUS PR_NUMBER REPO_SLUG < "$pending"
+  read -r FOCUS PR_NUMBER REPO_SLUG PROMPT_VERSION < "$pending"
   [ -z "$PR_NUMBER" ] && { rm -f "$pending"; continue; }
 
   # Check if AI review has been posted yet
@@ -31,8 +33,18 @@ for pending in "$PENDING_DIR"/*.pending; do
     continue
   fi
 
-  echo "$LOG_PREFIX PR #${PR_NUMBER} (${FOCUS}): extracting findings..."
-  bash "$FINDINGS_SCRIPT" "$FOCUS" "$PR_NUMBER" "$REPO_SLUG"
+  echo "$LOG_PREFIX PR #${PR_NUMBER} (${FOCUS}): extracting findings (prompt=${PROMPT_VERSION:-unknown})..."
+  bash "$FINDINGS_SCRIPT" "$FOCUS" "$PR_NUMBER" "$REPO_SLUG" "${PROMPT_VERSION:-}"
   rm -f "$pending"
+  PROCESSED=$((PROCESSED + 1))
   echo "$LOG_PREFIX PR #${PR_NUMBER} (${FOCUS}): done"
 done
+
+# After processing any new findings, re-verify the whole set against main
+# so stale findings (already fixed) get marked resolved.
+if [ -f "$RESOLVE_SCRIPT" ]; then
+  if [ "$PROCESSED" -gt 0 ] || [ "${FORCE_RESOLVE:-0}" = "1" ]; then
+    echo "$LOG_PREFIX Running resolution pass..."
+    bash "$RESOLVE_SCRIPT" || echo "$LOG_PREFIX Resolve pass failed (non-fatal)"
+  fi
+fi
