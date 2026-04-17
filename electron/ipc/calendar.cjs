@@ -177,7 +177,7 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
       if (typeof filePath !== 'string' || !filePath) {
         return { success: false, error: 'Invalid path', events: [], rawCount: 0 };
       }
-      const safe = sanitizePath ? sanitizePath(filePath, true) : filePath;
+      const safe = sanitizePath(filePath, true);
       const preview = calendarImportService.previewIcsFile(safe);
       return { success: true, ...preview };
     } catch (err) {
@@ -192,7 +192,7 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
       if (typeof filePath !== 'string' || typeof calendarId !== 'string') {
         return { success: false, error: 'Invalid arguments', imported: 0, skipped: 0 };
       }
-      const safe = sanitizePath ? sanitizePath(filePath, true) : filePath;
+      const safe = sanitizePath(filePath, true);
       const result = await calendarImportService.importIcsFile(safe, calendarId, options || {});
       windowManager.broadcast('calendar:eventsUpdated', {});
       return { success: true, ...result };
