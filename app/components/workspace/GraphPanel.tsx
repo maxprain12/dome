@@ -241,7 +241,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
     const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     img.onload = () => {
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = 'var(--bg)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
       URL.revokeObjectURL(url);

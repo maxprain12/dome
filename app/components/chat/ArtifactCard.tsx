@@ -431,14 +431,14 @@ function ActionItemsContent({ artifact }: { artifact: ActionItemsArtifact }) {
               marginTop: 2,
               borderRadius: 3,
               border: item.completed ? 'none' : '1px solid var(--border)',
-              backgroundColor: item.completed ? '#10b981' : 'transparent',
+              backgroundColor: item.completed ? 'var(--success)' : 'transparent',
               flexShrink: 0,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            {item.completed && <Check style={{ width: 10, height: 10, color: 'white' }} />}
+            {item.completed && <Check style={{ width: 10, height: 10, color: 'var(--base-text)' }} />}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <span
@@ -808,7 +808,7 @@ function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact })
 function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact }) {
   const { t } = useTranslation();
   const isAgent = artifact.entityType === 'agent';
-  const accentColor = isAgent ? '#8b5cf6' : '#f59e0b';
+  const accentColor = isAgent ? 'var(--accent)' : 'var(--warning)';
   const Icon = isAgent ? Bot : Zap;
 
   const navigate = (section: string) => {
@@ -867,7 +867,7 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                background: accentColor, color: '#fff', border: 'none', cursor: 'pointer',
+                background: accentColor, color: 'var(--base-text)', border: 'none', cursor: 'pointer',
               }}
             >
               <MessageCircle style={{ width: 12, height: 12 }} /> {t('artifacts.chat')}
@@ -892,7 +892,7 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                background: accentColor, color: '#fff', border: 'none', cursor: 'pointer',
+                background: accentColor, color: 'var(--base-text)', border: 'none', cursor: 'pointer',
               }}
             >
               <Play style={{ width: 12, height: 12 }} /> {t('artifacts.view_and_run')}

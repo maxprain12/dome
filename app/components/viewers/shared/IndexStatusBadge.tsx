@@ -142,8 +142,8 @@ export default function IndexStatusBadge({ resourceId, resourceType: _resourceTy
   if (status === 'done') {
     return (
       <span className="inline-flex items-center gap-1 min-w-0" title={t('viewer.ready_for_ai_title')}>
-        <Brain size={12} className="shrink-0 text-[#16a34a]" aria-hidden />
-        <DomeBadge label={t('viewer.ready_for_ai')} color="#16a34a" size="xs" />
+        <Brain size={12} className="shrink-0 text-[var(--success)]" aria-hidden />
+        <DomeBadge label={t('viewer.ready_for_ai')} color="var(--success)" size="xs" />
       </span>
     );
   }
@@ -154,8 +154,8 @@ export default function IndexStatusBadge({ resourceId, resourceType: _resourceTy
         className="inline-flex items-center gap-1 min-w-0"
         title={error || t('viewer.indexing_error_title')}
       >
-        <AlertCircle size={12} className="shrink-0 text-[#dc2626]" aria-hidden />
-        <DomeBadge label={t('viewer.indexing_error')} color="#dc2626" size="xs" />
+        <AlertCircle size={12} className="shrink-0 text-[var(--error)]" aria-hidden />
+        <DomeBadge label={t('viewer.indexing_error')} color="var(--error)" size="xs" />
         <DomeButton
           type="button"
           variant="ghost"

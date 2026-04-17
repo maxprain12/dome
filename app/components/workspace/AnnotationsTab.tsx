@@ -148,9 +148,9 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
                   onClick={() => handleDelete(annotation.id)}
                   className="p-2.5 min-h-[44px] min-w-[44px] rounded transition-colors opacity-0 group-hover:opacity-100 hover:bg-[var(--bg-tertiary)]"
                   style={{ color: 'var(--secondary)' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = '#ef4444';
-                  }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = 'var(--error)';
+                    }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.color = 'var(--secondary)';
                   }}
