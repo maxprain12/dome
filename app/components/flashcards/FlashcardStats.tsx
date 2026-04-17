@@ -1,5 +1,6 @@
 
 import { Trophy, Target, Zap, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface FlashcardStatsProps {
   cardsStudied: number;
@@ -28,19 +29,19 @@ export default function FlashcardStats({
   onClose,
   onStudyAgain,
 }: FlashcardStatsProps) {
+  const { t } = useTranslation();
   const accuracy = cardsStudied > 0 ? Math.round((correct / cardsStudied) * 100) : 0;
 
-  // Performance message
-  let message = 'Sigue practicando';
+  let message = t('flashcard.stats_keep_practicing');
   let messageColor = 'var(--secondary-text)';
   if (accuracy >= 90) {
-    message = 'Excelente!';
+    message = t('flashcard.stats_excellent');
     messageColor = 'var(--success, #10b981)';
   } else if (accuracy >= 70) {
-    message = 'Buen trabajo!';
+    message = t('flashcard.stats_good_work');
     messageColor = 'var(--accent)';
   } else if (accuracy >= 50) {
-    message = 'Vas mejorando';
+    message = t('flashcard.stats_keeping_improving');
     messageColor = 'var(--warning, #f59e0b)';
   }
 
@@ -69,20 +70,20 @@ export default function FlashcardStats({
         {message}
       </h2>
       <p className="text-sm mb-8" style={{ color: 'var(--secondary-text)' }}>
-        Sesion completada
+        {t('flashcard.stats_session_complete')}
       </p>
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-8">
         <StatCard
           icon={<Target className="w-5 h-5" />}
-          label="Precision"
+          label={t('flashcard.stats_precision')}
           value={`${accuracy}%`}
           color="var(--accent)"
         />
         <StatCard
           icon={<Zap className="w-5 h-5" />}
-          label="Mejor racha"
+          label={t('flashcard.stats_best_streak')}
           value={`${maxStreak}`}
           color="var(--warning, #f59e0b)"
         />
@@ -92,13 +93,13 @@ export default function FlashcardStats({
               {correct}
             </span>
           }
-          label="Correctas"
+          label={t('flashcard.stats_correct')}
           value={`de ${cardsStudied}`}
           color="var(--success, #10b981)"
         />
         <StatCard
           icon={<Clock className="w-5 h-5" />}
-          label="Duracion"
+          label={t('flashcard.stats_duration')}
           value={formatDuration(durationMs)}
           color="var(--secondary-text)"
         />
@@ -110,13 +111,13 @@ export default function FlashcardStats({
           onClick={onClose}
           className="btn btn-ghost px-6 py-2.5"
         >
-          Cerrar
+          {t('flashcard.stats_close')}
         </button>
         <button
           onClick={onStudyAgain}
           className="btn btn-primary px-6 py-2.5"
         >
-          Estudiar de nuevo
+          {t('flashcard.stats_study_again')}
         </button>
       </div>
     </div>
