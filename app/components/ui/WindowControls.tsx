@@ -27,15 +27,21 @@ export default function WindowControls() {
   }
 
   const handleMinimize = () => {
-    window.electron.invoke('window:minimize-current');
+    window.electron.invoke('window:minimize-current').catch((err) => {
+      console.error('[WindowControls] minimize failed:', err);
+    });
   };
 
   const handleMaximizeToggle = () => {
-    window.electron.invoke('window:maximize-toggle');
+    window.electron.invoke('window:maximize-toggle').catch((err) => {
+      console.error('[WindowControls] maximize toggle failed:', err);
+    });
   };
 
   const handleClose = () => {
-    window.electron.invoke('window:close-current');
+    window.electron.invoke('window:close-current').catch((err) => {
+      console.error('[WindowControls] close failed:', err);
+    });
   };
 
   return (
