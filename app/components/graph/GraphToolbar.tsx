@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Search, SlidersHorizontal, Download, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { GraphLayoutType, GraphFilterOptions } from '@/types';
+import type { GraphLayoutType, GraphFilterOptions, GraphNodeType } from '@/types';
 
 interface GraphToolbarProps {
   layout: GraphLayoutType;
@@ -75,13 +75,13 @@ export default function GraphToolbar({
 
   const handleNodeTypeToggle = (nodeType: string) => {
     const current = filters.nodeTypes || [];
-    const updated = current.includes(nodeType as any)
+    const updated = current.includes(nodeType as GraphNodeType)
       ? current.filter(t => t !== nodeType)
-      : [...current, nodeType as any];
+      : [...current, nodeType as GraphNodeType];
 
     onFiltersChange({
       ...filters,
-      nodeTypes: updated.length > 0 ? updated as any : undefined,
+      nodeTypes: updated.length > 0 ? updated : undefined,
     });
   };
 
@@ -291,7 +291,7 @@ export default function GraphToolbar({
                   <label key={type.value} className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={filters.nodeTypes?.includes(type.value as any) || false}
+                      checked={filters.nodeTypes?.includes(type.value as GraphNodeType) || false}
                       onChange={() => handleNodeTypeToggle(type.value)}
                       className="w-3 h-3 rounded border-[var(--border)]"
                       style={{ accentColor: 'var(--accent)' }}

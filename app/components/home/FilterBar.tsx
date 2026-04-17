@@ -63,7 +63,7 @@ export function FilterBar({
           <select
             id="filter-sort-select"
             value={sortBy}
-            onChange={(e) => onSortByChange(e.target.value as any)}
+            onChange={(e) => onSortByChange(e.target.value as 'updated_at' | 'created_at' | 'title')}
             className="sort-select"
             aria-label={t('filter.sort_by')}
           >
