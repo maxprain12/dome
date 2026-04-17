@@ -78,12 +78,27 @@ PR_LOG="$FINDINGS_DIR/${FOCUS}.history"
 
 echo "[$(date '+%Y-%m-%d %H:%M')] Extracting findings from PR #${PR_NUMBER} (focus: ${FOCUS})" >> "$PR_LOG"
 
-# Fetch AI review body from the PR
+# Fetch AI review body from the PR (legacy format — ai-review.mjs pre-v2
+# inlined findings in the body; the new version leaves only a summary table
+# there and puts findings as line-level comments on the diff).
 REVIEW_BODY=$(gh pr view "$PR_NUMBER" --repo "$REPO_SLUG" --json reviews \
-  --jq '.reviews[0].body // ""' 2>/dev/null || echo "")
+  --jq '[.reviews[].body] | join("\n") // ""' 2>/dev/null || echo "")
 
-# Extract raw finding lines (same regex as before — the parser below needs them)
-NEW_LINES=$(echo "$REVIEW_BODY" \
+# Fetch line-level comments from the PR and reformat each into the same
+# `❌/⚠️ **path:line** - body` shape the parser below already understands.
+# This is how ai-review.mjs (v2+) publishes findings.
+LINE_COMMENT_LINES=$(gh api "repos/${REPO_SLUG}/pulls/${PR_NUMBER}/comments" --paginate \
+  --jq '
+    .[]
+    | select(.body | test("^(❌|⚠️)"))
+    | (.body | split("\n")[0]) as $first
+    | ($first | sub("^(❌|⚠️)\\s*"; "")) as $rest
+    | (if ($first | test("^❌")) then "❌" else "⚠️" end) as $sev
+    | $sev + " **" + .path + ":" + ((.line // .original_line // 0) | tostring) + "** - " + $rest
+  ' 2>/dev/null || echo "")
+
+# Merge body + line comments, then filter noise.
+NEW_LINES=$(printf '%s\n%s\n' "$REVIEW_BODY" "$LINE_COMMENT_LINES" \
   | grep -E "^❌|^⚠️" \
   | grep -v "Review failed" \
   | grep -v "API error" \
@@ -96,7 +111,7 @@ NEW_LINES=$(echo "$REVIEW_BODY" \
   | sed 's/<\/think>//' \
   | awk 'length($0) > 20' \
   | sort -u \
-  | head -15 || true)
+  | head -30 || true)
 
 # ── Build the new set of findings as JSON ────────────────────────────────────
 # A python parser handles the upsert logic. It reads the current JSON file
@@ -104,8 +119,10 @@ NEW_LINES=$(echo "$REVIEW_BODY" \
 # run are marked status=open; previously-open findings NOT seen are marked
 # status=verifying (candidates for resolution in vps-audit-resolve.sh).
 
-export FOCUS PR_NUMBER FINDINGS_JSON PROMPT_VERSION
-echo "$NEW_LINES" | python3 - << 'PY'
+NEW_LINES_FILE=$(mktemp /tmp/findings-lines-XXXXXX.txt)
+printf '%s\n' "$NEW_LINES" > "$NEW_LINES_FILE"
+export FOCUS PR_NUMBER FINDINGS_JSON PROMPT_VERSION NEW_LINES_FILE
+python3 <<'PY'
 import hashlib
 import json
 import os
@@ -119,7 +136,8 @@ json_path = os.environ["FINDINGS_JSON"]
 prompt_version = os.environ.get("PROMPT_VERSION", "").strip() or None
 now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
-raw = sys.stdin.read().strip()
+with open(os.environ["NEW_LINES_FILE"]) as _f:
+    raw = _f.read().strip()
 new_lines = [l for l in raw.splitlines() if l.strip()]
 
 # Load existing
@@ -218,6 +236,7 @@ open_count = sum(1 for f in out if f.get("status") == "open")
 verifying_count = sum(1 for f in out if f.get("status") == "verifying")
 print(f"{open_count} {verifying_count} {len(new_lines)}")
 PY
+rm -f "$NEW_LINES_FILE"
 
 # Parse python output (last line: "<open> <verifying> <new>")
 STATS=$(python3 -c "
