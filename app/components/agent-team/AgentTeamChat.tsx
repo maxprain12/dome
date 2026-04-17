@@ -652,7 +652,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
               disabled={!isLoading && !input.trim()}
               className={
                 isLoading
-                  ? '!w-8 !h-8 !p-0 shrink-0 !text-[#ef4444] !border-[#ef4444] !bg-transparent'
+                  ? '!w-8 !h-8 !p-0 shrink-0 !text-[var(--error)] !border-[var(--error)] !bg-transparent'
                   : !input.trim()
                     ? '!w-8 !h-8 !p-0 shrink-0 !bg-transparent opacity-50'
                     : '!w-8 !h-8 !p-0 shrink-0 !bg-[var(--dome-text)] !text-[var(--dome-bg)] border-0'

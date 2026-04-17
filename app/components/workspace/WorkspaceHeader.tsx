@@ -66,10 +66,10 @@ function getTypeMeta(type: string): TypeMeta {
     case 'video':    return { icon: <Video {...base} />,      color: 'var(--accent, #7c6fcd)',              bg: 'rgba(124,111,205,0.1)',  label: 'Video' };
     case 'audio':    return { icon: <Music {...base} />,      color: 'var(--secondary, #9b6fcd)',           bg: 'rgba(155,111,205,0.1)', label: 'Audio' };
     case 'image':    return { icon: <Image {...base} />,       color: 'var(--success, #3ba68d)',            bg: 'rgba(59,166,141,0.1)',   label: 'Imagen' };
-    case 'notebook': return { icon: <Notebook {...base} />,   color: '#4A90D9',                            bg: 'rgba(74,144,217,0.1)',   label: 'Notebook' };
+    case 'notebook': return { icon: <Notebook {...base} />,   color: 'var(--accent)',                            bg: 'rgba(74,144,217,0.1)',   label: 'Notebook' };
     case 'ppt':      return { icon: <Presentation {...base}/>, color: 'var(--warning, #e8924a)',          bg: 'rgba(232,146,74,0.1)',   label: 'Presentación' };
-    case 'url':      return { icon: <ExternalLink {...base} />, color: '#4A90D9',                         bg: 'rgba(74,144,217,0.1)',   label: 'URL' };
-    case 'excel':    return { icon: <FileText {...base} />,   color: '#3BA668',                            bg: 'rgba(59,166,104,0.1)',   label: 'Excel' };
+    case 'url':      return { icon: <ExternalLink {...base} />, color: 'var(--accent)',                         bg: 'rgba(74,144,217,0.1)',   label: 'URL' };
+    case 'excel':    return { icon: <FileText {...base} />,   color: 'var(--success)',                            bg: 'rgba(59,166,104,0.1)',   label: 'Excel' };
     default:         return { icon: <Folder {...base} />,     color: 'var(--dome-text-muted)', bg: 'var(--dome-bg-hover)', label: 'Recurso' };
   }
 }
@@ -350,14 +350,14 @@ export default function WorkspaceHeader({
               icon={<Sparkles size={14} strokeWidth={2} />}
               label={t('workspace.studio')}
               active={studioPanelOpen}
-              activeColor="#9B6FCD"
+              activeColor="var(--accent)"
               onClick={toggleStudioPanel}
             />
             <HeaderIconBtn
               icon={<Network size={14} strokeWidth={2} />}
               label={t('workspace.graph')}
               active={graphPanelOpen}
-              activeColor="#4A90D9"
+              activeColor="var(--accent)"
               onClick={toggleGraphPanel}
             />
           </>
