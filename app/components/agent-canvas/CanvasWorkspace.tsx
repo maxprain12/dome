@@ -66,7 +66,7 @@ export default function CanvasWorkspace({
   onConnect,
   onNodeSelect,
   onNodesUpdate,
-  onEdgesUpdate,
+  onEdgesUpdate: _onEdgesUpdate,
 }: CanvasWorkspaceProps) {
   const { t } = useTranslation();
   const reactFlowWrapper = useRef<HTMLDivElement>(null);

@@ -1,8 +1,8 @@
 
 import { memo } from 'react';
 import type { Resource } from '@/types';
-import { FileText, File, FileSpreadsheet, FileType, Table2, Video, Music, Image as ImageIcon, Link2, Trash2, FolderOpen, Loader2, CheckCircle2, AlertCircle, Notebook, Play, MoreHorizontal, Presentation } from 'lucide-react';
-import { formatDistanceToNow, formatShortDistance, formatFileSize, extractPlainTextFromTiptap, getResourceTypeLabel } from '@/lib/utils';
+import { FileText, File, FileSpreadsheet, Video, Music, Image as ImageIcon, Link2, Trash2, FolderOpen, Loader2, AlertCircle, Notebook, Play, MoreHorizontal, Presentation } from 'lucide-react';
+import { formatDistanceToNow, formatShortDistance, formatFileSize, getResourceTypeLabel } from '@/lib/utils';
 
 interface ResourceCardProps {
   resource: Resource;

@@ -22,7 +22,7 @@ function formatDuration(ms: number): string {
 export default function FlashcardStats({
   cardsStudied,
   correct,
-  incorrect,
+  incorrect: _incorrect,
   maxStreak,
   durationMs,
   onClose,

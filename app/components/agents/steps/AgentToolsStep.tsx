@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { MANY_TOOL_CATALOG, getToolsByGroup, getGroupLabel, type ToolCatalogEntry } from '@/lib/agents/catalog';
+import { getToolsByGroup, getGroupLabel, type ToolCatalogEntry } from '@/lib/agents/catalog';
 
 interface AgentToolsStepProps {
   selectedIds: string[];

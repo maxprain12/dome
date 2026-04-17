@@ -27,7 +27,7 @@ export default function OutputNode({ data, selected }: NodeProps<OutputNodeData>
     } catch {
       showToast('error', t('toast.clipboard_copy_error'));
     }
-  }, [data.content]);
+  }, [data.content, t]);
 
   const handleSave = useCallback(async () => {
     if (!data.content || saving) return;

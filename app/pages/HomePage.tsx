@@ -15,7 +15,7 @@ export default function HomePage() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('Starting...');
-  const { loadUserProfile, isOnboardingCompleted } = useUserStore();
+  const { loadUserProfile } = useUserStore();
   const { loadPreferences } = useAppStore();
 
   useEffect(() => {

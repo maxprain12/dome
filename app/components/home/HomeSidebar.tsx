@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, Tag, Settings, HelpCircle, WalletCards, Sparkles, Bot, Calendar, Store, Zap } from 'lucide-react';
+import { Home, Tag, Settings, HelpCircle, WalletCards, Sparkles, Calendar, Store, Zap } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { getManyAgents } from '@/lib/agents/api';
 import { getAgentTeams } from '@/lib/agent-team/api';
@@ -30,7 +30,7 @@ interface HomeSidebarProps {
   flashcardDueCount?: number;
 }
 
-export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
+export default function HomeSidebar({ flashcardDueCount: _flashcardDueCount }: HomeSidebarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,8 +38,8 @@ export default function HomeSidebar({ flashcardDueCount }: HomeSidebarProps) {
   const setSection = useAppStore((s) => s.setHomeSidebarSection);
   const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const isCalendar = location.pathname === '/calendar';
-  const [agents, setAgents] = useState<ManyAgent[]>([]);
-  const [teams, setTeams] = useState<AgentTeam[]>([]);
+  const [, setAgents] = useState<ManyAgent[]>([]);
+  const [, setTeams] = useState<AgentTeam[]>([]);
   const [showAgentOnboarding, setShowAgentOnboarding] = useState(false);
 
   const loadAgents = useCallback(async () => {

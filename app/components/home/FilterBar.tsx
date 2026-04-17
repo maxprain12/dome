@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { Filter, Grid3X3, List, Calendar, Tag, FileText, Image as ImageIcon, Video, Music, Link2, File, FolderOpen, Notebook, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Filter, Grid3X3, List, Image as ImageIcon, Video, Music, Link2, File, FolderOpen, Notebook, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import type { ResourceType } from '@/types';

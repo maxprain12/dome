@@ -113,15 +113,10 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
   const {
     setAgent: setStoreAgent,
-    status,
     setStatus,
     messages,
     addMessage,
     clearMessages,
-    startNewChat,
-    switchSession,
-    deleteSession,
-    sessions,
     currentSessionId,
     hydrateSession,
   } = useAgentChatStore();

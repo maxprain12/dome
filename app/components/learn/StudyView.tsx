@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X, Flame, CheckCircle, XCircle } from 'lucide-react';
+import { X, Flame, CheckCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 
@@ -12,7 +12,7 @@ export default function StudyView() {
     sessionCorrect,
     sessionIncorrect,
     sessionStreak,
-    maxStreak,
+    maxStreak: _maxStreak,
     flipCard,
     reviewCard,
     endStudy,
