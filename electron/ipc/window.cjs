@@ -216,8 +216,13 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
     }
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || win.isDestroyed()) return { success: false };
-    win.minimize();
-    return { success: true };
+    try {
+      win.minimize();
+      return { success: true };
+    } catch (error) {
+      console.error('[Window] minimize-current error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   // Maximizar / restaurar ventana actual (Windows/Linux title bar)
@@ -227,9 +232,14 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
     }
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || win.isDestroyed()) return { success: false };
-    if (win.isMaximized()) win.unmaximize();
-    else win.maximize();
-    return { success: true };
+    try {
+      if (win.isMaximized()) win.unmaximize();
+      else win.maximize();
+      return { success: true };
+    } catch (error) {
+      console.error('[Window] maximize-toggle error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   // Cerrar ventana actual (Windows/Linux title bar)
@@ -239,8 +249,13 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
     }
     const win = BrowserWindow.fromWebContents(event.sender);
     if (!win || win.isDestroyed()) return { success: false };
-    win.close();
-    return { success: true };
+    try {
+      win.close();
+      return { success: true };
+    } catch (error) {
+      console.error('[Window] close-current error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   // Obtener ventanas activas
@@ -249,13 +264,17 @@ function register({ ipcMain, nativeTheme, windowManager, database }) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    const windows = windowManager.getAll().map((w) => ({
-      id: w.id,
-      title: w.getTitle(),
-      focused: w.isFocused(),
-    }));
-
-    return { success: true, windows };
+    try {
+      const windows = windowManager.getAll().map((w) => ({
+        id: w.id,
+        title: w.getTitle(),
+        focused: w.isFocused(),
+      }));
+      return { success: true, windows };
+    } catch (error) {
+      console.error('[Window] list error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   // Broadcast mensaje a todas las ventanas

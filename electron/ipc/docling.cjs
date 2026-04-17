@@ -35,11 +35,23 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       windowManager.broadcast('docling:progress', { resourceId, status, progress });
     };
 
-    const pipelineResult = await doclingPipeline.convertAndUpdateResource(
-      resourceId,
-      { database, fileStorage, windowManager },
-      { onProgress },
-    );
+    let pipelineResult;
+    try {
+      pipelineResult = await doclingPipeline.convertAndUpdateResource(
+        resourceId,
+        { database, fileStorage, windowManager },
+        { onProgress },
+      );
+    } catch (error) {
+      console.error('[Docling IPC] convert-resource error:', error.message);
+      windowManager.broadcast('docling:progress', {
+        resourceId,
+        status: 'error',
+        progress: 0,
+        error: error.message,
+      });
+      return { success: false, error: error.message };
+    }
 
     if (!pipelineResult.success) {
       windowManager.broadcast('docling:progress', {

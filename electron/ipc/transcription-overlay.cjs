@@ -32,13 +32,18 @@ function register({ ipcMain, windowManager }) {
     if (!ov || ov.isDestroyed()) {
       return { success: false, error: 'Overlay missing' };
     }
-    if (visible) {
-      transcriptionOverlay.reposition(ov);
-      ov.show();
-    } else {
-      ov.hide();
+    try {
+      if (visible) {
+        transcriptionOverlay.reposition(ov);
+        ov.show();
+      } else {
+        ov.hide();
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('[TranscriptionOverlay] overlay-set-visible error:', error.message);
+      return { success: false, error: error.message };
     }
-    return { success: true };
   });
 
   ipcMain.handle('transcription-overlay:overlay-resize', async (event, { height }) => {
@@ -47,15 +52,20 @@ function register({ ipcMain, windowManager }) {
     }
     const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
     if (!ov || ov.isDestroyed()) return { success: false, error: 'Overlay missing' };
-    const h = Math.max(280, Math.min(640, Math.round(Number(height))));
-    const bounds = ov.getBounds();
-    const { screen } = require('electron');
-    const display = screen.getPrimaryDisplay();
-    const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
-    const posX = Math.round(dx + (dw - bounds.width) / 2);
-    const posY = Math.round(dy + dh - h - 24);
-    ov.setBounds({ x: posX, y: posY, width: bounds.width, height: h });
-    return { success: true };
+    try {
+      const h = Math.max(280, Math.min(640, Math.round(Number(height))));
+      const bounds = ov.getBounds();
+      const { screen } = require('electron');
+      const display = screen.getPrimaryDisplay();
+      const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
+      const posX = Math.round(dx + (dw - bounds.width) / 2);
+      const posY = Math.round(dy + dh - h - 24);
+      ov.setBounds({ x: posX, y: posY, width: bounds.width, height: h });
+      return { success: true };
+    } catch (error) {
+      console.error('[TranscriptionOverlay] overlay-resize error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('transcription-overlay:open-note-in-main', async (event, payload = {}) => {
