@@ -21,9 +21,20 @@ OUTPUT_DIR="${OUTPUT_DIR:-/var/www/dome-audit}"
 OUTPUT_FILE="$OUTPUT_DIR/index.html"
 LOG_PREFIX="[dome-dashboard $(date '+%Y-%m-%d %H:%M')]"
 
-# Milestones config + history (VPS clone of repo reads from scripts/)
+# Milestones config + history. The script may live in /opt/dome-audit/
+# (copy outside the repo, used by cron) or in $REPO_DIR/scripts/ (inside the
+# repo). The milestones JSON is only tracked in-repo, so prefer that path.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MILESTONES_FILE="${MILESTONES_FILE:-$SCRIPT_DIR/audit-milestones.json}"
+REPO_DIR="${REPO_DIR:-/opt/dome-audit/dome}"
+if [ -z "${MILESTONES_FILE:-}" ]; then
+  if [ -f "$SCRIPT_DIR/audit-milestones.json" ]; then
+    MILESTONES_FILE="$SCRIPT_DIR/audit-milestones.json"
+  elif [ -f "$REPO_DIR/scripts/audit-milestones.json" ]; then
+    MILESTONES_FILE="$REPO_DIR/scripts/audit-milestones.json"
+  else
+    MILESTONES_FILE="$SCRIPT_DIR/audit-milestones.json"
+  fi
+fi
 HISTORY_FILE="${HISTORY_FILE:-$FINDINGS_DIR/history.jsonl}"
 HISTORY_MAX_LINES="${HISTORY_MAX_LINES:-5000}"
 
@@ -257,8 +268,8 @@ print(''.join(rows))
 export HISTORY_FILE MILESTONES_FILE
 
 # ── Per-focus cards HTML ───────────────────────────────────────────────────────
-FOCUS_CARDS_HTML=$(python3 -c "
-import json, os, re
+FOCUS_CARDS_HTML=$(echo "$AUDIT_PRS" | python3 -c "
+import json, os, re, sys
 
 FOCUS_TYPES = [
     ('security', '🔒', 'Security', '#ef4444', '4x/day'),
@@ -273,7 +284,9 @@ FOCUS_TYPES = [
 ]
 
 findings_dir = '/var/log/dome-audit-findings'
-audit_prs = json.loads('''${AUDIT_PRS}''')
+# AUDIT_PRS JSON is ~150KB — too large for python3 -c interpolation (ARG_MAX).
+# Read it from stdin instead.
+audit_prs = json.load(sys.stdin)
 
 # Load history for sparklines
 history_file = os.environ.get('HISTORY_FILE', '')
@@ -617,10 +630,17 @@ for focus in focus_order:
         continue
 
     rows = []
+    import re as _re
+    def _md_inline(s):
+        # Escape HTML first, then convert minimal markdown: **bold** and \`code\`.
+        s = html.escape(s)
+        s = _re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', s)
+        s = _re.sub(r'\`([^\`]+)\`', r'<code>\1</code>', s)
+        return s
     for item in items:
         sev = item.get('severity', 'warn')
         css = 'finding-error' if sev == 'error' else 'finding-warn'
-        body = html.escape(item.get('body', ''))
+        body = _md_inline(item.get('body', ''))
         first_pr = item.get('first_seen_pr')
         extra = ''
         if first_pr:
