@@ -66,14 +66,24 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    return pluginLoader.uninstall(pluginId);
+    try {
+      return pluginLoader.uninstall(pluginId);
+    } catch (err) {
+      console.error('[Plugins] uninstall error:', err.message);
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.handle('plugin:setEnabled', async (event, pluginId, enabled) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    return pluginLoader.setEnabled(pluginId, enabled);
+    try {
+      return pluginLoader.setEnabled(pluginId, enabled);
+    } catch (err) {
+      console.error('[Plugins] setEnabled error:', err.message);
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.handle('plugin:read-asset', async (event, pluginId, relativePath) => {

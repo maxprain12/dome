@@ -5,7 +5,12 @@ function register({ ipcMain, windowManager, authManager }) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    return { success: true, data: authManager.listProfiles(provider) };
+    try {
+      return { success: true, data: authManager.listProfiles(provider) };
+    } catch (error) {
+      console.error('[Auth] profiles:list error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('auth:profiles:create', (event, params) => {
@@ -39,20 +44,24 @@ function register({ ipcMain, windowManager, authManager }) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    const result = authManager.resolveApiKey({ provider, profileId });
-    if (result) {
-      // Don't return the actual API key to renderer, just metadata
-      return {
-        success: true,
-        data: {
-          source: result.source,
-          mode: result.mode,
-          profileId: result.profileId,
-          hasKey: true,
-        },
-      };
+    try {
+      const result = authManager.resolveApiKey({ provider, profileId });
+      if (result) {
+        return {
+          success: true,
+          data: {
+            source: result.source,
+            mode: result.mode,
+            profileId: result.profileId,
+            hasKey: true,
+          },
+        };
+      }
+      return { success: true, data: { hasKey: false } };
+    } catch (error) {
+      console.error('[Auth] resolve error:', error.message);
+      return { success: false, error: error.message };
     }
-    return { success: true, data: { hasKey: false } };
   });
 
   ipcMain.handle('auth:validate', async (event, { provider, apiKey }) => {
@@ -60,7 +69,12 @@ function register({ ipcMain, windowManager, authManager }) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    return await authManager.validateApiKey(provider, apiKey);
+    try {
+      return await authManager.validateApiKey(provider, apiKey);
+    } catch (error) {
+      console.error('[Auth] validate error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 }
 

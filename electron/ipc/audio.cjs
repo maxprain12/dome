@@ -155,10 +155,15 @@ function register({ ipcMain, windowManager, database, ttsService }) {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    if (runId) {
-      streamingTts.cancel(runId);
+    try {
+      if (runId) {
+        streamingTts.cancel(runId);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('[Audio IPC] stop-streaming-tts error:', error.message);
+      return { success: false, error: error.message };
     }
-    return { success: true };
   });
 }
 

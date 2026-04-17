@@ -18,8 +18,13 @@ function register({ ipcMain, windowManager, personalityLoader }) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    const content = personalityLoader.readContextFile(filename);
-    return { success: true, data: content };
+    try {
+      const content = personalityLoader.readContextFile(filename);
+      return { success: true, data: content };
+    } catch (error) {
+      console.error('[Personality] read-file error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('personality:write-file', (event, { filename, content }) => {
@@ -53,7 +58,12 @@ function register({ ipcMain, windowManager, personalityLoader }) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    return { success: true, data: personalityLoader.listContextFiles() };
+    try {
+      return { success: true, data: personalityLoader.listContextFiles() };
+    } catch (error) {
+      console.error('[Personality] list-files error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('personality:remember-fact', (event, { key, value }) => {

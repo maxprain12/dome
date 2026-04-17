@@ -42,7 +42,12 @@ function register({ ipcMain, windowManager, database, fileStorage, ollamaService
       };
     }
 
-    return { success: true, data: service.getStatus() };
+    try {
+      return { success: true, data: service.getStatus() };
+    } catch (error) {
+      console.error('[WhatsApp] status error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('whatsapp:start', async (event) => {
@@ -55,7 +60,12 @@ function register({ ipcMain, windowManager, database, fileStorage, ollamaService
       return { success: false, error: 'WhatsApp service not available' };
     }
 
-    return await service.start();
+    try {
+      return await service.start();
+    } catch (error) {
+      console.error('[WhatsApp] start error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('whatsapp:stop', async (event) => {
@@ -68,7 +78,12 @@ function register({ ipcMain, windowManager, database, fileStorage, ollamaService
       return { success: false, error: 'WhatsApp service not available' };
     }
 
-    return await service.stop();
+    try {
+      return await service.stop();
+    } catch (error) {
+      console.error('[WhatsApp] stop error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('whatsapp:logout', async (event) => {
@@ -81,9 +96,13 @@ function register({ ipcMain, windowManager, database, fileStorage, ollamaService
       return { success: false, error: 'WhatsApp service not available' };
     }
 
-    // Hacer logout y limpiar sesión (requiere nuevo QR)
-    await service.logout();
-    return service.clearSession();
+    try {
+      await service.logout();
+      return service.clearSession();
+    } catch (error) {
+      console.error('[WhatsApp] logout error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('whatsapp:send', async (event, { phoneNumber, text }) => {
@@ -96,7 +115,12 @@ function register({ ipcMain, windowManager, database, fileStorage, ollamaService
       return { success: false, error: 'WhatsApp service not available' };
     }
 
-    return await service.sendMessage(phoneNumber, text);
+    try {
+      return await service.sendMessage(phoneNumber, text);
+    } catch (error) {
+      console.error('[WhatsApp] send error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('whatsapp:allowlist:get', (event) => {
@@ -109,7 +133,12 @@ function register({ ipcMain, windowManager, database, fileStorage, ollamaService
       return { success: true, data: [] };
     }
 
-    return { success: true, data: service.getAllowlist() };
+    try {
+      return { success: true, data: service.getAllowlist() };
+    } catch (error) {
+      console.error('[WhatsApp] allowlist:get error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('whatsapp:allowlist:add', (event, phoneNumber) => {
@@ -122,8 +151,13 @@ function register({ ipcMain, windowManager, database, fileStorage, ollamaService
       return { success: false, error: 'WhatsApp service not available' };
     }
 
-    service.addToAllowlist(phoneNumber);
-    return { success: true };
+    try {
+      service.addToAllowlist(phoneNumber);
+      return { success: true };
+    } catch (error) {
+      console.error('[WhatsApp] allowlist:add error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('whatsapp:allowlist:remove', (event, phoneNumber) => {
@@ -136,8 +170,13 @@ function register({ ipcMain, windowManager, database, fileStorage, ollamaService
       return { success: false, error: 'WhatsApp service not available' };
     }
 
-    service.removeFromAllowlist(phoneNumber);
-    return { success: true };
+    try {
+      service.removeFromAllowlist(phoneNumber);
+      return { success: true };
+    } catch (error) {
+      console.error('[WhatsApp] allowlist:remove error:', error.message);
+      return { success: false, error: error.message };
+    }
   });
 }
 
