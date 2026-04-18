@@ -23,6 +23,8 @@ const TagsPage = lazy(() => import('@/components/home/TagBrowser'));
 const MarketplacePage = lazy(() => import('@/components/marketplace/MarketplaceView'));
 const AgentsPage = lazy(() => import('@/components/automations/AutomationsHubView'));
 const FolderTabView = lazy(() => import('@/components/shell/FolderTabView'));
+const TranscriptionsListPage = lazy(() => import('@/components/transcription/TranscriptionsListPage'));
+const TranscriptionDetailPage = lazy(() => import('@/components/transcription/TranscriptionDetailPage'));
 
 function Loading() {
   const { t } = useTranslation();
@@ -288,6 +290,29 @@ function TabContent({ tab }: { tab: DomeTab }) {
         </ErrorBoundary>
       );
 
+    case 'transcriptions':
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <TranscriptionsListPage />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
+      );
+
+    case 'transcription-detail':
+      if (!tab.resourceId) return <NoResource />;
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <TranscriptionDetailPage noteId={tab.resourceId} />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
+      );
+
     default:
       return <NoResource />;
   }
@@ -314,6 +339,7 @@ const PERSISTENT_TAB_TYPES = new Set([
   'runs',
   'settings',
   'calendar',
+  'transcriptions',
 ]);
 
 export default function ContentRouter() {

@@ -185,7 +185,12 @@ export interface TranscriptionSpeakerProfile {
   colorIndex?: number;
 }
 
-export type TranscriptionCaptureKind = 'file' | 'microphone' | 'system' | 'call';
+export type TranscriptionCaptureKind =
+  | 'file'
+  | 'microphone'
+  | 'system'
+  | 'call'
+  | 'mic_and_system';
 
 export type TranscriptionCallPlatform =
   | 'teams'

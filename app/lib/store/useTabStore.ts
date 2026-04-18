@@ -23,7 +23,9 @@ export type TabType =
   | 'automations'
   | 'runs'
   | 'folder'
-  | 'learn';
+  | 'learn'
+  | 'transcriptions'
+  | 'transcription-detail';
 
 export interface DomeTab {
   id: string;
@@ -49,6 +51,7 @@ export const WORKFLOWS_TAB_ID = 'workflows';
 export const AUTOMATIONS_TAB_ID = 'automations';
 export const RUNS_TAB_ID = 'runs';
 export const FOLDER_TAB_PREFIX = 'folder:';
+export const TRANSCRIPTIONS_TAB_ID = 'transcriptions';
 
 const HOME_TAB: DomeTab = { id: HOME_TAB_ID, type: 'home', title: 'Home', pinned: true };
 
@@ -110,6 +113,8 @@ interface TabStore {
   openRunsTab: () => void;
   openProjectsTab: () => void;
   openFolderTab: (folderId: string, title: string, color?: string) => void;
+  openTranscriptionsTab: () => void;
+  openTranscriptionDetailTab: (noteId: string, title: string) => void;
   updateTab: (tabId: string, updates: Partial<Pick<DomeTab, 'title' | 'color'>>) => void;
 }
 
@@ -146,6 +151,7 @@ export const useTabStore = create<TabStore>((set, get) => {
         'runs',
         'learn',
         'projects',
+        'transcriptions',
       ];
       if (singletonTypes.includes(tabSpec.type)) {
         const existing = tabs.find((t) => t.type === tabSpec.type);
@@ -391,6 +397,24 @@ export const useTabStore = create<TabStore>((set, get) => {
         return;
       }
       get().openTab({ id: tabId, type: 'folder', title, resourceId: folderId, color });
+    },
+
+    openTranscriptionsTab: () => {
+      get().openTab({
+        id: TRANSCRIPTIONS_TAB_ID,
+        type: 'transcriptions',
+        title: i18n.t('transcriptions.tab_title'),
+        pinned: false,
+      });
+    },
+
+    openTranscriptionDetailTab: (noteId, title) => {
+      get().openTab({
+        type: 'transcription-detail',
+        title: title.trim() || i18n.t('transcriptions.tab_title'),
+        resourceId: noteId,
+        pinned: false,
+      });
     },
 
     updateTab: (tabId, updates) => {

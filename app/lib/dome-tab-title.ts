@@ -32,6 +32,10 @@ export function getDomeTabDisplayTitle(tab: DomeTab, t: TFunction): string {
       return t('workspace.tags');
     case 'chat':
       return tab.title?.trim() ? tab.title : t('shell.new_chat');
+    case 'transcriptions':
+      return t('transcriptions.tab_title');
+    case 'transcription-detail':
+      return tab.title?.trim() ? tab.title : t('transcriptions.tab_title');
     default:
       return tab.title;
   }

@@ -26,6 +26,7 @@ import {
   MoreHorizontal,
   ChevronLeft,
   Layers,
+  Mic,
 } from 'lucide-react';
 import {
   useTabStore,
@@ -65,6 +66,9 @@ function TabIcon({ tab }: { tab: DomeTab }) {
     case 'runs': return <Activity className={cls} strokeWidth={sw} />;
     case 'folder': return <FolderOpen className={cls} strokeWidth={sw} style={tab.color ? { color: tab.color } : undefined} />;
     case 'learn': return <BookOpen className={cls} strokeWidth={sw} />;
+    case 'transcriptions':
+    case 'transcription-detail':
+      return <Mic className={cls} strokeWidth={sw} />;
     default: return <File className={cls} strokeWidth={sw} />;
   }
 }

@@ -1,6 +1,6 @@
 /**
  * useMediaRecorder
- * Shared hook for microphone recording across ManyVoiceHud (legacy), ManyChatInput, and VoiceRecordingDock.
+ * Shared hook for microphone recording across ManyChatInput and the transcription hub (dictation / calls).
  *
  * Handles:
  *   - macOS microphone permission via IPC
@@ -11,7 +11,7 @@
  *   - Timer (seconds counter)
  *   - Calls onBlob(blob, mimeType) on successful stop
  *
- * Desktop/system audio capture is NOT handled here — VoiceRecordingDock manages that separately
+ * Desktop/system audio capture is NOT handled here — CallMode uses startFromStream for system audio
  * because it needs a source picker UI.
  */
 
@@ -20,8 +20,17 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObje
 export type RecordingPhase = 'idle' | 'recording' | 'paused' | 'processing';
 
 export interface UseMediaRecorderOptions {
-  /** Called with the final Blob and its MIME type after a successful recording. */
+  /** Called with the final Blob and its MIME type after a successful recording (skipped when `chunksOnly`). */
   onBlob: (blob: Blob, mimeType: string) => Promise<void>;
+  /**
+   * When `chunkIntervalMs` is set, fired for each timeslice (and the final flush on stop).
+   * Used for long-call progressive transcription.
+   */
+  onChunk?: (blob: Blob, mimeType: string) => void | Promise<void>;
+  /** MediaRecorder.start(timeslice) interval in ms. Typically30000 for calls. */
+  chunkIntervalMs?: number;
+  /** If true, only `onChunk` is used; final merge/onBlob is skipped on stop. */
+  chunksOnly?: boolean;
   /**
    * Minimum blob size in bytes before calling onBlob.
    * Recordings smaller than this are silently discarded.
@@ -76,6 +85,9 @@ export function pickRecordMimeType(): string | undefined {
 
 export function useMediaRecorder({
   onBlob,
+  onChunk,
+  chunkIntervalMs,
+  chunksOnly = false,
   minBlobSize = 256,
   onEmpty,
   onError,
@@ -85,10 +97,14 @@ export function useMediaRecorder({
 
   // Keep callback refs always current so onstop (async) never calls a stale closure
   const onBlobRef = useRef(onBlob);
+  const onChunkRef = useRef(onChunk);
+  const chunksOnlyRef = useRef(chunksOnly);
   const onEmptyRef = useRef(onEmpty);
   const onErrorRef = useRef(onError);
   useLayoutEffect(() => {
     onBlobRef.current = onBlob;
+    onChunkRef.current = onChunk;
+    chunksOnlyRef.current = chunksOnly;
     onEmptyRef.current = onEmpty;
     onErrorRef.current = onError;
   });
@@ -149,8 +165,17 @@ export function useMediaRecorder({
       const mr = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
       mediaRecorderRef.current = mr;
 
+      const sliceMs = chunkIntervalMs && chunkIntervalMs > 0 ? chunkIntervalMs : 0;
+      const outMimeEarly = mime || 'audio/webm';
+
       mr.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
+        if (e.data.size <= 0) return;
+        if (sliceMs > 0 && onChunkRef.current) {
+          void Promise.resolve(onChunkRef.current(e.data, mr.mimeType || outMimeEarly));
+        }
+        if (!chunksOnlyRef.current) {
+          chunksRef.current.push(e.data);
+        }
       };
 
       mr.onpause = () => {
@@ -175,6 +200,15 @@ export function useMediaRecorder({
           }
 
           const outMime = mr.mimeType || mime || 'audio/webm';
+
+          if (chunksOnlyRef.current) {
+            stopTick();
+            setSeconds(0);
+            mediaRecorderRef.current = null;
+            resetToIdle();
+            return;
+          }
+
           const blob = new Blob(chunksRef.current, { type: outMime });
           chunksRef.current = [];
 
@@ -197,12 +231,12 @@ export function useMediaRecorder({
         })();
       };
 
-      mr.start(200);
+      mr.start(sliceMs > 0 ? sliceMs : 200);
       setPhase('recording');
       setSeconds(0);
       startTick();
     },
-    [cleanupStream, minBlobSize, resetToIdle, startTick, stopTick],
+    [chunkIntervalMs, cleanupStream, minBlobSize, resetToIdle, startTick, stopTick],
   );
 
   // ── Microphone recording (with optional macOS permission check) ────────────

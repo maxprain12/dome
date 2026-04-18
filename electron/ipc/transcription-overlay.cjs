@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 const transcriptionOverlay = require('../transcription-overlay.cjs');
+const hubTrayState = require('../hub-tray-state.cjs');
 
 /**
  * @param {Object} params
@@ -7,6 +8,39 @@ const transcriptionOverlay = require('../transcription-overlay.cjs');
  * @param {import('../window-manager.cjs')} params.windowManager
  */
 function register({ ipcMain, windowManager }) {
+  /**
+   * Overlay reports recording phase so main can broadcast to all windows (e.g. AppShell mic indicator).
+   * @param {{ phase?: string, mode?: string, seconds?: number, captureKind?: string }} payload
+   */
+  ipcMain.handle('transcription-overlay:set-state', async (event, payload = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
+    if (!ov || ov.isDestroyed() || ov.webContents.id !== event.sender.id) {
+      return { success: false, error: 'Only transcription overlay may report state' };
+    }
+    const safe =
+      payload != null && typeof payload === 'object' && !Array.isArray(payload)
+        ? payload
+        : {};
+    try {
+      windowManager.broadcast('transcription:state', safe);
+      hubTrayState.update({
+        phase: typeof safe.phase === 'string' ? safe.phase : undefined,
+        mode: typeof safe.mode === 'string' ? safe.mode : undefined,
+        seconds: safe.seconds,
+        hubVisible: safe.hubVisible,
+        captureKind: typeof safe.captureKind === 'string' ? safe.captureKind : undefined,
+        canPause: safe.canPause,
+      });
+      return { success: true };
+    } catch (err) {
+      console.error('[TranscriptionOverlay] set-state:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('transcription-overlay:toggle-from-ui', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
@@ -46,6 +80,31 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
+  ipcMain.handle('transcription-overlay:window-chrome', async (event, payload = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
+    if (!ov || ov.isDestroyed() || ov.webContents.id !== event.sender.id) {
+      return { success: false, error: 'Only transcription overlay may control its window' };
+    }
+    const action = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload.action : undefined;
+    try {
+      if (action === 'minimize') {
+        ov.minimize();
+        return { success: true };
+      }
+      if (action === 'close') {
+        ov.hide();
+        return { success: true };
+      }
+      return { success: false, error: 'Invalid action' };
+    } catch (err) {
+      console.error('[TranscriptionOverlay] window-chrome:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('transcription-overlay:overlay-resize', async (event, { height }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
@@ -53,7 +112,7 @@ function register({ ipcMain, windowManager }) {
     const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
     if (!ov || ov.isDestroyed()) return { success: false, error: 'Overlay missing' };
     try {
-      const h = Math.max(280, Math.min(640, Math.round(Number(height))));
+      const h = Math.max(72, Math.min(780, Math.round(Number(height))));
       const bounds = ov.getBounds();
       const { screen } = require('electron');
       const display = screen.getPrimaryDisplay();

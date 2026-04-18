@@ -24,57 +24,6 @@ ipcRenderer.on('transcription:toggle-recording', () => {
 });
 
 /**
- * Many Voice (STS / Realtime) overlay: toolbar & global shortcut send toggle before React mounts.
- */
-const manyVoiceToggleCallbacks = new Set();
-let pendingManyVoiceToggle = false;
-ipcRenderer.on('many-voice-assistant:toggle', () => {
-  if (manyVoiceToggleCallbacks.size === 0) {
-    pendingManyVoiceToggle = true;
-    return;
-  }
-  for (const cb of manyVoiceToggleCallbacks) {
-    try {
-      cb();
-    } catch (_) {
-      /* ignore */
-    }
-  }
-});
-
-const manyVoicePttStartCallbacks = new Set();
-let pendingManyVoicePttStart = false;
-ipcRenderer.on('many-voice-assistant:ptt-start', () => {
-  if (manyVoicePttStartCallbacks.size === 0) {
-    pendingManyVoicePttStart = true;
-    return;
-  }
-  for (const cb of manyVoicePttStartCallbacks) {
-    try {
-      cb();
-    } catch (_) {
-      /* ignore */
-    }
-  }
-});
-
-const manyVoicePttEndCallbacks = new Set();
-let pendingManyVoicePttEnd = false;
-ipcRenderer.on('many-voice-assistant:ptt-end', () => {
-  if (manyVoicePttEndCallbacks.size === 0) {
-    pendingManyVoicePttEnd = true;
-    return;
-  }
-  for (const cb of manyVoicePttEndCallbacks) {
-    try {
-      cb();
-    } catch (_) {
-      /* ignore */
-    }
-  }
-});
-
-/**
  * Electron Handler
  * Expone APIs de Electron de manera segura usando contextBridge
  * Basado en las mejores prácticas de Pile
@@ -425,25 +374,13 @@ const ALLOWED_CHANNELS = {
     'transcription:request-screen-access',
     // Transcription overlay hub
     'transcription-overlay:toggle-from-ui',
+    'transcription-overlay:set-state',
     'transcription-overlay:overlay-set-visible',
     'transcription-overlay:overlay-resize',
+    'transcription-overlay:window-chrome',
     'transcription-overlay:open-note-in-main',
-    // Many voice overlay bridge
-    'many-voice:relay-send',
-    'many-voice:push-state-to-overlay',
-    'many-voice:overlay-mounted',
-    'many-voice:overlay-set-visible',
-    'many-voice:open-many-panel',
-    'many-voice:dismiss-tts-error',
-    'many-voice:overlay-resize',
-    'many-voice:toggle-overlay-from-ui',
     // Streaming TTS control (renderer → main)
     'audio:stop-streaming-tts',
-    // Realtime Voice API
-    'realtime:get-session-config',
-    'realtime:create-ephemeral-token',
-    'realtime:exchange-sdp',
-    'realtime:execute-tool',
     // Database - Studio Outputs
     'db:studio:create',
     'db:studio:getAll',
@@ -502,6 +439,15 @@ const ALLOWED_CHANNELS = {
     'calendar:disconnectGoogle',
     'calendar:previewIcs',
     'calendar:importIcs',
+    // Call transcription sessions
+    'calls:start',
+    'calls:append-chunk',
+    'calls:get-live',
+    'calls:pause',
+    'calls:resume',
+    'calls:stop',
+    'calls:cancel',
+    'calls:regenerate-summary',
     // Plugins
     'plugin:list',
     'plugin:install-from-folder',
@@ -567,15 +513,8 @@ const ALLOWED_CHANNELS = {
     // Voice recording / dictation toggle (from tray or global shortcut)
     'transcription:toggle-recording',
     'transcription:overlay-loaded',
-    'many-voice-assistant:toggle',
-    'many-voice-assistant:ptt-start',
-    'many-voice-assistant:ptt-end',
-    'many-voice:relay-to-main',
-    'many-voice:hud-state',
-    'many-voice:request-state-push',
-    'many-voice:open-panel-request',
-    'many-voice:dismiss-tts-error',
-    'many-voice:overlay-loaded',
+    'transcription:tray-action',
+    'transcription:state',
     // Streaming TTS events (main → renderer)
     'tts:sentence-playing',
     'tts:finished',
@@ -794,6 +733,20 @@ const electronHandler = {
   sync: {
     export: () => ipcRenderer.invoke('sync:export'),
     import: () => ipcRenderer.invoke('sync:import'),
+  },
+
+  // ============================================
+  // CALL TRANSCRIPTION SESSIONS API
+  // ============================================
+  calls: {
+    start: (args) => ipcRenderer.invoke('calls:start', args),
+    appendChunk: (args) => ipcRenderer.invoke('calls:append-chunk', args),
+    getLive: (args) => ipcRenderer.invoke('calls:get-live', args),
+    pause: (args) => ipcRenderer.invoke('calls:pause', args),
+    resume: (args) => ipcRenderer.invoke('calls:resume', args),
+    stop: (args) => ipcRenderer.invoke('calls:stop', args),
+    cancel: (args) => ipcRenderer.invoke('calls:cancel', args),
+    regenerateSummary: (args) => ipcRenderer.invoke('calls:regenerate-summary', args),
   },
 
   // ============================================
@@ -1523,111 +1476,17 @@ const electronHandler = {
 
   transcriptionOverlay: {
     toggleFromUi: () => ipcRenderer.invoke('transcription-overlay:toggle-from-ui'),
+    setState: (payload) => ipcRenderer.invoke('transcription-overlay:set-state', payload),
     overlaySetVisible: (visible) =>
       ipcRenderer.invoke('transcription-overlay:overlay-set-visible', { visible }),
     overlayResize: (height) => ipcRenderer.invoke('transcription-overlay:overlay-resize', { height }),
+    overlayWindowChrome: (action) => ipcRenderer.invoke('transcription-overlay:window-chrome', { action }),
     openNoteInMain: (payload) => ipcRenderer.invoke('transcription-overlay:open-note-in-main', payload),
     onOverlayLoaded: (callback) => {
       const subscription = () => callback();
       ipcRenderer.on('transcription:overlay-loaded', subscription);
       return () => ipcRenderer.removeListener('transcription:overlay-loaded', subscription);
     },
-  },
-
-  manyVoice: {
-    onToggle: (callback) => {
-      manyVoiceToggleCallbacks.add(callback);
-      if (pendingManyVoiceToggle) {
-        pendingManyVoiceToggle = false;
-        try {
-          callback();
-        } catch (_) {
-          /* ignore */
-        }
-      }
-      return () => {
-        manyVoiceToggleCallbacks.delete(callback);
-      };
-    },
-    onPttStart: (callback) => {
-      manyVoicePttStartCallbacks.add(callback);
-      if (pendingManyVoicePttStart) {
-        pendingManyVoicePttStart = false;
-        try {
-          callback();
-        } catch (_) {
-          /* ignore */
-        }
-      }
-      return () => {
-        manyVoicePttStartCallbacks.delete(callback);
-      };
-    },
-    onPttEnd: (callback) => {
-      manyVoicePttEndCallbacks.add(callback);
-      if (pendingManyVoicePttEnd) {
-        pendingManyVoicePttEnd = false;
-        try {
-          callback();
-        } catch (_) {
-          /* ignore */
-        }
-      }
-      return () => {
-        manyVoicePttEndCallbacks.delete(callback);
-      };
-    },
-    relaySend: (args) => ipcRenderer.invoke('many-voice:relay-send', args),
-    pushStateToOverlay: (payload) =>
-      ipcRenderer.invoke('many-voice:push-state-to-overlay', payload),
-    overlayMounted: () => ipcRenderer.invoke('many-voice:overlay-mounted'),
-    overlaySetVisible: (visible) =>
-      ipcRenderer.invoke('many-voice:overlay-set-visible', { visible }),
-    openManyPanel: () => ipcRenderer.invoke('many-voice:open-many-panel'),
-    dismissTtsError: () => ipcRenderer.invoke('many-voice:dismiss-tts-error'),
-    overlayResize: (height) => ipcRenderer.invoke('many-voice:overlay-resize', { height }),
-    toggleOverlayFromUi: () => ipcRenderer.invoke('many-voice:toggle-overlay-from-ui'),
-    onRelayToMain: (callback) => {
-      const subscription = (_e, payload) => callback(payload);
-      ipcRenderer.on('many-voice:relay-to-main', subscription);
-      return () => ipcRenderer.removeListener('many-voice:relay-to-main', subscription);
-    },
-    onHudState: (callback) => {
-      const subscription = (_e, payload) => callback(payload);
-      ipcRenderer.on('many-voice:hud-state', subscription);
-      return () => ipcRenderer.removeListener('many-voice:hud-state', subscription);
-    },
-    onRequestStatePush: (callback) => {
-      const subscription = () => callback();
-      ipcRenderer.on('many-voice:request-state-push', subscription);
-      return () => ipcRenderer.removeListener('many-voice:request-state-push', subscription);
-    },
-    onOpenPanelRequest: (callback) => {
-      const subscription = () => callback();
-      ipcRenderer.on('many-voice:open-panel-request', subscription);
-      return () => ipcRenderer.removeListener('many-voice:open-panel-request', subscription);
-    },
-    onDismissTtsError: (callback) => {
-      const subscription = () => callback();
-      ipcRenderer.on('many-voice:dismiss-tts-error', subscription);
-      return () => ipcRenderer.removeListener('many-voice:dismiss-tts-error', subscription);
-    },
-    onOverlayLoaded: (callback) => {
-      const subscription = () => callback();
-      ipcRenderer.on('many-voice:overlay-loaded', subscription);
-      return () => ipcRenderer.removeListener('many-voice:overlay-loaded', subscription);
-    },
-  },
-
-  // ============================================
-  // REALTIME VOICE API (OpenAI STS)
-  // ============================================
-  realtime: {
-    getSessionConfig: () => ipcRenderer.invoke('realtime:get-session-config'),
-    createEphemeralToken: (params) =>
-      ipcRenderer.invoke('realtime:create-ephemeral-token', params),
-    exchangeSdp: (params) => ipcRenderer.invoke('realtime:exchange-sdp', params),
-    executeTool: (params) => ipcRenderer.invoke('realtime:execute-tool', params),
   },
 
   // ============================================

@@ -108,9 +108,11 @@ export default function StructuredTranscriptWorkspace({
         ? t('media.capture_mic')
         : captureKind === 'system'
           ? t('media.capture_system')
-          : captureKind === 'call'
-            ? t('media.capture_call')
-            : t('media.capture_file');
+          : captureKind === 'mic_and_system'
+            ? t('media.capture_mic_and_system')
+            : captureKind === 'call'
+              ? t('media.capture_call')
+              : t('media.capture_file');
     const platformKeyMap: Record<string, string> = {
       teams: 'media.platform_teams',
       slack: 'media.platform_slack',

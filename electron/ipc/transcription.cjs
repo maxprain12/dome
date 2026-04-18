@@ -49,7 +49,25 @@ function getTranscriptionDefaults(database) {
   const pauseParsed = parseFloat(String(pauseRow?.value || ''));
   const pauseThresholdSec =
     Number.isFinite(pauseParsed) && pauseParsed >= 0.4 && pauseParsed <= 8 ? pauseParsed : 1.35;
-  return { sttProvider, model, language, apiBaseUrl, prompt, pauseThresholdSec };
+  const hubModeRow = queries.getSetting.get('transcription_hub_default_mode');
+  const hubRaw = hubModeRow?.value != null ? String(hubModeRow.value).trim().toLowerCase() : '';
+  const hubDefaultMode =
+    hubRaw === 'dictation' || hubRaw === 'call' || hubRaw === 'streaming' || hubRaw === 'remember'
+      ? hubRaw
+      : 'remember';
+  const liveRow = queries.getSetting.get('transcription_call_live_transcript_default');
+  const liveRaw = liveRow?.value != null ? String(liveRow.value).trim().toLowerCase() : '';
+  const callShowLiveTranscriptDefault = liveRaw !== '0' && liveRaw !== 'false' && liveRaw !== 'off';
+  return {
+    sttProvider,
+    model,
+    language,
+    apiBaseUrl,
+    prompt,
+    pauseThresholdSec,
+    hubDefaultMode,
+    callShowLiveTranscriptDefault,
+  };
 }
 
 function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandler, thumbnail, initModule, ollamaService, pendingDisplayMediaSources }) {
@@ -142,8 +160,6 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
       return { success: false, error: err.message };
     }
   });
-
-  const manyVoiceShortcut = require('../many-voice-shortcut.cjs');
 
   ipcMain.handle('transcription:buffer-to-text', async (event, payload = {}) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -306,7 +322,13 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
       fs.writeFileSync(tempInput, buf);
 
       const captureKind =
-        payload.captureKind === 'system' ? 'system' : payload.captureKind === 'call' ? 'call' : 'microphone';
+        payload.captureKind === 'system'
+          ? 'system'
+          : payload.captureKind === 'call'
+            ? 'call'
+            : payload.captureKind === 'mic_and_system'
+              ? 'mic_and_system'
+              : 'microphone';
       const callPlatform =
         typeof payload.callPlatform === 'string' && payload.callPlatform.trim()
           ? payload.callPlatform.trim()
@@ -331,7 +353,13 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
                   : null;
 
                 const sourceTag =
-                  captureKind === 'system' ? 'system_audio' : captureKind === 'call' ? 'call_recording' : 'microphone_recording';
+                  captureKind === 'system'
+                    ? 'system_audio'
+                    : captureKind === 'call'
+                      ? 'call_recording'
+                      : captureKind === 'mic_and_system'
+                        ? 'mic_system_recording'
+                        : 'microphone_recording';
 
                 queries.createResourceWithFile.run(
                   audioId,
@@ -394,7 +422,8 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
           transcription_model: model,
           transcription_language: language || 'auto',
           transcribed_at: now,
-          from_microphone: captureKind === 'microphone',
+          from_microphone: captureKind === 'microphone' || captureKind === 'mic_and_system',
+          capture_variant: captureKind === 'mic_and_system' ? 'mic_and_system' : undefined,
           transcription_diarization: structuredPayload.diarization || 'heuristic',
         };
         queries.createResource.run(
@@ -505,33 +534,6 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
         const on = payload.transcriptionGlobalShortcutEnabled === true || payload.transcriptionGlobalShortcutEnabled === '1';
         queries.setSetting.run('transcription_global_shortcut_enabled', on ? '1' : '0', now);
       }
-      if (payload.manyVoiceGlobalShortcut !== undefined) {
-        const m =
-          payload.manyVoiceGlobalShortcut == null || payload.manyVoiceGlobalShortcut === ''
-            ? ''
-            : String(payload.manyVoiceGlobalShortcut).trim();
-        queries.setSetting.run('many_voice_global_shortcut', m, now);
-      }
-      if (payload.manyVoiceGlobalShortcutEnabled !== undefined) {
-        const on = payload.manyVoiceGlobalShortcutEnabled === true || payload.manyVoiceGlobalShortcutEnabled === '1';
-        queries.setSetting.run('many_voice_global_shortcut_enabled', on ? '1' : '0', now);
-      }
-      if (payload.manyVoiceRealtimeEnabled !== undefined) {
-        const on = payload.manyVoiceRealtimeEnabled === true || payload.manyVoiceRealtimeEnabled === '1';
-        queries.setSetting.run('many_voice_realtime_enabled', on ? '1' : '0', now);
-      }
-      if (payload.realtimeVoice != null) {
-        const v = String(payload.realtimeVoice).trim();
-        if (v) queries.setSetting.run('realtime_voice', v, now);
-      }
-      if (payload.realtimeModel != null) {
-        const m = String(payload.realtimeModel).trim();
-        if (m) queries.setSetting.run('realtime_model', m, now);
-      }
-      if (payload.realtimeInstructionsSuffix !== undefined) {
-        const s = payload.realtimeInstructionsSuffix == null ? '' : String(payload.realtimeInstructionsSuffix).slice(0, 2000);
-        queries.setSetting.run('realtime_instructions_suffix', s, now);
-      }
       if (payload.apiBaseUrl !== undefined) {
         const u = payload.apiBaseUrl == null ? '' : String(payload.apiBaseUrl).trim();
         queries.setSetting.run('transcription_api_base_url', u, now);
@@ -550,9 +552,31 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
           queries.setSetting.run('transcription_pause_threshold_sec', String(clamped), now);
         }
       }
+      if (payload.callSummaryModel !== undefined) {
+        const m = payload.callSummaryModel == null ? '' : String(payload.callSummaryModel).trim();
+        queries.setSetting.run('transcription_call_summary_model', m || 'gpt-4o-mini', now);
+      }
+      if (payload.callAutoSummary !== undefined) {
+        const on = payload.callAutoSummary === true || payload.callAutoSummary === '1';
+        queries.setSetting.run('transcription_call_auto_summary', on ? '1' : '0', now);
+      }
+      if (payload.callChunkSec !== undefined) {
+        const n = Number(payload.callChunkSec);
+        const sec = Number.isFinite(n) ? Math.min(60, Math.max(20, Math.round(n))) : 30;
+        queries.setSetting.run('transcription_call_chunk_sec', String(sec), now);
+      }
+      if (payload.hubDefaultMode !== undefined) {
+        const m = String(payload.hubDefaultMode || 'remember').trim().toLowerCase();
+        const ok =
+          m === 'dictation' || m === 'call' || m === 'streaming' || m === 'remember' ? m : 'remember';
+        queries.setSetting.run('transcription_hub_default_mode', ok, now);
+      }
+      if (payload.callShowLiveTranscriptDefault !== undefined) {
+        const on = payload.callShowLiveTranscriptDefault === true || payload.callShowLiveTranscriptDefault === '1';
+        queries.setSetting.run('transcription_call_live_transcript_default', on ? '1' : '0', now);
+      }
       try {
         transcriptionShortcut.registerFromDatabase(database, windowManager);
-        await manyVoiceShortcut.registerFromDatabase(database, windowManager);
       } catch (regErr) {
         console.warn('[Transcription] shortcut refresh:', regErr?.message);
       }
@@ -572,21 +596,21 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
       const keyRow = queries.getSetting.get('transcription_openai_api_key');
       const groqKeyRow = queries.getSetting.get('transcription_groq_api_key');
       const shortcutRow = queries.getSetting.get('transcription_global_shortcut');
-      const manyVoiceRow = queries.getSetting.get('many_voice_global_shortcut');
       const tsEn = queries.getSetting.get('transcription_global_shortcut_enabled');
-      const mvEn = queries.getSetting.get('many_voice_global_shortcut_enabled');
-      const rtEn = queries.getSetting.get('many_voice_realtime_enabled');
-      const rv = queries.getSetting.get('realtime_voice');
-      const rm = queries.getSetting.get('realtime_model');
-      const ris = queries.getSetting.get('realtime_instructions_suffix');
+      const callSumModelRow = queries.getSetting.get('transcription_call_summary_model');
+      const callAutoSumRow = queries.getSetting.get('transcription_call_auto_summary');
+      const callChunkRow = queries.getSetting.get('transcription_call_chunk_sec');
       const gShortcut = shortcutRow?.value || '';
-      const mvShortcut = manyVoiceRow?.value || '';
       const parseTri = (row, hasAccel) => {
         const v = row?.value != null ? String(row.value).trim().toLowerCase() : '';
         if (v === '0' || v === 'false' || v === 'off') return false;
         if (v === '1' || v === 'true' || v === 'on') return true;
         return Boolean(hasAccel);
       };
+      const callChunkParsed = parseInt(String(callChunkRow?.value || '30'), 10);
+      const callChunkSec = Number.isFinite(callChunkParsed) ? Math.min(60, Math.max(20, callChunkParsed)) : 30;
+      const callAutoRaw = callAutoSumRow?.value != null ? String(callAutoSumRow.value).trim() : '';
+      const callAutoSummary = callAutoRaw !== '0' && callAutoRaw !== 'false' && callAutoRaw !== 'off';
       return {
         success: true,
         data: {
@@ -594,14 +618,11 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
           hasDedicatedOpenAIKey: Boolean(keyRow?.value && String(keyRow.value).trim()),
           hasGroqApiKey: Boolean(groqKeyRow?.value && String(groqKeyRow.value).trim()),
           globalShortcut: gShortcut,
-          manyVoiceGlobalShortcut: mvShortcut,
           transcriptionGlobalShortcutEnabled: parseTri(tsEn, gShortcut),
-          manyVoiceGlobalShortcutEnabled: parseTri(mvEn, mvShortcut),
-          manyVoiceRealtimeEnabled: rtEn?.value === '0' || rtEn?.value === 'false' ? false : true,
-          realtimeVoice: rv?.value || 'shimmer',
-          realtimeModel: rm?.value || 'gpt-4o-realtime-preview-2024-12-17',
-          realtimeInstructionsSuffix: ris?.value || '',
           pauseThresholdSec: defaults.pauseThresholdSec,
+          callSummaryModel: (callSumModelRow?.value && String(callSumModelRow.value).trim()) || 'gpt-4o-mini',
+          callAutoSummary,
+          callChunkSec,
         },
       };
     } catch (err) {
@@ -665,15 +686,42 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
       const { desktopCapturer } = require('electron');
       const sources = await desktopCapturer.getSources({
         types: ['screen', 'window'],
-        thumbnailSize: { width: 120, height: 80 },
+        // 16:9 thumbs; slightly larger + higher JPEG quality for readable preview.
+        thumbnailSize: { width: 704, height: 396 },
         fetchWindowIcons: true,
       });
       return {
         success: true,
-        sources: sources.map((s) => ({
-          id: s.id,
-          name: s.name,
-        })),
+        sources: sources.map((s) => {
+          const displayId = s.display_id != null ? String(s.display_id).trim() : '';
+          const kind = displayId.length > 0 ? 'screen' : 'window';
+          let thumbnailDataUrl = '';
+          try {
+            if (s.thumbnail && !s.thumbnail.isEmpty()) {
+              const jpeg = s.thumbnail.toJPEG(90);
+              thumbnailDataUrl = jpeg.length
+                ? `data:image/jpeg;base64,${jpeg.toString('base64')}`
+                : s.thumbnail.toDataURL();
+            }
+          } catch {
+            thumbnailDataUrl = '';
+          }
+          let iconDataUrl = '';
+          try {
+            if (s.appIcon && !s.appIcon.isEmpty()) {
+              iconDataUrl = s.appIcon.toDataURL();
+            }
+          } catch {
+            iconDataUrl = '';
+          }
+          return {
+            id: s.id,
+            name: s.name,
+            kind,
+            thumbnailDataUrl,
+            ...(iconDataUrl ? { iconDataUrl } : {}),
+          };
+        }),
       };
     } catch (err) {
       console.error('[Transcription] list-desktop-capture-sources:', err);
