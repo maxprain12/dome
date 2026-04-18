@@ -1,115 +1,98 @@
-# Dome - Reglas de Claude Code
+# Dome — Reglas de Claude Code
 
 ## Descripción
 
 Este directorio contiene las reglas y mejores prácticas para el desarrollo de Dome.
 
+## Stack real (lee primero)
+
+> Si un archivo de este directorio dice lo contrario, **gana esto**. El código autoritativo está en `/CLAUDE.md` (raíz del repo).
+
+- **Runtime**: Node.js + **npm** (CI corre `npm ci`). NO usar Bun ni tocar `bun.lock`.
+- **Main process (Electron)**: SQLite vía **`better-sqlite3`** — NO `bun:sqlite`.
+- **Renderer**: Vite 7 + React 18 + React Router 7 (SPA cliente, entrada `app/main.tsx`). NO Next.js.
+- **TypeScript**: modo strict + `verbatimModuleSyntax: true` → imports de tipos SIEMPRE con `import type`.
+
 ## Archivos de Reglas
 
-### 1. `CLAUDE.md` (Raíz del proyecto)
-Configuración específica de Bun para Claude Code.
-- Usar Bun en lugar de Node.js
-- Comandos de Bun
-- APIs de Bun
-- Testing con Bun
-- Frontend con HTML imports
-
-### 2. `electron-best-practices.md`
-Guía completa de desarrollo Electron basada en las mejores prácticas de 2026.
-- Arquitectura y procesos
-- Seguridad
-- Gestión de ventanas
-- Comunicación IPC
-- Gestión de memoria
-- Patrones comunes
-
-### 3. `dome-style-guide.md`
-Guía de estilos específica del proyecto.
-- Stack principal
-- Reglas de código
-- TypeScript best practices
-- React components
-- CSS Variables vs Tailwind
-- Patrones específicos de Dome
-
-### 4. `architecture-rules.md` ⚠️ **CRÍTICO**
+### 1. `architecture-rules.md` ⚠️ **CRÍTICO**
 Reglas de arquitectura que **NUNCA** deben romperse.
-- Separación de procesos Electron
-- Base de datos (SQLite)
-- Operaciones de archivos
+- Separación de procesos Electron (main vs renderer)
+- Base de datos SQLite (better-sqlite3 en main, IPC desde renderer)
+- Operaciones de archivos (solo en main)
 - Estructura de archivos
 - Checklist pre-commit
-- Testing de arquitectura
 - Mensajes de error comunes
+
+### 2. `electron-best-practices.md`
+Guía de desarrollo Electron (seguridad, ventanas, IPC, memoria, patrones comunes).
+
+### 3. `dome-style-guide.md`
+Guía de estilos específica del proyecto (TypeScript, React, CSS Variables, etc.).
+
+### 4. `ui-style-guidelines.md`
+Design system Dome (colores, tipografía, spacing, componentes base).
+
+### 5. `new-color-palette.md`
+Paleta de colores actual (los nombres de variable a usar en código nuevo).
 
 ## Prioridad de Lectura
 
 Para **nuevos desarrolladores** o **Claude Code**:
 
-1. **PRIMERO**: `architecture-rules.md` 🚨
-   - Crítico para entender la separación entre main/renderer
-   - Evita errores comunes
-   - Define qué código va dónde
-
-2. **SEGUNDO**: `dome-style-guide.md`
-   - Estilos de código
-   - Convenciones del proyecto
-   - Patrones específicos
-
-3. **TERCERO**: `electron-best-practices.md`
-   - Profundización en Electron
-   - Patrones avanzados
-   - Seguridad
-
-4. **CUARTO**: `CLAUDE.md` (raíz)
-   - Configuración de Bun
-   - Comandos específicos
+1. **PRIMERO**: `/CLAUDE.md` (raíz del repo) — la autoridad.
+2. **SEGUNDO**: `architecture-rules.md` 🚨 — separación main/renderer, IPC.
+3. **TERCERO**: `dome-style-guide.md` — convenciones de código.
+4. **CUARTO**: `electron-best-practices.md` — patrones avanzados.
 
 ## Para Claude Code
 
 Cuando Claude Code trabaja en este proyecto, debe:
 
 1. **Siempre** verificar en qué proceso está trabajando:
-   - `electron/` → Main Process → Puede usar Node.js/Bun APIs
-   - `app/` → Renderer Process → Solo IPC, NO Node.js/Bun directo
+   - `electron/` → Main Process → Node.js completo, `better-sqlite3`, `fs`, etc.
+   - `app/` → Renderer Process → solo `window.electron.*` vía IPC.
 
 2. **Antes de usar base de datos**:
-   - ✅ En `electron/`: Usar `bun:sqlite` directamente
-   - ✅ En `app/`: Usar `window.electron.db` vía IPC
+   - ✅ En `electron/`: `require('better-sqlite3')` directamente.
+   - ✅ En `app/`: `window.electron.invoke('db:...')` vía IPC.
 
 3. **Antes de operaciones de archivos**:
-   - ✅ En `electron/`: Usar `fs` directamente
-   - ✅ En `app/`: Crear IPC handler en main process
+   - ✅ En `electron/`: `require('fs')` directamente.
+   - ✅ En `app/`: crear handler IPC en `electron/ipc/<domain>.cjs`, whitelist en `preload.cjs`, llamar vía `window.electron.invoke`.
 
 4. **Validación**:
-   - Siempre validar inputs en main process
-   - Nunca confiar en datos del renderer
+   - Handlers IPC validan `event.sender` y sanitizan inputs.
+   - Nunca confiar en datos del renderer.
 
 ## Errores Comunes a Evitar
 
 | Error | Archivo | Solución |
 |-------|---------|----------|
-| `existsSync is not a function` | `app/lib/db/sqlite.ts` | Eliminar archivo, usar IPC |
-| `prepare is not a function` | `app/lib/db/sqlite.ts` | Usar `window.electron.db` |
-| Importing `bun:sqlite` en renderer | `app/**/*.ts` | Mover a `electron/database.cjs` |
-| Importing `node:fs` en renderer | `app/**/*.ts` | Crear IPC handler |
+| `existsSync is not a function` en renderer | `app/**/*.ts[x]` | Mover a main + IPC |
+| `prepare is not a function` en renderer | `app/**/*.ts[x]` | Usar `window.electron.invoke('db:...')` |
+| Importing `better-sqlite3` en `app/` | `app/**/*.ts` | Mover a `electron/database.cjs` |
+| Importing `node:fs`/`fs` en `app/` | `app/**/*.ts` | Crear handler IPC |
+| Importing `bun:sqlite` **en cualquier sitio** | cualquier archivo | Reemplazar por `better-sqlite3` (Electron corre en Node, no Bun) |
 
 ## Estructura Correcta
 
 ```
-dome-local/
-├── electron/                    # Main Process
-│   ├── main.cjs                # ✅ IPC handlers, window management
-│   ├── preload.cjs             # ✅ contextBridge, API exposure
-│   ├── database.cjs            # ✅ SQLite operations
-│   └── window-manager.cjs      # ✅ Window management
+dome/
+├── electron/                   # Main Process (Node.js)
+│   ├── main.cjs                # Entry, window management
+│   ├── preload.cjs             # contextBridge + ALLOWED_CHANNELS whitelist
+│   ├── database.cjs            # better-sqlite3
+│   ├── ipc/<domain>.cjs        # handlers por dominio
+│   └── window-manager.cjs
 │
-└── app/                         # Renderer Process
+└── app/                        # Renderer Process (Vite + React SPA)
+    ├── main.tsx                # Vite entry
+    ├── App.tsx                 # React Router
     ├── lib/
-    │   ├── db/
-    │   │   └── client.ts       # ✅ IPC client (NO sqlite directo)
-    │   └── utils/              # ✅ Pure utilities
-    └── components/             # ✅ React components
+    │   ├── db/client.ts        # IPC wrapper (NO sqlite directo)
+    │   └── utils/              # Pure utilities
+    └── components/             # React components
 ```
 
 ## Referencias Rápidas
@@ -118,16 +101,16 @@ dome-local/
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ ¿Necesitas acceso a Node.js/Bun APIs?                  │
+│ ¿Necesitas APIs de Node.js (fs, child_process, db…)?   │
 │                                                         │
 │ SÍ → electron/                                          │
-│    ├─ Crear handler IPC en main.cjs                    │
-│    ├─ Exponer en preload.cjs                           │
-│    └─ Usar desde app/ vía window.electron              │
+│    ├─ Handler IPC en electron/ipc/<domain>.cjs         │
+│    ├─ Whitelist el canal en preload.cjs                │
+│    └─ Llamar desde app/ vía window.electron.invoke     │
 │                                                         │
 │ NO → app/                                               │
 │    ├─ Componentes React                                │
-│    ├─ Estado (Zustand)                                 │
+│    ├─ Estado (Zustand / Jotai)                         │
 │    ├─ Utilidades puras                                 │
 │    └─ Lógica de UI                                     │
 └─────────────────────────────────────────────────────────┘
@@ -136,27 +119,26 @@ dome-local/
 ### Comandos Útiles
 
 ```bash
-# Verificar que NO hay imports de Node.js en app/
-grep -r "require('bun:sqlite')" app/
-grep -r "require('node:fs')" app/
-grep -r "from 'bun:sqlite'" app/
+# Verificar que NO hay imports de Node.js en app/ (debe devolver 0 líneas)
+grep -rE "from ['\"]better-sqlite3['\"]|from ['\"]fs['\"]|from ['\"]electron['\"]" app/
+grep -rE "from ['\"]bun:sqlite['\"]" .   # debe devolver 0 líneas en todo el repo
 
 # Desarrollo
-bun run dev              # Solo Next.js
-bun run electron:dev     # App completa
+npm run electron:dev     # Vite dev server + Electron con hot reload
+npm run dev              # Solo Vite en http://localhost:5173
+
+# Build
+npm run build            # Vite build → dist/
+npm run electron:build   # Empaquetar app para distribución
 
 # Testing
-bun run test:db          # Test database
+npm run test:db          # Test database
 ```
 
 ## Actualizaciones
 
 Este directorio debe actualizarse cuando:
-- Se descubra un nuevo patrón problemático
-- Se agreguen nuevas features al proyecto
-- Cambien las mejores prácticas de Electron/Next.js
-- Se encuentren errores comunes recurrentes
-
----
-
-**Última actualización:** 2026-01-17
+- Cambie el stack o las convenciones de arquitectura.
+- Se agreguen nuevas features al proyecto.
+- Cambien las mejores prácticas de Electron/React.
+- Se encuentren errores comunes recurrentes (añádelos a la tabla de arriba).

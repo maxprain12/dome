@@ -4,7 +4,8 @@
 
 ### 1. Separación de Procesos en Electron
 
-**NUNCA usar `bun:sqlite`, `node:fs`, u otros módulos de Node.js en el renderer process (Next.js).**
+**NUNCA usar `better-sqlite3`, `node:fs`, u otros módulos de Node.js en el renderer process (Vite + React).**
+**`bun:sqlite` no existe aquí en absoluto: Electron corre sobre Node.js, no Bun. Si lo ves importado, es un bug.**
 
 #### ✅ Arquitectura Correcta:
 
@@ -13,7 +14,7 @@
 │   MAIN PROCESS              │
 │   (electron/*.cjs)          │
 │                             │
-│   ✅ bun:sqlite             │
+│   ✅ better-sqlite3         │
 │   ✅ node:fs completo       │
 │   ✅ APIs del SO            │
 │   ✅ Operaciones de archivos│
@@ -35,10 +36,11 @@
               │
 ┌─────────────▼───────────────┐
 │   RENDERER PROCESS          │
-│   (app/**, Next.js)         │
+│   (app/**, Vite + React)    │
 │                             │
-│   ❌ NO bun:sqlite          │
+│   ❌ NO better-sqlite3      │
 │   ❌ NO node:fs directo     │
+│   ❌ NO bun:sqlite (nunca)  │
 │   ✅ Solo window.electron   │
 │   ✅ Solo IPC calls         │
 │                             │
@@ -51,8 +53,8 @@
 
 **Main Process** (`electron/database.cjs`):
 ```javascript
-const Database = require('bun:sqlite').Database;
-const db = new Database('dome.db');
+const Database = require('better-sqlite3');
+const db = new Database(dbPath);
 ```
 
 **IPC Handler** (`electron/main.cjs`):
@@ -85,11 +87,14 @@ export const db = {
 
 #### ❌ INCORRECTO:
 
-**NO hacer esto en el renderer** (`app/lib/db/sqlite.ts`):
+**NO hacer esto en el renderer** (`app/**/*.ts`):
 ```typescript
-// ❌ ESTO NO FUNCIONA - bun:sqlite no existe en el renderer
-import Database from 'bun:sqlite';
+// ❌ ESTO NO FUNCIONA - better-sqlite3 no está disponible en el renderer
+import Database from 'better-sqlite3';
 const db = new Database('dome.db');
+
+// ❌ Y bun:sqlite no existe en el proyecto en absoluto (Electron corre sobre Node)
+import { Database } from 'bun:sqlite';
 ```
 
 ### 3. Operaciones de Archivos
@@ -130,18 +135,19 @@ const content = fs.readFileSync(filePath);
 
 ```
 dome-local/
-├── electron/                 # Main Process
-│   ├── main.cjs             # ✅ bun:sqlite, node:fs, IPC handlers
-│   ├── preload.cjs          # ✅ contextBridge, API exposure
-│   ├── database.cjs         # ✅ SQLite operations
+├── electron/                 # Main Process (Node.js)
+│   ├── main.cjs             # ✅ better-sqlite3, node:fs, IPC handlers
+│   ├── preload.cjs          # ✅ contextBridge, ALLOWED_CHANNELS
+│   ├── database.cjs         # ✅ better-sqlite3 operations
+│   ├── ipc/<domain>.cjs     # ✅ Handlers agrupados por dominio
 │   └── window-manager.cjs   # ✅ Window management
 │
-└── app/                      # Renderer Process
+└── app/                      # Renderer Process (Vite + React SPA)
+    ├── main.tsx             # ✅ Vite entry
+    ├── App.tsx              # ✅ React Router
     ├── components/          # ✅ React components
     ├── lib/
-    │   ├── db/
-    │   │   ├── client.ts    # ✅ IPC client (NO sqlite directo)
-    │   │   └── sqlite.ts    # ❌ ELIMINAR - no usar en renderer
+    │   ├── db/client.ts     # ✅ IPC wrapper (NO sqlite directo)
     │   └── utils/           # ✅ Utilidades puras
     └── types/               # ✅ TypeScript types
 ```
@@ -166,13 +172,13 @@ Antes de crear código, verificar:
 Para verificar que todo está correcto:
 
 ```bash
-# Si esto está en el renderer, es un ERROR:
-grep -r "require('bun:sqlite')" app/
-grep -r "require('node:fs')" app/
-grep -r "from 'bun:sqlite'" app/
-grep -r "from 'node:fs'" app/
+# Si esto está en el renderer, es un ERROR (debe devolver 0 líneas):
+grep -rE "from ['\"]better-sqlite3['\"]" app/
+grep -rE "from ['\"]fs['\"]|from ['\"]node:fs['\"]" app/
+grep -rE "from ['\"]electron['\"]|from ['\"]child_process['\"]" app/
 
-# Debe retornar 0 resultados en app/
+# bun:sqlite no debería aparecer en NINGUNA parte del repo (Electron corre sobre Node, no Bun):
+grep -rE "bun:sqlite" .
 ```
 
 ### 7. Mensajes de Error Comunes
@@ -180,9 +186,10 @@ grep -r "from 'node:fs'" app/
 | Error | Causa | Solución |
 |-------|-------|----------|
 | `existsSync is not a function` | Usando `fs` en renderer | Mover a main process |
-| `prepare is not a function` | Usando `bun:sqlite` en renderer | Mover a main process |
+| `prepare is not a function` | Usando `better-sqlite3` en renderer | Mover a main process, llamar vía IPC |
 | `require is not defined` | Usando `require()` en renderer | Usar `import` o IPC |
-| `Database is not a constructor` | Importando bun:sqlite en renderer | Usar IPC client |
+| `Database is not a constructor` | Importando `better-sqlite3` en renderer | Usar IPC client |
+| `Cannot find module 'bun:sqlite'` | Alguien importó `bun:sqlite` | Reemplazar por `better-sqlite3` (Electron corre sobre Node, no Bun) |
 
 ## Flujo de Desarrollo
 
