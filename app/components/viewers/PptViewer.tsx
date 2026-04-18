@@ -277,10 +277,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
               height: SLIDE_H,
               transform: `scale(${scale})`,
               transformOrigin: 'top left',
-              /* Theme text-color fix: slides with no explicit color use lt1 (white)
-                 rather than Dome's dark body color. pptx-preview's inline styles
-                 (higher specificity) still override this for explicitly colored text. */
-              ['--ppt-text-default' as any]: '#ffffff',
+              ['--ppt-text-default' as string]: '#ffffff',
             }}
           />
         </div>
