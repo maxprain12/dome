@@ -31,7 +31,7 @@ Electron usa un modelo multi-proceso similar a Chrome:
            │                  │                  │
     ┌──────▼──────┐    ┌──────▼──────┐   ┌──────▼──────┐
     │  Renderer 1 │    │  Renderer 2 │   │  Renderer N │
-    │  (Next.js)  │    │  (Settings) │   │   (Modal)   │
+    │(Vite+React) │    │  (Settings) │   │   (Modal)   │
     │             │    │             │   │             │
     └─────────────┘    └─────────────┘   └─────────────┘
          ▲                   ▲                  ▲
@@ -676,8 +676,8 @@ function createWindow() {
   const mainWindow = new BrowserWindow({ /* ... */ });
 
   if (isDev) {
-    // Desarrollo: Next.js dev server
-    mainWindow.loadURL('http://localhost:3000');
+    // Desarrollo: Vite dev server
+    mainWindow.loadURL('http://localhost:5173');
 
     // DevTools
     mainWindow.webContents.openDevTools();
@@ -689,7 +689,8 @@ function createWindow() {
     });
   } else {
     // Producción: archivos estáticos
-    mainWindow.loadFile(path.join(__dirname, '../out/index.html'));
+    // Producción: Vite build output (dist/) servido vía protocolo app://dome/
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
 
     // No DevTools
     mainWindow.webContents.on('devtools-opened', () => {

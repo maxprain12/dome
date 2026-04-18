@@ -5,14 +5,14 @@
 **Dome** es una aplicación de escritorio para gestión de conocimiento e investigación académica.
 
 ### Stack Principal
-- **Runtime**: Bun (NO Node.js)
-- **Frontend**: Next.js 14 + React 18
+- **Runtime / Gestor de paquetes**: Node.js + **npm** (CI corre `npm ci`; NO usar Bun)
+- **Frontend**: **Vite 7 + React 18 + React Router 7** (SPA cliente, entrada `app/main.tsx` — NO Next.js)
 - **Desktop**: Electron 32
-- **Base de Datos**: SQLite (bun:sqlite) + LanceDB (vectorial)
-- **Estilos**: Tailwind CSS + CSS Variables
+- **Base de Datos**: SQLite vía **`better-sqlite3`** (NO `bun:sqlite`) + LanceDB (vectorial)
+- **Estilos**: Tailwind CSS + CSS Variables + Mantine UI
 - **Editor**: Tiptap
-- **Estado**: Zustand
-- **Lenguaje**: TypeScript (strict mode)
+- **Estado**: Zustand + Jotai
+- **Lenguaje**: TypeScript (strict + `verbatimModuleSyntax: true`)
 
 ## Reglas de Código
 
@@ -88,14 +88,22 @@ import { formatDate } from '@/lib/utils';
 import { formatDate } from '../../../lib/utils';
 ```
 
-### Base de Datos (SQLite)
+### Base de Datos (SQLite, `better-sqlite3`, sólo en main process)
 ```typescript
-// ✅ BIEN - Prepared statement
-const query = db.prepare('SELECT * FROM resources WHERE id = ?');
-const resource = query.get(resourceId);
+// ✅ BIEN - Main process (electron/*.cjs): prepared statement con better-sqlite3
+const Database = require('better-sqlite3');
+const db = new Database(dbPath);
+const getResource = db.prepare('SELECT * FROM resources WHERE id = ?');
+const resource = getResource.get(resourceId);
 
-// ❌ MAL - String concatenation (SQL injection risk)
-const query = db.exec(`SELECT * FROM resources WHERE id = '${resourceId}'`);
+// ✅ BIEN - Renderer (app/): nunca SQLite directo, siempre IPC
+const resource = await window.electron.invoke('db:resources:getById', resourceId);
+
+// ❌ MAL - String concatenation (SQL injection)
+db.exec(`SELECT * FROM resources WHERE id = '${resourceId}'`);
+
+// ❌ MAL - bun:sqlite no existe en Electron (corre sobre Node, no Bun)
+import { Database } from 'bun:sqlite';
 ```
 
 ### Error Handling
@@ -258,26 +266,30 @@ async function semanticSearch(query: string) {
 
 ```bash
 # Desarrollo
-bun run dev              # Solo Next.js
-bun run electron:dev     # App completa
+npm run dev              # Solo Vite (http://localhost:5173)
+npm run electron:dev     # App completa (Vite + Electron con hot reload)
+
+# Build
+npm run build            # Vite → dist/
+npm run electron:build   # Empaquetar app para distribución
 
 # Testing
-bun run test:db          # Probar bases de datos
+npm run test:db          # Probar bases de datos
 
 # Limpieza
-bun run clean            # Limpiar datos locales
+npm run clean            # Limpiar build artifacts y user data
 ```
 
 ## Recordatorios
 
 1. **Siempre** usar CSS Variables para colores
 2. **Nunca** hardcodear rutas de archivos
-3. **Validar** todos los inputs del usuario
-4. **Preparar** queries SQL (prevenir injection)
-5. **Tipear** todo con TypeScript
-6. **Loguear** errores con console.error
+3. **Validar** todos los inputs del usuario en handlers IPC del main process
+4. **Preparar** queries SQL con `db.prepare()` (prevenir injection)
+5. **Tipear** todo con TypeScript; imports de tipo con `import type { }`
+6. **Loguear** errores con `console.error`
 7. **2 espacios** de indentación
-8. **Bun** como runtime (NO npm/node)
+8. **npm** como gestor de paquetes (NO Bun — Electron corre sobre Node.js)
 
 ## Prioridades de Desarrollo
 
