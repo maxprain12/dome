@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Mic, Radio } from 'lucide-react';
+import { Mic } from 'lucide-react';
 import DomeTabBar from './DomeTabBar';
 import ContentRouter from './ContentRouter';
 import ManyPanel from '@/components/many/ManyPanel';
@@ -14,6 +14,7 @@ import ResizeHandle from '@/components/workspace/ResizeHandle';
 import WindowControls from '@/components/ui/WindowControls';
 import DomeButton from '@/components/ui/DomeButton';
 import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
+import { useFeatureFlagEnabled } from '@/lib/analytics/useFeatureFlag';
 const MANY_WIDTH_KEY = 'dome:many-panel-width-v1';
 const MANY_MIN = 280;
 const MANY_MAX = 600;
@@ -39,11 +40,11 @@ export default function AppShell() {
 
   // ── Voice overlay active indicators ──────────────────
   const [dictationActive, setDictationActive] = useState(false);
-  const [manyVoiceActive, setManyVoiceActive] = useState(false);
   const manyWidthRef = useRef(manyWidth);
   manyWidthRef.current = manyWidth;
 
-  const { openChatTab, activeTabId, tabs } = useTabStore();
+  const { openChatTab, activeTabId, tabs, openTranscriptionsTab } = useTabStore();
+  const callsV2 = useFeatureFlagEnabled('dome-calls-v2');
   const { leftSidebarCollapsed, toggleLeftSidebar } = useResizeStore();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -71,14 +72,6 @@ export default function AppShell() {
   const handleToggleDictationDock = useCallback(async () => {
     try {
       await window.electron?.transcriptionOverlay?.toggleFromUi?.();
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const handleToggleManyVoiceOverlay = useCallback(async () => {
-    try {
-      await window.electron?.manyVoice?.toggleOverlayFromUi?.();
     } catch {
       /* ignore */
     }
@@ -154,22 +147,22 @@ export default function AppShell() {
     };
   }, []);
 
-  // Voice activity indicators — driven by DOM events from VoiceRecordingDock and ManyVoiceHud
+  // Hub activity indicator — broadcast from transcription overlay via main process
   useEffect(() => {
-    const dictOn = () => setDictationActive(true);
-    const dictOff = () => setDictationActive(false);
-    const voiceOn = () => setManyVoiceActive(true);
-    const voiceOff = () => setManyVoiceActive(false);
-    window.addEventListener('dome:dictation-started', dictOn);
-    window.addEventListener('dome:dictation-stopped', dictOff);
-    window.addEventListener('dome:many-voice-started', voiceOn);
-    window.addEventListener('dome:many-voice-stopped', voiceOff);
-    return () => {
-      window.removeEventListener('dome:dictation-started', dictOn);
-      window.removeEventListener('dome:dictation-stopped', dictOff);
-      window.removeEventListener('dome:many-voice-started', voiceOn);
-      window.removeEventListener('dome:many-voice-stopped', voiceOff);
-    };
+    if (typeof window === 'undefined' || !window.electron?.on) return undefined;
+    const unsub = window.electron.on(
+      'transcription:state',
+      (payload: unknown) => {
+        if (payload == null || typeof payload !== 'object' || Array.isArray(payload)) {
+          setDictationActive(false);
+          return;
+        }
+        const ph = (payload as { phase?: string }).phase;
+        const busy = ph === 'recording' || ph === 'paused' || ph === 'processing';
+        setDictationActive(Boolean(busy));
+      },
+    );
+    return () => unsub?.();
   }, []);
 
   const showChatHistory = Boolean(isChatTab && !manyRightOverride);
@@ -254,8 +247,7 @@ export default function AppShell() {
             } as React.CSSProperties}
           />
 
-          {/* Voice: dictation dock + Many overlay (no global shortcut required) */}
-          {/* Voice buttons with active-state indicators */}
+          {/* Voice: transcription hub overlay (STT → notes) */}
           <div
             className="flex shrink-0 items-stretch gap-0.5 pr-1"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
@@ -266,50 +258,28 @@ export default function AppShell() {
               size="sm"
               iconOnly
               onClick={handleToggleDictationDock}
+              onContextMenu={(e) => {
+                if (!callsV2) return;
+                e.preventDefault();
+                openTranscriptionsTab();
+              }}
               className="relative !rounded-md w-[34px] h-full min-h-0 shrink-0 px-0 transition-colors"
+              title={
+                callsV2
+                  ? `${t('shell.dictation_dock')} · ${t('shell.open_transcriptions')}`
+                  : t('shell.dictation_dock')
+              }
               style={{
                 background: dictationActive
                   ? 'color-mix(in srgb, var(--dome-accent) 12%, transparent)'
                   : undefined,
                 color: dictationActive ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
               }}
-              title={t('shell.dictation_dock')}
               aria-pressed={dictationActive}
               aria-label={t('shell.dictation_dock')}
             >
               <Mic className="h-[15px] w-[15px]" aria-hidden />
               {dictationActive && (
-                <span
-                  className="absolute top-[6px] right-[6px] rounded-full"
-                  style={{
-                    width: 5, height: 5,
-                    background: 'var(--dome-accent)',
-                    animation: 'pulse-dot 1.4s ease-in-out infinite',
-                  }}
-                  aria-hidden
-                />
-              )}
-            </DomeButton>
-
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              iconOnly
-              onClick={() => void handleToggleManyVoiceOverlay()}
-              className="relative !rounded-md w-[34px] h-full min-h-0 shrink-0 px-0 transition-colors"
-              style={{
-                background: manyVoiceActive
-                  ? 'color-mix(in srgb, var(--dome-accent) 12%, transparent)'
-                  : undefined,
-                color: manyVoiceActive ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-              }}
-              title={t('shell.many_voice_overlay')}
-              aria-pressed={manyVoiceActive}
-              aria-label={t('shell.many_voice_overlay')}
-            >
-              <Radio className="h-[15px] w-[15px]" aria-hidden />
-              {manyVoiceActive && (
                 <span
                   className="absolute top-[6px] right-[6px] rounded-full"
                   style={{

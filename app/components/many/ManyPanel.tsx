@@ -1047,8 +1047,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     return () => registerManyMessageSender(null);
   }, [handleSend]);
 
-  // Voice IPC bridge effects (relay, TTS state, open-panel, dismiss error) live in
-  // ManyVoiceBridge — mounted unconditionally in AppShell so they work even when
+  // TTS → store sync lives in ManyVoiceBridge (AppShell) so status updates work when
   // this panel is hidden or replaced by ChatHistoryPanel.
 
   const handleAbort = useCallback(() => {

@@ -432,58 +432,33 @@ function createTray(mainWindow) {
   }
   appTray.setToolTip('Dome');
 
-  const buildContextMenu = () => Menu.buildFromTemplate([
-    {
-      label: 'Abrir Dome',
-      click: () => {
-        const win = windowManager.get('main');
-        if (win && !win.isDestroyed()) {
-          win.show();
-          win.focus();
-        } else {
-          createWindow();
-        }
-      },
-    },
-    { type: 'separator' },
-    {
-      label: 'Grabar / dictado',
-      click: () => {
-        try {
-          const transcriptionOverlay = require('./transcription-overlay.cjs');
-          transcriptionOverlay.showAndFocus(windowManager);
-          const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
-          if (ov && !ov.isDestroyed()) {
-            ov.webContents.send('transcription:toggle-recording');
-            return;
-          }
-        } catch (e) {
-          console.warn('[Tray] transcription overlay:', e?.message);
-        }
-        const win = windowManager.get('main');
-        if (win && !win.isDestroyed()) {
-          win.webContents.send('transcription:toggle-recording');
-          win.show();
-          win.focus();
-        }
-      },
-    },
-    { type: 'separator' },
-    {
-      label: 'Automatizaciones activas',
-      enabled: false,
-    },
-    { type: 'separator' },
-    {
-      label: 'Salir de Dome',
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      },
-    },
-  ]);
+  const transcriptionTrayMenu = require('./transcription-tray-menu.cjs');
+  const hubTrayState = require('./hub-tray-state.cjs');
 
-  appTray.setContextMenu(buildContextMenu());
+  const openMainWindow = () => {
+    const win = windowManager.get('main');
+    if (win && !win.isDestroyed()) {
+      win.show();
+      win.focus();
+    } else {
+      createWindow();
+    }
+  };
+
+  const quitApp = () => {
+    isQuitting = true;
+    app.quit();
+  };
+
+  const refreshTrayChrome = () => {
+    transcriptionTrayMenu.applyTrayMenuAndTooltip(appTray, windowManager, {
+      openMainWindow,
+      quitApp,
+    });
+  };
+
+  hubTrayState.setRefreshCallback(refreshTrayChrome);
+  refreshTrayChrome();
 
   // Single click on tray icon shows/hides the main window
   appTray.on('click', () => {
@@ -682,7 +657,15 @@ app
       'app://dome/',
       'app://dome',
     ];
-    const _ALLOWED_PERMISSIONS = new Set(['media', 'microphone', 'camera', 'display-capture']);
+    // speaker-selection: Chromium checks this for audio output / loopback paths with getUserMedia & display capture.
+    // Denying it logged "Check denied speaker-selection" and could trigger internal null-iteration errors.
+    const _ALLOWED_PERMISSIONS = new Set([
+      'media',
+      'microphone',
+      'camera',
+      'display-capture',
+      'speaker-selection',
+    ]);
 
     function _isTrustedOrigin(origin) {
       if (!origin) return false;
@@ -781,8 +764,6 @@ app
 
     try {
       transcriptionShortcut.registerFromDatabase(database, windowManager);
-      const manyVoiceShortcut = require('./many-voice-shortcut.cjs');
-      await manyVoiceShortcut.registerFromDatabase(database, windowManager);
     } catch (shortcutErr) {
       console.warn('[Main] Transcription shortcut init:', shortcutErr?.message);
     }
@@ -797,6 +778,11 @@ app
     // source ID here so we can bypass Chromium's own picker and use the right source.
     session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
       try {
+        // Only start system audio (loopback) when the renderer asked for audio. The hub uses
+        // getDisplayMedia({ audio: false }) for live video preview; always forcing loopback here
+        // caused a second Core Audio tap alongside real capture and could crash or kill the app on macOS.
+        const audioRequested = request?.audioRequested === true;
+
         // Consume the pending source ID set by the renderer just before calling getDisplayMedia()
         const sourceId = pendingDisplayMediaSources.consume();
 
@@ -816,21 +802,21 @@ app
           return;
         }
 
-        // 'loopback' captures system audio on macOS 13+ and Windows.
-        // On Linux this is ignored; audio capture depends on PipeWire availability.
-        callback({ video: videoSource, audio: 'loopback' });
+        // 'loopback' captures system audio on macOS 13+ and Windows when audioRequested is true.
+        if (audioRequested) {
+          callback({ video: videoSource, audio: 'loopback' });
+        } else {
+          callback({ video: videoSource });
+        }
       } catch (err) {
         console.error('[DisplayMedia] setDisplayMediaRequestHandler error:', err?.message);
-        callback({});
+        try {
+          callback({});
+        } catch (cbErr) {
+          console.error('[DisplayMedia] callback error:', cbErr?.message);
+        }
       }
     });
-
-    try {
-      const manyVoiceOverlay = require('./many-voice-overlay.cjs');
-      manyVoiceOverlay.ensureCreated(windowManager);
-    } catch (ovErr) {
-      console.warn('[Main] Many voice overlay init:', ovErr?.message);
-    }
 
     try {
       const transcriptionOverlay = require('./transcription-overlay.cjs');
@@ -880,6 +866,11 @@ app
     updateService.setBeforeQuitCallback(() => {
       isQuitting = true;
       if (appTray) {
+        try {
+          require('./hub-tray-state.cjs').setRefreshCallback(null);
+        } catch {
+          /* */
+        }
         appTray.destroy();
         appTray = null;
       }
@@ -938,16 +929,15 @@ app.on('before-quit', async () => {
   isQuitting = true;
   console.log('👋 Cerrando Dome...');
   if (appTray) {
+    try {
+      require('./hub-tray-state.cjs').setRefreshCallback(null);
+    } catch {
+      /* */
+    }
     appTray.destroy();
     appTray = null;
   }
   transcriptionShortcut.unregisterAll();
-  try {
-    const manyVoiceShortcut = require('./many-voice-shortcut.cjs');
-    manyVoiceShortcut.unregisterAll();
-  } catch (e) {
-    console.warn('[Main] many-voice shortcut cleanup:', e?.message);
-  }
   calendarNotificationService.stop();
   calendarSyncScheduler.stop();
   automationService.stop();

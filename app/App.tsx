@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { StrictMode, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import ThemeProvider from '@/components/ui/ThemeProvider';
@@ -12,7 +12,6 @@ import AppShell from '@/components/shell/AppShell';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
 import PptCapturePage from './pages/PptCapturePage';
-import ManyVoiceOverlayPage from './pages/ManyVoiceOverlayPage';
 import TranscriptionOverlayPage from './pages/TranscriptionOverlayPage';
 
 function MainApp() {
@@ -66,7 +65,7 @@ function MainApp() {
     return () => unsub?.();
   }, [t]);
 
-  // Realtime / main-process: open built-in singleton tabs
+  // Main process: open built-in singleton tabs
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
     const unsub = window.electron.on('dome:open-singleton-tab', (data: { tab?: string }) => {
@@ -158,14 +157,6 @@ export default function App() {
     return <PptCapturePage />;
   }
 
-  if (pathname === '/many-voice-overlay') {
-    return (
-      <ThemeProvider>
-        <ManyVoiceOverlayPage />
-      </ThemeProvider>
-    );
-  }
-
   if (pathname === '/transcription-overlay') {
     return (
       <ThemeProvider>
@@ -174,11 +165,15 @@ export default function App() {
     );
   }
 
+  // StrictMode only for the main shell — overlay / capture windows must not double-remount in dev
+  // (resets voice HUD state and closes the floating window right after toggle).
   return (
     <ThemeProvider>
-      <AnalyticsProvider>
-        <MainApp />
-      </AnalyticsProvider>
+      <StrictMode>
+        <AnalyticsProvider>
+          <MainApp />
+        </AnalyticsProvider>
+      </StrictMode>
     </ThemeProvider>
   );
 }

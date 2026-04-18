@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 /**
- * Shared OpenAI API key resolution for TTS, Realtime, and Transcription.
+ * Shared OpenAI API key resolution for TTS and Transcription.
  *
  * Priority order:
  *   1. transcription_openai_api_key  — dedicated TTS/STT key (set in Transcription settings)

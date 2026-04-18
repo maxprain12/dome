@@ -35,9 +35,10 @@ function inferCallPlatformFromStrings(title, filename) {
 function buildTranscriptionSession(resource) {
   const meta = parseMetadata(resource.metadata);
   let captureKind = 'file';
-  if (meta.from_microphone || meta.source === 'microphone_recording') captureKind = 'microphone';
-  if (meta.capture_kind === 'system') captureKind = 'system';
-  if (meta.capture_kind === 'call') captureKind = 'call';
+  if (meta.capture_kind === 'mic_and_system') captureKind = 'mic_and_system';
+  else if (meta.capture_kind === 'system') captureKind = 'system';
+  else if (meta.capture_kind === 'call') captureKind = 'call';
+  else if (meta.from_microphone || meta.source === 'microphone_recording') captureKind = 'microphone';
 
   let callPlatform = meta.call_platform || 'unknown';
   if (callPlatform === 'unknown') {

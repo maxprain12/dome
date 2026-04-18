@@ -17,8 +17,6 @@ const GROQ_ORIGIN = 'https://api.groq.com';
 const MODEL_GROQ_TURBO = 'whisper-large-v3-turbo';
 const MODEL_GROQ_LARGE = 'whisper-large-v3';
 
-const REALTIME_VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse'] as const;
-
 type SttProvider = 'openai' | 'groq' | 'custom';
 
 interface PermissionRowProps {
@@ -81,13 +79,7 @@ export default function TranscriptionSettingsPanel() {
   const [dedicatedKey, setDedicatedKey] = useState('');
   const [groqKey, setGroqKey] = useState('');
   const [globalShortcut, setGlobalShortcut] = useState('');
-  const [manyVoiceShortcut, setManyVoiceShortcut] = useState('');
   const [transcriptionShortcutEnabled, setTranscriptionShortcutEnabled] = useState(false);
-  const [manyVoiceShortcutEnabled, setManyVoiceShortcutEnabled] = useState(false);
-  const [manyVoiceRealtimeEnabled, setManyVoiceRealtimeEnabled] = useState(true);
-  const [realtimeVoice, setRealtimeVoice] = useState('shimmer');
-  const [realtimeModel, setRealtimeModel] = useState('gpt-4o-realtime-preview-2024-12-17');
-  const [realtimeInstructionsSuffix, setRealtimeInstructionsSuffix] = useState('');
   const [pauseThresholdSec, setPauseThresholdSec] = useState('1.35');
   const [hasDedicatedKey, setHasDedicatedKey] = useState(false);
   const [hasGroqKey, setHasGroqKey] = useState(false);
@@ -96,6 +88,11 @@ export default function TranscriptionSettingsPanel() {
   const [micPerm, setMicPerm] = useState<PermStatus>('unknown');
   const [screenPerm, setScreenPerm] = useState<PermStatus>('unknown');
   const [permLoading, setPermLoading] = useState(false);
+  const [callSummaryModel, setCallSummaryModel] = useState('gpt-4o-mini');
+  const [callAutoSummary, setCallAutoSummary] = useState(true);
+  const [callChunkSec, setCallChunkSec] = useState('30');
+  const [hubDefaultMode, setHubDefaultMode] = useState<'remember' | 'dictation' | 'call' | 'streaming'>('remember');
+  const [callShowLiveTranscriptDefault, setCallShowLiveTranscriptDefault] = useState(true);
   const isMac = window.electron?.isMac ?? false;
 
   const loadPermissions = useCallback(async () => {
@@ -122,17 +119,27 @@ export default function TranscriptionSettingsPanel() {
       setApiBaseUrl(res.data.apiBaseUrl || '');
       setPrompt(res.data.prompt || '');
       setGlobalShortcut(res.data.globalShortcut || '');
-      setManyVoiceShortcut(res.data.manyVoiceGlobalShortcut || '');
       setTranscriptionShortcutEnabled(!!res.data.transcriptionGlobalShortcutEnabled);
-      setManyVoiceShortcutEnabled(!!res.data.manyVoiceGlobalShortcutEnabled);
-      setManyVoiceRealtimeEnabled(res.data.manyVoiceRealtimeEnabled !== false);
-      setRealtimeVoice(res.data.realtimeVoice || 'shimmer');
-      setRealtimeModel(res.data.realtimeModel || 'gpt-4o-realtime-preview-2024-12-17');
-      setRealtimeInstructionsSuffix(res.data.realtimeInstructionsSuffix || '');
       setHasDedicatedKey(!!res.data.hasDedicatedOpenAIKey);
       setHasGroqKey(!!res.data.hasGroqApiKey);
       if (res.data.pauseThresholdSec != null) {
         setPauseThresholdSec(String(res.data.pauseThresholdSec));
+      }
+      const d = res.data as typeof res.data & {
+        callSummaryModel?: string;
+        callAutoSummary?: boolean;
+        callChunkSec?: number;
+        hubDefaultMode?: 'remember' | 'dictation' | 'call' | 'streaming';
+        callShowLiveTranscriptDefault?: boolean;
+      };
+      if (d.callSummaryModel) setCallSummaryModel(d.callSummaryModel);
+      if (typeof d.callAutoSummary === 'boolean') setCallAutoSummary(d.callAutoSummary);
+      if (d.callChunkSec != null) setCallChunkSec(String(d.callChunkSec));
+      if (d.hubDefaultMode === 'remember' || d.hubDefaultMode === 'dictation' || d.hubDefaultMode === 'call' || d.hubDefaultMode === 'streaming') {
+        setHubDefaultMode(d.hubDefaultMode);
+      }
+      if (typeof d.callShowLiveTranscriptDefault === 'boolean') {
+        setCallShowLiveTranscriptDefault(d.callShowLiveTranscriptDefault);
       }
     }
   }, []);
@@ -152,13 +159,12 @@ export default function TranscriptionSettingsPanel() {
     pauseThresholdSec?: number | null;
     dedicatedOpenaiKey?: string;
     groqApiKey?: string;
-    manyVoiceGlobalShortcut?: string;
     transcriptionGlobalShortcutEnabled?: boolean;
-    manyVoiceGlobalShortcutEnabled?: boolean;
-    manyVoiceRealtimeEnabled?: boolean;
-    realtimeVoice?: string;
-    realtimeModel?: string;
-    realtimeInstructionsSuffix?: string;
+    callSummaryModel?: string;
+    callAutoSummary?: boolean;
+    callChunkSec?: number;
+    hubDefaultMode?: 'remember' | 'dictation' | 'call' | 'streaming';
+    callShowLiveTranscriptDefault?: boolean;
   }) => {
     if (!window.electron?.transcription?.setSettings) return;
     setSaved(false);
@@ -176,18 +182,17 @@ export default function TranscriptionSettingsPanel() {
       model,
       language: language.trim() || null,
       globalShortcut: globalShortcut.trim(),
-      manyVoiceGlobalShortcut: manyVoiceShortcut.trim(),
       transcriptionGlobalShortcutEnabled: transcriptionShortcutEnabled,
-      manyVoiceGlobalShortcutEnabled: manyVoiceShortcutEnabled,
-      manyVoiceRealtimeEnabled,
-      realtimeVoice: realtimeVoice.trim(),
-      realtimeModel: realtimeModel.trim(),
-      realtimeInstructionsSuffix: realtimeInstructionsSuffix.trim(),
       apiBaseUrl: apiBaseUrl.trim(),
       prompt: prompt.trim(),
       pauseThresholdSec: pauseThresholdSec.trim() ? parseFloat(pauseThresholdSec) : null,
       ...(dedicatedKey.trim() ? { dedicatedOpenaiKey: dedicatedKey.trim() } : {}),
       ...(groqKey.trim() ? { groqApiKey: groqKey.trim() } : {}),
+      callSummaryModel: callSummaryModel.trim() || 'gpt-4o-mini',
+      callAutoSummary,
+      callChunkSec: callChunkSec.trim() ? parseInt(callChunkSec, 10) : 30,
+      hubDefaultMode,
+      callShowLiveTranscriptDefault,
     });
   };
 
@@ -373,90 +378,10 @@ export default function TranscriptionSettingsPanel() {
             disabled={!transcriptionShortcutEnabled}
             placeholder="CommandOrControl+Shift+D"
           />
-          {typeof window !== 'undefined' && window.electron?.isMac ? (
-            <>
-              <DomeCheckbox
-                className="mb-2"
-                label={t('settings.transcription.shortcut_enable_many')}
-                checked={manyVoiceShortcutEnabled}
-                onChange={(e) => setManyVoiceShortcutEnabled(e.target.checked)}
-              />
-              <p className="text-[10px] mb-2 text-[var(--dome-text-muted,var(--tertiary-text))]">
-                {t('manyVoice.many_shortcut_hint')}
-              </p>
-              <DomeInput
-                value={manyVoiceShortcut}
-                onChange={(e) => setManyVoiceShortcut(e.target.value)}
-                disabled={!manyVoiceShortcutEnabled}
-                placeholder="Option+Shift+M"
-              />
-            </>
-          ) : (
-            <>
-              <DomeCheckbox
-                className="mb-2"
-                label={t('settings.transcription.shortcut_enable_many')}
-                checked={manyVoiceShortcutEnabled}
-                onChange={(e) => setManyVoiceShortcutEnabled(e.target.checked)}
-              />
-              <DomeInput
-                value={manyVoiceShortcut}
-                onChange={(e) => setManyVoiceShortcut(e.target.value)}
-                disabled={!manyVoiceShortcutEnabled}
-                placeholder="Alt+Shift+M"
-              />
-            </>
-          )}
         </DomeCard>
       </div>
 
-      {/* 3 — Many voz en tiempo real */}
-      <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.transcription.section_realtime_voice')}</DomeSectionLabel>
-        <DomeCard>
-          <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.realtime_voice_help')}
-          </p>
-          <DomeCheckbox
-            className="mb-3"
-            label={t('settings.transcription.realtime_enable')}
-            checked={manyVoiceRealtimeEnabled}
-            onChange={(e) => setManyVoiceRealtimeEnabled(e.target.checked)}
-          />
-          <DomeSelect
-            className="max-w-md mb-3"
-            label={t('settings.transcription.realtime_voice_label')}
-            value={realtimeVoice}
-            onChange={(e) => setRealtimeVoice(e.target.value)}
-          >
-            {REALTIME_VOICES.map((v) => (
-              <option key={v} value={v}>
-                {v}
-              </option>
-            ))}
-          </DomeSelect>
-          <DomeInput
-            className="mb-3"
-            label={t('settings.transcription.realtime_model_label')}
-            value={realtimeModel}
-            onChange={(e) => setRealtimeModel(e.target.value)}
-            inputClassName="font-mono text-[11px]"
-            placeholder="gpt-4o-realtime-preview-2024-12-17"
-            autoComplete="off"
-          />
-          <DomeTextarea
-            label={t('settings.transcription.realtime_suffix_label')}
-            hint={t('settings.transcription.realtime_suffix_help')}
-            value={realtimeInstructionsSuffix}
-            onChange={(e) => setRealtimeInstructionsSuffix(e.target.value)}
-            rows={2}
-            textareaClassName="min-h-[52px]"
-            placeholder={t('settings.transcription.realtime_suffix_placeholder')}
-          />
-        </DomeCard>
-      </div>
-
-      {/* 4 — Reuniones y formato de nota */}
+      {/* 3 — Reuniones y formato de nota */}
       <div>
         <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.transcription.section_meetings_output')}</DomeSectionLabel>
         <DomeCard>
@@ -486,7 +411,67 @@ export default function TranscriptionSettingsPanel() {
         </DomeCard>
       </div>
 
-      {/* 5 — Avanzado */}
+      {/* 3b — Resúmenes de reunión (IA) */}
+      <div>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+          {t('settings.transcription.section_calls_ai')}
+        </DomeSectionLabel>
+        <DomeCard>
+          <DomeInput
+            label={t('settings.transcription.call_summary_model')}
+            value={callSummaryModel}
+            onChange={(e) => setCallSummaryModel(e.target.value)}
+            placeholder={t('settings.transcription.call_summary_model_placeholder')}
+            className="mb-3"
+          />
+          <DomeCheckbox
+            className="mb-3"
+            label={t('settings.transcription.call_auto_summary')}
+            checked={callAutoSummary}
+            onChange={(e) => setCallAutoSummary(e.target.checked)}
+          />
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
+            {t('settings.transcription.call_chunk_length')}
+          </label>
+          <p className="text-[10px] mb-2" style={{ color: 'var(--dome-text-muted)' }}>
+            {t('settings.transcription.call_chunk_help')}
+          </p>
+          <DomeSelect className="max-w-[200px]" value={callChunkSec} onChange={(e) => setCallChunkSec(e.target.value)}>
+            <option value="30">30</option>
+            <option value="45">45</option>
+            <option value="60">60</option>
+          </DomeSelect>
+        </DomeCard>
+      </div>
+
+      {/* 3c — Hub flotante */}
+      <div>
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+          {t('settings.transcription.section_hub')}
+        </DomeSectionLabel>
+        <DomeCard>
+          <DomeSelect
+            className="max-w-md mb-3"
+            label={t('settings.transcription.hub_default_mode')}
+            value={hubDefaultMode}
+            onChange={(e) =>
+              setHubDefaultMode(e.target.value as 'remember' | 'dictation' | 'call' | 'streaming')
+            }
+          >
+            <option value="remember">{t('settings.transcription.hub_default_remember')}</option>
+            <option value="dictation">{t('settings.transcription.hub_default_dictation')}</option>
+            <option value="call">{t('settings.transcription.hub_default_call')}</option>
+            <option value="streaming">{t('settings.transcription.hub_default_streaming')}</option>
+          </DomeSelect>
+          <DomeCheckbox
+            label={t('settings.transcription.call_live_transcript_default')}
+            checked={callShowLiveTranscriptDefault}
+            onChange={(e) => setCallShowLiveTranscriptDefault(e.target.checked)}
+          />
+        </DomeCard>
+      </div>
+
+      {/* 4 — Avanzado */}
       <div>
         <DomeButton
           type="button"

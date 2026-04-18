@@ -1,15 +1,15 @@
 /* eslint-disable no-console */
 /**
  * Transcripción / dictado: ventana flotante independiente (inferior centrada, alwaysOnTop).
- * Patrón alineado con many-voice-overlay.cjs.
+ * Ventana flotante para el hub de transcripción (dictado global).
  */
 const { screen } = require('electron');
 
 const TRANSCRIPTION_OVERLAY_ID = 'transcription-overlay';
 
-/** Pill compacta — se expande dinámicamente cuando el selector de fuentes está visible. */
-const OVERLAY_WIDTH = 440;
-const OVERLAY_HEIGHT = 80;
+/** Hub ancho: lista izquierda + vista previa derecha. */
+const OVERLAY_WIDTH = 900;
+const OVERLAY_HEIGHT = 120;
 const BOTTOM_MARGIN = 24;
 
 function layoutOverlayBounds() {
@@ -43,7 +43,7 @@ function ensureCreated(windowManager) {
       minWidth: bounds.width,
       maxWidth: bounds.width,
       minHeight: 70,
-      maxHeight: 500,
+      maxHeight: 780,
       resizable: false,
       maximizable: false,
       fullscreenable: false,

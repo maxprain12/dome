@@ -36,12 +36,10 @@ function DomeMantineProvider({ children }: { children: React.ReactNode }) {
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <DomeMantineProvider>
-      <Notifications />
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </DomeMantineProvider>
-  </React.StrictMode>
+  <DomeMantineProvider>
+    <Notifications />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </DomeMantineProvider>
 );

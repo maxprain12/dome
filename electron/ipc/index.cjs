@@ -40,9 +40,8 @@ const cloudStorageHandlers = require('./cloud-storage.cjs');
 const doclingHandlers = require('./docling.cjs');
 const transcriptionHandlers = require('./transcription.cjs');
 const browserContextHandlers = require('./browser-context.cjs');
-const manyVoiceHandlers = require('./many-voice.cjs');
 const transcriptionOverlayHandlers = require('./transcription-overlay.cjs');
-const realtimeHandlers = require('./realtime.cjs');
+const callsHandlers = require('./calls.cjs');
 const kbLlmHandlers = require('./kb-llm.cjs');
 
 /**
@@ -130,9 +129,17 @@ function registerAll(deps) {
     pendingDisplayMediaSources,
   });
   browserContextHandlers.register({ ipcMain, windowManager });
-  manyVoiceHandlers.register({ ipcMain, windowManager });
   transcriptionOverlayHandlers.register({ ipcMain, windowManager });
-  realtimeHandlers.register({ ipcMain, windowManager, database });
+  callsHandlers.register({
+    ipcMain,
+    windowManager,
+    database,
+    fileStorage,
+    aiToolsHandler,
+    thumbnail,
+    initModule,
+    ollamaService,
+  });
   kbLlmHandlers.register({ ipcMain, windowManager, database, validateSender });
 
 }
