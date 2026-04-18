@@ -7,6 +7,8 @@
  * comments anchored to the diff.
  *
  * Prompts live in `prompts/review/*.md` (externalized — previously inline).
+ * Shared project context (`prompts/shared/project-context.md`) is prepended to
+ * every pass's system prompt so severity/quality rules apply to PR reviews too.
  * Diffs are split by file so large PRs are fully covered (no 40KB truncation).
  * Model replies are strict JSON (`{ findings: [...] }`); fallbacks are robust.
  *
@@ -216,6 +218,18 @@ function loadPrompt(name) {
   }
 }
 
+function loadSharedContext() {
+  const path = join(REPO_ROOT, 'prompts', 'shared', 'project-context.md');
+  try {
+    const raw = readFileSync(path, 'utf-8');
+    const version = readFrontmatterField(raw, 'version') || '0';
+    const body = stripFrontmatter(raw);
+    return { body, version, source: path };
+  } catch {
+    return { body: '', version: 'missing', source: 'none' };
+  }
+}
+
 // ── AI call with retry/timeout ────────────────────────────────────────────────
 
 async function callAI(systemPrompt, userContent, { wantJson = true } = {}) {
@@ -315,8 +329,12 @@ const PASSES = [
 ];
 
 async function main() {
+  const sharedContext = loadSharedContext();
   const prompts = Object.fromEntries(PASSES.map((p) => [p.key, loadPrompt(p.key)]));
-  const promptVersions = PASSES.map((p) => `${p.key}@${prompts[p.key].version}`).join(', ');
+  const promptVersions = [
+    `shared@${sharedContext.version}`,
+    ...PASSES.map((p) => `${p.key}@${prompts[p.key].version}`),
+  ].join(', ');
 
   const allFiles = splitDiffByFile(diff);
   const reviewedFiles = [];
@@ -346,8 +364,11 @@ async function main() {
   const taskFn = async ({ file, pass }) => {
     if (DRY_RUN) return { pass: pass.key, file: file.path, findings: [{ file: file.path, line: [...file.newLineSet][0] || 1, severity: 'warn', comment: `[dry-run fake finding from ${pass.key} pass]` }] };
     const userContent = `Review this file's diff chunk.\n\nFile: ${file.path}\n\n\`\`\`diff\n${file.diff}\n\`\`\``;
+    const systemPrompt = sharedContext.body
+      ? `${sharedContext.body}\n\n---\n\n${prompts[pass.key].body}`
+      : prompts[pass.key].body;
     try {
-      const raw = await callAI(prompts[pass.key].body, userContent);
+      const raw = await callAI(systemPrompt, userContent);
       const { findings, parseError } = parseFindings(raw);
       return { pass: pass.key, file: file.path, findings, parseError };
     } catch (err) {
