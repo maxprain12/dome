@@ -329,147 +329,279 @@ class DatabaseClient {
   }
 
   async getManyAgents(projectId = 'default'): Promise<DBResponse<ManyAgent[]>> {
-    return window.electron.invoke('db:manyAgents:list', projectId) as Promise<DBResponse<ManyAgent[]>>;
+    try {
+      return await window.electron.invoke('db:manyAgents:list', projectId) as Promise<DBResponse<ManyAgent[]>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async getManyAgent(id: string): Promise<DBResponse<ManyAgent | null>> {
-    return window.electron.invoke('db:manyAgents:get', id) as Promise<DBResponse<ManyAgent | null>>;
+    try {
+      return await window.electron.invoke('db:manyAgents:get', id) as Promise<DBResponse<ManyAgent | null>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async createManyAgent(agent: ManyAgent): Promise<DBResponse<ManyAgent>> {
-    return window.electron.invoke('db:manyAgents:create', agent) as Promise<DBResponse<ManyAgent>>;
+    try {
+      return await window.electron.invoke('db:manyAgents:create', agent) as Promise<DBResponse<ManyAgent>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async updateManyAgent(id: string, updates: Partial<ManyAgent>): Promise<DBResponse<ManyAgent>> {
-    return window.electron.invoke('db:manyAgents:update', id, updates) as Promise<DBResponse<ManyAgent>>;
+    try {
+      return await window.electron.invoke('db:manyAgents:update', id, updates) as Promise<DBResponse<ManyAgent>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async deleteManyAgent(id: string): Promise<DBResponse<void>> {
-    return window.electron.invoke('db:manyAgents:delete', id) as Promise<DBResponse<void>>;
+    try {
+      return await window.electron.invoke('db:manyAgents:delete', id) as Promise<DBResponse<void>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async listAgentFolders(projectId = 'default'): Promise<DBResponse<DomeAgentFolder[]>> {
-    return window.electron.invoke('db:agentFolders:list', projectId) as Promise<DBResponse<DomeAgentFolder[]>>;
+    try {
+      return await window.electron.invoke('db:agentFolders:list', projectId) as Promise<DBResponse<DomeAgentFolder[]>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async createAgentFolder(folder: DomeAgentFolder): Promise<DBResponse<DomeAgentFolder>> {
-    return window.electron.invoke('db:agentFolders:create', folder) as Promise<DBResponse<DomeAgentFolder>>;
+    try {
+      return await window.electron.invoke('db:agentFolders:create', folder) as Promise<DBResponse<DomeAgentFolder>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async updateAgentFolder(
     id: string,
     updates: Partial<Pick<DomeAgentFolder, 'parentId' | 'name' | 'sortOrder'>>,
   ): Promise<DBResponse<DomeAgentFolder>> {
-    return window.electron.invoke('db:agentFolders:update', id, updates) as Promise<
-      DBResponse<DomeAgentFolder>
-    >;
+    try {
+      return await window.electron.invoke('db:agentFolders:update', id, updates) as Promise<
+        DBResponse<DomeAgentFolder>
+      >;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async deleteAgentFolder(id: string): Promise<DBResponse<void>> {
-    return window.electron.invoke('db:agentFolders:delete', id) as Promise<DBResponse<void>>;
+    try {
+      return await window.electron.invoke('db:agentFolders:delete', id) as Promise<DBResponse<void>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async getWorkflows(projectId = 'default'): Promise<DBResponse<CanvasWorkflow[]>> {
-    return window.electron.invoke('db:workflows:list', projectId) as Promise<DBResponse<CanvasWorkflow[]>>;
+    try {
+      return await window.electron.invoke('db:workflows:list', projectId) as Promise<DBResponse<CanvasWorkflow[]>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async getWorkflow(id: string): Promise<DBResponse<CanvasWorkflow | null>> {
-    return window.electron.invoke('db:workflows:get', id) as Promise<DBResponse<CanvasWorkflow | null>>;
+    try {
+      return await window.electron.invoke('db:workflows:get', id) as Promise<DBResponse<CanvasWorkflow | null>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async createWorkflow(workflow: CanvasWorkflow): Promise<DBResponse<CanvasWorkflow>> {
-    return window.electron.invoke('db:workflows:create', workflow) as Promise<DBResponse<CanvasWorkflow>>;
+    try {
+      return await window.electron.invoke('db:workflows:create', workflow) as Promise<DBResponse<CanvasWorkflow>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async updateWorkflow(id: string, updates: Partial<CanvasWorkflow>): Promise<DBResponse<CanvasWorkflow>> {
-    return window.electron.invoke('db:workflows:update', id, updates) as Promise<DBResponse<CanvasWorkflow>>;
+    try {
+      return await window.electron.invoke('db:workflows:update', id, updates) as Promise<DBResponse<CanvasWorkflow>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async deleteWorkflow(id: string): Promise<DBResponse<void>> {
-    return window.electron.invoke('db:workflows:delete', id) as Promise<DBResponse<void>>;
+    try {
+      return await window.electron.invoke('db:workflows:delete', id) as Promise<DBResponse<void>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async listWorkflowFolders(projectId = 'default'): Promise<DBResponse<DomeWorkflowFolder[]>> {
-    return window.electron.invoke('db:workflowFolders:list', projectId) as Promise<DBResponse<DomeWorkflowFolder[]>>;
+    try {
+      return await window.electron.invoke('db:workflowFolders:list', projectId) as Promise<DBResponse<DomeWorkflowFolder[]>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async createWorkflowFolder(folder: DomeWorkflowFolder): Promise<DBResponse<DomeWorkflowFolder>> {
-    return window.electron.invoke('db:workflowFolders:create', folder) as Promise<
-      DBResponse<DomeWorkflowFolder>
-    >;
+    try {
+      return await window.electron.invoke('db:workflowFolders:create', folder) as Promise<
+        DBResponse<DomeWorkflowFolder>
+      >;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async updateWorkflowFolder(
     id: string,
     updates: Partial<Pick<DomeWorkflowFolder, 'parentId' | 'name' | 'sortOrder'>>,
   ): Promise<DBResponse<DomeWorkflowFolder>> {
-    return window.electron.invoke('db:workflowFolders:update', id, updates) as Promise<
-      DBResponse<DomeWorkflowFolder>
-    >;
+    try {
+      return await window.electron.invoke('db:workflowFolders:update', id, updates) as Promise<
+        DBResponse<DomeWorkflowFolder>
+      >;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async deleteWorkflowFolder(id: string): Promise<DBResponse<void>> {
-    return window.electron.invoke('db:workflowFolders:delete', id) as Promise<DBResponse<void>>;
+    try {
+      return await window.electron.invoke('db:workflowFolders:delete', id) as Promise<DBResponse<void>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async saveWorkflowExecution(execution: WorkflowExecution): Promise<DBResponse<void>> {
-    return window.electron.invoke('db:workflowExecutions:save', execution) as Promise<DBResponse<void>>;
+    try {
+      return await window.electron.invoke('db:workflowExecutions:save', execution) as Promise<DBResponse<void>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async getWorkflowExecutionsByWorkflow(workflowId: string): Promise<DBResponse<WorkflowExecution[]>> {
-    return window.electron.invoke('db:workflowExecutions:listByWorkflow', workflowId) as Promise<DBResponse<WorkflowExecution[]>>;
+    try {
+      return await window.electron.invoke('db:workflowExecutions:listByWorkflow', workflowId) as Promise<DBResponse<WorkflowExecution[]>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async getWorkflowExecution(id: string): Promise<DBResponse<WorkflowExecution | null>> {
-    return window.electron.invoke('db:workflowExecutions:get', id) as Promise<DBResponse<WorkflowExecution | null>>;
+    try {
+      return await window.electron.invoke('db:workflowExecutions:get', id) as Promise<DBResponse<WorkflowExecution | null>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async getMcpServers(): Promise<DBResponse<MCPServerConfig[]>> {
-    return window.electron.invoke('db:mcp:list') as Promise<DBResponse<MCPServerConfig[]>>;
+    try {
+      return await window.electron.invoke('db:mcp:list') as Promise<DBResponse<MCPServerConfig[]>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async replaceMcpServers(servers: MCPServerConfig[]): Promise<DBResponse<void>> {
-    return window.electron.invoke('db:mcp:replaceAll', servers) as Promise<DBResponse<void>>;
+    try {
+      return await window.electron.invoke('db:mcp:replaceAll', servers) as Promise<DBResponse<void>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async getMcpGlobalEnabled(): Promise<DBResponse<boolean>> {
-    return window.electron.invoke('db:mcp:getGlobalEnabled') as Promise<DBResponse<boolean>>;
+    try {
+      return await window.electron.invoke('db:mcp:getGlobalEnabled') as Promise<DBResponse<boolean>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async setMcpGlobalEnabled(enabled: boolean): Promise<DBResponse<void>> {
-    return window.electron.invoke('db:mcp:setGlobalEnabled', enabled) as Promise<DBResponse<void>>;
+    try {
+      return await window.electron.invoke('db:mcp:setGlobalEnabled', enabled) as Promise<DBResponse<void>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async getAISkills(): Promise<DBResponse<AISkillRecord[]>> {
-    return window.electron.invoke('db:skills:list') as Promise<DBResponse<AISkillRecord[]>>;
+    try {
+      return await window.electron.invoke('db:skills:list') as Promise<DBResponse<AISkillRecord[]>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async replaceAISkills(skills: AISkillRecord[]): Promise<DBResponse<void>> {
-    return window.electron.invoke('db:skills:replaceAll', skills) as Promise<DBResponse<void>>;
+    try {
+      return await window.electron.invoke('db:skills:replaceAll', skills) as Promise<DBResponse<void>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async getMarketplaceAgentInstalls(): Promise<DBResponse<Record<string, MarketplaceAgentInstallRecord>>> {
-    return window.electron.invoke('db:marketplace:getAgentInstalls') as Promise<DBResponse<Record<string, MarketplaceAgentInstallRecord>>>;
+    try {
+      return await window.electron.invoke('db:marketplace:getAgentInstalls') as Promise<DBResponse<Record<string, MarketplaceAgentInstallRecord>>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async replaceMarketplaceAgentInstalls(records: Record<string, MarketplaceAgentInstallRecord>): Promise<DBResponse<void>> {
-    return window.electron.invoke('db:marketplace:replaceAgentInstalls', records) as Promise<DBResponse<void>>;
+    try {
+      return await window.electron.invoke('db:marketplace:replaceAgentInstalls', records) as Promise<DBResponse<void>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async getMarketplaceWorkflowInstalls(): Promise<DBResponse<Record<string, MarketplaceWorkflowInstallRecord>>> {
-    return window.electron.invoke('db:marketplace:getWorkflowInstalls') as Promise<DBResponse<Record<string, MarketplaceWorkflowInstallRecord>>>;
+    try {
+      return await window.electron.invoke('db:marketplace:getWorkflowInstalls') as Promise<DBResponse<Record<string, MarketplaceWorkflowInstallRecord>>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async replaceMarketplaceWorkflowInstalls(records: Record<string, MarketplaceWorkflowInstallRecord>): Promise<DBResponse<void>> {
-    return window.electron.invoke('db:marketplace:replaceWorkflowInstalls', records) as Promise<DBResponse<void>>;
+    try {
+      return await window.electron.invoke('db:marketplace:replaceWorkflowInstalls', records) as Promise<DBResponse<void>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async getMarketplaceTemplateMappings(): Promise<DBResponse<Record<string, string>>> {
-    return window.electron.invoke('db:marketplace:getTemplateMappings') as Promise<DBResponse<Record<string, string>>>;
+    try {
+      return await window.electron.invoke('db:marketplace:getTemplateMappings') as Promise<DBResponse<Record<string, string>>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   async replaceMarketplaceTemplateMappings(mapping: Record<string, string>): Promise<DBResponse<void>> {
-    return window.electron.invoke('db:marketplace:replaceTemplateMappings', mapping) as Promise<DBResponse<void>>;
+    try {
+      return await window.electron.invoke('db:marketplace:replaceTemplateMappings', mapping) as Promise<DBResponse<void>>;
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   // ============================================
