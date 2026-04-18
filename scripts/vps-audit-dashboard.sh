@@ -21,9 +21,20 @@ OUTPUT_DIR="${OUTPUT_DIR:-/var/www/dome-audit}"
 OUTPUT_FILE="$OUTPUT_DIR/index.html"
 LOG_PREFIX="[dome-dashboard $(date '+%Y-%m-%d %H:%M')]"
 
-# Milestones config + history (VPS clone of repo reads from scripts/)
+# Milestones config + history. The script may live in /opt/dome-audit/
+# (copy outside the repo, used by cron) or in $REPO_DIR/scripts/ (inside the
+# repo). The milestones JSON is only tracked in-repo, so prefer that path.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MILESTONES_FILE="${MILESTONES_FILE:-$SCRIPT_DIR/audit-milestones.json}"
+REPO_DIR="${REPO_DIR:-/opt/dome-audit/dome}"
+if [ -z "${MILESTONES_FILE:-}" ]; then
+  if [ -f "$SCRIPT_DIR/audit-milestones.json" ]; then
+    MILESTONES_FILE="$SCRIPT_DIR/audit-milestones.json"
+  elif [ -f "$REPO_DIR/scripts/audit-milestones.json" ]; then
+    MILESTONES_FILE="$REPO_DIR/scripts/audit-milestones.json"
+  else
+    MILESTONES_FILE="$SCRIPT_DIR/audit-milestones.json"
+  fi
+fi
 HISTORY_FILE="${HISTORY_FILE:-$FINDINGS_DIR/history.jsonl}"
 HISTORY_MAX_LINES="${HISTORY_MAX_LINES:-5000}"
 
@@ -257,8 +268,8 @@ print(''.join(rows))
 export HISTORY_FILE MILESTONES_FILE
 
 # ── Per-focus cards HTML ───────────────────────────────────────────────────────
-FOCUS_CARDS_HTML=$(python3 -c "
-import json, os, re
+FOCUS_CARDS_HTML=$(echo "$AUDIT_PRS" | python3 -c "
+import json, os, re, sys
 
 FOCUS_TYPES = [
     ('security', '🔒', 'Security', '#ef4444', '4x/day'),
@@ -273,7 +284,9 @@ FOCUS_TYPES = [
 ]
 
 findings_dir = '/var/log/dome-audit-findings'
-audit_prs = json.loads('''${AUDIT_PRS}''')
+# AUDIT_PRS JSON is ~150KB — too large for python3 -c interpolation (ARG_MAX).
+# Read it from stdin instead.
+audit_prs = json.load(sys.stdin)
 
 # Load history for sparklines
 history_file = os.environ.get('HISTORY_FILE', '')
@@ -319,20 +332,24 @@ def sparkline_svg(points, width=100, height=22, color='#7b76d0', fill=True):
     )
 
 def get_findings_count(focus):
-    # Prefer structured JSON; fall back to legacy .findings text file
+    # Returns (open_count, verifying_count). verifying = findings seen before
+    # but missing in the latest review, awaiting confirmation from the resolver.
+    # -1 open_count means no data.
     json_path = f'{findings_dir}/{focus}.findings.json'
     try:
         with open(json_path) as f:
             d = json.load(f)
-            return sum(1 for f in d if f.get('status') == 'open')
+            o = sum(1 for x in d if x.get('status') == 'open')
+            v = sum(1 for x in d if x.get('status') == 'verifying')
+            return o, v
     except Exception:
         pass
     try:
         with open(f'{findings_dir}/{focus}.findings') as f:
             lines = [l for l in f.read().splitlines() if l.strip()]
-            return len(lines)
+            return len(lines), 0
     except Exception:
-        return -1  # no data
+        return -1, 0
 
 def get_last_pr(focus):
     matches = [p for p in audit_prs if focus in p['title'].lower()]
@@ -340,7 +357,7 @@ def get_last_pr(focus):
 
 cards = []
 for focus, icon, label, color, freq in FOCUS_TYPES:
-    count = get_findings_count(focus)
+    count, verifying = get_findings_count(focus)
     pr = get_last_pr(focus)
 
     # Sparkline from history (last 30 points)
@@ -348,15 +365,17 @@ for focus, icon, label, color, freq in FOCUS_TYPES:
     points = [rec.get('open_count', 0) for rec in hist]
     spark_html = sparkline_svg(points, width=90, height=20, color=color) if points else '<span class=\"sparkline-empty muted\">—</span>'
 
+    verifying_chip = f' <span class=\"verifying-chip\" title=\"awaiting resolver pass\">{verifying} verifying</span>' if verifying > 0 else ''
+
     if count < 0:
         status_html = '<span class=\"status-dot dot-gray\"></span> No data'
         findings_html = '<span class=\"muted\">Not run yet</span>'
     elif count == 0:
         status_html = '<span class=\"status-dot dot-green\"></span> Clean'
-        findings_html = '<span class=\"clean-label\">✓ No open findings</span>'
+        findings_html = f'<span class=\"clean-label\">✓ No open findings</span>{verifying_chip}'
     else:
         status_html = f'<span class=\"status-dot dot-red\"></span> {count} issue{\"s\" if count != 1 else \"\"}'
-        findings_html = f'<span class=\"findings-count\">{count} finding{\"s\" if count != 1 else \"\"}</span>'
+        findings_html = f'<span class=\"findings-count\">{count} finding{\"s\" if count != 1 else \"\"}</span>{verifying_chip}'
 
     pr_html = ''
     if pr:
@@ -578,6 +597,50 @@ PY
 MILESTONES_HTML=$(echo "$MILESTONES_BLOCK" | python3 -c "import sys,base64,json; d=json.loads(base64.b64decode(sys.stdin.read().strip())); print(d['milestones'])" 2>/dev/null || echo '<div class="empty-state muted">Milestones unavailable</div>')
 HEALTH_SPARKLINE_SVG=$(echo "$MILESTONES_BLOCK" | python3 -c "import sys,base64,json; d=json.loads(base64.b64decode(sys.stdin.read().strip())); print(d['global_spark'])" 2>/dev/null || echo '')
 
+# ── Pipeline reliability ──────────────────────────────────────────────────────
+# Counts of pending jobs waiting for AI review, and failed jobs aged out by
+# vps-audit-findings-cron.sh (surfacing AI review reliability at a glance).
+PIPELINE_HTML=$(python3 -c "
+import os, time
+findings_dir = '$FINDINGS_DIR'
+pending_dir = os.path.join(findings_dir, 'pending')
+failed_dir = os.path.join(findings_dir, 'failed')
+now = time.time()
+
+def age_fmt(secs):
+    if secs < 3600: return f'{int(secs/60)}m'
+    if secs < 86400: return f'{int(secs/3600)}h'
+    return f'{int(secs/86400)}d'
+
+pending = []
+if os.path.isdir(pending_dir):
+    for n in sorted(os.listdir(pending_dir)):
+        p = os.path.join(pending_dir, n)
+        if os.path.isfile(p):
+            pending.append((n.replace('.pending',''), now - os.path.getmtime(p)))
+
+# Failed count in last 7d
+failed_7d = 0
+if os.path.isdir(failed_dir):
+    for n in os.listdir(failed_dir):
+        p = os.path.join(failed_dir, n)
+        if os.path.isfile(p) and (now - os.path.getmtime(p)) < 7*86400:
+            failed_7d += 1
+
+pend_html = ''
+if pending:
+    items = ' '.join(f'<span class=\"pipeline-chip\">{name} · {age_fmt(age)}</span>' for name, age in pending)
+    pend_html = f'<div class=\"pipeline-row\"><span class=\"pipeline-label\">Pending AI review:</span> {items}</div>'
+else:
+    pend_html = '<div class=\"pipeline-row\"><span class=\"pipeline-label\">Pending AI review:</span> <span class=\"clean-label\">✓ none queued</span></div>'
+
+failed_cls = 'findings-count' if failed_7d > 0 else 'clean-label'
+failed_txt = f'{failed_7d} aged out (7d)' if failed_7d > 0 else '✓ 0 failures (7d)'
+fail_html = f'<div class=\"pipeline-row\"><span class=\"pipeline-label\">Review reliability:</span> <span class=\"{failed_cls}\">{failed_txt}</span></div>'
+
+print(pend_html + fail_html)
+" 2>/dev/null || echo '')
+
 # ── Open findings detail ───────────────────────────────────────────────────────
 OPEN_FINDINGS_HTML=$(python3 -c "
 import html
@@ -617,10 +680,17 @@ for focus in focus_order:
         continue
 
     rows = []
+    import re as _re
+    def _md_inline(s):
+        # Escape HTML first, then convert minimal markdown: **bold** and \`code\`.
+        s = html.escape(s)
+        s = _re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', s)
+        s = _re.sub(r'\`([^\`]+)\`', r'<code>\1</code>', s)
+        return s
     for item in items:
         sev = item.get('severity', 'warn')
         css = 'finding-error' if sev == 'error' else 'finding-warn'
-        body = html.escape(item.get('body', ''))
+        body = _md_inline(item.get('body', ''))
         first_pr = item.get('first_seen_pr')
         extra = ''
         if first_pr:
@@ -843,6 +913,25 @@ cat > "$OUTPUT_FILE" << HTML
     .dot-gray { background: var(--text3); }
     .clean-label { color: var(--green); font-size: 12px; font-weight: 500; }
     .findings-count { color: var(--yellow); font-size: 12px; font-weight: 600; }
+    .verifying-chip {
+      display: inline-block; margin-left: 6px;
+      padding: 1px 6px; border-radius: 3px;
+      background: var(--bg3); color: var(--text2);
+      font-size: 10px; font-weight: 500;
+      vertical-align: middle;
+    }
+    .pipeline-box {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 12px 16px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .pipeline-row { font-size: 13px; color: var(--text2); }
+    .pipeline-label { color: var(--text3); margin-right: 6px; }
+    .pipeline-chip {
+      display: inline-block; margin-right: 6px;
+      padding: 2px 8px; border-radius: 4px;
+      background: var(--bg3); color: var(--text); font-size: 12px;
+    }
 
     /* ── Badges ── */
     .badge {
@@ -1098,6 +1187,14 @@ cat > "$OUTPUT_FILE" << HTML
         <div class="sub">reviews awaiting extract</div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- Pipeline reliability -->
+  <div class="section">
+    <div class="section-title">Pipeline</div>
+    <div class="pipeline-box">
+${PIPELINE_HTML}
     </div>
   </div>
 
