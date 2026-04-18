@@ -184,7 +184,9 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
 
   const openOriginal = () => {
     if (effectiveUrl && window.electron) {
-      void window.electron.invoke('open-external-url', effectiveUrl);
+      window.electron.invoke('open-external-url', effectiveUrl).catch((err) => {
+        console.error('[URLViewer] Failed to open external URL:', err);
+      });
     }
   };
 

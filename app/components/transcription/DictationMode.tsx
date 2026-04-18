@@ -1064,7 +1064,7 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
                     type="button"
                     className="underline text-[11px]"
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dome-error, #ef4444)' }}
-                    onClick={() => void window.electron?.invoke?.('open-external-url', 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')}
+                    onClick={() => window.electron?.invoke?.('open-external-url', 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture').catch((err) => { console.error('[DictationMode] Failed to open system preferences:', err); })}
                   >
                     {t('media.dock_perm_screen_open_prefs')}
                   </button>

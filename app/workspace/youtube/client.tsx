@@ -188,7 +188,11 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
     const url =
       (resource?.metadata as Record<string, unknown>)?.url || resource?.content;
     if (url && typeof url === 'string' && window.electron) {
-      await window.electron.invoke('open-external-url', url);
+      try {
+        await window.electron.invoke('open-external-url', url);
+      } catch (err) {
+        console.error('[YouTube] Failed to open external URL:', err);
+      }
     }
   }, [resource]);
 
