@@ -664,6 +664,9 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
         // }
 
         setGroups(allGroups);
+      } catch (err) {
+        console.error('[InlineSearch] Unified search failed:', err);
+        setGroups({});
       } finally {
         setIsSearching(false);
       }

@@ -55,7 +55,7 @@ export default function EmbedModal({ opened, onClose, editor, kind }: EmbedModal
           {kind === 'youtube' ? t('editor.embed_modal_url_help_youtube') : t('editor.embed_modal_url_help_iframe')}
         </Text>
         <TextInput
-          label="URL"
+          label={t('editor.embed_modal_url_label')}
           placeholder={t('editor.embed_modal_url_placeholder')}
           value={url}
           onChange={(e) => setUrl(e.currentTarget.value)}

@@ -331,7 +331,7 @@ class DatabaseClient {
   async getManyAgents(projectId = 'default'): Promise<DBResponse<ManyAgent[]>> {
     try {
       return await window.electron.invoke('db:manyAgents:list', projectId) as Promise<DBResponse<ManyAgent[]>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -339,7 +339,7 @@ class DatabaseClient {
   async getManyAgent(id: string): Promise<DBResponse<ManyAgent | null>> {
     try {
       return await window.electron.invoke('db:manyAgents:get', id) as Promise<DBResponse<ManyAgent | null>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -347,7 +347,7 @@ class DatabaseClient {
   async createManyAgent(agent: ManyAgent): Promise<DBResponse<ManyAgent>> {
     try {
       return await window.electron.invoke('db:manyAgents:create', agent) as Promise<DBResponse<ManyAgent>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -355,7 +355,7 @@ class DatabaseClient {
   async updateManyAgent(id: string, updates: Partial<ManyAgent>): Promise<DBResponse<ManyAgent>> {
     try {
       return await window.electron.invoke('db:manyAgents:update', id, updates) as Promise<DBResponse<ManyAgent>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -363,7 +363,7 @@ class DatabaseClient {
   async deleteManyAgent(id: string): Promise<DBResponse<void>> {
     try {
       return await window.electron.invoke('db:manyAgents:delete', id) as Promise<DBResponse<void>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -371,7 +371,7 @@ class DatabaseClient {
   async listAgentFolders(projectId = 'default'): Promise<DBResponse<DomeAgentFolder[]>> {
     try {
       return await window.electron.invoke('db:agentFolders:list', projectId) as Promise<DBResponse<DomeAgentFolder[]>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -379,7 +379,7 @@ class DatabaseClient {
   async createAgentFolder(folder: DomeAgentFolder): Promise<DBResponse<DomeAgentFolder>> {
     try {
       return await window.electron.invoke('db:agentFolders:create', folder) as Promise<DBResponse<DomeAgentFolder>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -392,7 +392,7 @@ class DatabaseClient {
       return await window.electron.invoke('db:agentFolders:update', id, updates) as Promise<
         DBResponse<DomeAgentFolder>
       >;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -400,7 +400,7 @@ class DatabaseClient {
   async deleteAgentFolder(id: string): Promise<DBResponse<void>> {
     try {
       return await window.electron.invoke('db:agentFolders:delete', id) as Promise<DBResponse<void>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -408,7 +408,7 @@ class DatabaseClient {
   async getWorkflows(projectId = 'default'): Promise<DBResponse<CanvasWorkflow[]>> {
     try {
       return await window.electron.invoke('db:workflows:list', projectId) as Promise<DBResponse<CanvasWorkflow[]>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -416,7 +416,7 @@ class DatabaseClient {
   async getWorkflow(id: string): Promise<DBResponse<CanvasWorkflow | null>> {
     try {
       return await window.electron.invoke('db:workflows:get', id) as Promise<DBResponse<CanvasWorkflow | null>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -424,7 +424,7 @@ class DatabaseClient {
   async createWorkflow(workflow: CanvasWorkflow): Promise<DBResponse<CanvasWorkflow>> {
     try {
       return await window.electron.invoke('db:workflows:create', workflow) as Promise<DBResponse<CanvasWorkflow>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -432,7 +432,7 @@ class DatabaseClient {
   async updateWorkflow(id: string, updates: Partial<CanvasWorkflow>): Promise<DBResponse<CanvasWorkflow>> {
     try {
       return await window.electron.invoke('db:workflows:update', id, updates) as Promise<DBResponse<CanvasWorkflow>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -440,7 +440,7 @@ class DatabaseClient {
   async deleteWorkflow(id: string): Promise<DBResponse<void>> {
     try {
       return await window.electron.invoke('db:workflows:delete', id) as Promise<DBResponse<void>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -448,7 +448,7 @@ class DatabaseClient {
   async listWorkflowFolders(projectId = 'default'): Promise<DBResponse<DomeWorkflowFolder[]>> {
     try {
       return await window.electron.invoke('db:workflowFolders:list', projectId) as Promise<DBResponse<DomeWorkflowFolder[]>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -458,7 +458,7 @@ class DatabaseClient {
       return await window.electron.invoke('db:workflowFolders:create', folder) as Promise<
         DBResponse<DomeWorkflowFolder>
       >;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -471,7 +471,7 @@ class DatabaseClient {
       return await window.electron.invoke('db:workflowFolders:update', id, updates) as Promise<
         DBResponse<DomeWorkflowFolder>
       >;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -479,7 +479,7 @@ class DatabaseClient {
   async deleteWorkflowFolder(id: string): Promise<DBResponse<void>> {
     try {
       return await window.electron.invoke('db:workflowFolders:delete', id) as Promise<DBResponse<void>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -487,7 +487,7 @@ class DatabaseClient {
   async saveWorkflowExecution(execution: WorkflowExecution): Promise<DBResponse<void>> {
     try {
       return await window.electron.invoke('db:workflowExecutions:save', execution) as Promise<DBResponse<void>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -495,7 +495,7 @@ class DatabaseClient {
   async getWorkflowExecutionsByWorkflow(workflowId: string): Promise<DBResponse<WorkflowExecution[]>> {
     try {
       return await window.electron.invoke('db:workflowExecutions:listByWorkflow', workflowId) as Promise<DBResponse<WorkflowExecution[]>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -503,7 +503,7 @@ class DatabaseClient {
   async getWorkflowExecution(id: string): Promise<DBResponse<WorkflowExecution | null>> {
     try {
       return await window.electron.invoke('db:workflowExecutions:get', id) as Promise<DBResponse<WorkflowExecution | null>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -511,7 +511,7 @@ class DatabaseClient {
   async getMcpServers(): Promise<DBResponse<MCPServerConfig[]>> {
     try {
       return await window.electron.invoke('db:mcp:list') as Promise<DBResponse<MCPServerConfig[]>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -519,7 +519,7 @@ class DatabaseClient {
   async replaceMcpServers(servers: MCPServerConfig[]): Promise<DBResponse<void>> {
     try {
       return await window.electron.invoke('db:mcp:replaceAll', servers) as Promise<DBResponse<void>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -527,7 +527,7 @@ class DatabaseClient {
   async getMcpGlobalEnabled(): Promise<DBResponse<boolean>> {
     try {
       return await window.electron.invoke('db:mcp:getGlobalEnabled') as Promise<DBResponse<boolean>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -535,7 +535,7 @@ class DatabaseClient {
   async setMcpGlobalEnabled(enabled: boolean): Promise<DBResponse<void>> {
     try {
       return await window.electron.invoke('db:mcp:setGlobalEnabled', enabled) as Promise<DBResponse<void>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -543,7 +543,7 @@ class DatabaseClient {
   async getAISkills(): Promise<DBResponse<AISkillRecord[]>> {
     try {
       return await window.electron.invoke('db:skills:list') as Promise<DBResponse<AISkillRecord[]>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -551,7 +551,7 @@ class DatabaseClient {
   async replaceAISkills(skills: AISkillRecord[]): Promise<DBResponse<void>> {
     try {
       return await window.electron.invoke('db:skills:replaceAll', skills) as Promise<DBResponse<void>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -559,7 +559,7 @@ class DatabaseClient {
   async getMarketplaceAgentInstalls(): Promise<DBResponse<Record<string, MarketplaceAgentInstallRecord>>> {
     try {
       return await window.electron.invoke('db:marketplace:getAgentInstalls') as Promise<DBResponse<Record<string, MarketplaceAgentInstallRecord>>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -567,7 +567,7 @@ class DatabaseClient {
   async replaceMarketplaceAgentInstalls(records: Record<string, MarketplaceAgentInstallRecord>): Promise<DBResponse<void>> {
     try {
       return await window.electron.invoke('db:marketplace:replaceAgentInstalls', records) as Promise<DBResponse<void>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -575,7 +575,7 @@ class DatabaseClient {
   async getMarketplaceWorkflowInstalls(): Promise<DBResponse<Record<string, MarketplaceWorkflowInstallRecord>>> {
     try {
       return await window.electron.invoke('db:marketplace:getWorkflowInstalls') as Promise<DBResponse<Record<string, MarketplaceWorkflowInstallRecord>>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -583,7 +583,7 @@ class DatabaseClient {
   async replaceMarketplaceWorkflowInstalls(records: Record<string, MarketplaceWorkflowInstallRecord>): Promise<DBResponse<void>> {
     try {
       return await window.electron.invoke('db:marketplace:replaceWorkflowInstalls', records) as Promise<DBResponse<void>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -591,7 +591,7 @@ class DatabaseClient {
   async getMarketplaceTemplateMappings(): Promise<DBResponse<Record<string, string>>> {
     try {
       return await window.electron.invoke('db:marketplace:getTemplateMappings') as Promise<DBResponse<Record<string, string>>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
@@ -599,7 +599,7 @@ class DatabaseClient {
   async replaceMarketplaceTemplateMappings(mapping: Record<string, string>): Promise<DBResponse<void>> {
     try {
       return await window.electron.invoke('db:marketplace:replaceTemplateMappings', mapping) as Promise<DBResponse<void>>;
-    } catch (e) {
+    } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
   }

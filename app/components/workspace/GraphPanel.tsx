@@ -423,17 +423,17 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
               <GitBranch size={40} style={{ color: 'var(--secondary-text)', opacity: 0.3 }} />
               <div>
                 <p className="text-sm font-medium mb-2" style={{ color: 'var(--primary-text)' }}>
-                  No Graph Data
+                  {t('graph.panel_empty_title')}
                 </p>
                 <p className="text-xs mb-4" style={{ color: 'var(--secondary-text)' }}>
-                  Generate a knowledge graph to see connections between documents.
+                  {t('graph.panel_empty_description')}
                 </p>
                 <button
                   onClick={generateKnowledgeGraph}
                   className="text-sm px-4 py-2 rounded-lg transition-colors"
                   style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
                 >
-                  Generate Graph
+                  {t('graph.panel_generate_button')}
                 </button>
               </div>
             </div>
