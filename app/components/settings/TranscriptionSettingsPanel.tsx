@@ -278,7 +278,7 @@ export default function TranscriptionSettingsPanel() {
                   }
                 }}
                 onOpenPrefs={() =>
-                  void window.electron?.invoke?.('open-external-url', 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture')
+                  window.electron?.invoke?.('open-external-url', 'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture').catch((err) => { console.error('[TranscriptionSettings] Failed to open system preferences:', err); })
                 }
                 loading={permLoading}
                 t={t}
