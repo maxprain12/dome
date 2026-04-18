@@ -30,11 +30,11 @@ export default function CodeCell({
   onExecutionCountChange,
   editable = true,
   onRun: externalRun,
-  onKeyDown: externalKeyDown,
+  onKeyDown: _externalKeyDown,
 }: CodeCellProps) {
   const { t } = useTranslation();
   const [isRunning, setIsRunning] = useState(false);
-  const { runPython, isLoaded, isLoading, loadError, ensureLoaded } = usePyodide();
+  const { runPython, isLoaded, isLoading, loadError, ensureLoaded: _ensureLoaded } = usePyodide();
 
   const doRun = useCallback(async () => {
     const code = sourceToString(cell.source).trim();

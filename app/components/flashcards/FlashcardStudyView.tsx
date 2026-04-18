@@ -45,6 +45,13 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
     startStudy(deckId);
   }, [deckId, startStudy]);
 
+  const handleClose = useCallback(async () => {
+    if (isStudying && currentCardIndex > 0) {
+      await endStudy();
+    }
+    onClose();
+  }, [isStudying, currentCardIndex, endStudy, onClose]);
+
   const currentCard = dueCards[currentCardIndex] || null;
   const isSessionComplete = isStudying && currentCardIndex >= dueCards.length && dueCards.length > 0;
   const totalCards = dueCards.length;
@@ -89,19 +96,12 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
         handleClose();
         break;
     }
-  }, [currentCard, isSessionComplete, isCardFlipped, flipCard, reviewCard]);
+  }, [currentCard, isSessionComplete, isCardFlipped, flipCard, reviewCard, handleClose]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleKeyDown]);
-
-  const handleClose = useCallback(async () => {
-    if (isStudying && currentCardIndex > 0) {
-      await endStudy();
-    }
-    onClose();
-  }, [isStudying, currentCardIndex, endStudy, onClose]);
 
   const handleStudyAgain = useCallback(() => {
     startStudy(deckId);

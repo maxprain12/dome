@@ -947,7 +947,7 @@ interface RunDetailScreenProps {
 
 function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
   const { t, i18n } = useTranslation();
-  const steps = run.steps ?? [];
+  const steps = useMemo(() => run.steps ?? [], [run.steps]);
   const sortedSteps = useMemo(
     () => [...steps].sort((a, b) => a.createdAt - b.createdAt),
     [steps],
@@ -972,12 +972,12 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
   const progress = getRunProgress(run);
 
   const meta = (run.metadata ?? {}) as Record<string, unknown>;
-  const usage = useMemo(() => getRunUsageFromRunMetadata(meta), [run.metadata]);
+  const usage = useMemo(() => getRunUsageFromRunMetadata(meta), [meta]);
   const modelId = typeof meta.model === 'string' ? meta.model : undefined;
   const providerLabel = typeof meta.provider === 'string' ? meta.provider : undefined;
   const costUsd = useMemo(
     () => estimateRunCostUsd(modelId, meta.usage),
-    [modelId, run.metadata],
+    [modelId, meta],
   );
   const costLabel = formatUsdEstimate(costUsd, i18n.language);
 

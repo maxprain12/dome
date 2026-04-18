@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import { CheckCircle2, XCircle, ArrowRight, RotateCcw, X } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { useTranslation } from 'react-i18next';
-import type { QuizData, QuizQuestion } from '@/types';
+import type { QuizData } from '@/types';
 
 interface QuizProps {
   data: QuizData;

@@ -58,7 +58,7 @@ export default function CloudStorageSettings() {
     });
 
     return () => cleanup?.();
-  }, [loadAccounts]);
+  }, [loadAccounts, t]);
 
   // Start polling when a connect action is in progress
   useEffect(() => {

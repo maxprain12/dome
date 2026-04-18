@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ComponentType } from 'react';
-import { CheckCircle2, XCircle, Loader2, RefreshCw, Shield, Sparkles, Globe, Cpu, Zap, Lock, Wifi, HardDrive, ArrowRight } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, RefreshCw, Shield, Zap, Lock, HardDrive, ArrowRight } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -28,7 +27,6 @@ type OnboardingProviderType = AIProviderType | 'skip';
 // Dome brand colors
 const DOME_GREEN = '#596037';
 const DOME_GREEN_LIGHT = '#E0EAB4';
-const DOME_GREEN_HOVER = '#4A502E';
 const DOME_GREEN_DARK = '#3B4025';
 
 export default function AISetupStep({ onComplete }: AISetupStepProps) {
@@ -49,7 +47,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     return PROVIDERS[provider]?.models || [];
   }, [provider]);
 
-  const handleNext = async () => {
+  const handleNext = useCallback(async () => {
     setSaveError(null);
 
     if (provider === 'skip') {
@@ -91,7 +89,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
       console.error('[AISetupStep] Error al guardar:', error);
       setSaveError(error instanceof Error ? error.message : t('onboarding.error_saving_config'));
     }
-  };
+  }, [provider, apiKey, model, ollamaBaseURL, ollamaModel, onComplete, t]);
 
   useEffect(() => {
     const handleFinalize = () => handleNext();
@@ -115,14 +113,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     loadConfig();
   }, []);
 
-  useEffect(() => {
-    if (provider === 'ollama' && window.electron) {
-      checkOllamaConnection();
-      loadOllamaModels();
-    }
-  }, [provider, ollamaBaseURL]);
-
-  const checkOllamaConnection = async () => {
+  const checkOllamaConnection = useCallback(async () => {
     if (!window.electron) return;
     setCheckingOllama(true);
     try {
@@ -134,9 +125,9 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     } finally {
       setCheckingOllama(false);
     }
-  };
+  }, [ollamaBaseURL]);
 
-  const loadOllamaModels = async () => {
+  const loadOllamaModels = useCallback(async () => {
     if (!window.electron) return;
     setLoadingModels(true);
     try {
@@ -150,7 +141,14 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     } finally {
       setLoadingModels(false);
     }
-  };
+  }, [ollamaBaseURL]);
+
+  useEffect(() => {
+    if (provider === 'ollama' && window.electron) {
+      checkOllamaConnection();
+      loadOllamaModels();
+    }
+  }, [provider, checkOllamaConnection, loadOllamaModels]);
 
   const handleProviderSelect = (newProvider: OnboardingProviderType) => {
     setProvider(newProvider);

@@ -9,7 +9,6 @@ import DomeProgressBar from '@/components/ui/DomeProgressBar';
 import DomeCallout from '@/components/ui/DomeCallout';
 
 const DOME_GREEN = '#596037';
-const DOME_GREEN_LIGHT = '#E0EAB4';
 
 interface PageIndexStatus {
   success: boolean;
