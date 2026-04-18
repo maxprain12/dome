@@ -572,8 +572,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
     if (!query.trim()) { setGroups({}); return; }
     const timer = setTimeout(async () => {
       setIsSearching(true);
-      try {
-        const allGroups: Record<string, AdvancedResult[]> = {};
+      const allGroups: Record<string, AdvancedResult[]> = {};
 
         // 1. Unified search (resources + interactions + studio)
         if (window.electron?.db?.search?.unified) {
@@ -664,12 +663,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
         // }
 
         setGroups(allGroups);
-      } catch (err) {
-        console.error('[InlineSearch] Unified search failed:', err);
-        setGroups({});
-      } finally {
         setIsSearching(false);
-      }
     }, 250);
     return () => clearTimeout(timer);
   }, [query]);
