@@ -14,10 +14,11 @@ export default function PromptModal() {
   useEffect(() => {
     if (isOpen) {
       setValue(defaultValue);
-      setTimeout(() => {
+      const focusTimer = setTimeout(() => {
         inputRef.current?.focus();
         inputRef.current?.select();
       }, 80);
+      return () => clearTimeout(focusTimer);
     }
   }, [isOpen, defaultValue]);
 
