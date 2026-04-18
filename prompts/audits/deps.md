@@ -64,17 +64,17 @@ Instead append an entry to `SECURITY.md` with the CVE and a TODO for manual revi
 
 ### Step 5 — Lockfile coherence
 
-The repo uses BOTH `bun.lock` and `package-lock.json`. After any `package.json`
-change, regenerate both so they agree:
+The project uses `npm` for CI/CD. After any `package.json` change, regenerate
+`package-lock.json` so it agrees with the manifest:
 
 ```bash
-rm -f package-lock.json bun.lock
+rm -f package-lock.json
 npm install --ignore-scripts      # regenerates package-lock.json
-bun install                        # regenerates bun.lock (if bun is available)
 ```
 
-If `bun` is not available on the VPS, only regenerate `package-lock.json` and
-leave a note in the PR body: "bun.lock regeneration skipped — bun not available on VPS".
+Never commit a stale `package-lock.json` — CI runs `npm ci` which aborts on
+any drift between `package.json` and the lockfile. Do NOT use `bun` or touch
+`bun.lock` — the project is npm-only.
 
 ### Step 6 — Validate
 

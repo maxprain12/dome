@@ -37,7 +37,7 @@ being wrapped in a CSS var(). Fallback values inside `var(--x, fallback)` are ac
 
 ### Stack clarification
 
-- Runtime: Bun for dev/build; Electron uses Node.js (better-sqlite3, NOT bun:sqlite)
+- Runtime: Node.js + npm (CI, build, lockfile). Do NOT use bun or touch `bun.lock`. Electron uses better-sqlite3 (NOT bun:sqlite)
 - Frontend: Vite + React 18 (NOT Next.js — ignore any Next.js references in style guides)
 - Routes: React Router v7 (client-side SPA), entry: `app/main.tsx`
 - i18n: react-i18next, all translations inline in `app/lib/i18n.ts` (en/es/fr/pt), default language: es
