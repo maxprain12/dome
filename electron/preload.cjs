@@ -377,6 +377,7 @@ const ALLOWED_CHANNELS = {
     'transcription-overlay:set-state',
     'transcription-overlay:overlay-set-visible',
     'transcription-overlay:overlay-resize',
+    'transcription-overlay:window-chrome',
     'transcription-overlay:open-note-in-main',
     // Streaming TTS control (renderer → main)
     'audio:stop-streaming-tts',
@@ -1479,6 +1480,7 @@ const electronHandler = {
     overlaySetVisible: (visible) =>
       ipcRenderer.invoke('transcription-overlay:overlay-set-visible', { visible }),
     overlayResize: (height) => ipcRenderer.invoke('transcription-overlay:overlay-resize', { height }),
+    overlayWindowChrome: (action) => ipcRenderer.invoke('transcription-overlay:window-chrome', { action }),
     openNoteInMain: (payload) => ipcRenderer.invoke('transcription-overlay:open-note-in-main', payload),
     onOverlayLoaded: (callback) => {
       const subscription = () => callback();

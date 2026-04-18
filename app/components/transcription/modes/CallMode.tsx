@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Mic, Square, X, Loader2, Pause, Play, RefreshCw, ImageOff, Phone } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Mic, Square, X, Loader2, Pause, Play, RefreshCw, ImageOff, Phone, ChevronDown, ChevronUp } from 'lucide-react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -432,19 +432,6 @@ export default function CallMode({ isActive = true }: Props) {
     return undefined;
   }, [visible]);
 
-  useLayoutEffect(() => {
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const el = hubContentRef.current;
-    if (!el) return undefined;
-    const ro = new ResizeObserver(() => {
-      const h = Math.ceil(el.getBoundingClientRect().height);
-      const padded = Math.min(820, Math.max(80, h + 24));
-      void window.electron?.transcriptionOverlay?.overlayResize?.(padded);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [visible, micRec.phase, sysRec.phase, showLiveTranscript, hubMinimized]);
-
   useEffect(() => {
     if (!showLiveTranscript || !window.electron?.calls?.getLive) {
       if (livePollRef.current) clearInterval(livePollRef.current);
@@ -645,6 +632,22 @@ export default function CallMode({ isActive = true }: Props) {
           ) : null}
 
           <div className="flex flex-wrap items-center justify-end gap-2">
+            {hubUi ? (
+              <button
+                type="button"
+                onClick={() => hubUi.expandHub()}
+                className="mr-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+                style={{
+                  color: 'var(--dome-accent)',
+                  background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--dome-accent) 28%, transparent)',
+                }}
+                title={t('hub.expand_panel')}
+                aria-label={t('hub.expand_panel')}
+              >
+                <ChevronUp className="h-4 w-4" aria-hidden />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => void requestCancel()}
@@ -676,7 +679,7 @@ export default function CallMode({ isActive = true }: Props) {
   return (
     <div className={overlayOuter} aria-live="polite">
       <div ref={hubContentRef} className={overlayWrapper} style={overlayChrome}>
-        <div className="flex items-center gap-2 min-h-[36px]" style={{ color: 'var(--dome-text)' }}>
+        <div className="flex w-full flex-wrap items-center gap-2 min-h-[36px]" style={{ color: 'var(--dome-text)' }}>
           {stopping || starting ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
@@ -728,6 +731,22 @@ export default function CallMode({ isActive = true }: Props) {
               <span className="text-sm font-medium flex-1">{t('call.setup_title')}</span>
             </>
           )}
+          {hubUi && !hubMinimized ? (
+            <button
+              type="button"
+              onClick={() => hubUi.toggleHubMinimized()}
+              className="ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+              style={{
+                color: 'var(--dome-text-muted)',
+                background: 'color-mix(in srgb, var(--dome-bg-hover) 85%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--dome-border) 55%, transparent)',
+              }}
+              title={t('hub.minimize_panel')}
+              aria-label={t('hub.minimize_panel')}
+            >
+              <ChevronDown className="h-4 w-4" aria-hidden />
+            </button>
+          ) : null}
         </div>
 
         {!isBusy && (

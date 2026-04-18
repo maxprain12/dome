@@ -1,26 +1,23 @@
-import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useFeatureFlagEnabled } from '@/lib/analytics/useFeatureFlag';
 import DictationMode from '@/components/transcription/DictationMode';
+import TranscriptionOverlayWindowControls from '@/components/transcription/TranscriptionOverlayWindowControls';
 import CallMode from '@/components/transcription/modes/CallMode';
 import StreamingMode from '@/components/transcription/modes/StreamingMode';
-import { useHubUi } from '@/lib/transcription/hubUiContext';
 
 export type HubMode = 'dictation' | 'call' | 'streaming';
 
 const STORAGE_KEY = 'dome:hub-mode-v1';
 
-const chromeBarStyle = {
+const modeStripStyle = {
   borderColor: 'color-mix(in srgb, var(--dome-border) 55%, transparent)',
-  background: 'color-mix(in srgb, var(--dome-bg) 90%, transparent)',
-  boxShadow: '0 4px 24px color-mix(in srgb, black 10%, transparent)',
+  background: 'color-mix(in srgb, var(--dome-surface) 96%, transparent)',
 } as const;
 
 export default function HubOverlay() {
   const { t } = useTranslation();
-  const hubUi = useHubUi();
-  const hubMinimized = hubUi?.hubMinimized ?? false;
+  const hubRootRef = useRef<HTMLDivElement | null>(null);
   const callsV2 = useFeatureFlagEnabled('dome-calls-v2');
   const [mode, setMode] = useState<HubMode>(() => {
     try {
@@ -57,88 +54,55 @@ export default function HubOverlay() {
     }
   }, [callsV2, mode]);
 
-  const showPicker = callsV2;
+  useLayoutEffect(() => {
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const el = hubRootRef.current;
+    if (!el) return undefined;
+    const ro = new ResizeObserver(() => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      const padded = Math.min(780, Math.max(80, h + 28));
+      void window.electron?.transcriptionOverlay?.overlayResize?.(padded);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [mode, callsV2]);
 
   return (
-    <div className="flex w-full min-w-0 flex-col items-stretch gap-2 sm:gap-2.5 pointer-events-none">
-      <div
-        className="pointer-events-auto flex w-full min-w-0 flex-wrap items-center gap-1.5 rounded-2xl border px-1.5 py-1.5 sm:gap-2 sm:rounded-2xl sm:px-2 sm:py-1.5"
-        style={chromeBarStyle}
-      >
-        {showPicker ? (
-          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-1 sm:justify-start sm:gap-1">
-            {(['dictation', 'call', 'streaming'] as const).map((m) => {
-              const active = mode === m;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setMode(m)}
-                  className="min-h-[36px] min-w-0 flex-1 rounded-xl px-2.5 py-2 text-[10px] font-medium transition-colors sm:flex-none sm:px-3 sm:py-1.5 sm:text-[11px]"
-                  style={{
-                    background: active ? 'color-mix(in srgb, var(--dome-accent) 18%, transparent)' : 'transparent',
-                    color: active ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-                    border: active
-                      ? '1px solid color-mix(in srgb, var(--dome-accent) 35%, transparent)'
-                      : '1px solid transparent',
-                  }}
-                >
-                  {m === 'dictation'
-                    ? t('hub.mode.dictation')
-                    : m === 'call'
-                      ? t('hub.mode.call')
-                      : t('hub.mode.streaming')}
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <span
-            className="min-h-[36px] flex flex-1 items-center px-2 text-[10px] font-medium sm:text-[11px]"
-            style={{ color: 'var(--dome-text-muted)' }}
-          >
-            {t('hub.mode.dictation')}
-          </span>
-        )}
-
-        {hubUi ? (
-          <div className="ml-auto flex shrink-0 items-center">
-            {hubMinimized ? (
+    <div ref={hubRootRef} className="flex w-full min-w-0 flex-col items-center gap-1.5 pointer-events-none sm:gap-2">
+      <TranscriptionOverlayWindowControls />
+      {callsV2 ? (
+        <div
+          className="pointer-events-auto flex w-full max-w-[min(96vw,920px)] flex-wrap items-center justify-center gap-0.5 rounded-xl border px-1 py-0.5 sm:justify-start sm:gap-1 sm:px-1.5 sm:py-1"
+          style={modeStripStyle}
+        >
+          {(['dictation', 'call', 'streaming'] as const).map((m) => {
+            const active = mode === m;
+            return (
               <button
+                key={m}
                 type="button"
-                onClick={() => hubUi.expandHub()}
-                className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-xl transition-colors"
+                onClick={() => setMode(m)}
+                className="min-h-[32px] min-w-0 flex-1 rounded-lg px-2 py-1.5 text-[10px] font-medium transition-colors sm:flex-none sm:px-2.5 sm:text-[11px]"
                 style={{
-                  color: 'var(--dome-accent)',
-                  background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)',
-                  border: '1px solid color-mix(in srgb, var(--dome-accent) 28%, transparent)',
+                  background: active ? 'color-mix(in srgb, var(--dome-accent) 18%, transparent)' : 'transparent',
+                  color: active ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
+                  border: active
+                    ? '1px solid color-mix(in srgb, var(--dome-accent) 35%, transparent)'
+                    : '1px solid transparent',
                 }}
-                title={t('hub.expand_panel')}
-                aria-label={t('hub.expand_panel')}
               >
-                <ChevronUp className="h-4 w-4" aria-hidden />
+                {m === 'dictation'
+                  ? t('hub.mode.dictation')
+                  : m === 'call'
+                    ? t('hub.mode.call')
+                    : t('hub.mode.streaming')}
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => hubUi.toggleHubMinimized()}
-                className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-xl transition-colors"
-                style={{
-                  color: 'var(--dome-text-muted)',
-                  background: 'var(--dome-surface)',
-                  border: '1px solid color-mix(in srgb, var(--dome-border) 65%, transparent)',
-                }}
-                title={t('hub.minimize_panel')}
-                aria-label={t('hub.minimize_panel')}
-              >
-                <ChevronDown className="h-4 w-4" aria-hidden />
-              </button>
-            )}
-          </div>
-        ) : null}
-      </div>
+            );
+          })}
+        </div>
+      ) : null}
 
-      <div className="flex min-h-0 w-full min-w-0 justify-center">
+      <div className="flex min-h-0 w-full min-w-0 max-w-[min(96vw,920px)] justify-center">
         {(!callsV2 || mode === 'dictation') && <DictationMode isActive={!callsV2 || mode === 'dictation'} hubMode="dictation" />}
         {callsV2 && mode === 'call' && <CallMode isActive />}
         {callsV2 && mode === 'streaming' && <StreamingMode isActive />}

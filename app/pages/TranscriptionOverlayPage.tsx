@@ -43,10 +43,10 @@ export default function TranscriptionOverlayPage() {
   return (
     <HubUiProvider>
       <div
-        className="box-border flex h-full min-h-0 w-full flex-col justify-end overflow-x-hidden overflow-y-auto bg-transparent px-2 pb-2 pt-1 sm:px-3 sm:pb-3 pointer-events-none [scrollbar-gutter:stable]"
+        className="box-border flex h-full min-h-0 w-full flex-col justify-start overflow-x-hidden overflow-y-auto bg-transparent px-2 pb-2 pt-1 sm:px-3 sm:pb-3 pointer-events-none [scrollbar-gutter:stable]"
         style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
       >
-        <div className="pointer-events-auto mx-auto flex max-h-full min-h-0 w-full max-w-[min(96vw,920px)] justify-center">
+        <div className="pointer-events-auto mx-auto flex max-h-full min-h-0 w-full max-w-[min(96vw,920px)] flex-col items-center justify-start">
           <HubOverlay />
         </div>
       </div>

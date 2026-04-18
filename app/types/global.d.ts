@@ -1479,6 +1479,7 @@ declare global {
         }) => Promise<{ success: boolean; error?: string }>;
         overlaySetVisible: (visible: boolean) => Promise<{ success: boolean; error?: string }>;
         overlayResize: (height: number) => Promise<{ success: boolean; error?: string }>;
+        overlayWindowChrome: (action: 'minimize' | 'close') => Promise<{ success: boolean; error?: string }>;
         openNoteInMain: (payload: { noteId: string; title?: string }) => Promise<{ success: boolean; error?: string }>;
         onOverlayLoaded: (callback: () => void) => RemoveListenerFn;
       };

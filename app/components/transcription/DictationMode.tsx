@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Mic, Monitor, Square, X, Loader2, Pause, Play, RefreshCw, ImageOff } from 'lucide-react';
+import { Mic, Monitor, Square, X, Loader2, Pause, Play, RefreshCw, ImageOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -597,20 +597,6 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
     return undefined;
   }, [visible]);
 
-  // Auto-resize overlay window to content height
-  useLayoutEffect(() => {
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const el = hubContentRef.current;
-    if (!el) return undefined;
-    const ro = new ResizeObserver(() => {
-      const h = Math.ceil(el.getBoundingClientRect().height);
-      const padded = Math.min(780, Math.max(80, h + 24));
-      void window.electron?.transcriptionOverlay?.overlayResize?.(padded);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [visible, phase, hubMinimized]);
-
   // Live desktop/window preview (getDisplayMedia video only) while idle + source picked.
   useEffect(() => {
     if (!visible || phase !== 'idle' || !pickedSourceId || screenPermStatus === 'denied' || systemCaptureStarting) {
@@ -714,7 +700,10 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
   const overlayOuter = 'relative z-10 flex max-h-full min-h-0 w-full justify-center pointer-events-none';
 
   const overlayWrapper =
-    'relative z-10 flex max-h-full min-h-0 w-full max-w-[min(96vw,900px)] flex-col items-stretch gap-2 overflow-x-hidden overflow-y-auto rounded-2xl border px-3 py-2.5 shadow-xl sm:gap-2.5 sm:rounded-3xl sm:px-4 sm:py-3';
+    'relative z-10 flex max-h-full min-h-0 w-full max-w-[min(96vw,560px)] flex-col items-stretch gap-1.5 overflow-x-hidden overflow-y-auto rounded-2xl border px-3 py-2 shadow-xl sm:max-w-[min(96vw,900px)] sm:gap-2 sm:rounded-2xl sm:px-3.5 sm:py-2.5';
+
+  const iconBtnBase =
+    'inline-flex shrink-0 items-center justify-center rounded-lg transition-colors';
 
   if (hubMinimized) {
     return (
@@ -780,13 +769,23 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
             </p>
           ) : null}
 
-          {systemCaptureStarting ? (
-            <p className="text-[10px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('media.dock_connecting_system_hint')}
-            </p>
-          ) : null}
-
           <div className="flex flex-wrap items-center justify-end gap-2">
+            {hubUi ? (
+              <button
+                type="button"
+                onClick={() => hubUi.expandHub()}
+                className={`${iconBtnBase} mr-auto h-8 w-8`}
+                style={{
+                  color: 'var(--dome-accent)',
+                  background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--dome-accent) 28%, transparent)',
+                }}
+                title={t('hub.expand_panel')}
+                aria-label={t('hub.expand_panel')}
+              >
+                <ChevronUp className="h-4 w-4" aria-hidden />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={requestCancel}
@@ -820,114 +819,219 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
         className={`${overlayWrapper} pointer-events-auto`}
         style={overlayChrome}
       >
-        {/* ── Header row ── */}
-        <div className="flex items-center gap-2 min-h-[36px]" style={{ color: 'var(--dome-text)' }}>
-          {isProcessing ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
-              <span className="text-sm font-medium flex-1 truncate">{t('media.dock_transcribing')}</span>
-            </>
-          ) : systemCaptureStarting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
-              <span className="text-sm font-medium flex-1 truncate">{t('media.dock_connecting_system')}</span>
-            </>
-          ) : isRecording || isPaused ? (
-            <>
-              {/* Live audio level meter */}
-              <AudioLevelMeter
-                stream={isRecording || isPaused ? streamRef.current : null}
-                active={isRecording || isPaused}
-                height={20}
-              />
-              {(recordingInputKind === 'system' || recordingInputKind === 'both') && (
-                <Monitor className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
-              )}
-              <span className="text-sm font-medium flex-1 min-w-0">
-                {isPaused ? t('media.dock_paused') : t('media.dock_recording')}
-                {' · '}
-                <span className="opacity-80 font-normal">
-                  {recordingInputKind === 'system'
-                    ? t('media.dock_recording_system_line')
-                    : recordingInputKind === 'both'
-                      ? t('media.dock_recording_both_line')
-                      : t('media.dock_recording_mic_line')}
-                </span>{' '}
-                <span className="font-mono tabular-nums opacity-70">{timeStr}</span>
-              </span>
-              {/* Pause / Resume */}
-              {canPause && (
+        {/* ── Top bar: estado compacto + minimizar ── */}
+        {isProcessing ? (
+          <div className="flex min-h-[40px] items-center gap-2" style={{ color: 'var(--dome-text)' }}>
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+            <span className="min-w-0 flex-1 truncate text-xs font-medium sm:text-sm">{t('media.dock_transcribing')}</span>
+            {hubUi ? (
+              <button
+                type="button"
+                onClick={() => hubUi.toggleHubMinimized()}
+                className={`${iconBtnBase} h-8 w-8`}
+                style={{
+                  color: 'var(--dome-text-muted)',
+                  background: 'color-mix(in srgb, var(--dome-bg-hover) 85%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--dome-border) 55%, transparent)',
+                }}
+                title={t('hub.minimize_panel')}
+                aria-label={t('hub.minimize_panel')}
+              >
+                <ChevronDown className="h-4 w-4" aria-hidden />
+              </button>
+            ) : null}
+          </div>
+        ) : systemCaptureStarting ? (
+          <div className="flex min-h-[40px] flex-col gap-1">
+            <div className="flex items-center gap-2" style={{ color: 'var(--dome-text)' }}>
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+              <span className="min-w-0 flex-1 truncate text-xs font-medium sm:text-sm">{t('media.dock_connecting_system')}</span>
+              {hubUi ? (
                 <button
                   type="button"
-                  onClick={isPaused ? recorder.resumeRecording : recorder.pauseRecording}
-                  className="shrink-0 rounded-md flex items-center justify-center transition-colors"
+                  onClick={() => hubUi.toggleHubMinimized()}
+                  className={`${iconBtnBase} h-8 w-8`}
                   style={{
-                    width: 28, height: 28,
-                    background: 'var(--dome-bg-hover)',
-                    color: 'var(--dome-text)',
-                    border: '1px solid var(--dome-border)',
+                    color: 'var(--dome-text-muted)',
+                    background: 'color-mix(in srgb, var(--dome-bg-hover) 85%, transparent)',
+                    border: '1px solid color-mix(in srgb, var(--dome-border) 55%, transparent)',
                   }}
-                  title={isPaused ? t('media.dock_resume') : t('media.dock_pause')}
+                  title={t('hub.minimize_panel')}
+                  aria-label={t('hub.minimize_panel')}
                 >
-                  {isPaused
-                    ? <Play className="h-3.5 w-3.5" aria-hidden />
-                    : <Pause className="h-3.5 w-3.5" aria-hidden />
-                  }
+                  <ChevronDown className="h-4 w-4" aria-hidden />
                 </button>
-              )}
-            </>
-          ) : (
-            <>
-              <Mic className="h-4 w-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
-              <span className="text-sm font-medium flex-1">{t('media.dock_choose_input')}</span>
-            </>
-          )}
-        </div>
-
-        {showSetupChrome ? (
-          <div
-            className="rounded-xl px-3 py-2.5 text-[11px] leading-snug"
-            style={{
-              color: 'var(--dome-text-muted)',
-              border: '1px solid var(--dome-border)',
-              background: 'color-mix(in srgb, var(--dome-surface) 92%, transparent)',
-            }}
-          >
-            {t('media.dock_two_modes_hint')}
+              ) : null}
+            </div>
+            <p className="text-[10px] leading-snug sm:text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+              {t('media.dock_connecting_system_hint')}
+            </p>
           </div>
-        ) : null}
-
-        {/* ── Connecting (system capture in progress) ── */}
-        {systemCaptureStarting ? (
-          <p className="text-center text-[11px] leading-relaxed px-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('media.dock_connecting_system_hint')}
-          </p>
-        ) : null}
+        ) : isRecording || isPaused ? (
+          <>
+            <div className="flex min-h-[44px] flex-wrap items-center gap-x-2 gap-y-2">
+              <div className="flex min-w-[min(100%,200px)] min-h-0 flex-1 items-center gap-2">
+                <AudioLevelMeter
+                  stream={streamRef.current}
+                  active={isRecording || isPaused}
+                  height={18}
+                />
+                {(recordingInputKind === 'system' || recordingInputKind === 'both') && (
+                  <Monitor className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+                )}
+                <span
+                  className="min-w-0 flex-1 text-[11px] font-medium leading-snug sm:text-xs"
+                  style={{ color: 'var(--dome-text)' }}
+                >
+                  <span className="opacity-90">{isPaused ? t('media.dock_paused') : t('media.dock_recording')}</span>
+                  <span className="mx-1 opacity-35" aria-hidden>
+                    ·
+                  </span>
+                  <span className="font-normal opacity-80">
+                    {recordingInputKind === 'system'
+                      ? t('media.dock_recording_system_line')
+                      : recordingInputKind === 'both'
+                        ? t('media.dock_recording_both_line')
+                        : t('media.dock_recording_mic_line')}
+                  </span>
+                  <span className="ml-1.5 font-mono tabular-nums text-[11px] opacity-75">{timeStr}</span>
+                </span>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:ml-auto">
+                {canPause ? (
+                  <button
+                    type="button"
+                    onClick={isPaused ? recorder.resumeRecording : recorder.pauseRecording}
+                    className={`${iconBtnBase} h-8 w-8`}
+                    style={{
+                      background: 'var(--dome-bg-hover)',
+                      color: 'var(--dome-text)',
+                      border: '1px solid var(--dome-border)',
+                    }}
+                    title={isPaused ? t('media.dock_resume') : t('media.dock_pause')}
+                  >
+                    {isPaused ? <Play className="h-3.5 w-3.5" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}
+                  </button>
+                ) : null}
+                {hubUi ? (
+                  <button
+                    type="button"
+                    onClick={() => hubUi.toggleHubMinimized()}
+                    className={`${iconBtnBase} h-8 w-8`}
+                    style={{
+                      color: 'var(--dome-text-muted)',
+                      background: 'color-mix(in srgb, var(--dome-bg-hover) 85%, transparent)',
+                      border: '1px solid color-mix(in srgb, var(--dome-border) 55%, transparent)',
+                    }}
+                    title={t('hub.minimize_panel')}
+                    aria-label={t('hub.minimize_panel')}
+                  >
+                    <ChevronDown className="h-4 w-4" aria-hidden />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={requestCancel}
+                  className={`${iconBtnBase} gap-1 px-2.5 py-1.5 text-[11px] font-medium sm:h-8 sm:px-3 sm:text-xs`}
+                  style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+                >
+                  <X className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {t('media.dock_cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={requestStopAndTranscribe}
+                  className={`${iconBtnBase} gap-1 px-2.5 py-1.5 text-[11px] font-medium sm:h-8 sm:px-3 sm:text-xs`}
+                  style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent, #fff)' }}
+                >
+                  <Square className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {t('media.dock_stop_transcribe')}
+                </button>
+              </div>
+            </div>
+            <label
+              className="flex cursor-default items-center gap-2 text-[10px] leading-snug sm:text-[11px]"
+              style={{ color: 'var(--dome-text-muted)' }}
+            >
+              <input type="checkbox" checked={saveAudioCopy} disabled className="cursor-not-allowed opacity-70" />
+              {t('media.dock_save_audio_copy')}
+            </label>
+          </>
+        ) : (
+          <div className="flex min-h-[40px] items-center justify-between gap-2" style={{ color: 'var(--dome-text)' }}>
+            <div className="flex min-w-0 items-center gap-2">
+              <Mic className="h-4 w-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+              <span className="truncate text-sm font-semibold tracking-tight">{t('media.dock_choose_input')}</span>
+            </div>
+            {hubUi ? (
+              <button
+                type="button"
+                onClick={() => hubUi.toggleHubMinimized()}
+                className={`${iconBtnBase} h-8 w-8`}
+                style={{
+                  color: 'var(--dome-text-muted)',
+                  background: 'color-mix(in srgb, var(--dome-bg-hover) 85%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--dome-border) 55%, transparent)',
+                }}
+                title={t('hub.minimize_panel')}
+                aria-label={t('hub.minimize_panel')}
+              >
+                <ChevronDown className="h-4 w-4" aria-hidden />
+              </button>
+            ) : null}
+          </div>
+        )}
 
         {/* ── Source selector (only when ready, not while connecting) ── */}
         {showSetupChrome ? (
           <>
-            <button
-              type="button"
-              onClick={() => void startRecordingMic()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-medium text-white"
-              style={{ background: 'var(--dome-accent)' }}
+            <div
+              className="rounded-xl p-2 sm:p-2.5"
+              style={{
+                border: '1px solid var(--dome-border)',
+                background: 'color-mix(in srgb, var(--dome-surface) 88%, transparent)',
+              }}
             >
-              <Mic className="h-4 w-4 shrink-0" aria-hidden />
-              {t('media.dock_record_mic')}
-            </button>
-            <p className="text-[10px] leading-snug px-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('media.dock_mic_only_explain')}
-            </p>
-
-            <div className="h-px w-full shrink-0" style={{ background: 'var(--dome-border)' }} aria-hidden />
-
-            <div className="flex flex-col gap-2">
-              <p className="text-[10px] leading-snug px-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('media.dock_system_capture_explain')}
+              <p
+                className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide sm:text-[11px]"
+                style={{ color: 'var(--dome-text-muted)' }}
+              >
+                {t('hub.dock_section_mic')}
               </p>
-              <p className="text-[10px] leading-snug px-0.5 opacity-90" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('media.dock_system_hint')}
+              <button
+                type="button"
+                onClick={() => void startRecordingMic()}
+                className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-white"
+                style={{ background: 'var(--dome-accent)' }}
+              >
+                <Mic className="h-4 w-4 shrink-0" aria-hidden />
+                {t('media.dock_record_mic')}
+              </button>
+              <p
+                className="mt-1 line-clamp-2 text-[10px] leading-snug sm:line-clamp-none"
+                style={{ color: 'var(--dome-text-muted)' }}
+                title={t('media.dock_mic_only_explain')}
+              >
+                {t('media.dock_mic_only_explain')}
+              </p>
+            </div>
+
+            <div
+              className="flex flex-col gap-1.5 rounded-xl p-2 sm:p-2.5"
+              style={{
+                border: '1px solid var(--dome-border)',
+                background: 'color-mix(in srgb, var(--dome-surface) 88%, transparent)',
+              }}
+              title={t('media.dock_system_hint')}
+            >
+              <p
+                className="text-[10px] font-semibold uppercase tracking-wide sm:text-[11px]"
+                style={{ color: 'var(--dome-text-muted)' }}
+              >
+                {t('hub.dock_section_screen')}
+              </p>
+              <p className="line-clamp-2 text-[10px] leading-snug sm:line-clamp-3" style={{ color: 'var(--dome-text-muted)' }}>
+                {t('media.dock_system_capture_explain')}
               </p>
               <div className="flex shrink-0 items-center justify-between gap-2 min-h-[28px]">
                 <span className="text-[11px] font-medium tracking-tight" style={{ color: 'var(--dome-text)' }}>
@@ -967,8 +1071,8 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
                 </div>
               )}
 
-              <div className="flex h-[min(42vh,400px)] max-h-[min(42vh,400px)] min-h-0 w-full shrink-0 flex-col gap-3 overflow-hidden sm:h-[min(400px,calc(100vh-220px))] sm:max-h-[min(400px,calc(100vh-220px))] sm:flex-row">
-                <div className="flex h-[min(200px,38vh)] min-h-0 w-full shrink-0 flex-col overflow-hidden sm:h-full sm:w-[260px] sm:min-w-[200px] sm:max-w-[280px]">
+              <div className="flex h-[min(26vh,200px)] max-h-[min(28vh,220px)] min-h-[112px] w-full shrink-0 flex-col gap-2 overflow-hidden sm:h-[min(248px,calc(100vh-320px))] sm:max-h-[min(280px,calc(100vh-280px))] sm:flex-row">
+                <div className="flex h-[min(112px,24vh)] min-h-[96px] w-full shrink-0 flex-col overflow-hidden sm:h-full sm:w-[220px] sm:min-w-[180px] sm:max-w-[240px]">
                   <div
                     className="min-h-0 h-full max-h-full overflow-y-auto overflow-x-hidden rounded-xl overscroll-contain pr-0.5 [scrollbar-gutter:stable] [scrollbar-width:thin]"
                     style={{
@@ -1003,7 +1107,7 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
                           role="option"
                           aria-selected={selected}
                           onClick={() => setPickedSourceId(s.id)}
-                          className="flex w-full items-center gap-2 border-b px-2 py-2 text-left transition-colors last:border-b-0"
+                          className="flex w-full items-center gap-1.5 border-b px-1.5 py-1.5 text-left transition-colors last:border-b-0 sm:gap-2 sm:px-2 sm:py-2"
                           style={{
                             borderColor: 'color-mix(in srgb, var(--dome-border) 55%, transparent)',
                             background: selected
@@ -1015,12 +1119,12 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
                             <img
                               src={s.thumbnailDataUrl}
                               alt=""
-                              className="h-11 w-[72px] shrink-0 rounded object-cover"
+                              className="h-8 w-14 shrink-0 rounded object-cover sm:h-9 sm:w-[60px]"
                               style={{ border: '1px solid var(--dome-border)' }}
                             />
                           ) : (
                             <div
-                              className="flex h-11 w-[72px] shrink-0 items-center justify-center rounded text-[10px]"
+                              className="flex h-8 w-14 shrink-0 items-center justify-center rounded text-[10px] sm:h-9 sm:w-[60px]"
                               style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
                             >
                               —
@@ -1052,7 +1156,7 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
                       border: '1px solid var(--dome-border)',
                     }}
                   >
-                    <div className="relative h-full min-h-[200px] w-full">
+                    <div className="relative h-full min-h-[96px] w-full sm:min-h-[120px]">
                       {selectedDesktopSource?.thumbnailDataUrl ? (
                         <img
                           src={selectedDesktopSource.thumbnailDataUrl}
@@ -1077,7 +1181,7 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
                       />
                       {!selectedDesktopSource?.thumbnailDataUrl && !previewLiveOk ? (
                         <div
-                          className="flex h-full min-h-[200px] w-full flex-col items-center justify-center gap-1 px-3 text-center"
+                          className="flex h-full min-h-[96px] w-full flex-col items-center justify-center gap-1 px-2 text-center sm:min-h-[120px] sm:px-3"
                           style={{ color: 'var(--dome-text-muted)' }}
                         >
                           <ImageOff className="h-6 w-6 opacity-50" aria-hidden />
@@ -1097,7 +1201,7 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
                 type="button"
                 onClick={() => void startRecordingDesktop()}
                 disabled={!pickedSourceId || !desktopSources?.length || screenPermStatus === 'denied'}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium disabled:opacity-45"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium disabled:opacity-45 sm:rounded-xl sm:py-2.5"
                 style={{
                   borderColor: 'var(--dome-border)',
                   color: 'var(--dome-text)',
@@ -1108,14 +1212,14 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
                 {t('media.dock_start_system_capture')}
               </button>
 
-              <p className="text-[10px] leading-snug px-0.5" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="line-clamp-2 text-[10px] leading-snug sm:line-clamp-none" style={{ color: 'var(--dome-text-muted)' }}>
                 {t('media.dock_mic_system_explain')}
               </p>
               <button
                 type="button"
                 onClick={() => void startRecordingMicAndSystem()}
                 disabled={!pickedSourceId || !desktopSources?.length || screenPermStatus === 'denied'}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium disabled:opacity-45"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium disabled:opacity-45 sm:rounded-xl sm:py-2.5"
                 style={{
                   borderColor: 'color-mix(in srgb, var(--dome-accent) 35%, var(--dome-border))',
                   color: 'var(--dome-text)',
@@ -1132,41 +1236,41 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
           </>
         ) : null}
 
-        {/* ── Save audio copy checkbox ── */}
-        <label className="flex cursor-pointer items-center gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-          <input
-            type="checkbox"
-            checked={saveAudioCopy}
-            onChange={(e) => setSaveAudioCopy(e.target.checked)}
-            disabled={!showSetupChrome}
-            className="cursor-pointer"
-          />
-          {t('media.dock_save_audio_copy')}
-        </label>
+        {showSetupChrome ? (
+          <label className="flex cursor-pointer items-center gap-2 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+            <input
+              type="checkbox"
+              checked={saveAudioCopy}
+              onChange={(e) => setSaveAudioCopy(e.target.checked)}
+              className="cursor-pointer"
+            />
+            {t('media.dock_save_audio_copy')}
+          </label>
+        ) : null}
 
-        {/* ── Actions ── */}
-        <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={requestCancel}
-            disabled={isProcessing}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium"
-            style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
-          >
-            <X className="h-3.5 w-3.5" aria-hidden />
-            {t('media.dock_cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={requestStopAndTranscribe}
-            disabled={isProcessing || !(isRecording || isPaused)}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-45"
-            style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent, #fff)' }}
-          >
-            <Square className="h-3.5 w-3.5" aria-hidden />
-            {t('media.dock_stop_transcribe')}
-          </button>
-        </div>
+        {!isRecording && !isPaused && !isProcessing ? (
+          <div className="flex items-center justify-end gap-2 border-t pt-2" style={{ borderColor: 'var(--dome-border)' }}>
+            <button
+              type="button"
+              onClick={requestCancel}
+              className={`${iconBtnBase} gap-1 px-3 py-1.5 text-xs font-medium`}
+              style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+            >
+              <X className="h-3.5 w-3.5" aria-hidden />
+              {t('media.dock_cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={requestStopAndTranscribe}
+              disabled
+              className={`${iconBtnBase} gap-1 px-3 py-1.5 text-xs font-medium opacity-40`}
+              style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent, #fff)' }}
+            >
+              <Square className="h-3.5 w-3.5" aria-hidden />
+              {t('media.dock_stop_transcribe')}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

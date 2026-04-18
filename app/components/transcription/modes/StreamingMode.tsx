@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Radio, Square, X, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Radio, Square, X, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
 import { useMediaRecorder } from '@/lib/transcription/useMediaRecorder';
@@ -122,19 +122,6 @@ export default function StreamingMode({ isActive = true }: Props) {
     return undefined;
   }, [visible]);
 
-  useLayoutEffect(() => {
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const el = hubContentRef.current;
-    if (!el) return undefined;
-    const ro = new ResizeObserver(() => {
-      const h = Math.ceil(el.getBoundingClientRect().height);
-      const padded = Math.min(780, Math.max(80, h + 24));
-      void window.electron?.transcriptionOverlay?.overlayResize?.(padded);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [visible, rec.phase, lines.length, hubMinimized]);
-
   if (!visible) return null;
 
   const isRecording = rec.phase === 'recording';
@@ -181,6 +168,22 @@ export default function StreamingMode({ isActive = true }: Props) {
             )}
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
+            {hubUi ? (
+              <button
+                type="button"
+                onClick={() => hubUi.expandHub()}
+                className="mr-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+                style={{
+                  color: 'var(--dome-accent)',
+                  background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)',
+                  border: '1px solid color-mix(in srgb, var(--dome-accent) 28%, transparent)',
+                }}
+                title={t('hub.expand_panel')}
+                aria-label={t('hub.expand_panel')}
+              >
+                <ChevronUp className="h-4 w-4" aria-hidden />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => {
@@ -224,6 +227,22 @@ export default function StreamingMode({ isActive = true }: Props) {
           <Radio className="h-4 w-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
           <span className="text-sm font-medium flex-1 min-w-0">{t('hub.mode.streaming')}</span>
           <span className="font-mono text-xs tabular-nums opacity-70">{timeStr}</span>
+          {hubUi && !hubMinimized ? (
+            <button
+              type="button"
+              onClick={() => hubUi.toggleHubMinimized()}
+              className="ml-auto inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors"
+              style={{
+                color: 'var(--dome-text-muted)',
+                background: 'color-mix(in srgb, var(--dome-bg-hover) 85%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--dome-border) 55%, transparent)',
+              }}
+              title={t('hub.minimize_panel')}
+              aria-label={t('hub.minimize_panel')}
+            >
+              <ChevronDown className="h-4 w-4" aria-hidden />
+            </button>
+          ) : null}
         </div>
         <WaveformMeter stream={rec.streamRef.current} active={isLiveSession} height={40} />
         <div

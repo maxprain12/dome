@@ -80,6 +80,31 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
+  ipcMain.handle('transcription-overlay:window-chrome', async (event, payload = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
+    if (!ov || ov.isDestroyed() || ov.webContents.id !== event.sender.id) {
+      return { success: false, error: 'Only transcription overlay may control its window' };
+    }
+    const action = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload.action : undefined;
+    try {
+      if (action === 'minimize') {
+        ov.minimize();
+        return { success: true };
+      }
+      if (action === 'close') {
+        ov.hide();
+        return { success: true };
+      }
+      return { success: false, error: 'Invalid action' };
+    } catch (err) {
+      console.error('[TranscriptionOverlay] window-chrome:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('transcription-overlay:overlay-resize', async (event, { height }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
