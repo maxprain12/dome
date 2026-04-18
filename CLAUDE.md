@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Technology Stack
 
-- **Runtime**: Bun for development/build, Node.js for Electron main process
+- **Runtime**: npm for dependency management + build; Node.js for Electron main process (do NOT use bun)
 - **Desktop**: Electron 32 with strict security (contextIsolation, no nodeIntegration)
 - **Frontend**: Vite 7 + React 18 + React Router 7 (client-side SPA, entry: `app/main.tsx`)
 - **Database**: SQLite via **better-sqlite3** (NOT bun:sqlite — Electron runs on Node.js)
@@ -23,30 +23,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
+The project uses **npm** (CI runs `npm ci` — do not use bun or touch `bun.lock`).
+
 ```bash
 # Development (recommended)
-bun run electron:dev            # Start Vite dev server + Electron with hot reload
+npm run electron:dev            # Start Vite dev server + Electron with hot reload
 
 # Development (separate)
-bun run dev                     # Vite dev server only (http://localhost:5173)
-bun run electron                # Electron only (must build Vite first)
+npm run dev                     # Vite dev server only (http://localhost:5173)
+npm run electron                # Electron only (must build Vite first)
 
 # Production Build
-bun run build                   # Build Vite for production (output: dist/)
-bun run rebuild:natives         # Rebuild native modules for Electron
-bun run verify:natives          # Verify native modules are correctly compiled
-bun run electron:build          # Package Electron app for distribution (includes rebuild)
-bun run electron:build:verbose  # Same as above with DEBUG=electron-builder output
-bun run prepare:pageindex-runtime  # Bundle Python doc-indexing runtime (auto-runs in build)
+npm run build                   # Build Vite for production (output: dist/)
+npm run rebuild:natives         # Rebuild native modules for Electron
+npm run verify:natives          # Verify native modules are correctly compiled
+npm run electron:build          # Package Electron app for distribution (includes rebuild)
+npm run electron:build:verbose  # Same as above with DEBUG=electron-builder output
+npm run prepare:pageindex-runtime  # Bundle Python doc-indexing runtime (auto-runs in build)
 
 # Database & Testing
-bun run test:db          # Test database connection and queries
+npm run test:db          # Test database connection and queries
 
 # Utilities
-bun run clean            # Remove build artifacts and user data
-bun run copy:pdf-worker  # Copy pdfjs-dist worker to public/ (auto-runs in postinstall)
-bun run generate-icons   # Generate app icons
-bun run postinstall      # Install Electron native dependencies (runs automatically)
+npm run clean            # Remove build artifacts and user data
+npm run copy:pdf-worker  # Copy pdfjs-dist worker to public/ (auto-runs in postinstall)
+npm run generate-icons   # Generate app icons
+npm run postinstall      # Install Electron native dependencies (runs automatically)
 ```
 
 ## Critical Architecture Rules

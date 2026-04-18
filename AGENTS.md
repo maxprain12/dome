@@ -224,7 +224,7 @@ truncation); large files are clipped at 60KB with a note in the summary.
 ### VPS audits (OpenCode + MiniMax on a cron-driven VPS)
 
 Periodic sweeps per focus domain. Each focus has one prompt + a shared context
-block. Prompts include explicit "run `bun tsc --noEmit` / `grep` before fixing"
+block. Prompts include explicit "run `npm run typecheck` / `grep` before fixing"
 instructions so the agent verifies findings against live code.
 
 - `prompts/shared/project-context.md` — shared across all audit prompts
