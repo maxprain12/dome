@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Modal, Stack, TextInput, Button, Text } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
 import type { Editor } from '@tiptap/core';
 import type { NoteEmbedKind } from '@/lib/tiptap/extensions/note-editor-bridge';
 
@@ -13,6 +14,7 @@ export interface EmbedModalProps {
 }
 
 export default function EmbedModal({ opened, onClose, editor, kind }: EmbedModalProps) {
+  const { t } = useTranslation();
   const [url, setUrl] = useState('');
   const [err, setErr] = useState<string | null>(null);
 
@@ -20,13 +22,13 @@ export default function EmbedModal({ opened, onClose, editor, kind }: EmbedModal
     setErr(null);
     const trimmed = url.trim();
     if (!trimmed || !editor || !kind) {
-      setErr('Introduce una URL válida');
+      setErr(t('editor.embed_modal_invalid_url'));
       return;
     }
     if (kind === 'youtube') {
       const ok = editor.chain().focus().setYoutubeVideo({ src: trimmed }).run();
       if (!ok) {
-        setErr('URL de YouTube no reconocida');
+        setErr(t('editor.embed_modal_invalid_youtube'));
         return;
       }
     } else if (kind === 'iframe') {
@@ -44,19 +46,17 @@ export default function EmbedModal({ opened, onClose, editor, kind }: EmbedModal
         setErr(null);
         onClose();
       }}
-      title={kind === 'youtube' ? 'Insertar YouTube' : 'Insertar iframe'}
+      title={kind === 'youtube' ? t('editor.embed_modal_title_youtube') : t('editor.embed_modal_title_iframe')}
       size="md"
       centered
     >
       <Stack gap="md">
         <Text size="sm" c="dimmed">
-          {kind === 'youtube'
-            ? 'Pega el enlace del vídeo (youtube.com o youtu.be)'
-            : 'URL de la página a incrustar (usa solo fuentes de confianza)'}
+          {kind === 'youtube' ? t('editor.embed_modal_url_help_youtube') : t('editor.embed_modal_url_help_iframe')}
         </Text>
         <TextInput
           label="URL"
-          placeholder="https://…"
+          placeholder={t('editor.embed_modal_url_placeholder')}
           value={url}
           onChange={(e) => setUrl(e.currentTarget.value)}
           autoFocus
@@ -72,7 +72,7 @@ export default function EmbedModal({ opened, onClose, editor, kind }: EmbedModal
             {err}
           </Text>
         )}
-        <Button onClick={submit}>Insertar</Button>
+        <Button onClick={submit}>{t('editor.embed_modal_submit')}</Button>
       </Stack>
     </Modal>
   );
