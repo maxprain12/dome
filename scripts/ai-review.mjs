@@ -472,12 +472,11 @@ async function main() {
     return;
   }
 
-  // Post the review with comments[]
-  const url = `https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}/reviews`;
-  let posted = false;
-  let postError = '';
-  try {
-    const res = await fetch(url, {
+  // Post to GitHub with Retry-After-aware backoff. Secondary rate limits
+  // (403 with "secondary rate limit" in body) fire when this PR's autosync +
+  // auto-merge + this review land in the same minute — they're recoverable.
+  const ghPost = async (targetUrl, payload, attemptsLeft = 4, backoffSec = 30) => {
+    const res = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${GITHUB_TOKEN}`,
@@ -485,14 +484,34 @@ async function main() {
         Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
       },
-      body: JSON.stringify({ body: reviewBody, event: 'COMMENT', comments: reviewComments }),
+      body: JSON.stringify(payload),
     });
-    if (res.ok) {
+    if (res.ok) return { ok: true };
+    const text = await res.text().catch(() => '');
+    const rateLimited =
+      res.status === 429 ||
+      (res.status === 403 && /secondary rate limit|abuse|rate limit/i.test(text));
+    if (rateLimited && attemptsLeft > 0) {
+      const retryAfter = parseInt(res.headers.get('retry-after') || '', 10);
+      const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : backoffSec;
+      console.error(`⏳ Rate limited (${res.status}) — sleeping ${wait}s (attempts left: ${attemptsLeft})`);
+      await sleep(wait * 1000);
+      return ghPost(targetUrl, payload, attemptsLeft - 1, Math.min(backoffSec * 2, 300));
+    }
+    return { ok: false, error: `GitHub API ${res.status}: ${text.slice(0, 300)}` };
+  };
+
+  // Post the review with comments[]
+  const url = `https://api.github.com/repos/${REPO}/pulls/${PR_NUMBER}/reviews`;
+  let posted = false;
+  let postError = '';
+  try {
+    const result = await ghPost(url, { body: reviewBody, event: 'COMMENT', comments: reviewComments });
+    if (result.ok) {
       console.log(`✅ Review posted to PR #${PR_NUMBER} with ${reviewComments.length} line comments`);
       posted = true;
     } else {
-      const text = await res.text().catch(() => '');
-      postError = `GitHub API ${res.status}: ${text.slice(0, 300)}`;
+      postError = result.error;
       console.error(`❌ Failed to post review: ${postError}`);
     }
   } catch (err) {
@@ -504,19 +523,16 @@ async function main() {
   if (!posted) {
     try {
       const fallbackUrl = `https://api.github.com/repos/${REPO}/issues/${PR_NUMBER}/comments`;
-      await fetch(fallbackUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${GITHUB_TOKEN}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/vnd.github+json',
-          'X-GitHub-Api-Version': '2022-11-28',
-        },
-        body: JSON.stringify({
-          body: `## 🤖 AI Code Review — ⚠️ Partial Failure\n\n> ${statusLine}\n\nThe line-level review could not be posted.\n**Error:** \`${postError}\`\n\n<details><summary>Summary</summary>\n\n${reviewBody}\n\n</details>`,
-        }),
+      const fallbackResult = await ghPost(fallbackUrl, {
+        body: `## 🤖 AI Code Review — ⚠️ Partial Failure\n\n> ${statusLine}\n\nThe line-level review could not be posted.\n**Error:** \`${postError}\`\n\n<details><summary>Summary</summary>\n\n${reviewBody}\n\n</details>`,
       });
-      console.log('⚠️  Posted fallback issue comment instead.');
+      if (fallbackResult.ok) {
+        console.log('⚠️  Posted fallback issue comment instead.');
+      } else {
+        console.error(`❌ Fallback also failed: ${fallbackResult.error}`);
+        console.log('\n--- Review Output (fallback stdout) ---\n');
+        console.log(reviewBody);
+      }
     } catch {
       console.log('\n--- Review Output (fallback stdout) ---\n');
       console.log(reviewBody);
