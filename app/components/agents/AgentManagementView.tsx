@@ -696,7 +696,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                 type="button"
                 onClick={() => setShowNewAgent(true)}
                 className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all hover:opacity-90"
-                style={{ background: 'var(--dome-accent)', color: 'white' }}
+                style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
               >
                 <Plus className="w-3 h-3" />
                 {t('ui.add')}

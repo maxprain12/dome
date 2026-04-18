@@ -184,7 +184,7 @@ export default function CodeCell({
           className="p-1.5 rounded shrink-0 cursor-pointer transition-colors duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed"
           style={{
             background: 'var(--accent)',
-            color: 'white',
+            color: 'var(--base-text)',
           }}
           title="Run cell (Shift+Enter)"
           aria-label={t('notebook.run_cell')}

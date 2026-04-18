@@ -274,7 +274,7 @@ export default function WorkspaceFilesPanel({
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 shadow-sm"
             style={{
               background: 'var(--accent)',
-              color: 'white',
+              color: 'var(--base-text)',
             }}
           >
             <FolderOpen size={18} />
@@ -366,7 +366,7 @@ export default function WorkspaceFilesPanel({
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddFile(); }}
               disabled={addingFile}
               className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer disabled:cursor-not-allowed"
-              style={{ background: 'var(--accent)', color: 'white' }}
+              style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
               title={t('workspaceFiles.copy_file_title')}
             >
               <FilePlus size={14} />
@@ -519,7 +519,7 @@ export default function WorkspaceFilesPanel({
                       onClick={handlePipInstall}
                       disabled={pipInstalling || !pipInput.trim()}
                       className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium shrink-0"
-                      style={{ background: 'var(--accent)', color: 'white' }}
+                      style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
                     >
                       {pipInstalling ? <Loader2 size={14} className="animate-spin" /> : <Package size={14} />}
                       {t('workspaceFiles.install')}
@@ -533,7 +533,7 @@ export default function WorkspaceFilesPanel({
                     onClick={handleCreateVenv}
                     disabled={venvCreating}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
-                    style={{ background: 'var(--accent)', color: 'white' }}
+                    style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
                   >
                     {venvCreating ? <Loader2 size={14} className="animate-spin" /> : <Terminal size={14} />}
                     {venvCreating ? t('workspaceFiles.creating') : t('workspaceFiles.create_venv')}

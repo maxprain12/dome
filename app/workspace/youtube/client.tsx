@@ -222,7 +222,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
         <button
           onClick={() => navigate('/')}
           className="px-4 py-2 rounded-lg text-sm font-medium"
-          style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+          style={{ backgroundColor: 'var(--accent)', color: 'var(--base-text)' }}
         >
           Go Back
         </button>
@@ -264,7 +264,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
                   type="button"
                   onClick={handleProcess}
                   className="px-4 py-2 rounded-lg text-sm font-medium"
-                  style={{ backgroundColor: 'var(--accent)', color: 'white' }}
+                  style={{ backgroundColor: 'var(--accent)', color: 'var(--base-text)' }}
                 >
                   Load Video
                 </button>

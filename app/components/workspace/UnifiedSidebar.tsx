@@ -393,7 +393,7 @@ function MoveFolderModal({ resource, allFolders, onConfirm, onClose }: {
         </div>
         <div className="flex items-center justify-end gap-2 px-4 py-3 border-t" style={{ borderColor: 'var(--dome-border)' }}>
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('common.cancel')}</button>
-          <button type="button" onClick={() => { onConfirm(selected); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'white' }}>{t('common.move')}</button>
+          <button type="button" onClick={() => { onConfirm(selected); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'var(--base-text)' }}>{t('common.move')}</button>
         </div>
       </div>
     </div>
@@ -421,7 +421,7 @@ function DeleteConfirmModal({ resource, onConfirm, onClose }: {
         </div>
         <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
-          <button type="button" onClick={() => { onConfirm(); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-error, #ef4444)', border: 'none', cursor: 'pointer', color: 'white' }}>{t('ui.delete')}</button>
+          <button type="button" onClick={() => { onConfirm(); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-error, #ef4444)', border: 'none', cursor: 'pointer', color: 'var(--base-text)' }}>{t('ui.delete')}</button>
         </div>
       </div>
     </div>
@@ -452,7 +452,7 @@ function NewFolderModal({ parentId, onConfirm, onClose }: {
           style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }} />
         <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
-          <button type="button" onClick={submit} disabled={!name.trim()} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'white', opacity: name.trim() ? 1 : 0.5 }}>{t('ui.create')}</button>
+          <button type="button" onClick={submit} disabled={!name.trim()} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'var(--base-text)', opacity: name.trim() ? 1 : 0.5 }}>{t('ui.create')}</button>
         </div>
       </div>
     </div>
@@ -993,7 +993,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
                 disabled={bulkDeleting}
                 onClick={() => void handleBulkDelete()}
                 className="px-3 py-1.5 rounded-md text-xs font-medium"
-                style={{ background: 'var(--dome-error, #ef4444)', border: 'none', cursor: 'pointer', color: 'white', opacity: bulkDeleting ? 0.6 : 1 }}>
+                style={{ background: 'var(--dome-error, #ef4444)', border: 'none', cursor: 'pointer', color: 'var(--base-text)', opacity: bulkDeleting ? 0.6 : 1 }}>
                 {bulkDeleting ? '...' : t('ui.delete')}
               </button>
             </div>
@@ -1035,7 +1035,7 @@ function UrlInputModal({ onConfirm, onClose }: { onConfirm: (url: string) => voi
         />
         <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
-          <button type="button" onClick={submit} disabled={!url.trim()} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'white', opacity: url.trim() ? 1 : 0.5 }}>{t('ui.add')}</button>
+          <button type="button" onClick={submit} disabled={!url.trim()} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'var(--base-text)', opacity: url.trim() ? 1 : 0.5 }}>{t('ui.add')}</button>
         </div>
       </div>
     </div>

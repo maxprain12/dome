@@ -284,7 +284,7 @@ export default function AISettingsPanel() {
                 </DomeIconBox>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm font-semibold" style={{ color: provider === 'dome' ? '#fff' : 'var(--dome-text)' }}>
+                    <span className="text-sm font-semibold" style={{ color: provider === 'dome' ? 'var(--base-text)' : 'var(--dome-text)' }}>
                       {PROVIDERS.dome.name}
                     </span>
                     <DomeBadge

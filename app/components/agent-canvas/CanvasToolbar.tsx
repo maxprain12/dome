@@ -78,7 +78,7 @@ export default function CanvasToolbar({
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90 active:opacity-80"
           style={{
             background: 'var(--dome-accent)',
-            color: 'white',
+            color: 'var(--base-text)',
             boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
           }}
         >

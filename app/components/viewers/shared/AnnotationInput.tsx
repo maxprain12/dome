@@ -98,7 +98,7 @@ function AnnotationInputComponent({
         className="px-2 py-1 text-sm rounded transition-opacity cursor-pointer"
         style={{
           background: 'var(--accent)',
-          color: 'white',
+          color: 'var(--base-text)',
           opacity: isSaving || !content.trim() ? 0.5 : 1,
         }}
       >

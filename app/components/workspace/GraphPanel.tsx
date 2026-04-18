@@ -327,7 +327,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
                 <button
                   onClick={generateKnowledgeGraph}
                   className="text-sm px-4 py-2 rounded-lg transition-colors"
-                  style={{ background: 'var(--accent)', color: 'white' }}
+                  style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
                 >
                   {t('common.retry')}
                 </button>
@@ -388,7 +388,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
                         : linkingStatus === 'error'
                         ? 'var(--error, #ef4444)'
                         : 'var(--accent)',
-                      color: 'white',
+                      color: 'var(--base-text)',
                       opacity: linkingStatus === 'linking' ? 0.7 : 1,
                     }}
                     title={t('graph.link_resource')}
@@ -431,7 +431,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
                 <button
                   onClick={generateKnowledgeGraph}
                   className="text-sm px-4 py-2 rounded-lg transition-colors"
-                  style={{ background: 'var(--accent)', color: 'white' }}
+                  style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
                 >
                   Generate Graph
                 </button>

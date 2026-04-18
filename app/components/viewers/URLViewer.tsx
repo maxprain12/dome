@@ -305,7 +305,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                 type="button"
                 onClick={() => { void onRunUrlProcess(); }}
                 className="px-4 py-2.5 rounded-lg text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)]"
-                style={{ background: 'var(--dome-accent)', color: 'white' }}
+                style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
               >
                 {t('viewer.reprocess')}
               </button>
@@ -323,7 +323,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                 type="button"
                 onClick={() => { void onRunUrlProcess(); }}
                 className="px-4 py-2.5 rounded-lg text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)]"
-                style={{ background: 'var(--dome-accent)', color: 'white' }}
+                style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
               >
                 {t('viewer.process_now')}
               </button>

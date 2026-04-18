@@ -423,7 +423,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
             className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm mt-4 transition-all hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer min-h-[44px]"
             style={{
               background: 'var(--accent)',
-              color: 'white',
+              color: 'var(--base-text)',
             }}
           >
             <ExternalLink size={16} />
