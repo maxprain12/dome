@@ -305,7 +305,7 @@ function ReferencesTab({ resourceId }: { resourceId: string }) {
                 <div className="flex items-center gap-2 mt-1">
                   <span
                     className="text-xs px-2 py-0.5 rounded-full font-medium"
-                    style={{ background: 'var(--accent)', color: 'white', opacity: 0.85 }}
+                    style={{ background: 'var(--accent)', color: 'var(--base-text)', opacity: 0.85 }}
                   >
                     {link.link_type || 'related'}
                   </span>
@@ -405,7 +405,7 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
                     className="text-xs px-2 py-0.5 rounded-full font-medium"
                     style={{
                       background: 'var(--accent)',
-                      color: 'white',
+                      color: 'var(--base-text)',
                       opacity: 0.8,
                     }}
                   >
@@ -593,7 +593,7 @@ function SearchTab({ resourceId }: { resourceId: string; resource: Resource }) {
                   className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] shrink-0"
                   style={{
                     background: isLinked ? 'var(--success, #10b981)' : 'var(--accent)',
-                    color: 'white',
+                    color: 'var(--base-text)',
                     opacity: isLinking ? 0.7 : 1,
                   }}
                   aria-label={isLinked ? 'Already linked' : `Link to ${result.title || 'Untitled'}`}

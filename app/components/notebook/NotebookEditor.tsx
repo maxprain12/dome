@@ -280,7 +280,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
           type="button"
           onClick={handleRunCell}
           className={btnPrimary}
-          style={{ background: 'var(--accent)', color: 'white' }}
+          style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
           title="Run cell (Shift+Enter)"
           aria-label={t('notebook.run_cell')}
         >

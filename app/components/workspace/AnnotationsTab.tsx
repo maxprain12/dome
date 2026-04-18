@@ -103,7 +103,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium mb-2"
                   style={{
                     background: 'var(--accent)',
-                    color: 'white',
+                    color: 'var(--base-text)',
                   }}
                 >
                   <FileText size={12} />

@@ -396,7 +396,7 @@ export default function AnnotationLayer({
                 className="px-3 py-1 text-xs rounded"
                 style={{
                   background: 'var(--accent)',
-                  color: 'white',
+                  color: 'var(--base-text)',
                 }}
               >
                 Add Note
