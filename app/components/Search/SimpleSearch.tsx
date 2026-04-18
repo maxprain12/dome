@@ -570,13 +570,15 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
 // Debounced multi-source search
   useEffect(() => {
     if (!query.trim()) { setGroups({}); return; }
-    const timer = setTimeout(async () => {
+    let ignore = false;
+    const runSearch = async () => {
       setIsSearching(true);
-      const allGroups: Record<string, AdvancedResult[]> = {};
-
+      try {
+        const allGroups: Record<string, AdvancedResult[]> = {};
         // 1. Unified search (resources + interactions + studio)
         if (window.electron?.db?.search?.unified) {
           const res = await window.electron.db.search.unified(query);
+          if (ignore) return;
           if (res.success && res.data) {
             // Resources
             if (Array.isArray(res.data.resources) && res.data.resources.length > 0) {
@@ -631,21 +633,8 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
                 updated_at: s.updated_at,
               }));
             }
-            // Graph context is not yet available via unified search
-            // if (Array.isArray(res.data.graphNodes) && res.data.graphNodes.length > 0) {
-            //   allGroups.graph = res.data.graphNodes.slice(0, 5).map((n: {
-            //     id: string; label?: string; type?: string;
-            //   }) => ({
-            //     id: n.id,
-            //     title: n.label || n.type || 'Graph node',
-            //     type: n.type || 'graph',
-            //     category: 'graph' as const,
-            //     snippet: undefined,
-            //   }));
-            // }
           }
         }
-
         // 2. Chats (if db.search.chats is available)
         // Note: chats search is commented out until the IPC channel is implemented
         // if (window.electron?.db?.search?.chats) {
@@ -661,11 +650,13 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
         //     }));
         //   }
         // }
-
-        setGroups(allGroups);
-        setIsSearching(false);
-    }, 250);
-    return () => clearTimeout(timer);
+        if (!ignore) setGroups(allGroups);
+      } finally {
+        if (!ignore) setIsSearching(false);
+      }
+    };
+    const timer = setTimeout(runSearch, 250);
+    return () => { ignore = true; clearTimeout(timer); };
   }, [query]);
 
   const totalResults = Object.values(groups).reduce((s, g) => s + g.length, 0);
