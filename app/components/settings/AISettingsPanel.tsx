@@ -7,7 +7,6 @@ import type { AISettings } from '@/types';
 import {
   PROVIDERS,
   getDefaultModelId,
-  formatContextWindow,
   type AIProviderType,
   type ModelDefinition,
 } from '@/lib/ai/models';

@@ -55,7 +55,7 @@ export default function McpCapabilitiesSection({
       }
       setSavingServerId(null);
     },
-    []
+    [t]
   );
 
   if (visibleServers.length === 0) {

@@ -264,8 +264,6 @@ export function SearchModal({
   handleAddUrl,
   handleResultClick,
 }: SearchModalProps) {
-  const { t } = useTranslation();
-
   if (!isOpen) return null;
 
   return (

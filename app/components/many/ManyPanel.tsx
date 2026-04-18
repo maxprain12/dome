@@ -33,7 +33,6 @@ import { db } from '@/lib/db/client';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
-import { useTranslation } from 'react-i18next';
 import {
   abortRun,
   getActiveRunBySession,
@@ -148,7 +147,6 @@ interface ManyPanelProps {
 
 export default function ManyPanel({ width, onClose, isVisible, isFullscreen = false, mode = 'full' }: ManyPanelProps) {
   const isHeadless = mode === 'headless';
-  const { t } = useTranslation();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const {
@@ -364,7 +362,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     })();
 
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
   const refreshSessionFromDb = useCallback(async (): Promise<boolean> => {
@@ -633,7 +630,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       unsubUpdated();
       unsubChunk();
     };
-  }, [activeRunId, applyRunSnapshot, addMessage]);
+  }, [activeRunId, applyRunSnapshot, addMessage, setStatus]);
 
   const setMcpEnabled = useCallback(async (value: boolean) => {
     setMcpEnabledState(value);
@@ -762,16 +759,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     whatsappConnected,
   ]);
 
-  const isSummarizeRequest = (msg: string) => {
-    const lower = msg.toLowerCase();
-    return (
-      lower.includes('summarize') ||
-      lower.includes('summarise') ||
-      lower.includes('resum') ||
-      (lower.includes('resource') && (lower.includes('summar') || lower.includes('content') || lower.includes('about')))
-    );
-  };
-
   const hasLangGraph = typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
 
   const handleSend = useCallback(async (messageOverride?: string, sendOptions?: ManySendOptions) => {
@@ -794,7 +781,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     scrollToBottom(true);
 
     const fullResponse = '';
-    const fullThinking = '';
     let chatSuccess = true;
     let providerForAnalytics: string | null = null;
     let delegatedToRunEngine = false;

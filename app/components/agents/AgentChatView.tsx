@@ -192,7 +192,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     setIsLoading(false);
     setStatus('idle');
     setStreamingMessage(null);
-  }, [setStatus]);
+  }, [setStatus, t]);
 
   useEffect(() => {
     if (!currentSessionId) {
@@ -304,7 +304,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
       unsubUpdated();
       unsubChunk();
     };
-  }, [activeRunId, applyRunSnapshot, refreshSessionFromDb]);
+  }, [activeRunId, applyRunSnapshot, refreshSessionFromDb, t]);
 
   const scrollToBottom = useCallback(
     (force = false) => {
@@ -550,6 +550,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     currentSessionId,
     chatProjectId,
     applyRunSnapshot,
+    t,
   ]);
 
   const handleAbort = useCallback(() => {

@@ -149,7 +149,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
     } finally {
       setSaving(false);
     }
-  }, [isEditMode, initialAgent, name, description, systemInstructions, toolIds, mcpServerIds, skillIds, iconIndex, onComplete]);
+  }, [isEditMode, initialAgent, name, description, systemInstructions, toolIds, mcpServerIds, skillIds, iconIndex, onComplete, t]);
 
   // Formulario único para edición (sin etapas)
   if (isEditMode) {

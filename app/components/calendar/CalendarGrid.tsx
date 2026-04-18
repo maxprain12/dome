@@ -251,8 +251,8 @@ function DraggableTimeEvent({
   onEventDateChange?: (p: EventDateChangePayload) => void;
 }) {
   const { t } = useTranslation();
-  const startDate = new Date(event.start_at);
-  const endDate = new Date(event.end_at);
+  const startDate = useMemo(() => new Date(event.start_at), [event.start_at]);
+  const endDate = useMemo(() => new Date(event.end_at), [event.end_at]);
 
   const topMinutes = getHours(startDate) * 60 + getMinutes(startDate);
   const durationMins = Math.max(differenceInMinutes(endDate, startDate), 15);

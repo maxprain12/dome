@@ -138,7 +138,7 @@ export default function AppShell() {
     if (isChatTab && !rightSidebarOpen) {
       setRightSidebarOpen(true);
     }
-  }, [isChatTab]);
+  }, [isChatTab, rightSidebarOpen]);
 
   useEffect(() => {
     const onReq = () => {

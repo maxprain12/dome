@@ -436,7 +436,7 @@ function SourcesList({
 
 function ReportView({
   report,
-  onExport,
+  onExport: _onExport,
 }: {
   report: ResearchReport;
   onExport?: () => void;
@@ -444,7 +444,7 @@ function ReportView({
   const [activeSection, setActiveSection] = useState<string | null>(
     report.sections[0]?.id ?? null
   );
-  const [showToc, setShowToc] = useState(true);
+  const showToc = true;
   const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
   const prefersReducedMotion = useReducedMotion();
 

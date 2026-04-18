@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState, useEffect } from 'react';
-import { Play, SkipForward, FastForward, Download, Upload, X, Code2, FileText, GripVertical, Trash2, Terminal } from 'lucide-react';
+import { Play, SkipForward, FastForward, Download, Upload, Code2, FileText, GripVertical, Trash2, Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import CodeCell from './CodeCell';
 import MarkdownCell from './MarkdownCell';
@@ -78,7 +78,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
       const newNb: NotebookContent = { ...nb, cells };
       onChange(JSON.stringify(newNb));
     },
-    [nb, onChange]
+    [nb, onChange, t]
   );
 
   const handleDeleteCell = useCallback(
@@ -244,7 +244,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
     } catch (err) {
       console.error('Import failed:', err);
     }
-  }, [onChange]);
+  }, [onChange, t]);
 
   const handleMoveCell = useCallback(
     (fromIndex: number, toIndex: number) => {
