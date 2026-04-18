@@ -14,10 +14,11 @@ export default function PromptModal() {
   useEffect(() => {
     if (isOpen) {
       setValue(defaultValue);
-      setTimeout(() => {
+      const focusTimer = setTimeout(() => {
         inputRef.current?.focus();
         inputRef.current?.select();
       }, 80);
+      return () => clearTimeout(focusTimer);
     }
   }, [isOpen, defaultValue]);
 
@@ -165,7 +166,7 @@ export default function PromptModal() {
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150"
               style={{
                 backgroundColor: 'var(--accent)',
-                color: 'white',
+                color: 'var(--base-text)',
                 boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
               }}
               onMouseEnter={(e) => {

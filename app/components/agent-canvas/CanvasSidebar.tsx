@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Type,
   FileText,
@@ -87,19 +87,19 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
   const [outputsExpanded, setOutputsExpanded] = useState(true);
   const [loadingAgents, setLoadingAgents] = useState(false);
 
-  const loadAgents = async () => {
+  const loadAgents = useCallback(async () => {
     setLoadingAgents(true);
     const result = await getManyAgents(hubProjectId);
     setAgents(result);
     setLoadingAgents(false);
-  };
+  }, [hubProjectId]);
 
   useEffect(() => {
     void loadAgents();
     const handler = () => void loadAgents();
     window.addEventListener('dome:agents-changed', handler);
     return () => window.removeEventListener('dome:agents-changed', handler);
-  }, [hubProjectId]);
+  }, [loadAgents]);
 
   const filteredAgents = useMemo(() => {
     const q = agentQuery.trim().toLowerCase();

@@ -99,7 +99,7 @@ export default function ChatMessage({
   const formattedTime = useMemo(() => {
     const date = new Date(message.timestamp);
     return date.toLocaleTimeString(getDateTimeLocaleTag(), { hour: '2-digit', minute: '2-digit' });
-  }, [message.timestamp, i18n.language]);
+  }, [message.timestamp]);
 
   // Build source references from citation map and message content
   const sourceReferences = useMemo(() => {

@@ -80,7 +80,7 @@ export default function MCPSettingsPanel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const loadMcpEnabled = useCallback(async () => {
     if (!db.isAvailable()) return;

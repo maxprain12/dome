@@ -74,7 +74,7 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
                   style={{
                     flexShrink: 0,
                     background: 'var(--accent)',
-                    color: 'white',
+                    color: 'var(--base-text)',
                     borderRadius: 4,
                     padding: '1px 5px',
                     fontSize: 10,

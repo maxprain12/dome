@@ -173,15 +173,6 @@ function SubfolderCard({
     setMenuOpen((v) => !v);
   };
 
-  const openColorPicker = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setMenuOpen(false);
-    if (menuBtnRef.current) {
-      const rect = menuBtnRef.current.getBoundingClientRect();
-      setColorPickerPos({ top: rect.bottom + 4, left: Math.max(4, rect.right - 220) });
-    }
-  };
-
   const menuItem = (icon: React.ReactNode, label: string, action: () => void, danger = false) => (
     <button
       type="button"

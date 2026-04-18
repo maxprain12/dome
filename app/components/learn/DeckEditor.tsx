@@ -275,7 +275,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
             className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
             style={{
               background: 'var(--dome-accent)',
-              color: 'white',
+              color: 'var(--base-text)',
             }}
           >
             {isSaving && <Loader2 size={16} className="animate-spin" />}

@@ -101,7 +101,7 @@ export default function PDFNotesList({
                       className="px-2 py-1 text-xs rounded cursor-pointer"
                       style={{
                         background: 'var(--accent)',
-                        color: 'white',
+                        color: 'var(--base-text)',
                       }}
                     >
                       Save

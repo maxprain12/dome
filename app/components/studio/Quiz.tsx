@@ -2,7 +2,8 @@
 import { useState, useCallback } from 'react';
 import { CheckCircle2, XCircle, ArrowRight, RotateCcw, X } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
-import type { QuizData, QuizQuestion } from '@/types';
+import { useTranslation } from 'react-i18next';
+import type { QuizData } from '@/types';
 
 interface QuizProps {
   data: QuizData;
@@ -11,6 +12,7 @@ interface QuizProps {
 }
 
 export default function Quiz({ data, title, onClose }: QuizProps) {
+  const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | string | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -63,7 +65,7 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
       <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
           <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
-            {title || 'Quiz'} -- Results
+            {title || t('quiz.title')} — {t('quiz.results')}
           </h3>
           {onClose && (
             <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close"><X size={16} /></button>
@@ -75,17 +77,17 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
               {score}%
             </div>
             <div className="text-lg font-medium mb-1" style={{ color: 'var(--primary-text)' }}>
-              {score >= 70 ? 'Great job!' : score >= 40 ? 'Good effort!' : 'Keep studying!'}
+              {score >= 70 ? t('quiz.great_job') : score >= 40 ? t('quiz.good_effort') : t('quiz.keep_studying')}
             </div>
             <div className="text-sm mb-6" style={{ color: 'var(--secondary-text)' }}>
-              {correctCount} of {totalQuestions} correct
+              {t('quiz.correct_count', { correct: correctCount, total: totalQuestions })}
             </div>
             <div className="flex gap-3 justify-center">
               <button onClick={handleRestart} className="btn btn-secondary flex items-center gap-2">
-                <RotateCcw size={16} /> Try again
+                <RotateCcw size={16} /> {t('quiz.try_again')}
               </button>
               {onClose && (
-                <button onClick={onClose} className="btn btn-ghost">Close</button>
+                <button onClick={onClose} className="btn btn-ghost">{t('quiz.close')}</button>
               )}
             </div>
           </div>
@@ -100,7 +102,7 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
       <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
         <div className="flex items-center gap-3">
           <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
-            {title || 'Quiz'}
+            {title || t('quiz.title')}
           </h3>
           <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-secondary)', color: 'var(--secondary-text)' }}>
             {currentIndex + 1} / {totalQuestions}
@@ -168,7 +170,7 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
           {/* True/False */}
           {currentQuestion.type === 'true_false' && (
             <div className="flex gap-3">
-              {['True', 'False'].map((option, idx) => {
+              {[t('quiz.true_option'), t('quiz.false_option')].map((option, idx) => {
                 const isSelected = selectedAnswer === idx;
                 const isCorrect = showExplanation && idx === currentQuestion.correct;
                 const isWrong = showExplanation && isSelected && idx !== currentQuestion.correct;
@@ -195,7 +197,7 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
           {/* Explanation */}
           {showExplanation && currentQuestion.explanation && (
             <div className="mt-3 p-3 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--dome-border)]">
-              <div className="text-xs font-semibold uppercase mb-2" style={{ color: 'var(--dome-text)' }}>Explanation</div>
+              <div className="text-xs font-semibold uppercase mb-2" style={{ color: 'var(--dome-text)' }}>{t('quiz.explanation')}</div>
               <div className="prose prose-sm max-w-none" style={{ color: 'var(--dome-text)' }}>
                 <MarkdownRenderer content={currentQuestion.explanation} />
               </div>
@@ -213,11 +215,11 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
             className="btn btn-primary"
             style={{ opacity: selectedAnswer === null ? 0.5 : 1 }}
           >
-            Check Answer
+            {t('quiz.check_answer')}
           </button>
         ) : (
           <button onClick={handleNext} className="btn btn-primary flex items-center gap-2">
-            {currentIndex < totalQuestions - 1 ? <>Next <ArrowRight size={16} /></> : 'See Results'}
+            {currentIndex < totalQuestions - 1 ? <>{t('quiz.next')} <ArrowRight size={16} /></> : t('quiz.see_results')}
           </button>
         )}
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Download, ArrowRight, Bot, Type, FileText, Image, Terminal, Play, Clock, Zap, Lightbulb, Sparkles } from 'lucide-react';
+import { X, Download, ArrowRight, Bot, Type, FileText, Image, Terminal, Play, Clock, Lightbulb, Sparkles } from 'lucide-react';
 import type { WorkflowTemplate } from '@/types/canvas';
 
 interface WorkflowDetailProps {

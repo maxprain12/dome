@@ -94,7 +94,7 @@ export default memo(function FolderColorPicker({ value, onSave }: FolderColorPic
         className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 text-sm font-medium rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
         style={{
           backgroundColor: 'var(--dome-accent)',
-          color: 'white',
+          color: 'var(--base-text)',
         }}
         aria-label={t('ui.save')}
       >

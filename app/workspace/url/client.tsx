@@ -231,7 +231,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
           type="button"
           onClick={() => navigate('/')}
           className="px-4 py-2 rounded-lg text-sm font-medium"
-          style={{ backgroundColor: 'var(--dome-accent)', color: 'white' }}
+          style={{ backgroundColor: 'var(--dome-accent)', color: 'var(--base-text)' }}
         >
           {t('workspace.home')}
         </button>

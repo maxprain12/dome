@@ -87,7 +87,7 @@ export default function StudyView() {
           <button
             onClick={endStudy}
             className="w-full py-3 rounded-lg font-medium"
-            style={{ background: 'var(--dome-accent)', color: 'white' }}
+            style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
           >
             {t('flashcard.back_to_deck', 'Volver al deck')}
           </button>

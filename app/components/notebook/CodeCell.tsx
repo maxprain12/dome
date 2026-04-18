@@ -30,11 +30,11 @@ export default function CodeCell({
   onExecutionCountChange,
   editable = true,
   onRun: externalRun,
-  onKeyDown: externalKeyDown,
+  onKeyDown: _externalKeyDown,
 }: CodeCellProps) {
   const { t } = useTranslation();
   const [isRunning, setIsRunning] = useState(false);
-  const { runPython, isLoaded, isLoading, loadError, ensureLoaded } = usePyodide();
+  const { runPython, isLoaded, isLoading, loadError, ensureLoaded: _ensureLoaded } = usePyodide();
 
   const doRun = useCallback(async () => {
     const code = sourceToString(cell.source).trim();
@@ -184,7 +184,7 @@ export default function CodeCell({
           className="p-1.5 rounded shrink-0 cursor-pointer transition-colors duration-200 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed"
           style={{
             background: 'var(--accent)',
-            color: 'white',
+            color: 'var(--base-text)',
           }}
           title="Run cell (Shift+Enter)"
           aria-label={t('notebook.run_cell')}
