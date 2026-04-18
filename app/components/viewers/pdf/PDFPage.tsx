@@ -1,6 +1,6 @@
 
 import { useEffect, useRef, useState } from 'react';
-import type { PDFPageProxy } from 'pdfjs-dist';
+import type { PDFPageProxy, RenderTask } from 'pdfjs-dist';
 
 interface PDFPageProps {
   page: PDFPageProxy;
@@ -10,7 +10,7 @@ interface PDFPageProps {
 
 export default function PDFPage({ page, scale, pageNumber }: PDFPageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const renderTaskRef = useRef<any>(null);
+  const renderTaskRef = useRef<RenderTask | null>(null);
   const [isRendering, setIsRendering] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
