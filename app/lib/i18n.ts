@@ -312,6 +312,7 @@ const en = {
   editor: {
     embed_modal_title_youtube: 'Insert YouTube',
     embed_modal_title_iframe: 'Insert iframe',
+    embed_modal_url_label: 'URL',
     embed_modal_url_placeholder: 'https://…',
     embed_modal_url_help_youtube: 'Paste the video link (youtube.com or youtu.be)',
     embed_modal_url_help_iframe: 'URL of the page to embed (only use trusted sources)',
@@ -1649,6 +1650,9 @@ const en = {
     date_modified: 'Modified',
   },
   graph: {
+    panel_empty_title: 'No graph data',
+    panel_empty_description: 'Generate a knowledge graph to see connections between documents.',
+    panel_generate_button: 'Generate graph',
     search_nodes: 'Search nodes...',
     depth: 'Depth:',
     weak: 'Weak',
@@ -2448,6 +2452,7 @@ const es = {
   editor: {
     embed_modal_title_youtube: 'Insertar YouTube',
     embed_modal_title_iframe: 'Insertar iframe',
+    embed_modal_url_label: 'URL',
     embed_modal_url_placeholder: 'https://…',
     embed_modal_url_help_youtube: 'Pega el enlace del vídeo (youtube.com o youtu.be)',
     embed_modal_url_help_iframe: 'URL de la página a incrustar (usa solo fuentes de confianza)',
@@ -3786,6 +3791,9 @@ const es = {
     date_modified: 'Modificado',
   },
   graph: {
+    panel_empty_title: 'Sin datos del grafo',
+    panel_empty_description: 'Genera un grafo de conocimiento para ver conexiones entre documentos.',
+    panel_generate_button: 'Generar grafo',
     search_nodes: 'Buscar nodos...',
     depth: 'Profundidad:',
     weak: 'Débil',
@@ -4586,6 +4594,7 @@ const fr = {
   editor: {
     embed_modal_title_youtube: 'Insérer YouTube',
     embed_modal_title_iframe: 'Insérer iframe',
+    embed_modal_url_label: 'URL',
     embed_modal_url_placeholder: 'https://…',
     embed_modal_url_help_youtube: 'Collez le lien de la vidéo (youtube.com ou youtu.be)',
     embed_modal_url_help_iframe: 'URL de la page à intégrer (utilisez uniquement des sources fiables)',
@@ -5924,6 +5933,9 @@ const fr = {
     date_modified: 'Modifié',
   },
   graph: {
+    panel_empty_title: 'Aucune donnée de graphe',
+    panel_empty_description: 'Générez un graphe de connaissances pour voir les liens entre les documents.',
+    panel_generate_button: 'Générer le graphe',
     search_nodes: 'Rechercher des nœuds...',
     depth: 'Profondeur :',
     weak: 'Faible',
@@ -6724,6 +6736,7 @@ const pt = {
   editor: {
     embed_modal_title_youtube: 'Inserir YouTube',
     embed_modal_title_iframe: 'Inserir iframe',
+    embed_modal_url_label: 'URL',
     embed_modal_url_placeholder: 'https://…',
     embed_modal_url_help_youtube: 'Cole o link do vídeo (youtube.com ou youtu.be)',
     embed_modal_url_help_iframe: 'URL da página para incorporar (use apenas fontes confiáveis)',
@@ -8062,6 +8075,9 @@ const pt = {
     date_modified: 'Modificado',
   },
   graph: {
+    panel_empty_title: 'Sem dados do grafo',
+    panel_empty_description: 'Gere um grafo de conhecimento para ver ligações entre documentos.',
+    panel_generate_button: 'Gerar grafo',
     search_nodes: 'Pesquisar nós...',
     depth: 'Profundidade:',
     weak: 'Fraco',

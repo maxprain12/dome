@@ -68,7 +68,7 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
             {title || t('quiz.title')} — {t('quiz.results')}
           </h3>
           {onClose && (
-            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close"><X size={16} /></button>
+            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('quiz.close')} title={t('quiz.close')}><X size={16} /></button>
           )}
         </div>
         <div className="flex-1 flex items-center justify-center p-8">

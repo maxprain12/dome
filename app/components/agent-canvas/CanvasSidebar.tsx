@@ -89,9 +89,15 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
 
   const loadAgents = useCallback(async () => {
     setLoadingAgents(true);
-    const result = await getManyAgents(hubProjectId);
-    setAgents(result);
-    setLoadingAgents(false);
+    try {
+      const result = await getManyAgents(hubProjectId);
+      setAgents(result);
+    } catch (err) {
+      console.error('[CanvasSidebar] loadAgents failed:', err);
+      setAgents([]);
+    } finally {
+      setLoadingAgents(false);
+    }
   }, [hubProjectId]);
 
   useEffect(() => {

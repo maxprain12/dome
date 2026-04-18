@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, XCircle, Loader2, RefreshCw, Shield, Zap, Lock, HardDrive, ArrowRight } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
@@ -31,6 +31,8 @@ const DOME_GREEN_DARK = '#3B4025';
 
 export default function AISetupStep({ onComplete }: AISetupStepProps) {
   const { t } = useTranslation();
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
   const [provider, setProvider] = useState<OnboardingProviderType>(DOME_PROVIDER_ENABLED ? 'dome' : 'openai');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gpt-4o');
@@ -51,7 +53,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     setSaveError(null);
 
     if (provider === 'skip') {
-      onComplete();
+      onCompleteRef.current();
       return;
     }
 
@@ -59,7 +61,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
       try {
         await saveAIConfig({ provider: 'dome' });
         window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
-        onComplete();
+        onCompleteRef.current();
       } catch (error) {
         setSaveError(error instanceof Error ? error.message : 'Error saving configuration');
       }
@@ -84,12 +86,12 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     try {
       await saveAIConfig(config);
       window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
-      onComplete();
+      onCompleteRef.current();
     } catch (error) {
       console.error('[AISetupStep] Error al guardar:', error);
       setSaveError(error instanceof Error ? error.message : t('onboarding.error_saving_config'));
     }
-  }, [provider, apiKey, model, ollamaBaseURL, ollamaModel, onComplete, t]);
+  }, [provider, apiKey, model, ollamaBaseURL, ollamaModel, t]);
 
   useEffect(() => {
     const handleFinalize = () => handleNext();
