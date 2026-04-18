@@ -97,6 +97,15 @@ LINE_COMMENT_LINES=$(gh api "repos/${REPO_SLUG}/pulls/${PR_NUMBER}/comments" --p
     | $sev + " **" + .path + ":" + ((.line // .original_line // 0) | tostring) + "** - " + $rest
   ' 2>/dev/null || echo "")
 
+# Also save the raw line-comments JSON so the python parser can look up each
+# finding's commit_id and fetch the exact source line from that commit.
+# Needed to populate `pattern` — without it the resolver can't auto-resolve
+# findings whose body doesn't contain backticked code.
+LINE_COMMENTS_JSON_FILE=$(mktemp /tmp/findings-comments-XXXXXX.json)
+gh api "repos/${REPO_SLUG}/pulls/${PR_NUMBER}/comments" --paginate \
+  --jq '[.[] | select(.body | test("^(❌|⚠️)")) | {path, line: (.line // .original_line // 0), commit_id, body}]' \
+  > "$LINE_COMMENTS_JSON_FILE" 2>/dev/null || echo '[]' > "$LINE_COMMENTS_JSON_FILE"
+
 # Merge body + line comments, then filter noise.
 NEW_LINES=$(printf '%s\n%s\n' "$REVIEW_BODY" "$LINE_COMMENT_LINES" \
   | grep -E "^❌|^⚠️" \
@@ -121,12 +130,14 @@ NEW_LINES=$(printf '%s\n%s\n' "$REVIEW_BODY" "$LINE_COMMENT_LINES" \
 
 NEW_LINES_FILE=$(mktemp /tmp/findings-lines-XXXXXX.txt)
 printf '%s\n' "$NEW_LINES" > "$NEW_LINES_FILE"
-export FOCUS PR_NUMBER FINDINGS_JSON PROMPT_VERSION NEW_LINES_FILE
+export FOCUS PR_NUMBER FINDINGS_JSON PROMPT_VERSION NEW_LINES_FILE LINE_COMMENTS_JSON_FILE REPO_SLUG
 python3 <<'PY'
+import base64
 import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 
@@ -134,11 +145,56 @@ focus = os.environ["FOCUS"]
 pr_number = int(os.environ["PR_NUMBER"])
 json_path = os.environ["FINDINGS_JSON"]
 prompt_version = os.environ.get("PROMPT_VERSION", "").strip() or None
+repo_slug = os.environ.get("REPO_SLUG", "")
 now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 with open(os.environ["NEW_LINES_FILE"]) as _f:
     raw = _f.read().strip()
 new_lines = [l for l in raw.splitlines() if l.strip()]
+
+# Load line-comment JSON so we can look up commit_id per (path, line).
+# Used to fetch the real source line when the finding body has no backticked
+# code — the resolver needs a concrete pattern to match against main.
+commit_id_by_pathline = {}
+try:
+    with open(os.environ["LINE_COMMENTS_JSON_FILE"]) as _f:
+        for c in json.load(_f):
+            key = (c.get("path", ""), int(c.get("line") or 0))
+            if c.get("commit_id"):
+                commit_id_by_pathline[key] = c["commit_id"]
+except (FileNotFoundError, json.JSONDecodeError, KeyError):
+    pass
+
+_file_cache = {}
+
+def fetch_file(path, commit_id):
+    """Fetch a file's contents at a specific commit via gh api. Cached."""
+    if not path or not commit_id or not repo_slug:
+        return None
+    key = (path, commit_id)
+    if key in _file_cache:
+        return _file_cache[key]
+    try:
+        out = subprocess.run(
+            ["gh", "api", f"repos/{repo_slug}/contents/{path}?ref={commit_id}",
+             "--jq", ".content"],
+            capture_output=True, text=True, timeout=15, check=True,
+        ).stdout.strip()
+        content = base64.b64decode(out).decode("utf-8", errors="replace")
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
+        content = None
+    _file_cache[key] = content
+    return content
+
+def fetch_line(path, line_no, commit_id):
+    content = fetch_file(path, commit_id)
+    if not content:
+        return ""
+    lines = content.splitlines()
+    if 1 <= line_no <= len(lines):
+        snippet = lines[line_no - 1].strip()
+        return snippet[:200]
+    return ""
 
 # Load existing
 try:
@@ -178,6 +234,16 @@ def parse_line(line):
     # free-form prose that never matches file contents.
     mpat = PATTERN_RE.search(line)
     pattern = mpat.group(1).strip() if mpat else ""
+    # Fallback: fetch the real source line at review time from the PR commit,
+    # so the resolver has something concrete to grep against main.
+    if not pattern and file != "unknown":
+        try:
+            ln_int = int(line_no)
+        except ValueError:
+            ln_int = 0
+        commit_id = commit_id_by_pathline.get((file, ln_int))
+        if commit_id and ln_int > 0:
+            pattern = fetch_line(file, ln_int, commit_id)
     # Fingerprint uses pattern if available, else the whole body (stable id)
     fp_src = pattern if pattern else line
     h = hashlib.sha1(fp_src.encode("utf-8")).hexdigest()[:8]

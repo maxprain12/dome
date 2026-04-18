@@ -10,13 +10,17 @@
 # =============================================================================
 
 PENDING_DIR="/var/log/dome-audit-findings/pending"
+FAILED_DIR="/var/log/dome-audit-findings/failed"
 FINDINGS_SCRIPT="/opt/dome-audit/vps-audit-findings.sh"
 RESOLVE_SCRIPT="/opt/dome-audit/vps-audit-resolve.sh"
 LOG_PREFIX="[dome-findings $(date '+%Y-%m-%d %H:%M')]"
+STALE_AGE_SECONDS="${STALE_AGE_SECONDS:-86400}"  # 24h
 
 [ -d "$PENDING_DIR" ] || exit 0
 [ -f "$FINDINGS_SCRIPT" ] || exit 0
+mkdir -p "$FAILED_DIR"
 
+NOW=$(date +%s)
 PROCESSED=0
 for pending in "$PENDING_DIR"/*.pending; do
   [ -f "$pending" ] || continue
@@ -29,7 +33,16 @@ for pending in "$PENDING_DIR"/*.pending; do
     --json reviews --jq '.reviews | length' 2>/dev/null)
 
   if [ "${REVIEW_COUNT:-0}" -eq 0 ]; then
-    echo "$LOG_PREFIX PR #${PR_NUMBER} (${FOCUS}): AI review not posted yet, will retry"
+    # Age-out: if ai-review.mjs never posted within STALE_AGE_SECONDS,
+    # move the job to failed/ so it doesn't block the queue forever.
+    FILE_MTIME=$(stat -c %Y "$pending" 2>/dev/null || echo "$NOW")
+    AGE=$((NOW - FILE_MTIME))
+    if [ "$AGE" -gt "$STALE_AGE_SECONDS" ]; then
+      echo "$LOG_PREFIX PR #${PR_NUMBER} (${FOCUS}): stale after ${AGE}s — moving to failed/"
+      mv "$pending" "$FAILED_DIR/$(basename "$pending").$(date +%Y%m%d-%H%M%S)"
+      continue
+    fi
+    echo "$LOG_PREFIX PR #${PR_NUMBER} (${FOCUS}): AI review not posted yet (age=${AGE}s), will retry"
     continue
   fi
 
