@@ -310,7 +310,7 @@ export default function GraphPanel({ resource }: GraphPanelProps) {
             <div className="flex flex-col items-center gap-4">
               <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
               <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-                Generating knowledge graph...
+                {t('graph.generating_knowledge_graph')}
               </p>
             </div>
           </div>
