@@ -182,45 +182,27 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       return { success: false, error: 'Unauthorized' };
     }
 
-    let streamId;
-    let teamId;
-    let messages;
-    let memberAgentIds;
-    let supervisorInstructions;
-    let currentResourceId;
-    let currentResourceTitle;
-    let currentFolderId;
-    let pathname;
-    let homeSidebarSection;
-    let teamToolIds;
-    let teamMcpServerIds;
-    let projectId;
+    if (!payload || typeof payload !== 'object') {
+      return { success: false, error: 'Invalid payload' };
+    }
 
-    try {
-      if (!payload) {
-        return { success: false, error: 'Invalid payload' };
-      }
-      ({
-        streamId,
-        teamId,
-        messages,
-        memberAgentIds,
-        supervisorInstructions,
-        currentResourceId,
-        currentResourceTitle,
-        currentFolderId,
-        pathname,
-        homeSidebarSection,
-        teamToolIds,
-        teamMcpServerIds,
-        projectId,
-      } = payload);
+    const {
+      streamId,
+      teamId,
+      messages,
+      memberAgentIds,
+      supervisorInstructions,
+      currentResourceId,
+      currentResourceTitle,
+      currentFolderId,
+      pathname,
+      homeSidebarSection,
+      teamToolIds,
+      teamMcpServerIds,
+      projectId,
+    } = payload;
 
-      if (!streamId || !teamId || !Array.isArray(messages) || !Array.isArray(memberAgentIds)) {
-        return { success: false, error: 'Invalid payload' };
-      }
-    } catch (err) {
-      console.error('[AgentTeam] Payload error:', err);
+    if (!streamId || !teamId || !Array.isArray(messages) || !Array.isArray(memberAgentIds)) {
       return { success: false, error: 'Invalid payload' };
     }
 
