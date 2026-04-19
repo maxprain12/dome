@@ -456,9 +456,17 @@ Responde en el idioma del usuario.`;
   });
 
   ipcMain.handle('ai:team:abort', async (event, streamId) => {
-    if (!windowManager.isAuthorized(event.sender.id)) return;
-    const controller = agentTeamAbortControllers.get(streamId);
-    if (controller) controller.abort();
+    try {
+      if (!windowManager.isAuthorized(event.sender.id)) {
+        return { success: false, error: 'Unauthorized' };
+      }
+      const controller = agentTeamAbortControllers.get(streamId);
+      if (controller) controller.abort();
+      return { success: true };
+    } catch (error) {
+      console.error('[AgentTeam] Abort error:', error);
+      return { success: false, error: error.message };
+    }
   });
 }
 
