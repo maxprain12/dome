@@ -475,9 +475,17 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
   });
 
   ipcMain.handle('ai:langgraph:abort', async (event, streamId) => {
-    if (!windowManager.isAuthorized(event.sender.id)) return;
-    const controller = langGraphAbortControllers.get(streamId);
-    if (controller) controller.abort();
+    try {
+      if (!windowManager.isAuthorized(event.sender.id)) {
+        return { success: false, error: 'Unauthorized' };
+      }
+      const controller = langGraphAbortControllers.get(streamId);
+      if (controller) controller.abort();
+      return { success: true };
+    } catch (error) {
+      console.error('[AI] LangGraph abort error:', error);
+      return { success: false, error: error.message };
+    }
   });
 
   ipcMain.handle('ai:langgraph:resume', async (event, params) => {
