@@ -867,7 +867,7 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                background: accentColor, color: 'var(--bg)', border: 'none', cursor: 'pointer',
+                background: accentColor, color: 'var(--base-text)', border: 'none', cursor: 'pointer',
               }}
             >
               <MessageCircle style={{ width: 12, height: 12 }} /> {t('artifacts.chat')}
@@ -892,7 +892,7 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                background: accentColor, color: 'var(--bg)', border: 'none', cursor: 'pointer',
+                background: accentColor, color: 'var(--base-text)', border: 'none', cursor: 'pointer',
               }}
             >
               <Play style={{ width: 12, height: 12 }} /> {t('artifacts.view_and_run')}
