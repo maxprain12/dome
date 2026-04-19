@@ -69,10 +69,10 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   ipcMain.handle('mcp:getOAuthProviders', async (event) => {
     try {
       validateSender(event, windowManager);
-      return mcpOauth.getSupportedProviders();
+      return { success: true, providers: mcpOauth.getSupportedProviders() };
     } catch (err) {
       console.warn('[MCP] Get OAuth providers failed:', err?.message);
-      return [];
+      return { success: false, providers: [], error: err?.message || String(err) };
     }
   });
 }
