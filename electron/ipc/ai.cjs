@@ -44,9 +44,23 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
    * Chat with cloud AI provider (OpenAI, Anthropic, Google)
    * This runs in main process to avoid CORS issues
    */
-  ipcMain.handle('ai:chat', async (event, { provider, messages, model }) => {
+  ipcMain.handle('ai:chat', async (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
+    }
+
+    let provider;
+    let messages;
+    let model;
+
+    try {
+      if (!params) {
+        return { success: false, error: 'Invalid params' };
+      }
+      ({ provider, messages, model } = params);
+    } catch (err) {
+      console.error('[AI Cloud] Chat params error:', err);
+      return { success: false, error: 'Invalid params' };
     }
 
     try {
@@ -111,9 +125,25 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
    * Stream chat with cloud AI provider
    * Uses webContents.send to stream chunks back to renderer
    */
-  ipcMain.handle('ai:stream', async (event, { provider, messages, model, streamId, tools }) => {
+  ipcMain.handle('ai:stream', async (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
+    }
+
+    let provider;
+    let messages;
+    let model;
+    let streamId;
+    let tools;
+
+    try {
+      if (!params) {
+        return { success: false, error: 'Invalid params' };
+      }
+      ({ provider, messages, model, streamId, tools } = params);
+    } catch (err) {
+      console.error('[AI Cloud] Stream params error:', err);
+      return { success: false, error: 'Invalid params' };
     }
 
     try {
@@ -329,9 +359,39 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
    * Stream chat using LangGraph agent (alternative to ai:stream for tools)
    * Uses same ai:stream:chunk format for compatibility with existing UI.
    */
-  ipcMain.handle('ai:langgraph:stream', async (event, { provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds, subagentIds }) => {
+  ipcMain.handle('ai:langgraph:stream', async (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
+    }
+
+    let provider;
+    let messages;
+    let model;
+    let streamId;
+    let tools;
+    let threadId;
+    let skipHitl;
+    let mcpServerIds;
+    let subagentIds;
+
+    try {
+      if (!params) {
+        return { success: false, error: 'Invalid params' };
+      }
+      ({
+        provider,
+        messages,
+        model,
+        streamId,
+        tools,
+        threadId,
+        skipHitl,
+        mcpServerIds,
+        subagentIds,
+      } = params);
+    } catch (err) {
+      console.error('[AI Cloud] LangGraph stream params error:', err);
+      return { success: false, error: 'Invalid params' };
     }
 
     try {
@@ -420,10 +480,27 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     if (controller) controller.abort();
   });
 
-  ipcMain.handle('ai:langgraph:resume', async (event, { threadId, streamId, decisions, provider: providerArg, model: modelArg }) => {
+  ipcMain.handle('ai:langgraph:resume', async (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
+
+    let threadId;
+    let streamId;
+    let decisions;
+    let provider;
+    let model;
+
+    try {
+      if (!params) {
+        return { success: false, error: 'Invalid params' };
+      }
+      ({ threadId, streamId, decisions, provider: providerArg, model: modelArg } = params);
+    } catch (err) {
+      console.error('[AI Cloud] LangGraph resume params error:', err);
+      return { success: false, error: 'Invalid params' };
+    }
+
     try {
       if (!threadId || !streamId || !Array.isArray(decisions)) {
         throw new Error('threadId, streamId, and decisions are required');
