@@ -53,15 +53,10 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     let messages;
     let model;
 
-    try {
-      if (!params) {
-        return { success: false, error: 'Invalid params' };
-      }
-      ({ provider, messages, model } = params);
-    } catch (err) {
-      console.error('[AI Cloud] Chat params error:', err);
+    if (!params || typeof params !== 'object') {
       return { success: false, error: 'Invalid params' };
     }
+    ({ provider, messages, model } = params);
 
     try {
       // Validate inputs
@@ -136,15 +131,10 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     let streamId;
     let tools;
 
-    try {
-      if (!params) {
-        return { success: false, error: 'Invalid params' };
-      }
-      ({ provider, messages, model, streamId, tools } = params);
-    } catch (err) {
-      console.error('[AI Cloud] Stream params error:', err);
+    if (!params || typeof params !== 'object') {
       return { success: false, error: 'Invalid params' };
     }
+    ({ provider, messages, model, streamId, tools } = params);
 
     try {
       // Validate inputs
@@ -374,25 +364,20 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     let mcpServerIds;
     let subagentIds;
 
-    try {
-      if (!params) {
-        return { success: false, error: 'Invalid params' };
-      }
-      ({
-        provider,
-        messages,
-        model,
-        streamId,
-        tools,
-        threadId,
-        skipHitl,
-        mcpServerIds,
-        subagentIds,
-      } = params);
-    } catch (err) {
-      console.error('[AI Cloud] LangGraph stream params error:', err);
+    if (!params || typeof params !== 'object') {
       return { success: false, error: 'Invalid params' };
     }
+    ({
+      provider,
+      messages,
+      model,
+      streamId,
+      tools,
+      threadId,
+      skipHitl,
+      mcpServerIds,
+      subagentIds,
+    } = params);
 
     try {
       if (!provider || !['openai', 'anthropic', 'google', 'ollama', 'minimax'].includes(provider)) {
@@ -499,15 +484,10 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     let provider;
     let model;
 
-    try {
-      if (!params) {
-        return { success: false, error: 'Invalid params' };
-      }
-      ({ threadId, streamId, decisions, provider: providerArg, model: modelArg } = params);
-    } catch (err) {
-      console.error('[AI Cloud] LangGraph resume params error:', err);
+    if (!params || typeof params !== 'object') {
       return { success: false, error: 'Invalid params' };
     }
+    ({ threadId, streamId, decisions, provider: providerArg, model: modelArg } = params);
 
     try {
       if (!threadId || !streamId || !Array.isArray(decisions)) {
