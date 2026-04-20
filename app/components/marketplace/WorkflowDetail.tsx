@@ -248,7 +248,7 @@ export default function WorkflowDetail({
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
               style={{
                 background: isInstalled ? 'var(--success-bg)' : 'var(--dome-accent)',
-                color: isInstalled ? 'var(--success)' : 'white',
+                color: isInstalled ? 'var(--success)' : 'var(--base-text)',
                 boxShadow: isInstalled ? 'none' : '0 2px 8px rgba(89, 96, 55, 0.3)',
               }}
             >

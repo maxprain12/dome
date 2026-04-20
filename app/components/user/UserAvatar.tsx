@@ -92,7 +92,7 @@ export default function UserAvatar({ name, avatarData, avatarPath, size = 'md', 
       className={`${sizeClass} rounded-full flex items-center justify-center font-medium ${className}`}
       style={{
         backgroundColor: hasValidAvatar ? 'transparent' : 'var(--accent)',
-        color: hasValidAvatar ? 'transparent' : 'white',
+        color: hasValidAvatar ? 'transparent' : 'var(--base-text)',
       }}
     >
       {hasValidAvatar ? (

@@ -107,7 +107,7 @@ export default function PDFPage({ page, scale, pageNumber }: PDFPageProps) {
   }, [page, scale, pageNumber]);
 
   return (
-    <div className="relative mb-4" style={{ background: 'white' }}>
+    <div className="relative mb-4" style={{ background: 'var(--bg)' }}>
       <canvas
         ref={canvasRef}
         className="block shadow-lg"

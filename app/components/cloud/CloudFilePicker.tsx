@@ -201,7 +201,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                 style={{
                   backgroundColor: selectedAccount?.accountId === acc.accountId ? 'var(--accent)' : 'var(--bg-secondary)',
-                  color: selectedAccount?.accountId === acc.accountId ? 'white' : 'var(--secondary-text)',
+                  color: selectedAccount?.accountId === acc.accountId ? 'var(--base-text)' : 'var(--secondary-text)',
                   border: '1px solid var(--border)',
                 }}
               >
