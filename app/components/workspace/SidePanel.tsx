@@ -3,7 +3,7 @@ import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown, FileText, Tra
 import { useTranslation } from 'react-i18next';
 import WorkspaceFilesPanel from './WorkspaceFilesPanel';
 import PDFTab from './PDFTab';
-import { type Resource } from '@/types';
+import { type Resource, type ResourceLink } from '@/types';
 import { useManyStore } from '@/lib/store/useManyStore';
 
 type TabType = 'references' | 'backlinks' | 'search' | 'workspace' | 'pdf';
@@ -335,8 +335,13 @@ function ReferencesTab({ resourceId }: { resourceId: string }) {
 }
 
 // Backlinks - Recursos/notas que enlazan a este recurso
+interface BacklinkResult extends ResourceLink {
+  source_title: string;
+  source_type: string;
+}
+
 function BacklinksTab({ resourceId }: { resourceId: string }) {
-  const [backlinks, setBacklinks] = useState<any[]>([]);
+  const [backlinks, setBacklinks] = useState<BacklinkResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -344,7 +349,7 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
       try {
         const result = await window.electron.db.resources.getBacklinks(resourceId);
         if (result?.success) {
-          setBacklinks(result.data || []);
+          setBacklinks((result.data || []) as unknown as BacklinkResult[]);
         }
       } catch (error) {
         console.error('Error loading backlinks:', error);
@@ -438,7 +443,7 @@ const LINK_TYPES = [
 function SearchTab({ resourceId }: { resourceId: string; resource: Resource }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<Resource[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedLinkType, setSelectedLinkType] = useState('related');
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set());
