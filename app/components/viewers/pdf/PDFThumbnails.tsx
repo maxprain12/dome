@@ -65,7 +65,7 @@ function PDFThumbnailItem({ page, pageNumber, isActive, onClick }: PDFThumbnailI
         className="relative overflow-hidden rounded shadow-sm"
         style={{
           maxWidth: THUMBNAIL_MAX_WIDTH,
-          background: 'white',
+          background: 'var(--bg)',
         }}
       >
         <canvas ref={canvasRef} className="block" />

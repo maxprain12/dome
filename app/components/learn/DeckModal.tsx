@@ -116,7 +116,7 @@ export default function DeckModal({ onClose }: DeckModalProps) {
             className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
             style={{
               background: title.trim() ? 'var(--dome-accent)' : 'var(--dome-border)',
-              color: title.trim() ? 'white' : 'var(--dome-text-muted)',
+              color: title.trim() ? 'var(--base-text)' : 'var(--dome-text-muted)',
               cursor: title.trim() ? 'pointer' : 'not-allowed',
             }}
           >

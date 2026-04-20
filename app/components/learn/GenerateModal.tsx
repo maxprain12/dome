@@ -137,7 +137,7 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
             className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
             style={{
               background: selectedType ? 'var(--dome-accent)' : 'var(--dome-border)',
-              color: selectedType ? 'white' : 'var(--dome-text-muted)',
+              color: selectedType ? 'var(--base-text)' : 'var(--dome-text-muted)',
               cursor: selectedType ? 'pointer' : 'not-allowed',
             }}
           >

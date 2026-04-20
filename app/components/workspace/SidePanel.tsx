@@ -525,7 +525,7 @@ function SearchTab({ resourceId }: { resourceId: string; resource: Resource }) {
                 className="px-2.5 py-1 rounded-full text-xs font-medium transition-all border cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
                 style={{
                   background: isActive ? color : 'var(--bg-tertiary)',
-                  color: isActive ? 'white' : 'var(--secondary-text)',
+                  color: isActive ? 'var(--base-text)' : 'var(--secondary-text)',
                   borderColor: isActive ? color : 'transparent',
                 }}
               >
