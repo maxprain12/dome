@@ -651,11 +651,16 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
         //   }
         // }
         if (!ignore) setGroups(allGroups);
+      } catch (err) {
+        console.error('[InlineSearch] Unified search failed:', err);
+        throw err;
       } finally {
         if (!ignore) setIsSearching(false);
       }
     };
-    const timer = setTimeout(runSearch, 250);
+    const timer = setTimeout(() => {
+      runSearch().catch((err) => console.error('[InlineSearch] runSearch failed:', err));
+    }, 250);
     return () => { ignore = true; clearTimeout(timer); };
   }, [query]);
 
