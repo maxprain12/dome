@@ -182,8 +182,18 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!payload || typeof payload !== 'object') {
-      return { success: false, error: 'Invalid payload' };
+    const hasRequiredShape =
+      payload &&
+      typeof payload === 'object' &&
+      typeof payload.streamId === 'string' &&
+      typeof payload.teamId === 'string' &&
+      Array.isArray(payload.messages) &&
+      Array.isArray(payload.memberAgentIds);
+
+    if (!hasRequiredShape) {
+      const errorMsg = 'Invalid payload: streamId and teamId must be strings, messages and memberAgentIds must be arrays';
+      console.error('[AgentTeam] Validation error:', errorMsg);
+      return { success: false, error: errorMsg };
     }
 
     const {
@@ -201,10 +211,6 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       teamMcpServerIds,
       projectId,
     } = payload;
-
-    if (!streamId || !teamId || !Array.isArray(messages) || !Array.isArray(memberAgentIds)) {
-      return { success: false, error: 'Invalid payload' };
-    }
 
     const send = (data) => {
       if (event.sender && !event.sender.isDestroyed()) {
