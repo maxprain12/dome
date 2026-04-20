@@ -223,6 +223,7 @@ export default function SidePanel({
 
 // Referencias - Recursos enlazados desde este recurso
 function ReferencesTab({ resourceId }: { resourceId: string }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [links, setLinks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
