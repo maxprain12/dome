@@ -658,7 +658,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
       }
     };
     const timer = setTimeout(() => {
-      runSearch().catch((err) => console.error('[InlineSearch] runSearch failed:', err));
+      runSearch();
     }, 250);
     return () => { ignore = true; clearTimeout(timer); };
   }, [query]);
