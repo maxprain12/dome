@@ -212,6 +212,12 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       projectId,
     } = payload;
 
+    if (!streamId || !teamId) {
+      const errorMsg = 'Invalid payload: streamId and teamId are required';
+      console.error('[AgentTeam] Validation error:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
     const send = (data) => {
       if (event.sender && !event.sender.isDestroyed()) {
         event.sender.send('ai:stream:chunk', { streamId, ...data });
