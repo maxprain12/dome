@@ -5,6 +5,7 @@
  * Full library sync: Nomic chunk embeddings per resource (Gemma PDF transcription runs inside indexer).
  */
 
+const { resetPipeline } = require('../services/embeddings.service.cjs');
 const semanticIndexScheduler = require('../semantic-index-scheduler.cjs');
 
 const INDEXABLE_TYPES = ['pdf', 'note', 'document', 'url', 'notebook', 'ppt', 'excel', 'image'];
@@ -76,6 +77,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       title: null,
     });
 
+    resetPipeline();
+
     for (let i = 0; i < total; i++) {
       const res = resources[i];
       const title = res.title || res.id;
@@ -89,7 +92,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       });
 
       try {
-        const out = await semanticIndexScheduler.getIndexer().indexResourceImmediate(res.id);
+        // Use queued indexResource (not indexResourceImmediate) so ONNX/embeddings never
+        // overlap with semantic reindex, background jobs, or IPC single-resource index.
+        const out = await semanticIndexScheduler.getIndexer().indexResource(res.id);
         if (out && out.ok === false && out.error) {
           embeddingFailed += 1;
         }

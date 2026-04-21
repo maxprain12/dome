@@ -9,13 +9,30 @@ const MODEL_VERSION = 'nomic-embed-text-v1.5';
 
 const EMBED_BATCH = 8;
 const EMBED_DIM = 768;
-/** Defensive cap per string passed to the tokenizer / ONNX (avoids pathological inputs). */
-const MAX_INPUT_CHARS = 6000;
+/**
+ * Solo para `embedQuery` (búsqueda): límite defensivo en caracteres.
+ * Los documentos se fragmentan con `chunking.cjs`; `embedDocuments` no trunca el texto del chunk.
+ */
+const MAX_QUERY_CHARS = 16000;
+/** @deprecated usar MAX_QUERY_CHARS — mantenido por compat en exports */
+const MAX_INPUT_CHARS = MAX_QUERY_CHARS;
 
 /** @type {string | null} */
 let _modelsDir = null;
 /** @type {Promise<any> | null} */
 let _pipelinePromise = null;
+
+/**
+ * Serialize ONNX / transformers inference. Concurrent `pipe()` calls on the shared
+ * session can crash the native runtime (macOS SIGTRAP) when full-sync,
+ * reindex-all, background indexing, and IPC indexResource overlap.
+ */
+let _embedMutexChain = Promise.resolve();
+function runEmbedExclusive(fn) {
+  const run = _embedMutexChain.then(() => fn());
+  _embedMutexChain = run.catch(() => {});
+  return run;
+}
 
 /**
  * @param {{ modelsDir: string }} opts
@@ -55,9 +72,9 @@ function resetPipeline() {
 /**
  * @param {string} s
  */
-function truncateForEmbed(s) {
+function truncateForQuery(s) {
   const t = String(s ?? '');
-  return t.length <= MAX_INPUT_CHARS ? t : t.slice(0, MAX_INPUT_CHARS);
+  return t.length <= MAX_QUERY_CHARS ? t : t.slice(0, MAX_QUERY_CHARS);
 }
 
 /**
@@ -88,21 +105,23 @@ function tensorToRowVectors(tensor) {
  * @returns {Promise<Float32Array[]>}
  */
 async function embedDocuments(texts) {
-  const pipe = await getPipeline();
-  const inputs = (texts || []).map((t) => `search_document: ${truncateForEmbed(t)}`);
-  const out = [];
-  for (let i = 0; i < inputs.length; i += EMBED_BATCH) {
-    const slice = inputs.slice(i, i + EMBED_BATCH);
-    let tensor;
-    try {
-      tensor = await pipe(slice, { pooling: 'mean', normalize: true });
-    } catch (e) {
-      resetPipeline();
-      throw e;
+  return runEmbedExclusive(async () => {
+    const pipe = await getPipeline();
+    const inputs = (texts || []).map((t) => `search_document: ${String(t ?? '')}`);
+    const out = [];
+    for (let i = 0; i < inputs.length; i += EMBED_BATCH) {
+      const slice = inputs.slice(i, i + EMBED_BATCH);
+      let tensor;
+      try {
+        tensor = await pipe(slice, { pooling: 'mean', normalize: true });
+      } catch (e) {
+        resetPipeline();
+        throw e;
+      }
+      out.push(...tensorToRowVectors(tensor));
     }
-    out.push(...tensorToRowVectors(tensor));
-  }
-  return out;
+    return out;
+  });
 }
 
 /**
@@ -110,20 +129,22 @@ async function embedDocuments(texts) {
  * @returns {Promise<Float32Array>}
  */
 async function embedQuery(text) {
-  const q = truncateForEmbed(String(text || '').trim());
+  const q = truncateForQuery(String(text || '').trim());
   if (!q) {
     return new Float32Array(EMBED_DIM);
   }
-  const pipe = await getPipeline();
-  let tensor;
-  try {
-    tensor = await pipe(`search_query: ${q}`, { pooling: 'mean', normalize: true });
-  } catch (e) {
-    resetPipeline();
-    throw e;
-  }
-  const rows = tensorToRowVectors(tensor);
-  return rows[0] || new Float32Array(EMBED_DIM);
+  return runEmbedExclusive(async () => {
+    const pipe = await getPipeline();
+    let tensor;
+    try {
+      tensor = await pipe(`search_query: ${q}`, { pooling: 'mean', normalize: true });
+    } catch (e) {
+      resetPipeline();
+      throw e;
+    }
+    const rows = tensorToRowVectors(tensor);
+    return rows[0] || new Float32Array(EMBED_DIM);
+  });
 }
 
 /**
@@ -158,6 +179,7 @@ module.exports = {
   NOMIC_MODEL_ID,
   EMBED_DIM,
   EMBED_BATCH,
+  MAX_QUERY_CHARS,
   MAX_INPUT_CHARS,
   resetPipeline,
   resetForTests,
