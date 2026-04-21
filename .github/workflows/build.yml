@@ -27,20 +27,14 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Vite, natives, PageIndex, embed env, pack (macOS)
+      - name: Build Vite, natives, embed env, pack (macOS)
         run: |
           npm run build
           npm run rebuild:natives
           npm run verify:natives
-          node scripts/prepare-pageindex-runtime.cjs
           node scripts/embed-env.cjs
           if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
             echo "No code signing credentials, building without signing..."
@@ -86,20 +80,14 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Vite, natives, PageIndex, embed env, pack (Windows)
+      - name: Build Vite, natives, embed env, pack (Windows)
         run: |
           npm run build
           npm run rebuild:natives
           npm run verify:natives
-          node scripts/prepare-pageindex-runtime.cjs
           node scripts/embed-env.cjs
           npm run electron:pack -- --win --publish never
         env:

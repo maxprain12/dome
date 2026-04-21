@@ -25,6 +25,7 @@ const AgentsPage = lazy(() => import('@/components/automations/AutomationsHubVie
 const FolderTabView = lazy(() => import('@/components/shell/FolderTabView'));
 const TranscriptionsListPage = lazy(() => import('@/components/transcription/TranscriptionsListPage'));
 const TranscriptionDetailPage = lazy(() => import('@/components/transcription/TranscriptionDetailPage'));
+const SemanticGraphView = lazy(() => import('@/components/semantic-graph/SemanticGraphView'));
 
 function Loading() {
   const { t } = useTranslation();
@@ -308,6 +309,17 @@ function TabContent({ tab }: { tab: DomeTab }) {
           <Suspense fallback={<Loading />}>
             <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
               <TranscriptionDetailPage noteId={tab.resourceId} />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
+      );
+
+    case 'semantic-graph':
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <SemanticGraphView focusResourceId={tab.resourceId} />
             </div>
           </Suspense>
         </ErrorBoundary>

@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Desktop**: Electron 32 with strict security (contextIsolation, no nodeIntegration)
 - **Frontend**: Vite 7 + React 18 + React Router 7 (client-side SPA, entry: `app/main.tsx`)
 - **Database**: SQLite via **better-sqlite3** (NOT bun:sqlite — Electron runs on Node.js)
-- **Vector DB**: LanceDB for semantic search
+- **Semantic search**: Local Nomic embeddings in SQLite (`resource_chunks`); optional local Gemma for PDF/image transcription
 - **AI**: LangChain + LangGraph for agent workflows; multi-provider (OpenAI, Anthropic, Google, Ollama)
 - **State**: Zustand stores + Jotai atoms
 - **Styling**: Tailwind CSS + CSS Variables + Mantine UI components
@@ -39,8 +39,6 @@ npm run rebuild:natives         # Rebuild native modules for Electron
 npm run verify:natives          # Verify native modules are correctly compiled
 npm run electron:build          # Package Electron app for distribution (includes rebuild)
 npm run electron:build:verbose  # Same as above with DEBUG=electron-builder output
-npm run prepare:pageindex-runtime  # Bundle Python doc-indexing runtime (auto-runs in build)
-
 # Database & Testing
 npm run test:db          # Test database connection and queries
 
@@ -95,7 +93,7 @@ IPC handlers are organized in `electron/ipc/` (one file per domain). All channel
 3. **Whitelist** (`electron/preload.cjs`): Add channel to ALLOWED_CHANNELS
 4. **Renderer** (`app/`): Call via `window.electron.invoke('channel', args)`
 
-IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`, `calendar`, `chat`, `cloud-storage`, `database`, `dome-auth`, `files`, `flashcards`, `graph`, `images`, `interactions`, `links`, `marketplace`, `mcp`, `migration`, `notebook`, `ollama`, `pageindex`, `personality`, `plugins`, `resources`, `runs`, `storage`, `studio`, `sync`, `system`, `tags`, `updater`, `web`, `whatsapp`, `window`.
+IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`, `calendar`, `chat`, `cloud-llm`, `cloud-storage`, `database`, `dome-auth`, `files`, `flashcards`, `graph`, `images`, `indexing-sync`, `interactions`, `marketplace`, `mcp`, `migration`, `notebook`, `ollama`, `pdf-render`, `personality`, `plugins`, `resources`, `runs`, `semantic`, `storage`, `studio`, `sync`, `system`, `tags`, `updater`, `web`, `whatsapp`, `window`.
 
 ### Database Architecture
 
@@ -105,9 +103,8 @@ IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`,
 - Full-text search via FTS5
 - Accessed via `db:*` IPC channels from renderer
 
-**LanceDB** (Vector):
-- Semantic search embeddings
-- Accessed via IPC from renderer
+**Semantic index** (`electron/services/embeddings.service.cjs`, `resource_chunks`):
+- Nomic embeddings stored in SQLite; hybrid search combines FTS + graph + vectors
 
 ### Custom Protocols
 
@@ -148,7 +145,7 @@ dome/
 │   │   ├── chat/               # Chat message rendering (ChatMessage, ChatToolCard)
 │   │   ├── many/               # "Many" AI assistant panel (ManyPanel, ManyFloatingButton)
 │   │   ├── agents/             # AI agent management views
-│   │   ├── agent-canvas/       # Visual workflow canvas (ReactFlow)
+│   │   ├── agent-canvas/       # Visual workflow canvas (D3)
 │   │   ├── agent-team/         # Multi-agent team chat
 │   │   ├── automations/        # Automation rules and run logs UI
 │   │   ├── cloud/              # Cloud storage file picker
@@ -252,8 +249,6 @@ Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron
 - **Dev**: Vite on port 5173, Electron loads `http://localhost:5173`
 - **Prod**: Vite builds to `dist/`, Electron loads via `app://dome/` protocol
 - **Native modules** unpacked from asar: `better-sqlite3`, `sharp`, `node-pty`, `@napi-rs/canvas`, `archiver`, `yauzl`
-- **pageindex-runtime**: Python-based document indexing bundled via `scripts/prepare-pageindex-runtime.cjs`
-
 ## Security Requirements
 
 1. `contextIsolation: true`, `nodeIntegration: false` on all windows

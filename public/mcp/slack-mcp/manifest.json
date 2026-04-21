@@ -1,7 +1,7 @@
 {
   "id": "slack-mcp",
   "name": "Slack MCP",
-  "description": "Integración con Slack: lee canales, envía mensajes y gestiona notificaciones del workspace.",
+  "description": "Slack integration: read channels, send messages, and manage workspace notifications.",
   "command": "npx",
   "args": ["-y", "@modelcontextprotocol/server-slack"],
   "env": {

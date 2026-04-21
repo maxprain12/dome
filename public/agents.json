@@ -2,7 +2,7 @@
   {
     "id": "dome-research-pro",
     "name": "Research Pro",
-    "description": "Investigador profundo especializado en búsqueda web, análisis de fuentes y síntesis académica.",
+    "description": "Deep research specialist for web search, source analysis, and academic synthesis.",
     "author": "Dome Team",
     "version": "1.1.0",
     "tags": ["research", "academic", "web"],
@@ -12,7 +12,7 @@
   {
     "id": "dome-writing-coach",
     "name": "Writing Coach",
-    "description": "Experto en escritura que mejora tu estilo, corrige errores y potencia tus textos.",
+    "description": "Writing expert that sharpens your style, fixes issues, and strengthens every draft.",
     "author": "Dome Team",
     "version": "1.1.0",
     "tags": ["writing", "productivity", "language"],
@@ -22,7 +22,7 @@
   {
     "id": "dome-code-helper",
     "name": "Code Helper",
-    "description": "Asistente de programación para analizar, depurar y generar código en múltiples lenguajes.",
+    "description": "Programming assistant to analyze, debug, and generate code across many languages.",
     "author": "Dome Team",
     "version": "1.1.0",
     "tags": ["coding", "development", "productivity"],
@@ -32,7 +32,7 @@
   {
     "id": "dome-data-analyst",
     "name": "Data Analyst",
-    "description": "Analista de datos especializado en Excel, estadísticas y visualización de información.",
+    "description": "Data analyst focused on spreadsheets, statistics, and clear visualization of insights.",
     "author": "Dome Team",
     "version": "1.1.0",
     "tags": ["data", "analytics", "excel"],
@@ -42,7 +42,7 @@
   {
     "id": "dome-study-buddy",
     "name": "Study Buddy",
-    "description": "Compañero de estudio que crea flashcards, quizzes y resúmenes para optimizar tu aprendizaje.",
+    "description": "Study partner that builds flashcards, quizzes, and summaries to boost retention.",
     "author": "Dome Team",
     "version": "1.1.0",
     "tags": ["education", "learning", "flashcards"],
@@ -52,7 +52,7 @@
   {
     "id": "dome-project-manager",
     "name": "Project Manager",
-    "description": "Gestor de proyectos que organiza tareas, plazos y recursos para maximizar tu productividad.",
+    "description": "Project manager that structures tasks, deadlines, and resources for maximum output.",
     "author": "Dome Team",
     "version": "1.1.0",
     "tags": ["productivity", "planning", "management"],
@@ -62,7 +62,7 @@
   {
     "id": "dome-content-creator",
     "name": "Content Creator",
-    "description": "Creador de contenido creativo para blogs, redes sociales, guiones y más.",
+    "description": "Creative content for blogs, social, scripts, and multi-format campaigns.",
     "author": "Dome Team",
     "version": "1.1.0",
     "tags": ["content", "marketing", "creative"],
@@ -72,7 +72,7 @@
   {
     "id": "dome-language-tutor",
     "name": "Language Tutor",
-    "description": "Tutor de idiomas personalizado para aprender, practicar y corregir cualquier lengua.",
+    "description": "Personalized language tutor to learn, practice, and refine any language.",
     "author": "Dome Team",
     "version": "1.1.0",
     "tags": ["language", "education", "learning"],
@@ -82,7 +82,7 @@
   {
     "id": "dome-graph-architect",
     "name": "Graph Architect",
-    "description": "Construye y analiza grafos de conocimiento que conectan conceptos, entidades y relaciones de tu biblioteca.",
+    "description": "Build and analyze knowledge graphs connecting concepts, entities, and relationships in your library.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["research", "productivity", "knowledge"],
@@ -92,7 +92,7 @@
   {
     "id": "dome-presentation-designer",
     "name": "Presentation Designer",
-    "description": "Diseñador de presentaciones, mapas mentales y material multimedia a partir de cualquier tema o documento.",
+    "description": "Presentation, mind-map, and multimedia designer from any topic or document.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["content", "productivity", "creative"],
@@ -102,7 +102,7 @@
   {
     "id": "dome-knowledge-curator",
     "name": "Knowledge Curator",
-    "description": "Organiza, enriquece y conecta el conocimiento de tu biblioteca: flashcards, grafos, notas y enlaces semánticos.",
+    "description": "Organize, enrich, and connect library knowledge: flashcards, graphs, notes, and semantic links.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["productivity", "research", "learning"],
@@ -112,7 +112,7 @@
   {
     "id": "dome-academic-writer",
     "name": "Academic Writer",
-    "description": "Redactor académico que investiga, sintetiza fuentes y produce ensayos y papers con estructura científica.",
+    "description": "Academic writer that researches sources and drafts essays and papers with scientific structure.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["writing", "research", "academic"],
@@ -122,7 +122,7 @@
   {
     "id": "pdf-deep-reader",
     "name": "PDF Deep Reader",
-    "description": "Analiza PDFs en profundidad: extrae estructura, ideas clave, argumentos y citas textuales.",
+    "description": "Deep PDF analysis: structure, key ideas, arguments, and verbatim quotes.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["research", "academic", "knowledge"],
@@ -132,7 +132,7 @@
   {
     "id": "systematic-reviewer",
     "name": "Systematic Reviewer",
-    "description": "Realiza revisiones sistemáticas de literatura: busca, filtra, sintetiza y cita fuentes académicas.",
+    "description": "Systematic literature reviews: search, filter, synthesize, and cite academic sources.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["research", "academic", "writing"],
@@ -142,7 +142,7 @@
   {
     "id": "zettelkasten-builder",
     "name": "Zettelkasten Builder",
-    "description": "Construye y conecta notas atómicas en estilo Zettelkasten para gestión del conocimiento.",
+    "description": "Build and link atomic Zettelkasten-style notes for personal knowledge management.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["knowledge", "productivity", "writing"],
@@ -152,7 +152,7 @@
   {
     "id": "exam-prep-coach",
     "name": "Exam Prep Coach",
-    "description": "Prepara al estudiante para exámenes con tests adaptativos, resúmenes y técnicas de estudio.",
+    "description": "Exam prep with adaptive quizzes, summaries, and proven study techniques.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["education", "productivity"],
@@ -162,7 +162,7 @@
   {
     "id": "research-synthesizer",
     "name": "Research Synthesizer",
-    "description": "Sintetiza múltiples fuentes de investigación en narrativas coherentes con citas y referencias.",
+    "description": "Merge multiple research sources into one coherent narrative with citations.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["research", "writing", "academic"],
@@ -172,7 +172,7 @@
   {
     "id": "meeting-processor",
     "name": "Meeting Processor",
-    "description": "Procesa notas de reunión: extrae acuerdos, tareas, decisiones y genera acta estructurada.",
+    "description": "Turn meeting notes into decisions, action items, and a structured summary.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["productivity", "writing"],
@@ -182,7 +182,7 @@
   {
     "id": "data-storyteller",
     "name": "Data Storyteller",
-    "description": "Analiza datos de Excel/CSV y convierte los hallazgos en narrativas visuales y presentaciones.",
+    "description": "Analyze Excel/CSV data and turn findings into narratives and presentations.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["data", "productivity", "content"],
@@ -192,7 +192,7 @@
   {
     "id": "concept-mapper",
     "name": "Concept Mapper",
-    "description": "Crea mapas conceptuales y grafos de conocimiento para visualizar relaciones entre ideas.",
+    "description": "Concept maps and knowledge graphs to visualize how ideas connect.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["knowledge", "education", "productivity"],

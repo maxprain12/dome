@@ -7,7 +7,6 @@ import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import SidePanel from '@/components/workspace/SidePanel';
 import SourcesPanel from '@/components/workspace/SourcesPanel';
 import StudioPanel from '@/components/workspace/StudioPanel';
-import GraphPanel from '@/components/workspace/GraphPanel';
 import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import MetadataModal from '@/components/workspace/MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -27,7 +26,6 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
   const [isProcessing, setIsProcessing] = useState(false);
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
-  const graphPanelOpen = useAppStore((s) => s.graphPanelOpen);
   const activeStudioOutput = useAppStore((s) => s.activeStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
 
@@ -342,9 +340,6 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
           <StudioPanel projectId={resource.project_id} resourceId={resource.id} />
         )}
 
-        {graphPanelOpen && resource && (
-          <GraphPanel resource={resource} />
-        )}
       </div>
 
       <MetadataModal

@@ -4,7 +4,6 @@ import WorkspaceHeader from './WorkspaceHeader';
 import SidePanel from './SidePanel';
 import SourcesPanel from './SourcesPanel';
 import StudioPanel from './StudioPanel';
-import GraphPanel from './GraphPanel';
 import StudioOutputViewer from './StudioOutputViewer';
 import MetadataModal from './MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -33,7 +32,6 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   const [showMetadata, setShowMetadata] = useState(false);
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
-  const graphPanelOpen = useAppStore((s) => s.graphPanelOpen);
   const activeStudioOutput = useAppStore((s) => s.activeStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const setContext = useManyStore((s) => s.setContext);
@@ -114,7 +112,6 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
     const app = useAppStore.getState();
     app.setSourcesPanelOpen(false);
     if (app.studioPanelOpen) app.toggleStudioPanel();
-    if (app.graphPanelOpen) app.toggleGraphPanel();
   }, [resource?.id, resource?.type]);
 
   const handleToggleSidePanel = useCallback(() => {
@@ -340,10 +337,6 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
           <StudioPanel projectId={resource.project_id} resourceId={resource.id} />
         )}
 
-        {/* Graph Panel */}
-        {graphPanelOpen && resource && (
-          <GraphPanel resource={resource} />
-        )}
       </div>
 
       {/* Metadata Modal */}

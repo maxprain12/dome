@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, CheckCircle2, BookOpen, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle2, RefreshCw, Sparkles, Layers } from 'lucide-react';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCard from '@/components/ui/DomeCard';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
@@ -10,102 +10,142 @@ import DomeCallout from '@/components/ui/DomeCallout';
 
 const DOME_GREEN = '#596037';
 
-interface PageIndexStatus {
-  success: boolean;
-  indexed_documents: number;
-  total_indexable: number;
-  unindexed: number;
-  last_indexed_at: number | null;
+interface SemanticIndexingStatusPayload {
+  modelVersion: string;
+  indexableTotal: number;
+  indexedResourceCount: number;
+  pendingCount: number;
+  chunksTotal: number;
+  allIndexed: boolean;
 }
 
-interface IndexProgress {
-  current: number;
-  total: number;
-  title?: string;
-  status: 'starting' | 'indexing' | 'done' | 'error' | 'skipped' | 'finished';
-  indexed?: number;
-  failed?: number;
+interface FullSyncProgressPayload {
+  phase: 'starting' | 'embeddings' | 'finished';
+  resourceIndex: number;
+  resourcesTotal: number;
+  resourceId?: string;
+  title?: string | null;
+  embeddingFailed?: number;
 }
 
 export default function IndexingSettings() {
   const { t } = useTranslation();
-  const [pageIndexStatus, setPageIndexStatus] = useState<PageIndexStatus | null>(null);
-  const [indexingMissing, setIndexingMissing] = useState(false);
-  const [reindexingAll, setReindexingAll] = useState(false);
-  const [indexProgress, setIndexProgress] = useState<IndexProgress | null>(null);
-  const [indexResult, setIndexResult] = useState<{ indexed: number; failed: number; total: number } | null>(null);
+  const [embedStatus, setEmbedStatus] = useState<SemanticIndexingStatusPayload | null>(null);
+  const [embedLoading, setEmbedLoading] = useState(true);
+  const [embedError, setEmbedError] = useState<string | null>(null);
+  const [embedReindexBusy, setEmbedReindexBusy] = useState(false);
+  const [embedProgress, setEmbedProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const [fullSyncBusy, setFullSyncBusy] = useState(false);
+  const [fullSyncProgress, setFullSyncProgress] = useState<FullSyncProgressPayload | null>(null);
+  const [fullSyncResult, setFullSyncResult] = useState<{
+    totalResources: number;
+    embeddingFailed: number;
+  } | null>(null);
+
   const [lastError, setLastError] = useState<string | null>(null);
   const progressCleanupRef = useRef<(() => void) | null>(null);
 
-  const loadStatus = useCallback(async () => {
+  const loadEmbedStatus = useCallback(async () => {
+    setEmbedError(null);
     try {
-      const s = await window.electron?.invoke?.('pageindex:status');
-      setPageIndexStatus(s ?? null);
-    } catch { setPageIndexStatus(null); }
+      const r = await window.electron.db.semantic.getIndexingStatus();
+      if (r.success && r.data) {
+        setEmbedStatus(r.data);
+      } else {
+        setEmbedStatus(null);
+        setEmbedError(r.error || null);
+      }
+    } catch (e) {
+      setEmbedStatus(null);
+      setEmbedError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEmbedLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    loadStatus();
-    const interval = setInterval(() => { if (!indexingMissing) loadStatus(); }, 5000);
+    void loadEmbedStatus();
+    const interval = setInterval(() => {
+      if (!embedReindexBusy && !fullSyncBusy) void loadEmbedStatus();
+    }, 8000);
     return () => clearInterval(interval);
-  }, [loadStatus, indexingMissing]);
+  }, [loadEmbedStatus, embedReindexBusy, fullSyncBusy]);
 
-  const handleIndexMissing = async () => {
-    setIndexingMissing(true);
-    setIndexProgress(null);
-    setIndexResult(null);
-    setLastError(null);
-    if (progressCleanupRef.current) progressCleanupRef.current();
+  useEffect(() => {
+    const off = window.electron.db.semantic.onProgress((p) => {
+      setEmbedProgress({ done: p.done ?? 0, total: p.total ?? 0 });
+    });
+    return off;
+  }, []);
 
-    const cleanup = window.electron?.on?.('pageindex:progress', (data: IndexProgress) => {
-      setIndexProgress(data);
-      if (data.status === 'finished') {
-        setIndexResult({ indexed: data.indexed ?? 0, failed: data.failed ?? 0, total: data.total });
-        setIndexingMissing(false);
-        loadStatus();
-        progressCleanupRef.current?.();
-        progressCleanupRef.current = null;
+  useEffect(() => {
+    const off = window.electron.on('indexing:full-sync-progress', (data: FullSyncProgressPayload) => {
+      setFullSyncProgress(data);
+      if (data.phase === 'finished') {
+        setFullSyncBusy(false);
+        void loadEmbedStatus();
       }
     });
-    progressCleanupRef.current = cleanup ?? null;
+    return off;
+  }, [loadEmbedStatus]);
 
+  const fullSyncPercent =
+    fullSyncProgress && fullSyncProgress.resourcesTotal > 0
+      ? fullSyncProgress.phase === 'finished'
+        ? 100
+        : fullSyncProgress.phase === 'starting'
+          ? 0
+          : Math.min(
+              100,
+              Math.round((fullSyncProgress.resourceIndex / fullSyncProgress.resourcesTotal) * 100),
+            )
+      : 0;
+
+  const handleFullSync = async () => {
+    setFullSyncBusy(true);
+    setFullSyncResult(null);
+    setFullSyncProgress(null);
+    setLastError(null);
+    if (progressCleanupRef.current) progressCleanupRef.current();
     try {
-      const result = await window.electron?.invoke?.('pageindex:index-missing');
-      if (!result?.success) {
-        setLastError(result?.error || t('settings.indexing.error_index_failed'));
-        setIndexingMissing(false);
+      const r = await window.electron.invoke('indexing:full-sync');
+      if (r?.success) {
+        setFullSyncResult({
+          totalResources: r.totalResources ?? 0,
+          embeddingFailed: r.embeddingFailed ?? 0,
+        });
+      } else {
+        setLastError(r?.error || t('settings.indexing.error_index_failed'));
       }
     } catch (e) {
       setLastError(e instanceof Error ? e.message : String(e));
-      setIndexingMissing(false);
     } finally {
-      progressCleanupRef.current?.();
-      progressCleanupRef.current = null;
+      setFullSyncBusy(false);
+      setFullSyncProgress(null);
+      void loadEmbedStatus();
     }
   };
 
-  const handleReindexAll = async () => {
-    setReindexingAll(true);
-    setIndexProgress(null);
-    setIndexResult(null);
-    setLastError(null);
+  const handleSemanticReindexAll = async () => {
+    setEmbedReindexBusy(true);
+    setEmbedProgress(null);
+    setEmbedError(null);
     try {
-      const result = await window.electron?.invoke?.('pageindex:reindex');
-      if (result?.success) {
-        setIndexResult({ indexed: result.indexed ?? 0, failed: result.failed ?? 0, total: result.total ?? 0 });
-        loadStatus();
-      } else { setLastError(result?.error || t('settings.indexing.error_reindex_failed')); }
-    } catch (e) { setLastError(e instanceof Error ? e.message : String(e)); }
-    finally { setReindexingAll(false); }
+      const r = await window.electron.db.semantic.reindexAll();
+      if (!r.success) {
+        setEmbedError(r.error || t('settings.embeddings.error_load'));
+      }
+    } catch (e) {
+      setEmbedError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEmbedReindexBusy(false);
+      setEmbedProgress(null);
+      void loadEmbedStatus();
+    }
   };
 
-  const progressPercent = indexProgress && indexProgress.total > 0
-    ? Math.round((indexProgress.current / indexProgress.total) * 100) : 0;
-
-  const lastIndexedDate = pageIndexStatus?.last_indexed_at
-    ? new Date(pageIndexStatus.last_indexed_at).toLocaleString() : null;
-
-  const isBusy = indexingMissing || reindexingAll;
+  const libraryBusy = fullSyncBusy || embedReindexBusy;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -115,105 +155,205 @@ export default function IndexingSettings() {
         subtitle={t('settings.indexing.subtitle')}
       />
 
-      {/* Stats */}
-      {pageIndexStatus?.success && (
-        <div>
-          <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.indexing.section_status')}</DomeSectionLabel>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { label: t('settings.indexing.total'), value: pageIndexStatus.total_indexable, color: DOME_GREEN },
-              { label: t('settings.indexing.indexed'), value: pageIndexStatus.indexed_documents, color: DOME_GREEN },
-              { label: t('settings.indexing.pending'), value: pageIndexStatus.unindexed, color: pageIndexStatus.unindexed > 0 ? '#a37b00' : DOME_GREEN },
-            ].map(({ label, value, color }) => (
-              <DomeCard key={label} className="p-4">
-                <p className="text-2xl font-bold" style={{ color }}>{value}</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{label}</p>
-              </DomeCard>
-            ))}
-          </div>
-          {lastIndexedDate && (
-            <p className="text-[11px] mt-2" style={{ color: 'var(--dome-text-muted)', opacity: 0.7 }}>
-              {t('settings.indexing.last_indexed')}: {lastIndexedDate}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Progress */}
-      {indexingMissing && indexProgress && indexProgress.total > 0 && (
-        <DomeCard className="p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs truncate max-w-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              {indexProgress.status === 'indexing' && indexProgress.title ? `${t('settings.indexing.progress_indexing')}: ${indexProgress.title}` : t('settings.indexing.progress_preparing')}
-            </p>
-            <span className="text-xs font-medium" style={{ color: DOME_GREEN }}>
-              {indexProgress.current} / {indexProgress.total}
-            </span>
-          </div>
-          <DomeProgressBar value={progressPercent} max={100} size="sm" variant="success" />
-        </DomeCard>
-      )}
-
-      {/* Result */}
-      {indexResult && !indexingMissing ? (
-        <DomeCallout tone="success" icon={CheckCircle2}>
-          {indexResult.indexed === 1
-            ? t('settings.indexing.result_indexed_one', { count: indexResult.indexed })
-            : t('settings.indexing.result_indexed_many', { count: indexResult.indexed })}
-          {indexResult.failed > 0 ? t('settings.indexing.result_with_errors', { count: indexResult.failed }) : null}
-        </DomeCallout>
-      ) : null}
-
-      {lastError ? <DomeCallout tone="error">{lastError}</DomeCallout> : null}
-
-      {/* Actions */}
+      {/* Full library index (cloud vision transcription + Nomic embeddings) */}
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.indexing.section_actions')}</DomeSectionLabel>
-        <div className="flex flex-wrap gap-2">
-          {pageIndexStatus?.unindexed === 0 && !indexingMissing && !indexResult ? (
-            <div className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs"
-              style={{ backgroundColor: 'var(--dome-surface)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}>
-              <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />
-              {t('settings.indexing.all_indexed')}
+        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+          {t('settings.indexing.full_sync_section')}
+        </DomeSectionLabel>
+        <DomeCard className="p-4 space-y-3">
+          <div>
+            <p className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
+              {t('settings.indexing.full_sync_title')}
+            </p>
+            <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+              {t('settings.indexing.full_sync_hint')}
+            </p>
+          </div>
+          {fullSyncProgress &&
+          fullSyncProgress.phase !== 'finished' &&
+          fullSyncProgress.resourcesTotal > 0 ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate" style={{ color: 'var(--dome-text-muted)' }}>
+                  {fullSyncProgress.phase === 'embeddings'
+                    ? t('settings.indexing.full_sync_phase_embeddings')
+                    : '…'}
+                  {fullSyncProgress.title
+                    ? ` · ${t('settings.indexing.full_sync_progress_res', {
+                        current: fullSyncProgress.resourceIndex,
+                        total: fullSyncProgress.resourcesTotal,
+                        title: fullSyncProgress.title,
+                      })}`
+                    : null}
+                </span>
+                <span className="shrink-0 font-medium" style={{ color: DOME_GREEN }}>
+                  {fullSyncPercent}%
+                </span>
+              </div>
+              <DomeProgressBar value={fullSyncPercent} max={100} size="sm" variant="success" />
             </div>
-          ) : (
+          ) : null}
+          {fullSyncResult && !fullSyncBusy ? (
+            <DomeCallout
+              tone={fullSyncResult.embeddingFailed > 0 ? 'warning' : 'success'}
+              icon={CheckCircle2}
+            >
+              {t('settings.indexing.full_sync_done')}
+              {fullSyncResult.totalResources > 0 && fullSyncResult.embeddingFailed > 0
+                ? ` ${t('settings.indexing.full_sync_summary_errors', { emb: fullSyncResult.embeddingFailed })}`
+                : null}
+            </DomeCallout>
+          ) : null}
+          <DomeButton
+            type="button"
+            variant="primary"
+            size="md"
+            disabled={libraryBusy}
+            onClick={() => void handleFullSync()}
+            leftIcon={
+              fullSyncBusy ? (
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+              ) : (
+                <Layers className="w-4 h-4" aria-hidden />
+              )
+            }
+          >
+            {fullSyncBusy ? t('settings.indexing.full_sync_running') : t('settings.indexing.full_sync_btn')}
+          </DomeButton>
+        </DomeCard>
+      </div>
+
+      <DomeSectionLabel className="font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+        {t('settings.indexing.section_separate')}
+      </DomeSectionLabel>
+
+      {/* Embeddings locales (Nomic / resource_chunks) */}
+      <div className="pt-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
+        <DomeSubpageHeader
+          className="!border-0 px-0 py-0 bg-transparent mt-2"
+          title={t('settings.embeddings.section_title')}
+          subtitle={t('settings.embeddings.section_hint')}
+        />
+
+        {embedLoading ? (
+          <p className="text-xs mt-3 flex items-center gap-2" style={{ color: 'var(--dome-text-muted)' }}>
+            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden />
+            {t('settings.embeddings.loading')}
+          </p>
+        ) : null}
+
+        {embedError ? <DomeCallout tone="error" className="mt-3">{embedError}</DomeCallout> : null}
+
+        {embedStatus && !embedLoading ? (
+          <div className="mt-4 space-y-3">
+            <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+              <span className="font-medium" style={{ color: 'var(--dome-text-secondary)' }}>
+                {t('settings.embeddings.model')}:
+              </span>{' '}
+              <code className="text-[10px] px-1 py-0.5 rounded" style={{ background: 'var(--dome-surface)' }}>
+                {embedStatus.modelVersion}
+              </code>
+            </p>
+
+            {embedStatus.indexableTotal === 0 ? (
+              <DomeCallout tone="info" icon={Sparkles}>
+                {t('settings.embeddings.empty_library')}
+              </DomeCallout>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {[
+                    { label: t('settings.embeddings.total'), value: embedStatus.indexableTotal, color: DOME_GREEN },
+                    {
+                      label: t('settings.embeddings.indexed'),
+                      value: embedStatus.indexedResourceCount,
+                      color: DOME_GREEN,
+                    },
+                    {
+                      label: t('settings.embeddings.pending'),
+                      value: embedStatus.pendingCount,
+                      color: embedStatus.pendingCount > 0 ? '#a37b00' : DOME_GREEN,
+                    },
+                    { label: t('settings.embeddings.chunks'), value: embedStatus.chunksTotal, color: DOME_GREEN },
+                  ].map(({ label, value, color }) => (
+                    <DomeCard key={label} className="p-4">
+                      <p className="text-2xl font-bold" style={{ color }}>
+                        {value}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
+                        {label}
+                      </p>
+                    </DomeCard>
+                  ))}
+                </div>
+
+                {embedStatus.allIndexed ? (
+                  <div
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs w-fit"
+                    style={{
+                      backgroundColor: 'var(--dome-surface)',
+                      border: '1px solid var(--dome-border)',
+                      color: 'var(--dome-text-muted)',
+                    }}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" style={{ color: DOME_GREEN }} />
+                    {t('settings.embeddings.all_indexed')}
+                  </div>
+                ) : (
+                  <DomeCallout tone="warning" icon={Sparkles}>
+                    {t('settings.embeddings.pending_label', { count: embedStatus.pendingCount })}
+                  </DomeCallout>
+                )}
+              </>
+            )}
+
+            {embedProgress && embedProgress.total > 0 && embedReindexBusy ? (
+              <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                {t('settings.embeddings.progress', {
+                  done: embedProgress.done,
+                  total: embedProgress.total,
+                })}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {!embedLoading ? (
+          <div className="flex flex-wrap gap-2 mt-4">
+            <DomeButton
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEmbedLoading(true);
+                void loadEmbedStatus();
+              }}
+              disabled={libraryBusy}
+              leftIcon={<RefreshCw className="w-3.5 h-3.5" aria-hidden />}
+            >
+              {t('settings.embeddings.refresh')}
+            </DomeButton>
             <DomeButton
               type="button"
               variant="primary"
               size="sm"
-              onClick={() => void handleIndexMissing()}
-              disabled={isBusy}
+              onClick={() => void handleSemanticReindexAll()}
+              disabled={libraryBusy}
               leftIcon={
-                indexingMissing ? (
+                embedReindexBusy ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
                 ) : (
-                  <BookOpen className="w-3.5 h-3.5" aria-hidden />
+                  <Sparkles className="w-3.5 h-3.5" aria-hidden />
                 )
               }
             >
-              {indexingMissing
-                ? t('settings.indexing.indexing_btn')
-                : t('settings.indexing.index_pending', { count: pageIndexStatus?.unindexed ?? 0 })}
+              {embedReindexBusy ? t('settings.embeddings.reindexing') : t('settings.embeddings.reindex')}
             </DomeButton>
-          )}
-          <DomeButton
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => void handleReindexAll()}
-            disabled={isBusy}
-            leftIcon={
-              reindexingAll ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
-              ) : (
-                <RefreshCw className="w-3.5 h-3.5" aria-hidden />
-              )
-            }
-          >
-            {reindexingAll ? t('settings.indexing.reindexing') : t('settings.indexing.reindex_all')}
-          </DomeButton>
-        </div>
+          </div>
+        ) : null}
       </div>
+
+      {lastError ? <DomeCallout tone="error">{lastError}</DomeCallout> : null}
     </div>
   );
 }

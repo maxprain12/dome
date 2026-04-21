@@ -4,8 +4,7 @@
  * Supports different artifact types: pdf_summary, table, action_items, chart, code, list
  */
 
-import { useState, useEffect, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/lib/i18n';
 import {
@@ -25,9 +24,6 @@ import {
   Play,
   MessageCircle,
   ArrowUpRight,
-  Image,
-   Maximize2,
-  X,
 } from 'lucide-react';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeButton from '@/components/ui/DomeButton';
@@ -147,7 +143,7 @@ const ARTIFACT_STYLES: Record<ArtifactType, { borderColor: string; iconColor: st
   code: { borderColor: 'var(--secondary-text)', iconColor: 'var(--secondary-text)' },
   list: { borderColor: '#ef4444', iconColor: '#ef4444' },
   created_entity: { borderColor: '#8b5cf6', iconColor: '#8b5cf6' },
-  docling_images: { borderColor: '#14b8a6', iconColor: '#14b8a6' },
+  docling_images: { borderColor: '#64748b', iconColor: '#64748b' },
 };
 
 // Icon mapping
@@ -159,7 +155,7 @@ const ARTIFACT_ICONS: Record<ArtifactType, typeof FileText> = {
   code: Code,
   list: List,
   created_entity: Bot,
-  docling_images: Image,
+  docling_images: FileText,
 };
 
 function ArtifactHeader({
@@ -262,7 +258,7 @@ function getArtifactContent(artifact: AnyArtifact): ReactNode {
     case 'code': return <CodeContent artifact={artifact} />;
     case 'list': return <ListContent artifact={artifact} />;
     case 'created_entity': return <CreatedEntityContent artifact={artifact as CreatedEntityArtifact} />;
-    case 'docling_images': return <DoclingImagesContent artifact={artifact as DoclingImagesArtifact} />;
+    case 'docling_images': return <LegacyDoclingImagesNotice />;
     default: return null;
   }
 }
@@ -554,254 +550,13 @@ function ListContent({ artifact }: { artifact: ListArtifact }) {
   );
 }
 
-function DoclingImagesContent({ artifact }: { artifact: DoclingImagesArtifact }) {
+/** Legacy chat artifacts from Docling — figures are no longer stored; show guidance only. */
+function LegacyDoclingImagesNotice() {
   const { t } = useTranslation();
-  const [loaded, setLoaded] = useState<Record<string, string>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-
-  const lightboxStyle = {
-    position: 'fixed' as const,
-    top: 'var(--app-header-total)',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 99999,
-    display: 'flex' as const,
-    flexDirection: 'column' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    background: 'rgba(0,0,0,0.9)',
-    padding: 24,
-  };
-
-  useEffect(() => {
-    const docling = (window as Window & { electron?: { docling?: { getImageData?: (id: string) => Promise<{ success: boolean; data?: string; error?: string }> } } }).electron?.docling;
-    const getImageData = docling?.getImageData;
-    if (!artifact.images?.length || !getImageData) return;
-    const load = async () => {
-      const results: Record<string, string> = {};
-      const errs: Record<string, string> = {};
-      for (const img of artifact.images) {
-        try {
-          const res = await getImageData(img.image_id);
-          if (res.success && res.data) results[img.image_id] = res.data;
-          else if (res.error) errs[img.image_id] = res.error;
-        } catch (e) {
-          errs[img.image_id] = e instanceof Error ? e.message : i18n.t('artifacts.failed_load');
-        }
-      }
-      setLoaded(results);
-      setErrors(errs);
-    };
-    void load();
-  }, [artifact.images]);
-
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLightboxIndex(null);
-    };
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, []);
-
-  useEffect(() => {
-    if (lightboxIndex != null) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [lightboxIndex]);
-
-  if (!artifact.images?.length) return null;
-
-  const lightboxImg = lightboxIndex != null ? artifact.images[lightboxIndex] : null;
-  const lightboxDataUrl = lightboxImg ? loaded[lightboxImg.image_id] : null;
-
   return (
-    <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {artifact.resource_id && (
-        <a
-          href={`dome://resource/${artifact.resource_id}/pdf`}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5,
-            fontSize: 12,
-            fontWeight: 500,
-            color: 'var(--accent)',
-            textDecoration: 'none',
-          }}
-        >
-          <ExternalLink style={{ width: 12, height: 12 }} />
-          {t('artifacts.open_document')}
-        </a>
-      )}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-          gap: 12,
-        }}
-      >
-        {artifact.images.map((img, idx) => {
-          const dataUrl = loaded[img.image_id];
-          const err = errors[img.image_id];
-          const label = img.caption || t('artifacts.figure', { n: idx + 1 });
-          const pageSuffix = img.page_no != null ? t('artifacts.page_suffix', { page: img.page_no }) : '';
-          const isClickable = !!dataUrl;
-          return (
-            <div
-              key={img.image_id}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                cursor: isClickable ? 'pointer' : 'default',
-              }}
-            >
-              <p style={{ fontSize: 11, color: 'var(--secondary-text)', margin: 0 }}>{label}{pageSuffix}</p>
-              {dataUrl ? (
-                <button
-                  type="button"
-                  onClick={() => setLightboxIndex(idx)}
-                  style={{
-                    position: 'relative',
-                    padding: 0,
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    overflow: 'hidden',
-                    background: 'var(--bg)',
-                    cursor: 'pointer',
-                    transition: 'border-color 150ms, box-shadow 150ms',
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--accent)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border)';
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  <img
-                    src={dataUrl}
-                    alt={label}
-                    style={{
-                      width: '100%',
-                      minHeight: 140,
-                      maxHeight: 200,
-                      objectFit: 'contain',
-                      display: 'block',
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: 8,
-                      right: 8,
-                      padding: 4,
-                      borderRadius: 6,
-                      background: 'rgba(0,0,0,0.5)',
-                      color: 'var(--base-text)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Maximize2 style={{ width: 14, height: 14 }} />
-                  </div>
-                </button>
-              ) : err ? (
-                <span style={{ fontSize: 11, color: 'var(--error)' }}>{err}</span>
-              ) : (
-                <div style={{ minHeight: 140, background: 'var(--bg-tertiary)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, color: 'var(--tertiary-text)' }}>
-                  {t('artifacts.loading')}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Lightbox — portal to body so it covers full viewport */}
-      {lightboxIndex != null &&
-        lightboxImg &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('artifacts.lightbox_aria')}
-            style={lightboxStyle}
-            onClick={() => setLightboxIndex(null)}
-          >
-            <button
-              type="button"
-              onClick={() => setLightboxIndex(null)}
-              style={{
-                position: 'absolute',
-                top: 16,
-                right: 16,
-                padding: 8,
-                borderRadius: 8,
-                background: 'rgba(255,255,255,0.1)',
-                color: 'var(--base-text)',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              aria-label={t('artifacts.close')}
-            >
-              <X style={{ width: 24, height: 24 }} />
-            </button>
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '100%',
-                height: '100%',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {lightboxDataUrl ? (
-                <img
-                  src={lightboxDataUrl}
-                  alt={lightboxImg.caption || t('artifacts.figure', { n: lightboxIndex + 1 })}
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '100%',
-                    width: 'auto',
-                    height: 'auto',
-                    objectFit: 'contain',
-                    borderRadius: 8,
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : null}
-            </div>
-            <p
-              style={{
-                marginTop: 12,
-                fontSize: 14,
-                color: 'rgba(255,255,255,0.9)',
-                textAlign: 'center',
-                maxWidth: 600,
-              }}
-            >
-              {lightboxImg.caption || t('artifacts.figure', { n: lightboxIndex + 1 })}
-              {lightboxImg.page_no != null ? t('artifacts.page_suffix', { page: lightboxImg.page_no }) : ''}
-            </p>
-          </div>,
-          document.body
-        )}
-    </div>
+    <p style={{ padding: 12, fontSize: 12, color: 'var(--secondary-text)', margin: 0, lineHeight: 1.55 }}>
+      {t('artifacts.docling_legacy')}
+    </p>
   );
 }
 
@@ -938,20 +693,9 @@ export default function ArtifactCard({ artifact, onOpenResource: _onOpenResource
       case 'list':
         contentToCopy = (artifact as ListArtifact).items.join('\n');
         break;
-      case 'docling_images': {
-        const d = artifact as DoclingImagesArtifact;
-        contentToCopy = d.images
-          ?.map((img, i) =>
-            `${img.caption || i18n.t('artifacts.figure', { n: i + 1 })}${
-              img.page_no != null ? i18n.t('artifacts.page_suffix', { page: img.page_no }) : ''
-            }`
-          )
-          .join('\n') ?? '';
-        if (d.resource_id && contentToCopy) {
-          contentToCopy += `\n\n${i18n.t('artifacts.view_document_md', { url: `dome://resource/${d.resource_id}/pdf` })}`;
-        }
+      case 'docling_images':
+        contentToCopy = i18n.t('artifacts.docling_legacy');
         break;
-      }
       default:
         contentToCopy = JSON.stringify(artifact, null, 2);
     }

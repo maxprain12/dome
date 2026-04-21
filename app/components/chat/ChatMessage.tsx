@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
 import { Copy, Check, RefreshCw, ChevronRight, BookmarkPlus } from 'lucide-react';
@@ -9,10 +9,10 @@ import SourceReference from './SourceReference';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
 import { extractCitationNumbers, type ParsedCitation } from '@/lib/utils/citations';
 import { useTabStore } from '@/lib/store/useTabStore';
-import {
-  extractDoclingImagesFromToolCalls,
-  buildDoclingArtifactFromListImages,
-} from '@/lib/chat/docling-utils';
+import { buildPdfRegionHandoff } from '@/lib/pdf/pdf-region-handoff';
+import { useManyStore } from '@/lib/store/useManyStore';
+import { showToast } from '@/lib/store/useToastStore';
+import type { PdfRegionMeta } from '@/lib/store/useManyStore';
 
 /**
  * ChatMessage - Individual message with actions
@@ -33,6 +33,8 @@ export interface ChatMessageData {
   streamingLabel?: string;
   /** Optional label for multi-agent chats or system phases */
   agentLabel?: string;
+  /** PDF region (cloud vision) — show handoff actions */
+  pdfRegionMeta?: PdfRegionMeta;
 }
 
 interface ChatMessageProps {
@@ -56,7 +58,7 @@ export default function ChatMessage({
   onClickCitation,
   className = '',
 }: ChatMessageProps) {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [savedAsNote, setSavedAsNote] = useState(false);
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
@@ -94,6 +96,52 @@ export default function ChatMessage({
       console.error('Failed to copy:', error);
     }
   };
+
+  const handlePdfRegionCloudHandoff = useCallback(() => {
+    const meta = message.pdfRegionMeta;
+    if (!meta || !message.content) return;
+    const text = buildPdfRegionHandoff({
+      resourceId: meta.resourceId,
+      resourceTitle: meta.resourceTitle,
+      page: meta.page,
+      question: meta.question,
+      answer: message.content,
+      labels: {
+        contextIntro: t('viewer.pdf_region_handoff_context_intro'),
+        questionLabel: t('viewer.pdf_region_handoff_question_label'),
+        answerLabel: t('viewer.pdf_region_handoff_answer_label'),
+        answerSourceNote: t('viewer.pdf_region_handoff_answer_note'),
+        followUpPrompt: t('viewer.pdf_region_handoff_follow_up'),
+      },
+    });
+    useManyStore.getState().setPendingManyHandoff(text);
+    useManyStore.getState().setOpen(true);
+  }, [message.content, message.pdfRegionMeta, t]);
+
+  const handlePdfRegionCopyHandoff = useCallback(async () => {
+    const meta = message.pdfRegionMeta;
+    if (!meta || !message.content) return;
+    const text = buildPdfRegionHandoff({
+      resourceId: meta.resourceId,
+      resourceTitle: meta.resourceTitle,
+      page: meta.page,
+      question: meta.question,
+      answer: message.content,
+      labels: {
+        contextIntro: t('viewer.pdf_region_handoff_context_intro'),
+        questionLabel: t('viewer.pdf_region_handoff_question_label'),
+        answerLabel: t('viewer.pdf_region_handoff_answer_label'),
+        answerSourceNote: t('viewer.pdf_region_handoff_answer_note'),
+        followUpPrompt: t('viewer.pdf_region_handoff_follow_up'),
+      },
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('success', t('common.copied'));
+    } catch {
+      showToast('error', t('common.clipboard_copy_error'));
+    }
+  }, [message.content, message.pdfRegionMeta, t]);
 
   // Format timestamp
   const formattedTime = useMemo(() => {
@@ -156,29 +204,6 @@ export default function ChatMessage({
     }
     return segments.length > 0 ? segments : [{ type: 'text' as const, content: '' }];
   }, [message.content]);
-
-  // Fallback: when AI failed to output artifact but called docling_list_images, build artifact from tool result
-  const doclingFallbackArtifact = useMemo(
-    () => buildDoclingArtifactFromListImages(message.toolCalls),
-    [message.toolCalls],
-  );
-
-  // Fallback: base64 images from docling_show_page_images when artifact was not used
-  const doclingImagesFromTools = useMemo(
-    () => extractDoclingImagesFromToolCalls(message.toolCalls),
-    [message.toolCalls],
-  );
-
-  const hasDoclingArtifact = contentSegments.some(
-    (s) => s.type === 'artifact' && s.artifact.type === 'docling_images',
-  );
-  const hasDoclingFallback = !!doclingFallbackArtifact;
-
-  // When AI called docling_list_images but didn't output artifact, append fallback at end
-  const segmentsToRender = useMemo(() => {
-    if (!hasDoclingFallback || hasDoclingArtifact) return contentSegments;
-    return [...contentSegments, { type: 'artifact' as const, artifact: doclingFallbackArtifact as AnyArtifact }];
-  }, [contentSegments, hasDoclingArtifact, hasDoclingFallback, doclingFallbackArtifact]);
 
   // Group tool calls by name for cleaner display
   const groupedToolCalls = useMemo(() => {
@@ -285,7 +310,7 @@ export default function ChatMessage({
                     </span>
                   ) : (
                     <>
-                      {segmentsToRender.map((seg, idx) =>
+                      {contentSegments.map((seg, idx) =>
                         seg.type === 'text' ? (
                           seg.content ? (
                             <MarkdownRenderer
@@ -300,58 +325,6 @@ export default function ChatMessage({
                             <ArtifactCard artifact={seg.artifact} />
                           </div>
                         ),
-                      )}
-                      {/* Fallback: base64 images from docling_show_page_images when no artifact */}
-                      {!message.isStreaming && !hasDoclingArtifact && !hasDoclingFallback && doclingImagesFromTools.length > 0 && (
-                        <div
-                          className="mt-4 pt-4"
-                          style={{ borderTop: '1px solid var(--border)' }}
-                        >
-                          <p
-                            style={{
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: 'var(--secondary-text)',
-                              margin: '0 0 12px 0',
-                            }}
-                          >
-                            Figuras del documento
-                          </p>
-                          <div
-                            style={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: 12,
-                            }}
-                          >
-                            {doclingImagesFromTools.map((item, i) => (
-                              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                {item.label && (
-                                  <p
-                                    style={{
-                                      fontSize: 11,
-                                      color: 'var(--secondary-text)',
-                                      margin: 0,
-                                    }}
-                                  >
-                                    {item.label}
-                                  </p>
-                                )}
-                                <img
-                                  src={item.dataUrl}
-                                  alt={item.label || `Figure ${i + 1}`}
-                                  style={{
-                                    maxWidth: 280,
-                                    maxHeight: 200,
-                                    objectFit: 'contain',
-                                    borderRadius: 6,
-                                    border: '1px solid var(--border)',
-                                  }}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
                       )}
                     </>
                   )}
@@ -375,6 +348,30 @@ export default function ChatMessage({
                   style={{ fontSize: '10px', color: 'var(--tertiary-text)' }}
                 >
                   {formattedTime}
+                </div>
+              )}
+
+              {isAssistant && !message.isStreaming && message.pdfRegionMeta && (
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <button
+                    type="button"
+                    className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
+                    style={{
+                      background: 'var(--accent)',
+                      color: 'var(--base-text, #fff)',
+                    }}
+                    onClick={handlePdfRegionCloudHandoff}
+                  >
+                    {t('viewer.pdf_region_qa_continue_many')}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-[var(--bg-hover)]"
+                    style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)' }}
+                    onClick={() => void handlePdfRegionCopyHandoff()}
+                  >
+                    {t('viewer.pdf_region_qa_copy_handoff')}
+                  </button>
                 </div>
               )}
 

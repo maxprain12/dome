@@ -43,11 +43,11 @@ Ejemplo mínimo en una nota compilada:
 ## Relación con PageIndex y FTS
 
 - **FTS5** se actualiza en cada guardado de contenido indexable.
-- **PageIndex** (árbol por documento) puede quedar desfasado si el contenido cambia sin reindexar — mitigar con `reindexOnSave` o jobs programados — ver [kb-index-policy](./kb-index-policy.md).
+- **Índice semántico** (embeddings Nomic + transcripción/descr. por IA en la nube para PDF/imagen): puede quedar desfasado si el contenido cambia sin reindexar — mitigar con `reindexOnSave` o jobs programados — ver [indexing.md](./indexing.md).
 
 ## Referencias de código
 
 - IPC recursos: `[electron/ipc/database.cjs](../electron/ipc/database.cjs)`, `[electron/ipc/resources.cjs](../electron/ipc/resources.cjs)`
-- Indexación: `[electron/resource-indexer.cjs](../electron/resource-indexer.cjs)`
+- Indexación: `[electron/semantic-index-scheduler.cjs](../electron/semantic-index-scheduler.cjs)`, `[electron/services/indexing.pipeline.cjs](../electron/services/indexing.pipeline.cjs)`
 - Herramientas de agente: `[electron/ai-tools-handler.cjs](../electron/ai-tools-handler.cjs)`
 

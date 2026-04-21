@@ -16,7 +16,7 @@ import {
 import MarkdownRenderer from './MarkdownRenderer';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
 import { useManyStore } from '@/lib/store/useManyStore';
-import { parseContentImages, parseImageResult } from '@/lib/chat/docling-utils';
+import { parseContentImages, parseImageResult } from '@/lib/chat/image-tool-utils';
 import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeBadge from '@/components/ui/DomeBadge';
@@ -81,9 +81,7 @@ const TOOL_ICONS: Record<string, typeof Globe> = {
   pdf_extract_tables: FileTextIcon,
   image_crop: Image,
   image_thumbnail: Image,
-  docling_list_images: Image,
-  docling_show_image: Image,
-  docling_show_page_images: Image,
+  pdf_render_page: Image,
 };
 
 const TOOL_LABELS: Record<string, string> = {
@@ -106,9 +104,7 @@ const TOOL_LABELS: Record<string, string> = {
   pdf_extract_tables: 'Extrayendo tablas de PDF',
   image_crop: 'Recortando imagen',
   image_thumbnail: 'Generando miniatura',
-  docling_list_images: 'Listando imágenes del documento',
-  docling_show_image: 'Mostrando artefacto visual',
-  docling_show_page_images: 'Mostrando figuras del documento',
+  pdf_render_page: 'Renderizando página PDF',
 };
 
 function getIconForTool(name: string): typeof Globe {

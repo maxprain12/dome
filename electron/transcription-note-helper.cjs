@@ -2,7 +2,7 @@
 /**
  * Shared: transcribe an audio/video resource file and create a linked note (used by IPC + WhatsApp).
  */
-const resourceIndexer = require('./resource-indexer.cjs');
+const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
 const transcriptionStructured = require('./transcription-structured.cjs');
 
 function parseMetadata(raw) {
@@ -52,6 +52,7 @@ function getDefaults(database) {
   const queries = database.getQueries();
   const providerRow = queries.getSetting.get('transcription_stt_provider');
   let sttProvider = providerRow?.value && String(providerRow.value).trim().toLowerCase();
+  if (sttProvider === 'local-gemma') sttProvider = 'openai';
   if (sttProvider !== 'groq' && sttProvider !== 'openai' && sttProvider !== 'custom') {
     sttProvider = transcriptionService.getTranscriptionSttProvider(database);
   }
@@ -210,8 +211,9 @@ async function transcribeResourceToNote(ctx) {
     );
     const noteResource = queries.getResourceById.get(noteId);
     windowManager.broadcast('resource:created', noteResource);
-    if (resourceIndexer.shouldIndex(noteResource)) {
-      resourceIndexer.scheduleIndexing(noteId, indexerDeps);
+    semanticIndexScheduler.init(database);
+    if (semanticIndexScheduler.shouldIndex(noteResource)) {
+      semanticIndexScheduler.scheduleSemanticReindex(noteId);
     }
 
     if (updateAudioMetadata) {

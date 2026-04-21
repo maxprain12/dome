@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, FileText, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, MessageSquareText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/types';
-import { db } from '@/lib/db/client';
 import { useInteractions } from '@/lib/hooks/useInteractions';
 import { loadPDFDocument, getPDFPage, getPDFOutline, type OutlineItem } from '@/lib/pdf/pdf-loader';
 import type { PDFAnnotation, AnnotationType } from '@/lib/pdf/annotation-utils';
 import { parseAnnotationFromDB, serializeAnnotationForDB } from '@/lib/pdf/annotation-utils';
 import { usePDFViewerStore } from '@/lib/store/usePDFViewerStore';
+import { useManyStore } from '@/lib/store/useManyStore';
+import { showToast } from '@/lib/store/useToastStore';
 import PDFPage from './pdf/PDFPage';
 import AnnotationLayer from './pdf/AnnotationLayer';
 import PDFPageInput from './pdf/PDFPageInput';
@@ -38,13 +39,16 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   const [strokeWidth, setStrokeWidth] = useState(2);
   const [isOpeningExternal, setIsOpeningExternal] = useState(false);
   const [outline, setOutline] = useState<OutlineItem[]>([]);
-  const [domeConnected, setDomeConnected] = useState(false);
-  const [provider, setProvider] = useState<string>('');
-  const [doclingConverting, setDoclingConverting] = useState(false);
-  const [doclingProgress, setDoclingProgress] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageInputRef = useRef<HTMLInputElement>(null);
+  const pageCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const setPdfState = usePDFViewerStore((s) => s.setPdfState);
+
+  const [pdfRegionMode, setPdfRegionMode] = useState(false);
+  const [pdfRegionSelect, setPdfRegionSelect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const pdfRegionDragRef = useRef<{ sx: number; sy: number; active: boolean } | null>(null);
+  const pdfRegionSelectRef = useRef(pdfRegionSelect);
+  pdfRegionSelectRef.current = pdfRegionSelect;
   
   // Track if initial page has been set to avoid reloads
   const initialPageSetRef = useRef(false);
@@ -128,46 +132,6 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
     });
     setAnnotations(parsedAnnotations);
   }, [dbAnnotations]);
-
-  // Check provider and Dome session for Docling button
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.electron) return;
-    const load = async () => {
-      const [providerRes, sessionRes] = await Promise.all([
-        db.getSetting('ai_provider'),
-        window.electron.domeAuth?.getSession?.() ?? Promise.resolve({ connected: false }),
-      ]);
-      setProvider((providerRes.data ?? '').toLowerCase());
-      setDomeConnected(sessionRes?.connected ?? false);
-    };
-    load();
-    const onConfigChange = () => load();
-    window.addEventListener('dome:ai-config-changed', onConfigChange);
-    return () => window.removeEventListener('dome:ai-config-changed', onConfigChange);
-  }, []);
-
-  // Listen for Docling progress
-  useEffect(() => {
-    if (!window.electron?.docling?.onProgress) return;
-    const unsub = window.electron.docling.onProgress((event: { resourceId: string; status: string; progress?: number }) => {
-      if (event.resourceId !== resource.id) return;
-      const labels: Record<string, string> = {
-        converting: t('viewer.converting'),
-        storing_images: t('viewer.storing_images'),
-        updating_resource: t('viewer.updating_resource'),
-        indexing: t('viewer.indexing'),
-        done: t('viewer.done'),
-        error: t('viewer.error'),
-      };
-      setDoclingProgress(labels[event.status] ?? event.status);
-      if (event.status === 'done' || event.status === 'error') {
-        setDoclingConverting(false);
-        setDoclingProgress(null);
-        window.dispatchEvent(new Event('dome:resources-changed'));
-      }
-    });
-    return unsub;
-  }, [resource.id]);
 
   // Calculate zoom based on mode; ResizeObserver for container resize
   useEffect(() => {
@@ -307,31 +271,60 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
     }
   }, [filePath]);
 
-  const handleDoclingConvert = useCallback(async () => {
-    if (!window.electron?.docling?.convertResource || doclingConverting) return;
-    setDoclingConverting(true);
-    setDoclingProgress(t('viewer.converting'));
-    try {
-      const result = await window.electron.docling.convertResource(resource.id);
-      if (!result?.success) {
-        setDoclingConverting(false);
-        setDoclingProgress(null);
+  const cropCanvasRegion = useCallback(
+    (rect: { x: number; y: number; w: number; h: number }) => {
+      const canvas = pageCanvasRef.current;
+      if (!canvas || rect.w < 4 || rect.h < 4) return null;
+      const cw = canvas.clientWidth || 1;
+      const ch = canvas.clientHeight || 1;
+      const scaleX = canvas.width / cw;
+      const scaleY = canvas.height / ch;
+      const sx = Math.max(0, Math.floor(rect.x * scaleX));
+      const sy = Math.max(0, Math.floor(rect.y * scaleY));
+      const sw = Math.min(canvas.width - sx, Math.ceil(rect.w * scaleX));
+      const sh = Math.min(canvas.height - sy, Math.ceil(rect.h * scaleY));
+      if (sw < 2 || sh < 2) return null;
+      const tmp = document.createElement('canvas');
+      tmp.width = sw;
+      tmp.height = sh;
+      const ctx = tmp.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+      return tmp.toDataURL('image/png');
+    },
+    [],
+  );
+
+  const finishPdfRegion = useCallback(
+    (rect: { x: number; y: number; w: number; h: number } | null) => {
+      if (!rect || rect.w < 8 || rect.h < 8) return;
+      const url = cropCanvasRegion(rect);
+      if (!url) {
+        showToast('warning', t('viewer.pdf_region_too_small'));
+        return;
       }
-    } catch {
-      setDoclingConverting(false);
-      setDoclingProgress(null);
-    }
-  }, [resource.id, doclingConverting]);
+      const { setPendingPdfRegion, setContext, setOpen } = useManyStore.getState();
+      setPendingPdfRegion({
+        imageDataUrl: url,
+        resourceId: resource.id,
+        page: currentPage,
+        resourceTitle: resource.title ?? 'PDF',
+      });
+      setContext(resource.id, resource.title ?? null);
+      setOpen(true);
+      setPdfRegionMode(false);
+      setPdfRegionSelect(null);
+    },
+    [cropCanvasRegion, resource.id, resource.title, currentPage, t],
+  );
 
   const handleAnnotationCreate = useCallback(
     async (annotation: Omit<PDFAnnotation, 'id'>) => {
       const serialized = serializeAnnotationForDB(annotation as PDFAnnotation);
       const interaction = await addInteraction('annotation', serialized.content, serialized.position_data, serialized.metadata);
 
-      // Index annotation in LanceDB if interaction was created successfully
       if (interaction && typeof window !== 'undefined' && window.electron) {
         // Annotations are stored in SQLite with FTS5 full-text search
-        // No additional vector indexing needed
       }
     },
     [addInteraction, resource]
@@ -470,23 +463,24 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          {provider === 'dome' && domeConnected && (
+          {typeof window !== 'undefined' && window.electron?.db?.cloudLlm && (
             <button
-              onClick={handleDoclingConvert}
-              disabled={doclingConverting}
+              type="button"
+              onClick={() => {
+                setPdfRegionMode((m) => !m);
+                setPdfRegionSelect(null);
+                pdfRegionDragRef.current = null;
+              }}
               className="p-1.5 rounded text-sm flex items-center gap-1"
-              style={{ color: 'var(--secondary-text)' }}
-              aria-label={t('viewer.convert_docling')}
-              title={t('viewer.convert_hint')}
+              style={{
+                color: pdfRegionMode ? 'var(--accent)' : 'var(--secondary-text)',
+                background: pdfRegionMode ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : undefined,
+              }}
+              aria-pressed={pdfRegionMode}
+              aria-label={t('viewer.pdf_region_toggle')}
+              title={t('viewer.pdf_region_hint')}
             >
-              {doclingConverting ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  <span className="text-xs">{doclingProgress ?? '…'}</span>
-                </>
-              ) : (
-                <FileText size={14} />
-              )}
+              <MessageSquareText size={16} />
             </button>
           )}
           <button
@@ -507,18 +501,76 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
           <PDFViewerSkeleton />
         ) : pages.length > 0 && pages[currentPage - 1] != null ? (
           <div className="flex flex-col items-center p-4">
-            <div className="relative">
-              <PDFPage page={pages[currentPage - 1]!} scale={zoom} pageNumber={currentPage} />
-              <AnnotationLayer
+            <div className="relative inline-block">
+              <PDFPage
+                ref={pageCanvasRef}
                 page={pages[currentPage - 1]!}
-                pageIndex={currentPage - 1}
                 scale={zoom}
-                annotations={annotations}
-                activeTool={activeTool}
-                color={color}
-                strokeWidth={strokeWidth}
-                onAnnotationCreate={handleAnnotationCreate}
+                pageNumber={currentPage}
               />
+              <div className={pdfRegionMode ? 'pointer-events-none' : ''}>
+                <AnnotationLayer
+                  page={pages[currentPage - 1]!}
+                  pageIndex={currentPage - 1}
+                  scale={zoom}
+                  annotations={annotations}
+                  activeTool={activeTool}
+                  color={color}
+                  strokeWidth={strokeWidth}
+                  onAnnotationCreate={handleAnnotationCreate}
+                />
+              </div>
+              {pdfRegionMode && (
+                <div
+                  className="absolute inset-0 z-20 cursor-crosshair"
+                  style={{ touchAction: 'none' }}
+                  onMouseDown={(e) => {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    const sx = e.clientX - r.left;
+                    const sy = e.clientY - r.top;
+                    pdfRegionDragRef.current = { sx, sy, active: true };
+                    setPdfRegionSelect({ x: sx, y: sy, w: 0, h: 0 });
+                  }}
+                  onMouseMove={(e) => {
+                    const d = pdfRegionDragRef.current;
+                    if (!d?.active) return;
+                    const r = e.currentTarget.getBoundingClientRect();
+                    const cx = e.clientX - r.left;
+                    const cy = e.clientY - r.top;
+                    const x = Math.min(d.sx, cx);
+                    const y = Math.min(d.sy, cy);
+                    const w = Math.abs(cx - d.sx);
+                    const h = Math.abs(cy - d.sy);
+                    setPdfRegionSelect({ x, y, w, h });
+                  }}
+                  onMouseUp={() => {
+                    const had = pdfRegionDragRef.current;
+                    if (had) had.active = false;
+                    const cur = pdfRegionSelectRef.current;
+                    if (cur && cur.w >= 8 && cur.h >= 8 && had) {
+                      finishPdfRegion(cur);
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    const had = pdfRegionDragRef.current;
+                    if (had) had.active = false;
+                  }}
+                >
+                  {pdfRegionSelect && pdfRegionSelect.w > 2 && pdfRegionSelect.h > 2 && (
+                    <div
+                      className="absolute border-2 pointer-events-none"
+                      style={{
+                        left: pdfRegionSelect.x,
+                        top: pdfRegionSelect.y,
+                        width: pdfRegionSelect.w,
+                        height: pdfRegionSelect.h,
+                        borderColor: 'var(--dome-accent, var(--accent))',
+                        background: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 14%, transparent)',
+                      }}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ) : null}

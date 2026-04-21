@@ -7,7 +7,6 @@ import WorkspaceHeader from '@/components/workspace/WorkspaceHeader';
 import SidePanel from '@/components/workspace/SidePanel';
 import SourcesPanel from '@/components/workspace/SourcesPanel';
 import StudioPanel from '@/components/workspace/StudioPanel';
-import GraphPanel from '@/components/workspace/GraphPanel';
 import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import MetadataModal from '@/components/workspace/MetadataModal';
 import PptViewer from '@/components/viewers/PptViewer';
@@ -32,7 +31,6 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
 
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
-  const graphPanelOpen = useAppStore((s) => s.graphPanelOpen);
   const activeStudioOutput = useAppStore((s) => s.activeStudioOutput);
 
   const slidesContainerRef = useRef<HTMLDivElement>(null);
@@ -313,7 +311,6 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
         {studioPanelOpen && resource && (
           <StudioPanel projectId={resource.project_id} resourceId={resource.id} />
         )}
-        {graphPanelOpen && resource && <GraphPanel resource={resource} />}
       </div>
 
       <MetadataModal

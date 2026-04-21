@@ -25,7 +25,8 @@ export type TabType =
   | 'folder'
   | 'learn'
   | 'transcriptions'
-  | 'transcription-detail';
+  | 'transcription-detail'
+  | 'semantic-graph';
 
 export interface DomeTab {
   id: string;
@@ -115,6 +116,7 @@ interface TabStore {
   openFolderTab: (folderId: string, title: string, color?: string) => void;
   openTranscriptionsTab: () => void;
   openTranscriptionDetailTab: (noteId: string, title: string) => void;
+  openSemanticGraphTab: (focusResourceId?: string) => void;
   updateTab: (tabId: string, updates: Partial<Pick<DomeTab, 'title' | 'color'>>) => void;
 }
 
@@ -164,7 +166,9 @@ export const useTabStore = create<TabStore>((set, get) => {
 
       // For resource tabs, focus existing one if same resourceId
       if (tabSpec.resourceId) {
-        const existing = tabs.find((t) => t.resourceId === tabSpec.resourceId);
+        const existing = tabs.find(
+          (t) => t.resourceId === tabSpec.resourceId && t.type === tabSpec.type,
+        );
         if (existing) {
           set({ activeTabId: existing.id });
           saveTabs(tabs, existing.id);
@@ -413,6 +417,17 @@ export const useTabStore = create<TabStore>((set, get) => {
         type: 'transcription-detail',
         title: title.trim() || i18n.t('transcriptions.tab_title'),
         resourceId: noteId,
+        pinned: false,
+      });
+    },
+
+    openSemanticGraphTab: (focusResourceId) => {
+      get().openTab({
+        type: 'semantic-graph',
+        title: focusResourceId
+          ? i18n.t('semantic_graph.tab_title_focus')
+          : i18n.t('semantic_graph.tab_title'),
+        resourceId: focusResourceId,
         pinned: false,
       });
     },

@@ -2,7 +2,7 @@
   {
     "id": "academic-writing",
     "name": "Academic Writing",
-    "description": "Habilidades de escritura académica: citas APA/MLA, estructura de papers, revisión de literatura y redacción científica.",
+    "description": "Academic writing skills: APA/MLA citations, paper structure, literature review, and scientific drafting.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["writing", "academic", "research"],
@@ -11,7 +11,7 @@
   {
     "id": "research-assistant",
     "name": "Research Assistant",
-    "description": "Habilidades avanzadas de investigación: búsqueda sistemática, evaluación de fuentes y síntesis de información.",
+    "description": "Advanced research skills: systematic search, source evaluation, and information synthesis.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["research", "academic", "knowledge"],
@@ -20,7 +20,7 @@
   {
     "id": "data-analysis",
     "name": "Data Analysis",
-    "description": "Análisis estadístico de datos, visualización, interpretación de resultados y generación de insights.",
+    "description": "Statistical analysis, visualization, interpreting results, and turning data into insights.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["data", "analytics", "statistics"],
@@ -29,7 +29,7 @@
   {
     "id": "knowledge-management",
     "name": "Knowledge Management",
-    "description": "Gestión del conocimiento: Zettelkasten, mapas conceptuales, taxonomías y sistemas de organización de notas.",
+    "description": "Knowledge management: Zettelkasten, concept maps, taxonomies, and note systems.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["knowledge", "productivity", "organization"],
@@ -38,7 +38,7 @@
   {
     "id": "critical-thinking",
     "name": "Critical Thinking",
-    "description": "Razonamiento crítico, evaluación de argumentos, detección de sesgos y construcción de razonamientos sólidos.",
+    "description": "Critical reasoning, argument evaluation, bias detection, and building sound arguments.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["thinking", "academic", "research"],

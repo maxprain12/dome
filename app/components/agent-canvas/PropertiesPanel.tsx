@@ -3,12 +3,19 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Trash2, Bot, Type, FileText, Image, Terminal } from 'lucide-react';
-import type { Node } from 'reactflow';
-import type { CanvasNodeData, AgentNodeData, TextInputNodeData, DocumentNodeData, ImageNodeData, OutputNodeData } from '@/types/canvas';
+import type {
+  CanvasNodeData,
+  AgentNodeData,
+  TextInputNodeData,
+  DocumentNodeData,
+  ImageNodeData,
+  OutputNodeData,
+  WorkflowNode,
+} from '@/types/canvas';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 
 interface PropertiesPanelProps {
-  node: Node<CanvasNodeData>;
+  node: WorkflowNode<CanvasNodeData>;
   onClose: () => void;
   onDelete: (nodeId: string) => void;
 }

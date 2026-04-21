@@ -1,7 +1,7 @@
 {
   "id": "postgres-mcp",
   "name": "PostgreSQL MCP",
-  "description": "Ejecuta consultas SQL en bases de datos PostgreSQL directamente desde tus agentes.",
+  "description": "Run SQL queries on PostgreSQL databases directly from your agents.",
   "command": "npx",
   "args": ["-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL}"],
   "env": {

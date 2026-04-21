@@ -30,6 +30,7 @@ import type {
   AgentNodeData,
   OutputNodeData,
   SystemAgentRole,
+  WorkflowNode,
 } from '@/types/canvas';
 import { SYSTEM_AGENT_LIST } from '@/lib/agent-canvas/system-agents';
 import {
@@ -37,7 +38,6 @@ import {
   canvasSystemAgentNameKey,
   canvasSystemAgentDescKey,
 } from '@/lib/agent-canvas/canvas-layout';
-import type { Node } from 'reactflow';
 
 const INPUT_NODE_CONFIG = [
   {
@@ -64,7 +64,7 @@ const INPUT_NODE_CONFIG = [
 ];
 
 interface CanvasSidebarProps {
-  onAddNode: (node: Node<CanvasNodeData>) => void;
+  onAddNode: (node: WorkflowNode<CanvasNodeData>) => void;
 }
 
 const SYSTEM_AGENT_ICONS: Record<SystemAgentRole, React.ElementType> = {
@@ -116,7 +116,7 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
     );
   }, [agents, agentQuery]);
 
-  const createNode = (type: string, agentData?: ManyAgent, extra?: string): Node<CanvasNodeData> => {
+  const createNode = (type: string, agentData?: ManyAgent, extra?: string): WorkflowNode<CanvasNodeData> => {
     const id = generateId();
     const position = { x: 200 + Math.random() * 100, y: 150 + Math.random() * 100 };
 

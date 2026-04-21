@@ -25,6 +25,7 @@ const webScraper = require('./web-scraper.cjs');
 const excelToolsHandler = require('./excel-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
 const calendarService = require('./calendar-service.cjs');
+const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -227,35 +228,20 @@ async function resourceGet(resourceId, options = {}) {
       metadata: metadata,
     };
 
-    // --- PDFs: use PageIndex structure only (no full content dump) ---
-    // Return TOC with node_ids so the AI can navigate via resource_semantic_search
-    // or resource_get_section(resource_id, node_id) for specific sections.
+    // --- PDFs: prefer vision/cloud transcript in `content`, else raw extraction ---
     if (includeContent && resource.type === 'pdf') {
-      try {
-        const q = database.getQueries();
-        const indexed = q.getPageIndex?.get(resourceId);
-        if (indexed?.tree_json) {
-          const pageIndexRuntime = require('./pageindex-python.cjs');
-          const tree = JSON.parse(indexed.tree_json);
-          const sections = pageIndexRuntime.flattenTree(tree).length;
-          const outline = pageIndexRuntime.formatTreeAsOutline(tree);
-
-          if (sections > 0 && outline) {
-            result.content =
-              `[Documento indexado: ${sections} sección(es)]\n` +
-              'Estructura (usa resource_get_section con node_id para obtener contenido, o resource_semantic_search para buscar):\n\n' +
-              outline;
-            result.content_source = 'pageindex';
-            result.content_truncated = false;
-            result.indexed_sections = sections;
-          }
+      const body = String(resource.content || '').trim();
+      if (body) {
+        if (body.length > maxLen) {
+          result.content = body.substring(0, maxLen);
+          result.content_truncated = true;
+          result.full_length = body.length;
+        } else {
+          result.content = body;
+          result.content_truncated = false;
         }
-      } catch (e) {
-        console.warn('[AI Tools] PageIndex read failed for', resourceId, e.message);
-      }
-
-      // Fallback: raw text extraction (only if PageIndex tree doesn't exist yet)
-      if (!result.content) {
+        result.content_source = 'pdf_transcript';
+      } else {
         const fs = require('fs');
         let fullPath = null;
         if (resource.internal_path) {
@@ -270,7 +256,8 @@ async function resourceGet(resourceId, options = {}) {
               result.content = extracted;
               result.content_source = 'raw_extraction';
               result.content_truncated = extracted.length >= maxLen;
-              result.indexing_note = 'El documento aún no está indexado por PageIndex. El contenido puede estar truncado. Vuelve a intentarlo cuando el índice esté listo (estado: Listo para IA).';
+              result.indexing_note =
+                'Transcripción del índice aún no disponible; texto extraído con pdf.js. Reintenta tras indexar en Ajustes.';
             }
           } catch (e) {
             console.warn('[AI Tools] PDF raw extraction failed for', resourceId, e.message);
@@ -338,60 +325,40 @@ async function resourceGet(resourceId, options = {}) {
 }
 
 /**
- * Get a specific section of an indexed PDF/note by node_id.
- * Use after get_document_structure or resource_semantic_search to navigate the document.
+ * Get full text of a semantic chunk by chunk_id (format: `resourceId#chunk_index` from resource_semantic_search).
  * @param {string} resourceId - Resource ID
- * @param {string} nodeId - PageIndex node_id (e.g. "0004")
+ * @param {string} chunkId - Chunk id e.g. "uuid#3"
  * @returns {Promise<Object>}
  */
-async function resourceGetSection(resourceId, nodeId) {
+async function resourceGetSection(resourceId, chunkId) {
   try {
-    if (!resourceId || !nodeId) {
-      return { success: false, error: 'resource_id and node_id are required' };
+    if (!resourceId || !chunkId) {
+      return { success: false, error: 'resource_id and chunk_id are required' };
     }
 
     const q = database.getQueries();
     const resource = q.getResourceById?.get(resourceId);
-    const indexed = q.getPageIndex?.get(resourceId);
-
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
-    if (!indexed?.tree_json) {
-      return { success: false, error: 'Document not indexed. Use resource_get for raw content or wait for indexing.' };
+
+    const rows = q.getChunksBatchByIds.all(JSON.stringify([String(chunkId)]));
+    const row = rows && rows[0];
+    if (!row || row.resource_id !== resourceId) {
+      return {
+        success: false,
+        error: 'Chunk not found. Use chunk_id from resource_semantic_search results.',
+      };
     }
-
-    const pageIndexRuntime = require('./pageindex-python.cjs');
-    const tree = JSON.parse(indexed.tree_json);
-    const found = pageIndexRuntime.findNodeByIdWithPath(tree, nodeId);
-
-    if (!found) {
-      return { success: false, error: `Node ${nodeId} not found in document structure` };
-    }
-
-    const { node, path: nodePath } = found;
-    const start = node.start_index ?? 0;
-    const end = node.end_index ?? start;
-    const pageRange = `págs. ${start + 1}–${end + 1}`;
-    const children = (node.nodes || []).map((n) => ({
-      node_id: n.node_id || '',
-      title: n.title || 'Sección',
-    }));
 
     return {
       success: true,
       resource_id: resourceId,
       title: resource.title,
-      section: {
-        node_id: node.node_id || nodeId,
-        title: node.title || 'Sección',
-        summary: node.summary || '',
-        start_index: start,
-        end_index: end,
-        page_range: pageRange,
-        node_path: nodePath,
-        children,
-      },
+      chunk_id: chunkId,
+      chunk_index: row.chunk_index,
+      page_number: row.page_number ?? null,
+      text: row.text || '',
     };
   } catch (error) {
     console.error('[AI Tools] resourceGetSection error:', error);
@@ -583,8 +550,7 @@ function buildFolderPath(folderId, folderMap) {
 }
 
 /**
- * Reasoning-based search using PageIndex (replaces embedding-based semantic search).
- * Falls back to FTS if PageIndex service is unavailable or no documents are indexed.
+ * Semantic search over Nomic chunk embeddings (`resource_chunks`).
  * @param {string} query - Search query
  * @param {Object} options - Search options
  * @param {string} [options.project_id] - Filter by project
@@ -595,72 +561,49 @@ async function resourceSemanticSearch(query, options = {}) {
   try {
     const limit = Math.min(options.limit || 10, 50);
     const queries = database.getQueries();
+    semanticIndexScheduler.init(database);
 
-    // Collect indexed trees (optionally filtered by project)
-    let indexedRows = queries.getAllPageIndexedIds.all();
+    const hits = await semanticIndexScheduler.getIndexer().searchSemantic(query, { limit: limit * 3 });
 
+    if (!hits || hits.length === 0) {
+      return resourceSearch(query, options);
+    }
+
+    let filtered = hits;
     if (options.project_id) {
       const db = database.getDB ? database.getDB() : null;
-      if (db) {
-        const projectIds = db.prepare(`
-          SELECT resource_id FROM resource_page_index
-          WHERE resource_id IN (
-            SELECT id FROM resources WHERE project_id = ?
-          )
-        `).all(options.project_id);
-        indexedRows = projectIds;
-      }
+      const inProject = new Set(
+        (db
+          ? db.prepare('SELECT id FROM resources WHERE project_id = ?').all(options.project_id)
+          : []
+        ).map((r) => r.id),
+      );
+      filtered = hits.filter((h) => inProject.has(h.resource_id));
     }
 
-    if (indexedRows.length === 0) {
-      return resourceSearch(query, options);
-    }
-
-    // Fetch full tree data
-    const trees = indexedRows
-      .map(row => queries.getPageIndex.get(row.resource_id))
-      .filter(Boolean)
-      .map(t => ({ resource_id: t.resource_id, tree_json: t.tree_json }));
-
-    const pageIndexRuntime = require('./pageindex-python.cjs');
-    const searchResult = await pageIndexRuntime.search(query, trees, limit, database);
-
-    if (!searchResult.success || !searchResult.results) {
-      return resourceSearch(query, options);
-    }
-
-    const results = searchResult.results.map(r => {
-      const resource = queries.getResourceById.get(r.resource_id);
+    const results = filtered.slice(0, limit).map((h) => {
+      const resource = queries.getResourceById.get(h.resource_id);
       if (!resource) return null;
-
       let metadata = null;
       try {
         metadata = resource.metadata ? JSON.parse(resource.metadata) : null;
       } catch {
         metadata = null;
       }
-
-      const pageRange = r.pages && r.pages.length > 0
-        ? `págs. ${r.pages[0] + 1}–${r.pages[r.pages.length - 1] + 1}`
-        : '';
-
+      const chunkId = `${h.resource_id}#${h.chunk_index}`;
       return {
         id: resource.id,
         title: resource.title,
         type: resource.type,
         project_id: resource.project_id,
-        similarity: r.score,
-        // Full section summary — not truncated, this is the indexed content
-        snippet: r.text || '',
-        node_id: r.node_id,
-        pages: r.pages,
-        page_range: pageRange,
-        node_title: r.node_title,
-        node_path: r.node_path,
-        // Hint so the AI knows how to go deeper into this section
-        search_hint: r.text
-          ? `Para más detalle: usa resource_get_section(resource_id, "${r.node_id}") con el node_id de este resultado.`
-          : null,
+        similarity: h.score,
+        snippet: h.snippet || '',
+        chunk_id: chunkId,
+        chunk_index: h.chunk_index,
+        page_number: h.page_number ?? null,
+        char_start: h.char_start,
+        char_end: h.char_end,
+        search_hint: `Para el texto completo del fragmento: resource_get_section("${h.resource_id}", "${chunk_id}")`,
         created_at: resource.created_at,
         updated_at: resource.updated_at,
         metadata,
@@ -670,17 +613,56 @@ async function resourceSemanticSearch(query, options = {}) {
     return {
       success: true,
       query,
-      method: 'pageindex',
+      method: 'semantic_chunks',
       count: results.length,
       results,
-      navigation_note: results.length > 0
-        ? 'Resultados de PageIndex: cada resultado incluye node_id. Usa resource_get_section(resource_id, node_id) para obtener el contenido completo de una sección.'
-        : null,
+      navigation_note:
+        results.length > 0
+          ? 'Cada resultado incluye chunk_id. Usa resource_get_section(resource_id, chunk_id) para el fragmento completo; pdf_render_page para ver la página como imagen.'
+          : null,
     };
-
   } catch (error) {
-    console.error('[AI Tools] resourceSemanticSearch (PageIndex) error:', error);
+    console.error('[AI Tools] resourceSemanticSearch error:', error);
     return resourceSearch(query, options);
+  }
+}
+
+/**
+ * Render one PDF page to PNG (data URL) for visual inspection in chat.
+ * @param {{ resource_id: string, page_number: number, scale?: number }} params
+ */
+async function pdfRenderPage(params = {}) {
+  try {
+    const resourceId = params.resource_id;
+    const pageNumber = Math.max(1, Math.floor(Number(params.page_number) || 1));
+    if (!resourceId) {
+      return { success: false, error: 'resource_id required' };
+    }
+    const queries = database.getQueries();
+    const resource = queries.getResourceById.get(resourceId);
+    if (!resource || resource.type !== 'pdf' || !resource.internal_path) {
+      return { success: false, error: 'Not a PDF resource with a file' };
+    }
+    const pdfExtractor = require('./pdf-extractor.cjs');
+    const fullPath = fileStorage.getFullPath(resource.internal_path);
+    if (!fullPath) {
+      return { success: false, error: 'File not found' };
+    }
+    const scale = Number(params.scale) > 0 ? Number(params.scale) : 1.25;
+    const rend = await pdfExtractor.renderPdfPagePngDataUrl(fullPath, pageNumber, scale);
+    if (!rend.success || !rend.dataUrl) {
+      return { success: false, error: rend.error || 'render failed' };
+    }
+    return {
+      success: true,
+      resource_id: resourceId,
+      page_number: pageNumber,
+      mime: 'image/png',
+      data_url: rend.dataUrl,
+    };
+  } catch (e) {
+    console.error('[AI Tools] pdfRenderPage:', e);
+    return { success: false, error: e.message };
   }
 }
 
@@ -2023,148 +2005,31 @@ async function getDocumentStructure({ resource_id } = {}) {
 
     const q = database.getQueries();
     const resource = q.getResourceById?.get(resource_id);
-    const indexed = q.getPageIndex?.get(resource_id);
-
-    if (!indexed?.tree_json) {
+    if (!resource) return { success: false, error: 'Resource not found' };
+    const raw = String(resource.content || '');
+    if (!raw.trim()) {
       return {
         success: false,
-        error: 'Document not indexed yet. Trigger indexing or use resource_get for content.',
+        error: 'No content yet. Wait for semantic indexing (PDF vision transcript) or open the resource.',
       };
     }
-
-    const pageIndexRuntime = require('./pageindex-python.cjs');
-    const tree = JSON.parse(indexed.tree_json);
-    const outline = pageIndexRuntime.formatTreeAsOutline(tree);
-    const structure = pageIndexRuntime.buildStructureArray(tree);
-    const sections = pageIndexRuntime.flattenTree(tree).length;
-
+    const pages = [];
+    const re = /<!--\s*page:(\d+)\s*-->/g;
+    let m;
+    while ((m = re.exec(raw)) !== null) {
+      pages.push(Number(m[1]));
+    }
+    const outline =
+      pages.length > 0
+        ? `Pages in transcript: ${Math.min(...pages)}–${Math.max(...pages)} (${pages.length} segments)`
+        : raw.slice(0, 2000);
     return {
       success: true,
       resource_id,
-      title: resource?.title || resource_id,
-      sections,
+      title: resource.title || resource_id,
+      sections: Math.max(1, pages.length),
       outline,
-      structure,
-    };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-// =============================================================================
-// Docling Image Tools (figures, charts from converted PDFs)
-// =============================================================================
-
-/**
- * List all Docling-extracted images for a resource.
- * @param {string} resourceId
- * @returns {Promise<Object>}
- */
-async function doclingGetResourceImages(resourceId) {
-  try {
-    if (!resourceId) return { success: false, error: 'resource_id is required' };
-    const queries = database.getQueries();
-    const rows = queries.getResourceImages.all(resourceId);
-    const images = rows.map((r) => ({
-      id: r.id,
-      image_id: r.id,
-      image_index: r.image_index,
-      page_no: r.page_no,
-      caption: r.caption,
-    }));
-    return { success: true, images };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-/**
- * Get a single Docling image as base64 data URI.
- * Returns format compatible with imageResult for chat display.
- * @param {string} imageId
- * @param {string} [resourceId] - Optional for context in extraText
- * @returns {Promise<Object>}
- */
-async function doclingGetImageData(imageId, resourceId) {
-  try {
-    if (!imageId) return { success: false, error: 'image_id is required' };
-    const queries = database.getQueries();
-    const img = queries.getResourceImageById.get(imageId);
-    if (!img) return { success: false, error: 'Image not found' };
-    const imgPath = fileStorage.getFullPath(img.internal_path);
-    if (!fs.existsSync(imgPath)) return { success: false, error: 'Image file not found on disk' };
-    const buffer = fs.readFileSync(imgPath);
-    const base64 = buffer.toString('base64');
-    const mimeType = img.file_mime_type || 'image/png';
-    const captionParts = [];
-    if (img.caption) captionParts.push(img.caption);
-    if (img.page_no != null) captionParts.push(`Page ${img.page_no}`);
-    if (resourceId) captionParts.push(`Resource: ${resourceId}`);
-    const extraText = captionParts.length > 0 ? captionParts.join(' | ') : `Artifact: ${imageId}`;
-    return {
-      content: [
-        { type: 'text', text: extraText },
-        { type: 'image', data: base64, mimeType },
-      ],
-      details: { image_id: imageId, resource_id: resourceId, page_no: img.page_no, caption: img.caption },
-    };
-  } catch (err) {
-    return { success: false, error: err.message };
-  }
-}
-
-/**
- * Get multiple Docling images for a resource (optionally filtered by page).
- * Returns content array for inline display in chat.
- * @param {Object} params
- * @param {string} params.resource_id
- * @param {number} [params.page_no]
- * @param {number} [params.max_images=3]
- * @returns {Promise<Object>}
- */
-async function doclingShowPageImages({ resource_id, page_no, max_images = 3 } = {}) {
-  try {
-    if (!resource_id) return { success: false, error: 'resource_id is required' };
-    const listResult = await doclingGetResourceImages(resource_id);
-    if (!listResult.success) return listResult;
-    let images = listResult.images || [];
-    if (page_no != null) images = images.filter((img) => img.page_no === page_no);
-    images = images.slice(0, Math.min(max_images, 5));
-    if (images.length === 0) {
-      return {
-        success: true,
-        content: [
-          {
-            type: 'text',
-            text: page_no != null
-              ? `No visual artifacts found on page ${page_no}.`
-              : 'No visual artifacts found. The document may not have been converted with Docling yet.',
-          },
-        ],
-        details: { resource_id, page_no, shown_count: 0 },
-      };
-    }
-    const contentParts = [];
-    contentParts.push({
-      type: 'text',
-      text: `Showing ${images.length} artifact${images.length > 1 ? 's' : ''}${page_no != null ? ` from page ${page_no}` : ''} of resource ${resource_id}:`,
-    });
-    for (const img of images) {
-      const dataResult = await doclingGetImageData(img.id, resource_id);
-      if (!dataResult.content) continue;
-      const imgBlock = dataResult.content.find((c) => c.type === 'image');
-      if (!imgBlock) continue;
-      const label =
-        img.caption
-          ? `Figure ${img.image_index + 1}: ${img.caption}${img.page_no != null ? ` (p.${img.page_no})` : ''}`
-          : `Figure ${img.image_index + 1}${img.page_no != null ? ` (p.${img.page_no})` : ''}`;
-      contentParts.push({ type: 'text', text: label });
-      contentParts.push({ type: 'image', data: imgBlock.data, mimeType: imgBlock.mimeType });
-    }
-    return {
-      success: true,
-      content: contentParts,
-      details: { resource_id, page_no, shown_count: images.length },
+      structure: [],
     };
   } catch (err) {
     return { success: false, error: err.message };
@@ -2176,13 +2041,12 @@ async function doclingShowPageImages({ resource_id, page_no, max_images = 3 } = 
 // =============================================================================
 
 /**
- * Create a semantic link between two resources.
- * Writes to resource_links and creates a graph_edge between their nodes.
+ * Create a manual semantic relation between two resources (semantic_relations table).
  * @param {Object} params
  * @param {string} params.source_id - ID of the source resource
  * @param {string} params.target_id - ID of the target resource
- * @param {string} [params.relation]   - Relationship label (default: 'related')
- * @param {string} [params.description] - Optional note about the relationship
+ * @param {string} [params.relation]   - Optional label stored in semantic_relations.label
+ * @param {string} [params.description] - Alias for label
  */
 async function linkResources({ source_id, target_id, relation = 'related', description = '' } = {}) {
   try {
@@ -2196,16 +2060,41 @@ async function linkResources({ source_id, target_id, relation = 'related', descr
     if (!target) return { success: false, error: `Resource ${target_id} not found` };
 
     const now = Date.now();
-    const linkId = `link-${source_id.slice(-8)}-${target_id.slice(-8)}-${now}`;
-
-    try {
-      q.createLink?.run(linkId, source_id, target_id, relation, description || null, now);
-    } catch (e) {
-      if (!e.message?.includes('UNIQUE')) throw e;
-      // Already linked — update the graph edge anyway
+    const label = description || (relation && relation !== 'related' ? relation : null);
+    const id = `${source_id}__${target_id}`;
+    const existing = q.getSemanticRelationByPair?.get(source_id, target_id);
+    if (existing) {
+      if (existing.relation_type === 'rejected') {
+        database
+          .getDB()
+          .prepare(
+            `
+          UPDATE semantic_relations
+          SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label), confirmed_at = NULL
+          WHERE id = ?
+        `,
+          )
+          .run(now, label, existing.id);
+      } else if (existing.relation_type === 'auto') {
+        database
+          .getDB()
+          .prepare(
+            `
+          UPDATE semantic_relations
+          SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label)
+          WHERE id = ?
+        `,
+          )
+          .run(now, label, existing.id);
+      }
+    } else {
+      try {
+        q.insertSemanticRelation?.run(id, source_id, target_id, 1.0, 'manual', label, now, null);
+      } catch (e) {
+        if (!e.message?.includes('UNIQUE')) throw e;
+      }
     }
 
-    // Mirror in the knowledge graph
     const edgeId = `edge-${source_id.slice(-8)}-${target_id.slice(-8)}-${now}`;
     try {
       q.createGraphEdge?.run(edgeId, `node-${source_id}`, `node-${target_id}`, relation, 1.0, description || null, now, now);
@@ -2225,7 +2114,7 @@ async function linkResources({ source_id, target_id, relation = 'related', descr
 
 /**
  * Get all resources linked to or from a given resource.
- * Combines resource_links (both directions) and graph_edges.
+ * Combines semantic_relations (non-rejected) and graph_edges.
  * @param {Object} params
  * @param {string} params.resource_id - Resource to query neighbors for
  */
@@ -2247,8 +2136,14 @@ async function getRelatedResources({ resource_id } = {}) {
       if (r) related.push({ id: r.id, title: r.title, type: r.type, relation, direction });
     };
 
-    for (const lnk of q.getLinksBySource?.all(resource_id) || []) addResource(lnk.target_id, lnk.link_type, 'outgoing');
-    for (const lnk of q.getLinksByTarget?.all(resource_id) || []) addResource(lnk.source_id, lnk.link_type, 'incoming');
+    for (const lnk of q.getSemanticOutgoing?.all(resource_id) || []) {
+      const rel = lnk.label || lnk.relation_type || 'related';
+      addResource(lnk.target_id, rel, 'outgoing');
+    }
+    for (const lnk of q.getSemanticIncoming?.all(resource_id) || []) {
+      const rel = lnk.label || lnk.relation_type || 'related';
+      addResource(lnk.source_id, rel, 'incoming');
+    }
 
     // Also pull graph neighbors
     try {
@@ -2475,9 +2370,9 @@ async function importFileToLibrary(args = {}) {
       const resource = queries.getResourceById.get(resourceId);
 
       // Schedule indexing
-      const resourceIndexerLocal = require('./resource-indexer.cjs');
-      if (resource && resourceIndexerLocal.shouldIndex(resource)) {
-        resourceIndexerLocal.scheduleIndexing(resourceId, { database, windowManager: windowManagerRef, fileStorage });
+      semanticIndexScheduler.init(database);
+      if (resource && semanticIndexScheduler.shouldIndex(resource)) {
+        semanticIndexScheduler.scheduleSemanticReindex(resourceId);
       }
 
       return { success: true, resource };
@@ -2647,6 +2542,52 @@ async function automationCreate(args = {}) {
   }
 }
 
+/**
+ * Describe an image resource using the user's cloud LLM (caption).
+ */
+async function gemmaImageDescribe(args) {
+  const cloudLlm = require('./services/cloud-llm.service.cjs');
+  const cloudLlmTasks = require('./services/cloud-llm-tasks.cjs');
+  const fileStorage = require('./file-storage.cjs');
+  if (!cloudLlm.isCloudLlmAvailable(() => database.getQueries())) {
+    return { success: false, error: 'Configure an AI provider in Settings (API key, Ollama, or Dome).' };
+  }
+  const resourceId = args.resource_id || args.resourceId;
+  if (!resourceId) return { success: false, error: 'resource_id required' };
+  const row = database.getQueries().getResourceById.get(resourceId);
+  if (!row || row.type !== 'image') {
+    return { success: false, error: 'Resource is not an image' };
+  }
+  if (!row.internal_path) return { success: false, error: 'Image has no file' };
+  const fullPath = fileStorage.getFullPath(row.internal_path);
+  if (!fullPath || !fs.existsSync(fullPath)) return { success: false, error: 'Image file not found' };
+  const mime = row.file_mime_type || 'image/png';
+  const dataUrl = `data:${mime};base64,${fs.readFileSync(fullPath).toString('base64')}`;
+  const gen = (o) => cloudLlm.generateText({ ...o, getQueries: () => database.getQueries(), windowManager: windowManagerRef });
+  const text = await cloudLlmTasks.runCaptionOnImageDataUrl(gen, dataUrl);
+  return { success: true, description: text };
+}
+
+/**
+ * Interpret a screenshot (base64) for UI / automation flows (cloud vision).
+ */
+async function gemmaScreenUnderstand(args) {
+  const cloudLlm = require('./services/cloud-llm.service.cjs');
+  const cloudLlmTasks = require('./services/cloud-llm-tasks.cjs');
+  if (!cloudLlm.isCloudLlmAvailable(() => database.getQueries())) {
+    return { success: false, error: 'Configure an AI provider in Settings (API key, Ollama, or Dome).' };
+  }
+  const imageBase64 = args.image_base64 || args.imageBase64;
+  const intent = args.intent ? String(args.intent) : '';
+  if (!imageBase64) return { success: false, error: 'image_base64 required' };
+  const dataUrl = String(imageBase64).startsWith('data:')
+    ? String(imageBase64)
+    : `data:image/png;base64,${imageBase64}`;
+  const gen = (o) => cloudLlm.generateText({ ...o, getQueries: () => database.getQueries(), windowManager: windowManagerRef });
+  const raw = await cloudLlmTasks.runScreenUnderstand(gen, dataUrl, intent);
+  return { success: true, analysis: raw };
+}
+
 // =============================================================================
 // Exports
 // =============================================================================
@@ -2740,8 +2681,8 @@ module.exports = {
   // MCP file import
   importFileToLibrary,
 
-  // Docling image tools
-  doclingGetResourceImages,
-  doclingGetImageData,
-  doclingShowPageImages,
+  pdfRenderPage,
+
+  gemmaImageDescribe,
+  gemmaScreenUnderstand,
 };

@@ -1,7 +1,13 @@
-import { useState, useMemo } from 'react';
+'use client';
+
+import { useState, useMemo, useCallback } from 'react';
 import { X, Wand2, Brain, Map, HelpCircle, BookOpen, MessageCircleQuestion, CalendarRange, Table2, Headphones, Loader2 } from 'lucide-react';
 import type { StudioOutputType } from '@/types';
 import { useTranslation } from 'react-i18next';
+import { useAppStore } from '@/lib/store/useAppStore';
+import { useStudioGenerate } from '@/lib/hooks/useStudioGenerate';
+import GenerateSourceModal from '@/components/studio/GenerateSourceModal';
+import { showToast } from '@/lib/store/useToastStore';
 
 interface GenerateModalProps {
   onClose: () => void;
@@ -17,8 +23,15 @@ interface OutputTypeOption {
 
 export default function GenerateModal({ onClose }: GenerateModalProps) {
   const { t } = useTranslation();
+  const currentProject = useAppStore((s) => s.currentProject);
+  const projectId = currentProject?.id ?? null;
+
+  const { generate, isGenerating } = useStudioGenerate({
+    projectId,
+  });
+
   const [selectedType, setSelectedType] = useState<StudioOutputType | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [sourceModalOpen, setSourceModalOpen] = useState(false);
 
   const outputTypes: OutputTypeOption[] = useMemo(
     () => [
@@ -31,49 +44,88 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
       { type: 'table', label: t('learn.tab_tables'), description: t('learn.type_table_desc'), icon: <Table2 size={24} /> },
       { type: 'audio', label: t('learn.type_audio'), description: t('learn.type_audio_desc'), icon: <Headphones size={24} />, comingSoon: true },
     ],
-    [t]
+    [t],
   );
 
-  const handleGenerate = async () => {
-    if (!selectedType) return;
+  const selectedLabel = outputTypes.find((o) => o.type === selectedType)?.label;
 
-    setIsGenerating(true);
-    try {
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      onClose();
-    } catch (error) {
-      console.error('Error generating:', error);
-    } finally {
-      setIsGenerating(false);
+  const openSourcePicker = useCallback(() => {
+    if (!selectedType) return;
+    if (!projectId) {
+      showToast('error', t('learn.generate_need_project'));
+      return;
     }
-  };
+    setSourceModalOpen(true);
+  }, [selectedType, projectId, t]);
+
+  const handleSourceConfirm = useCallback(
+    (sourceIds: string[]) => {
+      if (!selectedType || sourceIds.length === 0) return;
+      void (async () => {
+        setSourceModalOpen(false);
+        const primaryResourceId = sourceIds[0] ?? null;
+        const ok = await generate(selectedType, sourceIds, primaryResourceId);
+        if (ok) onClose();
+      })();
+    },
+    [selectedType, generate, onClose],
+  );
 
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
+    if (e.target === e.currentTarget && !isGenerating) {
       onClose();
     }
   };
-
-  const selectedLabel = outputTypes.find((o) => o.type === selectedType)?.label;
 
   return (
     <div
       className="fixed inset-0 flex items-center justify-center p-4 z-50"
       style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
       onClick={handleBackdropClick}
+      role="presentation"
     >
+      <GenerateSourceModal
+        isOpen={sourceModalOpen}
+        onClose={() => setSourceModalOpen(false)}
+        onConfirm={handleSourceConfirm}
+        projectId={projectId}
+        tileTitle={selectedLabel ?? ''}
+        requireAtLeastOne
+        titleOverride={
+          selectedLabel
+            ? t('learn.source_modal_title', { type: selectedLabel })
+            : undefined
+        }
+        descriptionOverride={t('learn.source_modal_required_hint')}
+      />
+
       <div
-        className="w-full max-w-lg rounded-xl shadow-2xl overflow-hidden"
+        className="relative w-full max-w-lg rounded-xl shadow-2xl overflow-hidden"
         style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+        onClick={(e) => e.stopPropagation()}
       >
+        {isGenerating ? (
+          <div
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl"
+            style={{ background: 'color-mix(in srgb, var(--dome-surface) 88%, transparent)' }}
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+            <p className="text-sm font-medium px-6 text-center" style={{ color: 'var(--dome-text)' }}>
+              {t('learn.generating')}
+            </p>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--dome-border)' }}>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
             {t('learn.generate_title')}
           </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-lg transition-colors"
+            disabled={isGenerating}
+            className="p-2 rounded-lg transition-colors disabled:opacity-50"
             style={{ color: 'var(--dome-text-muted)' }}
           >
             <X size={20} />
@@ -89,15 +141,16 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
             {outputTypes.map((option) => (
               <button
                 key={option.type}
-                onClick={() => !option.comingSoon && setSelectedType(option.type)}
-                disabled={option.comingSoon}
+                type="button"
+                onClick={() => !option.comingSoon && !isGenerating && setSelectedType(option.type)}
+                disabled={option.comingSoon || isGenerating}
                 className="flex flex-col items-center gap-2 p-4 rounded-lg border transition-all text-center"
                 style={{
                   background: selectedType === option.type ? 'var(--dome-accent-bg)' : 'var(--dome-bg)',
                   borderColor: selectedType === option.type ? 'var(--dome-accent)' : 'var(--dome-border)',
                   color: selectedType === option.type ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
                   opacity: option.comingSoon ? 0.5 : 1,
-                  cursor: option.comingSoon ? 'not-allowed' : 'pointer',
+                  cursor: option.comingSoon || isGenerating ? 'not-allowed' : 'pointer',
                 }}
               >
                 <span>{option.icon}</span>
@@ -117,7 +170,7 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
           {selectedType && selectedLabel && (
             <div className="p-4 rounded-lg mb-4" style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}>
               <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('learn.generate_preview', { type: selectedLabel })}
+                {t('learn.generate_preview_doc', { type: selectedLabel })}
               </p>
             </div>
           )}
@@ -125,25 +178,28 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
 
         <div className="flex items-center justify-end gap-3 p-5 border-t" style={{ borderColor: 'var(--dome-border)' }}>
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            disabled={isGenerating}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
             style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
           >
             {t('learn.cancel')}
           </button>
           <button
-            onClick={handleGenerate}
+            type="button"
+            onClick={openSourcePicker}
             disabled={!selectedType || isGenerating}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               background: selectedType ? 'var(--dome-accent)' : 'var(--dome-border)',
               color: selectedType ? 'var(--base-text)' : 'var(--dome-text-muted)',
-              cursor: selectedType ? 'pointer' : 'not-allowed',
+              cursor: selectedType && !isGenerating ? 'pointer' : 'not-allowed',
             }}
           >
             {isGenerating && <Loader2 size={16} className="animate-spin" />}
             <Wand2 size={16} />
-            {t('learn.generate_btn')}
+            {isGenerating ? t('learn.generating') : t('learn.generate_next_btn')}
           </button>
         </div>
       </div>

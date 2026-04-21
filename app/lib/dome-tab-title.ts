@@ -36,6 +36,8 @@ export function getDomeTabDisplayTitle(tab: DomeTab, t: TFunction): string {
       return t('transcriptions.tab_title');
     case 'transcription-detail':
       return tab.title?.trim() ? tab.title : t('transcriptions.tab_title');
+    case 'semantic-graph':
+      return tab.title?.trim() ? tab.title : t('semantic_graph.tab_title');
     default:
       return tab.title;
   }

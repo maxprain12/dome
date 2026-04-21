@@ -354,6 +354,60 @@ async function extractPdfTables(filePath) {
  * @param {object} database - Database instance
  * @returns {Promise<{success: boolean, filePath?: string, error?: string}>}
  */
+/**
+ * Render one PDF page to a PNG data URL (main process; uses @napi-rs/canvas).
+ * @param {string} filePath
+ * @param {number} [pageNum]
+ * @param {number} [scale]
+ * @returns {Promise<{ success: boolean, dataUrl?: string, error?: string }>}
+ */
+async function renderPdfPagePngDataUrl(filePath, pageNum = 1, scale = 1.5) {
+  if (!filePath || !fs.existsSync(filePath)) {
+    return { success: false, error: 'PDF file not found' };
+  }
+
+  const pdfjs = await loadPdfJs();
+  if (!pdfjs?.getDocument) {
+    return { success: false, error: 'PDF library not available' };
+  }
+
+  let createCanvas;
+  try {
+    createCanvas = require('@napi-rs/canvas').createCanvas;
+  } catch (e) {
+    return { success: false, error: 'Canvas not available: ' + (e?.message || e) };
+  }
+
+  try {
+    const data = new Uint8Array(fs.readFileSync(filePath));
+    const loadingTask = pdfjs.getDocument({
+      data,
+      disableFontFace: true,
+      useSystemFonts: true,
+    });
+    const pdfDoc = await loadingTask.promise;
+    const p = Math.min(Math.max(1, pageNum), pdfDoc.numPages);
+    const page = await pdfDoc.getPage(p);
+    const viewport = page.getViewport({ scale });
+    const w = Math.max(1, Math.floor(viewport.width));
+    const h = Math.max(1, Math.floor(viewport.height));
+    const canvas = createCanvas(w, h);
+    const ctx = canvas.getContext('2d');
+    const renderTask = page.render({
+      canvasContext: ctx,
+      viewport,
+      canvas,
+    });
+    await renderTask.promise;
+    const buf = canvas.toBuffer('image/png');
+    const dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
+    return { success: true, dataUrl };
+  } catch (error) {
+    console.error('[PDF Extractor] render page PNG:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
 async function getPdfFilePathFromResource(resourceId, database) {
   try {
     const queries = database.getQueries();
@@ -393,4 +447,5 @@ module.exports = {
   summarizePdf,
   extractPdfTables,
   getPdfFilePathFromResource,
+  renderPdfPagePngDataUrl,
 };

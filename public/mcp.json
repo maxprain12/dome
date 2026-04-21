@@ -2,7 +2,7 @@
   {
     "id": "github-mcp",
     "name": "GitHub MCP",
-    "description": "Integración completa con la API de GitHub: repositorios, issues, pull requests y más.",
+    "description": "Full GitHub API integration: repositories, issues, pull requests, and more.",
     "author": "Anthropic",
     "version": "1.0.0",
     "tags": ["github", "git", "development"],
@@ -12,7 +12,7 @@
   {
     "id": "filesystem-mcp",
     "name": "Filesystem MCP",
-    "description": "Acceso seguro al sistema de archivos local para leer, escribir y gestionar ficheros.",
+    "description": "Secure access to the local filesystem to read, write, and manage files.",
     "author": "Anthropic",
     "version": "1.0.0",
     "tags": ["filesystem", "storage", "files"],
@@ -22,7 +22,7 @@
   {
     "id": "brave-search-mcp",
     "name": "Brave Search MCP",
-    "description": "Búsqueda web privada con la API de Brave Search, sin rastreo y con resultados relevantes.",
+    "description": "Private web search via the Brave Search API—no tracking, relevant results.",
     "author": "Anthropic",
     "version": "1.0.0",
     "tags": ["search", "web", "research"],
@@ -32,7 +32,7 @@
   {
     "id": "postgres-mcp",
     "name": "PostgreSQL MCP",
-    "description": "Ejecuta consultas SQL en bases de datos PostgreSQL directamente desde tus agentes.",
+    "description": "Run SQL queries on PostgreSQL databases directly from your agents.",
     "author": "Anthropic",
     "version": "1.0.0",
     "tags": ["database", "postgres", "sql", "data"],
@@ -42,7 +42,7 @@
   {
     "id": "memory-mcp",
     "name": "Memory MCP",
-    "description": "Memoria persistente para agentes: almacena y recupera información entre sesiones.",
+    "description": "Persistent memory for agents: store and retrieve information across sessions.",
     "author": "Anthropic",
     "version": "1.0.0",
     "tags": ["memory", "knowledge", "persistence"],
@@ -52,7 +52,7 @@
   {
     "id": "slack-mcp",
     "name": "Slack MCP",
-    "description": "Integración con Slack: lee canales, envía mensajes y gestiona notificaciones del workspace.",
+    "description": "Slack integration: read channels, send messages, and manage workspace notifications.",
     "author": "Anthropic",
     "version": "1.0.0",
     "tags": ["slack", "communication", "productivity"],

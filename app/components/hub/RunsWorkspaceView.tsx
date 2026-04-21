@@ -7,7 +7,6 @@ import {
   Loader2,
   Filter,
   Clock,
-  MoreHorizontal,
   CheckCircle2,
   XCircle,
   ArrowLeft,
@@ -38,7 +37,6 @@ import { cn } from '@/lib/utils';
 import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
 import DomeButton from '@/components/ui/DomeButton';
 import HubListState from '@/components/ui/HubListState';
-import DomeContextMenu from '@/components/ui/DomeContextMenu';
 import HubBentoCard from '@/components/ui/HubBentoCard';
 import HubEntityIcon from '@/components/ui/HubEntityIcon';
 import HubToolbar from '@/components/ui/HubToolbar';
@@ -1543,10 +1541,7 @@ function RunsTab() {
           />
         ) : (
           <div className="p-4">
-            <div
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-              role="list"
-            >
+            <div className="flex w-full max-w-full flex-col gap-3" role="list">
               {filtered.map((run) => {
                 const progress = getRunProgress(run);
                 const ownerLabel =
@@ -1567,7 +1562,7 @@ function RunsTab() {
                     title={
                       <div className="flex items-start gap-2 min-w-0 flex-wrap">
                         <span
-                          className="text-sm font-semibold min-w-0 break-words line-clamp-2 flex-1"
+                          className="min-w-0 flex-1 break-words text-sm font-semibold"
                           style={{ color: 'var(--dome-text)' }}
                           title={run.title || run.id}
                         >
@@ -1600,33 +1595,23 @@ function RunsTab() {
                       ) : null
                     }
                     trailing={
-                      <DomeContextMenu
-                        align="end"
-                        trigger={
-                          <button
-                            type="button"
-                            className="p-1.5 rounded-md hover:bg-[var(--dome-bg)] transition-colors"
-                            title={t('ui.options')}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
-                          </button>
-                        }
-                        items={[
-                          {
-                            label: t('runLog.delete_run_aria'),
-                            icon:
-                              deletingId === run.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-4 h-4" />
-                              ),
-                            variant: 'danger' as const,
-                            disabled: deletingId === run.id,
-                            onClick: () => void handleDelete(run.id),
-                          },
-                        ]}
-                      />
+                      <DomeButton
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        iconOnly
+                        title={t('runLog.delete_run_aria')}
+                        aria-label={t('runLog.delete_run_aria')}
+                        disabled={deletingId === run.id}
+                        className="!text-[var(--error)] hover:!bg-[var(--error-bg)] disabled:!opacity-50"
+                        onClick={() => void handleDelete(run.id)}
+                      >
+                        {deletingId === run.id ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden />
+                        )}
+                      </DomeButton>
                     }
                   />
                 );

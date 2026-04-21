@@ -1,9 +1,11 @@
 /* eslint-disable no-console */
 const crypto = require('crypto');
-const resourceIndexer = require('../resource-indexer.cjs');
 const kbShared = require('../kb-llm-shared.cjs');
+const semanticIndexScheduler = require('../semantic-index-scheduler.cjs');
+const autoMetadata = require('../auto-metadata.cjs');
 
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
+  semanticIndexScheduler.init(database);
   const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
 
   function parseJson(raw, fallback) {
@@ -25,7 +27,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const queries = database.getQueries();
       const meta = parseJson(mergedResource.metadata, {});
       const candidate = { ...current, ...mergedResource, type: current.type };
-      if (!resourceIndexer.shouldIndex(candidate)) return;
+      if (!semanticIndexScheduler.shouldIndex(candidate)) return;
 
       const global = { ...kbShared.defaultGlobalConfig(), ...parseJson(queries.getSetting.get(kbShared.KB_GLOBAL_KEY)?.value, {}) };
       const projectId = current.project_id;
@@ -35,9 +37,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const explicit = meta.dome_kb?.reindexOnSave === true;
       if (!explicit && !autoAll) return;
 
-      if (indexerDeps) {
-        resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
-      }
+      semanticIndexScheduler.scheduleSemanticReindex(resourceId);
     } catch (e) {
       console.warn('[DB] maybeScheduleKbReindex:', e?.message || e);
     }
@@ -280,9 +280,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:created', resource);
 
-      if (indexerDeps && resourceIndexer.shouldIndex(resource)) {
-        resourceIndexer.scheduleIndexing(resource.id, indexerDeps);
-      }
+      semanticIndexScheduler.scheduleSemanticReindex(resource.id);
+
+      autoMetadata.scheduleCloudAutoMetadata(resource.id, { database, fileStorage, windowManager });
 
       return { success: true, data: resource };
     } catch (error) {
@@ -311,6 +311,91 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: true, data: resource };
     } catch (error) {
       console.error('[DB] Error getting resource:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Find or create a minimal `url` resource for a canonical HTTP(S) URL (same project as source).
+   */
+  ipcMain.handle('db:resources:ensureUrl', (event, payload) => {
+    try {
+      validateSender(event, windowManager);
+      const urlRaw = typeof payload === 'string' ? payload : payload?.url;
+      const sourceResourceId =
+        typeof payload === 'object' && payload && typeof payload.sourceResourceId === 'string'
+          ? payload.sourceResourceId
+          : null;
+      if (typeof urlRaw !== 'string' || !urlRaw.trim()) {
+        return { success: false, error: 'Invalid URL' };
+      }
+      let canonical;
+      try {
+        const u = new URL(urlRaw.trim());
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+          return { success: false, error: 'Only http(s) URLs are supported' };
+        }
+        canonical = u.href;
+      } catch {
+        return { success: false, error: 'Invalid URL' };
+      }
+
+      const queries = database.getQueries();
+      if (!queries.findUrlResourceByCanonicalUrl) {
+        return { success: false, error: 'URL lookup not available' };
+      }
+
+      const existing = queries.findUrlResourceByCanonicalUrl.get(canonical, canonical);
+      if (existing) {
+        return { success: true, data: existing };
+      }
+
+      if (!sourceResourceId) {
+        return { success: false, error: 'sourceResourceId required to create URL resource' };
+      }
+
+      const source = queries.getResourceById.get(sourceResourceId);
+      if (!source) {
+        return { success: false, error: 'Source resource not found' };
+      }
+
+      const id = crypto.randomUUID();
+      const now = Date.now();
+      let title = 'Link';
+      try {
+        const u = new URL(canonical);
+        const host = u.hostname.replace(/^www\./i, '');
+        let path = u.pathname === '/' ? '' : u.pathname;
+        if (path.length > 48) path = `${path.slice(0, 45)}…`;
+        title = `${host}${path}`;
+        if (title.length > 96) title = `${title.slice(0, 93)}…`;
+      } catch {
+        /* keep default */
+      }
+
+      const metadata = JSON.stringify({ url: canonical });
+      queries.createResource.run(
+        id,
+        source.project_id,
+        'url',
+        title,
+        canonical,
+        null,
+        null,
+        metadata,
+        now,
+        now
+      );
+
+      const created = queries.getResourceById.get(id);
+      if (created) {
+        windowManager.broadcast('resource:created', created);
+        semanticIndexScheduler.scheduleSemanticReindex(id);
+      }
+
+      return { success: true, data: created };
+    } catch (error) {
+      console.error('[DB] Error ensureUrl:', error);
       return { success: false, error: error.message };
     }
   });
@@ -354,6 +439,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       });
 
       maybeScheduleKbReindex(resource.id, mergedResource, current);
+      semanticIndexScheduler.scheduleSemanticReindex(resource.id);
 
       return { success: true, data: mergedResource };
     } catch (error) {
@@ -387,6 +473,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           };
           windowManager.broadcast('resource:updated', { id: resource.id, updates: mergedResource });
           maybeScheduleKbReindex(resource.id, mergedResource, current);
+          semanticIndexScheduler.scheduleSemanticReindex(resource.id);
           return { success: true, data: mergedResource };
         } catch (retryError) {
           console.error('[DB] Error retrying after repair:', retryError);
@@ -419,6 +506,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                 };
                 windowManager.broadcast('resource:updated', { id: resource.id, updates: mergedResource });
                 maybeScheduleKbReindex(resource.id, mergedResource, current);
+                semanticIndexScheduler.scheduleSemanticReindex(resource.id);
                 return { success: true, data: mergedResource };
               } catch (finalError) {
                 console.error('[DB] Error after second repair attempt:', finalError);
@@ -1465,12 +1553,6 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       // Delete from database
       queries.deleteResource.run(id);
 
-      if (indexerDeps) {
-        resourceIndexer.deleteEmbeddings(id, indexerDeps).catch((err) => {
-          console.warn('[DB] Error deleting embeddings:', err.message);
-        });
-      }
-
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:deleted', { id });
 
@@ -1680,11 +1762,6 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           }
         }
         queries.deleteResource.run(id);
-        if (indexerDeps) {
-          resourceIndexer.deleteEmbeddings(id, indexerDeps).catch((err) => {
-            console.warn('[DB] Error deleting embeddings:', err.message);
-          });
-        }
         windowManager.broadcast('resource:deleted', { id });
       }
 

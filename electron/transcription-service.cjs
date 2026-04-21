@@ -49,6 +49,7 @@ function getTranscriptionSttProvider(database) {
   try {
     const row = database.getQueries().getSetting.get('transcription_stt_provider');
     const v = row?.value && String(row.value).trim().toLowerCase();
+    if (v === 'local-gemma') return 'openai';
     if (v === 'groq' || v === 'openai' || v === 'custom') return v;
     const baseRow = database.getQueries().getSetting.get('transcription_api_base_url');
     const raw = baseRow?.value && String(baseRow.value).trim().toLowerCase();
@@ -339,7 +340,9 @@ async function transcribeFilePath(inputAbsolutePath, options) {
   const database = options.database || null;
   const sttProvider = database ? getTranscriptionSttProvider(database) : options.sttProvider || 'openai';
   const apiKey = options.apiKey || (database ? getTranscriptionApiKey(database, sttProvider) : null);
-  if (!apiKey) throw new Error('STT API key not configured for the selected provider');
+  if (!apiKey) {
+    throw new Error('STT API key not configured for the selected provider (OpenAI/Groq key in Transcription or AI settings).');
+  }
 
   const apiUrl = options.apiUrl || resolveTranscriptionsUrl(database, sttProvider);
   let prompt = options.prompt;
@@ -477,10 +480,11 @@ async function transcribeFilePath(inputAbsolutePath, options) {
  * @param {string} suggestedExtension - e.g. webm, wav
  */
 async function transcribeBuffer(buffer, suggestedExtension, database, transcriptionOptions = {}) {
-  const apiKey =
-    transcriptionOptions.apiKey ||
-    (database ? getTranscriptionApiKey(database) : null);
-  if (!apiKey) throw new Error('STT API key not configured for the selected provider');
+  const stt = database ? getTranscriptionSttProvider(database) : 'openai';
+  const apiKey = transcriptionOptions.apiKey || (database ? getTranscriptionApiKey(database) : null);
+  if (!apiKey) {
+    throw new Error('STT API key not configured for the selected provider (OpenAI/Groq key in Transcription or AI settings).');
+  }
 
   const tempDir = getTempDir();
   ensureDir(tempDir);

@@ -1,7 +1,7 @@
 {
   "id": "github-mcp",
   "name": "GitHub MCP",
-  "description": "Integración completa con la API de GitHub: repositorios, issues, pull requests y más.",
+  "description": "Full GitHub API integration: repositories, issues, pull requests, and more.",
   "command": "npx",
   "args": ["-y", "@modelcontextprotocol/server-github"],
   "env": {

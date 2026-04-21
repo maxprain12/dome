@@ -43,7 +43,6 @@ import HubSearchField from '@/components/ui/HubSearchField';
 import HubListState from '@/components/ui/HubListState';
 import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeButton from '@/components/ui/DomeButton';
-import DomeContextMenu from '@/components/ui/DomeContextMenu';
 import HubBentoCard from '@/components/ui/HubBentoCard';
 
 const DND_AGENT_MIME = 'application/x-dome-agent-id';
@@ -376,12 +375,12 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
           </div>
         }
         title={
-          <span className="text-sm font-semibold truncate" style={{ color: 'var(--dome-text)' }}>
+          <span className="text-sm font-semibold min-w-0 break-words" style={{ color: 'var(--dome-text)' }}>
             {agent.name}
           </span>
         }
         subtitle={
-          <span className="line-clamp-2" title={desc || undefined}>
+          <span className="break-words" title={desc || undefined}>
             {subtitleText}
           </span>
         }
@@ -407,55 +406,62 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
           </div>
         }
         trailing={
-          <DomeContextMenu
-            align="end"
-            trigger={
-              <button
+          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-0.5 sm:gap-1">
+            <DomeButton
+              type="button"
+              variant="ghost"
+              size="xs"
+              iconOnly
+              title={agent.favorite ? t('agents.unpin_agent') : t('agents.pin_agent')}
+              aria-label={agent.favorite ? t('agents.unpin_agent') : t('agents.pin_agent')}
+              onClick={() => void toggleFavorite(agent)}
+            >
+              <Star
+                className="w-3.5 h-3.5"
+                style={{
+                  color: agent.favorite ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
+                  fill: agent.favorite ? 'var(--dome-accent)' : 'none',
+                }}
+                aria-hidden
+              />
+            </DomeButton>
+            {onShowAutomations ? (
+              <DomeButton
                 type="button"
-                className="p-1.5 rounded-md hover:bg-[var(--dome-bg)] transition-colors"
-                title={t('ui.options')}
-                onClick={(e) => e.stopPropagation()}
+                variant="ghost"
+                size="xs"
+                iconOnly
+                title={t('agents.automations')}
+                aria-label={t('agents.automations')}
+                onClick={() => onShowAutomations(agent.id, agent.name)}
               >
-                <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
-              </button>
-            }
-            items={[
-              {
-                label: agent.favorite ? t('agents.unpin_agent') : t('agents.pin_agent'),
-                icon: (
-                  <Star
-                    className="w-4 h-4"
-                    style={{
-                      color: agent.favorite ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-                      fill: agent.favorite ? 'var(--dome-accent)' : 'none',
-                    }}
-                  />
-                ),
-                onClick: () => void toggleFavorite(agent),
-              },
-              ...(onShowAutomations
-                ? [
-                    {
-                      label: t('agents.automations'),
-                      icon: <Zap className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />,
-                      onClick: () => onShowAutomations(agent.id, agent.name),
-                    },
-                  ]
-                : []),
-              {
-                label: t('ui.edit'),
-                icon: <Pencil className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />,
-                onClick: () => setEditingAgent(agent),
-              },
-              {
-                separator: true,
-                label: t('ui.delete'),
-                icon: <Trash2 className="w-4 h-4" />,
-                variant: 'danger' as const,
-                onClick: () => setDeleteTarget(agent),
-              },
-            ]}
-          />
+                <Zap className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+              </DomeButton>
+            ) : null}
+            <DomeButton
+              type="button"
+              variant="ghost"
+              size="xs"
+              iconOnly
+              title={t('ui.edit')}
+              aria-label={t('ui.edit')}
+              onClick={() => setEditingAgent(agent)}
+            >
+              <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+            </DomeButton>
+            <DomeButton
+              type="button"
+              variant="ghost"
+              size="xs"
+              iconOnly
+              title={t('ui.delete')}
+              aria-label={t('ui.delete')}
+              className="!text-[var(--error)] hover:!bg-[var(--error-bg)]"
+              onClick={() => setDeleteTarget(agent)}
+            >
+              <Trash2 className="w-3.5 h-3.5" aria-hidden />
+            </DomeButton>
+          </div>
         }
       />
     );
@@ -508,7 +514,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
             )}
           </button>
           <FolderOpen className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-accent)' }} />
-          <span className="flex-1 text-sm font-medium truncate" style={{ color: 'var(--dome-text)' }}>
+          <span className="flex-1 min-w-0 text-sm font-medium break-words" style={{ color: 'var(--dome-text)' }}>
             {folder.name}
           </span>
           <div className="relative flex items-center gap-1">
@@ -580,10 +586,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
           <div className="flex flex-col gap-2">
             {kids.map((k) => renderFolder(k, depth + 1))}
             {folderAgents.length > 0 ? (
-              <div
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-                style={{ marginLeft: pad + 8 }}
-              >
+              <div className="flex w-full max-w-full flex-col gap-3" style={{ marginLeft: pad + 8 }}>
                 {folderAgents.map((a) => renderAgentRow(a))}
               </div>
             ) : null}
@@ -752,9 +755,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                       {t('agents.ungrouped_agents')}
                     </p>
                   ) : null}
-                  <div
-                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-                  >
+                  <div className="flex w-full max-w-full flex-col gap-3">
                     {rootAgents.map((a) => renderAgentRow(a))}
                   </div>
                 </div>

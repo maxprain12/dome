@@ -27,10 +27,6 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    rollupOptions: {
-      // Externalize native modules (vectordb, lancedb)
-      external: ['vectordb', /^@lancedb\//],
-    },
   },
 
   // Development server
@@ -41,7 +37,7 @@ export default defineConfig({
 
   // Optimize dependencies
   optimizeDeps: {
-    exclude: ['vectordb', '@lancedb/vectordb', 'pyodide'],
+    exclude: ['pyodide'],
     include: ['lucide-react'],
   },
 });

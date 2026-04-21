@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useTabStore } from '@/lib/store/useTabStore';
 import { type Resource } from '@/types';
 
 interface EditableTitle {
@@ -154,10 +155,9 @@ export default function WorkspaceHeader({
 
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen  = useAppStore((s) => s.studioPanelOpen);
-  const graphPanelOpen   = useAppStore((s) => s.graphPanelOpen);
   const toggleSourcesPanel = useAppStore((s) => s.toggleSourcesPanel);
   const toggleStudioPanel  = useAppStore((s) => s.toggleStudioPanel);
-  const toggleGraphPanel   = useAppStore((s) => s.toggleGraphPanel);
+  const openSemanticGraphTab = useTabStore((s) => s.openSemanticGraphTab);
 
   const hasFile = !!(resource.internal_path || resource.file_path);
   const typeMeta = getTypeMeta(resource.type);
@@ -356,9 +356,9 @@ export default function WorkspaceHeader({
             <HeaderIconBtn
               icon={<Network size={14} strokeWidth={2} />}
               label={t('workspace.graph')}
-              active={graphPanelOpen}
+              active={false}
               activeColor="var(--accent)"
-              onClick={toggleGraphPanel}
+              onClick={() => openSemanticGraphTab(resource.id)}
             />
           </>
         )}

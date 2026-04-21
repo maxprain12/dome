@@ -1,7 +1,7 @@
 {
   "id": "filesystem-mcp",
   "name": "Filesystem MCP",
-  "description": "Acceso seguro al sistema de archivos local para leer, escribir y gestionar ficheros.",
+  "description": "Secure access to the local filesystem to read, write, and manage files.",
   "command": "npx",
   "args": ["-y", "@modelcontextprotocol/server-filesystem"],
   "env": {},

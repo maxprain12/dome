@@ -1,4 +1,6 @@
 /* eslint-disable no-console */
+const crypto = require('crypto');
+
 function register({ ipcMain, windowManager, database, validateSender }) {
   ipcMain.handle('db:tags:getByResource', (event, resourceId) => {
     try {
@@ -42,6 +44,64 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     } catch (error) {
       console.error('[DB] Error getting resources by tag:', error);
       return { success: false, error: error.message, data: [] };
+    }
+  });
+
+  ipcMain.handle('db:tags:create', (event, tag) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      if (!queries.insertTag || !queries.findTagByNameInsensitive) {
+        return { success: false, error: 'Tag mutations not available' };
+      }
+      const raw =
+        typeof tag?.name === 'string' ? tag.name.trim().replace(/^#+/u, '').trim() : '';
+      if (!raw) {
+        return { success: false, error: 'Invalid tag name' };
+      }
+      const existing = queries.findTagByNameInsensitive.get(raw);
+      if (existing) {
+        return { success: true, data: existing };
+      }
+      const id = crypto.randomUUID();
+      const now = Date.now();
+      const color = typeof tag?.color === 'string' ? tag.color : null;
+      queries.insertTag.run(id, raw, color, now);
+      const created = queries.getTagById.get(id);
+      return { success: true, data: created };
+    } catch (error) {
+      console.error('[DB] Error creating tag:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:tags:addToResource', (event, resourceId, tagId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      if (!queries.attachTagToResource) {
+        return { success: false, error: 'Tag attach not available' };
+      }
+      queries.attachTagToResource.run(resourceId, tagId);
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error attaching tag:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:tags:removeFromResource', (event, resourceId, tagId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      if (!queries.detachTagFromResource) {
+        return { success: false, error: 'Tag detach not available' };
+      }
+      queries.detachTagFromResource.run(resourceId, tagId);
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error detaching tag:', error);
+      return { success: false, error: error.message };
     }
   });
 }

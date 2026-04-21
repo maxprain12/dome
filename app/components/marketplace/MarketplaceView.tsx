@@ -725,7 +725,7 @@ export default function MarketplaceView() {
         {/* Main grid */}
         <div className="flex-1 overflow-y-auto overscroll-contain p-5">
           {initialLoading ? (
-            <DomeSkeletonGrid count={8} cellHeightClass="h-36" className="!grid-cols-2 !gap-3" />
+            <DomeSkeletonGrid count={8} cellHeightClass="h-28" />
           ) : filteredItems.length === 0 ? (
             <DomeListState
               variant="empty"
@@ -735,7 +735,7 @@ export default function MarketplaceView() {
               description={t('marketplace.no_results_hint')}
             />
           ) : (
-            <div className="grid grid-cols-2 gap-3 animate-in fade-in duration-150 motion-reduce:animate-none">
+            <div className="flex w-full max-w-full flex-col gap-3 animate-in fade-in duration-150 motion-reduce:animate-none">
               {filteredItems.map((item) => {
                 const meta = typeMeta[item.type];
                 const Icon = meta.Icon;
@@ -759,8 +759,8 @@ export default function MarketplaceView() {
                       </span>
                     }
                     title={
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="truncate font-semibold text-sm" style={{ color: 'var(--dome-text)' }}>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="min-w-0 break-words font-semibold text-sm" style={{ color: 'var(--dome-text)' }}>
                           {item.name}
                         </span>
                         {item.featured ? (
@@ -769,13 +769,14 @@ export default function MarketplaceView() {
                       </span>
                     }
                     subtitle={
-                      <span className="line-clamp-2" style={{ color: 'var(--dome-text-secondary)' }}>
+                      <span className="break-words" style={{ color: 'var(--dome-text-secondary)' }}>
                         {item.description}
                       </span>
                     }
                     meta={
-                      <span className="text-[11px] truncate" style={{ color: 'var(--dome-text-muted)' }}>
+                      <span className="text-[11px] break-words" style={{ color: 'var(--dome-text-muted)' }}>
                         {item.author ?? t('marketplace.default_author')}
+                        {item.version ? ` · v${item.version}` : ''}
                       </span>
                     }
                     trailing={renderAction(item)}

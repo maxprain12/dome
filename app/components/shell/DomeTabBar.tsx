@@ -23,6 +23,7 @@ import {
   Bot,
   Workflow,
   Activity,
+  Network,
   MoreHorizontal,
   ChevronLeft,
   Layers,
@@ -69,6 +70,8 @@ function TabIcon({ tab }: { tab: DomeTab }) {
     case 'transcriptions':
     case 'transcription-detail':
       return <Mic className={cls} strokeWidth={sw} />;
+    case 'semantic-graph':
+      return <Network className={cls} strokeWidth={sw} />;
     default: return <File className={cls} strokeWidth={sw} />;
   }
 }

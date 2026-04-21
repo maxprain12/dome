@@ -1,16 +1,12 @@
-import { indexResource } from '../db/pageindex';
-
+/**
+ * Trigger local semantic (Nomic) re-index for a resource (chunks in SQLite).
+ */
 export interface IngestionResult {
   success: boolean;
   chunksProcessed: number;
   error?: string;
 }
 
-/**
- * Ingest a resource into PageIndex for reasoning-based RAG.
- * Dome now indexes several text-bearing resource types using the same tree format:
- * PDFs, notes, notebooks, processed URLs, and extracted document content.
- */
 export async function ingestResource(
   resourceId: string,
   _content: string,
@@ -20,26 +16,25 @@ export async function ingestResource(
     projectId: string;
     [key: string]: unknown;
   },
-  _options: Record<string, unknown> = {}
+  _options: Record<string, unknown> = {},
 ): Promise<IngestionResult> {
   try {
-    if (!['pdf', 'document', 'url', 'notebook'].includes(metadata.type)) {
+    if (!['pdf', 'document', 'url', 'notebook', 'note', 'ppt', 'excel', 'image'].includes(metadata.type)) {
       return { success: true, chunksProcessed: 0 };
     }
 
-    console.info(`[Ingestion] Starting PageIndex indexing for resource ${resourceId}`);
-    const result = await indexResource(resourceId);
-
-    if (!result.success) {
-      console.warn('[Ingestion] PageIndex indexing failed:', result.error);
-      return { success: false, chunksProcessed: 0, error: result.error };
+    const res = await window.electron.db.semantic.indexResource(resourceId);
+    if (!res.success) {
+      return { success: false, chunksProcessed: 0, error: res.error };
     }
-
-    console.info(`[Ingestion] PageIndex indexing complete for resource ${resourceId}`);
-    return { success: true, chunksProcessed: result.nodeCount ?? 0 };
-
+    const data = res.data as { chunks?: number; ok?: boolean; error?: string } | undefined;
+    const chunks = typeof data?.chunks === 'number' ? data.chunks : 0;
+    if (data?.ok === false && data?.error) {
+      return { success: false, chunksProcessed: 0, error: String(data.error) };
+    }
+    return { success: true, chunksProcessed: chunks };
   } catch (error) {
-    console.error('[Ingestion] Error ingesting resource:', error);
+    console.error('[Ingestion] semantic indexResource:', error);
     return {
       success: false,
       chunksProcessed: 0,

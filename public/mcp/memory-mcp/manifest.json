@@ -1,7 +1,7 @@
 {
   "id": "memory-mcp",
   "name": "Memory MCP",
-  "description": "Memoria persistente para agentes: almacena y recupera información entre sesiones.",
+  "description": "Persistent memory for agents: store and retrieve information across sessions.",
   "command": "npx",
   "args": ["-y", "@modelcontextprotocol/server-memory"],
   "env": {},

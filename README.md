@@ -36,7 +36,7 @@
 Dome provides a unified workspace for managing your research and knowledge. It combines powerful AI capabilities with an intuitive interface, allowing you to:
 
 - **Organize resources** (notes, PDFs, videos, audios, images, URLs, PowerPoints) in projects
-- **Agent Canvas** — Visual workflow builder with ReactFlow
+- **Agent Canvas** — Visual workflow builder (D3 zoom/drag + SVG edges)
 - **Agent Teams** — Multi-agent collaboration
 - **Marketplace** — Community extensions (agents, plugins, skills, workflows)
 - **Many AI Assistant** — Chat with LangGraph-powered agent (web search, resource search, memory, MCP tools)
@@ -107,7 +107,7 @@ Dome provides a unified workspace for managing your research and knowledge. It c
 - **System Tray & Launch at Login** — Closing the window can keep Dome running in the tray (automations and notifications). Auto-launch can be enabled on first run and toggled later in Settings.
 - **Interface Localization** — UI strings use **react-i18next** with **English, Spanish, French, and Portuguese** (language persisted in the app).
 - **`import_file_to_dome` Agent Tool** — AI agents can now save files retrieved from any MCP server directly into the Dome library. The tool accepts plain text or base64-encoded binary content (PDF, DOCX, etc.) and triggers indexing automatically.
-- **Agent Canvas** — Visual workflow builder with ReactFlow. Create workflows by connecting nodes (text input, agents, documents, outputs, images). Run workflows and see execution logs in real-time.
+- **Agent Canvas** — Visual workflow builder (D3 zoom/drag + SVG edges). Create workflows by connecting nodes (text input, agents, documents, outputs, images). Run workflows and see execution logs in real-time.
 - **Agent Teams** — Multi-agent collaboration. Create teams of specialized agents that work together in a shared chat session.
 - **Marketplace** — Unified marketplace for Agents, Plugins, Skills, and Workflows. Browse, install, and manage extensions from the community.
 - **Plugins System** — Extend Dome with custom plugins:
@@ -471,7 +471,7 @@ Comprehensive source management for academic work:
 | Frontend | [Vite 7](https://vitejs.dev/) + [React 18](https://reactjs.org/) |
 | UI Styling | [Tailwind CSS](https://tailwindcss.com/) |
 | UI Components | [Mantine UI](https://mantine.dev/) |
-| Visual Workflows | [ReactFlow](https://reactflow.dev/) |
+| Visual Workflows & graphs | [D3.js](https://d3js.org/) (selection, zoom, drag, force) |
 | Rich Text Editor | [Tiptap](https://tiptap.dev/) (ProseMirror) + Dome Editor (MIT) |
 | AI Agent | [LangGraph](https://langchain-ai.github.io/langgraphjs/) + [LangChain](https://js.langchain.com/) |
 | MCP | [@langchain/mcp-adapters](https://js.langchain.com/docs/integrations/tools/mcp) |
@@ -744,7 +744,7 @@ To connect WhatsApp:
 dome/
 ├── app/                          # React Application (Renderer Process)
 │   ├── components/               # React Components
-│   │   ├── agent-canvas/        # Visual workflow builder (ReactFlow)
+│   │   ├── agent-canvas/        # Visual workflow builder (D3 canvas)
 │   │   │   ├── nodes/           # Custom nodes (Agent, TextInput, Document, Output, Image)
 │   │   │   ├── CanvasWorkspace.tsx
 │   │   │   ├── CanvasToolbar.tsx
@@ -810,10 +810,8 @@ dome/
 │   ├── ai-cloud-service.cjs     # Cloud AI providers
 │   ├── ai-tools-handler.cjs     # AI tools (resources, flashcard create)
 │   ├── langgraph-agent.cjs      # LangGraph agent (chat with tools)
-│   ├── doc-indexer.cjs          # PageIndex document indexer
-│   ├── docling-pipeline.cjs     # Docling conversion orchestration
-│   ├── docling-client.cjs       # Docling service client
-│   ├── resource-indexer.cjs     # Resource indexing orchestrator
+│   ├── semantic-index-scheduler.cjs  # Debounced semantic (Nomic) indexing
+│   ├── services/                # indexing.pipeline, embeddings, cloud-llm, chunking, pdf-transcription
 │   ├── calendar-service.cjs      # Calendar CRUD + Google sync
 │   ├── calendar-notification-service.cjs  # Desktop event reminders
 │   ├── mcp-client.cjs           # MCP server connections
@@ -834,11 +832,11 @@ dome/
 │   │   ├── ai.cjs
 │   │   ├── agents.cjs
 │   │   ├── marketplace.cjs
-│   │   ├── docling.cjs
+│   │   ├── semantic.cjs
+│   │   ├── cloud-llm.cjs
 │   │   └── ...
 │   ├── window-manager.cjs       # Window management
 │   ├── security.cjs             # Security utilities
-│   ├── vendor/pageindex/        # PageIndex Python runtime
 │   └── whatsapp/                # WhatsApp integration
 ├── prompts/                      # System prompts (Many, tools)
 ├── public/                       # Static assets (skills.json, workflows.json, agents.json, plugins.json)

@@ -120,6 +120,7 @@ export {
   createResourceGetTool,
   createResourceListTool,
   createResourceSemanticSearchTool,
+  createPdfRenderPageTool,
   createResourceTools,
 } from './resources';
 
@@ -258,14 +259,6 @@ export {
   createMarketplaceTools,
 } from './marketplace-tools';
 
-// Tools - Docling (visual artifacts from converted documents)
-export {
-  createDoclingListImagesTool,
-  createDoclingShowImageTool,
-  createDoclingShowPageImagesTool,
-  createDoclingTools,
-} from './docling-tools';
-
 // =============================================================================
 // Default Tools
 // =============================================================================
@@ -291,7 +284,6 @@ import { createPdfAnnotationTools } from './pdf-annotation-tools';
 import { createCalendarTools } from './calendar-tools';
 import { createEntityTools } from './entity-tools';
 import { createMarketplaceTools } from './marketplace-tools';
-import { createDoclingTools } from './docling-tools';
 
 /**
  * Configuration for creating default tools
@@ -389,9 +381,6 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // Marketplace tools (search and install)
   tools.push(...createMarketplaceTools());
 
-  // Docling tools (visual artifacts from converted documents)
-  tools.push(...createDoclingTools());
-
   return tools;
 }
 
@@ -471,11 +460,6 @@ export function createManyToolsForContext(
 
   // Marketplace tools: useful when user asks about marketplace agents/workflows
   tools.push(...createMarketplaceTools());
-
-  // Docling tools: available whenever viewing a workspace or home (gracefully handles docs without images)
-  if (isWorkspace || isHome) {
-    tools.push(...createDoclingTools());
-  }
 
   return tools;
 }

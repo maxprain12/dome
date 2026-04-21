@@ -6,15 +6,11 @@
 
 // Legacy build: includes polyfill for toHex, required in Electron worker context
 import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import pdfjsWorkerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 
-// Configure PDF.js worker (must be legacy build to match main bundle)
-// Worker is copied to public/ by postinstall; see package.json "copy:pdf-worker"
+// Worker URL must match the installed pdfjs-dist version (avoids stale public/pdf.worker.min.mjs)
 if (typeof window !== 'undefined') {
-  const workerPath = '/pdf.worker.min.mjs';
-  pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
-
-  if (process.env.NODE_ENV === 'development') {
-  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 }
 
 export interface PDFDocument {

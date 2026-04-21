@@ -98,11 +98,17 @@ const ResourceListSchema = Type.Object({
 
 const ResourceGetSectionSchema = Type.Object({
   resource_id: Type.String({
-    description: 'The ID of the resource (indexed PDF).',
+    description: 'The ID of the resource.',
   }),
-  node_id: Type.String({
-    description: 'PageIndex node_id (e.g. "0004") from structure or search results.',
+  chunk_id: Type.String({
+    description: 'Chunk id from resource_semantic_search (format: resourceId#index).',
   }),
+});
+
+const PdfRenderPageSchema = Type.Object({
+  resource_id: Type.String({ description: 'PDF resource ID' }),
+  page_number: Type.Number({ description: '1-based page number', minimum: 1 }),
+  scale: Type.Optional(Type.Number({ description: 'Optional render scale', minimum: 0.5, maximum: 3 })),
 });
 
 const ResourceSemanticSearchSchema = Type.Object({
@@ -309,13 +315,13 @@ export function createResourceGetTool(): AnyAgentTool {
 }
 
 /**
- * Create a resource get section tool to retrieve a specific section by node_id.
+ * Create a resource get section tool to retrieve one semantic chunk by chunk_id.
  */
 export function createResourceGetSectionTool(): AnyAgentTool {
   return {
-    label: 'Obtener Sección',
+    label: 'Obtener fragmento',
     name: 'resource_get_section',
-    description: 'Get the content (summary) of a specific section of an indexed PDF by node_id. Use after get_document_structure or resource_semantic_search.',
+    description: 'Get full text of one chunk by chunk_id from resource_semantic_search.',
     parameters: ResourceGetSectionSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -328,22 +334,26 @@ export function createResourceGetSectionTool(): AnyAgentTool {
 
         const params = args as Record<string, unknown>;
         const resourceId = readStringParam(params, 'resource_id', { required: true });
-        const nodeId = readStringParam(params, 'node_id', { required: true });
+        const chunkId = readStringParam(params, 'chunk_id', { required: true });
 
-        const result = await window.electron.ai.tools.resourceGetSection(resourceId, nodeId);
+        const result = await window.electron.ai.tools.resourceGetSection(resourceId, chunkId);
 
         if (!result.success) {
           return jsonResult({
             status: 'error',
-            error: result.error || 'Section not found',
+            error: result.error || 'Chunk not found',
           });
         }
 
+        const sec = result.section;
         return jsonResult({
           status: 'success',
           resource_id: result.resource_id,
           title: result.title,
-          section: result.section,
+          chunk_id: result.chunk_id ?? sec?.chunk_id,
+          chunk_index: sec?.chunk_index,
+          page_number: sec?.page_number,
+          text: sec?.text ?? sec?.summary,
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -351,6 +361,44 @@ export function createResourceGetSectionTool(): AnyAgentTool {
           status: 'error',
           error: message,
         });
+      }
+    },
+  };
+}
+
+export function createPdfRenderPageTool(): AnyAgentTool {
+  return {
+    label: 'Renderizar página PDF',
+    name: 'pdf_render_page',
+    description: 'Render one PDF page as PNG for visual inspection.',
+    parameters: PdfRenderPageSchema,
+    execute: async (_toolCallId, args) => {
+      try {
+        if (!isElectron()) {
+          return jsonResult({ status: 'error', error: 'Requires Electron.' });
+        }
+        const params = args as Record<string, unknown>;
+        const resourceId = readStringParam(params, 'resource_id', { required: true });
+        const pageNumber = readNumberParam(params, 'page_number', { required: true, integer: true })!;
+        const scale = readNumberParam(params, 'scale');
+        const result = await window.electron.ai.tools.pdfRenderPage({
+          resource_id: resourceId,
+          page_number: pageNumber,
+          scale: scale ?? undefined,
+        });
+        if (!result.success) {
+          return jsonResult({ status: 'error', error: result.error || 'failed' });
+        }
+        return jsonResult({
+          status: 'success',
+          resource_id: resourceId,
+          page_number: pageNumber,
+          data_url: result.data_url,
+          markdown_image: `![PDF p.${pageNumber}](dome-pdf-page:${resourceId}:${pageNumber})`,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return jsonResult({ status: 'error', error: message });
       }
     },
   };
@@ -469,11 +517,9 @@ export function createResourceSemanticSearchTool(): AnyAgentTool {
             type: r.type,
             similarity: r.similarity,
             snippet: r.snippet,
-            node_id: r.node_id,
-            pages: r.pages,
-            page_range: r.page_range,
-            node_title: r.node_title,
-            node_path: r.node_path,
+            chunk_id: r.chunk_id,
+            chunk_index: r.chunk_index,
+            page_number: r.page_number,
             updated_at: new Date(r.updated_at).toISOString(),
           })),
         });
@@ -502,5 +548,6 @@ export function createResourceTools(): AnyAgentTool[] {
     createResourceGetSectionTool(),
     createResourceListTool(),
     createResourceSemanticSearchTool(),
+    createPdfRenderPageTool(),
   ];
 }

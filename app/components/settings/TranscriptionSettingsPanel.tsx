@@ -108,9 +108,11 @@ export default function TranscriptionSettingsPanel() {
     if (!window.electron?.transcription?.getSettings) return;
     const res = await window.electron.transcription.getSettings();
     if (res.success && res.data) {
-      const p = res.data.sttProvider;
-      if (p === 'groq' || p === 'openai' || p === 'custom') {
-        setSttProvider(p);
+      const p = String(res.data.sttProvider || '');
+      if (p === 'local-gemma') {
+        setSttProvider('openai');
+      } else if (p === 'groq' || p === 'openai' || p === 'custom') {
+        setSttProvider(p as SttProvider);
       } else {
         setSttProvider('openai');
       }

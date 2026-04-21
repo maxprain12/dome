@@ -1,0 +1,36 @@
+/* Minimal toolbar for semantic graph — slider + pills */
+
+.semantic-graph-toolbar {
+  background: color-mix(in srgb, var(--dome-surface) 55%, transparent);
+}
+
+.semantic-graph-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--dome-border) 85%, transparent);
+  outline: none;
+}
+
+.semantic-graph-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--dome-accent);
+  border: 2px solid var(--dome-surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dome-text-muted) 25%, transparent);
+  cursor: pointer;
+}
+
+.semantic-graph-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: var(--dome-accent);
+  border: 2px solid var(--dome-surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dome-text-muted) 25%, transparent);
+  cursor: pointer;
+}

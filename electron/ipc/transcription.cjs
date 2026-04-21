@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 const fs = require('fs');
 const path = require('path');
-const resourceIndexer = require('../resource-indexer.cjs');
+const semanticIndexScheduler = require('../semantic-index-scheduler.cjs');
 
 function generateResourceId() {
   return `res_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
@@ -30,6 +30,7 @@ function getTranscriptionDefaults(database) {
   const queries = database.getQueries();
   const providerRow = queries.getSetting.get('transcription_stt_provider');
   let sttProvider = providerRow?.value && String(providerRow.value).trim().toLowerCase();
+  if (sttProvider === 'local-gemma') sttProvider = 'openai';
   if (sttProvider !== 'groq' && sttProvider !== 'openai' && sttProvider !== 'custom') {
     sttProvider = transcriptionService.getTranscriptionSttProvider(database);
   }
@@ -75,6 +76,7 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
   const transcriptionStructured = require('../transcription-structured.cjs');
   const transcriptionShortcut = require('../transcription-shortcut.cjs');
   const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
+  semanticIndexScheduler.init(database);
 
   /**
    * macOS microphone permission (no-op elsewhere; Chromium handles the rest).
@@ -386,8 +388,8 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
             audioResourceId = audioId;
             const ar = queries.getResourceById.get(audioId);
             windowManager.broadcast('resource:created', ar);
-            if (resourceIndexer.shouldIndex(ar)) {
-              resourceIndexer.scheduleIndexing(audioId, indexerDeps);
+            if (semanticIndexScheduler.shouldIndex(ar)) {
+              semanticIndexScheduler.scheduleSemanticReindex(audioId);
             }
           }
         }
@@ -440,8 +442,8 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
         );
         const noteResource = queries.getResourceById.get(noteId);
         windowManager.broadcast('resource:created', noteResource);
-        if (resourceIndexer.shouldIndex(noteResource)) {
-          resourceIndexer.scheduleIndexing(noteId, indexerDeps);
+        if (semanticIndexScheduler.shouldIndex(noteResource)) {
+          semanticIndexScheduler.scheduleSemanticReindex(noteId);
         }
 
         if (audioResourceId) {
@@ -499,7 +501,8 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
       const queries = database.getQueries();
       const now = Date.now();
       if (payload.sttProvider != null) {
-        const p = String(payload.sttProvider).trim().toLowerCase();
+        let p = String(payload.sttProvider).trim().toLowerCase();
+        if (p === 'local-gemma') p = 'openai';
         if (p === 'groq' || p === 'openai' || p === 'custom') {
           queries.setSetting.run('transcription_stt_provider', p, now);
         }

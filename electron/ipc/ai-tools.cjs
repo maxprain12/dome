@@ -86,20 +86,21 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
   });
 
   /**
-   * Get a specific section of an indexed PDF/note by node_id
+   * Get full text of one semantic chunk (chunk_id from resource_semantic_search)
    */
-  ipcMain.handle('ai:tools:resourceGetSection', async (event, { resourceId, nodeId }) => {
+  ipcMain.handle('ai:tools:resourceGetSection', async (event, { resourceId, nodeId, chunkId }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
+    const cid = chunkId || nodeId;
     try {
-      const result = await aiToolsHandler.resourceGetSection(resourceId, nodeId);
-      toolTrace('resourceGetSection', { resourceId, nodeId }, result);
+      const result = await aiToolsHandler.resourceGetSection(resourceId, cid);
+      toolTrace('resourceGetSection', { resourceId, chunkId: cid }, result);
       broadcastToolAnalytics(windowManager, 'ai:tools:resourceGetSection', result?.success !== false);
       return result;
     } catch (error) {
-      toolTrace('resourceGetSection', { resourceId, nodeId }, null, error);
+      toolTrace('resourceGetSection', { resourceId, chunkId: cid }, null, error);
       broadcastToolAnalytics(windowManager, 'ai:tools:resourceGetSection', false);
       return { success: false, error: error.message };
     }
@@ -647,6 +648,54 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     } catch (error) {
       toolTrace('pptExport', { resourceId }, null, error);
       broadcastToolAnalytics(windowManager, 'ai:tools:pptExport', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:imageDescribe', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.gemmaImageDescribe(args || {});
+      toolTrace('imageDescribe', args, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:imageDescribe', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('imageDescribe', args, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:imageDescribe', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:screenUnderstand', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.gemmaScreenUnderstand(args || {});
+      toolTrace('screenUnderstand', args, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:screenUnderstand', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('screenUnderstand', args, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:screenUnderstand', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:pdfRenderPage', async (event, args) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.pdfRenderPage(args || {});
+      toolTrace('pdfRenderPage', args, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfRenderPage', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('pdfRenderPage', args, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:pdfRenderPage', false);
       return { success: false, error: error.message };
     }
   });

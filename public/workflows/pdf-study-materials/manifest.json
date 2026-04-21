@@ -1,8 +1,8 @@
 {
   "id": "pdf-study-materials",
   "name": "PDF → Study Materials",
-  "description": "Convierte un documento de la biblioteca en flashcards, quiz y resumen de estudio.",
-  "longDescription": "Automatiza la creación de material de estudio a partir de cualquier documento de tu biblioteca. El agente de biblioteca extrae el contenido y lo transforma en flashcards, preguntas de práctica y un resumen estructurado listos para estudiar.",
+  "description": "Turn a library document into flashcards, quizzes, and a study summary.",
+  "longDescription": "Automates study material from any library document. The library agent pulls content and transforms it into flashcards, practice questions, and a structured summary ready to study.",
   "author": "Dome Team",
   "version": "1.0.0",
   "tags": ["education", "productivity", "knowledge"],
@@ -15,16 +15,16 @@
   "outputType": "summary",
   "category": "education",
   "useCases": [
-    "Preparar exámenes a partir de apuntes",
-    "Crear flashcards de papers académicos",
-    "Generar tests de práctica de capítulos de libro"
+    "Study for exams from your notes",
+    "Build flashcards from academic papers",
+    "Generate practice tests from book chapters"
   ],
   "nodes": [
     {
       "id": "psm-input",
       "type": "textInput",
       "position": { "x": 80, "y": 80 },
-      "data": { "type": "text-input", "label": "Nombre del documento o tema a buscar", "value": "" }
+      "data": { "type": "text-input", "label": "Document name or topic to find", "value": "" }
     },
     {
       "id": "psm-library",
@@ -48,7 +48,7 @@
       "position": { "x": 80, "y": 420 },
       "data": {
         "type": "agent",
-        "label": "Creador de Material",
+        "label": "Material builder",
         "agentId": null,
         "systemAgentRole": "curator",
         "agentName": "Study Material Creator",
@@ -62,7 +62,7 @@
       "id": "psm-output",
       "type": "output",
       "position": { "x": 80, "y": 600 },
-      "data": { "type": "output", "label": "Material de Estudio", "content": null, "status": "idle" }
+      "data": { "type": "output", "label": "Study materials", "content": null, "status": "idle" }
     }
   ],
   "edges": [

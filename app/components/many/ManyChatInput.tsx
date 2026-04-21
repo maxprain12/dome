@@ -44,6 +44,8 @@ interface ManyChatInputProps {
   onVoiceSend?: (text: string) => void;
   /** When true, renders a larger welcome-screen variant (centered, wider, taller) */
   isWelcomeScreen?: boolean;
+  /** Overrides default placeholder (e.g. PDF Gemma region pending in Many) */
+  inputPlaceholderOverride?: string | null;
 }
 
 interface MentionResource {
@@ -69,6 +71,7 @@ export default memo(function ManyChatInput({
   onAbort,
   onVoiceSend,
   isWelcomeScreen = false,
+  inputPlaceholderOverride = null,
 }: ManyChatInputProps) {
   const { t } = useTranslation();
   const { pinnedResources, addPinnedResource, removePinnedResource } = useManyStore();
@@ -253,11 +256,13 @@ export default memo(function ManyChatInput({
     [input, inputRef, setInput, addPinnedResource],
   );
 
-  const placeholder = resourceToolsEnabled
-    ? t('many.input_placeholder_docs')
-    : toolsEnabled
-      ? t('many.input_placeholder_web')
-      : t('many.input_placeholder_docs');
+  const placeholder =
+    inputPlaceholderOverride ??
+    (resourceToolsEnabled
+      ? t('many.input_placeholder_docs')
+      : toolsEnabled
+        ? t('many.input_placeholder_web')
+        : t('many.input_placeholder_docs'));
 
   const canVoice = typeof window !== 'undefined' && !!window.electron?.transcription?.bufferToText;
 

@@ -1,8 +1,8 @@
 {
   "id": "research-write-workflow",
   "name": "Research & Write",
-  "description": "Investiga un tema en la web y redacta un artículo completo y bien documentado.",
-  "longDescription": "Este workflow conecta un agente investigador con un agente escritor. Primero busca y analiza información relevante en la web, luego produce un artículo estructurado con citas. Ideal para posts de blog, artículos académicos e informes de investigación.",
+  "description": "Research a topic on the web and produce a complete, well-documented article.",
+  "longDescription": "This workflow connects a researcher agent with a writer agent. It first finds and analyzes relevant information on the web, then produces a structured article with citations—ideal for blog posts, academic articles, and research briefs.",
   "author": "Dome Team",
   "version": "1.0.0",
   "tags": ["research", "writing", "productivity"],
@@ -15,16 +15,16 @@
   "outputType": "article",
   "category": "research",
   "useCases": [
-    "Redactar artículos académicos sobre un tema",
-    "Crear posts de blog documentados",
-    "Preparar informes de investigación"
+    "Draft academic-style articles on any topic",
+    "Create well-sourced blog posts",
+    "Prepare research briefs and reports"
   ],
   "nodes": [
     {
       "id": "rw-input",
       "type": "textInput",
       "position": { "x": 80, "y": 80 },
-      "data": { "type": "text-input", "label": "Tema a investigar", "value": "" }
+      "data": { "type": "text-input", "label": "Topic to research", "value": "" }
     },
     {
       "id": "rw-researcher",
@@ -32,7 +32,7 @@
       "position": { "x": 80, "y": 240 },
       "data": {
         "type": "agent",
-        "label": "Investigador",
+        "label": "Researcher",
         "agentId": null,
         "systemAgentRole": "research",
         "agentName": "Research Agent",
@@ -48,7 +48,7 @@
       "position": { "x": 80, "y": 420 },
       "data": {
         "type": "agent",
-        "label": "Escritor",
+        "label": "Writer",
         "agentId": null,
         "systemAgentRole": "writer",
         "agentName": "Writer Agent",
@@ -62,7 +62,7 @@
       "id": "rw-output",
       "type": "output",
       "position": { "x": 80, "y": 600 },
-      "data": { "type": "output", "label": "Artículo Final", "content": null, "status": "idle" }
+      "data": { "type": "output", "label": "Final article", "content": null, "status": "idle" }
     }
   ],
   "edges": [

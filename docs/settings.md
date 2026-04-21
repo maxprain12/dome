@@ -92,7 +92,7 @@ interface AppPreferences {
 - **AI**: Provider, API key, model, embedding model, base URL, Ollama options, Venice privacy; Dome Provider OAuth connect. See docs/ai-chat.md and docs/dome-provider-integration.md.
 - **Calendar**: Connect/disconnect Google Calendar (OAuth PKCE); manage sync frequency; select default calendar. See docs/calendar.md.
 - **Cloud Storage**: Connect/disconnect Google Drive and OneDrive (OAuth PKCE). See docs/cloud-storage-setup.md.
-- **Indexing**: PageIndex configuration — AI provider/model for indexing, auto-index toggle, re-index triggers, manual re-index all. See docs/pageindex.md.
+- **Indexing**: Full-library semantic reindex, Nomic embedding metrics, manual refresh (PDF/images use your configured cloud AI for transcription — see docs/indexing.md).
 - **Agents**: List and manage custom Many agents (create, edit, delete, set tools/MCP/model).
 - **Marketplace**: View/uninstall installed agents, plugins, skills, workflows, MCP servers.
 - **MCP Servers**: Configure Model Context Protocol servers for extended AI tool access.
@@ -118,9 +118,8 @@ interface AppPreferences {
 | `ollama_base_url` | string | Ollama server URL (default: http://127.0.0.1:11434) |
 | `ollama_model` | string | Ollama model name |
 | `many_agents` | JSON | Array of custom agent configs |
-| `pageindex_provider` | string | Provider for PageIndex reasoning |
-| `pageindex_model` | string | Model for PageIndex reasoning |
-| `pageindex_auto` | bool | Auto-index on startup and changes |
+| `gemma_enabled` | bool | Legacy key (unused); kept in DB for downgrades — on-device Gemma was removed |
+| `gemma_dtype` | string | Legacy key (unused) |
 | `calendar_google_token` | JSON | Google Calendar OAuth token |
 | `onboarding_completed` | bool | Has user completed onboarding |
 | `analytics_opted_in` | bool | PostHog analytics consent |

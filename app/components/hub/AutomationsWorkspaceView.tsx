@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Bot, Workflow, Zap, Plus, Play, Trash2, Pencil,
   Clock, Loader2, X,
-  Download, Upload, MoreHorizontal
+  Download, Upload,
 } from 'lucide-react';
 import {
   listAutomations,
@@ -29,7 +29,6 @@ import {
 } from '@/lib/hub-export/bundle';
 import HubSearchField from '@/components/ui/HubSearchField';
 import HubListState from '@/components/ui/HubListState';
-import DomeContextMenu from '@/components/ui/DomeContextMenu';
 import HubBentoCard from '@/components/ui/HubBentoCard';
 import HubEntityIcon from '@/components/ui/HubEntityIcon';
 import HubToolbar from '@/components/ui/HubToolbar';
@@ -754,10 +753,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
             />
           ) : (
             <div className="p-4">
-              <div
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-                role="list"
-              >
+              <div className="flex w-full max-w-full flex-col gap-3" role="list">
                 {filtered.map((a) => {
                   const desc = (a.description || '').trim();
                   const targetLine = `${targetName(a)} · ${triggerLabel(a.triggerType)}`;
@@ -768,16 +764,16 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                         <HubEntityIcon kind={a.targetType === 'agent' ? 'agent' : 'workflow'} size="md" />
                       }
                       title={
-                        <div className="flex items-start gap-2 min-w-0 flex-wrap">
+                        <div className="flex w-full min-w-0 items-start gap-2 flex-wrap">
                           <span
-                            className="text-sm font-semibold min-w-0 break-words line-clamp-2 flex-1"
+                            className="text-sm font-semibold min-w-0 flex-1 break-words"
                             style={{ color: 'var(--dome-text)' }}
                             title={a.title}
                           >
                             {a.title}
                           </span>
                           <span
-                            className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md max-w-[140px] break-words line-clamp-2"
+                            className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md max-w-[min(100%,200px)] break-words"
                             title={t('automation.project_scope_tooltip')}
                             style={{
                               background: 'var(--dome-bg-hover)',
@@ -801,23 +797,23 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                       }
                       subtitle={
                         desc ? (
-                          <span className="line-clamp-3 break-words" title={desc}>
+                          <span className="break-words" title={desc}>
                             {desc}
                           </span>
                         ) : (
-                          <span className="line-clamp-2 text-[11px] break-words">{targetLine}</span>
+                          <span className="text-[11px] break-words">{targetLine}</span>
                         )
                       }
                       meta={
                         <div
-                          className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] mt-1 min-w-0"
+                          className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px]"
                           style={{ color: 'var(--dome-text-muted)' }}
                         >
-                          {desc ? <span className="min-w-0 break-words">{targetLine}</span> : null}
-                          <span className="inline-flex items-center gap-1 shrink-0 min-w-0 flex-wrap">
+                          {desc ? <span className="min-w-0 max-w-full break-words">{targetLine}</span> : null}
+                          <span className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-x-1 gap-y-1">
                             {desc ? <span aria-hidden>·</span> : null}
                             <Clock className="w-3 h-3 shrink-0" aria-hidden />
-                            <span className="break-words">
+                            <span className="min-w-0 break-words">
                               {t('automation.last_run')} {formatHubDate(a.lastRunAt, t('automation.never'))}
                             </span>
                             {a.lastRunStatus ? (
@@ -832,51 +828,58 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                         </div>
                       }
                       trailing={
-                        <DomeContextMenu
-                          align="end"
-                          trigger={
-                            <button
-                              type="button"
-                              className="p-1.5 rounded-md hover:bg-[var(--dome-bg)] transition-colors"
-                              title={t('ui.options')}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
-                            </button>
-                          }
-                          items={[
-                            {
-                              label: t('hubExport.title_export_automation'),
-                              icon: (
-                                <Download className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
-                              ),
-                              onClick: () => void handleExportAutomation(a),
-                            },
-                            {
-                              label: t('automation.title_edit'),
-                              icon: <Pencil className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />,
-                              onClick: () => handleEdit(a),
-                            },
-                            {
-                              label: t('automation.title_run_now'),
-                              icon:
-                                runningId === a.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
-                                ) : (
-                                  <Play className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />
-                                ),
-                              onClick: () => void handleRun(a.id),
-                              disabled: runningId === a.id,
-                            },
-                            {
-                              separator: true,
-                              label: t('automation.title_delete'),
-                              icon: <Trash2 className="w-4 h-4" />,
-                              variant: 'danger' as const,
-                              onClick: () => void handleDelete(a.id),
-                            },
-                          ]}
-                        />
+                        <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-0.5 sm:gap-1">
+                          <DomeButton
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            iconOnly
+                            title={t('hubExport.title_export_automation')}
+                            aria-label={t('hubExport.title_export_automation')}
+                            onClick={() => void handleExportAutomation(a)}
+                          >
+                            <Download className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                          </DomeButton>
+                          <DomeButton
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            iconOnly
+                            title={t('automation.title_edit')}
+                            aria-label={t('automation.title_edit')}
+                            onClick={() => handleEdit(a)}
+                          >
+                            <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                          </DomeButton>
+                          <DomeButton
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            iconOnly
+                            title={t('automation.title_run_now')}
+                            aria-label={t('automation.title_run_now')}
+                            disabled={runningId === a.id}
+                            onClick={() => void handleRun(a.id)}
+                          >
+                            {runningId === a.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                            ) : (
+                              <Play className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+                            )}
+                          </DomeButton>
+                          <DomeButton
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            iconOnly
+                            title={t('automation.title_delete')}
+                            aria-label={t('automation.title_delete')}
+                            className="!text-[var(--error)] hover:!bg-[var(--error-bg)]"
+                            onClick={() => void handleDelete(a.id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" aria-hidden />
+                          </DomeButton>
+                        </div>
                       }
                     />
                   );

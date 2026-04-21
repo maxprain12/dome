@@ -23,6 +23,19 @@ ipcRenderer.on('transcription:toggle-recording', () => {
   }
 });
 
+// Some main-process IPC handlers were migrated to return `{ success, data, error }`
+// envelopes, but the renderer-facing API contract (and all existing callers) expect
+// the raw value. Unwrap the envelope here so the public surface stays stable.
+function unwrap(promise) {
+  return promise.then((value) => {
+    if (value && typeof value === 'object' && 'success' in value && ('data' in value || 'error' in value)) {
+      if (value.success) return value.data;
+      return undefined;
+    }
+    return value;
+  });
+}
+
 /**
  * Electron Handler
  * Expone APIs de Electron de manera segura usando contextBridge
@@ -80,6 +93,7 @@ const ALLOWED_CHANNELS = {
     'db:resources:create',
     'db:resources:getByProject',
     'db:resources:getById',
+    'db:resources:ensureUrl',
     'db:resources:update',
     'db:resources:search',
     'db:resources:getAll',
@@ -99,6 +113,9 @@ const ALLOWED_CHANNELS = {
     'db:tags:getByResource',
     'db:tags:getAll',
     'db:tags:getResources',
+    'db:tags:create',
+    'db:tags:addToResource',
+    'db:tags:removeFromResource',
     'db:interactions:getByType',
     'db:interactions:update',
     'db:interactions:delete',
@@ -132,11 +149,18 @@ const ALLOWED_CHANNELS = {
     'kbllm:syncProject',
     'kbllm:syncAll',
     'kbllm:getStatus',
-    // Database - Links
-    'db:links:create',
-    'db:links:getBySource',
-    'db:links:getByTarget',
-    'db:links:delete',
+    // Database - Semantic relations
+    'db:semantic:getGraph',
+    'db:semantic:confirm',
+    'db:semantic:reject',
+    'db:semantic:delete',
+    'db:semantic:createManual',
+    'db:semantic:indexResource',
+    'db:semantic:reindexAll',
+    'db:semantic:search',
+    'db:semantic:getIndexingStatus',
+    'db:semantic:resourceHasChunks',
+    'cloud:llm:pdf-region-stream',
     // Database - Knowledge Graph
     'db:graph:createNode',
     'db:graph:getNode',
@@ -286,6 +310,7 @@ const ALLOWED_CHANNELS = {
     'ai:tools:resourceSearch',
     'ai:tools:resourceGet',
     'ai:tools:resourceGetSection',
+    'ai:tools:pdfRenderPage',
     'ai:tools:resourceList',
     'ai:tools:resourceSemanticSearch',
     'ai:tools:pdfExtractText',
@@ -334,6 +359,8 @@ const ALLOWED_CHANNELS = {
     'ai:tools:pptGetFilePath',
     'ai:tools:pptGetSlides',
     'ai:tools:pptExport',
+    'ai:tools:imageDescribe',
+    'ai:tools:screenUnderstand',
     'ai:tools:pptGetSlideImages',
     // Database - Flashcards
     'db:flashcards:createDeck',
@@ -392,16 +419,8 @@ const ALLOWED_CHANNELS = {
     'ollama:generate-embedding',
     'ollama:generate-summary',
     'ollama:chat',
-    // Vector channels removed (LanceDB replaced by PageIndex)
-    // PageIndex - Reasoning-based RAG (replaces vector embeddings)
-    'pageindex:start',
-    'pageindex:status',
-    'pageindex:resource-status',
-    'pageindex:index',
-    'pageindex:search',
-    'pageindex:delete',
-    'pageindex:reindex',
-    'pageindex:index-missing',
+    'indexing:full-sync',
+    'pdf:render-page',
     // Notebook (Python via IPC)
     'notebook:runPython',
     'notebook:checkPython',
@@ -475,10 +494,6 @@ const ALLOWED_CHANNELS = {
     'marketplace:install-plugin',
     'marketplace:install-skill',
     'marketplace:uninstall-skill',
-    // Docling cloud conversion
-    'docling:convert-resource',
-    'docling:get-resource-images',
-    'docling:get-image-data',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -506,8 +521,6 @@ const ALLOWED_CHANNELS = {
     'whatsapp:disconnected',
     // AI Cloud streaming
     'ai:stream:chunk',
-    // PageIndex (native JS) — live indexing progress
-    'pageindex:progress',
     // Audio events
     'audio:generation-progress',
     // Voice recording / dictation toggle (from tray or global shortcut)
@@ -553,8 +566,10 @@ const ALLOWED_CHANNELS = {
     'runs:chunk',
     // Cloud Storage OAuth result
     'cloud:auth-result',
-    // Docling cloud conversion progress
-    'docling:progress',
+    'semantic:progress',
+    'cloud:llm:stream-chunk',
+    'cloud:llm:stream-done',
+    'indexing:full-sync-progress',
     // Tab navigation (deep links → renderer tab store)
     'dome:open-resource-in-tab',
     'dome:open-settings-in-tab',
@@ -566,17 +581,17 @@ const electronHandler = {
   // ============================================
   // SYSTEM PATHS
   // ============================================
-  getUserDataPath: () => ipcRenderer.invoke('get-user-data-path'),
-  getHomePath: () => ipcRenderer.invoke('get-home-path'),
-  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getUserDataPath: () => unwrap(ipcRenderer.invoke('get-user-data-path')),
+  getHomePath: () => unwrap(ipcRenderer.invoke('get-home-path')),
+  getAppVersion: () => unwrap(ipcRenderer.invoke('get-app-version')),
 
   // ============================================
   // FILE DIALOGS
   // ============================================
-  selectFile: (options) => ipcRenderer.invoke('select-file', options),
-  selectFiles: (options) => ipcRenderer.invoke('select-files', options),
-  selectFolder: () => ipcRenderer.invoke('select-folder'),
-  showSaveDialog: (options) => ipcRenderer.invoke('show-save-dialog', options),
+  selectFile: (options) => unwrap(ipcRenderer.invoke('select-file', options)),
+  selectFiles: (options) => unwrap(ipcRenderer.invoke('select-files', options)),
+  selectFolder: () => unwrap(ipcRenderer.invoke('select-folder')),
+  showSaveDialog: (options) => unwrap(ipcRenderer.invoke('show-save-dialog', options)),
 
   // Get file path from a dropped File object (for drag-and-drop)
   getPathForFile: (file) => {
@@ -606,15 +621,15 @@ const electronHandler = {
   // ============================================
   // FILE SYSTEM OPERATIONS
   // ============================================
-  openPath: (filePath) => ipcRenderer.invoke('open-path', filePath),
+  openPath: (filePath) => unwrap(ipcRenderer.invoke('open-path', filePath)),
   showItemInFolder: (filePath) =>
-    ipcRenderer.invoke('show-item-in-folder', filePath),
+    unwrap(ipcRenderer.invoke('show-item-in-folder', filePath)),
 
   // ============================================
   // THEME
   // ============================================
-  getTheme: () => ipcRenderer.invoke('get-theme'),
-  setTheme: (theme) => ipcRenderer.invoke('set-theme', theme),
+  getTheme: () => unwrap(ipcRenderer.invoke('get-theme')),
+  setTheme: (theme) => unwrap(ipcRenderer.invoke('set-theme', theme)),
   onThemeChanged: (callback) => {
     const subscription = (event, data) => callback(data.theme);
     ipcRenderer.on('theme-changed', subscription);
@@ -867,6 +882,7 @@ const electronHandler = {
       create: (resource) => ipcRenderer.invoke('db:resources:create', resource),
       getByProject: (projectId) => ipcRenderer.invoke('db:resources:getByProject', projectId),
       getById: (id) => ipcRenderer.invoke('db:resources:getById', id),
+      ensureUrl: (payload) => ipcRenderer.invoke('db:resources:ensureUrl', payload),
       update: (resource) => ipcRenderer.invoke('db:resources:update', resource),
       search: (query) => ipcRenderer.invoke('db:resources:search', query),
       getAll: (limit) => ipcRenderer.invoke('db:resources:getAll', limit),
@@ -914,14 +930,46 @@ const electronHandler = {
       getByResource: (resourceId) => ipcRenderer.invoke('db:tags:getByResource', resourceId),
       getAll: () => ipcRenderer.invoke('db:tags:getAll'),
       getResources: (tagId) => ipcRenderer.invoke('db:tags:getResources', tagId),
+      create: (tag) => ipcRenderer.invoke('db:tags:create', tag),
+      addToResource: (resourceId, tagId) =>
+        ipcRenderer.invoke('db:tags:addToResource', resourceId, tagId),
+      removeFromResource: (resourceId, tagId) =>
+        ipcRenderer.invoke('db:tags:removeFromResource', resourceId, tagId),
     },
 
-    // Resource Links (graph relationships)
-    links: {
-      create: (link) => ipcRenderer.invoke('db:links:create', link),
-      getBySource: (sourceId) => ipcRenderer.invoke('db:links:getBySource', sourceId),
-      getByTarget: (targetId) => ipcRenderer.invoke('db:links:getByTarget', targetId),
-      delete: (id) => ipcRenderer.invoke('db:links:delete', id),
+    // Semantic relations (embeddings + graph)
+    semantic: {
+      getGraph: (resourceId, threshold) =>
+        ipcRenderer.invoke('db:semantic:getGraph', resourceId, threshold),
+      confirm: (edgeId) => ipcRenderer.invoke('db:semantic:confirm', edgeId),
+      reject: (edgeId) => ipcRenderer.invoke('db:semantic:reject', edgeId),
+      delete: (edgeId) => ipcRenderer.invoke('db:semantic:delete', edgeId),
+      createManual: (payload) => ipcRenderer.invoke('db:semantic:createManual', payload),
+      indexResource: (resourceId) => ipcRenderer.invoke('db:semantic:indexResource', resourceId),
+      reindexAll: () => ipcRenderer.invoke('db:semantic:reindexAll'),
+      search: (query, limit, filter) =>
+        ipcRenderer.invoke('db:semantic:search', query, limit, filter),
+      getIndexingStatus: () => ipcRenderer.invoke('db:semantic:getIndexingStatus'),
+      resourceHasChunks: (resourceId) => ipcRenderer.invoke('db:semantic:resourceHasChunks', resourceId),
+      onProgress: (callback) => {
+        const subscription = (_event, data) => callback(data);
+        ipcRenderer.on('semantic:progress', subscription);
+        return () => ipcRenderer.removeListener('semantic:progress', subscription);
+      },
+    },
+
+    cloudLlm: {
+      pdfRegionStream: (payload) => ipcRenderer.invoke('cloud:llm:pdf-region-stream', payload),
+      onStreamChunk: (callback) => {
+        const sub = (_e, data) => callback(data);
+        ipcRenderer.on('cloud:llm:stream-chunk', sub);
+        return () => ipcRenderer.removeListener('cloud:llm:stream-chunk', sub);
+      },
+      onStreamDone: (callback) => {
+        const sub = (_e, data) => callback(data);
+        ipcRenderer.on('cloud:llm:stream-done', sub);
+        return () => ipcRenderer.removeListener('cloud:llm:stream-done', sub);
+      },
     },
 
     // Knowledge Graph
@@ -1045,30 +1093,6 @@ const electronHandler = {
   },
 
   // ============================================
-  // DOCLING CLOUD CONVERSION API
-  // ============================================
-  docling: {
-    // Convert a resource file via Docling cloud service (requires Dome Pro)
-    convertResource: (resourceId) =>
-      ipcRenderer.invoke('docling:convert-resource', { resourceId }),
-
-    // Get all stored images extracted from a resource's Docling conversion
-    getResourceImages: (resourceId) =>
-      ipcRenderer.invoke('docling:get-resource-images', { resourceId }),
-
-    // Get base64 image data for a specific stored image
-    getImageData: (imageId) =>
-      ipcRenderer.invoke('docling:get-image-data', { imageId }),
-
-    // Listen for conversion progress events
-    onProgress: (callback) => {
-      const subscription = (_event, data) => callback(data);
-      ipcRenderer.on('docling:progress', subscription);
-      return () => ipcRenderer.removeListener('docling:progress', subscription);
-    },
-  },
-
-  // ============================================
   // WORKSPACE API
   // ============================================
   workspace: {
@@ -1078,6 +1102,10 @@ const electronHandler = {
     // Open Home window with folder selected
     openFolder: (folderId) =>
       ipcRenderer.invoke('window:open-folder', { folderId }),
+  },
+
+  pdf: {
+    renderPage: (payload) => ipcRenderer.invoke('pdf:render-page', payload),
   },
 
   // ============================================
@@ -1290,9 +1318,10 @@ const electronHandler = {
       resourceGet: (resourceId, options) =>
         ipcRenderer.invoke('ai:tools:resourceGet', { resourceId, options }),
 
-      // Get a specific section of an indexed PDF/note by node_id
-      resourceGetSection: (resourceId, nodeId) =>
-        ipcRenderer.invoke('ai:tools:resourceGetSection', { resourceId, nodeId }),
+      // Get full text of one semantic chunk (chunk_id from resource_semantic_search)
+      resourceGetSection: (resourceId, chunkId) =>
+        ipcRenderer.invoke('ai:tools:resourceGetSection', { resourceId, chunkId }),
+      pdfRenderPage: (payload) => ipcRenderer.invoke('ai:tools:pdfRenderPage', payload),
 
       // List resources with optional filters
       resourceList: (options) =>

@@ -292,6 +292,26 @@ class WindowManager {
   }
 
   /**
+   * Marcar un webContents como autorizado para IPC (p. ej. ventanas auxiliares del host).
+   * @param {number} webContentsId
+   */
+  authorizeWebContents(webContentsId) {
+    if (typeof webContentsId === 'number' && webContentsId > 0) {
+      this.authorizedWindows.add(webContentsId);
+    }
+  }
+
+  /**
+   * Quitar autorización (al cerrar la ventana asociada).
+   * @param {number} webContentsId
+   */
+  revokeWebContents(webContentsId) {
+    if (typeof webContentsId === 'number') {
+      this.authorizedWindows.delete(webContentsId);
+    }
+  }
+
+  /**
    * Obtener número de ventanas activas
    * @returns {number}
    */

@@ -1,10 +1,10 @@
 {
   "id": "knowledge-management",
   "name": "Knowledge Management",
-  "description": "Gestión del conocimiento: Zettelkasten, mapas conceptuales, taxonomías y sistemas de organización de notas.",
+  "description": "Knowledge management: Zettelkasten, concept maps, taxonomies, and note systems.",
   "author": "Dome Team",
   "version": "1.0.0",
   "tags": ["knowledge", "productivity", "organization"],
   "category": "productivity",
-  "instructions": "Cuando gestiones o organices conocimiento: (1) aplica el principio de atomicidad: una idea, una nota, (2) crea conexiones explícitas entre conceptos relacionados usando [[enlaces]], (3) usa taxonomías consistentes con etiquetas y categorías predefinidas, (4) distingue entre notas permanentes (conocimiento duradero), notas de literatura (resúmenes de fuentes) y notas efímeras (ideas temporales), (5) propón siempre una estructura de carpetas o sistema de etiquetado coherente con lo que ya existe en la biblioteca del usuario."
+  "instructions": "When organizing knowledge: (1) apply atomicity—one idea per note, (2) create explicit links between related concepts using [[links]], (3) use consistent taxonomies with predefined tags and categories, (4) distinguish permanent notes (durable knowledge), literature notes (source summaries), and fleeting notes (temporary ideas), (5) propose folder or tagging structures aligned with the user’s existing library."
 }
