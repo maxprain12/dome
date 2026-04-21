@@ -376,7 +376,7 @@ declare global {
           ) => Promise<DBResponse<{ movedIds: string[] }>>;
           removeFromFolder: (resourceId: string) => Promise<DBResponse<void>>;
           // Backlinks
-          getBacklinks: (resourceId: string) => Promise<DBResponse<Resource[]>>;
+          getBacklinks: (resourceId: string) => Promise<DBResponse<ResourceLink[]>>;
           // Search for mentions
           searchForMention: (query: string) => Promise<DBResponse<Resource[]>>;
         };

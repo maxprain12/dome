@@ -349,7 +349,7 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
       try {
         const result = await window.electron.db.resources.getBacklinks(resourceId);
         if (result?.success) {
-          setBacklinks((result.data || []) as unknown as BacklinkResult[]);
+          setBacklinks((result.data || []) as BacklinkResult[]);
         }
       } catch (error) {
         console.error('Error loading backlinks:', error);
