@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ElementType } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, FolderOpen, ClipboardList, Bot, BarChart2, Calendar, Mail } from 'lucide-react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import ManyChatHeader from './ManyChatHeader';
 import ManyChatInput from './ManyChatInput';
-import { useManyStore, type ManyChatSession, type ManyMessage } from '@/lib/store/useManyStore';
+import { useManyStore, type ManyChatSession, type ManyMessage, type PendingPdfRegion } from '@/lib/store/useManyStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import {
@@ -43,6 +44,8 @@ import {
   type PersistentRun,
 } from '@/lib/automations/api';
 import { registerManyMessageSender, type ManySendOptions } from '@/lib/many/manySendController';
+import { runPdfRegionStream } from '@/lib/hooks/usePdfRegionStream';
+import PdfRegionBanner from '@/components/many/PdfRegionBanner';
 
 
 const QUICK_PROMPTS_BASE = [
@@ -147,6 +150,7 @@ interface ManyPanelProps {
 
 export default function ManyPanel({ width, onClose, isVisible, isFullscreen = false, mode = 'full' }: ManyPanelProps) {
   const isHeadless = mode === 'headless';
+  const { t } = useTranslation();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const {
@@ -168,10 +172,14 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     whatsappConnected,
     pinnedResources,
   } = useManyStore();
+  const pendingPdfRegion = useManyStore((s) => s.pendingPdfRegion);
+  const clearPendingPdfRegion = useManyStore((s) => s.clearPendingPdfRegion);
   const currentFolderId = useAppStore((s) => s.currentFolderId);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
   const activeShellTabType = useTabStore((s) => s.tabs.find((t) => t.id === s.activeTabId)?.type);
   const chatProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
+  const pendingManyHandoff = useManyStore((s) => s.pendingManyHandoff);
+  const setPendingManyHandoff = useManyStore((s) => s.setPendingManyHandoff);
 
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -184,6 +192,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
+  const [pdfRegionStreamingMessage, setPdfRegionStreamingMessage] = useState<ChatMessageData | null>(null);
   const [pendingApproval, setPendingApproval] = useState<{
     actionRequests: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
     reviewConfigs: Array<{ actionName: string; allowedDecisions: string[] }>;
@@ -231,6 +240,21 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     window.addEventListener('dome:ai-config-changed', handleConfigChanged);
     return () => window.removeEventListener('dome:ai-config-changed', handleConfigChanged);
   }, []);
+
+  useEffect(() => {
+    if (!isVisible || isHeadless) return;
+    if (!pendingManyHandoff) return;
+    const text = pendingManyHandoff;
+    setInput(text);
+    setPendingManyHandoff(null);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      const len = text.length;
+      el.setSelectionRange(len, len);
+    });
+  }, [isVisible, isHeadless, pendingManyHandoff, setPendingManyHandoff]);
 
   useEffect(() => {
     const loadMcpEnabled = async () => {
@@ -664,7 +688,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, streamingMessage, scrollToBottom]);
+  }, [messages, streamingMessage, pdfRegionStreamingMessage, scrollToBottom]);
 
   useEffect(() => {
     if (pendingApproval && pendingApprovalRef.current) {
@@ -761,9 +785,86 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
   const hasLangGraph = typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
 
+  const handlePdfRegionSend = useCallback(
+    async (userMessage: string, pending: PendingPdfRegion) => {
+      if (isSubmittingRef.current) return;
+      if (!window.electron?.db?.cloudLlm?.pdfRegionStream) {
+        addMessage({ role: 'assistant', content: t('many.cloud_vision_unavailable') });
+        return;
+      }
+
+      isSubmittingRef.current = true;
+      setInput('');
+      setError(null);
+      addMessage({ role: 'user', content: userMessage });
+      scrollToBottom(true);
+
+      const streamBubbleId = `pdf-region-stream-${Date.now()}`;
+      let accumulated = '';
+      setPdfRegionStreamingMessage({
+        id: streamBubbleId,
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        isStreaming: true,
+        streamingLabel: t('many.pdf_region_streaming'),
+      });
+
+      const result = await runPdfRegionStream({
+        imageDataUrl: pending.imageDataUrl,
+        question: userMessage,
+        onChunk: (text) => {
+          accumulated += text;
+          setPdfRegionStreamingMessage((prev) => (prev ? { ...prev, content: accumulated } : null));
+        },
+      });
+
+      setPdfRegionStreamingMessage(null);
+      isSubmittingRef.current = false;
+      setStatus('idle');
+
+      if (result.ok) {
+        addMessage({
+          role: 'assistant',
+          content: accumulated,
+          source: 'pdf_region',
+          pdfRegionMeta: {
+            resourceId: pending.resourceId,
+            page: pending.page,
+            resourceTitle: pending.resourceTitle,
+            question: userMessage,
+          },
+        });
+        clearPendingPdfRegion();
+      } else {
+        const errMsg =
+          result.error === 'cloud_unavailable' ? t('many.cloud_vision_unavailable_detail') : result.error;
+        addMessage({
+          role: 'assistant',
+          content: `**${t('common.error')}:** ${errMsg}`,
+        });
+      }
+      scrollToBottom(true);
+    },
+    [addMessage, clearPendingPdfRegion, scrollToBottom, setStatus, t],
+  );
+
   const handleSend = useCallback(async (messageOverride?: string, sendOptions?: ManySendOptions) => {
     const userMessage = messageOverride || input.trim();
-    if (!userMessage || isLoading || isSubmittingRef.current) return;
+    if (!userMessage || isSubmittingRef.current) return;
+
+    if (pdfRegionStreamingMessage?.isStreaming) return;
+
+    const pendingRegion = useManyStore.getState().pendingPdfRegion;
+    if (pendingRegion) {
+      if (sendOptions?.openPanel) {
+        useManyStore.getState().setOpen(true);
+      }
+      await handlePdfRegionSend(userMessage, pendingRegion);
+      return;
+    }
+
+    if (isLoading) return;
 
     if (sendOptions?.openPanel) {
       useManyStore.getState().setOpen(true);
@@ -1024,6 +1125,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     applyRunSnapshot,
     isHeadless,
     chatProjectId,
+    handlePdfRegionSend,
+    pdfRegionStreamingMessage?.isStreaming,
   ]);
 
   useEffect(() => {
@@ -1076,18 +1179,35 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           toolCalls,
           citationMap: buildCitationMap(toolCalls as Array<{ name: string; result?: unknown }> | undefined),
           thinking: m.thinking,
+          pdfRegionMeta: m.pdfRegionMeta,
         };
       }),
     [messages],
   );
 
   const messageGroups = useMemo(() => {
+    const withPdfRegion = pdfRegionStreamingMessage
+      ? [
+          ...chatMessages,
+          {
+            ...pdfRegionStreamingMessage,
+            citationMap: buildCitationMap(
+              pdfRegionStreamingMessage.toolCalls as Array<{ name: string; result?: unknown }> | undefined,
+            ),
+          },
+        ]
+      : chatMessages;
     const liveStreamingMessage = streamingMessage
-      ? { ...streamingMessage, citationMap: buildCitationMap(streamingMessage.toolCalls as Array<{ name: string; result?: unknown }> | undefined) }
+      ? {
+          ...streamingMessage,
+          citationMap: buildCitationMap(
+            streamingMessage.toolCalls as Array<{ name: string; result?: unknown }> | undefined,
+          ),
+        }
       : null;
-    const all = liveStreamingMessage ? [...chatMessages, liveStreamingMessage] : chatMessages;
+    const all = liveStreamingMessage ? [...withPdfRegion, liveStreamingMessage] : withPdfRegion;
     return groupMessagesByRole(all);
-  }, [chatMessages, streamingMessage]);
+  }, [chatMessages, streamingMessage, pdfRegionStreamingMessage]);
 
   const handleClear = useCallback(() => {
     if (window.confirm('¿Borrar todo el historial del chat?')) {
@@ -1166,7 +1286,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       />
 
       {/* ── WELCOME SCREEN (fullscreen, no messages) ── */}
-      {isFullscreen && chatMessages.length === 0 && !streamingMessage ? (
+      {isFullscreen &&
+      chatMessages.length === 0 &&
+      !streamingMessage &&
+      !pdfRegionStreamingMessage &&
+      !pendingPdfRegion ? (
         <div className="flex flex-col items-center justify-center flex-1 min-h-0 px-6 py-12">
           <h1
             style={{
@@ -1201,6 +1325,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               onAbort={handleAbort}
               onVoiceSend={(text) => void handleSend(text, { autoSpeak: true })}
               isWelcomeScreen
+              inputPlaceholderOverride={
+                pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null
+              }
             />
           </div>
 
@@ -1255,7 +1382,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           className="many-panel-messages flex-1 overflow-y-auto overflow-x-hidden min-h-0 py-6"
           style={{ paddingLeft: isFullscreen ? '10%' : '16px', paddingRight: isFullscreen ? '10%' : '16px' }}
         >
-          {chatMessages.length === 0 && !streamingMessage ? (
+          {chatMessages.length === 0 && !streamingMessage && !pdfRegionStreamingMessage ? (
             <div className="py-10 text-center">
               <div className="mb-3 flex justify-center">
                 <ManyAvatar size="lg" />
@@ -1312,6 +1439,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           <div ref={messagesEndRef} />
         </div>
       )}
+
+      {isVisible && !isHeadless && pendingPdfRegion ? (
+        <PdfRegionBanner
+          pending={pendingPdfRegion}
+          onDismiss={() => clearPendingPdfRegion()}
+        />
+      ) : null}
 
       {pendingApproval ? (
         <div
@@ -1370,14 +1504,20 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       ) : null}
 
       {/* Hide bottom input when welcome screen is showing centered input */}
-      {!(isFullscreen && chatMessages.length === 0 && !streamingMessage) && (
+      {!(
+        isFullscreen &&
+        chatMessages.length === 0 &&
+        !streamingMessage &&
+        !pdfRegionStreamingMessage &&
+        !pendingPdfRegion
+      ) && (
         isFullscreen ? (
           <div className="px-[10%] pb-4">
             <ManyChatInput
               input={input}
               setInput={setInput}
               inputRef={inputRef}
-              isLoading={isLoading}
+              isLoading={isLoading || !!pdfRegionStreamingMessage?.isStreaming}
               toolsEnabled={toolsEnabled}
               resourceToolsEnabled={resourceToolsEnabled}
               mcpEnabled={mcpEnabled}
@@ -1389,6 +1529,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               onSend={() => handleSend()}
               onAbort={handleAbort}
               onVoiceSend={(text) => void handleSend(text, { autoSpeak: true })}
+              inputPlaceholderOverride={
+                pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null
+              }
             />
           </div>
         ) : (
@@ -1396,7 +1539,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             input={input}
             setInput={setInput}
             inputRef={inputRef}
-            isLoading={isLoading}
+            isLoading={isLoading || !!pdfRegionStreamingMessage?.isStreaming}
             toolsEnabled={toolsEnabled}
             resourceToolsEnabled={resourceToolsEnabled}
             mcpEnabled={mcpEnabled}
@@ -1408,6 +1551,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             onSend={() => handleSend()}
             onAbort={handleAbort}
             onVoiceSend={(text) => void handleSend(text, { autoSpeak: true })}
+            inputPlaceholderOverride={
+              pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null
+            }
           />
         )
       )}

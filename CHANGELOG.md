@@ -2,6 +2,18 @@
 
 All notable changes to Dome are documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **Indexación**: transcripción/descr. de **PDF e imágenes** vía **LLM en la nube** (visión) del usuario; **embeddings Nomic** locales sin cambios (`resource_chunks`), caché en `resource_transcripts`, búsqueda híbrida.
+- **Chat / herramientas**: `resource_semantic_search` devuelve `chunk_id` y `page_number`; nueva herramienta `pdf_render_page`; enlaces markdown `dome-pdf-page:resource:page` para vistas de página.
+
+### Removed
+
+- **Gemma on-device**: worker WebGPU, `gemma:*` IPC, `GemmaWorkerPage`, STT `local-gemma` (mapeado a Whisper cloud), UI y docs asociadas; visión/PDF región vía `cloud:llm:*` y `electron/services/cloud-llm.service.cjs`.
+- Runtime Python **pageindex-runtime**, bridge `pageindex-python.cjs`, `resource-indexer.cjs`, Docling en proceso principal, IPC `pageindex:*` / `docling:*`, y documentación asociada (`docs/pageindex.md`, `kb-index-policy.md`, `vector-db.md`).
+
 ## [2.1.4] - 2026-04-08
 
 ### Added
@@ -111,7 +123,7 @@ All notable changes to Dome are documented in this file.
 
 ### Fixed
 
-- **Empaquetado macOS / codesign**: Enlaces simbólicos del runtime Python (PageIndex) o `app.asar.unpacked` que apuntaban fuera del `.app` rompían `codesign --verify --strict`. Mitigación con `venv --copies` en `prepare-pageindex-runtime` y saneado de symlinks en `after-pack` antes de firmar.
+- **Empaquetado macOS / codesign**: Enlaces simbólicos en `app.asar.unpacked` que apuntaban fuera del `.app` rompían `codesign --verify --strict`; el hook `after-pack` sanea symlinks en directorios empaquetados.
 
 ### Build & CI
 
@@ -133,7 +145,7 @@ All notable changes to Dome are documented in this file.
 - **Editor**: Mejoras en BubbleMenu, FloatingMenu, AIBubbleMenu y NotionEditor.
 - **Extensiones del editor**: Actualizaciones en Callout, Divider, Toggle, FileBlock, PDFEmbed, VideoEmbed, AudioEmbed, Mermaid y ResourceMention.
 - **Martin**: Mejoras en prompts, tools y componentes (MartinFloatingButton).
-- **Indexación de recursos**: Actualizaciones en resource-indexer e IPC.
+- **Indexación de recursos**: Programación vía semantic-index-scheduler e IPC `db:semantic:*`.
 
 [0.2.4]: https://github.com/maxprain12/dome/releases/tag/v0.2.4
 

@@ -190,23 +190,9 @@ exports.default = async function afterPack(context) {
     console.log('[AfterPack] Playwright browsers not bundled (downloaded on first web scrape to userData; smaller installer).');
   }
 
-  const pageIndexRuntimePath = path.join(resourcesPath, 'pageindex-runtime');
-  if (fs.existsSync(pageIndexRuntimePath)) {
-    console.log('[AfterPack] ✅ Embedded PageIndex runtime exists');
-    const runtimeTargets = fs.readdirSync(pageIndexRuntimePath).filter(name => !name.startsWith('.'));
-    runtimeTargets.forEach((target) => {
-      console.log(`[AfterPack]    Runtime target: ${target}`);
-    });
-  } else {
-    console.warn('[AfterPack] ⚠️  Embedded PageIndex runtime missing from resources');
-  }
-
   if (electronPlatformName === 'darwin') {
     const appBundle = path.join(appOutDir, 'Dome.app');
-    const scanDirs = [
-      path.join(resourcesPath, 'pageindex-runtime'),
-      path.join(resourcesPath, 'app.asar.unpacked'),
-    ].filter((p) => fs.existsSync(p));
+    const scanDirs = [path.join(resourcesPath, 'app.asar.unpacked')].filter((p) => fs.existsSync(p));
     if (scanDirs.length > 0) {
       console.log('[AfterPack] Checking symlinks for macOS codesign (strict)...');
       fixSymlinksOutsideAppBundle(appBundle, scanDirs);

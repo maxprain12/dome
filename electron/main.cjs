@@ -212,7 +212,7 @@ const calendarSyncScheduler = require('./calendar-sync-scheduler.cjs');
 const automationService = require('./automation-service.cjs');
 const runEngine = require('./run-engine.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
-const resourceIndexer = require('./resource-indexer.cjs');
+const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
 
 // IPC handlers (modularized)
 const { registerAll } = require('./ipc/index.cjs');
@@ -659,12 +659,14 @@ app
     ];
     // speaker-selection: Chromium checks this for audio output / loopback paths with getUserMedia & display capture.
     // Denying it logged "Check denied speaker-selection" and could trigger internal null-iteration errors.
+    // background-sync: dependencies may query this permission; allow on first-party origins to avoid log noise.
     const _ALLOWED_PERMISSIONS = new Set([
       'media',
       'microphone',
       'camera',
       'display-capture',
       'speaker-selection',
+      'background-sync',
     ]);
 
     function _isTrustedOrigin(origin) {
@@ -771,6 +773,37 @@ app
     // IMPORTANTE: Crear ventana PRIMERO para que la UI se muestre inmediatamente
     // La inicializacion de LanceDB puede fallar o bloquearse con modulos nativos
     const mainWindow = await createWindow();
+
+    // One-time background semantic chunk reindex (Nomic, migration 25+); non-blocking
+    setTimeout(() => {
+      try {
+        const q = database.getQueries();
+        const done = q.getSetting.get('semantic_initial_reindex_done_v2');
+        if (done?.value === '1') return;
+        const semanticScheduler = require('./semantic-index-scheduler.cjs');
+        semanticScheduler.init(database);
+        void semanticScheduler
+          .getIndexer()
+          .reindexAll({
+            onProgress: (p) => {
+              try {
+                windowManager.broadcast('semantic:progress', p);
+              } catch {
+                /* ignore */
+              }
+            },
+          })
+          .then(() => {
+            try {
+              q.setSetting.run('semantic_initial_reindex_done_v2', '1', Date.now());
+            } catch {
+              /* ignore */
+            }
+          });
+      } catch (e) {
+        console.warn('[Main] semantic initial reindex:', e?.message || e);
+      }
+    }, 5000);
 
     // Modern Electron display-media handler for system/meeting audio capture.
     // The renderer calls window.electron.transcription.setDisplayMediaSource(id)
@@ -887,10 +920,8 @@ app
       console.error('❌ Background initialization failed:', err);
     });
 
-    // Start periodic auto-indexing (startup sweep + hourly)
-    resourceIndexer.startAutoIndexing({ database, fileStorage, windowManager });
-
-    // Native JS doc-indexer needs no startup — available immediately
+    semanticIndexScheduler.init(database);
+    semanticIndexScheduler.startAutoIndexing();
 
     // Schedule orphan file cleanup after app is ready (non-blocking)
     setTimeout(() => {
@@ -898,8 +929,7 @@ app
         console.log('[App] Running automatic orphan file cleanup...');
         const queries = database.getQueries();
         const resourcePaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
-        const imagePaths = (queries.getResourceImageInternalPaths?.all?.() ?? []).map((r) => r.internal_path);
-        const internalPaths = [...resourcePaths, ...imagePaths];
+        const internalPaths = [...resourcePaths];
         const avatarSetting = queries.getSetting.get('user_avatar_path');
         const currentAvatarPath = avatarSetting?.value || null;
 
@@ -942,7 +972,7 @@ app.on('before-quit', async () => {
   calendarSyncScheduler.stop();
   automationService.stop();
   runEngine.stop();
-  // doc-indexer is native JS, no subprocess to stop
+  // Semantic indexer runs in-process; no separate subprocess to stop
   await webScraper.close?.();
   await ollamaManager.cleanup();
   database.closeDB();

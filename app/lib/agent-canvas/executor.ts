@@ -8,7 +8,7 @@
  * Supports both user-defined ManyAgents and built-in SystemAgents.
  */
 
-import type { Node, Edge } from 'reactflow';
+import type { WorkflowEdge, WorkflowNode } from '@/types/canvas';
 import type {
   CanvasNodeData,
   AgentNodeData,
@@ -37,7 +37,10 @@ export type { ExecutionLogEntry };
  * Level-based topological sort.
  * Returns an array of levels; each level is an array of nodes that can run in parallel.
  */
-function topologicalLevels(nodes: Node[], edges: Edge[]): Node[][] {
+function topologicalLevels(
+  nodes: WorkflowNode<CanvasNodeData>[],
+  edges: WorkflowEdge[],
+): WorkflowNode<CanvasNodeData>[][] {
   const inDegree: Record<string, number> = {};
   const adjacency: Record<string, string[]> = {};
 
@@ -51,12 +54,12 @@ function topologicalLevels(nodes: Node[], edges: Edge[]): Node[][] {
     inDegree[edge.target] = (inDegree[edge.target] ?? 0) + 1;
   }
 
-  const levels: Node[][] = [];
+  const levels: WorkflowNode<CanvasNodeData>[][] = [];
   let currentLevel = nodes.filter((n) => inDegree[n.id] === 0);
 
   while (currentLevel.length > 0) {
     levels.push(currentLevel);
-    const nextLevel: Node[] = [];
+    const nextLevel: WorkflowNode<CanvasNodeData>[] = [];
     for (const node of currentLevel) {
       for (const neighborId of (adjacency[node.id] ?? [])) {
         inDegree[neighborId] = (inDegree[neighborId] ?? 1) - 1;
@@ -84,8 +87,8 @@ function payloadToText(payload: CanvasNodePayload | undefined): string {
 /** Collect resolved payloads from nodes connected to a given target node. */
 function getInputPayloads(
   targetNodeId: string,
-  edges: Edge[],
-  resolvedPayloads: Record<string, CanvasNodePayload>
+  edges: WorkflowEdge[],
+  resolvedPayloads: Record<string, CanvasNodePayload>,
 ): CanvasNodePayload[] {
   const incomingEdges = edges.filter((e) => e.target === targetNodeId);
   const payloads: CanvasNodePayload[] = [];
@@ -150,7 +153,7 @@ function buildAgentInputPayload(payloads: CanvasNodePayload[]): CanvasNodePayloa
 }
 
 /** Resolve the "output value" of a non-agent node (text-input, document, image). */
-function resolveStaticNodeOutput(node: Node<CanvasNodeData>): CanvasNodePayload {
+function resolveStaticNodeOutput(node: WorkflowNode<CanvasNodeData>): CanvasNodePayload {
   const data = node.data;
   if (data.type === 'text-input') {
     return {
@@ -200,8 +203,8 @@ function resolveStaticNodeOutput(node: Node<CanvasNodeData>): CanvasNodePayload 
 
 /** Execute a single agent node, streaming chunks back to the store. */
 async function executeAgentNode(
-  node: Node<CanvasNodeData>,
-  edges: Edge[],
+  node: WorkflowNode<CanvasNodeData>,
+  edges: WorkflowEdge[],
   resolvedPayloads: Record<string, CanvasNodePayload>,
   store: StoreActions,
   onLog: (entry: Omit<ExecutionLogEntry, 'id' | 'timestamp'>) => void
@@ -381,10 +384,10 @@ async function executeAgentNode(
 }
 
 export async function executeWorkflow(
-  nodes: Node<CanvasNodeData>[],
-  edges: Edge[],
+  nodes: WorkflowNode<CanvasNodeData>[],
+  edges: WorkflowEdge[],
   store: StoreActions,
-  onLog?: (entry: ExecutionLogEntry) => void
+  onLog?: (entry: ExecutionLogEntry) => void,
 ): Promise<void> {
   store.setExecutionStatus('running');
   store.resetExecution();

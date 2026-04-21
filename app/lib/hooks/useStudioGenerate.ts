@@ -290,7 +290,11 @@ export function useStudioGenerate(options?: {
   const [generatingType, setGeneratingType] = useState<StudioOutputType | null>(null);
 
   const generate = useCallback(
-    async (type: StudioOutputType, sourceIdsOverride?: string[]): Promise<boolean> => {
+    async (
+      type: StudioOutputType,
+      sourceIdsOverride?: string[],
+      resourceIdForCreate?: string | null,
+    ): Promise<boolean> => {
       setIsGenerating(true);
       setGeneratingType(type);
       try {
@@ -299,6 +303,8 @@ export function useStudioGenerate(options?: {
           sourceIdsOverride ??
           options?.selectedSourceIds ??
           useAppStore.getState().selectedSourceIds;
+        const effectiveResourceId =
+          resourceIdForCreate !== undefined ? resourceIdForCreate : (options?.resourceId ?? null);
 
         if (!projectId) {
           showToast('error', 'No project selected. Open a resource from a project first.');
@@ -339,7 +345,7 @@ export function useStudioGenerate(options?: {
         let messages: Array<{ role: string; content: string }>;
 
         if (useTools) {
-          userPrompt = buildGeneratePrompt(type, projectId, sourceIds, options?.resourceId);
+          userPrompt = buildGeneratePrompt(type, projectId, sourceIds, effectiveResourceId);
           systemPrompt = getStudioPrompt(true);
           messages = [
             { role: 'system', content: systemPrompt },
@@ -405,7 +411,7 @@ export function useStudioGenerate(options?: {
           title,
           content: contentStr,
           source_ids: sourceIds?.length ? (Array.isArray(sourceIds) ? JSON.stringify(sourceIds) : sourceIds) : null,
-          resource_id: options?.resourceId ?? undefined,
+          resource_id: effectiveResourceId ?? undefined,
         });
 
         if (!createResult.success || !createResult.data) {

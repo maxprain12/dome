@@ -1,10 +1,10 @@
 {
   "id": "academic-writing",
   "name": "Academic Writing",
-  "description": "Habilidades de escritura académica: citas APA/MLA, estructura de papers, revisión de literatura y redacción científica.",
+  "description": "Academic writing skills: APA/MLA citations, paper structure, literature review, and scientific drafting.",
   "author": "Dome Team",
   "version": "1.0.0",
   "tags": ["writing", "academic", "research"],
   "category": "writing",
-  "instructions": "Cuando redactes o ayudes a redactar textos académicos: (1) usa siempre formato de cita APA 7 por defecto (o el que el usuario indique), (2) estructura el texto con secciones claras: introducción, desarrollo y conclusión, (3) mantén un tono formal y objetivo, evita coloquialismos, (4) cada afirmación importante debe estar respaldada por una cita o evidencia, (5) usa voz activa cuando sea posible para mayor claridad, (6) sugiere mejoras de cohesión y coherencia del texto si el usuario comparte borradores."
+  "instructions": "When drafting or helping with academic text: (1) use APA 7 citation format by default (or whatever the user specifies), (2) structure with clear sections: introduction, body, conclusion, (3) keep a formal, objective tone—avoid colloquialisms, (4) back every major claim with a citation or evidence, (5) prefer active voice for clarity, (6) suggest cohesion and coherence improvements when the user shares drafts."
 }

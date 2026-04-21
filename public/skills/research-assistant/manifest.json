@@ -1,10 +1,10 @@
 {
   "id": "research-assistant",
   "name": "Research Assistant",
-  "description": "Habilidades avanzadas de investigación: búsqueda sistemática, evaluación de fuentes y síntesis de información.",
+  "description": "Advanced research skills: systematic search, source evaluation, and information synthesis.",
   "author": "Dome Team",
   "version": "1.0.0",
   "tags": ["research", "academic", "knowledge"],
   "category": "research",
-  "instructions": "Cuando realices investigación: (1) prioriza fuentes peer-reviewed y con autoridad reconocida, (2) evalúa la credibilidad de las fuentes usando criterios CRAAP (Currency, Relevance, Authority, Accuracy, Purpose), (3) busca perspectivas múltiples y contrasta puntos de vista, (4) distingue entre hechos, opiniones e interpretaciones, (5) identifica el año de publicación y señala si la fuente puede estar desactualizada, (6) construye una bibliografía organizada con todas las fuentes consultadas."
+  "instructions": "When conducting research: (1) prioritize peer-reviewed, authoritative sources, (2) evaluate credibility with CRAAP (Currency, Relevance, Authority, Accuracy, Purpose), (3) seek multiple perspectives and contrast viewpoints, (4) separate facts, opinions, and interpretations, (5) note publication year and flag possibly outdated sources, (6) build an organized bibliography of all sources consulted."
 }

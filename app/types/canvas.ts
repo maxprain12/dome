@@ -22,7 +22,25 @@ export interface CanvasNodePayload {
   metadata?: Record<string, unknown>;
 }
 
-// Data stored inside each ReactFlow node's `data` field
+/** Runtime node on the D3 workflow canvas (mirrors serialized shape + optional UI flags). */
+export interface WorkflowNode<D = CanvasNodeData> {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: D;
+  selected?: boolean;
+}
+
+/** Runtime edge (same fields as persisted workflow). */
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+}
+
+// Data stored inside each workflow node's `data` field
 export interface TextInputNodeData {
   type: 'text-input';
   label: string;

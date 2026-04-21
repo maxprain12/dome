@@ -6,7 +6,7 @@ Documentación del constructor visual de workflows de IA de Dome (introducido en
 
 ## ¿Qué es el Agent Canvas?
 
-El **Agent Canvas** es una interfaz visual tipo "no-code" para construir workflows de IA complejos. Usa **ReactFlow** como motor de canvas: los usuarios arrastran nodos, los conectan y configuran cada paso del workflow.
+El **Agent Canvas** es una interfaz visual tipo "no-code" para construir workflows de IA complejos. Usa **D3** (zoom, arrastre, aristas SVG) como motor de canvas: los usuarios arrastran nodos, los conectan y configuran cada paso del workflow.
 
 Cuando ejecutas un workflow, el Run Engine procesa los nodos en orden, los resultados fluyen de nodo a nodo, y puedes ver los logs en tiempo real.
 
@@ -156,7 +156,7 @@ Los workflows usan el mismo [Run Engine](./runs.md) que las automatizaciones.
 ## Arquitectura técnica
 
 ```
-Renderer (ReactFlow canvas)
+Renderer (D3 canvas)
        │
        │ Dibuja nodos/edges, captura config
        │
@@ -183,7 +183,7 @@ Renderer (ReactFlow canvas)
 | Componente | Ubicación | Descripción |
 |-----------|-----------|-------------|
 | `AgentCanvasPage` | `app/pages/` | Página principal del canvas |
-| `CanvasFlow` | `app/components/agent-canvas/` | Canvas ReactFlow principal |
+| `CanvasWorkspace` | `app/components/agent-canvas/` | Lienzo D3 principal |
 | `NodePalette` | `app/components/agent-canvas/` | Panel lateral de nodos disponibles |
 | `NodeConfigPanel` | `app/components/agent-canvas/` | Panel de configuración de nodo seleccionado |
 | `ExecutionLogPanel` | `app/components/agent-canvas/` | Logs en tiempo real |

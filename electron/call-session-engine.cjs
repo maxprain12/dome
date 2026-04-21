@@ -9,7 +9,7 @@ const { app } = require('electron');
 
 const transcriptionService = require('./transcription-service.cjs');
 const transcriptionStructured = require('./transcription-structured.cjs');
-const resourceIndexer = require('./resource-indexer.cjs');
+const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
 const { getOpenAIKey } = require('./openai-key.cjs');
 const aiCloudService = require('./ai-cloud-service.cjs');
 
@@ -79,6 +79,7 @@ function getSttOpts(database) {
   const queries = database.getQueries();
   const providerRow = queries.getSetting.get('transcription_stt_provider');
   let sttProvider = providerRow?.value && String(providerRow.value).trim().toLowerCase();
+  if (sttProvider === 'local-gemma') sttProvider = 'openai';
   if (sttProvider !== 'groq' && sttProvider !== 'openai' && sttProvider !== 'custom') {
     sttProvider = transcriptionService.getTranscriptionSttProvider(database);
   }
@@ -472,8 +473,9 @@ async function stopSession(deps, sessionId) {
   );
   const noteResource = queries.getResourceById.get(noteId);
   windowManager.broadcast('resource:created', noteResource);
-  if (resourceIndexer.shouldIndex(noteResource)) {
-    resourceIndexer.scheduleIndexing(noteId, indexerDeps);
+  semanticIndexScheduler.init(deps.database);
+  if (semanticIndexScheduler.shouldIndex(noteResource)) {
+    semanticIndexScheduler.scheduleSemanticReindex(noteId);
   }
 
   safeRmdir(session.sessionDir);

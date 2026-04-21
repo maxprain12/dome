@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Handle, Position } from 'reactflow';
-import type { NodeProps } from 'reactflow';
 import { Terminal, Loader2, CheckCircle2, Copy, Check, Save } from 'lucide-react';
 import type { OutputNodeData } from '@/types/canvas';
 import { showToast } from '@/lib/store/useToastStore';
@@ -10,7 +8,14 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { generateId } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
-export default function OutputNode({ data, selected }: NodeProps<OutputNodeData>) {
+export default function OutputNode({
+  data,
+  selected,
+}: {
+  id: string;
+  data: OutputNodeData;
+  selected: boolean;
+}) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -54,76 +59,72 @@ export default function OutputNode({ data, selected }: NodeProps<OutputNodeData>
 
   return (
     <div
-      className="workflow-node-card rounded-lg overflow-hidden transition-colors"
+      className="wf-node-card workflow-node-card rounded-xl overflow-hidden transition-[box-shadow,border-color]"
       style={{
         width: 260,
         border: `1px solid ${selected ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
+        boxShadow: selected ? '0 0 0 2px color-mix(in srgb, var(--dome-accent) 18%, transparent)' : 'none',
+        background: 'var(--dome-surface)',
       }}
     >
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="workflow-node-handle"
-        style={{ background: 'var(--dome-accent)' }}
-      />
-
-      <div className="workflow-node-header flex items-center gap-1.5 px-2 py-1.5">
+      <div
+        className="workflow-node-header flex items-center gap-2 px-3 py-2"
+        style={{ background: 'var(--dome-bg)', borderBottom: '1px solid var(--dome-border)' }}
+      >
         <div
-          className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
+          className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: isDone ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}
         >
-          <Terminal className="w-3 h-3 text-white" />
+          <Terminal className="w-3.5 h-3.5 text-white" />
         </div>
         <span
-          className="flex-1 text-[11px] font-semibold leading-tight truncate"
+          className="flex-1 text-xs font-semibold leading-tight truncate"
           style={{ color: isDone ? 'var(--dome-accent)' : 'var(--dome-text)' }}
         >
           {data.label}
         </span>
-        {isRunning && <Loader2 className="w-3 h-3 animate-spin shrink-0" style={{ color: 'var(--dome-accent)' }} />}
+        {isRunning && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" style={{ color: 'var(--dome-accent)' }} />}
         {isDone && (
           <div className="flex items-center gap-0.5 shrink-0">
-            <CheckCircle2 className="w-3 h-3" style={{ color: 'var(--dome-accent)' }} />
+            <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
             <button
+              type="button"
               onClick={handleCopy}
-              className="nodrag p-0.5 rounded transition-colors hover:bg-[var(--dome-accent-bg)]"
+              className="nodrag p-1 rounded-md transition-colors hover:bg-[var(--dome-accent-bg)]"
               title={t('canvas.copy_to_clipboard')}
             >
               {copied ? (
-                <Check className="w-3 h-3" style={{ color: 'var(--success)' }} />
+                <Check className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
               ) : (
-                <Copy className="w-3 h-3" style={{ color: 'var(--dome-accent)' }} />
+                <Copy className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
               )}
             </button>
             <button
+              type="button"
               onClick={handleSave}
               disabled={saving}
-              className="nodrag p-0.5 rounded transition-colors hover:bg-[var(--dome-accent-bg)] disabled:opacity-50"
+              className="nodrag p-1 rounded-md transition-colors hover:bg-[var(--dome-accent-bg)] disabled:opacity-50"
               title={t('canvas.save_as_note')}
             >
               {saving ? (
-                <Loader2 className="w-3 h-3 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+                <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-accent)' }} />
               ) : (
-                <Save className="w-3 h-3" style={{ color: 'var(--dome-accent)' }} />
+                <Save className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
               )}
             </button>
           </div>
         )}
       </div>
 
-      {/* Content */}
-      <div className="p-2" style={{ minHeight: 52 }}>
+      <div className="p-3" style={{ minHeight: 52 }}>
         {!data.content ? (
-          <div
-            className="flex flex-col items-center justify-center py-2 gap-1"
-            style={{ color: 'var(--dome-text-muted)' }}
-          >
+          <div className="flex flex-col items-center justify-center py-2 gap-1" style={{ color: 'var(--dome-text-muted)' }}>
             <Terminal className="w-4 h-4 opacity-25" />
             <p className="text-[10px] italic text-center px-1 leading-snug">{t('canvas.output_placeholder')}</p>
           </div>
         ) : (
           <div
-            className="nowheel text-[11px] leading-snug overflow-y-auto"
+            className="nowheel text-xs leading-snug overflow-y-auto"
             style={{
               color: 'var(--dome-text)',
               maxHeight: 220,
@@ -150,26 +151,26 @@ function MarkdownPreview({ content }: { content: string }) {
       elements.push(
         <h3 key={i} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
           {line.slice(4)}
-        </h3>
+        </h3>,
       );
     } else if (line.startsWith('## ')) {
       elements.push(
         <h2 key={i} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
           {line.slice(3)}
-        </h2>
+        </h2>,
       );
     } else if (line.startsWith('# ')) {
       elements.push(
         <h1 key={i} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
           {line.slice(2)}
-        </h1>
+        </h1>,
       );
     } else if (line.startsWith('- ') || line.startsWith('* ')) {
       elements.push(
         <div key={i} className="flex gap-1.5 mb-0.5">
           <span style={{ color: 'var(--dome-accent)' }}>•</span>
           <span style={{ color: 'var(--dome-text-secondary)' }}>{formatInline(line.slice(2))}</span>
-        </div>
+        </div>,
       );
     } else if (line.trim() === '') {
       elements.push(<div key={i} className="h-1.5" />);
@@ -187,13 +188,17 @@ function MarkdownPreview({ content }: { content: string }) {
           style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)', fontFamily: 'monospace' }}
         >
           {codeLines.join('\n')}
-        </pre>
+        </pre>,
       );
     } else {
       elements.push(
-        <p key={i} className="mb-0.5 leading-relaxed" style={{ color: 'var(--dome-text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        <p
+          key={i}
+          className="mb-0.5 leading-relaxed"
+          style={{ color: 'var(--dome-text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+        >
           {formatInline(line)}
-        </p>
+        </p>,
       );
     }
 

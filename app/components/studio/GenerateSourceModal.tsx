@@ -104,6 +104,12 @@ export interface GenerateSourceModalProps {
   tileTitle: string;
   /** When set (e.g. from workspace), pre-select this resource */
   focusResourceId?: string | null;
+  /** When true, at least one resource must be selected to confirm */
+  requireAtLeastOne?: boolean;
+  /** Replaces default title `Generar ${tileTitle} — Seleccionar fuentes` */
+  titleOverride?: string;
+  /** Replaces default description paragraph */
+  descriptionOverride?: string;
 }
 
 export default function GenerateSourceModal({
@@ -113,6 +119,9 @@ export default function GenerateSourceModal({
   projectId,
   tileTitle,
   focusResourceId,
+  requireAtLeastOne = false,
+  titleOverride,
+  descriptionOverride,
 }: GenerateSourceModalProps) {
   const [allItems, setAllItems] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -194,9 +203,12 @@ export default function GenerateSourceModal({
   }, [allResourceIds]);
 
   const handleConfirm = useCallback(() => {
+    if (requireAtLeastOne && selectedIds.length === 0) return;
     onConfirm(selectedIds);
     onClose();
-  }, [selectedIds, onConfirm, onClose]);
+  }, [selectedIds, onConfirm, onClose, requireAtLeastOne]);
+
+  const confirmDisabled = requireAtLeastOne && selectedIds.length === 0;
 
   const allSelected = allResourceIds.length > 0 && selectedIds.length >= allResourceIds.length;
 
@@ -310,12 +322,18 @@ export default function GenerateSourceModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Generar ${tileTitle} — Seleccionar fuentes`}
+      title={
+        titleOverride ??
+        `Generar ${tileTitle} — Seleccionar fuentes`
+      }
       size="md"
     >
       <div className="flex flex-col gap-4">
         <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-          Selecciona los recursos que quieres usar como fuentes para generar el {tileTitle}. Puedes dejarlo vacío para usar los recursos más recientes del proyecto.
+          {descriptionOverride ??
+            (requireAtLeastOne
+              ? `Selecciona al menos un documento o recurso para generar ${tileTitle}.`
+              : `Selecciona los recursos que quieres usar como fuentes para generar el ${tileTitle}. Puedes dejarlo vacío para usar los recursos más recientes del proyecto.`)}
         </p>
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium" style={{ color: 'var(--secondary-text)' }}>
@@ -360,7 +378,8 @@ export default function GenerateSourceModal({
           <button
             type="button"
             onClick={handleConfirm}
-            className="btn btn-primary min-h-[44px] px-4"
+            disabled={confirmDisabled}
+            className="btn btn-primary min-h-[44px] px-4 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Generar
           </button>

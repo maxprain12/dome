@@ -4,34 +4,78 @@
  */
 
 // ============================================
+// HELPERS (vision)
+// ============================================
+
+/**
+ * @param {string} dataUrl
+ * @returns {{ mimeType: string, base64: string } | null}
+ */
+function parseDataUrl(dataUrl) {
+  const s = String(dataUrl || '');
+  const m = s.match(/^data:([^;]+);base64,(.+)$/i);
+  if (!m) return null;
+  return { mimeType: m[1].split(';')[0] || 'image/png', base64: m[2] };
+}
+
+/**
+ * OpenAI/compatible vision user message parts (images + text)
+ * @param {string} userText
+ * @param {string[]} imageDataUrls
+ * @returns {Array<{ type: string, text?: string, image_url?: { url: string } }>}
+ */
+function buildOpenAIImageUserContent(userText, imageDataUrls) {
+  const content = [];
+  for (const url of imageDataUrls || []) {
+    if (url) content.push({ type: 'image_url', image_url: { url } });
+  }
+  content.push({ type: 'text', text: userText || '' });
+  return content;
+}
+
+// ============================================
 // OPENAI
 // ============================================
 
 /**
+ * @typedef {{ responseFormat?: 'json_object', maxTokens?: number }} OpenAIRequestOptions
+ */
+
+/**
  * Chat with OpenAI (or OpenAI-compatible endpoint)
- * @param {Array<{role: string, content: string}>} messages
+ * @param {Array<{role: string, content: string | unknown[]}>} messages
  * @param {string} apiKey
  * @param {string} model
  * @param {string} baseURL - Base URL for API (default: https://api.openai.com)
  * @param {number} timeout - Timeout in ms (default: 30000)
+ * @param {OpenAIRequestOptions} [openAIOptions]
  * @returns {Promise<string>}
  */
-async function chatOpenAI(messages, apiKey, model = 'gpt-5.2', baseURL = 'https://api.openai.com', timeout = 30000) {
+async function chatOpenAI(messages, apiKey, model = 'gpt-5.2', baseURL = 'https://api.openai.com', timeout = 30000, openAIOptions = undefined) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+  const body = {
+    model,
+    messages,
+    temperature: 0.7,
+  };
+  if (openAIOptions?.responseFormat === 'json_object') {
+    body.response_format = { type: 'json_object' };
+  }
+  if (Number.isFinite(openAIOptions?.maxTokens) && openAIOptions.maxTokens > 0) {
+    body.max_tokens = openAIOptions.maxTokens;
+  }
+
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey && String(apiKey).trim().length) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
     const response = await fetch(`${baseURL}/v1/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0.7,
-      }),
+      headers,
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
 
@@ -63,7 +107,10 @@ async function chatOpenAI(messages, apiKey, model = 'gpt-5.2', baseURL = 'https:
  * @param {Array} tools - Optional OpenAI-format tool definitions
  * @returns {Promise<string>}
  */
-async function streamOpenAI(messages, apiKey, model, onChunk, baseURL = 'https://api.openai.com', timeout = 120000, tools = undefined) {
+/**
+ * @param {OpenAIRequestOptions} [streamOptions]
+ */
+async function streamOpenAI(messages, apiKey, model, onChunk, baseURL = 'https://api.openai.com', timeout = 120000, tools = undefined, streamOptions = undefined) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -73,17 +120,24 @@ async function streamOpenAI(messages, apiKey, model, onChunk, baseURL = 'https:/
     temperature: 0.7,
     stream: true,
   };
+  if (streamOptions?.responseFormat === 'json_object') {
+    body.response_format = { type: 'json_object' };
+  }
+  if (Number.isFinite(streamOptions?.maxTokens) && streamOptions.maxTokens > 0) {
+    body.max_tokens = streamOptions.maxTokens;
+  }
   if (tools && Array.isArray(tools) && tools.length > 0) {
     body.tools = tools;
   }
 
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey && String(apiKey).trim().length) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
     const response = await fetch(`${baseURL}/v1/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
+      headers,
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -228,18 +282,50 @@ async function embeddingsOpenAI(texts, apiKey, model = 'text-embedding-3-small')
  * @param {string} model
  * @returns {Promise<string>}
  */
-async function chatAnthropic(messages, apiKey, model = 'claude-sonnet-4-5') {
+/**
+ * @param {Array<{ role: string, content: string | unknown }>} otherMessages
+ */
+function anthropicMessagesFromDomeFormat(otherMessages) {
+  return otherMessages.map((m) => {
+    if (m.role === 'user' && Array.isArray(m.content)) {
+      const blocks = [];
+      for (const part of m.content) {
+        if (!part || typeof part !== 'object') continue;
+        if (part.type === 'text' && part.text) {
+          blocks.push({ type: 'text', text: part.text });
+        } else if (part.type === 'image_url' && part.image_url?.url) {
+          const p = parseDataUrl(part.image_url.url);
+          if (p) {
+            blocks.push({
+              type: 'image',
+              source: { type: 'base64', media_type: p.mimeType, data: p.base64 },
+            });
+          }
+        }
+      }
+      return { role: m.role, content: blocks.length ? blocks : [{ type: 'text', text: '' }] };
+    }
+    return m;
+  });
+}
+
+/**
+ * @param {{ maxTokens?: number }} [anthOptions]
+ */
+async function chatAnthropic(messages, apiKey, model = 'claude-sonnet-4-5', anthOptions = undefined) {
   const systemMessage = messages.find((m) => m.role === 'system');
-  const otherMessages = messages.filter((m) => m.role !== 'system');
+  const otherRaw = messages.filter((m) => m.role !== 'system');
+  const otherMessages = anthropicMessagesFromDomeFormat(otherRaw);
 
   const body = {
     model,
     messages: otherMessages,
-    max_tokens: 4096,
+    max_tokens: Number.isFinite(anthOptions?.maxTokens) && anthOptions.maxTokens > 0 ? anthOptions.maxTokens : 4096,
   };
 
   if (systemMessage) {
-    body.system = systemMessage.content;
+    const sc = systemMessage.content;
+    body.system = typeof sc === 'string' ? sc : String(sc || '');
   }
 
   // Both API keys (sk-ant-api03-...) and OAuth tokens (sk-ant-oat01-...) use x-api-key header
@@ -271,19 +357,24 @@ async function chatAnthropic(messages, apiKey, model = 'claude-sonnet-4-5') {
  * @param {Array|undefined} tools - Anthropic-format tool definitions
  * @returns {Promise<string>}
  */
-async function streamAnthropic(messages, apiKey, model, onChunk, tools) {
+/**
+ * @param {{ maxTokens?: number }} [anthStreamOptions]
+ */
+async function streamAnthropic(messages, apiKey, model, onChunk, tools, anthStreamOptions = undefined) {
   const systemMessage = messages.find((m) => m.role === 'system');
-  const otherMessages = messages.filter((m) => m.role !== 'system');
+  const otherRaw = messages.filter((m) => m.role !== 'system');
+  const otherMessages = anthropicMessagesFromDomeFormat(otherRaw);
 
   const body = {
     model,
     messages: otherMessages,
-    max_tokens: 4096,
+    max_tokens: Number.isFinite(anthStreamOptions?.maxTokens) && anthStreamOptions.maxTokens > 0 ? anthStreamOptions.maxTokens : 4096,
     stream: true,
   };
 
   if (systemMessage) {
-    body.system = systemMessage.content;
+    const sc = systemMessage.content;
+    body.system = typeof sc === 'string' ? sc : String(sc || '');
   }
 
   // Add tools if provided
@@ -448,7 +539,7 @@ async function streamMiniMax(messages, apiKey, model, onChunk, tools) {
     }
   };
 
-  const result = await streamOpenAI(messages, apiKey, model, interceptChunk, MINIMAX_BASE_URL, 120000, tools);
+  const result = await streamOpenAI(messages, apiKey, model, interceptChunk, MINIMAX_BASE_URL, 120000, tools, undefined);
 
   // Flush any remaining buffer
   if (buffer.length > 0) {
@@ -469,26 +560,60 @@ async function streamMiniMax(messages, apiKey, model, onChunk, tools) {
  * @param {string} model
  * @returns {Promise<string>}
  */
-async function chatGoogle(messages, apiKey, model = 'gemini-3-flash') {
-  const contents = messages
-    .filter((m) => m.role !== 'system')
-    .map((msg) => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }],
-    }));
+/**
+ * Map a chat message to Gemini content row (role + parts). Supports string or multimodal array (OpenAI-like).
+ * @param {{ role: string, content: string | unknown }} msg
+ */
+function googleMessageToContentRow(msg) {
+  const role = msg.role === 'assistant' ? 'model' : 'user';
+  const c = msg.content;
+  if (typeof c === 'string') {
+    return { role, parts: [{ text: c }] };
+  }
+  if (Array.isArray(c)) {
+    const parts = [];
+    for (const block of c) {
+      if (!block || typeof block !== 'object') continue;
+      if (block.type === 'text' && block.text) {
+        parts.push({ text: block.text });
+      } else if (block.type === 'image_url' && block.image_url?.url) {
+        const p = parseDataUrl(block.image_url.url);
+        if (p) {
+          parts.push({ inlineData: { mimeType: p.mimeType, data: p.base64 } });
+        }
+      }
+    }
+    if (parts.length === 0) parts.push({ text: '' });
+    return { role, parts };
+  }
+  return { role, parts: [{ text: String(c ?? '') }] };
+}
+
+/**
+ * @typedef {{ maxOutputTokens?: number, responseMimeType?: string }} GoogleGenOptions
+ */
+
+/**
+ * @param {GoogleGenOptions} [genOptions]
+ */
+async function chatGoogle(messages, apiKey, model = 'gemini-3-flash', genOptions = undefined) {
+  const other = messages.filter((m) => m.role !== 'system');
+  const contents = other.map((msg) => googleMessageToContentRow(msg));
 
   const systemInstruction = messages.find((m) => m.role === 'system');
+  const systemText = typeof systemInstruction?.content === 'string' ? systemInstruction.content : '';
 
   const body = {
     contents,
     generationConfig: {
       temperature: 0.7,
-      maxOutputTokens: 8192,
+      maxOutputTokens: genOptions?.maxOutputTokens && genOptions.maxOutputTokens > 0 ? genOptions.maxOutputTokens : 8192,
+      ...(genOptions?.responseMimeType ? { responseMimeType: genOptions.responseMimeType } : {}),
     },
   };
 
-  if (systemInstruction) {
-    body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
+  if (systemText) {
+    body.systemInstruction = { parts: [{ text: systemText }] };
   }
 
   const response = await fetch(
@@ -619,26 +744,27 @@ function convertToolsToGemini(tools) {
  * @param {Array} tools - Optional OpenAI-format tool definitions (converted to Gemini internally)
  * @returns {Promise<string>}
  */
-async function streamGoogle(messages, apiKey, model, onChunk, tools = undefined) {
-  const contents = messages
-    .filter((m) => m.role !== 'system')
-    .map((msg) => ({
-      role: msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content }],
-    }));
+/**
+ * @param {GoogleGenOptions} [genOptions]
+ */
+async function streamGoogle(messages, apiKey, model, onChunk, tools = undefined, genOptions = undefined) {
+  const other = messages.filter((m) => m.role !== 'system');
+  const contents = other.map((msg) => googleMessageToContentRow(msg));
 
   const systemInstruction = messages.find((m) => m.role === 'system');
+  const systemText = typeof systemInstruction?.content === 'string' ? systemInstruction.content : '';
 
   const body = {
     contents,
     generationConfig: {
       temperature: 0.7,
-      maxOutputTokens: 8192,
+      maxOutputTokens: genOptions?.maxOutputTokens && genOptions.maxOutputTokens > 0 ? genOptions.maxOutputTokens : 8192,
+      ...(genOptions?.responseMimeType ? { responseMimeType: genOptions.responseMimeType } : {}),
     },
   };
 
-  if (systemInstruction) {
-    body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
+  if (systemText) {
+    body.systemInstruction = { parts: [{ text: systemText }] };
   }
 
   const geminiTools = tools ? convertToolsToGemini(tools) : undefined;
@@ -826,14 +952,29 @@ async function chat(provider, messages, apiKey, model) {
  * @param {Function} onChunk
  * @returns {Promise<string>}
  */
-async function stream(provider, messages, apiKey, model, onChunk, tools = undefined) {
+/**
+ * @param {OpenAIRequestOptions} [streamOptions]
+ */
+/**
+ * @typedef {{ responseFormat?: 'json_object', maxTokens?: number, maxOutputTokens?: number, responseMimeType?: string }} StreamExtraOptions
+ */
+
+/**
+ * @param {StreamExtraOptions} [streamOptions]
+ */
+async function stream(provider, messages, apiKey, model, onChunk, tools = undefined, streamOptions = undefined) {
   switch (provider) {
     case 'openai':
-      return streamOpenAI(messages, apiKey, model, onChunk, undefined, undefined, tools);
+      return streamOpenAI(messages, apiKey, model, onChunk, undefined, undefined, tools, streamOptions);
     case 'anthropic':
-      return streamAnthropic(messages, apiKey, model, onChunk, tools);
-    case 'google':
-      return streamGoogle(messages, apiKey, model, onChunk, tools);
+      return streamAnthropic(messages, apiKey, model, onChunk, tools, streamOptions);
+    case 'google': {
+      const gOpts = {
+        maxOutputTokens: streamOptions?.maxOutputTokens || streamOptions?.maxTokens,
+        responseMimeType: streamOptions?.responseMimeType,
+      };
+      return streamGoogle(messages, apiKey, model, onChunk, tools, gOpts);
+    }
     case 'minimax':
       return streamMiniMax(messages, apiKey, model, onChunk, tools);
     default:
@@ -878,7 +1019,11 @@ module.exports = {
   // Google
   chatGoogle,
   streamGoogle,
+  googleMessageToContentRow,
   embeddingsGoogle,
+  // Shared helpers
+  parseDataUrl,
+  buildOpenAIImageUserContent,
   // Unified
   chat,
   stream,

@@ -1,29 +1,20 @@
 /**
- * Hybrid Search - Merges results from PageIndex and Knowledge Graph
+ * Hybrid Search — chunk embeddings (Nomic) + knowledge graph + FTS
  *
- * Strategy:
- * - PageIndex (reasoning-based RAG): Semantic relevance search (70% weight)
- * - Knowledge Graph (SQLite): Relationship-based search (30% weight)
- * - Merge and rank results using weighted scoring
+ * Fusion: Reciprocal Rank Fusion (RRF) with k=60 across three ranked lists.
  */
 
-interface SearchResult {
+export type HybridSourceTag = 'semantic' | 'graph' | 'fts';
+
+export interface SearchResult {
   id: string;
   title: string;
   type: string;
+  /** RRF fusion score (not normalized across queries). */
   score: number;
-  source: 'vector' | 'graph' | 'fts' | 'hybrid';
+  /** Which retrieval channels contributed (non-empty). */
+  sources: HybridSourceTag[];
   metadata?: Record<string, unknown>;
-}
-
-interface PageIndexSearchItem {
-  resource_id?: string;
-  title?: string;
-  type?: string;
-  score?: number;
-  pages?: number;
-  node_title?: string;
-  text?: string;
 }
 
 interface GraphNodeData {
@@ -37,151 +28,130 @@ interface GraphNodeData {
 }
 
 interface HybridSearchOptions {
-  vectorWeight?: number;  // Default: 0.7 (PageIndex weight)
-  graphWeight?: number;   // Default: 0.3
-  maxResults?: number;    // Default: 50
-  includeBacklinks?: boolean; // Include backlinks in graph search
-  semanticThreshold?: number; // Minimum similarity score for PageIndex results
+  maxResults?: number;
+  includeBacklinks?: boolean;
+  /** Minimum chunk cosine score to keep a semantic hit (0–1). */
+  semanticThreshold?: number;
+  /** RRF constant k (default 60). */
+  rrfK?: number;
 }
 
-/**
- * Normalize scores to 0-1 range
- */
-function normalizeScores(results: SearchResult[]): SearchResult[] {
-  if (results.length === 0) return results;
-
-  const maxScore = Math.max(...results.map(r => r.score));
-  const minScore = Math.min(...results.map(r => r.score));
-  const range = maxScore - minScore;
-
-  if (range === 0) {
-    return results.map(r => ({ ...r, score: 1.0 }));
-  }
-
-  return results.map(r => ({
-    ...r,
-    score: (r.score - minScore) / range,
-  }));
+interface RankedListItem {
+  id: string;
+  title: string;
+  type: string;
+  metadata?: Record<string, unknown>;
+  snippet?: string;
 }
 
-/**
- * Merge and rank results from multiple sources
- */
-function mergeResults(
-  vectorResults: SearchResult[],
-  graphResults: SearchResult[],
-  ftsResults: SearchResult[],
-  options: Required<HybridSearchOptions>
+const DEFAULT_RRF_K = 60;
+
+function rrfMerge(
+  lists: { tag: HybridSourceTag; items: RankedListItem[] }[],
+  maxResults: number,
+  k: number,
 ): SearchResult[] {
-  const { vectorWeight, graphWeight, maxResults } = options;
+  const scoreMap = new Map<string, number>();
+  const sourcesMap = new Map<string, Set<HybridSourceTag>>();
+  const titleMap = new Map<string, string>();
+  const typeMap = new Map<string, string>();
+  const metaMap = new Map<string, Record<string, unknown>>();
+  const snippetMap = new Map<string, string>();
 
-  // Normalize scores within each source
-  const normalizedVector = normalizeScores(vectorResults);
-  const normalizedGraph = normalizeScores(graphResults);
-  const normalizedFts = normalizeScores(ftsResults);
-
-  // Merge results by ID
-  const mergedMap = new Map<string, SearchResult>();
-
-  // Add vector results
-  for (const result of normalizedVector) {
-    mergedMap.set(result.id, {
-      ...result,
-      score: result.score * vectorWeight,
-      source: 'vector',
-    });
+  for (const { tag, items } of lists) {
+    for (let idx = 0; idx < items.length; idx++) {
+      const item = items[idx];
+      const rank = idx + 1;
+      const contrib = 1 / (k + rank);
+      scoreMap.set(item.id, (scoreMap.get(item.id) ?? 0) + contrib);
+      let set = sourcesMap.get(item.id);
+      if (!set) {
+        set = new Set();
+        sourcesMap.set(item.id, set);
+      }
+      set.add(tag);
+      titleMap.set(item.id, item.title);
+      typeMap.set(item.id, item.type);
+      if (item.metadata && Object.keys(item.metadata).length > 0) {
+        metaMap.set(item.id, { ...(metaMap.get(item.id) ?? {}), ...item.metadata });
+      }
+      if (item.snippet) {
+        snippetMap.set(item.id, item.snippet);
+      }
+    }
   }
 
-  // Add/merge graph results
-  for (const result of normalizedGraph) {
-    const existing = mergedMap.get(result.id);
-    if (existing) {
-      // Merge scores
-      existing.score += result.score * graphWeight;
-      existing.source = 'hybrid';
-      existing.metadata = {
-        ...existing.metadata,
-        graphReason: result.metadata?.reason,
+  const order: HybridSourceTag[] = ['semantic', 'graph', 'fts'];
+  const sourceOrder = (a: HybridSourceTag, b: HybridSourceTag) =>
+    order.indexOf(a) - order.indexOf(b);
+
+  return Array.from(scoreMap.entries())
+    .map(([id, score]) => {
+      const tags = Array.from(sourcesMap.get(id) ?? []).sort(sourceOrder);
+      const metadata: Record<string, unknown> = { ...(metaMap.get(id) ?? {}) };
+      const snip = snippetMap.get(id);
+      if (snip) metadata.snippet = snip;
+      metadata.sources = tags;
+      return {
+        id,
+        title: titleMap.get(id) || 'Untitled',
+        type: typeMap.get(id) || 'note',
+        score,
+        sources: tags,
+        metadata,
       };
-    } else {
-      mergedMap.set(result.id, {
-        ...result,
-        score: result.score * graphWeight,
-        source: 'graph',
-      });
-    }
-  }
-
-  // Add FTS results (only if not already present)
-  for (const result of normalizedFts) {
-    if (!mergedMap.has(result.id)) {
-      mergedMap.set(result.id, {
-        ...result,
-        score: result.score * 0.5, // Lower weight for FTS fallback
-        source: 'fts',
-      });
-    }
-  }
-
-  // Sort by score and limit
-  return Array.from(mergedMap.values())
+    })
     .sort((a, b) => b.score - a.score)
     .slice(0, maxResults);
 }
 
 /**
- * Perform hybrid search across vector DB, knowledge graph, and FTS
+ * Perform hybrid search across semantic chunks, graph, and FTS.
  */
 export async function hybridSearch(
   query: string,
-  options: HybridSearchOptions = {}
+  options: HybridSearchOptions = {},
 ): Promise<SearchResult[]> {
-  const opts: Required<HybridSearchOptions> = {
-    vectorWeight: options.vectorWeight ?? 0.7,
-    graphWeight: options.graphWeight ?? 0.3,
-    maxResults: options.maxResults ?? 50,
-    includeBacklinks: options.includeBacklinks ?? false,
-    semanticThreshold: options.semanticThreshold ?? 0.3,
-  };
+  const maxResults = options.maxResults ?? 50;
+  const includeBacklinks = options.includeBacklinks ?? false;
+  const semanticThreshold = options.semanticThreshold ?? 0.3;
+  const rrfK = options.rrfK ?? DEFAULT_RRF_K;
 
-  // 1. PageIndex search (reasoning-based, replaces vector similarity)
-  let vectorResults: SearchResult[] = [];
+  /** Local Nomic chunk embeddings */
+  let semanticItems: RankedListItem[] = [];
   try {
-    const pageIndexResponse = await window.electron.invoke('pageindex:search', {
-      query,
-      topK: opts.maxResults,
-    });
-
-    if (pageIndexResponse.success && pageIndexResponse.results) {
-      vectorResults = (pageIndexResponse.results as PageIndexSearchItem[])
-        .filter((r) => (r.score || 0) >= opts.semanticThreshold)
-        .map((result) => ({
-          id: result.resource_id ?? '',
-          title: result.title || 'Untitled',
-          type: result.type || 'pdf',
-          score: result.score || 0,
-          source: 'vector' as const,
-          metadata: { pages: result.pages, node_title: result.node_title, text: result.text },
+    const semanticRes = await window.electron.db.semantic.search(query, maxResults);
+    if (semanticRes.success && semanticRes.data?.length) {
+      semanticItems = semanticRes.data
+        .filter((h) => (h.score ?? 0) >= semanticThreshold)
+        .map((h) => ({
+          id: h.resource_id,
+          title: h.title || 'Untitled',
+          type: h.type || 'note',
+          snippet: h.snippet,
+          metadata: {
+            chunk_index: h.chunk_index,
+            char_start: h.char_start,
+            char_end: h.char_end,
+            page_number: h.page_number,
+            semanticScore: h.score,
+          },
         }));
     }
   } catch (error) {
-    console.warn('[HybridSearch] PageIndex search failed:', error);
-    // Continue with other search methods
+    console.warn('[HybridSearch] Semantic chunk search failed:', error);
   }
 
-  // 2. Graph search (relationship-based)
-  let graphResults: SearchResult[] = [];
+  /** Knowledge graph */
+  let graphItems: RankedListItem[] = [];
   try {
-    // Search graph nodes by label
     const graphResponse = await window.electron.db.graph.searchNodes(query);
 
     if (graphResponse.success && graphResponse.data) {
-      graphResults = (graphResponse.data as GraphNodeData[]).map((node) => ({
+      graphItems = (graphResponse.data as GraphNodeData[]).map((node) => ({
         id: node.resource_id || node.id,
         title: node.label ?? '',
         type: (node.properties?.resource_type as string | undefined) || node.type || 'unknown',
-        score: 1.0, // Exact match in graph
-        source: 'graph' as const,
         metadata: {
           nodeType: node.type,
           properties: node.properties,
@@ -189,25 +159,24 @@ export async function hybridSearch(
         },
       }));
 
-      // Optionally include backlinks
-      if (opts.includeBacklinks && graphResponse.data.length > 0) {
-        // For each matched node, get neighbors
+      if (includeBacklinks && graphResponse.data.length > 0) {
         for (const node of graphResponse.data.slice(0, 5) as GraphNodeData[]) {
           const neighborsResponse = await window.electron.db.graph.getNeighbors(node.id);
           if (neighborsResponse.success && neighborsResponse.data) {
             const neighbors = (neighborsResponse.data as GraphNodeData[]).map((neighbor) => ({
               id: neighbor.resource_id || neighbor.id,
               title: neighbor.label ?? '',
-              type: (neighbor.properties?.resource_type as string | undefined) || neighbor.type || 'unknown',
-              score: neighbor.weight || 0.5,
-              source: 'graph' as const,
+              type:
+                (neighbor.properties?.resource_type as string | undefined) ||
+                neighbor.type ||
+                'unknown',
               metadata: {
                 nodeType: neighbor.type,
                 properties: neighbor.properties,
                 reason: `Connected to "${node.label}" via ${neighbor.relation}`,
               },
             }));
-            graphResults.push(...neighbors);
+            graphItems.push(...neighbors);
           }
         }
       }
@@ -216,29 +185,32 @@ export async function hybridSearch(
     console.warn('[HybridSearch] Graph search failed:', error);
   }
 
-  // 3. FTS fallback (always available)
-  let ftsResults: SearchResult[] = [];
+  /** FTS */
+  let ftsItems: RankedListItem[] = [];
   try {
     const ftsResponse = await window.electron.db.search.unified(query);
 
     if (ftsResponse.success && ftsResponse.data) {
-      ftsResults = ftsResponse.data.resources.map((resource) => ({
+      ftsItems = ftsResponse.data.resources.map((resource) => ({
         id: resource.id,
         title: resource.title,
         type: resource.type,
-        score: 0.8, // Good match from FTS
-        source: 'fts' as const,
-        metadata: {
-          content: resource.content,
-        },
+        metadata: { content: resource.content },
       }));
     }
   } catch (error) {
     console.warn('[HybridSearch] FTS search failed:', error);
   }
 
-  // 4. Merge and rank
-  return mergeResults(vectorResults, graphResults, ftsResults, opts);
+  return rrfMerge(
+    [
+      { tag: 'semantic', items: semanticItems },
+      { tag: 'graph', items: graphItems },
+      { tag: 'fts', items: ftsItems },
+    ],
+    maxResults,
+    rrfK,
+  );
 }
 
 /**
@@ -246,7 +218,7 @@ export async function hybridSearch(
  */
 export async function getRelatedResources(
   resourceId: string,
-  maxDepth: number = 2
+  maxDepth: number = 2,
 ): Promise<SearchResult[]> {
   const visited = new Set<string>();
   const results: SearchResult[] = [];
@@ -264,17 +236,20 @@ export async function getRelatedResources(
             results.push({
               id: neighborId,
               title: neighbor.label ?? '',
-              type: (neighbor.properties?.resource_type as string | undefined) || neighbor.type || 'unknown',
+              type:
+                (neighbor.properties?.resource_type as string | undefined) ||
+                neighbor.type ||
+                'unknown',
               score: weight * (neighbor.weight || 0.5),
-              source: 'graph',
+              sources: ['graph'],
               metadata: {
                 depth,
                 relation: neighbor.relation,
                 nodeType: neighbor.type,
+                sources: ['graph'],
               },
             });
 
-            // Traverse deeper with decaying weight
             await traverse(neighborId, depth + 1, weight * 0.7);
           }
         }
@@ -284,7 +259,6 @@ export async function getRelatedResources(
     }
   }
 
-  // Get node ID for resource
   const nodeResponse = await window.electron.db.graph.getNode(`node-${resourceId}`);
   if (nodeResponse.success && nodeResponse.data) {
     await traverse(nodeResponse.data.id, 1, 1.0);

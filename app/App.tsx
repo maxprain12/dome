@@ -13,7 +13,6 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
 import PptCapturePage from './pages/PptCapturePage';
 import TranscriptionOverlayPage from './pages/TranscriptionOverlayPage';
-
 function MainApp() {
   const { t } = useTranslation();
   useEffect(() => {

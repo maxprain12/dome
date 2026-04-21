@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Handle, Position } from 'reactflow';
-import type { NodeProps } from 'reactflow';
 import { Image, ChevronDown, Search, X } from 'lucide-react';
 import type { ImageNodeData } from '@/types/canvas';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
@@ -17,7 +15,15 @@ interface ImageResource {
   metadata?: Record<string, unknown>;
 }
 
-export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeData>) {
+export default function ImageNode({
+  id,
+  data,
+  selected,
+}: {
+  id: string;
+  data: ImageNodeData;
+  selected: boolean;
+}) {
   const { t } = useTranslation();
   const updateNode = useCanvasStore((s) => s.updateNode);
   const [showPicker, setShowPicker] = useState(false);
@@ -40,11 +46,11 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
               internal_path: r.internal_path,
               thumbnail_data: r.thumbnail_data,
               metadata: r.metadata,
-            }))
+            })),
         );
       }
     } catch {
-      // No resources available
+      /* no resources */
     }
   };
 
@@ -70,96 +76,99 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
     } as Partial<ImageNodeData>);
   };
 
-  const filtered = resources.filter(
-    (r) => !query || r.title.toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = resources.filter((r) => !query || r.title.toLowerCase().includes(query.toLowerCase()));
 
   return (
     <div
-      className="workflow-node-card rounded-lg overflow-visible transition-colors"
+      className="wf-node-card workflow-node-card rounded-xl overflow-visible transition-[box-shadow,border-color]"
       style={{
         width: 220,
-        border: `1px solid ${selected ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
+        border: `1px solid ${selected ? 'var(--warning)' : 'var(--dome-border)'}`,
+        boxShadow: selected ? '0 0 0 2px color-mix(in srgb, var(--warning) 18%, transparent)' : 'none',
+        background: 'var(--dome-surface)',
         position: 'relative',
       }}
     >
-      <div className="workflow-node-header flex items-center gap-1.5 px-2 py-1.5">
+      <div
+        className="workflow-node-header flex items-center gap-2 px-3 py-2"
+        style={{ background: 'var(--dome-bg)', borderBottom: '1px solid var(--dome-border)' }}
+      >
         <div
-          className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
+          className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: 'var(--warning)' }}
         >
-          <Image className="w-3 h-3 text-white" />
+          <Image className="w-3.5 h-3.5 text-white" />
         </div>
-        <span className="text-[11px] font-semibold leading-tight truncate" style={{ color: 'var(--dome-text)' }}>
+        <span className="text-xs font-semibold leading-tight truncate" style={{ color: 'var(--dome-text)' }}>
           {data.label}
         </span>
       </div>
 
-      {/* Content */}
-      <div className="p-2">
+      <div className="p-3">
         {data.resourceId ? (
           <div
-            className="flex items-center gap-1.5 px-2 py-1.5 rounded-md"
+            className="flex items-center gap-2 px-2.5 py-2 rounded-lg"
             style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
           >
             {data.resourceUrl ? (
-              <img
-                src={data.resourceUrl}
-                alt={data.resourceTitle ?? ''}
-                className="w-7 h-7 object-cover rounded"
-              />
+              <img src={data.resourceUrl} alt={data.resourceTitle ?? ''} className="w-8 h-8 object-cover rounded-md" />
             ) : (
-              <Image className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--warning)' }} />
+              <Image className="w-4 h-4 shrink-0" style={{ color: 'var(--warning)' }} />
             )}
-            <span className="flex-1 text-[11px] truncate" style={{ color: 'var(--dome-text)' }}>
+            <span className="flex-1 text-xs truncate" style={{ color: 'var(--dome-text)' }}>
               {data.resourceTitle}
             </span>
             <button
+              type="button"
               onClick={clearResource}
-              className="nodrag w-4 h-4 rounded flex items-center justify-center hover:opacity-70 transition-opacity"
+              className="nodrag w-7 h-7 rounded-md flex items-center justify-center hover:opacity-70 transition-opacity"
               style={{ color: 'var(--dome-text-muted)' }}
             >
-              <X className="w-3 h-3" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
           <button
+            type="button"
             onClick={openPicker}
-            className="nodrag w-full flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[11px] transition-all hover:opacity-80"
+            className="nodrag w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all hover:opacity-90"
             style={{
               background: 'var(--dome-bg)',
               border: '1px dashed var(--dome-border)',
               color: 'var(--dome-text-muted)',
             }}
           >
-            <Search className="w-3 h-3 shrink-0" />
+            <Search className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">{t('canvas.select_image')}</span>
-            <ChevronDown className="w-3 h-3 ml-auto shrink-0" />
+            <ChevronDown className="w-3.5 h-3.5 ml-auto shrink-0" />
           </button>
         )}
       </div>
 
-      {/* Image picker dropdown */}
       {showPicker && (
         <div
-          className="nodrag absolute z-50 left-0 right-0 rounded-xl shadow-xl overflow-hidden"
+          className="nodrag absolute z-50 left-0 right-0 rounded-xl overflow-hidden"
           style={{
             top: 'calc(100% + 4px)',
             background: 'var(--dome-surface)',
             border: '1px solid var(--dome-border)',
             maxHeight: 240,
+            boxShadow: '0 8px 24px color-mix(in srgb, var(--dome-text) 8%, transparent)',
           }}
         >
           <div className="p-2 border-b" style={{ borderColor: 'var(--dome-border)' }}>
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: 'var(--dome-text-muted)' }} />
+              <Search
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+                style={{ color: 'var(--dome-text-muted)' }}
+              />
               <input
                 autoFocus
                 type="text"
                 placeholder={t('canvas.picker_search_images')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="nodrag w-full pl-6 pr-2 py-1.5 text-xs rounded-lg outline-none"
+                className="nodrag w-full pl-8 pr-2 py-2 text-xs rounded-lg outline-none"
                 style={{
                   background: 'var(--dome-bg)',
                   color: 'var(--dome-text)',
@@ -178,6 +187,7 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
                 {filtered.map((r) => (
                   <button
                     key={r.id}
+                    type="button"
                     onClick={() => selectResource(r)}
                     className="nodrag aspect-square rounded-lg overflow-hidden border transition-all hover:border-[var(--dome-accent)]"
                     style={{ border: '1px solid var(--dome-border)' }}
@@ -186,10 +196,7 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
                     {r.thumbnail_data ? (
                       <img src={r.thumbnail_data} alt={r.title} className="w-full h-full object-cover" />
                     ) : (
-                      <div
-                        className="w-full h-full flex items-center justify-center"
-                        style={{ background: 'var(--dome-bg)' }}
-                      >
+                      <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--dome-bg)' }}>
                         <Image className="w-5 h-5" style={{ color: 'var(--dome-text-muted)' }} />
                       </div>
                     )}
@@ -200,8 +207,9 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
           </div>
           <div className="p-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
             <button
+              type="button"
               onClick={() => setShowPicker(false)}
-              className="nodrag w-full text-xs py-1 rounded transition-colors hover:opacity-70"
+              className="nodrag w-full text-xs py-1.5 rounded-md transition-colors hover:opacity-70"
               style={{ color: 'var(--dome-text-muted)' }}
             >
               {t('common.cancel')}
@@ -209,14 +217,6 @@ export default function ImageNode({ id, data, selected }: NodeProps<ImageNodeDat
           </div>
         </div>
       )}
-
-      {/* Output handle */}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="workflow-node-handle"
-        style={{ background: 'var(--warning)' }}
-      />
     </div>
   );
 }

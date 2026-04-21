@@ -496,9 +496,10 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
         const resource = queries.getResourceById.get(resourceId);
         windowManager.broadcast('resource:created', resource);
 
-        const resourceIndexer = require('../resource-indexer.cjs');
-        if (resource && resourceIndexer.shouldIndex(resource)) {
-          resourceIndexer.scheduleIndexing(resourceId, { database, fileStorage, windowManager });
+        const semanticIndexScheduler = require('../semantic-index-scheduler.cjs');
+        semanticIndexScheduler.init(database);
+        if (resource && semanticIndexScheduler.shouldIndex(resource)) {
+          semanticIndexScheduler.scheduleSemanticReindex(resourceId);
         }
 
         return { success: true, resource };

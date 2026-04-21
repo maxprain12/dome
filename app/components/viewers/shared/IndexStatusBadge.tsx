@@ -1,145 +1,117 @@
 import { useEffect, useRef, useState } from 'react';
 import { Brain, Loader2, AlertCircle, HelpCircle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { IndexingStatus, ResourceIndexStatus } from '@/lib/db/pageindex';
-import { getResourceIndexStatus, indexResource } from '@/lib/db/pageindex';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeBadge from '@/components/ui/DomeBadge';
+
+const INDEXABLE = new Set(['pdf', 'note', 'document', 'url', 'notebook', 'ppt', 'excel', 'image']);
 
 interface IndexStatusBadgeProps {
   resourceId: string;
   resourceType?: string;
 }
 
-const POLL_INTERVAL_MS = 2000;
-
-export default function IndexStatusBadge({ resourceId, resourceType: _resourceType }: IndexStatusBadgeProps) {
+export default function IndexStatusBadge({ resourceId, resourceType }: IndexStatusBadgeProps) {
   const { t } = useTranslation();
-  const [statusData, setStatusData] = useState<ResourceIndexStatus | null>(null);
-  const [doclingPhase, setDoclingPhase] = useState<{ status: string; progress: number } | null>(null);
-  const [isRetrying, setIsRetrying] = useState(false);
+  const [hasChunks, setHasChunks] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [globalIndexing, setGlobalIndexing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mountedRef = useRef(true);
 
-  const fetchStatus = async () => {
-    if (!mountedRef.current) return;
-    const data = await getResourceIndexStatus(resourceId);
-    if (!mountedRef.current) return;
-    setStatusData(data);
-    return data;
+  const indexable = resourceType ? INDEXABLE.has(resourceType) : true;
+
+  const refresh = async () => {
+    if (!indexable) return;
+    try {
+      const res = await window.electron?.db?.semantic?.resourceHasChunks?.(resourceId);
+      if (!mountedRef.current) return;
+      if (res?.success && res.data) {
+        setHasChunks(!!res.data.hasChunks);
+        setError(null);
+      } else {
+        setHasChunks(false);
+      }
+    } catch {
+      if (mountedRef.current) setHasChunks(false);
+    }
   };
 
   useEffect(() => {
     mountedRef.current = true;
+    void refresh();
 
-    const init = async () => {
-      const data = await fetchStatus();
-      const currentStatus = data?.status;
-
-      if (currentStatus === 'processing' || currentStatus === 'pending') {
-        pollRef.current = setInterval(async () => {
-          const updated = await fetchStatus();
-          if (updated?.status !== 'processing' && updated?.status !== 'pending') {
-            if (pollRef.current) clearInterval(pollRef.current);
-            pollRef.current = null;
-          }
-        }, POLL_INTERVAL_MS);
+    const unsub = window.electron?.db?.semantic?.onProgress?.((p) => {
+      if (!mountedRef.current) return;
+      if (p?.step === resourceId) {
+        setBusy(true);
       }
-    };
-
-    init();
-
-    const unsubDocling = window.electron?.on?.(
-      'docling:progress',
-      (event: { resourceId: string; status: string; progress?: number }) => {
-        if (!mountedRef.current) return;
-        if (event.resourceId !== resourceId) return;
-        setDoclingPhase({ status: event.status, progress: event.progress ?? 0 });
-      },
-    );
-
-    const unsubPageIndex = window.electron?.on?.(
-      'pageindex:progress',
-      (event: ResourceIndexStatus & { resourceId: string }) => {
-        if (!mountedRef.current) return;
-        if (event.resourceId !== resourceId) return;
-        setDoclingPhase(null);
-        setStatusData((prev) => ({ ...(prev ?? { success: true }), ...event }));
-
-        if (event.status === 'done' || event.status === 'error') {
-          if (pollRef.current) {
-            clearInterval(pollRef.current);
-            pollRef.current = null;
-          }
-          setTimeout(fetchStatus, 500);
-        }
-      },
-    );
+      if (p?.total != null && p.done != null && p.done >= p.total) {
+        setGlobalIndexing(false);
+      } else if (p?.total) {
+        setGlobalIndexing(true);
+      }
+    });
 
     return () => {
       mountedRef.current = false;
+      unsub?.();
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
       }
-      unsubDocling?.();
-      unsubPageIndex?.();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resourceId]);
 
   const handleRetry = async () => {
-    if (isRetrying) return;
-    setIsRetrying(true);
-    setStatusData((prev) =>
-      prev ? { ...prev, status: 'pending' as IndexingStatus, progress: 0, step: t('viewer.retrying') } : null,
-    );
-    await indexResource(resourceId);
-    setIsRetrying(false);
-    pollRef.current = setInterval(async () => {
-      const updated = await fetchStatus();
-      if (updated?.status !== 'processing' && updated?.status !== 'pending') {
-        if (pollRef.current) clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    }, POLL_INTERVAL_MS);
+    setBusy(true);
+    setError(null);
+    try {
+      await window.electron?.db?.semantic?.indexResource?.(resourceId);
+      pollRef.current = setInterval(async () => {
+        await refresh();
+        const res = await window.electron?.db?.semantic?.resourceHasChunks?.(resourceId);
+        if (res?.success && res.data?.hasChunks) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          setBusy(false);
+        }
+      }, 2000);
+      setTimeout(() => {
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+        setBusy(false);
+        void refresh();
+      }, 120000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
   };
 
-  if (doclingPhase) {
-    const stepLabel = t(`viewer.docling_${doclingPhase.status}`) ?? t('viewer.converting');
-    const pct = doclingPhase.progress > 0 ? ` ${doclingPhase.progress}%` : '';
+  if (!indexable) return null;
+
+  if (hasChunks === null) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <Loader2 size={12} className="animate-spin shrink-0 opacity-50" aria-hidden />
+      </span>
+    );
+  }
+
+  if (busy || globalIndexing) {
     return (
       <span className="inline-flex items-center gap-1.5 max-w-full min-w-0">
         <Loader2 size={12} className="animate-spin shrink-0 text-[var(--accent)]" aria-hidden />
-        <DomeBadge label={`${stepLabel}${pct}`} color="var(--accent)" size="xs" />
+        <DomeBadge label={t('viewer.indexing')} color="var(--accent)" size="xs" />
       </span>
     );
   }
 
-  if (!statusData) return null;
-
-  const { status, progress, step, error } = statusData;
-
-  if (status === 'none') {
-    return (
-      <span className="inline-flex items-center gap-1 min-w-0" title={t('viewer.not_indexed_title')}>
-        <HelpCircle size={12} className="shrink-0 text-[var(--tertiary-text)]" aria-hidden />
-        <DomeBadge label={t('viewer.not_indexed')} variant="outline" color="var(--tertiary-text)" size="xs" />
-      </span>
-    );
-  }
-
-  if (status === 'processing' || status === 'pending') {
-    const pct = status === 'processing' && progress > 0 ? ` ${progress}%` : '';
-    return (
-      <span className="inline-flex items-center gap-1.5 max-w-full min-w-0">
-        <Loader2 size={12} className="animate-spin shrink-0 text-[var(--accent)]" aria-hidden />
-        <DomeBadge label={`${step || t('viewer.indexing')}${pct}`} color="var(--accent)" size="xs" />
-      </span>
-    );
-  }
-
-  if (status === 'done') {
+  if (hasChunks) {
     return (
       <span className="inline-flex items-center gap-1 min-w-0" title={t('viewer.ready_for_ai_title')}>
         <Brain size={12} className="shrink-0 text-[var(--success)]" aria-hidden />
@@ -148,30 +120,26 @@ export default function IndexStatusBadge({ resourceId, resourceType: _resourceTy
     );
   }
 
-  if (status === 'error') {
-    return (
-      <span
-        className="inline-flex items-center gap-1 min-w-0"
-        title={error || t('viewer.indexing_error_title')}
+  return (
+    <span
+      className="inline-flex items-center gap-1 min-w-0"
+      title={error || t('viewer.not_indexed_title')}
+    >
+      <HelpCircle size={12} className="shrink-0 text-[var(--tertiary-text)]" aria-hidden />
+      <DomeBadge label={t('viewer.not_indexed')} variant="outline" color="var(--tertiary-text)" size="xs" />
+      <DomeButton
+        type="button"
+        variant="ghost"
+        size="xs"
+        iconOnly
+        onClick={handleRetry}
+        disabled={busy}
+        title={t('viewer.retry_indexing')}
+        className="!p-0.5 ml-0.5 min-w-0 h-auto text-inherit opacity-70 hover:opacity-100"
+        aria-label={t('viewer.retry_indexing')}
       >
-        <AlertCircle size={12} className="shrink-0 text-[var(--error)]" aria-hidden />
-        <DomeBadge label={t('viewer.indexing_error')} color="var(--error)" size="xs" />
-        <DomeButton
-          type="button"
-          variant="ghost"
-          size="xs"
-          iconOnly
-          onClick={handleRetry}
-          disabled={isRetrying}
-          title={t('viewer.retry_indexing')}
-          className="!p-0.5 ml-0.5 min-w-0 h-auto text-inherit opacity-70 hover:opacity-100"
-          aria-label={t('viewer.retry_indexing')}
-        >
-          <RefreshCw size={11} className={isRetrying ? 'animate-spin' : ''} />
-        </DomeButton>
-      </span>
-    );
-  }
-
-  return null;
+        <RefreshCw size={11} className={busy ? 'animate-spin' : ''} />
+      </DomeButton>
+    </span>
+  );
 }

@@ -1,8 +1,8 @@
 {
   "id": "data-report-workflow",
   "name": "Data → Report",
-  "description": "Analiza datos de tu biblioteca y genera un informe ejecutivo con visualizaciones.",
-  "longDescription": "Transforma datos en decisiones. El agente de datos analiza archivos Excel o conjuntos de datos, identifica patrones y tendencias, y el presentador genera un informe ejecutivo con visualizaciones conceptuales y recomendaciones accionables.",
+  "description": "Analyze data from your library and generate an executive report with clear takeaways.",
+  "longDescription": "Turn data into decisions. The data agent analyzes spreadsheets or datasets, spots patterns and trends, and the presenter produces an executive report with conceptual visuals and actionable recommendations.",
   "author": "Dome Team",
   "version": "1.0.0",
   "tags": ["data", "productivity", "content"],
@@ -15,16 +15,16 @@
   "outputType": "report",
   "category": "data",
   "useCases": [
-    "Informes de análisis de datos académicos",
-    "Reportes de métricas y KPIs",
-    "Análisis de resultados de encuestas"
+    "Academic data analysis reports",
+    "KPI and metrics summaries",
+    "Survey results analysis"
   ],
   "nodes": [
     {
       "id": "dr-input",
       "type": "textInput",
       "position": { "x": 80, "y": 80 },
-      "data": { "type": "text-input", "label": "Dataset o pregunta de análisis", "value": "" }
+      "data": { "type": "text-input", "label": "Dataset or analysis question", "value": "" }
     },
     {
       "id": "dr-data",
@@ -32,7 +32,7 @@
       "position": { "x": 80, "y": 240 },
       "data": {
         "type": "agent",
-        "label": "Analista de Datos",
+        "label": "Data analyst",
         "agentId": null,
         "systemAgentRole": "data",
         "agentName": "Data Analyst",
@@ -48,7 +48,7 @@
       "position": { "x": 80, "y": 420 },
       "data": {
         "type": "agent",
-        "label": "Generador de Informe",
+        "label": "Report builder",
         "agentId": null,
         "systemAgentRole": "presenter",
         "agentName": "Report Generator",
@@ -62,7 +62,7 @@
       "id": "dr-output",
       "type": "output",
       "position": { "x": 80, "y": 600 },
-      "data": { "type": "output", "label": "Informe Ejecutivo", "content": null, "status": "idle" }
+      "data": { "type": "output", "label": "Executive report", "content": null, "status": "idle" }
     }
   ],
   "edges": [

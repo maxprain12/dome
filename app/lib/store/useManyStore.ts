@@ -11,6 +11,22 @@ export interface PinnedResource {
   type: string;
 }
 
+/** Pending PDF region crop for cloud-vision Q&A in Many (memory only; not persisted). */
+export interface PendingPdfRegion {
+  imageDataUrl: string;
+  resourceId: string;
+  page: number;
+  resourceTitle: string;
+}
+
+/** Metadata for PDF region Q&A (for handoff / copy in Many). */
+export interface PdfRegionMeta {
+  resourceId: string;
+  page: number;
+  resourceTitle: string;
+  question: string;
+}
+
 export interface ManyMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -20,6 +36,9 @@ export interface ManyMessage {
   toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }>;
   /** Reasoning/chain-of-thought for assistant messages */
   thinking?: string;
+  /** When set on assistant message, show PDF region handoff actions in Many */
+  source?: 'pdf_region';
+  pdfRegionMeta?: PdfRegionMeta;
 }
 
 export interface ManyChatSession {
@@ -170,6 +189,13 @@ interface ManyState {
   /** Sentence currently being spoken by streaming TTS (for live HUD transcript) */
   currentSentence: string | null;
   setCurrentSentence: (sentence: string | null) => void;
+  /** Draft message queued from PDF region handoff (consumed by ManyPanel) */
+  pendingManyHandoff: string | null;
+  setPendingManyHandoff: (value: string | null) => void;
+  /** PDF region crop + resource ref before the user asks in Many */
+  pendingPdfRegion: PendingPdfRegion | null;
+  setPendingPdfRegion: (value: PendingPdfRegion | null) => void;
+  clearPendingPdfRegion: () => void;
 }
 
 export const useManyStore = create<ManyState>((set, get) => ({
@@ -412,4 +438,11 @@ export const useManyStore = create<ManyState>((set, get) => ({
 
   currentSentence: null,
   setCurrentSentence: (sentence) => set({ currentSentence: sentence }),
+
+  pendingManyHandoff: null,
+  setPendingManyHandoff: (value) => set({ pendingManyHandoff: value }),
+
+  pendingPdfRegion: null,
+  setPendingPdfRegion: (value) => set({ pendingPdfRegion: value }),
+  clearPendingPdfRegion: () => set({ pendingPdfRegion: null }),
 }));

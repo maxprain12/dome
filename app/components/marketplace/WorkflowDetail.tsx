@@ -12,20 +12,20 @@ interface WorkflowDetailProps {
   onClose: () => void;
 }
 
-const FALLBACK_META = { label: 'Nodo', color: 'var(--dome-accent)', Icon: Bot };
+const FALLBACK_META = { label: 'Node', color: 'var(--dome-accent)', Icon: Bot };
 
 const NODE_TYPE_META: Record<string, { label: string; color: string; Icon: React.ElementType }> = {
-  'text-input': { label: 'Texto', color: 'var(--dome-accent)', Icon: Type },
-  document: { label: 'Documento', color: 'var(--success)', Icon: FileText },
-  image: { label: 'Imagen', color: 'var(--warning)', Icon: Image },
-  agent: { label: 'Agente', color: 'var(--dome-accent)', Icon: Bot },
-  output: { label: 'Resultado', color: 'var(--dome-accent)', Icon: Terminal },
+  'text-input': { label: 'Text', color: 'var(--dome-accent)', Icon: Type },
+  document: { label: 'Document', color: 'var(--success)', Icon: FileText },
+  image: { label: 'Image', color: 'var(--warning)', Icon: Image },
+  agent: { label: 'Agent', color: 'var(--dome-accent)', Icon: Bot },
+  output: { label: 'Output', color: 'var(--dome-accent)', Icon: Terminal },
 };
 
 const DIFFICULTY_STYLES = {
-  beginner: { bg: 'var(--bg-secondary)', text: 'var(--success)', label: 'Básico', icon: '🟢' },
-  intermediate: { bg: 'var(--bg-secondary)', text: 'var(--warning)', label: 'Medio', icon: '🟡' },
-  advanced: { bg: 'var(--bg-secondary)', text: 'var(--error)', label: 'Avanzado', icon: '🔴' },
+  beginner: { bg: 'var(--bg-secondary)', text: 'var(--success)', label: 'Beginner', icon: '🟢' },
+  intermediate: { bg: 'var(--bg-secondary)', text: 'var(--warning)', label: 'Intermediate', icon: '🟡' },
+  advanced: { bg: 'var(--bg-secondary)', text: 'var(--error)', label: 'Advanced', icon: '🔴' },
 };
 
 export default function WorkflowDetail({
@@ -118,7 +118,7 @@ export default function WorkflowDetail({
           {workflow.longDescription && (
             <div className="px-5 pb-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--dome-text-muted)' }}>
-                Descripción
+                Description
               </h3>
               <p className="text-sm" style={{ color: 'var(--dome-text-secondary)', lineHeight: 1.7 }}>
                 {workflow.longDescription}
@@ -130,7 +130,7 @@ export default function WorkflowDetail({
           {agentNodes.length > 0 && (
             <div className="px-5 pb-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--dome-text-muted)' }}>
-                Agentes en el workflow
+                Agents in this workflow
               </h3>
               <div className="space-y-2">
                 {agentNodes.map((node) => (
@@ -153,7 +153,7 @@ export default function WorkflowDetail({
                         {node.data.label}
                       </p>
                       <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                        {(node.data as { agentName?: string }).agentName ?? 'Agente personalizable'}
+                        {(node.data as { agentName?: string }).agentName ?? 'Customizable agent'}
                       </p>
                     </div>
                   </div>
@@ -187,7 +187,7 @@ export default function WorkflowDetail({
                 </span>
               )}
               <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                {workflow.nodes.length} nodos
+                {workflow.nodes.length} {workflow.nodes.length === 1 ? 'node' : 'nodes'}
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -208,7 +208,7 @@ export default function WorkflowDetail({
             <div className="px-5 pb-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--dome-text-muted)' }}>
                 <Lightbulb className="w-3 h-3 inline mr-1 -mt-0.5" />
-                Casos de uso
+                Use cases
               </h3>
               <ul className="space-y-1.5">
                 {workflow.useCases.map((useCase, i) => (
@@ -240,7 +240,7 @@ export default function WorkflowDetail({
                 border: '1px solid var(--dome-border)',
               }}
             >
-              Cerrar
+              Close
             </button>
             <button
               onClick={() => onInstall(workflow)}
@@ -255,22 +255,22 @@ export default function WorkflowDetail({
               {isInstalling ? (
                 <span className="flex items-center gap-1.5">
                   <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                  Instalando...
+                  Installing…
                 </span>
               ) : isInstalled && !hasUpdate ? (
                 <>
                   <Play className="w-4 h-4" />
-                  Abrir en Canvas
+                  Open in Canvas
                 </>
               ) : hasUpdate ? (
                 <>
                   <Download className="w-4 h-4" />
-                  Actualizar
+                  Update
                 </>
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  Instalar
+                  Install
                 </>
               )}
             </button>

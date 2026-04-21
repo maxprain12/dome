@@ -81,16 +81,6 @@ interface ResourceInteraction {
   updated_at: number;
 }
 
-interface ResourceLink {
-  id: string;
-  source_id: string;
-  target_id: string;
-  link_type: string;
-  weight: number;
-  metadata?: string;
-  created_at: number;
-}
-
 interface UnifiedSearchResult {
   resources: Resource[];
   interactions: (ResourceInteraction & { resource_title: string })[];
@@ -100,6 +90,29 @@ interface UnifiedSearchResult {
     content?: string;
     updated_at?: number;
   }>;
+}
+
+/** Chunk-level semantic hit (Nomic embeddings, `resource_chunks`) */
+interface SemanticSearchHit {
+  resource_id: string;
+  title: string;
+  type: string;
+  chunk_index: number;
+  char_start: number | null;
+  char_end: number | null;
+  page_number?: number | null;
+  snippet: string;
+  score: number;
+}
+
+/** Estado de indexación de embeddings locales (chunks Nomic) */
+interface SemanticIndexingStatus {
+  modelVersion: string;
+  indexableTotal: number;
+  indexedResourceCount: number;
+  pendingCount: number;
+  chunksTotal: number;
+  allIndexed: boolean;
 }
 
 // Knowledge Graph Types
@@ -125,6 +138,19 @@ interface GraphEdge {
 }
 
 declare global {
+  /** Row from `semantic_relations` + source resource (backlinks panel). `link_type` is `relation_type`. */
+  interface ResourceSemanticBacklink {
+    id: string;
+    source_id: string;
+    target_id: string;
+    similarity: number;
+    link_type: 'manual' | 'confirmed' | 'auto' | 'rejected';
+    label: string | null;
+    created_at: number;
+    source_title: string | null;
+    source_type: string;
+  }
+
   interface Window {
     electron: {
       // System Paths
@@ -361,6 +387,9 @@ declare global {
           create: (resource: any) => Promise<DBResponse<Resource>>;
           getByProject: (projectId: string) => Promise<DBResponse<Resource[]>>;
           getById: (id: string) => Promise<DBResponse<Resource>>;
+          ensureUrl: (
+            payload: string | { url: string; sourceResourceId: string },
+          ) => Promise<DBResponse<Resource>>;
           update: (resource: any) => Promise<DBResponse<Resource>>;
           search: (query: string) => Promise<DBResponse<Resource[]>>;
           getAll: (limit?: number) => Promise<DBResponse<Resource[]>>;
@@ -376,7 +405,7 @@ declare global {
           ) => Promise<DBResponse<{ movedIds: string[] }>>;
           removeFromFolder: (resourceId: string) => Promise<DBResponse<void>>;
           // Backlinks
-          getBacklinks: (resourceId: string) => Promise<DBResponse<ResourceLink[]>>;
+          getBacklinks: (resourceId: string) => Promise<DBResponse<ResourceSemanticBacklink[]>>;
           // Search for mentions
           searchForMention: (query: string) => Promise<DBResponse<Resource[]>>;
         };
@@ -435,12 +464,72 @@ declare global {
           getByResource: (resourceId: string) => Promise<DBResponse<Array<{ id: string; name: string; color?: string }>>>;
           getAll: () => Promise<DBResponse<Array<{ id: string; name: string; color?: string | null; resource_count: number }>>>;
           getResources: (tagId: string) => Promise<DBResponse<Array<{ id: string; title: string; type: string; updated_at: number }>>>;
+          create: (tag: {
+            name: string;
+            color?: string | null;
+          }) => Promise<DBResponse<{ id: string; name: string; color?: string | null }>>;
+          addToResource: (resourceId: string, tagId: string) => Promise<DBResponse<void>>;
+          removeFromResource: (resourceId: string, tagId: string) => Promise<DBResponse<void>>;
         };
-        links: {
-          create: (link: any) => Promise<DBResponse<ResourceLink>>;
-          getBySource: (sourceId: string) => Promise<DBResponse<ResourceLink[]>>;
-          getByTarget: (targetId: string) => Promise<DBResponse<ResourceLink[]>>;
-          delete: (id: string) => Promise<DBResponse<void>>;
+        semantic: {
+          getGraph: (
+            resourceId: string,
+            threshold?: number,
+          ) => Promise<
+            DBResponse<{
+              nodes: Array<{
+                id: string;
+                label: string;
+                resourceType?: string;
+                connectionCount: number;
+                isCurrentNote: boolean;
+              }>;
+              edges: Array<{
+                id: string;
+                source: string;
+                target: string;
+                similarity: number;
+                relation_type: string;
+                label?: string | null;
+                sourceName?: string;
+                targetName?: string;
+                sourceType?: string;
+                targetType?: string;
+              }>;
+            }>
+          >;
+          confirm: (edgeId: string) => Promise<DBResponse<void>>;
+          reject: (edgeId: string) => Promise<DBResponse<void>>;
+          delete: (edgeId: string) => Promise<DBResponse<void>>;
+          createManual: (payload: {
+            sourceId?: string;
+            targetId?: string;
+            source_id?: string;
+            target_id?: string;
+            label?: string | null;
+          }) => Promise<DBResponse<{ id: string; duplicate?: boolean }>>;
+          indexResource: (resourceId: string) => Promise<DBResponse<unknown>>;
+          reindexAll: () => Promise<DBResponse<unknown>>;
+          search: (
+            query: string,
+            limit?: number,
+            filter?: { type?: string[] },
+          ) => Promise<DBResponse<SemanticSearchHit[]>>;
+          getIndexingStatus: () => Promise<DBResponse<SemanticIndexingStatus>>;
+          resourceHasChunks: (
+            resourceId: string,
+          ) => Promise<DBResponse<{ count: number; hasChunks: boolean }>>;
+          onProgress: (callback: (p: { done: number; total: number; errors?: number; step?: string }) => void) => () => void;
+        };
+        cloudLlm: {
+          pdfRegionStream: (payload: {
+            streamId: string;
+            imageDataUrl: string;
+            question: string;
+            maxNewTokens?: number;
+          }) => Promise<DBResponse<{ streamId?: string }>>;
+          onStreamChunk: (callback: (data: { streamId: string; text: string }) => void) => () => void;
+          onStreamDone: (callback: (data: { streamId: string; error?: string }) => void) => () => void;
         };
         graph: {
           createNode: (node: Partial<GraphNode>) => Promise<DBResponse<GraphNode>>;
@@ -501,6 +590,15 @@ declare global {
           data?: { windowId: string; folderId: string; title: string };
           error?: string;
         }>;
+      };
+
+      /** PDF page render (pdf.js → PNG), used by chat `dome-pdf-page:` */
+      pdf: {
+        renderPage: (payload: {
+          resourceId: string;
+          pageNumber: number;
+          scale?: number;
+        }) => Promise<{ success: boolean; dataUrl?: string; error?: string }>;
       };
 
       // Resource File Storage API
@@ -584,15 +682,6 @@ declare global {
           DBResponse<{ pendingMigrations: number; notes: Array<{ id: string; title: string }> }>
         >;
         migrateNotesToDomain: () => Promise<DBResponse<{ migrated?: number; error?: string }>>;
-      };
-
-      /** Docling: PDF conversion progress and image APIs */
-      docling?: {
-        onProgress: (
-          callback: (event: { resourceId: string; status: string; progress?: number }) => void,
-        ) => RemoveListenerFn;
-        convertResource: (resourceId: string) => Promise<{ success?: boolean; error?: string }>;
-        getImageData?: (imageId: string) => Promise<{ success: boolean; data?: string; error?: string }>;
       };
 
       // Web Scraping API
@@ -880,20 +969,19 @@ declare global {
           }>;
           resourceGetSection: (
             resourceId: string,
-            nodeId: string
+            chunkId: string
           ) => Promise<{
             success: boolean;
             resource_id?: string;
             title?: string;
+            chunk_id?: string;
             section?: {
-              node_id: string;
+              chunk_id: string;
               title: string;
               summary: string;
-              start_index: number;
-              end_index: number;
-              page_range: string;
-              node_path: string[];
-              children: Array<{ node_id: string; title: string }>;
+              text?: string;
+              page_number?: number | null;
+              chunk_index?: number;
             };
             error?: string;
           }>;
@@ -931,20 +1019,29 @@ declare global {
             count?: number;
             results?: Array<{
               id: string;
+              resource_id?: string;
               title: string;
               type: string;
               project_id: string;
               similarity?: number;
+              score?: number;
               snippet: string;
+              chunk_id?: string;
+              chunk_index?: number;
+              page_number?: number | null;
               created_at: number;
               updated_at: number;
               metadata?: Record<string, any>;
-              node_id?: string;
-              pages?: number[];
-              page_range?: string;
-              node_title?: string;
-              node_path?: string[];
             }>;
+            error?: string;
+          }>;
+          pdfRenderPage: (payload: {
+            resource_id: string;
+            page_number: number;
+            scale?: number;
+          }) => Promise<{
+            success: boolean;
+            data_url?: string;
             error?: string;
           }>;
           projectList: () => Promise<{
@@ -1547,96 +1644,6 @@ declare global {
           onDownloadProgress: (callback: (data: { percent: number; status: string }) => void) => RemoveListenerFn;
           onServerLog: (callback: (message: string) => void) => RemoveListenerFn;
           onStatusChanged: (callback: (status: { status: string; version?: string; error?: string }) => void) => RemoveListenerFn;
-        };
-      };
-
-      // Vector Database API - Annotations and Resources
-      vector: {
-        // Add embeddings to vector database
-        add: (embeddings: any[]) => Promise<{
-          success: boolean;
-          data?: any;
-          error?: string;
-        }>;
-        // Generic search across all embeddings (text-based or vector-based)
-        search: (query: string | {
-          vector: number[];
-          limit?: number;
-          filter?: string;
-          threshold?: number;
-        }, options?: {
-          limit?: number;
-          threshold?: number;
-          filter?: Record<string, any>;
-        }) => Promise<{
-          success: boolean;
-          data?: Array<{
-            id: string;
-            resource_id?: string;
-            text: string;
-            score: number;
-            _distance?: number;
-            metadata: any;
-          }>;
-          error?: string;
-        }>;
-        // Delete embeddings by filter
-        delete: (filter: string) => Promise<{
-          success: boolean;
-          error?: string;
-        }>;
-        // Annotation-specific operations
-        annotations: {
-          index: (annotationData: {
-            annotationId: string;
-            resourceId: string;
-            text: string;
-            metadata: {
-              annotation_type: 'highlight' | 'note';
-              page_index: number;
-              resource_type: 'pdf';
-              title: string;
-              project_id: string;
-            };
-          }) => Promise<{ success: boolean; error?: string }>;
-          search: (queryData: {
-            queryText?: string;
-            queryVector?: number[];
-            limit?: number;
-            resourceId?: string;
-          }) => Promise<{
-            success: boolean;
-            data?: Array<{
-              annotationId: string;
-              resourceId: string;
-              text: string;
-              score: number;
-              metadata: any;
-            }>;
-            error?: string;
-          }>;
-          delete: (annotationId: string) => Promise<{ success: boolean; error?: string }>;
-        };
-        status: () => Promise<{ available: boolean; path: string | null }>;
-        resources: {
-          index: (payload: { resourceId?: string; resourceIds?: string[] } | string[]) => Promise<{ success: boolean; chunksIndexed?: number; error?: string }>;
-          addEmbeddings: (embeddings: Array<{
-            id: string;
-            resource_id: string;
-            chunk_index?: number;
-            text: string;
-            vector: number[];
-            metadata?: { resource_type?: string; title?: string; project_id?: string; projectId?: string; created_at?: number };
-          }>) => Promise<{ success: boolean; count?: number; error?: string }>;
-          stats: () => Promise<{
-            success: boolean;
-            chunks?: number;
-            resourcesIndexed?: number;
-            tableNames?: string[];
-            lastError?: string | null;
-          }>;
-          reindexAll: () => Promise<{ success: boolean; chunksIndexed?: number; resourcesProcessed?: number; error?: string }>;
-          repair: () => Promise<{ success: boolean; error?: string }>;
         };
       };
 

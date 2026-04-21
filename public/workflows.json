@@ -2,7 +2,7 @@
   {
     "id": "research-write-workflow",
     "name": "Research & Write",
-    "description": "Investiga un tema en la web y redacta un artículo completo y bien documentado.",
+    "description": "Research a topic on the web and produce a well-structured, well-documented article.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["research", "writing", "productivity"],
@@ -11,15 +11,15 @@
     "difficulty": "beginner",
     "category": "research",
     "useCases": [
-      "Redactar artículos académicos sobre un tema",
-      "Crear posts de blog documentados",
-      "Preparar informes de investigación"
+      "Draft academic-style articles on any topic",
+      "Create well-sourced blog posts",
+      "Prepare research briefs and reports"
     ]
   },
   {
     "id": "pdf-study-materials",
     "name": "PDF → Study Materials",
-    "description": "Convierte un documento de la biblioteca en flashcards, quiz y resumen de estudio.",
+    "description": "Turn a library document into flashcards, quizzes, and a study summary.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["education", "productivity", "knowledge"],
@@ -28,15 +28,15 @@
     "difficulty": "beginner",
     "category": "education",
     "useCases": [
-      "Preparar exámenes a partir de apuntes",
-      "Crear flashcards de papers académicos",
-      "Generar tests de práctica de capítulos de libro"
+      "Study for exams from your notes",
+      "Build flashcards from academic papers",
+      "Generate practice tests from book chapters"
     ]
   },
   {
     "id": "literature-review-pipeline",
     "name": "Literature Review Pipeline",
-    "description": "Pipeline completo: busca literatura, la analiza y produce una revisión académica estructurada.",
+    "description": "End-to-end pipeline: search literature, analyze it, and produce a structured academic review.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["research", "academic", "writing"],
@@ -45,15 +45,15 @@
     "difficulty": "intermediate",
     "category": "research",
     "useCases": [
-      "Marco teórico para tesis doctoral",
-      "Estado del arte en artículos científicos",
-      "Revisión de evidencia para proyectos de investigación"
+      "Theoretical framework sections for theses",
+      "State-of-the-art sections for journal articles",
+      "Evidence reviews for research projects"
     ]
   },
   {
     "id": "data-report-workflow",
     "name": "Data → Report",
-    "description": "Analiza datos de tu biblioteca y genera un informe ejecutivo con visualizaciones.",
+    "description": "Analyze data from your library and generate an executive report with clear takeaways.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["data", "productivity", "content"],
@@ -62,15 +62,15 @@
     "difficulty": "intermediate",
     "category": "data",
     "useCases": [
-      "Informes de análisis de datos académicos",
-      "Reportes de métricas y KPIs",
-      "Análisis de resultados de encuestas"
+      "Academic data analysis reports",
+      "KPI and metrics summaries",
+      "Survey results analysis"
     ]
   },
   {
     "id": "knowledge-base-builder",
     "name": "Knowledge Base Builder",
-    "description": "Construye una base de conocimiento conectada a partir de múltiples fuentes de tu biblioteca.",
+    "description": "Build a connected knowledge base from multiple sources in your library.",
     "author": "Dome Team",
     "version": "1.0.0",
     "tags": ["knowledge", "productivity", "research"],
@@ -79,9 +79,9 @@
     "difficulty": "intermediate",
     "category": "knowledge",
     "useCases": [
-      "Organizar notas de un curso o asignatura",
-      "Crear un wiki personal de un dominio de conocimiento",
-      "Preparar documentación de un proyecto"
+      "Organize course or subject notes",
+      "Create a personal wiki for a domain",
+      "Document a project knowledge base"
     ]
   }
 ]

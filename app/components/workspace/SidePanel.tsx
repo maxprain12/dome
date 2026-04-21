@@ -1,23 +1,28 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Link2, MessageSquare, Search, X, FolderOpen, ChevronDown, FileText, Trash2, Check } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Link2, MessageSquare, X, FolderOpen, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import WorkspaceFilesPanel from './WorkspaceFilesPanel';
 import PDFTab from './PDFTab';
-import { type Resource, type ResourceLink } from '@/types';
+import RelationsTab from './RelationsTab';
+import { type Resource } from '@/types';
 import { useManyStore } from '@/lib/store/useManyStore';
 
-type TabType = 'references' | 'backlinks' | 'search' | 'workspace' | 'pdf';
+type TabType = 'relations' | 'backlinks' | 'workspace' | 'pdf';
 
-const TAB_IDS: TabType[] = ['references', 'backlinks', 'search', 'workspace', 'pdf'];
+const TAB_ORDER: TabType[] = ['relations', 'backlinks', 'workspace', 'pdf'];
 
 function tabIcon(id: TabType): React.ReactNode {
   switch (id) {
-    case 'references': return <Link2 size={14} />;
-    case 'backlinks': return <MessageSquare size={14} />;
-    case 'search': return <Search size={14} />;
-    case 'workspace': return <FolderOpen size={14} />;
-    case 'pdf': return <FileText size={14} />;
-    default: return null;
+    case 'relations':
+      return <Link2 size={14} />;
+    case 'backlinks':
+      return <MessageSquare size={14} />;
+    case 'workspace':
+      return <FolderOpen size={14} />;
+    case 'pdf':
+      return <FileText size={14} />;
+    default:
+      return null;
   }
 }
 
@@ -46,19 +51,17 @@ export default function SidePanel({
 }: SidePanelProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>(() =>
-    resource?.type === 'notebook' ? 'workspace' : 'references'
+    resource?.type === 'notebook' ? 'workspace' : 'relations',
   );
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const { setContext } = useManyStore();
 
   const isNotebook = resource?.type === 'notebook';
   const isPdf = resource?.type === 'pdf';
+
   const tabLabel = (id: TabType) => {
     const keys: Record<TabType, string> = {
-      references: 'workspace.side_panel_tab_references',
+      relations: 'workspace.side_panel_tab_relations',
       backlinks: 'workspace.side_panel_tab_backlinks',
-      search: 'workspace.side_panel_tab_search',
       workspace: 'workspace.side_panel_tab_workspace',
       pdf: 'workspace.side_panel_tab_pdf',
     };
@@ -67,7 +70,7 @@ export default function SidePanel({
 
   const tabs = useMemo(
     () =>
-      TAB_IDS.filter((id) => {
+      TAB_ORDER.filter((id) => {
         if (id === 'workspace') return isNotebook;
         if (id === 'pdf') return isPdf;
         return true;
@@ -75,22 +78,19 @@ export default function SidePanel({
     [isNotebook, isPdf],
   );
 
-  // Keep active tab valid for current resource (e.g. PDF tab only on PDFs)
   useEffect(() => {
     setActiveTab((prev) => {
       if (tabs.includes(prev)) return prev;
-      return isPdf ? 'pdf' : 'references';
+      return isPdf ? 'pdf' : 'relations';
     });
   }, [resourceId, isPdf, tabs]);
 
-  // When opening panel for a notebook, default to Workspace tab
   useEffect(() => {
     if (isOpen && isNotebook && tabs.includes('workspace')) {
       setActiveTab('workspace');
     }
   }, [isOpen, isNotebook, tabs]);
 
-  // Actualizar el contexto de Many cuando se abre un recurso
   useEffect(() => {
     if (resource) {
       setContext(resourceId, resource.title);
@@ -100,20 +100,9 @@ export default function SidePanel({
     };
   }, [resourceId, resource, setContext]);
 
-  // Cerrar dropdown al hacer clic fuera
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   if (!isOpen) return null;
 
-  const effectiveTab: TabType = (tabs.includes(activeTab) ? activeTab : tabs[0]) ?? 'references';
+  const effectiveTab: TabType = (tabs.includes(activeTab) ? activeTab : tabs[0]) ?? 'relations';
 
   return (
     <div
@@ -126,87 +115,51 @@ export default function SidePanel({
       }}
     >
       <div
-        className="flex items-center justify-between gap-2 px-4 py-3 border-b shrink-0"
+        className="flex flex-col gap-2 px-3 py-3 border-b shrink-0"
         style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
       >
-        <div ref={dropdownRef} className="flex-1 min-w-0 relative">
-          <button
-            type="button"
-            onClick={() => setDropdownOpen((o) => !o)}
-            className="flex items-center justify-between gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
-            style={{
-              background: 'var(--dome-surface)',
-              border: '1px solid var(--dome-border)',
-              color: 'var(--dome-text)',
-            }}
-            aria-expanded={dropdownOpen}
-            aria-haspopup="listbox"
+        <div className="flex items-center justify-between gap-2">
+          <div
+            className="flex rounded-lg p-0.5 gap-0.5 flex-1 min-w-0 overflow-x-auto"
+            style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+            role="tablist"
+            aria-label={t('workspace.side_panel_tabs_aria')}
           >
-            <span className="flex items-center gap-2 truncate">
-              {tabIcon(effectiveTab)}
-              {tabLabel(effectiveTab)}
-            </span>
-            <ChevronDown
-              size={16}
-              className="shrink-0 transition-transform duration-200"
-              style={{
-                color: 'var(--dome-text-muted)',
-                transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0)',
-              }}
-            />
-          </button>
-
-          {dropdownOpen && (
-            <div
-              className="absolute top-full left-0 right-0 mt-1 py-1 rounded-lg z-dropdown shadow-lg"
-              style={{
-                background: 'var(--dome-surface)',
-                border: '1px solid var(--dome-border)',
-              }}
-            >
-              {tabs.map((tabId) => (
+            {tabs.map((tabId) => {
+              const active = effectiveTab === tabId;
+              return (
                 <button
                   key={tabId}
                   type="button"
-                  onClick={() => {
-                    setActiveTab(tabId);
-                    setDropdownOpen(false);
-                  }}
-                  className="flex items-center gap-2 w-full px-3 py-2.5 text-sm text-left transition-colors hover:bg-[var(--dome-bg-hover)]"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setActiveTab(tabId)}
+                  className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium shrink-0 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
                   style={{
-                    color: effectiveTab === tabId ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-                    background: effectiveTab === tabId ? 'var(--dome-accent-bg)' : 'transparent',
+                    background: active ? 'var(--dome-accent-bg)' : 'transparent',
+                    color: active ? 'var(--dome-text)' : 'var(--dome-text-muted)',
                   }}
                 >
                   {tabIcon(tabId)}
-                  {tabLabel(tabId)}
+                  <span className="truncate max-w-[7rem]">{tabLabel(tabId)}</span>
                 </button>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg shrink-0 transition-all duration-200 hover:bg-[var(--dome-bg-hover)] opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+            style={{ color: 'var(--dome-text-muted)' }}
+            aria-label={t('workspace.side_panel_close')}
+          >
+            <X size={16} />
+          </button>
         </div>
-
-        <button
-          onClick={onClose}
-          className="p-2 rounded-lg shrink-0 transition-all duration-200 hover:bg-[var(--dome-bg-hover)] opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
-          style={{ color: 'var(--dome-text-muted)' }}
-          aria-label={t('workspace.side_panel_close')}
-        >
-          <X size={16} />
-        </button>
       </div>
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-hidden relative flex flex-col">
-        {effectiveTab === 'references' && (
-          <ReferencesTab resourceId={resourceId} />
-        )}
-        {effectiveTab === 'backlinks' && (
-          <BacklinksTab resourceId={resourceId} />
-        )}
-        {effectiveTab === 'search' && (
-          <SearchTab resourceId={resourceId} resource={resource} />
-        )}
+      <div className="flex-1 overflow-hidden relative flex flex-col min-h-0">
+        {effectiveTab === 'relations' && <RelationsTab resourceId={resourceId} />}
+        {effectiveTab === 'backlinks' && <BacklinksTab resourceId={resourceId} />}
         {effectiveTab === 'workspace' && isNotebook && onNotebookWorkspacePathChange && (
           <WorkspaceFilesPanel
             workspacePath={notebookWorkspacePath}
@@ -221,127 +174,9 @@ export default function SidePanel({
   );
 }
 
-// Referencias - Recursos enlazados desde este recurso
-function ReferencesTab({ resourceId }: { resourceId: string }) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [links, setLinks] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadLinks() {
-      try {
-        const result = await window.electron.db.links.getBySource(resourceId);
-        if (result.success) {
-          setLinks(result.data || []);
-        }
-      } catch (error) {
-        console.error('Error loading links:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    loadLinks();
-  }, [resourceId]);
-
-  const handleDelete = async (linkId: string) => {
-    setDeletingId(linkId);
-    try {
-      await window.electron.db.links.delete(linkId);
-      setLinks((prev) => prev.filter((l) => l.id !== linkId));
-    } catch (err) {
-      console.error('Error deleting link:', err);
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full" style={{ color: 'var(--secondary-text)' }} />
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-4 h-full overflow-y-auto">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
-          Linked Resources
-        </h3>
-        <span className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
-          {links.length} link{links.length !== 1 ? 's' : ''}
-        </span>
-      </div>
-      {links.length === 0 ? (
-        <div className="text-center py-8">
-          <Link2 size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--secondary-text)' }} />
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-            No references yet.
-          </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--tertiary-text)' }}>
-            Use the Search tab to find and link resources.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {links.map((link) => (
-            <div
-              key={link.id}
-              className="group flex items-center gap-2 p-3 rounded-lg"
-              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
-            >
-              <button
-                type="button"
-                className="flex-1 text-left min-w-0 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 rounded"
-                onClick={() => {
-                  window.electron.workspace.open(link.target_id, link.target_type || link.type);
-                }}
-                aria-label={`Open ${link.target_title || 'Untitled'}`}
-              >
-                <p className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
-                  {link.target_title || 'Untitled'}
-                </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full font-medium"
-                    style={{ background: 'var(--accent)', color: 'var(--base-text)', opacity: 0.85 }}
-                  >
-                    {link.link_type || 'related'}
-                  </span>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDelete(link.id)}
-                disabled={deletingId === link.id}
-                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-[var(--bg-hover)] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                style={{ color: 'var(--error, #ef4444)' }}
-                aria-label="Remove link"
-                title="Remove link"
-              >
-                {deletingId === link.id
-                  ? <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
-                  : <Trash2 size={14} />
-                }
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Backlinks - Recursos/notas que enlazan a este recurso
-interface BacklinkResult extends ResourceLink {
-  source_title: string;
-  source_type: string;
-}
-
 function BacklinksTab({ resourceId }: { resourceId: string }) {
-  const [backlinks, setBacklinks] = useState<BacklinkResult[]>([]);
+  const { t } = useTranslation();
+  const [backlinks, setBacklinks] = useState<ResourceSemanticBacklink[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -349,7 +184,7 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
       try {
         const result = await window.electron.db.resources.getBacklinks(resourceId);
         if (result?.success) {
-          setBacklinks((result.data || []) as BacklinkResult[]);
+          setBacklinks((result.data || []) as ResourceSemanticBacklink[]);
         }
       } catch (error) {
         console.error('Error loading backlinks:', error);
@@ -363,21 +198,24 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full" style={{ color: 'var(--secondary-text)' }} />
+        <div
+          className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full"
+          style={{ color: 'var(--dome-text-muted)' }}
+        />
       </div>
     );
   }
 
   return (
     <div className="p-4 h-full overflow-y-auto">
-      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-        Resources Linking Here
+      <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--dome-text)' }}>
+        {t('workspace.backlinks_heading')}
       </h3>
       {backlinks.length === 0 ? (
         <div className="text-center py-8">
-          <MessageSquare size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--secondary-text)' }} />
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-            No backlinks yet. Other resources that reference this one will appear here.
+          <MessageSquare size={32} className="mx-auto mb-3 opacity-30" style={{ color: 'var(--dome-text-muted)' }} />
+          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+            {t('workspace.backlinks_empty')}
           </p>
         </div>
       ) : (
@@ -386,36 +224,56 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
             <button
               type="button"
               key={link.id}
-              className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-[var(--bg-hover)] w-full text-left focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}
+              className="p-3 rounded-lg transition-colors cursor-pointer hover:bg-[var(--dome-bg-hover)] w-full text-left focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+              style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
               onClick={() => {
                 window.electron.workspace.open(link.source_id, link.source_type);
               }}
               aria-label={`Open ${link.source_title || 'Untitled'}`}
             >
-              <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+              <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                 {link.source_title || 'Untitled'}
               </p>
-              <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <span
                   className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
                   style={{
-                    background: 'var(--bg-tertiary)',
-                    color: 'var(--secondary-text)',
+                    background: 'var(--dome-bg-hover)',
+                    color: 'var(--dome-text-muted)',
                   }}
                 >
                   {link.source_type}
                 </span>
-                {link.link_type && link.link_type !== 'related' ? (
+                {typeof link.similarity === 'number' ? (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full font-medium tabular-nums"
+                    style={{
+                      background: 'var(--dome-bg-hover)',
+                      color: 'var(--dome-text-muted)',
+                    }}
+                  >
+                    {t('workspace.backlink_similarity', { pct: Math.round(link.similarity * 100) })}
+                  </span>
+                ) : null}
+                {link.link_type === 'manual' ? (
                   <span
                     className="text-xs px-2 py-0.5 rounded-full font-medium"
                     style={{
-                      background: 'var(--accent)',
-                      color: 'var(--base-text)',
-                      opacity: 0.8,
+                      background: 'var(--dome-accent-bg)',
+                      color: 'var(--dome-text)',
                     }}
                   >
-                    {link.link_type}
+                    {t('workspace.backlink_relation_manual')}
+                  </span>
+                ) : link.link_type === 'confirmed' ? (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full font-medium"
+                    style={{
+                      background: 'var(--dome-accent-bg)',
+                      color: 'var(--dome-text)',
+                    }}
+                  >
+                    {t('workspace.backlink_relation_confirmed')}
                   </span>
                 ) : null}
               </div>
@@ -423,205 +281,6 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// Link types for knowledge graph
-const LINK_TYPES = [
-  { value: 'related', label: 'Related To', description: 'General relationship' },
-  { value: 'cites', label: 'Cites', description: 'This cites the target' },
-  { value: 'cited_by', label: 'Cited By', description: 'This is cited by target' },
-  { value: 'authored_by', label: 'Authored By', description: 'Created by this author' },
-  { value: 'depends_on', label: 'Depends On', description: 'Requires understanding target first' },
-  { value: 'expands', label: 'Expands', description: 'Elaborates on target idea' },
-  { value: 'contradicts', label: 'Contradicts', description: 'Disagrees with target' },
-  { value: 'mentions', label: 'Mentions', description: 'References target' },
-];
-
-// Búsqueda de recursos para enlazar - with live debounced search
-function SearchTab({ resourceId }: { resourceId: string; resource: Resource }) {
-  const { t } = useTranslation();
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Resource[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [selectedLinkType, setSelectedLinkType] = useState('related');
-  const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set());
-  const [linkingId, setLinkingId] = useState<string | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const doSearch = useCallback(async (q: string) => {
-    if (!q.trim()) {
-      setResults([]);
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const result = await window.electron.db.resources.searchForMention(q);
-      if (result.success) {
-        setResults((result.data || []).filter((r: Resource) => r.id !== resourceId));
-      }
-    } catch (error) {
-      console.error('Error searching:', error);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [resourceId]);
-
-  const handleQueryChange = (val: string) => {
-    setQuery(val);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(val), 280);
-  };
-
-  const handleLink = async (targetId: string, targetTitle: string) => {
-    if (linkedIds.has(targetId)) return;
-    setLinkingId(targetId);
-    try {
-      const linkId = `link-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      await window.electron.db.links.create({
-        id: linkId,
-        source_id: resourceId,
-        target_id: targetId,
-        link_type: selectedLinkType,
-        weight: 1.0,
-        created_at: Date.now(),
-      });
-      setLinkedIds((prev) => new Set([...prev, targetId]));
-    } catch (error) {
-      console.error('Error creating link:', error);
-    } finally {
-      setLinkingId(null);
-    }
-  };
-
-  const LINK_TYPE_COLORS: Record<string, string> = {
-    related: '#7b76d0',
-    cites: '#3b82f6',
-    cited_by: '#6366f1',
-    authored_by: '#f59e0b',
-    depends_on: '#f59e0b',
-    expands: '#0ea5e9',
-    contradicts: '#ef4444',
-    mentions: '#10b981',
-  };
-
-  return (
-    <div className="p-4 h-full overflow-y-auto flex flex-col gap-3">
-      <h3 className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
-        Link to Resource
-      </h3>
-
-      {/* Link Type pills */}
-      <div>
-        <p className="text-xs font-medium mb-2" style={{ color: 'var(--secondary-text)' }}>
-          Relation type
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {LINK_TYPES.map((type) => {
-            const isActive = selectedLinkType === type.value;
-            const color = LINK_TYPE_COLORS[type.value] ?? 'var(--accent)';
-            return (
-              <button
-                key={type.value}
-                type="button"
-                onClick={() => setSelectedLinkType(type.value)}
-                title={type.description}
-                className="px-2.5 py-1 rounded-full text-xs font-medium transition-all border cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-                style={{
-                  background: isActive ? color : 'var(--bg-tertiary)',
-                  color: isActive ? 'var(--base-text)' : 'var(--secondary-text)',
-                  borderColor: isActive ? color : 'transparent',
-                }}
-              >
-                {type.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Live Search Input */}
-      <div className="relative">
-        <Search
-          size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-          style={{ color: 'var(--tertiary-text)' }}
-        />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => handleQueryChange(e.target.value)}
-          placeholder={t('sidePanel.searchPlaceholder')}
-          autoFocus
-          className="w-full pl-9 pr-3 py-2 text-sm rounded-lg outline-none focus:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-          style={{
-            background: 'var(--bg)',
-            border: '1px solid var(--border)',
-            color: 'var(--primary-text)',
-          }}
-          aria-label="Search resources to link"
-        />
-        {isSearching && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <div className="w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" style={{ color: 'var(--secondary-text)' }} />
-          </div>
-        )}
-      </div>
-
-      {/* Results */}
-      {results.length > 0 ? (
-        <div className="space-y-2 flex-1 overflow-y-auto">
-          {results.map((result) => {
-            const isLinked = linkedIds.has(result.id);
-            const isLinking = linkingId === result.id;
-            return (
-              <div
-                key={result.id}
-                className="flex items-center gap-3 p-3 rounded-lg"
-                style={{
-                  background: 'var(--bg-secondary)',
-                  border: `1px solid ${isLinked ? 'var(--accent)' : 'var(--border)'}`,
-                  opacity: isLinked ? 0.75 : 1,
-                }}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
-                    {result.title || 'Untitled'}
-                  </p>
-                  <p className="text-xs capitalize mt-0.5" style={{ color: 'var(--tertiary-text)' }}>
-                    {result.type}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleLink(result.id, result.title)}
-                  disabled={isLinked || isLinking}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] shrink-0"
-                  style={{
-                    background: isLinked ? 'var(--success, #10b981)' : 'var(--accent)',
-                    color: 'var(--base-text)',
-                    opacity: isLinking ? 0.7 : 1,
-                  }}
-                  aria-label={isLinked ? 'Already linked' : `Link to ${result.title || 'Untitled'}`}
-                >
-                  {isLinking ? '...' : isLinked ? <><Check size={12} className="inline mr-1" />Linked</> : 'Link'}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      ) : query && !isSearching ? (
-        <div className="text-center py-6">
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>{t('sidePanel.noResourcesFound')}</p>
-        </div>
-      ) : !query ? (
-        <div className="text-center py-6">
-          <Link2 size={28} className="mx-auto mb-2 opacity-25" style={{ color: 'var(--secondary-text)' }} />
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-            Search to find and link resources
-          </p>
-        </div>
-      ) : null}
     </div>
   );
 }

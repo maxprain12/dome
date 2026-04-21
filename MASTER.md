@@ -73,7 +73,7 @@
 | Feature | Doc | Estado |
 |---------|-----|--------|
 | AI Chat (Martin/Many) | [ai-chat.md](./docs/ai-chat.md) | ✅ Implementado |
-| PageIndex (motor IA) | [pageindex.md](./docs/pageindex.md) | ✅ v2.0.0 |
+| Indexación semántica (IA en la nube + Nomic) | [indexing.md](./docs/indexing.md) | ✅ v2.2+ |
 | Agent Canvas | [agent-canvas.md](./docs/agent-canvas.md) | ✅ v2.0.8 |
 | Agent Teams | [agent-teams.md](./docs/agent-teams.md) | ✅ v2.0.8 |
 | Studio | [studio.md](./docs/studio.md) | ✅ Implementado |
@@ -197,7 +197,7 @@ Dome Desktop (Electron)
 │   ├── electron/ipc/               IPC handlers por dominio (~35 archivos)
 │   ├── electron/run-engine.cjs      Agent run execution
 │   ├── electron/langgraph-agent.cjs LangGraph workflows
-│   ├── electron/resource-indexer.cjs PageIndex coordination
+│   ├── electron/semantic-index-scheduler.cjs Semantic indexing (debounced)
 │   └── electron/dome-oauth.cjs      OAuth session con Provider
 │
 ├── Preload (electron/preload.cjs)

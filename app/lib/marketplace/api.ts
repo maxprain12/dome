@@ -159,7 +159,7 @@ export async function installMarketplaceAgent(
 ): Promise<{ success: boolean; data?: ManyAgent; error?: string }> {
   const catalog = await loadMarketplaceAgents();
   const template = catalog.find((a) => a.id === marketplaceId);
-  if (!template) return { success: false, error: 'Agente no encontrado en el catálogo' };
+  if (!template) return { success: false, error: 'Agent not found in catalog' };
 
   const existingAgents = await getManyAgents(marketplaceProjectId());
   const existingByMarketplace = existingAgents.find((agent) => agent.marketplaceId === marketplaceId);

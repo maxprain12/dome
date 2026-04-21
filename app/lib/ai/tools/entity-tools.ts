@@ -256,10 +256,10 @@ const WorkflowCreateSchema = Type.Object({
     description: 'Short description of what this workflow does.',
   })),
   nodes: Type.Optional(Type.Array(Type.Unknown(), {
-    description: 'Array of nodes for the workflow (ReactFlow format). Each node: { id, type, position: {x, y}, data: {...} }',
+    description: 'Array of nodes for the workflow. Each node: { id, type, position: {x, y}, data: {...} }',
   })),
   edges: Type.Optional(Type.Array(Type.Unknown(), {
-    description: 'Array of edges/connections between nodes (ReactFlow format). Each edge: { id, source, target, sourceHandle?, targetHandle? }',
+    description: 'Array of edges between nodes. Each edge: { id, source, target, sourceHandle?, targetHandle? }',
   })),
 });
 

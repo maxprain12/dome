@@ -21,6 +21,7 @@ import DomeBadge from '@/components/ui/DomeBadge';
 import DomeCallout from '@/components/ui/DomeCallout';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeProgressBar from '@/components/ui/DomeProgressBar';
+import DomeToggle from '@/components/ui/DomeToggle';
 
 /** Mezcla del acento de marca para fondos/bordes (compatible con temas). */
 function accentMix(pct: number): string {

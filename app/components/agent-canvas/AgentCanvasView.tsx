@@ -1,19 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ReactFlowProvider,
-  addEdge,
-  applyNodeChanges,
-  applyEdgeChanges,
-  type Connection,
-  type Edge,
-  type Node,
-  type NodeChange,
-  type EdgeChange,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
-import type { CanvasNodeData, WorkflowExecution, AgentNodeData } from '@/types/canvas';
+import type { AgentNodeData, CanvasNodeData, WorkflowExecution, WorkflowNode } from '@/types/canvas';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 import { getManyAgents } from '@/lib/agents/api';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -30,49 +18,27 @@ import CanvasWorkspace from './CanvasWorkspace';
 import PropertiesPanel from './PropertiesPanel';
 import ExecutionLog from './ExecutionLog';
 
-function AgentCanvasInner() {
+export default function AgentCanvasView() {
   const { t } = useTranslation();
   const store = useCanvasStore();
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
   const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const nodes = useCanvasStore((s) => s.nodes);
   const setNodes = useCanvasStore((s) => s.setNodes);
-  const edges = useCanvasStore((s) => s.edges);
-  const setEdges = useCanvasStore((s) => s.setEdges);
+  const removeNode = useCanvasStore((s) => s.removeNode);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [executionLog, setExecutionLog] = useState<ExecutionLogEntry[]>([]);
   const [runStartTime, setRunStartTime] = useState<number | null>(null);
   const [executionHistory, setExecutionHistory] = useState<WorkflowExecution[]>([]);
   const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      setNodes(applyNodeChanges(changes, useCanvasStore.getState().nodes));
-    },
-    [setNodes]
-  );
-
-  const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => {
-      setEdges(applyEdgeChanges(changes, useCanvasStore.getState().edges));
-    },
-    [setEdges]
-  );
-
-  // Load from store when workflow changes externally (e.g. load from disk, open from library)
-  useEffect(() => {
-    const state = useCanvasStore.getState();
-    setNodes(state.nodes);
-    setEdges(state.edges);
-  }, [store.activeWorkflowId, setNodes, setEdges]);
-
   // Resolve agentIconIndex for agent nodes that have agentId but iconIndex 0 (e.g. loaded from old workflow)
   useEffect(() => {
     const agentNodesNeedingIcon = nodes.filter(
-      (n): n is Node<AgentNodeData> =>
+      (n): n is WorkflowNode<AgentNodeData> =>
         n.data?.type === 'agent' &&
         (n.data as AgentNodeData).agentId != null &&
-        ((n.data as AgentNodeData).agentIconIndex ?? 0) === 0
+        ((n.data as AgentNodeData).agentIconIndex ?? 0) === 0,
     );
     if (agentNodesNeedingIcon.length === 0) return;
 
@@ -102,7 +68,6 @@ function AgentCanvasInner() {
     });
   }, [nodes, setNodes, hubProjectId]);
 
-  // Load execution history when workflow changes
   useEffect(() => {
     if (store.activeWorkflowId) {
       getExecutionsByWorkflow(store.activeWorkflowId).then(setExecutionHistory);
@@ -113,27 +78,33 @@ function AgentCanvasInner() {
     }
   }, [store.activeWorkflowId]);
 
-  const handleConnect = useCallback(
-    (params: Connection | Edge) => {
-      setEdges(addEdge({ ...params, type: 'default' }, useCanvasStore.getState().edges));
-    },
-    [setEdges]
-  );
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Backspace' && e.key !== 'Delete') return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (!selectedNodeId) return;
+      e.preventDefault();
+      removeNode(selectedNodeId);
+      setSelectedNodeId(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedNodeId, removeNode]);
 
   const handleAddNode = useCallback(
-    (node: Node<CanvasNodeData>) => {
+    (node: WorkflowNode<CanvasNodeData>) => {
       setNodes([...useCanvasStore.getState().nodes, node]);
     },
-    [setNodes]
+    [setNodes],
   );
 
   const handleDeleteNode = useCallback(
     (nodeId: string) => {
-      setNodes(useCanvasStore.getState().nodes.filter((n) => n.id !== nodeId));
-      setEdges(useCanvasStore.getState().edges.filter((e) => e.source !== nodeId && e.target !== nodeId));
+      removeNode(nodeId);
       setSelectedNodeId(null);
     },
-    [setNodes, setEdges]
+    [removeNode],
   );
 
   const handleRun = useCallback(async () => {
@@ -164,7 +135,7 @@ function AgentCanvasInner() {
               error: state.error,
               payload: state.payload,
             },
-          ])
+          ]),
         );
         const execution: WorkflowExecution = {
           id: executionId,
@@ -189,7 +160,7 @@ function AgentCanvasInner() {
               error: state.error,
               payload: state.payload,
             },
-          ])
+          ]),
         );
         const execution: WorkflowExecution = {
           id: executionId,
@@ -264,11 +235,9 @@ function AgentCanvasInner() {
   }, [store, hubProjectId, t]);
 
   const handleClear = useCallback(() => {
-    setNodes([]);
-    setEdges([]);
     store.clearCanvas();
     setSelectedNodeId(null);
-  }, [setNodes, setEdges, store]);
+  }, [store]);
 
   const handleRename = useCallback(async () => {
     const newName = await showPrompt(t('canvas.rename_workflow_title'), store.activeWorkflowName);
@@ -277,13 +246,10 @@ function AgentCanvasInner() {
     }
   }, [store, t]);
 
-  const selectedNode = selectedNodeId
-    ? nodes.find((n) => n.id === selectedNodeId) ?? null
-    : null;
+  const selectedNode = selectedNodeId ? (nodes.find((n) => n.id === selectedNodeId) ?? null) : null;
 
   return (
     <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--dome-bg)' }}>
-      {/* Top toolbar */}
       <CanvasToolbar
         onRun={handleRun}
         onStop={handleStop}
@@ -293,24 +259,11 @@ function AgentCanvasInner() {
         onRename={handleRename}
       />
 
-      {/* Main area: sidebar + canvas + properties */}
       <div className="flex flex-1 min-h-0 overflow-hidden relative">
-        {/* Left sidebar — node palette */}
         <CanvasSidebar onAddNode={handleAddNode} />
 
-        {/* Canvas */}
-        <CanvasWorkspace
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={handleConnect}
-          onNodeSelect={setSelectedNodeId}
-          onNodesUpdate={setNodes}
-          onEdgesUpdate={setEdges}
-        />
+        <CanvasWorkspace selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
 
-        {/* Right panel — node properties */}
         {selectedNode && (
           <PropertiesPanel
             node={selectedNode}
@@ -320,7 +273,6 @@ function AgentCanvasInner() {
         )}
       </div>
 
-      {/* Execution log panel — bottom of canvas */}
       <ExecutionLog
         entries={executionLog}
         status={store.executionStatus}
@@ -330,7 +282,6 @@ function AgentCanvasInner() {
         onSelectExecution={setSelectedExecutionId}
       />
 
-      {/* Empty state overlay */}
       {nodes.length === 0 && (
         <div
           className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
@@ -341,8 +292,19 @@ function AgentCanvasInner() {
               className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto"
               style={{ background: 'var(--dome-accent-bg)' }}
             >
-              <svg className="w-7 h-7" style={{ color: 'var(--dome-accent)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
+              <svg
+                className="w-7 h-7"
+                style={{ color: 'var(--dome-accent)' }}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"
+                />
               </svg>
             </div>
             <p className="text-sm font-medium" style={{ color: 'var(--dome-text-secondary)' }}>
@@ -355,13 +317,5 @@ function AgentCanvasInner() {
         </div>
       )}
     </div>
-  );
-}
-
-export default function AgentCanvasView() {
-  return (
-    <ReactFlowProvider>
-      <AgentCanvasInner />
-    </ReactFlowProvider>
   );
 }

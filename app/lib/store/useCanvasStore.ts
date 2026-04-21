@@ -1,16 +1,23 @@
 import { create } from 'zustand';
-import type { Node, Edge } from 'reactflow';
-import type { CanvasNodeData, CanvasWorkflow, NodeExecutionState } from '@/types/canvas';
+import type {
+  CanvasNodeData,
+  CanvasWorkflow,
+  NodeExecutionState,
+  WorkflowEdge,
+  WorkflowNode,
+} from '@/types/canvas';
 
 export type CanvasExecutionStatus = 'idle' | 'running' | 'done' | 'error';
 
 interface CanvasState {
-  // ReactFlow nodes and edges
-  nodes: Node<CanvasNodeData>[];
-  edges: Edge[];
-  setNodes: (nodes: Node<CanvasNodeData>[]) => void;
-  setEdges: (edges: Edge[]) => void;
+  nodes: WorkflowNode<CanvasNodeData>[];
+  edges: WorkflowEdge[];
+  setNodes: (nodes: WorkflowNode<CanvasNodeData>[]) => void;
+  setEdges: (edges: WorkflowEdge[]) => void;
   updateNode: (nodeId: string, data: Partial<CanvasNodeData>) => void;
+  moveNode: (nodeId: string, position: { x: number; y: number }) => void;
+  addEdge: (edge: WorkflowEdge) => void;
+  removeEdge: (edgeId: string) => void;
 
   // Active workflow metadata
   activeWorkflowId: string | null;
@@ -33,7 +40,7 @@ interface CanvasState {
   setSelectedNodeId: (id: string | null) => void;
 
   // Actions
-  addNode: (node: Node<CanvasNodeData>) => void;
+  addNode: (node: WorkflowNode<CanvasNodeData>) => void;
   removeNode: (nodeId: string) => void;
   clearCanvas: () => void;
   loadWorkflow: (workflow: CanvasWorkflow) => void;
@@ -47,8 +54,25 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   updateNode: (nodeId, data) =>
     set((state) => ({
       nodes: state.nodes.map((n) =>
-        n.id === nodeId ? { ...n, data: { ...n.data, ...data } as CanvasNodeData } : n
+        n.id === nodeId ? { ...n, data: { ...n.data, ...data } as CanvasNodeData } : n,
       ),
+      isDirty: true,
+    })),
+  moveNode: (nodeId, position) =>
+    set((state) => ({
+      nodes: state.nodes.map((n) => (n.id === nodeId ? { ...n, position } : n)),
+      isDirty: true,
+    })),
+  addEdge: (edge) =>
+    set((state) => {
+      if (state.edges.some((e) => e.source === edge.source && e.target === edge.target)) {
+        return state;
+      }
+      return { edges: [...state.edges, edge], isDirty: true };
+    }),
+  removeEdge: (edgeId) =>
+    set((state) => ({
+      edges: state.edges.filter((e) => e.id !== edgeId),
       isDirty: true,
     })),
 
@@ -59,7 +83,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     set(
       workflow
         ? { activeWorkflowId: workflow.id, activeWorkflowName: workflow.name, isDirty: false }
-        : { activeWorkflowId: null, activeWorkflowName: 'Nuevo Workflow', isDirty: false }
+        : { activeWorkflowId: null, activeWorkflowName: 'Nuevo Workflow', isDirty: false },
     ),
   setWorkflowName: (name) => set({ activeWorkflowName: name, isDirty: true }),
   markDirty: () => set({ isDirty: true }),
@@ -91,16 +115,22 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   selectedNodeId: null,
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
 
-  addNode: (node) =>
-    set((state) => ({ nodes: [...state.nodes, node], isDirty: true })),
+  addNode: (node) => set((state) => ({ nodes: [...state.nodes, node], isDirty: true })),
   removeNode: (nodeId) =>
     set((state) => ({
       nodes: state.nodes.filter((n) => n.id !== nodeId),
       edges: state.edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
+      selectedNodeId: state.selectedNodeId === nodeId ? null : state.selectedNodeId,
       isDirty: true,
     })),
   clearCanvas: () =>
-    set({ nodes: [], edges: [], activeWorkflowId: null, activeWorkflowName: 'Nuevo Workflow', isDirty: false }),
+    set({
+      nodes: [],
+      edges: [],
+      activeWorkflowId: null,
+      activeWorkflowName: 'Nuevo Workflow',
+      isDirty: false,
+    }),
 
   loadWorkflow: (workflow) =>
     set({
@@ -109,7 +139,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
         type: n.type,
         position: n.position,
         data: n.data,
-      })) as Node<CanvasNodeData>[],
+      })),
       edges: workflow.edges.map((e) => ({
         id: e.id,
         source: e.source,
@@ -122,5 +152,6 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       isDirty: false,
       executionStatus: 'idle',
       executionStates: {},
+      selectedNodeId: null,
     }),
 }));

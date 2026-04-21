@@ -40,10 +40,9 @@ Documentación completa del proyecto Dome (v2.1.4). Organizada en dos audiencias
 | Feature                     | Archivo                                        | Contenido                                                                         |
 | --------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
 | **KB LLM (wiki compilada)** | [kb-llm-wiki-model.md](./kb-llm-wiki-model.md) | Modelo de recursos `dome_kb`, roles raw/wiki/output                               |
-| **KB Index policy**         | [kb-index-policy.md](./kb-index-policy.md)     | FTS5 vs PageIndex, `reindexOnSave`, reindex debounced                             |
+| **Indexación semántica**    | [indexing.md](./indexing.md)                   | IA en la nube (visión) + Nomic, chunks, `resource_transcripts`, IPC `db:semantic:*` |
 | **KB UX**                   | [kb-ux-unification.md](./kb-ux-unification.md) | Learn, Studio, Flashcards, Runs; Ajustes y overrides por proyecto                 |
-| **PageIndex**               | [pageindex.md](./pageindex.md)                 | Motor de indexación IA (reemplaza LanceDB), Python bridge, estados, auto-indexing |
-| **Agent Canvas**            | [agent-canvas.md](./agent-canvas.md)           | Constructor visual de workflows (ReactFlow), nodos, ejecución en tiempo real      |
+| **Agent Canvas**            | [agent-canvas.md](./agent-canvas.md)           | Constructor visual de workflows (D3), nodos, ejecución en tiempo real      |
 | **Agent Teams**             | [agent-teams.md](./agent-teams.md)             | Equipos multi-agente, supervisor, sesiones compartidas                            |
 | **Studio**                  | [studio.md](./studio.md)                       | Generación de mindmaps, quizzes, flashcards, guías, FAQs, timelines               |
 
@@ -99,7 +98,6 @@ La documentación del backend web que complementa Dome Desktop está en:
     ├── deployment.md            ← Deploy en Vercel + Supabase + Stripe
     ├── admin-guide.md           ← Panel admin, gestión de usuarios
     ├── phase2-roadmap.md        ← Qué falta implementar
-    ├── docling-setup.md         ← Configurar Docling Serve
     ├── env-secrets.md           ← Variables de entorno y secretos
     ├── rls-security-audit.md    ← Auditoría de seguridad RLS
     └── role-admin.md            ← Asignar rol admin manualmente

@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 const crypto = require('crypto');
-const resourceIndexer = require('../resource-indexer.cjs');
+const semanticIndexScheduler = require('../semantic-index-scheduler.cjs');
+const autoMetadata = require('../auto-metadata.cjs');
 
 /**
  * Generate a unique ID for resources
@@ -10,7 +11,7 @@ function generateId() {
 }
 
 function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService, sanitizePath }) {
-  const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
+  semanticIndexScheduler.init(database);
   /**
    * Import a file: copy to internal storage and create resource
    */
@@ -113,9 +114,11 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       // Broadcast so Home and other windows update immediately
       windowManager.broadcast('resource:created', resource);
 
-      if (indexerDeps && resource && resourceIndexer.shouldIndex(resource)) {
-        resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
+      if (semanticIndexScheduler.shouldIndex(resource)) {
+        semanticIndexScheduler.scheduleSemanticReindex(resourceId);
       }
+
+      autoMetadata.scheduleCloudAutoMetadata(resourceId, { database, fileStorage, windowManager });
 
       return {
         success: true,
@@ -142,18 +145,14 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'resourceId required' };
       }
 
-      if (!indexerDeps) {
-        return { success: true }; // Indexing not available, fail gracefully
-      }
-
       const queries = database.getQueries();
       const resource = queries.getResourceById.get(resourceId);
       if (!resource) {
         return { success: false, error: 'Resource not found' };
       }
 
-      if (resourceIndexer.shouldIndex(resource)) {
-        resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
+      if (semanticIndexScheduler.shouldIndex(resource)) {
+        semanticIndexScheduler.scheduleSemanticReindex(resourceId);
       }
 
       return { success: true };
@@ -265,9 +264,11 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         // Broadcast so Home and other windows update immediately
         windowManager.broadcast('resource:created', resource);
 
-        if (indexerDeps && resource && resourceIndexer.shouldIndex(resource)) {
-          resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
+        if (semanticIndexScheduler.shouldIndex(resource)) {
+          semanticIndexScheduler.scheduleSemanticReindex(resourceId);
         }
+
+        autoMetadata.scheduleCloudAutoMetadata(resourceId, { database, fileStorage, windowManager });
 
         results.push({ success: true, data: resource });
       } catch (error) {
@@ -906,8 +907,8 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       const resource = queries.getResourceById.get(resourceId);
       windowManager.broadcast('resource:created', resource);
 
-      if (indexerDeps && resource && resourceIndexer.shouldIndex(resource)) {
-        resourceIndexer.scheduleIndexing(resourceId, indexerDeps);
+      if (semanticIndexScheduler.shouldIndex(resource)) {
+        semanticIndexScheduler.scheduleSemanticReindex(resourceId);
       }
 
       return { success: true, resource };

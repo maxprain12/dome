@@ -7,24 +7,23 @@ export interface DomeSkeletonGridProps {
   className?: string;
 }
 
-const DEFAULT_GRID =
-  'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4';
+const DEFAULT_LIST = 'flex w-full max-w-full flex-col gap-3';
 
 /**
- * Rejilla de placeholders de carga alineada con listados hub.
+ * Lista de placeholders de carga alineada con listados hub (vista lista).
  */
 export default function DomeSkeletonGrid({
   count = 8,
-  cellHeightClass = 'h-32',
+  cellHeightClass = 'h-24',
   className,
 }: DomeSkeletonGridProps) {
   return (
-    <div className={cn(DEFAULT_GRID, className)} role="status" aria-live="polite">
+    <div className={cn(DEFAULT_LIST, className)} role="status" aria-live="polite">
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
           className={cn(
-            'rounded-xl border animate-pulse motion-reduce:animate-none',
+            'w-full rounded-xl border animate-pulse motion-reduce:animate-none',
             cellHeightClass,
           )}
           style={{

@@ -69,10 +69,10 @@ const TOOL_HANDLER_MAP = {
   agent_create: 'agentCreate',
   automation_create: 'automationCreate',
 
-  // Docling image tools
-  docling_list_images: 'doclingGetResourceImages',
-  docling_show_image: 'doclingGetImageData',
-  docling_show_page_images: 'doclingShowPageImages',
+  pdf_render_page: 'pdfRenderPage',
+
+  image_describe: 'gemmaImageDescribe',
+  screen_understand: 'gemmaScreenUnderstand',
 };
 
 function normalizeToolName(name) {
@@ -140,7 +140,8 @@ async function executeToolInMain(toolName, args, toolContext) {
         if (denied) {
           result = denied;
         } else {
-          result = await fn(rid, args.node_id || args.nodeId);
+          const chunkId = args.chunk_id || args.chunkId || args.node_id || args.nodeId;
+          result = await fn(rid, chunkId);
         }
         break;
       }
@@ -425,33 +426,32 @@ async function executeToolInMain(toolName, args, toolContext) {
       case 'getToolDefinition':
         result = await fn(args.tool_name || args.toolName || '');
         break;
-      case 'doclingGetResourceImages': {
-        const rid = args.resource_id || args.resourceId;
-        const denied = denyUnlessResourceInScope(rid);
-        if (denied) result = denied;
-        else result = await fn(rid);
-        break;
-      }
-      case 'doclingGetImageData': {
-        const rid = args.resource_id || args.resourceId;
-        const denied = denyUnlessResourceInScope(rid);
-        if (denied) result = denied;
-        else result = await fn(args.image_id || args.imageId, rid);
-        break;
-      }
-      case 'doclingShowPageImages': {
+      case 'pdfRenderPage': {
         const rid = args.resource_id || args.resourceId;
         const denied = denyUnlessResourceInScope(rid);
         if (denied) result = denied;
         else {
           result = await fn({
             resource_id: rid,
-            page_no: args.page_no,
-            max_images: args.max_images ?? 3,
+            page_number: args.page_number ?? args.pageNumber ?? 1,
+            scale: args.scale,
           });
         }
         break;
       }
+      case 'gemmaImageDescribe': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn({ resource_id: rid });
+        break;
+      }
+      case 'gemmaScreenUnderstand':
+        result = await fn({
+          image_base64: args.image_base64 || args.imageBase64,
+          intent: args.intent,
+        });
+        break;
       default:
         result = await fn(args);
     }
@@ -538,9 +538,7 @@ function getToolDefsBySubagent() {
       'calendar_create_event',
       'calendar_update_event',
       'calendar_delete_event',
-      'docling_list_images',
-      'docling_show_image',
-      'docling_show_page_images',
+      'pdf_render_page',
     ),
     writer: pick(
       'resource_create',
@@ -650,7 +648,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_get',
-        description: 'Get full details of a specific resource. For indexed PDFs, returns only the structure (TOC with node_ids)—use resource_get_section or resource_semantic_search for specific content. Do NOT call get_document_structure—the structure is already included. For notes and other types, returns full content. Cite inline as [N] when using in answers.',
+        description: 'Get full details of a specific resource. For PDFs, returns the Gemma transcript in content when available. Use resource_semantic_search for passage-level search and pdf_render_page to view a page as an image. For notes, returns full content. Cite inline as [N] when using in answers.',
         parameters: {
           type: 'object',
           properties: {
@@ -683,7 +681,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_semantic_search',
-        description: 'Semantic search across the user\'s library. When the user is viewing a specific resource (resource_id in context), prefer resource_get first—it returns structure. Use resource_semantic_search when you need to find sections by meaning (e.g. "methodology", "conclusions") or when searching across multiple documents. Cite inline as [N] when using results.',
+        description: 'Semantic search over Nomic chunk embeddings. Results include chunk_id (format resourceId#index). Use resource_get_section(resource_id, chunk_id) for full chunk text, or pdf_render_page to see a PDF page as an image.',
         parameters: {
           type: 'object',
           properties: {
@@ -699,14 +697,14 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_get_section',
-        description: 'Get section content by node_id. Use node_ids from resource_get or get_document_structure. Do not call resource_get_section for the same node_id twice. Returns title, summary, page_range, and children (subsections) for deeper navigation.',
+        description: 'Get full text of one semantic chunk. Pass chunk_id from resource_semantic_search (e.g. "uuid#3").',
         parameters: {
           type: 'object',
           properties: {
             resource_id: { type: 'string', description: 'ID of the resource' },
-            node_id: { type: 'string', description: 'PageIndex node_id (e.g. "0004") from structure or search results' },
+            chunk_id: { type: 'string', description: 'Chunk id from resource_semantic_search, format resourceId#chunk_index' },
           },
-          required: ['resource_id', 'node_id'],
+          required: ['resource_id', 'chunk_id'],
         },
       },
     },
@@ -714,7 +712,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'get_document_structure',
-        description: 'Get the hierarchical outline/table of contents of a PDF or note. REDUNDANT if you already called resource_get for this resource—resource_get for indexed PDFs includes the structure. Use get_document_structure ONLY when you need structure without metadata (e.g. from a prior resource_list result). Returns node_ids for resource_get_section.',
+        description: 'Lightweight outline for PDFs with Gemma transcript (page markers). Prefer resource_get for full text.',
         parameters: {
           type: 'object',
           properties: {
@@ -761,45 +759,17 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
-        name: 'docling_list_images',
-        description: 'List all visual artifacts (figures, charts, diagrams) extracted from a document via Docling conversion. Returns image IDs, page numbers, and captions. Use docling_show_image or docling_show_page_images to display them inline. Use when the user asks for images, figures, or visual details.',
+        name: 'pdf_render_page',
+        description:
+          'Render one page of a PDF as a PNG (data URL) for visual inspection—figures, layout, diagrams. Use when the user asks to "see" a page or when text search is not enough.',
         parameters: {
           type: 'object',
           properties: {
-            resource_id: { type: 'string', description: 'ID of the resource (PDF, document) whose Docling-extracted images to list' },
+            resource_id: { type: 'string', description: 'PDF resource ID' },
+            page_number: { type: 'number', description: '1-based page number' },
+            scale: { type: 'number', description: 'Optional render scale (default 1.25)' },
           },
-          required: ['resource_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'docling_show_image',
-        description: 'Display a single visual artifact (figure, chart, diagram) extracted from a document inline. Use docling_list_images first to get available image IDs.',
-        parameters: {
-          type: 'object',
-          properties: {
-            image_id: { type: 'string', description: 'ID of the image to display' },
-            resource_id: { type: 'string', description: 'Optional resource ID for context' },
-          },
-          required: ['image_id'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'docling_show_page_images',
-        description: 'Fetch visual artifacts (figures, charts, diagrams) from a document. Returns images with captions for your analysis. Use with docling_list_images: call docling_list_images first to get image_ids, then use artifact:docling_images in your response with ONLY the image_ids of figures relevant to the user\'s request. You decide which figures to show.',
-        parameters: {
-          type: 'object',
-          properties: {
-            resource_id: { type: 'string', description: 'ID of the resource' },
-            page_no: { type: 'number', description: 'Show only images from this page. Omit for all images.' },
-            max_images: { type: 'number', description: 'Max images to display (1-5). Default: 3.' },
-          },
-          required: ['resource_id'],
+          required: ['resource_id', 'page_number'],
         },
       },
     },
@@ -1307,6 +1277,35 @@ function getAllToolDefinitions() {
           type: 'object',
           properties: { resource_id: { type: 'string', description: 'PPT resource ID' } },
           required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'image_describe',
+        description:
+          'Describe an image resource using on-device Gemma (no cloud vision). Use for image-type resources in the library.',
+        parameters: {
+          type: 'object',
+          properties: { resource_id: { type: 'string', description: 'Image resource ID' } },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'screen_understand',
+        description:
+          'Analyze a screenshot (base64 PNG) for UI elements and intent. Returns JSON-like analysis from on-device Gemma. Requires Gemma enabled in Settings.',
+        parameters: {
+          type: 'object',
+          properties: {
+            image_base64: { type: 'string', description: 'Base64-encoded PNG (with or without data URL prefix)' },
+            intent: { type: 'string', description: 'Optional user goal to bias the analysis' },
+          },
+          required: ['image_base64'],
         },
       },
     },

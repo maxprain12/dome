@@ -1,4 +1,6 @@
 import {
+  cloneElement,
+  isValidElement,
   useCallback,
   useEffect,
   useId,
@@ -6,6 +8,8 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type ReactElement,
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -29,8 +33,11 @@ export interface DomeContextMenuProps {
   className?: string;
 }
 
+type TriggerProps = { onClick?: (e: ReactMouseEvent) => void };
+
 /**
  * Menú desplegable sin Mantine: portal, cierre por fuera y Escape.
+ * El trigger fusiona onClick aquí para que stopPropagation en el hijo no impida abrir el menú.
  */
 export default function DomeContextMenu({
   trigger,
@@ -116,8 +123,18 @@ export default function DomeContextMenu({
     setOpen((o) => !o);
   };
 
-  return (
-    <div ref={triggerWrapRef} className={cn('inline-flex items-center', className)}>
+  const renderTrigger = () => {
+    if (isValidElement(trigger)) {
+      const el = trigger as ReactElement<TriggerProps>;
+      return cloneElement(el, {
+        onClick: (e: ReactMouseEvent) => {
+          e.stopPropagation();
+          toggle();
+          el.props.onClick?.(e);
+        },
+      });
+    }
+    return (
       <span
         className="inline-flex"
         onClick={(e) => {
@@ -134,6 +151,12 @@ export default function DomeContextMenu({
       >
         {trigger}
       </span>
+    );
+  };
+
+  return (
+    <div ref={triggerWrapRef} className={cn('inline-flex items-center', className)}>
+      {renderTrigger()}
       {open && items.length > 0
         ? createPortal(
             <div

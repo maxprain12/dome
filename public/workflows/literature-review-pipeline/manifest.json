@@ -1,8 +1,8 @@
 {
   "id": "literature-review-pipeline",
   "name": "Literature Review Pipeline",
-  "description": "Pipeline completo: busca literatura, la analiza y produce una revisión académica estructurada.",
-  "longDescription": "Automatiza el proceso de revisión de literatura en tres etapas: el investigador busca y recopila fuentes relevantes, el curador las organiza y filtra, y el escritor produce la revisión académica final con citas y síntesis temática.",
+  "description": "Full pipeline: search literature, analyze it, and produce a structured academic review.",
+  "longDescription": "Automates literature review in three stages: the researcher finds and gathers sources, the curator organizes and filters them, and the writer produces the final academic review with citations and thematic synthesis.",
   "author": "Dome Team",
   "version": "1.0.0",
   "tags": ["research", "academic", "writing"],
@@ -15,16 +15,16 @@
   "outputType": "report",
   "category": "research",
   "useCases": [
-    "Marco teórico para tesis doctoral",
-    "Estado del arte en artículos científicos",
-    "Revisión de evidencia para proyectos de investigación"
+    "Theoretical framework sections for theses",
+    "State-of-the-art sections for journal articles",
+    "Evidence reviews for research projects"
   ],
   "nodes": [
     {
       "id": "lr-input",
       "type": "textInput",
       "position": { "x": 80, "y": 80 },
-      "data": { "type": "text-input", "label": "Pregunta de investigación o tema", "value": "" }
+      "data": { "type": "text-input", "label": "Research question or topic", "value": "" }
     },
     {
       "id": "lr-researcher",
@@ -32,7 +32,7 @@
       "position": { "x": 80, "y": 240 },
       "data": {
         "type": "agent",
-        "label": "Buscador de Literatura",
+        "label": "Literature search",
         "agentId": null,
         "systemAgentRole": "research",
         "agentName": "Literature Finder",
@@ -48,7 +48,7 @@
       "position": { "x": 80, "y": 420 },
       "data": {
         "type": "agent",
-        "label": "Curador y Analizador",
+        "label": "Curator & analyzer",
         "agentId": null,
         "systemAgentRole": "curator",
         "agentName": "Literature Curator",
@@ -64,7 +64,7 @@
       "position": { "x": 80, "y": 600 },
       "data": {
         "type": "agent",
-        "label": "Redactor de Revisión",
+        "label": "Review writer",
         "agentId": null,
         "systemAgentRole": "writer",
         "agentName": "Academic Writer",
@@ -78,7 +78,7 @@
       "id": "lr-output",
       "type": "output",
       "position": { "x": 80, "y": 780 },
-      "data": { "type": "output", "label": "Revisión de Literatura", "content": null, "status": "idle" }
+      "data": { "type": "output", "label": "Literature review", "content": null, "status": "idle" }
     }
   ],
   "edges": [

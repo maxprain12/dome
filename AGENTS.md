@@ -19,6 +19,7 @@ Execute the steps below in order. Do not stop between steps unless you hit an ir
 - **Styling**: Tailwind (layout) + CSS variables (colors). Never hardcode hex values.
 - **i18n**: `app/lib/i18n.ts`, 4 languages: **en, es, fr, pt**. Default: `es`.
 - **Tabs**: all major views open as tabs via `useTabStore`, not new Electron windows.
+- **Embeddings locales (Electron main)**: búsqueda semántica por chunks con **Nomic** (`nomic-ai/nomic-embed-text-v1.5` via `@huggingface/transformers`, ONNX int8 ~137 MB). Primera ejecución descarga al caché en `userData/transformers-cache`. Vectores 768-d en `resource_chunks.embedding` (BLOB Float32). Prefijos de tarea: `search_document:` / `search_query:` (no duplicar fuera de `electron/services/embeddings.service.cjs`).
 
 ---
 
@@ -229,9 +230,9 @@ instructions so the agent verifies findings against live code.
 
 - `prompts/shared/project-context.md` — shared across all audit prompts
 - `prompts/audits/<focus>.md` — one per focus (security, types, i18n, debt, vulns,
-  react, errors, deps, all)
+react, errors, deps, all)
 - `prompts/audits/_chain-header.md` — injected when multiple focuses run in a
-  chain via `scripts/vps-audit-chain.sh`
+chain via `scripts/vps-audit-chain.sh`
 
 ### Frontmatter versioning rule
 
@@ -246,23 +247,23 @@ to a specific prompt version.
 ## Reference — where to look
 
 
-| Need                        | Location                              |
-| --------------------------- | ------------------------------------- |
-| Architecture rules          | `.claude/rules/architecture-rules.md` |
-| New IPC step-by-step        | `.claude/sops/new-ipc-channel.md`     |
-| Feature flags usage         | `.claude/sops/feature-flags.md`       |
-| PR checklist                | `.claude/sops/pr-checklist.md`        |
-| Release process             | `.claude/sops/release.md`             |
-| Color palette variables     | `.claude/rules/new-color-palette.md`  |
-| All translations            | `app/lib/i18n.ts`                     |
-| Existing IPC domains        | `electron/ipc/` (one file per domain) |
-| Zustand stores              | `app/lib/store/`                      |
-| Tab system                  | `app/lib/store/useTabStore.ts`        |
-| Existing components         | `app/components/`                     |
-| Electron window creation    | `electron/window-manager.cjs`         |
-| AI review prompts           | `prompts/review/*.md`                 |
+| Need                        | Location                                  |
+| --------------------------- | ----------------------------------------- |
+| Architecture rules          | `.claude/rules/architecture-rules.md`     |
+| New IPC step-by-step        | `.claude/sops/new-ipc-channel.md`         |
+| Feature flags usage         | `.claude/sops/feature-flags.md`           |
+| PR checklist                | `.claude/sops/pr-checklist.md`            |
+| Release process             | `.claude/sops/release.md`                 |
+| Color palette variables     | `.claude/rules/new-color-palette.md`      |
+| All translations            | `app/lib/i18n.ts`                         |
+| Existing IPC domains        | `electron/ipc/` (one file per domain)     |
+| Zustand stores              | `app/lib/store/`                          |
+| Tab system                  | `app/lib/store/useTabStore.ts`            |
+| Existing components         | `app/components/`                         |
+| Electron window creation    | `electron/window-manager.cjs`             |
+| AI review prompts           | `prompts/review/*.md`                     |
 | VPS audit prompts           | `prompts/audits/*.md` + `prompts/shared/` |
-| Audit milestones / targets  | `scripts/audit-milestones.json`       |
-| VPS audit + dashboard setup | `docs/vps-audit-setup.md`             |
+| Audit milestones / targets  | `scripts/audit-milestones.json`           |
+| VPS audit + dashboard setup | `docs/vps-audit-setup.md`                 |
 
 

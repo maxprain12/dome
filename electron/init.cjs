@@ -2,7 +2,7 @@
 /**
  * Initialization Module - Main Process
  * Handles initialization logic for SQLite, filesystem, and settings.
- * Vector database (LanceDB) has been replaced by PageIndex (reasoning-based RAG).
+ * Document search uses PageIndex (reasoning-based RAG) in the main process.
  */
 
 const path = require('path');
@@ -110,16 +110,6 @@ function createAvatarsDirectory() {
     console.log('✅ Avatars directory created');
   }
 }
-
-// LanceDB / embedding functions removed — PageIndex (reasoning-based RAG) handles document search.
-// No-op stubs kept for backward compatibility with any code that calls these.
-
-/** @deprecated No-op. LanceDB removed. */
-async function createResourceEmbeddingsTable() { return null; }
-/** @deprecated No-op. LanceDB removed. */
-async function createSourceEmbeddingsTable() { return null; }
-/** @deprecated No-op. LanceDB removed. */
-async function createAnnotationEmbeddingsTable() { return null; }
 
 /**
  * Check onboarding status
@@ -258,19 +248,8 @@ async function doInitialize(startTime) {
   }
 }
 
-/** @deprecated No-op. LanceDB removed. */
-function getVectorDB() { return null; }
-/** @deprecated No-op. LanceDB removed. */
-function getVectorDBPath() { return null; }
-
 module.exports = {
   initializeApp,
   checkOnboardingStatus,
   isInitialized: () => isInitialized,
-  // Kept as no-ops for backward compatibility (LanceDB removed)
-  getVectorDB,
-  getVectorDBPath,
-  isVectorDBAvailable: () => false,
-  createAnnotationEmbeddingsTable,
-  createResourceEmbeddingsTable,
 };

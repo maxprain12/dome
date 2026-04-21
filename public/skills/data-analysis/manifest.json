@@ -1,10 +1,10 @@
 {
   "id": "data-analysis",
   "name": "Data Analysis",
-  "description": "Análisis estadístico de datos, visualización, interpretación de resultados y generación de insights.",
+  "description": "Statistical analysis, visualization, interpreting results, and turning data into insights.",
   "author": "Dome Team",
   "version": "1.0.0",
   "tags": ["data", "analytics", "statistics"],
   "category": "data",
-  "instructions": "Cuando analices datos: (1) comienza siempre describiendo la estructura y calidad del dataset (dimensiones, tipos, valores nulos), (2) calcula estadísticas descriptivas básicas antes de análisis más complejos, (3) identifica y comunica claramente los outliers y su posible causa, (4) distingue entre correlación y causalidad, (5) representa los hallazgos de forma clara usando tablas o descripciones de visualizaciones, (6) concluye siempre con implicaciones prácticas de los datos analizados."
+  "instructions": "When analyzing data: (1) always start by describing dataset structure and quality (dimensions, types, nulls), (2) compute basic descriptive statistics before deeper analysis, (3) clearly identify and explain outliers and likely causes, (4) distinguish correlation from causation, (5) present findings clearly with tables or visualization descriptions, (6) end with practical implications of the analysis."
 }

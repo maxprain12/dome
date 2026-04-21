@@ -6,7 +6,8 @@ const windowHandlers = require('./window.cjs');
 const initHandlers = require('./init.cjs');
 const databaseHandlers = require('./database.cjs');
 const interactionsHandlers = require('./interactions.cjs');
-const linksHandlers = require('./links.cjs');
+const semanticHandlers = require('./semantic.cjs');
+const cloudLlmHandlers = require('./cloud-llm.cjs');
 const tagsHandlers = require('./tags.cjs');
 const graphHandlers = require('./graph.cjs');
 const resourcesHandlers = require('./resources.cjs');
@@ -29,7 +30,8 @@ const updaterHandlers = require('./updater.cjs');
 const syncHandlers = require('./sync.cjs');
 const pluginsHandlers = require('./plugins.cjs');
 const mcpHandlers = require('./mcp.cjs');
-const pageIndexHandlers = require('./pageindex.cjs');
+const indexingSyncHandlers = require('./indexing-sync.cjs');
+const pdfRenderHandlers = require('./pdf-render.cjs');
 const calendarHandlers = require('./calendar.cjs');
 const domeAuthHandlers = require('./dome-auth.cjs');
 const agentTeamHandlers = require('./agent-team.cjs');
@@ -37,7 +39,6 @@ const chatHandlers = require('./chat.cjs');
 const runsHandlers = require('./runs.cjs');
 const marketplaceHandlers = require('./marketplace.cjs');
 const cloudStorageHandlers = require('./cloud-storage.cjs');
-const doclingHandlers = require('./docling.cjs');
 const transcriptionHandlers = require('./transcription.cjs');
 const browserContextHandlers = require('./browser-context.cjs');
 const transcriptionOverlayHandlers = require('./transcription-overlay.cjs');
@@ -85,7 +86,8 @@ function registerAll(deps) {
   initHandlers.register({ ipcMain, windowManager, initModule, validateSender });
   databaseHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService });
   interactionsHandlers.register({ ipcMain, windowManager, database, validateSender });
-  linksHandlers.register({ ipcMain, windowManager, database, validateSender });
+  semanticHandlers.register({ ipcMain, windowManager, validateSender });
+  cloudLlmHandlers.register({ ipcMain, windowManager, validateSender });
   tagsHandlers.register({ ipcMain, windowManager, database, validateSender });
   graphHandlers.register({ ipcMain, windowManager, database, validateSender });
   resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService, sanitizePath });
@@ -108,7 +110,8 @@ function registerAll(deps) {
   syncHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender, sanitizePath });
   pluginsHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });
   mcpHandlers.register({ ipcMain, windowManager, database, validateSender });
-  pageIndexHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender });
+  indexingSyncHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender });
+  pdfRenderHandlers.register({ ipcMain, windowManager, database, validateSender });
   calendarHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });
   domeAuthHandlers.register({ ipcMain, windowManager, database });
   agentTeamHandlers.register({ ipcMain, windowManager, database, aiCloudService, ollamaService });
@@ -116,7 +119,6 @@ function registerAll(deps) {
   runsHandlers.register({ ipcMain, windowManager, validateSender });
   marketplaceHandlers.register({ ipcMain, windowManager, validateSender });
   cloudStorageHandlers.register({ ipcMain, windowManager, database, fileStorage });
-  doclingHandlers.register({ ipcMain, windowManager, database, fileStorage });
   transcriptionHandlers.register({
     ipcMain,
     windowManager,

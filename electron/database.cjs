@@ -330,18 +330,36 @@ function initDatabase() {
     )
   `);
 
-  // Resource Links table (graph-like relationships between resources)
+  // Semantic chunk embeddings + relations (Nomic 768-d vectors in BLOB)
   db.exec(`
-    CREATE TABLE IF NOT EXISTS resource_links (
+    CREATE TABLE IF NOT EXISTS resource_chunks (
+      id TEXT PRIMARY KEY,
+      resource_id TEXT NOT NULL,
+      chunk_index INTEGER NOT NULL,
+      text TEXT NOT NULL,
+      embedding BLOB NOT NULL,
+      model_version TEXT NOT NULL,
+      char_start INTEGER,
+      char_end INTEGER,
+      page_number INTEGER,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
+      UNIQUE(resource_id, chunk_index)
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS semantic_relations (
       id TEXT PRIMARY KEY,
       source_id TEXT NOT NULL,
       target_id TEXT NOT NULL,
-      link_type TEXT NOT NULL DEFAULT 'related',
-      metadata TEXT,
-      created_at INTEGER NOT NULL,
+      similarity REAL NOT NULL,
+      relation_type TEXT NOT NULL CHECK(relation_type IN ('auto', 'manual', 'confirmed', 'rejected')),
+      label TEXT,
+      detected_at INTEGER NOT NULL,
+      confirmed_at INTEGER,
       FOREIGN KEY (source_id) REFERENCES resources(id) ON DELETE CASCADE,
       FOREIGN KEY (target_id) REFERENCES resources(id) ON DELETE CASCADE,
-      UNIQUE(source_id, target_id, link_type)
+      UNIQUE(source_id, target_id)
     )
   `);
 
@@ -365,8 +383,11 @@ function initDatabase() {
   db.exec('CREATE INDEX IF NOT EXISTS idx_sources_resource ON sources(resource_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_interactions_resource ON resource_interactions(resource_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_interactions_type ON resource_interactions(type)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_links_source ON resource_links(source_id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_links_target ON resource_links(target_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_resource_chunks_resource ON resource_chunks(resource_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_resource_chunks_model ON resource_chunks(model_version)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_source ON semantic_relations(source_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_target ON semantic_relations(target_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_sim ON semantic_relations(similarity DESC)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_search_index_resource ON search_index(resource_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_many_agents_marketplace_id ON many_agents(marketplace_id)');
   // project_id indexes: must run AFTER runMigrations — existing DBs keep old table DDL until migration 23 adds columns
@@ -443,43 +464,6 @@ function initDatabase() {
         COALESCE(new.content, '') || ' ' || COALESCE(json_extract(new.position_data, '$.selectedText'), '')
       );
     END
-  `);
-
-  // PageIndex - hierarchical document tree index (replaces LanceDB embeddings)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS resource_page_index (
-      resource_id TEXT PRIMARY KEY,
-      tree_json TEXT NOT NULL,
-      indexed_at INTEGER NOT NULL,
-      model_used TEXT,
-      FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
-    )
-  `);
-
-  db.exec('CREATE INDEX IF NOT EXISTS idx_resource_page_index_resource ON resource_page_index(resource_id)');
-
-  // Migration: add status tracking columns if they don't exist yet
-  try {
-    db.exec(`ALTER TABLE resource_page_index ADD COLUMN status TEXT DEFAULT 'done'`);
-  } catch { /* column already exists */ }
-  try {
-    db.exec(`ALTER TABLE resource_page_index ADD COLUMN progress INTEGER DEFAULT 100`);
-  } catch { /* column already exists */ }
-  try {
-    db.exec(`ALTER TABLE resource_page_index ADD COLUMN error_message TEXT`);
-  } catch { /* column already exists */ }
-
-  // Separate lightweight status table for resources currently processing
-  // (allows tracking state even before a tree_json is available)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS resource_index_status (
-      resource_id TEXT PRIMARY KEY,
-      status TEXT NOT NULL DEFAULT 'pending',
-      progress INTEGER DEFAULT 0,
-      error_message TEXT,
-      updated_at INTEGER NOT NULL,
-      FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
-    )
   `);
 
   // Populate FTS tables with existing data (important for external content FTS tables)
@@ -2473,6 +2457,199 @@ function runMigrations(db) {
       console.error('[DB] Migration 23 failed:', error);
     }
   }
+
+  // Migration 24: semantic_relations + note_embeddings replace resource_links
+  if (version < 24) {
+    try {
+      const now = Date.now();
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS note_embeddings (
+          resource_id TEXT PRIMARY KEY,
+          embedding BLOB NOT NULL,
+          model_version TEXT NOT NULL DEFAULT 'all-MiniLM-L6-v2',
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS semantic_relations (
+          id TEXT PRIMARY KEY,
+          source_id TEXT NOT NULL,
+          target_id TEXT NOT NULL,
+          similarity REAL NOT NULL,
+          relation_type TEXT NOT NULL CHECK(relation_type IN ('auto', 'manual', 'confirmed', 'rejected')),
+          label TEXT,
+          detected_at INTEGER NOT NULL,
+          confirmed_at INTEGER,
+          FOREIGN KEY (source_id) REFERENCES resources(id) ON DELETE CASCADE,
+          FOREIGN KEY (target_id) REFERENCES resources(id) ON DELETE CASCADE,
+          UNIQUE(source_id, target_id)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_note_embeddings_updated ON note_embeddings(updated_at)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_source ON semantic_relations(source_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_target ON semantic_relations(target_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_sim ON semantic_relations(similarity DESC)');
+
+      const hasOldLinks = db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='resource_links'")
+        .get();
+      if (hasOldLinks) {
+        db.exec('DROP TABLE IF EXISTS resource_links_legacy');
+        db.exec('CREATE TABLE resource_links_legacy AS SELECT * FROM resource_links');
+
+        const pairs = db
+          .prepare(
+            `
+          SELECT source_id, target_id, created_at, link_type
+          FROM resource_links r
+          WHERE source_id != target_id
+            AND r.rowid = (
+              SELECT MIN(r2.rowid) FROM resource_links r2
+              WHERE r2.source_id = r.source_id AND r2.target_id = r.target_id
+            )
+        `,
+          )
+          .all();
+
+        const insertRel = db.prepare(`
+          INSERT OR IGNORE INTO semantic_relations
+            (id, source_id, target_id, similarity, relation_type, label, detected_at)
+          VALUES (?, ?, ?, 1.0, 'manual', ?, ?)
+        `);
+
+        for (const row of pairs) {
+          const ts = typeof row.created_at === 'number' ? row.created_at : now;
+          const label =
+            row.link_type && row.link_type !== 'related' ? String(row.link_type) : null;
+          insertRel.run(`${row.source_id}__${row.target_id}`, row.source_id, row.target_id, label, ts);
+          insertRel.run(`${row.target_id}__${row.source_id}`, row.target_id, row.source_id, label, ts);
+        }
+
+        db.exec('DROP TABLE resource_links');
+      }
+
+      try {
+        db.exec('DROP INDEX IF EXISTS idx_links_source');
+      } catch {
+        /* ignore */
+      }
+      try {
+        db.exec('DROP INDEX IF EXISTS idx_links_target');
+      } catch {
+        /* ignore */
+      }
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '24', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '24', updated_at = excluded.updated_at
+      `).run(now);
+
+      invalidateQueries();
+      console.log('[DB] Migration 24 complete - semantic_relations, note_embeddings');
+    } catch (error) {
+      console.error('[DB] Migration 24 failed:', error);
+    }
+  }
+
+  // Migration 25: resource_chunks (Nomic 768-d), drop legacy note_embeddings, reset auto semantic edges
+  if (version < 25) {
+    try {
+      const now = Date.now();
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS resource_chunks (
+          id TEXT PRIMARY KEY,
+          resource_id TEXT NOT NULL,
+          chunk_index INTEGER NOT NULL,
+          text TEXT NOT NULL,
+          embedding BLOB NOT NULL,
+          model_version TEXT NOT NULL,
+          char_start INTEGER,
+          char_end INTEGER,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
+          UNIQUE(resource_id, chunk_index)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resource_chunks_resource ON resource_chunks(resource_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resource_chunks_model ON resource_chunks(model_version)');
+
+      try {
+        db.exec('DROP TABLE IF EXISTS note_embeddings');
+      } catch {
+        /* ignore */
+      }
+      try {
+        db.exec('DROP INDEX IF EXISTS idx_note_embeddings_updated');
+      } catch {
+        /* ignore */
+      }
+
+      db.exec(`DELETE FROM semantic_relations WHERE relation_type = 'auto'`);
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '25', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '25', updated_at = excluded.updated_at
+      `).run(now);
+
+      invalidateQueries();
+      console.log('[DB] Migration 25 complete - resource_chunks, removed note_embeddings, cleared auto relations');
+    } catch (error) {
+      console.error('[DB] Migration 25 failed:', error);
+    }
+  }
+
+  // Migration 26: remove PageIndex / Docling tables; Gemma PDF transcripts + page_number on chunks
+  if (version < 26) {
+    try {
+      const now = Date.now();
+
+      db.exec('DROP TABLE IF EXISTS resource_index_status');
+      db.exec('DROP TABLE IF EXISTS resource_page_index');
+      db.exec('DROP TABLE IF EXISTS resource_images');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS resource_transcripts (
+          resource_id TEXT NOT NULL,
+          page_number INTEGER NOT NULL,
+          markdown TEXT NOT NULL,
+          model_used TEXT,
+          file_hash TEXT,
+          created_at INTEGER NOT NULL,
+          PRIMARY KEY (resource_id, page_number),
+          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resource_transcripts_resource ON resource_transcripts(resource_id)');
+      db.exec(
+        'CREATE INDEX IF NOT EXISTS idx_resource_transcripts_resource_hash ON resource_transcripts(resource_id, file_hash)',
+      );
+
+      try {
+        db.exec('ALTER TABLE resource_chunks ADD COLUMN page_number INTEGER');
+      } catch {
+        /* column already exists */
+      }
+
+      db.exec(
+        `DELETE FROM resource_chunks WHERE resource_id IN (SELECT id FROM resources WHERE type IN ('pdf','image'))`,
+      );
+      db.exec(`DELETE FROM semantic_relations WHERE relation_type = 'auto'`);
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '26', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '26', updated_at = excluded.updated_at
+      `).run(now);
+
+      invalidateQueries();
+      console.log('[DB] Migration 26 complete - pageindex/docling removed, transcripts, page_number on chunks');
+    } catch (error) {
+      console.error('[DB] Migration 26 failed:', error);
+    }
+  }
 }
 
 /**
@@ -2944,14 +3121,100 @@ function getQueries() {
       ORDER BY created_at ASC
     `),
 
-    // Resource Links
-    createLink: db.prepare(`
-      INSERT INTO resource_links (id, source_id, target_id, link_type, metadata, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+    // Semantic chunk embeddings + relations (replaces resource_links / note_embeddings)
+    countSemanticIndexableResources: db.prepare(`
+      SELECT COUNT(*) AS c FROM resources
+      WHERE type IN ('note','url','document','pdf','notebook','ppt','excel','image')
     `),
-    getLinksBySource: db.prepare('SELECT * FROM resource_links WHERE source_id = ?'),
-    getLinksByTarget: db.prepare('SELECT * FROM resource_links WHERE target_id = ?'),
-    deleteLink: db.prepare('DELETE FROM resource_links WHERE id = ?'),
+    countResourcesWithSemanticChunks: db.prepare(`
+      SELECT COUNT(DISTINCT r.id) AS c
+      FROM resources r
+      INNER JOIN resource_chunks rc ON rc.resource_id = r.id AND rc.model_version = ?
+      WHERE r.type IN ('note','url','document','pdf','notebook','ppt','excel','image')
+    `),
+    countSemanticChunksForModel: db.prepare(`
+      SELECT COUNT(*) AS c FROM resource_chunks WHERE model_version = ?
+    `),
+
+    insertResourceChunk: db.prepare(`
+      INSERT INTO resource_chunks (
+        id, resource_id, chunk_index, text, embedding, model_version, char_start, char_end, page_number, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    deleteChunksByResource: db.prepare('DELETE FROM resource_chunks WHERE resource_id = ?'),
+    getChunksByResource: db.prepare(`
+      SELECT * FROM resource_chunks WHERE resource_id = ? ORDER BY chunk_index ASC
+    `),
+    getAllChunkIdsByModel: db.prepare(
+      'SELECT id FROM resource_chunks WHERE model_version = ?',
+    ),
+    getChunkEmbeddingsByResource: db.prepare(`
+      SELECT embedding FROM resource_chunks WHERE resource_id = ? ORDER BY chunk_index ASC
+    `),
+    getChunksBatchByIds: db.prepare(`
+      SELECT * FROM resource_chunks WHERE id IN (SELECT value FROM json_each(?))
+    `),
+    getAllChunkRowsForModel: db.prepare(`
+      SELECT id, resource_id, chunk_index, char_start, char_end, text, embedding, model_version
+      FROM resource_chunks
+      WHERE model_version = ?
+    `),
+    /** Evita cargar toda la tabla en memoria al actualizar relaciones semánticas por recurso. */
+    getDistinctChunkResourceIdsExcluding: db.prepare(`
+      SELECT DISTINCT resource_id AS resource_id
+      FROM resource_chunks
+      WHERE model_version = ? AND resource_id != ?
+    `),
+    getChunkEmbeddingsByResourceForModel: db.prepare(`
+      SELECT embedding FROM resource_chunks
+      WHERE resource_id = ? AND model_version = ?
+      ORDER BY chunk_index ASC
+    `),
+    getChunkRowsForSemanticSearch: db.prepare(`
+      SELECT c.id, c.resource_id, c.chunk_index, c.char_start, c.char_end, c.page_number, c.text, c.embedding,
+             r.title AS res_title, r.type AS res_type
+      FROM resource_chunks c
+      INNER JOIN resources r ON r.id = c.resource_id
+      WHERE c.model_version = ?
+    `),
+
+    insertSemanticRelation: db.prepare(`
+      INSERT INTO semantic_relations (id, source_id, target_id, similarity, relation_type, label, detected_at, confirmed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getSemanticRelationByPair: db.prepare(
+      'SELECT * FROM semantic_relations WHERE source_id = ? AND target_id = ? LIMIT 1',
+    ),
+    getSemanticRelationById: db.prepare('SELECT * FROM semantic_relations WHERE id = ?'),
+    updateSemanticRelationState: db.prepare(`
+      UPDATE semantic_relations
+      SET relation_type = ?, confirmed_at = ?
+      WHERE id = ?
+    `),
+    deleteSemanticAutoFromSource: db.prepare(`
+      DELETE FROM semantic_relations WHERE source_id = ? AND relation_type = 'auto'
+    `),
+    updateSemanticAutoByPair: db.prepare(`
+      UPDATE semantic_relations
+      SET similarity = ?, detected_at = ?
+      WHERE source_id = ? AND target_id = ? AND relation_type = 'auto'
+    `),
+    deleteSemanticRelationById: db.prepare('DELETE FROM semantic_relations WHERE id = ?'),
+
+    getSemanticOutgoing: db.prepare(`
+      SELECT sr.*, r.title AS target_title, r.type AS target_type
+      FROM semantic_relations sr
+      JOIN resources r ON r.id = sr.target_id
+      WHERE sr.source_id = ? AND sr.relation_type != 'rejected'
+      ORDER BY sr.similarity DESC, sr.detected_at DESC
+    `),
+    getSemanticIncoming: db.prepare(`
+      SELECT sr.*, r.title AS source_title, r.type AS source_type
+      FROM semantic_relations sr
+      JOIN resources r ON r.id = sr.source_id
+      WHERE sr.target_id = ? AND sr.relation_type != 'rejected'
+      ORDER BY sr.similarity DESC, sr.detected_at DESC
+    `),
 
     // Tags
     getTagsByResource: db.prepare(`
@@ -2973,6 +3236,27 @@ function getQueries() {
       WHERE rt.tag_id = ?
       ORDER BY r.updated_at DESC
     `),
+    findTagByNameInsensitive: db.prepare(`
+      SELECT * FROM tags WHERE name = ? COLLATE NOCASE LIMIT 1
+    `),
+    insertTag: db.prepare(`
+      INSERT INTO tags (id, name, color, created_at)
+      VALUES (?, ?, ?, ?)
+    `),
+    getTagById: db.prepare('SELECT * FROM tags WHERE id = ?'),
+    attachTagToResource: db.prepare(`
+      INSERT OR IGNORE INTO resource_tags (resource_id, tag_id)
+      VALUES (?, ?)
+    `),
+    detachTagFromResource: db.prepare(`
+      DELETE FROM resource_tags WHERE resource_id = ? AND tag_id = ?
+    `),
+    findUrlResourceByCanonicalUrl: db.prepare(`
+      SELECT * FROM resources
+      WHERE type = 'url'
+        AND (content = ? OR json_extract(metadata, '$.url') = ?)
+      LIMIT 1
+    `),
 
     // Search (standalone FTS tables)
     searchInteractions: db.prepare(`
@@ -2993,13 +3277,23 @@ function getQueries() {
       LIMIT 10
     `),
 
-    // Get backlinks (resources that link to this resource)
+    // Get backlinks (manual or confirmed relations pointing to this resource)
     getBacklinks: db.prepare(`
-      SELECT l.*, r.title as source_title, r.type as source_type
-      FROM resource_links l
-      JOIN resources r ON l.source_id = r.id
-      WHERE l.target_id = ?
-      ORDER BY l.created_at DESC
+      SELECT sr.id,
+             sr.source_id,
+             sr.target_id,
+             sr.similarity,
+             sr.relation_type AS link_type,
+             sr.label,
+             sr.detected_at AS created_at,
+             r.title AS source_title,
+             r.type AS source_type
+      FROM semantic_relations sr
+      JOIN resources r ON r.id = sr.source_id
+      WHERE sr.target_id = ?
+        AND sr.relation_type IN ('manual', 'confirmed')
+        AND sr.source_id != sr.target_id
+      ORDER BY sr.detected_at DESC
     `),
 
     // Knowledge Graph - Nodes
@@ -3095,52 +3389,27 @@ function getQueries() {
     `),
     getSessionsByDeck: db.prepare('SELECT * FROM flashcard_sessions WHERE deck_id = ? ORDER BY started_at DESC LIMIT ?'),
 
-    // PageIndex - hierarchical document tree index (reasoning-based RAG, native JS)
-    upsertPageIndex: db.prepare(`
-      INSERT INTO resource_page_index (resource_id, tree_json, indexed_at, model_used, status, progress)
-      VALUES (?, ?, ?, ?, 'done', 100)
-      ON CONFLICT(resource_id) DO UPDATE SET
-        tree_json = excluded.tree_json,
-        indexed_at = excluded.indexed_at,
+    // Gemma PDF transcripts (per page cache)
+    upsertResourceTranscript: db.prepare(`
+      INSERT INTO resource_transcripts (resource_id, page_number, markdown, model_used, file_hash, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(resource_id, page_number) DO UPDATE SET
+        markdown = excluded.markdown,
         model_used = excluded.model_used,
-        status = 'done',
-        progress = 100,
-        error_message = NULL
+        file_hash = excluded.file_hash,
+        created_at = excluded.created_at
     `),
-    getPageIndex: db.prepare('SELECT * FROM resource_page_index WHERE resource_id = ?'),
-    getPageIndexByIds: db.prepare(`
-      SELECT * FROM resource_page_index WHERE resource_id IN (SELECT value FROM json_each(?))
+    getResourceTranscriptsByResource: db.prepare(`
+      SELECT page_number, markdown, model_used, file_hash, created_at
+      FROM resource_transcripts WHERE resource_id = ? ORDER BY page_number ASC
     `),
-    deletePageIndex: db.prepare('DELETE FROM resource_page_index WHERE resource_id = ?'),
-    getAllPageIndexedIds: db.prepare(`SELECT resource_id FROM resource_page_index WHERE status = 'done'`),
-    getPageIndexStats: db.prepare(`
-      SELECT COUNT(*) as total_indexed, MAX(indexed_at) as last_indexed_at
-      FROM resource_page_index WHERE status = 'done'
+    deleteResourceTranscripts: db.prepare('DELETE FROM resource_transcripts WHERE resource_id = ?'),
+    countResourceTranscriptsForHash: db.prepare(`
+      SELECT COUNT(*) AS c FROM resource_transcripts
+      WHERE resource_id = ? AND file_hash = ?
     `),
-
-    // Index status tracking (lightweight, for in-progress and error states)
-    setPageIndexStatus: db.prepare(`
-      INSERT INTO resource_index_status (resource_id, status, progress, error_message, updated_at)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(resource_id) DO UPDATE SET
-        status = excluded.status,
-        progress = excluded.progress,
-        error_message = excluded.error_message,
-        updated_at = excluded.updated_at
-    `),
-    getPageIndexStatus: db.prepare('SELECT * FROM resource_index_status WHERE resource_id = ?'),
-    deletePageIndexStatus: db.prepare('DELETE FROM resource_index_status WHERE resource_id = ?'),
-
-    // Resource Images (Docling cloud conversion)
-    insertResourceImage: db.prepare(`
-      INSERT INTO resource_images (id, resource_id, internal_path, file_mime_type, image_index, page_no, caption, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `),
-    getResourceImages: db.prepare('SELECT * FROM resource_images WHERE resource_id = ? ORDER BY image_index ASC'),
-    getResourceImageById: db.prepare('SELECT * FROM resource_images WHERE id = ?'),
-    deleteResourceImages: db.prepare('DELETE FROM resource_images WHERE resource_id = ?'),
-    getResourceImageInternalPaths: db.prepare(`
-      SELECT internal_path FROM resource_images WHERE internal_path IS NOT NULL
+    updateResourceContent: db.prepare(`
+      UPDATE resources SET content = ?, updated_at = ? WHERE id = ?
     `),
 
     // Calendar - Accounts

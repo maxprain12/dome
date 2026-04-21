@@ -1,8 +1,8 @@
 {
   "id": "knowledge-base-builder",
   "name": "Knowledge Base Builder",
-  "description": "Construye una base de conocimiento conectada a partir de múltiples fuentes de tu biblioteca.",
-  "longDescription": "Combina el poder de búsqueda semántica y gestión del conocimiento para construir una base de conocimiento organizada. El curador organiza y conecta notas existentes, mientras el escritor produce un documento maestro de síntesis.",
+  "description": "Build a connected knowledge base from multiple sources in your library.",
+  "longDescription": "Combines semantic search and knowledge management to build an organized knowledge base. The curator connects existing notes while synthesis produces a master document.",
   "author": "Dome Team",
   "version": "1.0.0",
   "tags": ["knowledge", "productivity", "research"],
@@ -15,16 +15,16 @@
   "outputType": "article",
   "category": "knowledge",
   "useCases": [
-    "Organizar notas de un curso o asignatura",
-    "Crear un wiki personal de un dominio de conocimiento",
-    "Preparar documentación de un proyecto"
+    "Organize course or subject notes",
+    "Create a personal wiki for a domain",
+    "Prepare project documentation"
   ],
   "nodes": [
     {
       "id": "kb-input",
       "type": "textInput",
       "position": { "x": 80, "y": 80 },
-      "data": { "type": "text-input", "label": "Tema o dominio de conocimiento", "value": "" }
+      "data": { "type": "text-input", "label": "Topic or knowledge domain", "value": "" }
     },
     {
       "id": "kb-library",
@@ -32,7 +32,7 @@
       "position": { "x": 80, "y": 240 },
       "data": {
         "type": "agent",
-        "label": "Buscador de Biblioteca",
+        "label": "Library search",
         "agentId": null,
         "systemAgentRole": "library",
         "agentName": "Library Search Agent",
@@ -48,7 +48,7 @@
       "position": { "x": 80, "y": 420 },
       "data": {
         "type": "agent",
-        "label": "Curador de Conocimiento",
+        "label": "Knowledge curator",
         "agentId": null,
         "systemAgentRole": "curator",
         "agentName": "Knowledge Curator",
@@ -62,7 +62,7 @@
       "id": "kb-output",
       "type": "output",
       "position": { "x": 80, "y": 600 },
-      "data": { "type": "output", "label": "Base de Conocimiento", "content": null, "status": "idle" }
+      "data": { "type": "output", "label": "Knowledge base", "content": null, "status": "idle" }
     }
   ],
   "edges": [

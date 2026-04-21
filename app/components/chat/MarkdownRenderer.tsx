@@ -4,7 +4,7 @@ import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import CitationBadge from './CitationBadge';
-import DoclingInlineImage from './DoclingInlineImage';
+import DomePdfPageInline from './DomePdfPageInline';
 import type { ParsedCitation } from '@/lib/utils/citations';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
@@ -571,12 +571,19 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         </li>
       ),
 
-      // Images — docling:image_id renders DoclingInlineImage (fetch + lightbox)
+      // Images — dome-pdf-page:resourceId:page renders PDF page PNG
       img: ({ src, alt }) => {
-        if (typeof src === 'string' && src.startsWith('docling:')) {
-          const imageId = src.slice(8).trim();
-          if (!imageId) return null;
-          return <DoclingInlineImage imageId={imageId} alt={alt || 'Figure'} />;
+        if (typeof src === 'string' && src.startsWith('dome-pdf-page:')) {
+          const rest = src.slice('dome-pdf-page:'.length).trim();
+          const colon = rest.indexOf(':');
+          if (colon > 0) {
+            const resourceId = rest.slice(0, colon);
+            const pageNum = parseInt(rest.slice(colon + 1), 10);
+            if (resourceId && Number.isFinite(pageNum) && pageNum >= 1) {
+              return <DomePdfPageInline resourceId={resourceId} pageNumber={pageNum} alt={alt || `PDF p.${pageNum}`} />;
+            }
+          }
+          return null;
         }
         return (
           <img
@@ -688,7 +695,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
   );
 
   const markdownUrlTransform = useCallback((url: string) => {
-    if (url.startsWith('dome://') || url.startsWith('docling:')) {
+    if (url.startsWith('dome://') || url.startsWith('dome-pdf-page:')) {
       return url;
     }
 

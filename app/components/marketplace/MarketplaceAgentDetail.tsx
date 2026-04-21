@@ -27,17 +27,39 @@ const TAG_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 const TOOL_LABELS: Record<string, string> = {
-  'web-search': 'Búsqueda web',
-  'web-fetch': 'Lectura web',
-  'deep-research': 'Deep Research',
-  resources: 'Recursos',
-  flashcards: 'Flashcards',
-  calendar: 'Calendario',
-  excel: 'Excel',
-  ppt: 'PowerPoint',
-  memory: 'Memoria',
-  graph: 'Grafo',
-  notebook: 'Notebook',
+  web_search: 'Web search',
+  web_fetch: 'Web fetch',
+  deep_research: 'Deep research',
+  resource_search: 'Library search',
+  resource_get: 'Open resource',
+  resource_create: 'Create resource',
+  resource_update: 'Update resource',
+  resource_list: 'List resources',
+  resource_semantic_search: 'Semantic search',
+  resource_get_library_overview: 'Library overview',
+  flashcard_create: 'Flashcards',
+  generate_quiz: 'Quiz',
+  generate_mindmap: 'Mind map',
+  generate_knowledge_graph: 'Knowledge graph',
+  create_resource_link: 'Link resources',
+  get_related_resources: 'Related resources',
+  analyze_graph_structure: 'Graph analysis',
+  calendar_create_event: 'Calendar',
+  calendar_get_upcoming: 'Upcoming events',
+  calendar_list: 'Calendar list',
+  calendar_update_event: 'Update event',
+  get_current_project: 'Current project',
+  excel_get: 'Excel read',
+  excel_set_cell: 'Excel cell',
+  excel_set_range: 'Excel range',
+  excel_add_row: 'Excel row',
+  excel_add_sheet: 'Excel sheet',
+  excel_create: 'Excel create',
+  excel_export: 'Excel export',
+  ppt_create: 'PowerPoint',
+  ppt_get_slides: 'Slides',
+  ppt_export: 'Export PPT',
+  generate_audio_script: 'Audio script',
 };
 
 export default function MarketplaceAgentDetail({
@@ -111,7 +133,7 @@ export default function MarketplaceAgentDetail({
                   )}
                 </div>
                 <p className="text-sm mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-                  por {agent.author} · v{agent.version}
+                  by {agent.author} · v{agent.version}
                 </p>
               </div>
             </div>
@@ -130,7 +152,7 @@ export default function MarketplaceAgentDetail({
                 style={{ color: 'var(--dome-text-muted)' }}
               >
                 <Tag className="w-3.5 h-3.5" />
-                Categorías
+                Categories
               </h4>
               <div className="flex flex-wrap gap-2">
                 {agent.tags.map((tag) => {
@@ -156,7 +178,7 @@ export default function MarketplaceAgentDetail({
                   style={{ color: 'var(--dome-text-muted)' }}
                 >
                   <Wrench className="w-3.5 h-3.5" />
-                  Herramientas
+                  Tools
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {agent.toolIds.map((toolId) => (
@@ -182,7 +204,7 @@ export default function MarketplaceAgentDetail({
                 className="text-xs font-semibold uppercase tracking-wider mb-2"
                 style={{ color: 'var(--dome-text-muted)' }}
               >
-                Instrucciones del sistema
+                System instructions
               </h4>
               <div
                 className="text-xs leading-relaxed p-3 rounded-xl line-clamp-4"
@@ -211,7 +233,7 @@ export default function MarketplaceAgentDetail({
                 border: '1px solid var(--dome-border)',
               }}
             >
-              Cancelar
+              Cancel
             </button>
             <button
               onClick={() => {
@@ -236,22 +258,22 @@ export default function MarketplaceAgentDetail({
               {isInstalling ? (
                 <>
                   <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  Instalando...
+                  Installing…
                 </>
               ) : isInstalled && !hasUpdate ? (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  Ya instalado
+                  Installed
                 </>
               ) : hasUpdate ? (
                 <>
                   <Download className="w-4 h-4" />
-                  Actualizar agente
+                  Update agent
                 </>
               ) : (
                 <>
                   <Download className="w-4 h-4" />
-                  Instalar agente
+                  Install agent
                 </>
               )}
             </button>

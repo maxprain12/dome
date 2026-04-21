@@ -12,7 +12,7 @@
 3. [Estructura de directorios](#3-estructura-de-directorios)
 4. [IPC — Comunicación entre procesos](#4-ipc--comunicación-entre-procesos)
 5. [Base de datos SQLite](#5-base-de-datos-sqlite)
-6. [PageIndex — Motor de indexación IA](#6-pageindex--motor-de-indexación-ia) (incl. [KB LLM](#kb-llm-wiki-compilada-por-agentes))
+6. [Indexación semántica (IA en la nube + Nomic)](#6-indexación-semántica-ia-en-la-nube--nomic) (incl. [KB LLM](#kb-llm-wiki-compilada-por-agentes))
 7. [AI Integration](#7-ai-integration)
 8. [Run Engine y Automatizaciones](#8-run-engine-y-automatizaciones)
 9. [State Management (Zustand)](#9-state-management-zustand)
@@ -80,14 +80,14 @@ const data = await window.electron.invoke('db:resources:getAll', projectId);
 | UI components | Mantine | latest |
 | Styling | Tailwind CSS + CSS Variables | — |
 | Database | better-sqlite3 | latest |
-| Vector search | PageIndex (Python bridge) | — |
+| Vector search | Nomic embeddings en SQLite (`resource_chunks`) | — |
 | AI orchestration | LangChain + LangGraph | latest |
 | AI providers | OpenAI, Anthropic, Google, Ollama, Dome | — |
 | Editor | Tiptap (ProseMirror) | — |
 | State (global) | Zustand | — |
 | State (atomic) | Jotai | — |
 | Language | TypeScript | strict mode |
-| Canvas (workflows) | ReactFlow | — |
+| Canvas (workflows) | D3 (zoom, drag, SVG) | — |
 
 ---
 
@@ -105,10 +105,8 @@ dome/
 │   ├── ai-chat-with-tools.cjs  # AI tool definitions + streaming
 │   ├── ai-tools-handler.cjs    # Tool execution (search, memory, etc.)
 │   ├── automation-service.cjs  # Scheduled automation tick loop
-│   ├── resource-indexer.cjs    # PageIndex scheduling + coordination
-│   ├── pageindex-python.cjs    # Python runtime bridge (PageIndex)
-│   ├── docling-pipeline.cjs    # Docling document conversion pipeline
-│   ├── docling-client.cjs      # Docling HTTP client
+│   ├── semantic-index-scheduler.cjs  # Cola de reindex semántico
+│   ├── services/               # indexing.pipeline, embeddings, cloud-llm, chunking
 │   ├── dome-oauth.cjs          # Dome Provider OAuth session management
 │   ├── plugin-loader.cjs       # Plugin validation and loading
 │   ├── marketplace-config.cjs  # Marketplace catalog
@@ -133,7 +131,7 @@ dome/
 │   │   ├── chat/               # ChatMessage, ArtifactCard, MarkdownRenderer
 │   │   ├── many/               # ManyPanel, ManyChatHeader (floating AI)
 │   │   ├── agents/             # Agent management UI
-│   │   ├── agent-canvas/       # Visual workflow (ReactFlow)
+│   │   ├── agent-canvas/       # Visual workflow (D3 canvas)
 │   │   ├── agent-team/         # Multi-agent chat UI
 │   │   ├── automations/        # AutomationsView, RunLogView
 │   │   ├── editor/             # Tiptap workspace editor
@@ -223,7 +221,8 @@ const result = await window.electron.invoke('myfeature:doAction', params);
 | Database | `db:*` | Projects, resources, interactions |
 | Resources | `resource:*` | Import, export, file operations |
 | Storage | `storage:*` | dome-files usage, cleanup |
-| PageIndex | `pageindex:*` | Index, status, search |
+| Semantic | `db:semantic:*`, `semantic:progress` | Embeddings, indexación, búsqueda |
+| Cloud LLM | `cloud:llm:*` | Visión / transcripción PDF e imagen (proveedor del usuario) |
 | Calendar | `calendar:*` | Events CRUD, Google Calendar sync |
 | Flashcards | `flashcards:*` | Decks, cards, SM-2 scheduling |
 | Studio | `studio:*` | Content generation |
@@ -308,78 +307,32 @@ const resource = await dbClient.getResourceById(id);
 
 ---
 
-## 6. PageIndex — Motor de indexación IA
+## 6. Indexación semántica (IA en la nube + Nomic)
 
-PageIndex reemplaza LanceDB (v1.x) como motor de búsqueda semántica.
+La búsqueda híbrida usa **chunks vectoriales locales** (Nomic en SQLite) más FTS5 y el grafo. Los PDFs y las imágenes se transcriben o describen con el **LLM en la nube** configurado en Ajustes → IA (visión / multimodal). Los **embeddings** siguen siendo locales (Nomic). **Ya no** se usa PageIndex, Docling, modelo Gemma on-device ni runtime Python embebido.
 
-### Diferencias con LanceDB
+Documentación detallada: **[indexing.md](./indexing.md)**.
 
-| Aspecto | LanceDB (legacy) | PageIndex (v2+) |
-|---------|-----------------|-----------------|
-| Búsqueda | Embeddings vectoriales | Reasoning-based sobre texto estructurado |
-| Modelo requerido | Embedding model | Chat model cualquiera |
-| Offline | Solo Ollama | Cualquier modelo |
-| Resultado | Similarity score | Razonamiento contextual |
-
-### Arquitectura
+### Flujo resumido
 
 ```
-Renderer → IPC pageindex:* → resource-indexer.cjs
-                                    │
-                              pageindex-python.cjs (Python bridge)
-                                    │
-                              PageIndex Python runtime
-                              (bundled en pageindex-runtime/)
-                                    │
-                          ┌─────────┴─────────┐
-                      PDF parsing         Note parsing
-                    (pdf-extractor)    (Tiptap→Markdown)
-                                    │
-                              Chunks estructurados
-                              almacenados en SQLite
+Recursos → semantic-index-scheduler → indexing.pipeline.cjs
+    → (texto) resource-text / cloud PDF / cloud imagen
+    → chunking.cjs → embeddings Nomic → resource_chunks
 ```
 
-### Tipos de recursos indexados
+### IPC principal
 
-| Tipo | Cómo se indexa |
-|------|---------------|
-| `pdf` | Extrae texto por páginas via PageIndex Python |
-| `note` | Convierte Tiptap JSON a Markdown, luego PageIndex |
-| `document` | Texto extraído del archivo |
-| `url` | Contenido procesado del artículo |
-| `notebook` | Celdas markdown/código como texto estructurado |
-
-### Estados de indexación
-
-```
-unindexed → indexing → indexed ("Listo para IA")
-                    ↘ error (reintenta automáticamente)
-```
-
-### Auto-indexing background
-
-```javascript
-// electron/resource-indexer.cjs
-// Debounce 2 segundos al guardar un recurso
-scheduleIndexing(resourceId, deps);
-
-// electron/main.cjs — al arrancar
-setTimeout(() => autoIndexUnindexed(), 15000);  // warm-up 15s
-setInterval(() => autoIndexUnindexed(), 3600000); // cada hora
-```
-
-### IPC channels
-
-| Canal | Parámetros | Descripción |
-|-------|-----------|-------------|
-| `pageindex:index` | resourceId | Indexar recurso específico |
-| `pageindex:status` | resourceId | Estado de indexación |
-| `pageindex:search` | query, limit | Búsqueda semántica |
-| `pageindex:reindex` | resourceId | Re-indexar (borrar y volver a indexar) |
+| Área | Canales / módulo |
+|------|------------------|
+| Embeddings / índice | `db:semantic:*`, `semantic:progress` |
+| Cloud LLM (visión) | `cloud:llm:pdf-region-stream`, streaming `cloud:llm:stream-*` |
+| Reindex biblioteca | `indexing:full-sync` |
+| Vista página PDF (chat) | `pdf:render-page`, `ai:tools:pdfRenderPage` |
 
 ### KB LLM (wiki compilada por agentes)
 
-Convenciones de metadatos y alineación FTS5 ↔ PageIndex: [kb-llm-wiki-model.md](./kb-llm-wiki-model.md), [kb-index-policy.md](./kb-index-policy.md). Si `metadata.dome_kb.reindexOnSave` es `true`, `db:resources:update` puede programar `scheduleIndexing` (debounce en `resource-indexer.cjs`).
+Metadatos y FTS5: [kb-llm-wiki-model.md](./kb-llm-wiki-model.md). Si `metadata.dome_kb.reindexOnSave` es `true`, las actualizaciones pueden programar reindexación semántica vía `semantic-index-scheduler.cjs`.
 
 ---
 
@@ -750,7 +703,6 @@ bun run electron:build          # Package completo (incluye rebuild)
 
 # Utilidades
 bun run copy:pdf-worker         # Copia pdfjs-dist worker a public/
-bun run prepare:pageindex-runtime  # Bundle Python PageIndex
 bun run clean                   # Limpia build artifacts y userData
 ```
 
@@ -779,18 +731,6 @@ Los siguientes módulos se desempaquetan del ASAR:
 
 El protocolo `app://dome/` en producción carga `dist/index.html` con el interceptor en `electron/main.cjs`.
 
-### pageindex-runtime
-
-El runtime Python de PageIndex se bundlea con:
-
-```bash
-bun run prepare:pageindex-runtime
-# → scripts/prepare-pageindex-runtime.cjs
-# → Empaqueta Python + dependencias en pageindex-runtime/
-```
-
----
-
 ## 15. Troubleshooting
 
 ### Error: `existsSync is not a function`
@@ -810,16 +750,6 @@ bun run prepare:pageindex-runtime
 **Causa**: `verbatimModuleSyntax: true` — se importó un tipo con `import {}` en lugar de `import type {}`.
 
 **Solución**: Cambiar a `import type { X }`.
-
-### PageIndex no funciona
-
-**Causa**: Python runtime no encontrado o no bundleado.
-
-**Solución**:
-```bash
-bun run prepare:pageindex-runtime
-# Verificar: ls pageindex-runtime/
-```
 
 ### Electron no arranca en desarrollo
 

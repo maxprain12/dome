@@ -58,7 +58,7 @@ const SYSTEM_AGENTS = {
   },
   presenter: {
     name: 'Presenter Agent',
-    toolIds: ['ppt_create', 'ppt_get_slides', 'resource_create'],
+    toolIds: ['ppt_create', 'ppt_get_slides', 'resource_create', 'screen_understand'],
     systemPrompt: `Eres un agente especializado en transformar información en materiales visuales de alta calidad.
 - Crea presentaciones claras y estructuradas
 - Adapta el tono visual y narrativo al tipo de audiencia
