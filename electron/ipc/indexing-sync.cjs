@@ -89,7 +89,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       });
 
       try {
-        const out = await semanticIndexScheduler.getIndexer().indexResourceImmediate(res.id);
+        // Use queued indexResource (not indexResourceImmediate) so ONNX/embeddings never
+        // overlap with semantic reindex, background jobs, or IPC single-resource index.
+        const out = await semanticIndexScheduler.getIndexer().indexResource(res.id);
         if (out && out.ok === false && out.error) {
           embeddingFailed += 1;
         }
