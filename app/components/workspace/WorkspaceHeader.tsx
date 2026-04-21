@@ -161,7 +161,7 @@ export default function WorkspaceHeader({
 
   const hasFile = !!(resource.internal_path || resource.file_path);
   const typeMeta = getTypeMeta(resource.type);
-  const isWindows = typeof window !== 'undefined' && (window.electron as any)?.isWindows;
+  const isWindows = typeof window !== 'undefined' && window.electron?.isWindows;
 
   // Close menu on outside click / Escape
   useEffect(() => {
@@ -398,7 +398,7 @@ export default function WorkspaceHeader({
             position: 'fixed',
             top: menuPos.top,
             right: menuPos.right,
-            zIndex: 'var(--z-max)' as any,
+            zIndex: 'var(--z-max)' as string,
             minWidth: 196,
             background: 'var(--dome-surface)',
             border: '1px solid var(--dome-border)',
