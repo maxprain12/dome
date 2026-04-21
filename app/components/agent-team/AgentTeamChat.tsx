@@ -290,21 +290,27 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
         }
       });
 
-      await window.electron.invoke('ai:team:stream', {
-        streamId,
-        teamId: team.id,
-        messages: historyMessages,
-        memberAgentIds: team.memberAgentIds,
-        supervisorInstructions: team.supervisorInstructions,
-        currentResourceId: effectiveResourceId,
-        currentResourceTitle: currentResource?.title ?? null,
-        currentFolderId,
-        pathname,
-        homeSidebarSection,
-        teamToolIds: team.toolIds ?? [],
-        teamMcpServerIds: team.mcpServerIds ?? [],
-        projectId: teamProjectId,
-      });
+      try {
+        await window.electron.invoke('ai:team:stream', {
+          streamId,
+          teamId: team.id,
+          messages: historyMessages,
+          memberAgentIds: team.memberAgentIds,
+          supervisorInstructions: team.supervisorInstructions,
+          currentResourceId: effectiveResourceId,
+          currentResourceTitle: currentResource?.title ?? null,
+          currentFolderId,
+          pathname,
+          homeSidebarSection,
+          teamToolIds: team.toolIds ?? [],
+          teamMcpServerIds: team.mcpServerIds ?? [],
+          projectId: teamProjectId,
+        });
+      } catch (err) {
+        console.error('[AgentTeam] Stream error:', err);
+        setStreamingMessage(null);
+        return;
+      }
 
       unsubChunk();
       setStreamingMessage(null);
