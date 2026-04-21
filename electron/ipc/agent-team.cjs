@@ -182,16 +182,8 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       return { success: false, error: 'Unauthorized' };
     }
 
-    const hasRequiredShape =
-      payload &&
-      typeof payload === 'object' &&
-      typeof payload.streamId === 'string' &&
-      typeof payload.teamId === 'string' &&
-      Array.isArray(payload.messages) &&
-      Array.isArray(payload.memberAgentIds);
-
-    if (!hasRequiredShape) {
-      const errorMsg = 'Invalid payload: streamId and teamId must be strings, messages and memberAgentIds must be arrays';
+    if (!payload || typeof payload !== 'object') {
+      const errorMsg = 'Invalid payload: must be an object';
       console.error('[AgentTeam] Validation error:', errorMsg);
       return { success: false, error: errorMsg };
     }
@@ -212,8 +204,23 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       projectId,
     } = payload;
 
-    if (!streamId || !teamId) {
-      const errorMsg = 'Invalid payload: streamId and teamId are required';
+    if (typeof streamId !== 'string' || !streamId) {
+      const errorMsg = 'Invalid payload: streamId must be a non-empty string';
+      console.error('[AgentTeam] Validation error:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+    if (typeof teamId !== 'string' || !teamId) {
+      const errorMsg = 'Invalid payload: teamId must be a non-empty string';
+      console.error('[AgentTeam] Validation error:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+    if (!Array.isArray(messages)) {
+      const errorMsg = 'Invalid payload: messages must be an array';
+      console.error('[AgentTeam] Validation error:', errorMsg);
+      return { success: false, error: errorMsg };
+    }
+    if (!Array.isArray(memberAgentIds)) {
+      const errorMsg = 'Invalid payload: memberAgentIds must be an array';
       console.error('[AgentTeam] Validation error:', errorMsg);
       return { success: false, error: errorMsg };
     }
