@@ -5,6 +5,7 @@
  * Full library sync: Nomic chunk embeddings per resource (Gemma PDF transcription runs inside indexer).
  */
 
+const { resetPipeline } = require('../services/embeddings.service.cjs');
 const semanticIndexScheduler = require('../semantic-index-scheduler.cjs');
 
 const INDEXABLE_TYPES = ['pdf', 'note', 'document', 'url', 'notebook', 'ppt', 'excel', 'image'];
@@ -75,6 +76,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       resourcesTotal: total,
       title: null,
     });
+
+    resetPipeline();
 
     for (let i = 0; i < total; i++) {
       const res = resources[i];

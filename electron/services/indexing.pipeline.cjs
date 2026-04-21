@@ -249,6 +249,8 @@ function createIndexer(opts) {
    * @param {{ threshold?: number, onProgress?: (p: { total: number, done: number, errors: number, step?: string }) => void }} [options]
    */
   async function reindexAll(options = {}) {
+    // Second consecutive full reindex: reusing the ONNX session can SIGTRAP; reload per job.
+    resetPipeline();
     const queries = getQueries();
     const rows = queries.getAllResources.all(500000);
     const targets = rows.filter((r) => shouldIndexResourceType(r.type));
@@ -267,6 +269,7 @@ function createIndexer(opts) {
         options.onProgress({ ...out, step: row.id });
       }
     }
+    resetPipeline();
     return out;
   }
 
