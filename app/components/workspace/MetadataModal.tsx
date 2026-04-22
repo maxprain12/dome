@@ -3,6 +3,7 @@ import { useState, useCallback } from 'react';
 import { X, Save, FileText, Calendar, HardDrive, Hash, FolderOpen, ExternalLink, Loader2 } from 'lucide-react';
 import { type Resource } from '@/types';
 import { formatDateFull, getResourceTypeLabel } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 interface MetadataModalProps {
   resource: Resource;
@@ -17,6 +18,7 @@ export default function MetadataModal({
   onClose,
   onSave,
 }: MetadataModalProps) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState(resource.title);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -96,7 +98,7 @@ export default function MetadataModal({
       role="button"
       tabIndex={0}
       onKeyDown={handleOverlayKeyDown}
-      aria-label="Close modal"
+      aria-label={t('viewer.close_modal')}
     >
       <div
         className="modal-content max-w-lg animate-modal"
@@ -109,7 +111,7 @@ export default function MetadataModal({
           <h2 id="metadata-modal-title" className="text-lg font-semibold font-display" style={{ color: 'var(--primary-text)' }}>
             Resource Info
           </h2>
-          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close">
+          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')}>
             <X size={18} style={{ color: 'var(--secondary-text)' }} />
           </button>
         </div>

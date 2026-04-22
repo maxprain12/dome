@@ -1,6 +1,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
+import { useTranslation } from 'react-i18next';
 import {
   X,
   Download,
@@ -708,6 +709,7 @@ export default function DeepResearch({
   onClose,
   onExport,
 }: DeepResearchProps) {
+  const { t } = useTranslation();
   const isResearching =
     status === 'planning' ||
     status === 'researching' ||
@@ -783,7 +785,7 @@ export default function DeepResearch({
             </>
           )}
           {onClose && (
-            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close">
+            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
               <X size={16} />
             </button>
           )}

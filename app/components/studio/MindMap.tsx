@@ -2,6 +2,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Download, ZoomIn, ZoomOut, Maximize2, X } from 'lucide-react';
 import type { MindMapData } from '@/types';
+import { useTranslation } from 'react-i18next';
 
 interface MindMapProps {
   data: MindMapData;
@@ -92,6 +93,7 @@ function layoutNodes(data: MindMapData) {
 }
 
 export default function MindMap({ data, title, onClose, onExport }: MindMapProps) {
+  const { t } = useTranslation();
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 50, y: 50 });
   const [isDragging, setIsDragging] = useState(false);
@@ -197,8 +199,8 @@ export default function MindMap({ data, title, onClose, onExport }: MindMapProps
             <button
               onClick={onClose}
               className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-              aria-label="Close"
-              title="Close"
+              aria-label={t('studio.close_button')}
+              title={t('studio.close_button')}
             >
               <X size={16} />
             </button>

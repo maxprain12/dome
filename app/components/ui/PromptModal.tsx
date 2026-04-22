@@ -100,7 +100,7 @@ export default function PromptModal() {
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLElement).style.background = 'transparent';
             }}
-            aria-label="Close"
+            aria-label={t('ui.close')}
           >
             <X size={16} />
           </button>

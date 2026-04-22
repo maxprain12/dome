@@ -140,7 +140,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
           onClick={() => useAppStore.getState().toggleStudioPanel()}
           className="p-1.5 rounded-lg transition-all duration-200 hover:bg-[var(--bg-hover)] opacity-70 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           style={{ color: 'var(--secondary-text)' }}
-          aria-label="Close studio panel"
+          aria-label={t('studio.close_studio_panel')}
         >
           <X size={14} />
         </button>
