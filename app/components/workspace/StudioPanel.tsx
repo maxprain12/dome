@@ -32,9 +32,9 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
   const { t } = useTranslation();
   const currentProject = useAppStore((s) => s.currentProject);
   const studioOutputs = useAppStore((s) => s.studioOutputs);
-  const setStudioOutputs = useAppStore((s) => s.setStudioOutputs);
+  const _setStudioOutputs = useAppStore((s) => s.setStudioOutputs);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
-  const addStudioOutput = useAppStore((s) => s.addStudioOutput);
+  const _addStudioOutput = useAppStore((s) => s.addStudioOutput);
   const removeStudioOutput = useAppStore((s) => s.removeStudioOutput);
 
   const effectiveProjectId = projectIdProp ?? currentProject?.id;

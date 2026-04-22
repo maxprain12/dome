@@ -50,7 +50,7 @@ export default function CallMode({ isActive = true }: Props) {
   const previewStreamRef = useRef<MediaStream | null>(null);
   const previewGenRef = useRef(0);
   const [previewLiveOk, setPreviewLiveOk] = useState(false);
-  const [previewTick, setPreviewTick] = useState(0);
+  const [previewTick, _setPreviewTick] = useState(0);
   const livePollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const endCallSessionRef = useRef<(cancel: boolean) => Promise<void>>(async () => {});
   const dualOpRef = useRef<{ cancelBoth: () => void; stopBoth: () => void }>({

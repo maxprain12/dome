@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { Loader2, AlertCircle, File, ExternalLink } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import WorkspaceHeader from './WorkspaceHeader';
 import SidePanel from './SidePanel';
 import SourcesPanel from './SourcesPanel';
@@ -16,7 +16,7 @@ const PDFViewer = lazy(() => import('../viewers/PDFViewer'));
 const VideoPlayer = lazy(() => import('../viewers/VideoPlayer'));
 const AudioPlayer = lazy(() => import('../viewers/AudioPlayer'));
 const ImageViewer = lazy(() => import('../viewers/ImageViewer'));
-const DocxViewer = lazy(() => import('../viewers/DocxViewer'));
+const _DocxViewer = lazy(() => import('../viewers/DocxViewer'));
 const SpreadsheetViewer = lazy(() => import('../viewers/SpreadsheetViewer'));
 
 interface WorkspaceLayoutProps {
@@ -148,7 +148,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
     }
   }, [resource]);
 
-  const handleOpenExternally = useCallback(async () => {
+  const _handleOpenExternally = useCallback(async () => {
     if (!resource || typeof window === 'undefined' || !window.electron) return;
     try {
       const result = await window.electron.resource.getFilePath(resource.id);
@@ -161,7 +161,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   }, [resource]);
 
   // Check if a document resource is actually a PDF
-  const isDocumentPdf = (res: Resource): boolean => {
+  const _isDocumentPdf = (res: Resource): boolean => {
     const mimeType = res.file_mime_type || '';
     const filename = (res.original_filename || res.title || '').toLowerCase();
     return mimeType === 'application/pdf' || filename.endsWith('.pdf');

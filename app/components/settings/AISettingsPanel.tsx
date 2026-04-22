@@ -21,7 +21,6 @@ import DomeBadge from '@/components/ui/DomeBadge';
 import DomeCallout from '@/components/ui/DomeCallout';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeProgressBar from '@/components/ui/DomeProgressBar';
-import DomeToggle from '@/components/ui/DomeToggle';
 
 /** Mezcla del acento de marca para fondos/bordes (compatible con temas). */
 function accentMix(pct: number): string {
@@ -122,11 +121,7 @@ export default function AISettingsPanel() {
     return () => window.removeEventListener('focus', onFocus);
   }, [refreshDomeSession]);
 
-  useEffect(() => {
-    if (provider === 'ollama') { checkOllamaConnection(); loadOllamaModels(); }
-  }, [provider, ollamaBaseURL]);
-
-  const checkOllamaConnection = async () => {
+  const checkOllamaConnection = useCallback(async () => {
     if (!window.electron) return;
     setCheckingOllama(true);
     try {
@@ -135,9 +130,9 @@ export default function AISettingsPanel() {
       setOllamaAvailable(result.success && result.available === true);
     } catch { setOllamaAvailable(false); }
     finally { setCheckingOllama(false); }
-  };
+  }, [ollamaBaseURL]);
 
-  const loadOllamaModels = async () => {
+  const loadOllamaModels = useCallback(async () => {
     if (!window.electron) return;
     setLoadingModels(true);
     try {
@@ -146,7 +141,11 @@ export default function AISettingsPanel() {
       setOllamaModels(result.success && Array.isArray(result.models) ? result.models : []);
     } catch { setOllamaModels([]); }
     finally { setLoadingModels(false); }
-  };
+  }, [ollamaBaseURL]);
+
+  useEffect(() => {
+    if (provider === 'ollama') { void checkOllamaConnection(); void loadOllamaModels(); }
+  }, [provider, ollamaBaseURL, checkOllamaConnection, loadOllamaModels]);
 
   const handleProviderChange = (newProvider: AIProviderType) => {
     setProvider(newProvider);

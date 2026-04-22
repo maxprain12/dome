@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Brain, Loader2, AlertCircle, HelpCircle, RefreshCw } from 'lucide-react';
+import { Brain, Loader2, HelpCircle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeBadge from '@/components/ui/DomeBadge';

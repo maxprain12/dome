@@ -103,7 +103,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
     }
 
     loadURL();
-  }, [resource.id, onRunUrlProcess, normalizeMetadata]);
+  }, [resource.id, resource.content, resource.metadata, onRunUrlProcess, normalizeMetadata]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
