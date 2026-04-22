@@ -1,6 +1,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
+import { useTranslation } from 'react-i18next';
 import {
   X,
   Play,
@@ -78,6 +79,7 @@ export default function AudioOverview({
   onClose,
   isGenerating = false,
 }: AudioOverviewProps) {
+  const { t } = useTranslation();
   // Audio state
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -283,7 +285,7 @@ export default function AudioOverview({
           </span>
         </div>
         {onClose && (
-          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close">
+          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
             <X size={16} />
           </button>
         )}

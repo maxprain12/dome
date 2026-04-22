@@ -1746,6 +1746,7 @@ const en = {
     pdf_region_handoff_answer_note: 'your configured AI',
     pdf_region_handoff_follow_up:
       'Help me go deeper, contrast this with the document, or correct anything that seems off.',
+    close_modal: 'Close modal',
   },
   tools: {
     image_describe: {
@@ -1856,6 +1857,8 @@ const en = {
     unsupported_type: 'Unsupported output type',
     unsupported_type_hint: 'The output type "{{type}}" is not yet supported.',
     audio_overview_default: 'Audio overview',
+    close_button: 'Close',
+    close_studio_panel: 'Close studio panel',
   },
   quiz: {
     title: 'Quiz',
@@ -4004,6 +4007,7 @@ const es = {
     pdf_region_handoff_answer_note: 'tu IA configurada',
     pdf_region_handoff_follow_up:
       'Ayúdame a profundizar, contrastar con el documento o corregir lo que no encaje.',
+    close_modal: 'Cerrar modal',
   },
   tools: {
     image_describe: {
@@ -4114,6 +4118,8 @@ const es = {
     unsupported_type: 'Tipo de salida no admitido',
     unsupported_type_hint: 'El tipo de salida "{{type}}" aún no está soportado.',
     audio_overview_default: 'Resumen en audio',
+    close_button: 'Cerrar',
+    close_studio_panel: 'Cerrar panel de Studio',
   },
   quiz: {
     title: 'Quiz',
@@ -6263,6 +6269,7 @@ const fr = {
     pdf_region_handoff_answer_note: 'votre IA configurée',
     pdf_region_handoff_follow_up:
       'Aide-moi à approfondir, à comparer avec le document ou à corriger ce qui semble incorrect.',
+    close_modal: 'Fermer la fenêtre',
   },
   tools: {
     image_describe: {
@@ -6373,6 +6380,8 @@ const fr = {
     unsupported_type: 'Type de sortie non pris en charge',
     unsupported_type_hint: 'Le type de sortie « {{type}} » n\'est pas encore pris en charge.',
     audio_overview_default: 'Aperçu audio',
+    close_button: 'Fermer',
+    close_studio_panel: 'Fermer le panneau Studio',
   },
   quiz: {
     title: 'Quiz',
@@ -8522,6 +8531,7 @@ const pt = {
     pdf_region_handoff_answer_note: 'a sua IA configurada',
     pdf_region_handoff_follow_up:
       'Ajuda-me a aprofundar, a contrastar com o documento ou a corrigir o que não pareça correto.',
+    close_modal: 'Fechar janela',
   },
   tools: {
     image_describe: {
@@ -8632,6 +8642,8 @@ const pt = {
     unsupported_type: 'Tipo de saída não suportado',
     unsupported_type_hint: 'O tipo de saída "{{type}}" ainda não é suportado.',
     audio_overview_default: 'Visão geral em áudio',
+    close_button: 'Fechar',
+    close_studio_panel: 'Fechar painel do Studio',
   },
   quiz: {
     title: 'Quiz',
