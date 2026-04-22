@@ -36,7 +36,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   const [annotations, setAnnotations] = useState<PDFAnnotation[]>([]);
   const [activeTool, setActiveTool] = useState<AnnotationType | null>(null);
   const [color, setColor] = useState('#ffeb3b');
-  const [strokeWidth, setStrokeWidth] = useState(2);
+  const [strokeWidth, _setStrokeWidth] = useState(2);
   const [isOpeningExternal, setIsOpeningExternal] = useState(false);
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);

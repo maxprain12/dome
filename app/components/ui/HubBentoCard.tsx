@@ -1,4 +1,4 @@
-import type { ReactNode, MouseEvent, KeyboardEvent, DragEventHandler } from 'react';
+import type { ReactNode, KeyboardEvent, DragEventHandler } from 'react';
 import { cn } from '@/lib/utils';
 
 export interface HubBentoCardProps {
