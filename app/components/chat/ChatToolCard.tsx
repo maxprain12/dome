@@ -41,14 +41,14 @@ interface ChatToolCardProps {
 
 type ToolCategory = 'search' | 'file' | 'agent' | 'db' | 'mcp' | 'default';
 
-/** Category color accent (border/dot color) using fixed semantic colors that work in both themes */
+/** Category color accent (border/dot color) using CSS variables for theme compatibility */
 const CATEGORY_COLORS: Record<ToolCategory, string> = {
-  search: '#3b82f6',   // blue
-  file: '#10b981',     // green
-  agent: '#8b5cf6',    // purple
-  db: '#f59e0b',       // orange
-  mcp: '#6b7280',      // gray
-  default: '#6b7280',  // gray
+  search: 'var(--accent)',   // blue
+  file: 'var(--success)',     // green
+  agent: 'var(--accent)',    // purple
+  db: 'var(--warning)',       // orange
+  mcp: 'var(--secondary-text)',      // gray
+  default: 'var(--secondary-text)',  // gray
 };
 
 function getCategory(name: string): ToolCategory {

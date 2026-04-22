@@ -134,16 +134,16 @@ interface ArtifactCardProps {
   className?: string;
 }
 
-/** Semantic accent colors per artifact type — fixed values that render in both themes */
+/** Semantic accent colors per artifact type — using CSS variables for theme compatibility */
 const ARTIFACT_STYLES: Record<ArtifactType, { borderColor: string; iconColor: string }> = {
-  pdf_summary: { borderColor: '#3b82f6', iconColor: '#3b82f6' },
-  table: { borderColor: '#10b981', iconColor: '#10b981' },
-  action_items: { borderColor: '#f59e0b', iconColor: '#f59e0b' },
-  chart: { borderColor: '#8b5cf6', iconColor: '#8b5cf6' },
+  pdf_summary: { borderColor: 'var(--accent)', iconColor: 'var(--accent)' },
+  table: { borderColor: 'var(--success)', iconColor: 'var(--success)' },
+  action_items: { borderColor: 'var(--warning)', iconColor: 'var(--warning)' },
+  chart: { borderColor: 'var(--accent)', iconColor: 'var(--accent)' },
   code: { borderColor: 'var(--secondary-text)', iconColor: 'var(--secondary-text)' },
-  list: { borderColor: '#ef4444', iconColor: '#ef4444' },
-  created_entity: { borderColor: '#8b5cf6', iconColor: '#8b5cf6' },
-  docling_images: { borderColor: '#64748b', iconColor: '#64748b' },
+  list: { borderColor: 'var(--error)', iconColor: 'var(--error)' },
+  created_entity: { borderColor: 'var(--accent)', iconColor: 'var(--accent)' },
+  docling_images: { borderColor: 'var(--secondary-text)', iconColor: 'var(--secondary-text)' },
 };
 
 // Icon mapping
