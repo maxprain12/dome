@@ -3012,6 +3012,9 @@ function getQueries() {
       INSERT INTO chat_traces (id, session_id, message_id, type, tool_name, tool_args, result, mcp_server_id, decision, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
+    deleteChatTracesBySession: db.prepare('DELETE FROM chat_traces WHERE session_id = ?'),
+    deleteChatMessagesBySession: db.prepare('DELETE FROM chat_messages WHERE session_id = ?'),
+    deleteChatSession: db.prepare('DELETE FROM chat_sessions WHERE id = ?'),
 
     // Automations and persistent runs
     createAutomationDefinition: db.prepare(`

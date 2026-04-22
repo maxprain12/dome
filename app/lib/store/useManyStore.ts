@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { db } from '@/lib/db/client';
 
 const SESSIONS_STORAGE_KEY = 'dome-many-sessions:v1';
 const MAX_SESSIONS = 20;
@@ -295,11 +296,15 @@ export const useManyStore = create<ManyState>((set, get) => ({
       const idx = sessions.findIndex((s) => s.id === currentSessionId);
       if (idx >= 0) {
         const session = sessions[idx];
-        const updated = { ...session, messages: [] };
+        const updated = { ...session, messages: [], title: 'New chat' };
         const nextSessions = [...sessions];
         nextSessions[idx] = updated;
         persistSessions(nextSessions);
         set({ messages: [], sessions: nextSessions });
+        const sid = currentSessionId;
+        void db.clearManyChatSession(sid).catch((err) => {
+          console.warn('[ManyStore] clearManyChatSession failed:', err);
+        });
         return;
       }
     }
@@ -349,6 +354,9 @@ export const useManyStore = create<ManyState>((set, get) => ({
       sessions: nextSessions,
       currentSessionId: nextId,
       messages: nextMessages,
+    });
+    void db.deleteManyChatSession(id).catch((err) => {
+      console.warn('[ManyStore] deleteManyChatSession failed:', err);
     });
   },
 

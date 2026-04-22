@@ -459,6 +459,8 @@ declare global {
             mcpServerId?: string | null;
             decision?: string | null;
           }) => Promise<DBResponse<{ id: string }>>;
+          clearSession: (sessionId: string) => Promise<DBResponse<void>>;
+          deleteSession: (sessionId: string) => Promise<DBResponse<void>>;
         };
         tags: {
           getByResource: (resourceId: string) => Promise<DBResponse<Array<{ id: string; name: string; color?: string }>>>;
