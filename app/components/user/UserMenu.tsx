@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Settings, LogOut, User } from 'lucide-react';
+import { Settings, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/lib/store/useUserStore';
 import UserAvatar from './UserAvatar';

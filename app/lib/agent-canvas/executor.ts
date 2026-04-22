@@ -27,7 +27,6 @@ import { getManyAgentById } from '@/lib/agents/api';
 import { db } from '@/lib/db/client';
 import { appendSkillsMarkdown } from '@/lib/skills/append-markdown';
 import { getSystemAgent } from './system-agents';
-import type { useCanvasStore } from '@/lib/store/useCanvasStore';
 
 type StoreActions = ReturnType<typeof import('@/lib/store/useCanvasStore').useCanvasStore.getState>;
 
@@ -78,10 +77,6 @@ function topologicalLevels(
   }
 
   return levels;
-}
-
-function payloadToText(payload: CanvasNodePayload | undefined): string {
-  return payload?.text ?? '';
 }
 
 /** Collect resolved payloads from nodes connected to a given target node. */

@@ -114,7 +114,7 @@ export default function StreamingMode({ isActive = true }: Props) {
       },
     });
     return () => setTranscriptionTrayHandlers(null);
-  }, [visible, rec.phase, rec.stopRecording, rec.cancelRecording, rec.pauseRecording, rec.resumeRecording]);
+  }, [visible, rec, rec.phase, rec.stopRecording, rec.cancelRecording, rec.pauseRecording, rec.resumeRecording]);
 
   useEffect(() => {
     if (!window.electron?.transcriptionOverlay?.overlaySetVisible) return undefined;
@@ -124,7 +124,7 @@ export default function StreamingMode({ isActive = true }: Props) {
 
   if (!visible) return null;
 
-  const isRecording = rec.phase === 'recording';
+  const _isRecording = rec.phase === 'recording';
   const isLiveSession = rec.phase === 'recording' || rec.phase === 'paused';
 
   const overlayOuter = 'relative z-10 flex max-h-full min-h-0 w-full justify-center pointer-events-none';

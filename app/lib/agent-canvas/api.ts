@@ -55,15 +55,7 @@ export async function deleteWorkflow(id: string): Promise<{ success: boolean; er
 
 // --- Executions (traceability) ---
 
-async function getAllExecutions(projectId: string): Promise<WorkflowExecution[]> {
-  if (!db.isAvailable()) return [];
-  const workflows = await getAll(projectId);
-  if (workflows.length === 0) return [];
-  const results = await Promise.all(workflows.map((workflow) => db.getWorkflowExecutionsByWorkflow(workflow.id)));
-  return results
-    .filter((result): result is { success: true; data: WorkflowExecution[] } => result.success && Array.isArray(result.data))
-    .flatMap((result) => result.data);
-}
+// getAllExecutions kept for future use when execution history is implemented
 
 const MAX_EXECUTIONS_PER_WORKFLOW = 50;
 

@@ -22,7 +22,7 @@ function SeekBarComponent({
   onSeek,
   formatTime = defaultFormatTime,
   showTimestamps = true,
-  variant = 'audio',
+  variant: _variant,
 }: SeekBarProps) {
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 

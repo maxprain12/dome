@@ -29,7 +29,7 @@ export default function AnnotationLayer({
   annotations,
   activeTool,
   color,
-  strokeWidth,
+  strokeWidth: _strokeWidth,
   onAnnotationCreate,
   onAnnotationSelect,
 }: AnnotationLayerProps) {

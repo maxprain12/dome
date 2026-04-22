@@ -118,6 +118,27 @@ export default memo(function ManyChatInput({
   const mentionDropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const selectMentionResource = useCallback(
+    (resource: MentionResource) => {
+      const cursor = inputRef.current?.selectionStart ?? input.length;
+      const atIdx = input.slice(0, cursor).lastIndexOf('@');
+      if (atIdx !== -1) {
+        const newInput = input.slice(0, atIdx) + input.slice(cursor);
+        setInput(newInput);
+        requestAnimationFrame(() => {
+          if (inputRef.current) {
+            inputRef.current.selectionStart = atIdx;
+            inputRef.current.selectionEnd = atIdx;
+            inputRef.current.focus();
+          }
+        });
+      }
+      addPinnedResource(resource);
+      setMentionActive(false);
+    },
+    [input, inputRef, setInput, addPinnedResource],
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (mentionActive) {
@@ -147,7 +168,7 @@ export default memo(function ManyChatInput({
         onSend();
       }
     },
-    [mentionActive, mentionResources, mentionSelectedIdx, onSend],
+    [mentionActive, mentionResources, mentionSelectedIdx, onSend, selectMentionResource],
   );
 
   const handleInput = useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
@@ -232,29 +253,6 @@ export default memo(function ManyChatInput({
     const rect = containerRef.current.getBoundingClientRect();
     setMentionRect({ top: rect.top, left: rect.left });
   }, [mentionActive]);
-
-  const selectMentionResource = useCallback(
-    (resource: MentionResource) => {
-      // Remove the @query from input
-      const cursor = inputRef.current?.selectionStart ?? input.length;
-      const atIdx = input.slice(0, cursor).lastIndexOf('@');
-      if (atIdx !== -1) {
-        const newInput = input.slice(0, atIdx) + input.slice(cursor);
-        setInput(newInput);
-        // Restore cursor position
-        requestAnimationFrame(() => {
-          if (inputRef.current) {
-            inputRef.current.selectionStart = atIdx;
-            inputRef.current.selectionEnd = atIdx;
-            inputRef.current.focus();
-          }
-        });
-      }
-      addPinnedResource(resource);
-      setMentionActive(false);
-    },
-    [input, inputRef, setInput, addPinnedResource],
-  );
 
   const placeholder =
     inputPlaceholderOverride ??

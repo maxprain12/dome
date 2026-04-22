@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { Trash2, Loader2, MessageSquare, FileText, Clock } from 'lucide-react';
 import { useInteractions, type ParsedInteraction } from '@/lib/hooks/useInteractions';
 import { formatRelativeDate } from '@/lib/utils';

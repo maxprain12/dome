@@ -49,7 +49,7 @@ export default function HubBentoCard({
     }
   };
 
-  const handleClick = (e: MouseEvent) => {
+  const handleClick = () => {
     if (!interactive) return;
     onClick?.();
   };

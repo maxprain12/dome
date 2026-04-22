@@ -179,7 +179,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
     setZoomMode('fit-width');
   }, []);
 
-  const handleFitToPage = useCallback(() => {
+  const _handleFitToPage = useCallback(() => {
     setZoomMode('fit-page');
   }, []);
 
@@ -327,7 +327,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
         // Annotations are stored in SQLite with FTS5 full-text search
       }
     },
-    [addInteraction, resource]
+    [addInteraction]
   );
 
   const handleAddNote = useCallback(

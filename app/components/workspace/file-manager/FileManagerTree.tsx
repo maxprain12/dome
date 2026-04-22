@@ -1,9 +1,8 @@
-import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode, type MouseEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type MouseEvent } from 'react';
 import {
   ChevronRight,
   ChevronDown,
   Folder,
-  FileText,
   BookOpen,
   Globe,
   File,
@@ -13,8 +12,6 @@ import {
   Presentation,
   RefreshCw,
   Search,
-  MoreHorizontal,
-  Plus,
   Trash2,
   Edit3,
   Copy,
