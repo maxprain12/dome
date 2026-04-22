@@ -310,6 +310,22 @@ class DatabaseClient {
     return this.db.chat.appendTrace(opts) as Promise<DBResponse<{ id: string }>>;
   }
 
+  /** Remove all messages/traces for a global Many session; keep the session row, reset title to New chat. */
+  async clearManyChatSession(sessionId: string): Promise<DBResponse<void>> {
+    if (!this.isAvailable()) {
+      return { success: false, error: 'Database API not available' };
+    }
+    return this.db.chat.clearSession(sessionId) as Promise<DBResponse<void>>;
+  }
+
+  /** Delete a chat session row and cascade messages/traces (Many global, agents, etc.). */
+  async deleteManyChatSession(sessionId: string): Promise<DBResponse<void>> {
+    if (!this.isAvailable()) {
+      return { success: false, error: 'Database API not available' };
+    }
+    return this.db.chat.deleteSession(sessionId) as Promise<DBResponse<void>>;
+  }
+
   // ============================================
   // SETTINGS
   // ============================================

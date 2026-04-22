@@ -127,6 +127,8 @@ const ALLOWED_CHANNELS = {
     'db:chat:getSessionsGlobal',
     'db:chat:addMessage',
     'db:chat:appendTrace',
+    'db:chat:clearSession',
+    'db:chat:deleteSession',
     // Runs and automations
     'runs:get',
     'runs:list',
@@ -923,6 +925,8 @@ const electronHandler = {
       getSessionsGlobal: (limitOrOpts) => ipcRenderer.invoke('db:chat:getSessionsGlobal', limitOrOpts),
       addMessage: (opts) => ipcRenderer.invoke('db:chat:addMessage', opts),
       appendTrace: (opts) => ipcRenderer.invoke('db:chat:appendTrace', opts),
+      clearSession: (sessionId) => ipcRenderer.invoke('db:chat:clearSession', sessionId),
+      deleteSession: (sessionId) => ipcRenderer.invoke('db:chat:deleteSession', sessionId),
     },
 
     // Tags

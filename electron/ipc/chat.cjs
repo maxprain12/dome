@@ -224,6 +224,52 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       return { success: false, error: error.message };
     }
   });
+
+  ipcMain.handle('db:chat:clearSession', (event, sessionId) => {
+    try {
+      validateSender(event, windowManager);
+      if (!sessionId || typeof sessionId !== 'string') {
+        return { success: false, error: 'Invalid sessionId' };
+      }
+      const queries = database.getQueries();
+      const existing = queries.getChatSession.get(sessionId);
+      if (!existing) {
+        return { success: true };
+      }
+      queries.deleteChatTracesBySession.run(sessionId);
+      queries.deleteChatMessagesBySession.run(sessionId);
+      const now = Date.now();
+      queries.updateChatSession.run(
+        existing.mode ?? null,
+        existing.context_id ?? null,
+        existing.thread_id ?? null,
+        'New chat',
+        existing.tool_ids ?? null,
+        existing.mcp_server_ids ?? null,
+        now,
+        sessionId
+      );
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error clearing chat session:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:chat:deleteSession', (event, sessionId) => {
+    try {
+      validateSender(event, windowManager);
+      if (!sessionId || typeof sessionId !== 'string') {
+        return { success: false, error: 'Invalid sessionId' };
+      }
+      const queries = database.getQueries();
+      queries.deleteChatSession.run(sessionId);
+      return { success: true };
+    } catch (error) {
+      console.error('[DB] Error deleting chat session:', error);
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 module.exports = { register };

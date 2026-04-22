@@ -1210,11 +1210,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   }, [chatMessages, streamingMessage, pdfRegionStreamingMessage]);
 
   const handleClear = useCallback(() => {
-    if (window.confirm('¿Borrar todo el historial del chat?')) {
+    if (window.confirm(t('chat.clear_confirm'))) {
       clearMessages();
-      showToast('info', 'Chat cleared');
+      showToast('info', t('chat.chat_cleared'));
     }
-  }, [clearMessages]);
+  }, [clearMessages, t]);
 
   const context = getUiLocationDescription(pathname || '/', homeSidebarSection, activeShellTabType);
 
