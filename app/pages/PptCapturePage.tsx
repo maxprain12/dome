@@ -179,7 +179,7 @@ export default function PptCapturePage() {
         width: SLIDE_W,
         height: SLIDE_H,
         overflow: 'hidden',
-        background: '#ffffff',
+        background: 'var(--bg)',
         margin: 0,
         padding: 0,
       }}
