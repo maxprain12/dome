@@ -5670,6 +5670,8 @@ const fr = {
     quick_create_table: 'Créer un tableau',
     quick_weekly_report: 'Rapport hebdomadaire',
     quick_draft_email: 'Rédiger un e-mail',
+    welcome_title: 'Bonjour, je suis Many',
+    welcome_subtitle: 'Votre assistant personnel dans Dome. Posez-moi n\'importe quelle question.',
   },
   agentTeam: {
     status_thinking: 'Le superviseur analyse la tâche...',
@@ -7932,6 +7934,8 @@ const pt = {
     quick_create_table: 'Criar tabela',
     quick_weekly_report: 'Relatório semanal',
     quick_draft_email: 'Redigir e-mail',
+    welcome_title: 'Olá, eu sou Many',
+    welcome_subtitle: 'Seu assistente pessoal no Dome. Pergunte o que quiser.',
   },
   agentTeam: {
     status_thinking: 'O supervisor está analisando a tarefa...',
