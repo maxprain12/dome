@@ -211,7 +211,8 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         console.error('[AgentTeam] Validation error:', errorMsg, err);
         return { success: false, error: errorMsg };
       }
-      throw err;
+      console.error('[AgentTeam] Unexpected error during destructuring:', err);
+      return { success: false, error: err.message || 'Unexpected error during payload processing' };
     }
 
     if (typeof streamId !== 'string' || !streamId) {
