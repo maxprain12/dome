@@ -61,9 +61,9 @@ export function getFileType(filename: string): keyof typeof SUPPORTED_FILE_TYPES
 
 // Generar un hash único para el archivo
 export async function generateFileHash(filePath: string): Promise<string> {
-  const result = await (window as any).electron.file.generateHash(filePath);
+  const result = await window.electron.file.generateHash(filePath);
   if (!result.success) throw new Error(result.error || 'Failed to generate hash');
-  return result.data;
+  return result.data as string;
 }
 
 // Guardar archivo en el sistema
@@ -85,36 +85,36 @@ export async function saveFile(
 
 // Leer archivo
 export async function readFile(filePath: string): Promise<Buffer> {
-  const result = await (window as any).electron.file.readFile(filePath);
+  const result = await window.electron.file.readFile(filePath);
   if (!result.success) throw new Error(result.error || 'Failed to read file');
-  return Buffer.from(result.data);
+  return Buffer.from(result.data as string);
 }
 
 // Eliminar archivo
 export async function deleteFile(filePath: string): Promise<void> {
-  const result = await (window as any).electron.file.deleteFile(filePath);
+  const result = await window.electron.file.deleteFile(filePath);
   if (!result.success) throw new Error(result.error || 'Failed to delete file');
 }
 
 // Obtener información del archivo
 export async function getFileInfo(filePath: string) {
-  const result = await (window as any).electron.file.getInfo(filePath);
+  const result = await window.electron.file.getInfo(filePath);
   if (!result.success) throw new Error(result.error || 'Failed to get file info');
   return result.data;
 }
 
 // Extraer texto de PDF
 export async function extractTextFromPDF(filePath: string): Promise<string> {
-  const result = await (window as any).electron.file.extractPDFText(filePath);
+  const result = await window.electron.file.extractPDFText(filePath);
   if (!result.success) throw new Error(result.error || 'Failed to extract PDF text');
-  return result.data;
+  return result.data as string;
 }
 
 // Convertir imagen a base64 para preview
 export async function imageToBase64(filePath: string): Promise<string> {
-  const result = await (window as any).electron.file.imageToBase64(filePath);
+  const result = await window.electron.file.imageToBase64(filePath);
   if (!result.success) throw new Error(result.error || 'Failed to convert image');
-  return result.data;
+  return result.data as string;
 }
 
 // Obtener MIME type por extensión
@@ -139,7 +139,7 @@ function getMimeType(ext: string): string {
 
 // Limpiar archivos temporales
 export async function cleanTempFiles(): Promise<void> {
-  const result = await (window as any).electron.file.cleanTemp();
+  const result = await window.electron.file.cleanTemp();
   if (!result.success) throw new Error(result.error || 'Failed to clean temp files');
 }
 
@@ -148,11 +148,11 @@ export async function getStorageUsage(): Promise<{
   total: number;
   byType: Record<string, number>;
 }> {
-  const result = await (window as any).electron.storage.getUsage();
+  const result = await window.electron.storage.getUsage();
   if (!result.success) {
     return { total: 0, byType: {} };
   }
-  return result.data;
+  return result.data as { total: number; byType: Record<string, number> };
 }
 
 export { FILES_DIR };
