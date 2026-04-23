@@ -189,30 +189,21 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     }
 
     let streamId, teamId, messages, memberAgentIds, supervisorInstructions, currentResourceId, currentResourceTitle, currentFolderId, pathname, homeSidebarSection, teamToolIds, teamMcpServerIds, projectId;
-    try {
-      ({
-        streamId,
-        teamId,
-        messages,
-        memberAgentIds,
-        supervisorInstructions,
-        currentResourceId,
-        currentResourceTitle,
-        currentFolderId,
-        pathname,
-        homeSidebarSection,
-        teamToolIds,
-        teamMcpServerIds,
-        projectId,
-      } = payload);
-    } catch (err) {
-      if (err instanceof TypeError) {
-        const errorMsg = 'Invalid payload: could not read required properties';
-        console.error('[AgentTeam] Validation error:', errorMsg, err);
-        return { success: false, error: errorMsg };
-      }
-      throw err;
-    }
+    ({
+      streamId,
+      teamId,
+      messages,
+      memberAgentIds,
+      supervisorInstructions,
+      currentResourceId,
+      currentResourceTitle,
+      currentFolderId,
+      pathname,
+      homeSidebarSection,
+      teamToolIds,
+      teamMcpServerIds,
+      projectId,
+    } = payload);
 
     if (typeof streamId !== 'string' || !streamId) {
       const errorMsg = 'Invalid payload: streamId must be a non-empty string';
