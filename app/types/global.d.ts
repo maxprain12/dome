@@ -192,6 +192,12 @@ declare global {
         writeFile: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>;
         copyFile: (sourcePath: string, destPath: string) => Promise<{ success: boolean; error?: string }>;
         readFile: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+        generateHash: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+        deleteFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
+        getInfo: (filePath: string) => Promise<{ success: boolean; data?: { size: number; modified: number }; error?: string }>;
+        extractPDFText: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+        imageToBase64: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+        cleanTemp: () => Promise<{ success: boolean; error?: string }>;
       };
 
       // Theme
