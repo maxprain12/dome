@@ -277,7 +277,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
               height: SLIDE_H,
               transform: `scale(${scale})`,
               transformOrigin: 'top left',
-              ['--ppt-text-default' as string]: '#ffffff',
+              ['--ppt-text-default' as string]: 'var(--base-text)',
             }}
           />
         </div>
