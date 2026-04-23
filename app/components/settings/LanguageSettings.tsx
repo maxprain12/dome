@@ -11,8 +11,8 @@ import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
 const LANG_COLORS: Record<SupportedLanguage, string> = {
   en: 'var(--accent)',
   es: 'var(--dome-accent)',
-  fr: '#6366f1',
-  pt: '#10b981',
+  fr: 'var(--accent)',
+  pt: 'var(--success)',
 };
 
 export default function LanguageSettings() {

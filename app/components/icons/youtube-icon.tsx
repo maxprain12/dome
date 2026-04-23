@@ -9,7 +9,7 @@ export function YoutubeIcon({ size }: Props) {
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
-      fill="#FF0000"
+      fill="var(--error)"
       style={{ width: rem(size), height: rem(size) }}
     >
       <path
