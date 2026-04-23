@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, X, Copy, Check } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
+import { useTranslation } from 'react-i18next';
 import type { StudyGuideData } from '@/types';
 
 interface StudyGuideProps {
@@ -10,6 +11,7 @@ interface StudyGuideProps {
 }
 
 export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
+  const { t } = useTranslation();
   const [expandedSections, setExpandedSections] = useState<Set<number>>(
     new Set(data.sections.map((_, i) => i)) // All expanded by default
   );
@@ -42,10 +44,10 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
         style={{ borderColor: 'var(--border)' }}
       >
         <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
-          {title || 'Study Guide'}
+          {title || t('studio.study_guide_title')}
         </h3>
         {onClose && (
-          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close">
+          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
             <X size={16} />
           </button>
         )}

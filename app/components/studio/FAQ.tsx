@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, X, MessageCircle } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
+import { useTranslation } from 'react-i18next';
 import type { FAQData } from '@/types';
 
 interface FAQProps {
@@ -10,6 +11,7 @@ interface FAQProps {
 }
 
 export default function FAQ({ data, title, onClose }: FAQProps) {
+  const { t } = useTranslation();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
 
   return (
@@ -22,7 +24,7 @@ export default function FAQ({ data, title, onClose }: FAQProps) {
         <div className="flex items-center gap-2">
           <MessageCircle size={16} style={{ color: 'var(--dome-accent, #596037)' }} />
           <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
-            {title || 'Frequently Asked Questions'}
+            {title || t('studio.faq_title')}
           </h3>
           <span
             className="text-xs px-2 py-0.5 rounded-full"
@@ -35,7 +37,7 @@ export default function FAQ({ data, title, onClose }: FAQProps) {
           </span>
         </div>
         {onClose && (
-          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label="Close" title="Close">
+          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
             <X size={16} />
           </button>
         )}
