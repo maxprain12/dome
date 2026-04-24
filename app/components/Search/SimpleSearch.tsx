@@ -270,7 +270,7 @@ export function SearchModal({
     <div
       ref={containerRef}
       className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
+      style={{ background: 'rgba(0,0,0,0.5)' }} // backdrop overlay
     >
       <div
         className="w-full max-w-lg rounded-xl border shadow-2xl"
@@ -473,7 +473,7 @@ function SnippetText({ text, query }: { text: string; query: string }) {
     <span>
       {parts.map((part, i) =>
         i % 2 === 1 ? (
-          <mark key={i} style={{ background: 'rgba(124,111,205,0.2)', color: 'var(--dome-accent)', borderRadius: '2px' }}>
+          <mark key={i} style={{ background: 'color-mix(in srgb, var(--dome-accent) 20%, transparent)', color: 'var(--dome-accent)', borderRadius: '2px' }}>
             {part}
           </mark>
         ) : (
@@ -681,7 +681,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
         style={{
           background: 'var(--dome-surface)',
           borderColor: isFocused ? 'var(--dome-accent)' : 'var(--dome-border)',
-          boxShadow: isFocused ? '0 0 0 3px rgba(124,111,205,0.15)' : 'none',
+          boxShadow: isFocused ? '0 0 0 3px color-mix(in srgb, var(--dome-accent) 15%, transparent)' : 'none',
         }}
       >
         <Search
