@@ -139,6 +139,10 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                 return resolved;
               };
 
+              // '..' is intentionally allowed here because we need to extract archives
+              // that may contain entries with parent-directory references. The path.join
+              // and startsWith check above ensures extraction stays within tempDir.
+
               if (/\/$/.test(entry.fileName)) {
                 const dirPath = resolveWithinTempDir(entry.fileName);
                 fs.mkdirSync(dirPath, { recursive: true });
@@ -155,6 +159,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                 fs.mkdirSync(path.dirname(destPath), { recursive: true });
                 const writeStream = fs.createWriteStream(destPath);
                 readStream.pipe(writeStream);
+                readStream.on('error', reject);
                 writeStream.on('finish', () => {
                   zipfile.readEntry();
                 });
@@ -166,6 +171,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           });
           zipfile.on('end', () => resolve());
           zipfile.on('error', reject);
+          zipfile.readEntry();
         });
       });
 
