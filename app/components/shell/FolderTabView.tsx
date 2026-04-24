@@ -50,8 +50,8 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  note: '#7c6fcd', notebook: '#3b82f6', url: '#10b981',
-  pdf: '#ef4444', image: '#f59e0b', video: '#ec4899', audio: '#8b5cf6', ppt: '#d47b3f',
+  note: 'var(--accent)', notebook: '#3b82f6', url: '#10b981',
+  pdf: 'var(--error)', image: '#f59e0b', video: '#ec4899', audio: '#8b5cf6', ppt: '#d47b3f',
 };
 
 // ─── ColorPickerPopover ───────────────────────────────────────────────────────
