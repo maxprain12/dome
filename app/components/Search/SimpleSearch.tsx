@@ -421,23 +421,23 @@ interface AdvancedResult {
   folderColor?: string;
 }
 
-const DEFAULT_TYPE_META = { label: 'Nota', color: '#7c6fcd', bg: 'rgba(124,111,205,0.1)' };
+const DEFAULT_TYPE_META = { label: 'Nota', color: 'var(--accent)', bg: 'color-mix(in srgb, var(--accent) 10%, transparent)' };
 
 const TYPE_META: Record<string, { label: string; color: string; bg: string }> = {
-  note:         { label: 'Nota',         color: '#7c6fcd', bg: 'rgba(124,111,205,0.1)' },
-  notebook:     { label: 'Cuaderno',     color: '#7c6fcd', bg: 'rgba(124,111,205,0.1)' },
-  pdf:          { label: 'PDF',          color: '#e05c5c', bg: 'rgba(224,92,92,0.1)'   },
-  video:        { label: 'Video',        color: '#3b82f6', bg: 'rgba(59,130,246,0.1)'  },
-  audio:        { label: 'Audio',        color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)'  },
-  image:        { label: 'Imagen',       color: '#10b981', bg: 'rgba(16,185,129,0.1)'  },
-  url:          { label: 'Enlace',       color: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
-  folder:       { label: 'Carpeta',      color: '#6b7280', bg: 'rgba(107,114,128,0.1)' },
-  ppt:          { label: 'PPT',          color: '#f97316', bg: 'rgba(249,115,22,0.1)'  },
-  document:     { label: 'Documento',    color: '#e05c5c', bg: 'rgba(224,92,92,0.1)'   },
-  annotation:   { label: 'Anotación',   color: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
-  chat:         { label: 'Chat',         color: '#3b82f6', bg: 'rgba(59,130,246,0.1)'  },
-  studio:       { label: 'Studio',       color: '#10b981', bg: 'rgba(16,185,129,0.1)'  },
-  graph:        { label: 'Grafo',        color: '#a855f7', bg: 'rgba(168,85,247,0.1)'  },
+  note:         { label: 'Nota',         color: 'var(--accent)', bg: 'color-mix(in srgb, var(--accent) 10%, transparent)' },
+  notebook:     { label: 'Cuaderno',     color: 'var(--accent)', bg: 'color-mix(in srgb, var(--accent) 10%, transparent)' },
+  pdf:          { label: 'PDF',          color: 'var(--error)', bg: 'color-mix(in srgb, var(--error) 10%, transparent)'   },
+  video:        { label: 'Video',        color: '#3b82f6', bg: 'color-mix(in srgb, #3b82f6 10%, transparent)'  },
+  audio:        { label: 'Audio',        color: '#8b5cf6', bg: 'color-mix(in srgb, #8b5cf6 10%, transparent)'  },
+  image:        { label: 'Imagen',       color: '#10b981', bg: 'color-mix(in srgb, #10b981 10%, transparent)'  },
+  url:          { label: 'Enlace',       color: '#f59e0b', bg: 'color-mix(in srgb, #f59e0b 10%, transparent)'  },
+  folder:       { label: 'Carpeta',      color: '#6b7280', bg: 'color-mix(in srgb, #6b7280 10%, transparent)' },
+  ppt:          { label: 'PPT',          color: '#f97316', bg: 'color-mix(in srgb, #f97316 10%, transparent)'  },
+  document:     { label: 'Documento',    color: 'var(--error)', bg: 'color-mix(in srgb, var(--error) 10%, transparent)'   },
+  annotation:   { label: 'Anotación',   color: '#f59e0b', bg: 'color-mix(in srgb, #f59e0b 10%, transparent)'  },
+  chat:         { label: 'Chat',         color: '#3b82f6', bg: 'color-mix(in srgb, #3b82f6 10%, transparent)'  },
+  studio:       { label: 'Studio',       color: '#10b981', bg: 'color-mix(in srgb, #10b981 10%, transparent)'  },
+  graph:        { label: 'Grafo',        color: '#a855f7', bg: 'color-mix(in srgb, #a855f7 10%, transparent)'  },
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
