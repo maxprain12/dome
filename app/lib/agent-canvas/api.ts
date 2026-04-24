@@ -53,10 +53,6 @@ export async function deleteWorkflow(id: string): Promise<{ success: boolean; er
   return result.success ? { success: true } : { success: false, error: result.error };
 }
 
-// --- Executions (traceability) ---
-
-// getAllExecutions kept for future use when execution history is implemented
-
 const MAX_EXECUTIONS_PER_WORKFLOW = 50;
 
 export async function saveExecution(execution: WorkflowExecution): Promise<{ success: boolean; error?: string }> {
