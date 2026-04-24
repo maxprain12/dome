@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronLeft, X, Users, Cpu, Check } from 'lucide-react';
 import type { ManyAgent, AgentTeam } from '@/types';
 import { getManyAgents } from '@/lib/agents/api';
@@ -44,6 +45,7 @@ const DEFAULT_SUPERVISOR_INSTRUCTIONS = `Eres el supervisor de este equipo de ag
 Responde siempre en el idioma del usuario.`;
 
 export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamOnboardingProps) {
+  const { t } = useTranslation();
   const [step, setStep] = useState<Step>('basics');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -123,9 +125,9 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
       >
         <div className="flex items-center gap-2 min-w-0">
           <Cpu className="w-4 h-4 text-[var(--accent)] shrink-0" aria-hidden />
-          <h1 className="text-base font-semibold text-[var(--primary-text)] truncate">Nuevo Agent Team</h1>
+          <h1 className="text-base font-semibold text-[var(--primary-text)] truncate">{t('agentTeam.new_team_title')}</h1>
         </div>
-        <DomeButton type="button" variant="ghost" size="sm" iconOnly onClick={onCancel} aria-label="Cerrar">
+        <DomeButton type="button" variant="ghost" size="sm" iconOnly onClick={onCancel} aria-label={t('common.close')}>
           <X className="w-4 h-4" />
         </DomeButton>
       </header>
