@@ -100,7 +100,7 @@ export default function AnnotationLayer({
             width: coordinates.width,
             height: coordinates.height,
           });
-          ctx.strokeStyle = '#2196f3';
+          ctx.strokeStyle = 'var(--accent)';
           ctx.lineWidth = 2;
           ctx.setLineDash([5, 5]);
           ctx.strokeRect(

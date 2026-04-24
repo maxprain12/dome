@@ -785,14 +785,13 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
     const now = Date.now();
     const result = await window.electron?.db?.resources?.create({
       id: `res_${now}_${Math.random().toString(36).substr(2, 9)}`,
-      type: 'folder',
+      type: 'folder' as Resource['type'],
       title: name,
       folder_id: parentId,
       project_id: (resources[0]?.project_id) || 'default',
-      content: null,
       created_at: now,
       updated_at: now,
-    } as any);
+    });
     if (result?.success) {
       if (parentId) setExpandedIds((prev) => new Set(prev).add(parentId));
       onRefresh();
@@ -1297,13 +1296,13 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     const id = `res_${now}_${Math.random().toString(36).substr(2, 9)}`;
     const result = await window.electron.db.resources.create({
       id,
-      type: 'note',
+      type: 'note' as Resource['type'],
       title: 'Untitled Note',
       project_id: getDefaultProjectId(),
       content: '',
       created_at: now,
       updated_at: now,
-    } as any);
+    });
     if (result?.success) {
       await fetchResources({ silent: true });
       useTabStore.getState().openResourceTab(id, 'note', 'Untitled Note');
@@ -1317,13 +1316,13 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     const cells = [{ id: crypto.randomUUID(), type: 'code', source: '', outputs: [] }];
     const result = await window.electron.db.resources.create({
       id,
-      type: 'notebook',
+      type: 'notebook' as Resource['type'],
       title: 'Untitled Notebook',
       project_id: getDefaultProjectId(),
       content: JSON.stringify({ cells }),
       created_at: now,
       updated_at: now,
-    } as any);
+    });
     if (result?.success) {
       await fetchResources({ silent: true });
       useTabStore.getState().openResourceTab(id, 'notebook', 'Untitled Notebook');
@@ -1337,13 +1336,13 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     const title = url.replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
     const result = await window.electron.db.resources.create({
       id,
-      type: 'url',
+      type: 'url' as Resource['type'],
       title,
       project_id: getDefaultProjectId(),
       content: url,
       created_at: now,
       updated_at: now,
-    } as any);
+    });
     if (result?.success) {
       await fetchResources({ silent: true });
       useTabStore.getState().openResourceTab(id, 'url', title ?? url);
@@ -1354,14 +1353,13 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     const now = Date.now();
     const result = await window.electron?.db?.resources?.create({
       id: `res_${now}_${Math.random().toString(36).substr(2, 9)}`,
-      type: 'folder',
+      type: 'folder' as Resource['type'],
       title: name,
       folder_id: null,
       project_id: getDefaultProjectId(),
-      content: null,
       created_at: now,
       updated_at: now,
-    } as any);
+    });
     if (result?.success) void fetchResources({ silent: true });
   }, [getDefaultProjectId, fetchResources]);
 
