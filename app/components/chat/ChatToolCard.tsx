@@ -1,5 +1,6 @@
 
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Globe,
   Search,
@@ -280,6 +281,7 @@ function formatArgsSummary(args: Record<string, unknown>): string {
 }
 
 export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardProps) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [showRawJson, setShowRawJson] = useState(false);
   const { pinnedResources, addPinnedResource, removePinnedResource } = useManyStore();
@@ -412,7 +414,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
         <div style={{ marginTop: 6, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <img
             src={imageItems.dataUrl}
-            alt={imageItems.alt || 'Imagen procesada'}
+            alt={imageItems.alt || t('chat.tool_image_processed')}
             style={{
               maxWidth: 200,
               maxHeight: 200,
@@ -422,8 +424,8 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
             }}
           />
           <div style={{ fontSize: 12, color: 'var(--secondary-text)' }}>
-            <p style={{ fontWeight: 600, color: 'var(--primary-text)', margin: '0 0 4px' }}>Imagen procesada</p>
-            <p style={{ opacity: 0.7, margin: 0 }}>Haz clic para expandir</p>
+            <p style={{ fontWeight: 600, color: 'var(--primary-text)', margin: '0 0 4px' }}>{t('chat.tool_image_processed')}</p>
+            <p style={{ opacity: 0.7, margin: 0 }}>{t('chat.tool_image_expand')}</p>
           </div>
         </div>
       );
