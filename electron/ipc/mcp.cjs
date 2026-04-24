@@ -11,7 +11,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Returns success, tool count, and optional error.
    */
   ipcMain.handle('mcp:testConnection', async (event) => {
-    validateSender(event, windowManager);
+    try {
+      validateSender(event, windowManager);
+    } catch {
+      return { success: false, toolCount: 0, error: 'Unauthorized' };
+    }
     try {
       const tools = await getMCPTools(database);
       const toolCount = Array.isArray(tools) ? tools.length : 0;
@@ -34,7 +38,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Receives server config: { name, type, command?, args?, url?, env? }
    */
   ipcMain.handle('mcp:testServer', async (event, server) => {
-    validateSender(event, windowManager);
+    try {
+      validateSender(event, windowManager);
+    } catch {
+      return { success: false, toolCount: 0, error: 'Unauthorized' };
+    }
     try {
       return await testSingleMcpServer(server);
     } catch (err) {
@@ -53,7 +61,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Returns { success, token?, error? }
    */
   ipcMain.handle('mcp:startOAuthFlow', async (event, providerId) => {
-    validateSender(event, windowManager);
+    try {
+      validateSender(event, windowManager);
+    } catch {
+      return { success: false, error: 'Unauthorized' };
+    }
     try {
       const result = await mcpOauth.startOAuthFlow(providerId, database);
       return { success: true, token: result.token };
@@ -67,7 +79,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Get OAuth-supported MCP providers
    */
   ipcMain.handle('mcp:getOAuthProviders', async (event) => {
-    validateSender(event, windowManager);
+    try {
+      validateSender(event, windowManager);
+    } catch {
+      return { success: false, providers: [], error: 'Unauthorized' };
+    }
     try {
       return { success: true, providers: mcpOauth.getSupportedProviders() };
     } catch (err) {
