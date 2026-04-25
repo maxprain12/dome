@@ -254,7 +254,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
       <div
         ref={hostRef}
         className="h-full w-full flex items-center justify-center"
-        style={{ backgroundColor: 'var(--bg-secondary, #111118)', overflow: 'hidden' }}
+        style={{ backgroundColor: 'var(--bg-secondary)', overflow: 'hidden' }}
       >
         <div
           style={{
@@ -266,7 +266,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
             overflow: 'hidden',
             boxShadow: '0 16px 56px -8px rgba(0,0,0,0.75), 0 4px 20px rgba(0,0,0,0.5)',
             visibility: isLoading ? 'hidden' : 'visible',
-            background: 'var(--bg, #ffffff)',
+            background: 'var(--bg)',
           }}
         >
           {/* pptx-preview renders directly into this div */}
