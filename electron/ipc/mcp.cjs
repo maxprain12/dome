@@ -11,16 +11,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Returns success, tool count, and optional error.
    */
   ipcMain.handle('mcp:testConnection', async (event) => {
-    try {
-      validateSender(event, windowManager);
-    } catch (err) {
-      console.warn('[MCP] Unauthorized test connection attempt:', err?.message);
-      return {
-        success: false,
-        toolCount: 0,
-        error: 'Unauthorized',
-      };
-    }
+    validateSender(event, windowManager);
     try {
       const tools = await getMCPTools(database);
       const toolCount = Array.isArray(tools) ? tools.length : 0;
@@ -29,11 +20,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         toolCount,
       };
     } catch (err) {
-      console.warn('[MCP] Test connection failed:', err?.message);
+      console.warn('[MCP] Test connection failed:', err.message);
       return {
         success: false,
         toolCount: 0,
-        error: err?.message || String(err),
+        error: err.message || String(err),
       };
     }
   });
@@ -43,24 +34,15 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Receives server config: { name, type, command?, args?, url?, env? }
    */
   ipcMain.handle('mcp:testServer', async (event, server) => {
-    try {
-      validateSender(event, windowManager);
-    } catch (err) {
-      console.warn('[MCP] Unauthorized test server attempt:', err?.message);
-      return {
-        success: false,
-        toolCount: 0,
-        error: 'Unauthorized',
-      };
-    }
+    validateSender(event, windowManager);
     try {
       return await testSingleMcpServer(server);
     } catch (err) {
-      console.warn('[MCP] Test server failed:', err?.message);
+      console.warn('[MCP] Test server failed:', err.message);
       return {
         success: false,
         toolCount: 0,
-        error: err?.message || String(err),
+        error: err.message || String(err),
       };
     }
   });
@@ -71,18 +53,13 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Returns { success, token?, error? }
    */
   ipcMain.handle('mcp:startOAuthFlow', async (event, providerId) => {
-    try {
-      validateSender(event, windowManager);
-    } catch (err) {
-      console.warn('[MCP OAuth] Unauthorized start OAuth flow attempt:', err?.message);
-      return { success: false, toolCount: 0, error: 'Unauthorized' };
-    }
+    validateSender(event, windowManager);
     try {
       const result = await mcpOauth.startOAuthFlow(providerId, database);
-      return { success: true, toolCount: 0, token: result.token };
+      return { success: true, token: result.token };
     } catch (err) {
-      console.warn('[MCP OAuth] Flow failed:', err?.message);
-      return { success: false, toolCount: 0, error: err?.message || String(err) };
+      console.warn('[MCP OAuth] Flow failed:', err.message);
+      return { success: false, error: err.message || String(err) };
     }
   });
 
@@ -90,17 +67,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Get OAuth-supported MCP providers
    */
   ipcMain.handle('mcp:getOAuthProviders', async (event) => {
-    try {
-      validateSender(event, windowManager);
-    } catch (err) {
-      console.warn('[MCP] Unauthorized get OAuth providers attempt:', err?.message);
-      return { success: false, providers: [], error: 'Unauthorized' };
-    }
+    validateSender(event, windowManager);
     try {
       return { success: true, providers: mcpOauth.getSupportedProviders() };
     } catch (err) {
-      console.warn('[MCP] Get OAuth providers failed:', err?.message);
-      return { success: false, providers: [], error: err?.message || String(err) };
+      console.warn('[MCP] Get OAuth providers failed:', err.message);
+      return { success: false, providers: [], error: err.message || String(err) };
     }
   });
 }
