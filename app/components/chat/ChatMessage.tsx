@@ -408,8 +408,8 @@ export default function ChatMessage({
                       onClick={handleSaveAsNote}
                       className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
                       style={{ color: savedAsNote ? 'var(--success)' : 'var(--tertiary-text)' }}
-                      title={savedAsNote ? 'Guardado' : 'Guardar como nota'}
-                      aria-label={savedAsNote ? 'Guardado' : 'Guardar como nota'}
+                      title={savedAsNote ? t('chat.saved_as_note') : t('chat.save_as_note')}
+                      aria-label={savedAsNote ? t('chat.saved_as_note') : t('chat.save_as_note')}
                     >
                       {savedAsNote ? <Check className="w-3 h-3" /> : <BookmarkPlus className="w-3 h-3" />}
                     </button>
@@ -419,8 +419,8 @@ export default function ChatMessage({
                       onClick={onRegenerate}
                       className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
                       style={{ color: 'var(--tertiary-text)' }}
-                      title="Regenerar respuesta"
-                      aria-label="Regenerar respuesta"
+                      title={t('chat.regenerate')}
+                      aria-label={t('chat.regenerate')}
                     >
                       <RefreshCw className="w-3 h-3" />
                     </button>

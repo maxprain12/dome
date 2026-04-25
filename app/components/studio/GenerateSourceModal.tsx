@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   File,
   Video,
@@ -123,6 +124,7 @@ export default function GenerateSourceModal({
   titleOverride,
   descriptionOverride,
 }: GenerateSourceModalProps) {
+  const { t } = useTranslation();
   const [allItems, setAllItems] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -236,7 +238,7 @@ export default function GenerateSourceModal({
               e.currentTarget.style.background = 'transparent';
             }}
             aria-expanded={isExpanded}
-            aria-label={`Carpeta ${folder.title}`}
+            aria-label={`${t('studio.folder')} ${folder.title}`}
           >
             <span className="shrink-0" style={{ color: 'var(--secondary-text)' }}>
               {hasChildren ? (
@@ -292,7 +294,7 @@ export default function GenerateSourceModal({
         onMouseLeave={(e) => {
           if (!isCurrent) e.currentTarget.style.background = 'transparent';
         }}
-        aria-label={isSelected ? `Deseleccionar ${res.title}` : `Seleccionar ${res.title}`}
+        aria-label={isSelected ? t('workspace.sources_deselect', { title: res.title }) : t('workspace.sources_select', { title: res.title })}
       >
         <span className="shrink-0 w-[14px] flex items-center justify-center">
           {isSelected ? (
@@ -324,7 +326,7 @@ export default function GenerateSourceModal({
       onClose={onClose}
       title={
         titleOverride ??
-        `Generar ${tileTitle} — Seleccionar fuentes`
+        t('studio.generate_title', { tileTitle })
       }
       size="md"
     >
@@ -332,12 +334,12 @@ export default function GenerateSourceModal({
         <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
           {descriptionOverride ??
             (requireAtLeastOne
-              ? `Selecciona al menos un documento o recurso para generar ${tileTitle}.`
-              : `Selecciona los recursos que quieres usar como fuentes para generar el ${tileTitle}. Puedes dejarlo vacío para usar los recursos más recientes del proyecto.`)}
+              ? t('studio.select_at_least_one_hint', { tileTitle })
+              : t('studio.select_sources_hint', { tileTitle }))}
         </p>
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium" style={{ color: 'var(--secondary-text)' }}>
-            Fuentes
+            {t('studio.sources_label')}
           </span>
           {allResourceIds.length > 0 && (
             <button
@@ -345,9 +347,9 @@ export default function GenerateSourceModal({
               onClick={handleSelectAll}
               className="text-xs font-medium cursor-pointer hover:underline focus-visible:ring-2 focus-visible:ring-offset-1 rounded"
               style={{ color: 'var(--accent)' }}
-              aria-label={allSelected ? 'Deseleccionar todas' : 'Seleccionar todas'}
+              aria-label={allSelected ? t('ui.deselect_all') : t('ui.select_all')}
             >
-              {allSelected ? 'Ninguna' : 'Todas'}
+              {allSelected ? t('studio.deselect_all') : t('studio.select_all')}
             </button>
           )}
         </div>
@@ -361,7 +363,7 @@ export default function GenerateSourceModal({
             </div>
           ) : tree.length === 0 ? (
             <div className="px-4 py-8 text-center text-xs" style={{ color: 'var(--tertiary-text)' }}>
-              {projectId ? 'No hay recursos ni carpetas en el proyecto' : 'Selecciona un proyecto'}
+              {projectId ? t('studio.no_sources_in_project') : t('studio.select_project')}
             </div>
           ) : (
             tree.map((item) => renderItem(item, 0))
