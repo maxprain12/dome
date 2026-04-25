@@ -28,13 +28,14 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
   const formatDate = (timestamp: number) => formatRelativeDate(timestamp);
 
   const getPositionLabel = (annotation: ParsedInteraction) => {
-    const pos = annotation.position_data;
+    const pos = annotation.position_data as Record<string, unknown> | null;
     if (!pos) return null;
 
-    if (pos.type === 'pdf_highlight') {
-      return `Page ${(pos.pageIndex || 0) + 1}`;
-    } else if (pos.type === 'video_timestamp') {
-      const seconds = pos.timestamp || 0;
+    const posType = pos.type as string;
+    if (posType === 'pdf_highlight') {
+      return `Page ${((pos.pageIndex as number) || 0) + 1}`;
+    } else if (posType === 'video_timestamp') {
+      const seconds = (pos.timestamp as number) || 0;
       const mins = Math.floor(seconds / 60);
       const secs = Math.floor(seconds % 60);
       return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -43,8 +44,8 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
   };
 
   const getSelectedText = (annotation: ParsedInteraction) => {
-    const pos = annotation.position_data;
-    return pos?.selectedText || null;
+    const pos = annotation.position_data as Record<string, unknown> | null;
+    return (pos?.selectedText as string) || null;
   };
 
   if (isLoading) {
