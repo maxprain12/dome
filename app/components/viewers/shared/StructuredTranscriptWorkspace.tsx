@@ -43,7 +43,7 @@ export default function StructuredTranscriptWorkspace({
   const meta = parseResourceMetadata(resource);
   const structured = getStructuredTranscript(meta);
   const segments = getTranscriptionSegmentsForDisplay(meta);
-  const speakersMap = structured?.speakers ?? {};
+  const speakersMap = useMemo(() => structured?.speakers ?? {}, [structured?.speakers]);
   const noteId = meta.transcription_note_id;
   const hasPlain = Boolean(meta.transcription?.trim());
   const completed = isTranscriptionCompleted(meta);
@@ -64,7 +64,7 @@ export default function StructuredTranscriptWorkspace({
       if (lab) next[k] = lab;
     }
     setLocalSpeakerLabels((prev) => ({ ...next, ...prev }));
-  }, [resource.id, structured?.segments?.length, JSON.stringify(Object.keys(speakersMap))]);
+  }, [resource.id, speakersMap]);
 
   const activeSegmentId = useMemo(() => {
     let best: TranscriptionSegment | null = null;

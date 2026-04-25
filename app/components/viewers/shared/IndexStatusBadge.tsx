@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Brain, Loader2, HelpCircle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import DomeButton from '@/components/ui/DomeButton';
@@ -22,7 +22,7 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
 
   const indexable = resourceType ? INDEXABLE.has(resourceType) : true;
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!indexable) return;
     try {
       const res = await window.electron?.db?.semantic?.resourceHasChunks?.(resourceId);
@@ -36,7 +36,7 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
     } catch {
       if (mountedRef.current) setHasChunks(false);
     }
-  };
+  }, [resourceId, indexable]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -62,7 +62,7 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
         pollRef.current = null;
       }
     };
-  }, [resourceId]);
+  }, [refresh, resourceId]);
 
   const handleRetry = async () => {
     setBusy(true);

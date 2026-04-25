@@ -112,7 +112,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
     const app = useAppStore.getState();
     app.setSourcesPanelOpen(false);
     if (app.studioPanelOpen) app.toggleStudioPanel();
-  }, [resource?.id, resource?.type]);
+  }, [resource]);
 
   const handleToggleSidePanel = useCallback(() => {
     setSidePanelOpen((prev) => !prev);
