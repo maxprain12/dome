@@ -16,8 +16,8 @@ export interface Interaction {
 }
 
 export interface ParsedInteraction extends Omit<Interaction, 'position_data' | 'metadata'> {
-  position_data?: Record<string, any> | null;
-  metadata?: Record<string, any> | null;
+  position_data?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 interface UseInteractionsResult {
@@ -29,14 +29,14 @@ interface UseInteractionsResult {
   addInteraction: (
     type: InteractionType,
     content: string,
-    positionData?: Record<string, any>,
-    metadata?: Record<string, any>
+    positionData?: Record<string, unknown>,
+    metadata?: Record<string, unknown>
   ) => Promise<ParsedInteraction | null>;
   updateInteraction: (
     id: string,
     content: string,
-    positionData?: Record<string, any>,
-    metadata?: Record<string, any>
+    positionData?: Record<string, unknown>,
+    metadata?: Record<string, unknown>
   ) => Promise<boolean>;
   deleteInteraction: (id: string) => Promise<boolean>;
   clearChat: () => Promise<void>;
@@ -48,12 +48,12 @@ function parseInteraction(interaction: Interaction): ParsedInteraction {
     ...interaction,
     position_data: interaction.position_data
       ? typeof interaction.position_data === 'string'
-        ? JSON.parse(interaction.position_data)
+        ? JSON.parse(interaction.position_data) as Record<string, unknown>
         : interaction.position_data
       : null,
     metadata: interaction.metadata
       ? typeof interaction.metadata === 'string'
-        ? JSON.parse(interaction.metadata)
+        ? JSON.parse(interaction.metadata) as Record<string, unknown>
         : interaction.metadata
       : null,
   };
@@ -128,12 +128,12 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
                 ...updates,
                 position_data: updates.position_data
                   ? (typeof updates.position_data === 'string'
-                      ? JSON.parse(updates.position_data)
+                      ? JSON.parse(updates.position_data) as Record<string, unknown>
                       : updates.position_data)
                   : i.position_data,
                 metadata: updates.metadata
                   ? (typeof updates.metadata === 'string'
-                      ? JSON.parse(updates.metadata)
+                      ? JSON.parse(updates.metadata) as Record<string, unknown>
                       : updates.metadata)
                   : i.metadata,
                 updated_at: Date.now()
@@ -164,8 +164,8 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
     async (
       type: InteractionType,
       content: string,
-      positionData?: Record<string, any>,
-      metadata?: Record<string, any>
+      positionData?: Record<string, unknown>,
+      metadata?: Record<string, unknown>
     ): Promise<ParsedInteraction | null> => {
       if (!resourceId || typeof window === 'undefined' || !window.electron) {
         return null;
@@ -205,8 +205,8 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
     async (
       id: string,
       content: string,
-      positionData?: Record<string, any>,
-      metadata?: Record<string, any>
+      positionData?: Record<string, unknown>,
+      metadata?: Record<string, unknown>
     ): Promise<boolean> => {
       if (typeof window === 'undefined' || !window.electron) {
         return false;

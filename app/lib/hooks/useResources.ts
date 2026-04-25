@@ -22,7 +22,7 @@ export interface Resource {
     // Folder containment
     folder_id?: string | null;
     preview_image?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     created_at: number;
     updated_at: number;
 }
