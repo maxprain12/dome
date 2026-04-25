@@ -119,7 +119,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
     }
 
     loadPDF();
-  }, [resource.id]); // Only reload when resource ID changes
+  }, [resource.id, initialPage]);
 
   // Parse annotations from database
   useEffect(() => {

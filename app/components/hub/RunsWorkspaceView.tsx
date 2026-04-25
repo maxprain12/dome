@@ -969,7 +969,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
   const isRunning = run.status === 'running' || run.status === 'queued';
   const progress = getRunProgress(run);
 
-  const meta = (run.metadata ?? {}) as Record<string, unknown>;
+  const meta = useMemo(() => (run.metadata ?? {}) as Record<string, unknown>, [run.metadata]);
   const usage = useMemo(() => getRunUsageFromRunMetadata(meta), [meta]);
   const modelId = typeof meta.model === 'string' ? meta.model : undefined;
   const providerLabel = typeof meta.provider === 'string' ? meta.provider : undefined;
