@@ -121,7 +121,7 @@ export function parseAnnotationFromDB(
           height: positionData['height'] as number | undefined,
         },
         style: {
-          color: (metadata['color'] as string | undefined) ?? '#ffeb3b',
+          color: (metadata['color'] as string | undefined) ?? 'var(--accent)',
           opacity: (metadata['opacity'] as number | undefined) ?? 0.3,
           strokeWidth: (metadata['strokeWidth'] as number | undefined) ?? 2,
         },
@@ -224,7 +224,7 @@ function renderNote(
 
   // Draw note background
   ctx.globalAlpha = 0.95;
-  ctx.fillStyle = style.color || '#ffeb3b';
+  ctx.fillStyle = style.color || 'var(--accent)';
   ctx.fillRect(coordinates.x, coordinates.y, noteWidth, noteHeight);
 
   // Draw note border

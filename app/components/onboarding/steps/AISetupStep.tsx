@@ -230,7 +230,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                     className="px-1.5 py-0.5 text-[9px] font-bold rounded tracking-wide"
                     style={{
                       backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.2)' : DOME_GREEN_LIGHT,
-                      color: provider === 'dome' ? '#fff' : DOME_GREEN,
+                      color: provider === 'dome' ? 'var(--base-text)' : DOME_GREEN,
                     }}
                   >
                     {t('onboarding.recommended')}

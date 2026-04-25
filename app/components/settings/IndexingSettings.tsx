@@ -272,7 +272,7 @@ export default function IndexingSettings() {
                     {
                       label: t('settings.embeddings.pending'),
                       value: embedStatus.pendingCount,
-                      color: embedStatus.pendingCount > 0 ? '#a37b00' : DOME_GREEN,
+                      color: embedStatus.pendingCount > 0 ? 'var(--warning)' : DOME_GREEN,
                     },
                     { label: t('settings.embeddings.chunks'), value: embedStatus.chunksTotal, color: DOME_GREEN },
                   ].map(({ label, value, color }) => (
