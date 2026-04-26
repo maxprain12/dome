@@ -7,6 +7,8 @@ import { buildCoreNoteExtensions } from '@/lib/tiptap/extensions';
 import { SlashCommandExtension, SLASH_COMMANDS, type SlashCommand } from '@/lib/tiptap/slash-commands';
 import { buildDomeResourceMention } from '@/lib/tiptap/extensions/resource-mention';
 import { createTipTapAIActions } from '@/lib/tiptap/ai-actions';
+import { executeEditorAIAction } from '@/lib/ai/editor-ai';
+import type { EditorAIAction } from '@/lib/ai/editor-ai';
 import type { DomeMentionItem } from '@/lib/tiptap/extensions/resource-mention';
 import type { NoteEmbedKind } from '@/lib/tiptap/extensions/note-editor-bridge';
 import { SlashMenuPortal } from './SlashCommandMenu';
@@ -16,17 +18,29 @@ import type { MentionMenuHandle } from './MentionSuggestionMenu';
 import ResourcePickerModal from './ResourcePickerModal';
 import ImagePickerModal from './ImagePickerModal';
 import EmbedModal from './EmbedModal';
+import BlockHandles from './BlockHandles';
 import { useTabStore } from '@/lib/store/useTabStore';
-import { Bold, Italic, Underline, Strikethrough, Link, Highlighter, Code } from 'lucide-react';
+import { Bot, Check, FileText, Link, Highlighter, Sparkles } from 'lucide-react';
+import { Button as TiptapButton } from '@/components/tiptap-ui-primitive/button';
+import { Separator as TiptapSeparator } from '@/components/tiptap-ui-primitive/separator';
+import { MarkButton } from '@/components/tiptap-ui/mark-button';
 import './note-editor.css';
 
 interface NoteEditorProps {
-  content?: JSONContent;
+  /**
+   * Initial editor content. Accepts either a Tiptap JSON document (the
+   * canonical persisted format) or an HTML string (used as a fallback when
+   * legacy notes were stored as raw markdown — see `loadNoteContent`).
+   */
+  content?: JSONContent | string;
   editable?: boolean;
   placeholder?: string;
   projectId?: string;
   /** Current note resource (excluded from link picker) */
   currentResourceId?: string;
+  focused?: boolean;
+  /** Show Notion-style ⋮⋮ + ➕ controls on hover. Defaults to focused. */
+  showBlockHandles?: boolean;
   onUpdate?: (json: JSONContent) => void;
   onEditorReady?: (editor: Editor) => void;
 }
@@ -37,9 +51,12 @@ export default function NoteEditor({
   placeholder = 'Escribe algo, o escribe / para ver comandos…',
   projectId = '',
   currentResourceId,
+  focused = false,
+  showBlockHandles,
   onUpdate,
   onEditorReady,
 }: NoteEditorProps) {
+  const blockHandlesEnabled = (showBlockHandles ?? focused) && editable;
   const [slashItems, setSlashItems] = useState<SlashCommand[]>([]);
   const [slashClientRect, setSlashClientRect] = useState<(() => DOMRect | null) | null>(null);
   const slashMenuRef = useRef<SlashMenuHandle | null>(null);
@@ -53,11 +70,14 @@ export default function NoteEditor({
   const mentionMenuRef = useRef<MentionMenuHandle | null>(null);
 
   const [resourcePickerOpen, setResourcePickerOpen] = useState(false);
+  const [resourcePickerMode, setResourcePickerMode] = useState<'link' | 'split' | 'mention'>('link');
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const [embedOpen, setEmbedOpen] = useState(false);
   const [embedKind, setEmbedKind] = useState<NoteEmbedKind | null>(null);
 
   const editorRef = useRef<Editor | null>(null);
+  const [isAIBusy, setIsAIBusy] = useState(false);
+  const [aiError, setAIError] = useState<string | null>(null);
 
   const mentionRender = useCallback(() => {
     return {
@@ -170,7 +190,9 @@ export default function NoteEditor({
             const rt = link.getAttribute('data-resource-type') ?? 'note';
             if (id) {
               event.preventDefault();
-              useTabStore.getState().openResourceTab(id, rt, title);
+              const store = useTabStore.getState();
+              if (focused) store.openResourceInSplit(id, rt, title);
+              else store.openResourceTab(id, rt, title);
               return true;
             }
           }
@@ -181,7 +203,9 @@ export default function NoteEditor({
             const rt = men.getAttribute('data-resource-type') ?? 'note';
             if (id) {
               event.preventDefault();
-              useTabStore.getState().openResourceTab(id, rt, label);
+              const store = useTabStore.getState();
+              if (focused) store.openResourceInSplit(id, rt, label);
+              else store.openResourceTab(id, rt, label);
               return true;
             }
           }
@@ -200,15 +224,41 @@ export default function NoteEditor({
     [extensions],
   );
 
+  const runEditorAI = useCallback((action: EditorAIAction, mode: 'insert' | 'replace_selection' | 'append' = 'replace_selection') => {
+    const ed = editorRef.current;
+    if (!ed) return;
+    const aiActions = ed.storage.noteEditorBridge?.aiActions;
+    const selectedText = aiActions?.getSelectedMarkdownContext?.() ?? '';
+    const documentText = ed.state.doc.textBetween(0, ed.state.doc.content.size, '\n\n');
+    const sourceText = selectedText || documentText.slice(0, 4000);
+    if (!sourceText.trim() && action !== 'continue') return;
+
+    setAIError(null);
+    setIsAIBusy(true);
+    void (async () => {
+      try {
+        const result = await executeEditorAIAction(action, sourceText, documentText);
+        aiActions?.insertMarkdown(result, mode);
+      } catch (err) {
+        setAIError(err instanceof Error ? err.message : 'No se pudo ejecutar la acción de IA.');
+      } finally {
+        setIsAIBusy(false);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     editorRef.current = editor ?? null;
-  }, [editor]);
+  }, [editor, focused]);
 
   useEffect(() => {
     if (!editor) return;
     const s = editor.storage.noteEditorBridge;
     s.projectId = projectId ?? '';
-    s.openResourcePicker = () => setResourcePickerOpen(true);
+    s.openResourcePicker = (mode = 'link') => {
+      setResourcePickerMode(mode);
+      setResourcePickerOpen(true);
+    };
     s.openImagePicker = () => setImagePickerOpen(true);
     s.openEmbedModal = (k) => {
       setEmbedKind(k);
@@ -216,6 +266,21 @@ export default function NoteEditor({
     };
     s.aiActions = createTipTapAIActions(editor);
   }, [editor, projectId]);
+
+  useEffect(() => {
+    if (!focused) return;
+    const handleAI = () => runEditorAI('improve', 'replace_selection');
+    const handleReference = () => {
+      setResourcePickerMode('split');
+      setResourcePickerOpen(true);
+    };
+    window.addEventListener('dome:focused-editor-ai', handleAI);
+    window.addEventListener('dome:focused-editor-reference', handleReference);
+    return () => {
+      window.removeEventListener('dome:focused-editor-ai', handleAI);
+      window.removeEventListener('dome:focused-editor-reference', handleReference);
+    };
+  }, [focused, runEditorAI]);
 
   if (!editor) return null;
 
@@ -225,8 +290,14 @@ export default function NoteEditor({
   };
 
   return (
-    <div className="note-editor-wrapper">
-      <SelectionBubbleMenu editor={editor} />
+    <div className={`note-editor-wrapper${focused ? ' focused' : ''}`}>
+      <SelectionBubbleMenu editor={editor} focused={focused} isAIPending={isAIBusy} onAIAction={runEditorAI} />
+      <BlockHandles editor={editor} enabled={blockHandlesEnabled} />
+      {aiError && (
+        <div className="focused-editor-ai-error" role="status">
+          {aiError}
+        </div>
+      )}
 
       {slashItems.length > 0 && slashClientRect && (
         <SlashMenuPortal
@@ -237,7 +308,7 @@ export default function NoteEditor({
         />
       )}
 
-      {mentionUi && mentionUi.items.length > 0 && (
+      {mentionUi && (
         <MentionMenuPortal
           items={mentionUi.items}
           command={(item) => {
@@ -251,10 +322,29 @@ export default function NoteEditor({
 
       <ResourcePickerModal
         opened={resourcePickerOpen}
-        onClose={() => setResourcePickerOpen(false)}
+        onClose={() => {
+          setResourcePickerOpen(false);
+          setResourcePickerMode('link');
+        }}
         projectId={projectId}
         excludeResourceId={currentResourceId}
         onSelect={(r) => {
+          if (resourcePickerMode === 'split') {
+            useTabStore.getState().openResourceInSplit(r.id, r.type, r.title);
+            setResourcePickerOpen(false);
+            setResourcePickerMode('link');
+            return;
+          }
+          if (resourcePickerMode === 'mention') {
+            editor.storage.noteEditorBridge.aiActions?.insertResourceMention({
+              id: r.id,
+              title: r.title,
+              type: r.type,
+            });
+            setResourcePickerOpen(false);
+            setResourcePickerMode('link');
+            return;
+          }
           editor
             .chain()
             .focus()
@@ -264,6 +354,8 @@ export default function NoteEditor({
               resourceType: r.type,
             })
             .run();
+          setResourcePickerOpen(false);
+          setResourcePickerMode('link');
         }}
       />
 
@@ -291,7 +383,17 @@ export default function NoteEditor({
   );
 }
 
-function SelectionBubbleMenu({ editor }: { editor: Editor }) {
+function SelectionBubbleMenu({
+  editor,
+  focused,
+  isAIPending,
+  onAIAction,
+}: {
+  editor: Editor;
+  focused: boolean;
+  isAIPending: boolean;
+  onAIAction: (action: EditorAIAction, mode?: 'insert' | 'replace_selection' | 'append') => void;
+}) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
@@ -314,7 +416,7 @@ function SelectionBubbleMenu({ editor }: { editor: Editor }) {
         return;
       }
 
-      const menuW = 270;
+      const menuW = focused ? 390 : 270;
       setPos({
         top: rect.top - 48,
         left: Math.min(Math.max(rect.left + rect.width / 2 - menuW / 2, 8), window.innerWidth - menuW - 8),
@@ -326,9 +428,12 @@ function SelectionBubbleMenu({ editor }: { editor: Editor }) {
     return () => {
       editor.off('selectionUpdate', update);
     };
-  }, [editor]);
+  }, [editor, focused]);
 
   if (!pos) return null;
+
+  const linkActive = editor.isActive('link');
+  const highlightActive = editor.isActive('highlight');
 
   return ReactDOM.createPortal(
     <div
@@ -336,87 +441,93 @@ function SelectionBubbleMenu({ editor }: { editor: Editor }) {
       style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
       onMouseDown={(e) => e.preventDefault()}
     >
-      <BubbleBtn
-        active={editor.isActive('bold')}
-        onClick={() => editor.chain().focus().toggleBold().run()}
-        title="Negrita (⌘B)"
-      >
-        <Bold size={13} strokeWidth={2} />
-      </BubbleBtn>
-      <BubbleBtn
-        active={editor.isActive('italic')}
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-        title="Cursiva (⌘I)"
-      >
-        <Italic size={13} strokeWidth={2} />
-      </BubbleBtn>
-      <BubbleBtn
-        active={editor.isActive('underline')}
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-        title="Subrayado (⌘U)"
-      >
-        <Underline size={13} strokeWidth={2} />
-      </BubbleBtn>
-      <BubbleBtn
-        active={editor.isActive('strike')}
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-        title="Tachado"
-      >
-        <Strikethrough size={13} strokeWidth={2} />
-      </BubbleBtn>
-      <div className="note-bubble-divider" />
-      <BubbleBtn
-        active={editor.isActive('highlight')}
+      <MarkButton editor={editor} type="bold" />
+      <MarkButton editor={editor} type="italic" />
+      <MarkButton editor={editor} type="underline" />
+      <MarkButton editor={editor} type="strike" />
+      <MarkButton editor={editor} type="code" />
+      <TiptapSeparator orientation="vertical" />
+      <TiptapButton
+        type="button"
+        variant="ghost"
+        tooltip="Resaltado"
+        aria-label="Resaltado"
+        aria-pressed={highlightActive}
+        data-active-state={highlightActive ? 'on' : 'off'}
         onClick={() => editor.chain().focus().toggleHighlight().run()}
-        title="Resaltado"
       >
-        <Highlighter size={13} strokeWidth={2} />
-      </BubbleBtn>
-      <BubbleBtn
-        active={editor.isActive('code')}
-        onClick={() => editor.chain().focus().toggleCode().run()}
-        title="Código inline"
-      >
-        <Code size={13} strokeWidth={2} />
-      </BubbleBtn>
-      <BubbleBtn
-        active={editor.isActive('link')}
+        <Highlighter className="tiptap-button-icon" size={13} strokeWidth={2} />
+      </TiptapButton>
+      <TiptapButton
+        type="button"
+        variant="ghost"
+        tooltip="Enlace"
+        shortcutKeys="mod+k"
+        aria-label="Enlace"
+        aria-pressed={linkActive}
+        data-active-state={linkActive ? 'on' : 'off'}
         onClick={() => {
-          if (editor.isActive('link')) {
+          if (linkActive) {
             editor.chain().focus().unsetLink().run();
             return;
           }
           const url = window.prompt('URL');
           if (url) editor.chain().focus().setLink({ href: url }).run();
         }}
-        title="Enlace (⌘K)"
       >
-        <Link size={13} strokeWidth={2} />
-      </BubbleBtn>
+        <Link className="tiptap-button-icon" size={13} strokeWidth={2} />
+      </TiptapButton>
+      {focused && (
+        <>
+          <TiptapSeparator orientation="vertical" />
+          <TiptapButton
+            type="button"
+            variant="ghost"
+            tooltip="Mejorar con IA"
+            aria-label="Mejorar con IA"
+            data-active-state={isAIPending ? 'on' : 'off'}
+            disabled={isAIPending}
+            onClick={() => onAIAction('improve', 'replace_selection')}
+          >
+            <Sparkles className="tiptap-button-icon" size={13} strokeWidth={2} />
+          </TiptapButton>
+          <TiptapButton
+            type="button"
+            variant="ghost"
+            tooltip="Resumir selección"
+            aria-label="Resumir selección"
+            onClick={() => onAIAction('summarize', 'insert')}
+          >
+            <FileText className="tiptap-button-icon" size={13} strokeWidth={2} />
+          </TiptapButton>
+          <TiptapButton
+            type="button"
+            variant="ghost"
+            tooltip="Continuar escribiendo"
+            aria-label="Continuar escribiendo"
+            onClick={() => onAIAction('continue', 'append')}
+          >
+            <Bot className="tiptap-button-icon" size={13} strokeWidth={2} />
+          </TiptapButton>
+          <TiptapButton
+            type="button"
+            variant="ghost"
+            tooltip="Copiar selección"
+            aria-label="Copiar selección"
+            onClick={() => {
+              const text = editor.state.doc.textBetween(
+                editor.state.selection.from,
+                editor.state.selection.to,
+                '\n\n',
+              );
+              navigator.clipboard?.writeText(text).catch(() => undefined);
+            }}
+          >
+            <Check className="tiptap-button-icon" size={13} strokeWidth={2} />
+          </TiptapButton>
+        </>
+      )}
     </div>,
     document.body,
-  );
-}
-
-function BubbleBtn({
-  active,
-  onClick,
-  title,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      className={`note-bubble-btn${active ? ' active' : ''}`}
-    >
-      {children}
-    </button>
   );
 }

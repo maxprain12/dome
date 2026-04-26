@@ -4,6 +4,7 @@ import HubListState from '@/components/ui/HubListState';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
 import { useManyStore } from '@/lib/store/useManyStore';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import WorkspaceSplitView from '@/components/workspace/WorkspaceSplitView';
 
 // Lazy-load heavy workspace components
 const WorkspaceClient = lazy(() => import('@/workspace/[[...params]]/client'));
@@ -58,7 +59,25 @@ function ChatTabView({ sessionId, onClose }: { sessionId: string; onClose: () =>
   );
 }
 
-function TabContent({ tab }: { tab: DomeTab }) {
+function getResourceTabType(resourceType: string): DomeTab['type'] {
+  const typeMap: Record<string, DomeTab['type']> = {
+    note: 'note',
+    notebook: 'notebook',
+    url: 'url',
+    youtube: 'youtube',
+    docx: 'docx',
+    ppt: 'ppt',
+    document: 'resource',
+    pdf: 'resource',
+    image: 'resource',
+    audio: 'resource',
+    video: 'resource',
+    excel: 'resource',
+  };
+  return typeMap[resourceType] ?? 'resource';
+}
+
+function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMode?: boolean }) {
   const { closeTab } = useTabStore();
 
   switch (tab.type) {
@@ -88,7 +107,7 @@ function TabContent({ tab }: { tab: DomeTab }) {
         <ErrorBoundary>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <NoteWorkspaceClient resourceId={tab.resourceId} />
+              <NoteWorkspaceClient resourceId={tab.resourceId} readOnly={referenceMode} compact={referenceMode} />
             </div>
           </Suspense>
         </ErrorBoundary>
@@ -341,6 +360,26 @@ function TabContent({ tab }: { tab: DomeTab }) {
   }
 }
 
+function TabContentWithSplit({ tab }: { tab: DomeTab }) {
+  const splitResource = tab.splitOpen ? tab.splitResource : undefined;
+  if (!splitResource) return <TabContent tab={tab} />;
+
+  const referenceTab: DomeTab = {
+    id: `${tab.id}:split`,
+    type: getResourceTabType(splitResource.resourceType),
+    title: splitResource.title,
+    resourceId: splitResource.resourceId,
+  };
+
+  return (
+    <WorkspaceSplitView
+      tab={tab}
+      primary={<TabContent tab={tab} />}
+      reference={<TabContent tab={referenceTab} referenceMode />}
+    />
+  );
+}
+
 /**
  * Tab types that keep their component mounted even when not active (hidden behind CSS).
  * These tabs have expensive stateful UI (chat streams, live feeds) that must survive
@@ -388,7 +427,9 @@ export default function ContentRouter() {
             {/* Content tabs (notes, files, folders) unmount when inactive so every
                 activation gets a fresh load from the DB — the DenchClaw pattern.
                 Persistent tabs (chat, home, …) stay mounted to preserve streaming state. */}
-            {(isActive || isPersistent) && <TabContent tab={tab} />}
+            {(isActive || isPersistent) && (
+              isActive ? <TabContentWithSplit tab={tab} /> : <TabContent tab={tab} />
+            )}
           </div>
         );
       })}

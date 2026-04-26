@@ -249,7 +249,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     icon: '@',
     category: 'Dome',
     group: 'Dome',
-    command: (editor) => editor.chain().focus().insertContent('@').run(),
+    command: (editor) => editor.storage.noteEditorBridge.openResourcePicker('mention'),
   },
 ];
 

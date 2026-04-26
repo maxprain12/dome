@@ -13,6 +13,9 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
 
     function applyTheme(resolved: 'light' | 'dark') {
       document.documentElement.setAttribute('data-theme', resolved);
+      // Mirror onto a class so libraries that gate dark-mode CSS via `.dark`
+      // (e.g., the bundled tiptap-ui pack) cascade correctly.
+      document.documentElement.classList.toggle('dark', resolved === 'dark');
     }
 
     if (theme === 'auto') {
@@ -33,7 +36,9 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
 
     const cleanup = window.electron.onThemeChanged((resolved: string) => {
       if (useAppStore.getState().theme === 'auto') {
-        document.documentElement.setAttribute('data-theme', resolved === 'dark' ? 'dark' : 'light');
+        const next = resolved === 'dark' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        document.documentElement.classList.toggle('dark', next === 'dark');
       }
     });
 

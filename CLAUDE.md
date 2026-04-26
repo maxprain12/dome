@@ -294,7 +294,6 @@ Actionable checklists for common tasks — follow these before opening a PR or i
 - `.claude/sops/pr-checklist.md` — Mandatory checks before every PR
 - `.claude/sops/new-ipc-channel.md` — Step-by-step for adding a new IPC domain
 - `.claude/sops/new-feature.md` — Full feature implementation workflow
-- `.claude/sops/feature-flags.md` — Feature flag naming, usage, and rollout process
 - `.claude/sops/release.md` — How to cut a release
 - `.claude/rules/ui-style-guidelines.md` — UI design system
 - `.claude/rules/new-color-palette.md` — Current color palette variables

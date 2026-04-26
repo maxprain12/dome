@@ -414,7 +414,9 @@ function TabContextMenuBridge({
     closeTabsToTheRight,
     togglePinTab,
     duplicateTab,
+    openResourceInSplit,
     tabs,
+    activeTabId,
   } = useTabStore();
 
   const { tab, view, x, y } = state;
@@ -424,6 +426,22 @@ function TabContextMenuBridge({
   const isHome = tab.id === HOME_TAB_ID;
   const canPinToggle = !isHome;
   const showColors = tab.type === 'folder' && Boolean(tab.resourceId);
+
+  /**
+   * "Open as reference in active tab" — moves this tab's resource into the
+   * split pane of the currently active tab. Only meaningful when:
+   *   - this tab carries a resource (notes, pdfs, urls, etc.),
+   *   - the active tab is a different one,
+   *   - the active tab can host a split (any non-home tab with a resource).
+   */
+  const activeTab = tabs.find((q) => q.id === activeTabId) ?? null;
+  const canOpenAsReference =
+    Boolean(tab.resourceId) &&
+    tab.type !== 'folder' &&
+    activeTab !== null &&
+    activeTab.id !== tab.id &&
+    activeTab.id !== HOME_TAB_ID &&
+    Boolean(activeTab.resourceId);
 
   const run = (fn: () => void) => {
     fn();
@@ -572,6 +590,25 @@ function TabContextMenuBridge({
         disabled={isHome}
         onClick={() => run(() => duplicateTab(tab.id))}
       />
+      {canOpenAsReference && (
+        <>
+          <DomeDivider spacingClass="my-1" className="mx-1" />
+          <Item
+            label={t('workspace.tab_menu_open_as_reference', 'Abrir como referencia en pestaña activa')}
+            onClick={() =>
+              run(() => {
+                if (!tab.resourceId || !activeTab) return;
+                openResourceInSplit(
+                  tab.resourceId,
+                  tab.type,
+                  tab.title || displayTitle,
+                  activeTab.id,
+                );
+              })
+            }
+          />
+        </>
+      )}
     </div>,
     document.body,
   );

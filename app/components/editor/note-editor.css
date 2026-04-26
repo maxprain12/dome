@@ -19,10 +19,24 @@
   min-height: 100%;
   padding: 24px 32px 80px;
   outline: none;
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--dome-text);
   font-family: inherit;
+}
+
+.note-editor-wrapper.focused {
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--dome-accent) 5%, transparent), transparent 34rem),
+    var(--dome-bg);
+}
+
+.note-editor-wrapper.focused .note-editor-content .tiptap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 56px 40px 120px;
+  font-size: 17px;
+  line-height: 1.75;
 }
 
 /* ─── Placeholder ─────────────────────────────────────────────────────────── */
@@ -34,34 +48,50 @@
   height: 0;
 }
 
-/* ─── Typography ──────────────────────────────────────────────────────────── */
+/* Placeholder on every empty block (Notion behavior) — shown when the empty
+   block has the editor's selection. */
+.note-editor-content .tiptap p.is-empty.has-focus::before,
+.note-editor-content .tiptap h1.is-empty.has-focus::before,
+.note-editor-content .tiptap h2.is-empty.has-focus::before,
+.note-editor-content .tiptap h3.is-empty.has-focus::before {
+  content: attr(data-placeholder);
+  color: var(--dome-text-muted);
+  pointer-events: none;
+  float: left;
+  height: 0;
+  opacity: 0.7;
+}
+
+/* ─── Typography (Notion-style scale) ─────────────────────────────────────── */
 .note-editor-content .tiptap h1 {
   font-size: 1.875rem;
   font-weight: 700;
-  line-height: 1.25;
-  margin: 1.5rem 0 0.75rem;
+  line-height: 1.2;
+  margin: 1.75rem 0 0.65rem;
   color: var(--dome-text);
   letter-spacing: -0.02em;
 }
 
 .note-editor-content .tiptap h2 {
-  font-size: 1.375rem;
+  font-size: 1.5rem;
   font-weight: 600;
-  line-height: 1.3;
-  margin: 1.25rem 0 0.5rem;
+  line-height: 1.25;
+  margin: 1.4rem 0 0.5rem;
   color: var(--dome-text);
+  letter-spacing: -0.018em;
 }
 
 .note-editor-content .tiptap h3 {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  line-height: 1.4;
-  margin: 1rem 0 0.4rem;
+  line-height: 1.35;
+  margin: 1.15rem 0 0.4rem;
   color: var(--dome-text);
+  letter-spacing: -0.012em;
 }
 
 .note-editor-content .tiptap p {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.6rem;
 }
 
 .note-editor-content .tiptap p:last-child {
@@ -149,13 +179,18 @@
 
 /* ─── Blockquote ──────────────────────────────────────────────────────────── */
 .note-editor-content .tiptap blockquote {
-  border-left: 3px solid var(--dome-accent);
-  margin: 0.75rem 0;
-  padding: 0.4rem 1rem;
+  border-left: 3px solid var(--border-hover);
+  margin: 0.85rem 0;
+  padding: 0.6rem 1.25rem;
   color: var(--dome-text-secondary);
-  font-style: italic;
-  background: var(--dome-bg-secondary);
-  border-radius: 0 6px 6px 0;
+  font-style: normal;
+  background: transparent;
+  border-radius: 0;
+}
+
+.note-editor-content .tiptap blockquote.has-focus,
+.note-editor-content .tiptap blockquote:focus-within {
+  border-left-color: var(--dome-accent);
 }
 
 /* ─── Code inline ─────────────────────────────────────────────────────────── */
@@ -163,36 +198,39 @@
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.875em;
   padding: 0.15em 0.4em;
-  background: var(--dome-bg-tertiary);
+  background: var(--bg-tertiary);
   border-radius: 4px;
   color: var(--dome-text);
-  border: 1px solid var(--dome-border);
+  border: none;
 }
 
 /* ─── Code block ──────────────────────────────────────────────────────────── */
 .note-editor-content .tiptap pre {
-  background: var(--dome-bg-tertiary);
+  background: var(--bg-secondary);
   border: 1px solid var(--dome-border);
-  border-radius: 8px;
-  padding: 1rem 1.25rem;
-  margin: 0.75rem 0;
+  border-radius: 12px;
+  padding: 1.1rem 1.4rem;
+  margin: 0.85rem 0;
   overflow-x: auto;
+  font-size: 0.9em;
 }
 
 .note-editor-content .tiptap pre code {
   background: none;
   border: none;
   padding: 0;
-  font-size: 0.85em;
+  font-size: inherit;
   line-height: 1.6;
 }
 
 /* ─── Highlight ───────────────────────────────────────────────────────────── */
 .note-editor-content .tiptap mark {
-  background-color: #fef08a;
+  background-color: color-mix(in srgb, var(--dome-accent) 22%, transparent);
   color: inherit;
   border-radius: 2px;
   padding: 0.05em 0.15em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 /* ─── Horizontal rule ─────────────────────────────────────────────────────── */
@@ -248,52 +286,86 @@
   pointer-events: none;
 }
 
-/* ─── Bubble menu ─────────────────────────────────────────────────────────── */
+/* ─── Block handles (Notion-style ⋮⋮ + plus on hover) ─────────────────────── */
+.dome-block-handles {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+
+.note-editor-wrapper:hover .dome-block-handles,
+.dome-block-handles:hover {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dome-block-handle {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--dome-text-muted);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 120ms, color 120ms;
+}
+
+.dome-block-handle:hover {
+  background: var(--dome-bg-hover);
+  color: var(--dome-text);
+}
+
+.dome-block-handle.dome-block-drag {
+  cursor: grab;
+}
+
+.dome-block-handle.dome-block-drag:active {
+  cursor: grabbing;
+}
+
+/* ─── Bubble menu (Notion-style floating toolbar) ─────────────────────────── */
 .note-bubble-menu {
   display: flex;
   align-items: center;
   gap: 1px;
   padding: 4px;
-  background: var(--dome-surface);
+  background: color-mix(in srgb, var(--dome-surface) 96%, transparent);
   border: 1px solid var(--dome-border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--dome-text) 14%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
-.note-bubble-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--dome-text-secondary);
-  cursor: pointer;
-  transition: background 120ms, color 120ms;
+/* Internal buttons of the bubble menu now come from `tiptap-ui-primitive`.
+   We tighten their footprint here so the menu stays as compact as the
+   previous Notion-style toolbar (~28px tall buttons, no extra gap). */
+.note-bubble-menu .tiptap-button {
+  height: 28px;
+  min-width: 28px;
+  padding: 4px;
+  border-radius: 6px;
 }
 
-.note-bubble-btn:hover {
-  background: var(--dome-bg-hover);
-  color: var(--dome-text);
+.note-bubble-menu .tiptap-button .tiptap-button-icon {
+  width: 14px;
+  height: 14px;
 }
 
-.note-bubble-btn.active {
-  background: var(--dome-accent);
-  color: #fff;
-}
-
-.note-bubble-divider {
-  width: 1px;
+.note-bubble-menu .tiptap-separator {
   height: 16px;
-  background: var(--dome-border);
-  margin: 0 2px;
+  margin: 0 4px;
 }
 
 /* ─── Selection ───────────────────────────────────────────────────────────── */
 .note-editor-content .tiptap ::selection {
-  background: rgba(107, 99, 208, 0.2);
+  background: color-mix(in srgb, var(--dome-accent) 20%, transparent);
 }
 
 /* ─── Focus ring (accessibility) ─────────────────────────────────────────── */
@@ -315,18 +387,18 @@
 }
 
 .note-editor-content .tiptap [data-type='callout'].dome-callout--warning {
-  border-left-color: #d97706;
-  background: color-mix(in srgb, #d97706 8%, var(--dome-bg-secondary));
+  border-left-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 8%, var(--dome-bg-secondary));
 }
 
 .note-editor-content .tiptap [data-type='callout'].dome-callout--error {
-  border-left-color: #dc2626;
-  background: color-mix(in srgb, #dc2626 8%, var(--dome-bg-secondary));
+  border-left-color: var(--error);
+  background: color-mix(in srgb, var(--error) 8%, var(--dome-bg-secondary));
 }
 
 .note-editor-content .tiptap [data-type='callout'].dome-callout--success {
-  border-left-color: #16a34a;
-  background: color-mix(in srgb, #16a34a 8%, var(--dome-bg-secondary));
+  border-left-color: var(--success);
+  background: color-mix(in srgb, var(--success) 8%, var(--dome-bg-secondary));
 }
 
 /* ─── Toggle / collapsible ───────────────────────────────────────────────── */
@@ -438,4 +510,192 @@
   width: 100%;
   min-height: 240px;
   border: none;
+}
+
+/* ─── Focused editor shell ───────────────────────────────────────────────── */
+.note-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--dome-border);
+  background: var(--dome-surface);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.note-toolbar.focused {
+  justify-content: center;
+  background: color-mix(in srgb, var(--dome-bg) 92%, var(--dome-surface));
+}
+
+.note-toolbar.focused .tiptap-toolbar[data-variant='floating'] {
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+}
+
+/* Cuando el ancho disponible es estrecho (p. ej. con el panel "Many" abierto),
+ * permitimos scroll horizontal silencioso en la toolbar flotante para que ningún
+ * botón quede recortado. */
+.note-toolbar .tiptap-toolbar[data-variant='floating'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  justify-content: center;
+}
+
+.note-toolbar .tiptap-toolbar[data-variant='floating']::-webkit-scrollbar {
+  display: none;
+}
+
+/* Si el contenido se desborda, dejamos de centrar y empezamos por la izquierda
+ * para que el primer botón siempre sea visible. */
+.note-toolbar .tiptap-toolbar[data-variant='floating'] > * {
+  flex-shrink: 0;
+}
+
+.focused-editor-icon-button,
+.focused-editor-save-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--dome-text-muted);
+  cursor: pointer;
+  transition: background 150ms, color 150ms, border-color 150ms, opacity 150ms;
+}
+
+.focused-editor-icon-button {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.focused-editor-icon-button:hover,
+.focused-editor-save-button:hover {
+  background: var(--dome-bg-hover);
+  color: var(--dome-text);
+}
+
+.focused-editor-save-button {
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.focused-editor-save-button[data-dirty='true'] {
+  border-color: var(--border-hover);
+  background: var(--dome-bg-hover);
+  color: var(--dome-text);
+}
+
+.focused-editor-save-button[data-saved='true'] {
+  border-color: var(--dome-accent);
+  background: color-mix(in srgb, var(--dome-accent) 15%, transparent);
+  color: var(--dome-accent);
+}
+
+.focused-editor-ai-error {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+  max-width: 360px;
+  padding: 10px 12px;
+  border: 1px solid var(--dome-error);
+  border-radius: 10px;
+  background: var(--dome-surface);
+  color: var(--dome-error);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--dome-text) 12%, transparent);
+}
+
+/* ─── AI blocks ──────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap .dome-ai-block {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--dome-accent) 35%, var(--dome-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--dome-accent) 6%, var(--dome-surface));
+}
+
+.dome-ai-block__eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dome-accent);
+}
+
+.dome-ai-block__prompt {
+  margin: 0;
+  font-weight: 500;
+  color: var(--dome-text);
+}
+
+.dome-ai-block__response,
+.dome-ai-block__empty {
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--dome-bg) 70%, transparent);
+  color: var(--dome-text-secondary);
+  white-space: pre-wrap;
+}
+
+.dome-ai-block__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.dome-ai-block__actions button {
+  border: 1px solid var(--dome-border);
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  background: var(--dome-surface);
+  color: var(--dome-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.dome-ai-block__actions button:hover {
+  border-color: var(--dome-accent);
+  color: var(--dome-text);
+}
+
+.dome-ai-block__prompt-input {
+  width: 100%;
+  min-height: 4.5rem;
+  margin: 0;
+  padding: 0.5rem 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--dome-text);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+.dome-ai-block__prompt-input::placeholder {
+  color: var(--dome-text-muted);
+}
+
+.dome-ai-block__prompt-input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--dome-accent) 45%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }

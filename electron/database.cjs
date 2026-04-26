@@ -3274,7 +3274,7 @@ function getQueries() {
 
     // Search for mentions (quick search for autocomplete)
     searchForMention: db.prepare(`
-      SELECT id, title, type, thumbnail_data
+      SELECT id, title, type, project_id, thumbnail_data
       FROM resources
       WHERE title LIKE ? OR id LIKE ?
       ORDER BY updated_at DESC

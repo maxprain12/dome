@@ -31,6 +31,7 @@ import {
 } from '@/lib/tiptap/extensions/column-layout';
 import { ResourceLink } from '@/lib/tiptap/extensions/resource-link';
 import { IframeEmbed } from '@/lib/tiptap/extensions/iframe-embed';
+import { AIBlock } from '@/lib/tiptap/extensions/ai-block';
 
 const lowlight = createLowlight(common);
 
@@ -77,6 +78,7 @@ export function buildCoreNoteExtensions(placeholder = 'Escribe algo...') {
     ColumnLayoutCommands,
     ResourceLink,
     IframeEmbed,
+    AIBlock,
     UniqueID.configure({
       types: [
         'paragraph',
@@ -92,6 +94,7 @@ export function buildCoreNoteExtensions(placeholder = 'Escribe algo...') {
         'toggleBody',
         'styledDivider',
         'iframeEmbed',
+        'aiBlock',
         'twoColumnLayout',
         'threeColumnLayout',
         'column',

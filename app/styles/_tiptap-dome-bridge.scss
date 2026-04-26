@@ -1,0 +1,137 @@
+/* ============================================================
+   Tiptap ↔ Dome Theme Bridge
+   ------------------------------------------------------------
+   The tiptap-ui* component pack ships with its own design tokens
+   under the --tt-* namespace. This bridge re-points those tokens
+   to Dome's --bg / --border / --accent / --primary-text scale so
+   toolbar, dropdowns, popovers, tooltips and inputs blend with
+   the Dome shell (warm-stone #596037 instead of brand purple).
+
+   Tiptap's component SCSS gates dark mode behind `.dark &`. Dome
+   sets `data-theme="dark"` on <html>; ThemeProvider mirrors that
+   onto a `.dark` class so the cascade still resolves correctly.
+   ============================================================ */
+
+:root {
+  /* Radius — align Tiptap pieces with Dome's softer corners */
+  --tt-radius-xxs: 2px;
+  --tt-radius-xs: 4px;
+  --tt-radius-sm: 6px;
+  --tt-radius-md: 8px;
+  --tt-radius-lg: 10px;
+  --tt-radius-xl: 14px;
+}
+
+/* ── Light theme ─────────────────────────────────────────── */
+:root[data-theme="light"] {
+  /* Gray scale → Dome neutrals (light) */
+  --tt-gray-light-50:  #FAFAFA;
+  --tt-gray-light-100: #F5F5F5;
+  --tt-gray-light-200: #ECECEC;
+  --tt-gray-light-300: #E5E5E5;
+  --tt-gray-light-400: #D4D4D4;
+  --tt-gray-light-500: #A8A8A8;
+  --tt-gray-light-600: #6B6B6B;
+  --tt-gray-light-700: #5C5C5C;
+  --tt-gray-light-800: #2E2E2E;
+  --tt-gray-light-900: #1A1A1A;
+
+  /* Gray alpha scale (used for hover overlays) → text-on-bg mixes */
+  --tt-gray-light-a-50:  color-mix(in srgb, #1A1A1A 4%, transparent);
+  --tt-gray-light-a-100: color-mix(in srgb, #1A1A1A 6%, transparent);
+  --tt-gray-light-a-200: color-mix(in srgb, #1A1A1A 9%, transparent);
+  --tt-gray-light-a-300: color-mix(in srgb, #1A1A1A 16%, transparent);
+  --tt-gray-light-a-400: color-mix(in srgb, #1A1A1A 36%, transparent);
+  --tt-gray-light-a-500: color-mix(in srgb, #1A1A1A 56%, transparent);
+  --tt-gray-light-a-600: color-mix(in srgb, #1A1A1A 70%, transparent);
+  --tt-gray-light-a-700: color-mix(in srgb, #1A1A1A 80%, transparent);
+  --tt-gray-light-a-800: color-mix(in srgb, #1A1A1A 90%, transparent);
+  --tt-gray-light-a-900: color-mix(in srgb, #1A1A1A 96%, transparent);
+
+  /* Brand scale → Dome warm-stone accent */
+  --tt-brand-color-50:  color-mix(in srgb, var(--accent) 8%,  var(--bg-secondary));
+  --tt-brand-color-100: color-mix(in srgb, var(--accent) 14%, var(--bg-secondary));
+  --tt-brand-color-200: color-mix(in srgb, var(--accent) 24%, var(--bg-secondary));
+  --tt-brand-color-300: color-mix(in srgb, var(--accent) 40%, var(--bg-secondary));
+  --tt-brand-color-400: color-mix(in srgb, var(--accent) 70%, var(--bg-secondary));
+  --tt-brand-color-500: var(--accent);
+  --tt-brand-color-600: var(--accent-hover);
+  --tt-brand-color-700: #3B4025;
+  --tt-brand-color-800: #2D3019;
+  --tt-brand-color-900: #1F210F;
+  --tt-brand-color-950: #14150A;
+
+  /* Global panel/border tokens */
+  --tt-bg-color: var(--bg-secondary);
+  --tt-border-color: var(--border);
+  --tt-border-color-tint: color-mix(in srgb, var(--border) 60%, transparent);
+  --tt-sidebar-bg-color: var(--bg);
+  --tt-scrollbar-color: color-mix(in srgb, var(--primary-text) 12%, transparent);
+  --tt-cursor-color: var(--accent);
+  --tt-selection-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  --tt-card-bg-color: var(--bg-secondary);
+  --tt-card-border-color: var(--border);
+}
+
+/* ── Dark theme ──────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  /* Gray scale → Dome neutrals (dark) */
+  --tt-gray-dark-50:  #181818;
+  --tt-gray-dark-100: #1E1E1E;
+  --tt-gray-dark-200: #2A2A2A;
+  --tt-gray-dark-300: #353535;
+  --tt-gray-dark-400: #4A4A4A;
+  --tt-gray-dark-500: #6B6B6B;
+  --tt-gray-dark-600: #9A9A9A;
+  --tt-gray-dark-700: #B8B8B8;
+  --tt-gray-dark-800: #DADADA;
+  --tt-gray-dark-900: #F0F0F0;
+
+  /* Gray alpha scale (dark) */
+  --tt-gray-dark-a-50:  color-mix(in srgb, #FFFFFF 5%,  transparent);
+  --tt-gray-dark-a-100: color-mix(in srgb, #FFFFFF 7%,  transparent);
+  --tt-gray-dark-a-200: color-mix(in srgb, #FFFFFF 11%, transparent);
+  --tt-gray-dark-a-300: color-mix(in srgb, #FFFFFF 22%, transparent);
+  --tt-gray-dark-a-400: color-mix(in srgb, #FFFFFF 38%, transparent);
+  --tt-gray-dark-a-500: color-mix(in srgb, #FFFFFF 52%, transparent);
+  --tt-gray-dark-a-600: color-mix(in srgb, #FFFFFF 66%, transparent);
+  --tt-gray-dark-a-700: color-mix(in srgb, #FFFFFF 78%, transparent);
+  --tt-gray-dark-a-800: color-mix(in srgb, #FFFFFF 88%, transparent);
+  --tt-gray-dark-a-900: color-mix(in srgb, #FFFFFF 96%, transparent);
+
+  /* Brand scale (dark) — accent muted but recognizable */
+  --tt-brand-color-50:  color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
+  --tt-brand-color-100: color-mix(in srgb, var(--accent) 18%, var(--bg-secondary));
+  --tt-brand-color-200: color-mix(in srgb, var(--accent) 28%, var(--bg-secondary));
+  --tt-brand-color-300: color-mix(in srgb, var(--accent) 42%, var(--bg-secondary));
+  --tt-brand-color-400: color-mix(in srgb, var(--accent) 78%, #FFFFFF);
+  --tt-brand-color-500: var(--accent);
+  --tt-brand-color-600: var(--accent-hover);
+  --tt-brand-color-700: #4F5731;
+  --tt-brand-color-800: #3F4628;
+  --tt-brand-color-900: #2C311C;
+  --tt-brand-color-950: #1A1D11;
+
+  /* Global panel/border tokens (dark) */
+  --tt-bg-color: var(--bg-secondary);
+  --tt-border-color: var(--border);
+  --tt-border-color-tint: color-mix(in srgb, var(--border) 50%, transparent);
+  --tt-sidebar-bg-color: var(--bg);
+  --tt-scrollbar-color: color-mix(in srgb, #FFFFFF 14%, transparent);
+  --tt-cursor-color: var(--accent);
+  --tt-selection-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  --tt-card-bg-color: var(--bg-secondary);
+  --tt-card-border-color: var(--border);
+
+  /* Soften shadow tokens for dark surfaces */
+  --tt-shadow-elevated-md:
+    0 16px 48px 0 rgba(0, 0, 0, 0.55),
+    0 12px 24px 0 rgba(0, 0, 0, 0.30),
+    0 6px 8px 0 rgba(0, 0, 0, 0.22),
+    0 2px 3px 0 rgba(0, 0, 0, 0.14);
+}
+
+/* ── Mirror data-theme="dark" → .dark class for Tiptap cascade ─
+   Tiptap's component SCSS overrides via `.dark &`. This rule has
+   no visual effect; the class itself is added by ThemeProvider.
+   Kept here as documentation. */

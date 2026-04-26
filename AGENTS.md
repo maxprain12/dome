@@ -4,7 +4,7 @@ This file is the **execution harness** for AI agents working on this codebase.
 It applies to Claude Code, Cursor, Windsurf, GitHub Copilot, or any AI coding tool.
 
 **The only manual step is writing the initial prompt.**
-Everything else — branch, implementation, PR, CI, review, merge, flag activation — is automated.
+Everything else — branch, implementation, PR, CI, review, and merge — is automated.
 Execute the steps below in order. Do not stop between steps unless you hit an irreversible decision.
 
 ---
@@ -28,12 +28,12 @@ Execute the steps below in order. Do not stop between steps unless you hit an ir
 ### Step 0 — Classify the task
 
 
-| Task type   | Signal words                     | Branch prefix | Flag needed?          |
-| ----------- | -------------------------------- | ------------- | --------------------- |
-| New feature | add, implement, create, build    | `feat/`       | Yes (if user-visible) |
-| Bug fix     | fix, broken, error, crash, wrong | `fix/`        | No                    |
-| Refactor    | rename, move, extract, clean     | `refactor/`   | No                    |
-| Docs/config | only `.md`, `.yml`, `.json`      | `docs/`       | No                    |
+| Task type   | Signal words                     | Branch prefix |
+| ----------- | -------------------------------- | ------------- |
+| New feature | add, implement, create, build    | `feat/`       |
+| Bug fix     | fix, broken, error, crash, wrong | `fix/`        |
+| Refactor    | rename, move, extract, clean     | `refactor/`   |
+| Docs/config | only `.md`, `.yml`, `.json`      | `docs/`       |
 
 
 ### Step 1 — Create a branch
@@ -44,32 +44,7 @@ git checkout -b feat/<short-description>
 # e.g.: feat/export-to-pdf  |  fix/crash-on-empty-list  |  refactor/extract-quota
 ```
 
-### Step 2 — Decide on feature flag (features only)
-
-Skip for bug fixes and refactors.
-
-If the feature is **user-visible or experimental**:
-
-- Choose flag name: `dome-<feature>` (e.g. `dome-export-pdf`, `dome-new-onboarding`)
-- Wrap new UI/logic behind the flag gate:
-
-```tsx
-import { FeatureFlagGate } from '@/components/analytics/FeatureFlagGate';
-// or
-import { useFeatureFlagEnabled } from '@/lib/analytics';
-
-// Whole section
-<FeatureFlagGate flag="dome-my-feature" fallback={<OldVersion />}>
-  <NewVersion />
-</FeatureFlagGate>
-
-// Conditional logic
-const isEnabled = useFeatureFlagEnabled('dome-my-feature');
-```
-
-If the feature is **internal / infrastructure** (no user-visible change): skip the flag.
-
-### Step 3 — Implement
+### Step 2 — Implement
 
 **The non-negotiable rules CI enforces:**
 
@@ -133,7 +108,7 @@ function createResource(data: Partial<Resource>): Resource { ... }
 function createResource(data: any): any { ... }
 ```
 
-### Step 4 — Validate locally
+### Step 3 — Validate locally
 
 Run before opening the PR. Fix any failures before proceeding.
 
@@ -149,10 +124,7 @@ Quick architecture self-check (must return 0 lines):
 grep -rn "better-sqlite3\|from 'fs'\|from 'bun:" app/ --include="*.ts" --include="*.tsx"
 ```
 
-### Step 5 — Open the PR
-
-The `Flag:` field in the description is parsed by the post-merge automation.
-If there is no flag, write `none`.
+### Step 4 — Open the PR
 
 ```bash
 gh pr create \
@@ -160,10 +132,6 @@ gh pr create \
   --body "$(cat <<'EOF'
 ## Summary
 - <what changed and why, 1-3 bullets>
-
-## Flag
-<!-- Feature flag name (dome-xxx) or "none" -->
-Flag: dome-REPLACE_ME
 
 ## Type
 - [ ] New feature
@@ -181,7 +149,7 @@ EOF
 )"
 ```
 
-### Step 6 — Enable auto-merge
+### Step 5 — Enable auto-merge
 
 ```bash
 gh pr merge --auto --squash
@@ -189,7 +157,7 @@ gh pr merge --auto --squash
 
 GitHub will merge the PR automatically the moment all required CI checks pass.
 
-### Step 7 — Done ✓
+### Step 6 — Done ✓
 
 Your work is complete. The automated pipeline takes over:
 
@@ -198,10 +166,9 @@ PR open
   ├─► CI: typecheck + lint + build + architecture guard   (~3 min)
   ├─► AI Code Review: 3 passes with line-level comments   (~2 min)
   └─► Auto-merge when all checks pass
-        └─► Post-merge: feature flag enabled for team in PostHog
 ```
 
-You do not need to merge, enable flags, monitor, or do anything else.
+You do not need to merge, monitor, or do anything else.
 
 ---
 
@@ -251,7 +218,6 @@ to a specific prompt version.
 | --------------------------- | --------------------------------------------------------------------------------------------------- |
 | Architecture rules          | `.claude/rules/architecture-rules.md`                                                               |
 | New IPC step-by-step        | `.claude/sops/new-ipc-channel.md`                                                                   |
-| Feature flags usage         | `.claude/sops/feature-flags.md`                                                                     |
 | PR checklist                | `.claude/sops/pr-checklist.md`                                                                      |
 | Release process             | `.claude/sops/release.md`                                                                           |
 | Color palette variables     | `.claude/rules/new-color-palette.md`                                                                |

@@ -27,11 +27,6 @@ Before every PR is considered ready, verify each item below.
 - [ ] Type-only imports use `import type { }` (verbatimModuleSyntax is on)
 - [ ] No `@ts-ignore` or `@ts-expect-error` without a comment explaining why
 
-## Feature Flags
-
-- [ ] Experimental features are gated behind a PostHog feature flag
-- [ ] Feature flag name follows convention: `dome-<feature-name>` (e.g., `dome-cloud-ai`)
-
 ## Automated Checks
 
 CI will verify these automatically, but check locally first:

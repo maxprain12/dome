@@ -667,6 +667,9 @@ app
       'display-capture',
       'speaker-selection',
       'background-sync',
+      'clipboard-read',
+      'clipboard-write',
+      'clipboard-sanitized-write',
     ]);
 
     // Denegaciones habituales que no aportan (PWA, mapas, hardware); no spamear consola.

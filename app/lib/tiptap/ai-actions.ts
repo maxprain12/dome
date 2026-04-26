@@ -1,7 +1,7 @@
 import type { Editor, JSONContent } from '@tiptap/core';
 import { stringToEditorHtml } from '@/lib/utils/markdown';
 
-export type TipTapAIInsertMode = 'insert' | 'replace_selection' | 'append';
+export type TipTapAIInsertMode = 'insert' | 'replace_selection' | 'append' | 'insert_below';
 
 export interface TipTapAIActions {
   insertMarkdown: (markdown: string, mode?: TipTapAIInsertMode) => boolean;
@@ -24,6 +24,11 @@ export function createTipTapAIActions(editor: Editor): TipTapAIActions {
       if (mode === 'append') {
         const end = editor.state.doc.content.size;
         return editor.chain().focus().insertContentAt(end, html).run();
+      }
+
+      if (mode === 'insert_below') {
+        const { to } = editor.state.selection;
+        return editor.chain().focus().insertContentAt(to, html).run();
       }
 
       if (mode === 'replace_selection') {
