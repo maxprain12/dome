@@ -23,6 +23,12 @@ const rowClass = (interactive: boolean, isBtn: boolean) =>
       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]',
   );
 
+/** Fila con acciones: clic en el contenido principal; trailing fuera del botón (HTML válido). */
+const splitRowMainButtonClass = cn(
+  'flex flex-1 min-w-0 items-center gap-3 text-left rounded-lg border-0 bg-transparent shadow-none p-0 cursor-pointer',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]',
+);
+
 /**
  * Fila de lista genérica: icono, título, subtítulo, meta, acciones.
  */
@@ -38,7 +44,7 @@ export default function DomeListRow({
   rowButtonProps,
 }: DomeListRowProps) {
   const isBtn = Boolean(onClick);
-  const inner = (
+  const mainColumn = (
     <>
       {icon ? <div className="shrink-0">{icon}</div> : null}
       <div className="min-w-0 flex-1 flex flex-col gap-0.5">
@@ -50,9 +56,26 @@ export default function DomeListRow({
           <div className="text-[11px] text-[var(--tertiary-text)] flex flex-wrap gap-x-3 gap-y-0.5">{meta}</div>
         ) : null}
       </div>
+    </>
+  );
+
+  const inner = (
+    <>
+      {mainColumn}
       {trailing ? <div className="shrink-0 flex items-center">{trailing}</div> : null}
     </>
   );
+
+  if (isBtn && trailing) {
+    return (
+      <div className={cn('flex items-center gap-2 w-full min-w-0', className)}>
+        <button type="button" onClick={onClick} className={splitRowMainButtonClass} {...rowButtonProps}>
+          {mainColumn}
+        </button>
+        <div className="shrink-0 flex items-center">{trailing}</div>
+      </div>
+    );
+  }
 
   if (isBtn) {
     return (
@@ -62,7 +85,7 @@ export default function DomeListRow({
         className={cn(rowClass(interactive, true), className)}
         {...rowButtonProps}
       >
-        {inner}
+        {mainColumn}
       </button>
     );
   }
