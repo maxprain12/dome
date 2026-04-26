@@ -206,7 +206,7 @@ function AgentCanvasInner() {
       }
       showToast('error', t('toast.workflow_execution_error'));
     }
-  }, [store.executionStatus]);
+  }, [store.executionStatus, t]);
 
   const handleStop = useCallback(() => {
     store.resetExecution();

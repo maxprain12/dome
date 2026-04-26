@@ -123,7 +123,7 @@ export default function AISettingsPanel() {
   }, [refreshDomeSession]);
 
   useEffect(() => {
-    if (provider === 'ollama') { checkOllamaConnection(); loadOllamaModels(); }
+    if (provider === 'ollama') { void checkOllamaConnection(); void loadOllamaModels(); }
   }, [provider, ollamaBaseURL]);
 
   const checkOllamaConnection = async () => {

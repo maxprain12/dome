@@ -269,7 +269,7 @@ export interface ResourceMetadata {
   notebook_workspace_path?: string;
   /** Wiki / corpus KB mantenido por agentes (opcional) */
   dome_kb?: DomeKbMetadata;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Tipos de proyectos
@@ -309,7 +309,7 @@ export interface SourceMetadata {
   abstract?: string;
   keywords?: string[];
   citation_count?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Tipos de citas
@@ -343,7 +343,7 @@ export interface SemanticSearchResult {
   resource_id: string;
   text: string;
   score: number;
-  metadata: any;
+  metadata: Record<string, unknown>;
 }
 
 // Estilos de citación
@@ -844,7 +844,7 @@ export interface GraphNode {
   resource_id?: string;
   label: string;
   type: GraphNodeType;
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
   created_at: number;
   updated_at: number;
 }
@@ -855,7 +855,7 @@ export interface GraphEdge {
   target_id: string;
   relation: string;           // 'mentions', 'cites', 'similar', etc.
   weight: number;             // 0.0-1.0 (strength)
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   created_at: number;
   updated_at: number;
 }
