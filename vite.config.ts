@@ -38,6 +38,6 @@ export default defineConfig({
   // Optimize dependencies
   optimizeDeps: {
     exclude: ['pyodide'],
-    include: ['lucide-react'],
+    include: ['lucide-react', 'exceljs'],
   },
 });

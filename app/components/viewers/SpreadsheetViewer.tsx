@@ -80,22 +80,34 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
         });
         setSheets([{ name: 'Sheet1', data: parsed.data as string[][] }]);
       } else {
-        const XLSX = await import('xlsx');
+        const ExcelJS = (await import('exceljs')).default;
         const binary = atob(result.data);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) {
           bytes[i] = binary.charCodeAt(i);
         }
-        const workbook = XLSX.read(bytes, { type: 'array' });
-        const parsedSheets: SheetData[] = workbook.SheetNames
-          .filter((name) => workbook.Sheets[name])
-          .map((name) => ({
-            name,
-            data: XLSX.utils.sheet_to_json<string[]>(workbook.Sheets[name]!, {
-              header: 1,
-              defval: '',
-            }),
-          }));
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(bytes.buffer);
+        const parsedSheets: SheetData[] = [];
+        workbook.eachSheet((worksheet) => {
+          const rows: string[][] = [];
+          worksheet.eachRow({ includeEmpty: true }, (row) => {
+            const r: string[] = [];
+            row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+              while (r.length < colNumber - 1) r.push('');
+              const v = cell.value;
+              let s = '';
+              if (v == null) s = '';
+              else if (typeof v === 'object' && v !== null && 'richText' in v) {
+                s = (v as { richText: { text: string }[] }).richText.map((t) => t.text).join('');
+              } else if (v instanceof Date) s = v.toISOString();
+              else s = String(v);
+              r[colNumber - 1] = s;
+            });
+            rows.push(r);
+          });
+          parsedSheets.push({ name: worksheet.name, data: rows });
+        });
         setSheets(parsedSheets);
       }
     } catch (err) {

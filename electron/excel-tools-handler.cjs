@@ -2,19 +2,22 @@
 /**
  * Excel Tools Handler - Main Process
  *
- * Provides functions to read and modify Excel (XLSX/XLS) resources.
- * Uses SheetJS (xlsx) for all spreadsheet operations.
+ * Spreadsheet read/write via ExcelJS (replaces SheetJS xlsx).
  */
 
 const fs = require('fs');
 const path = require('path');
 
-let XLSX = null;
-try {
-  XLSX = require('xlsx');
-} catch (err) {
-  console.warn('[ExcelTools] xlsx not available:', err.message);
-}
+const {
+  ExcelJS,
+  decodeA1Ref,
+  decodeA1Range,
+  worksheetToAoa,
+  inferSheetName,
+  readWorkbookFromPath,
+  worksheetToCsv,
+  addSheetFromAoa,
+} = require('./exceljs-helpers.cjs');
 
 const database = require('./database.cjs');
 const fileStorage = require('./file-storage.cjs');
@@ -61,16 +64,12 @@ function getFullPathForResource(resource) {
   return fs.existsSync(fullPath) ? fullPath : null;
 }
 
-function inferSheetName(wb, sheetName) {
-  if (sheetName && wb.SheetNames.includes(sheetName)) return sheetName;
-  return wb.SheetNames[0] || null;
-}
-
-function cellValueToType(value) {
-  if (value === null || value === undefined) return { t: 's', v: '' };
-  if (typeof value === 'number' && !Number.isNaN(value)) return { t: 'n', v: value };
-  if (typeof value === 'boolean') return { t: 'b', v: value };
-  return { t: 's', v: String(value) };
+/** @param {unknown} value */
+function normalizeSetValue(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  if (typeof value === 'boolean') return value;
+  return String(value);
 }
 
 // =============================================================================
@@ -78,16 +77,10 @@ function cellValueToType(value) {
 // =============================================================================
 
 /**
- * Get Excel workbook content as structured JSON.
- * @param {string} resourceId - Resource ID
- * @param {Object} options - { sheet_name?, range? }
- * @returns {Promise<Object>}
+ * @param {string} resourceId
+ * @param {Object} options
  */
 async function excelGet(resourceId, options = {}) {
-  if (!XLSX) {
-    return { success: false, error: 'xlsx module not available' };
-  }
-
   try {
     const queries = database.getQueries();
     const resource = queries.getResourceById.get(resourceId);
@@ -103,35 +96,31 @@ async function excelGet(resourceId, options = {}) {
       return { success: false, error: 'Excel file not found on disk' };
     }
 
-    const wb = XLSX.readFile(fullPath);
+    const wb = new ExcelJS.Workbook();
+    await readWorkbookFromPath(wb, fullPath);
+
     const sheetName = inferSheetName(wb, options.sheet_name);
-    const sheet = sheetName ? wb.Sheets[sheetName] : null;
+    const ws = sheetName ? wb.getWorksheet(sheetName) : null;
 
     const result = {
       success: true,
       resource_id: resourceId,
       title: resource.title,
-      sheet_names: wb.SheetNames,
+      sheet_names: wb.worksheets.map((s) => s.name),
       sheet_name: sheetName,
     };
 
-    if (sheet) {
+    if (ws) {
       if (options.range) {
-        try {
-          const range = XLSX.utils.decode_range(options.range);
-          const data = XLSX.utils.sheet_to_json(sheet, {
-            header: 1,
-            range: options.range,
-            defval: '',
-          });
-          result.data = data;
+        const range = decodeA1Range(options.range);
+        if (range) {
+          result.data = worksheetToAoa(ws, { rangeRef: options.range });
           result.range = options.range;
-        } catch (e) {
-          result.data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        } else {
+          result.data = worksheetToAoa(ws);
         }
       } else {
-        result.data = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-        if (sheet['!ref']) result.range = sheet['!ref'];
+        result.data = worksheetToAoa(ws);
       }
     } else {
       result.data = [];
@@ -144,12 +133,6 @@ async function excelGet(resourceId, options = {}) {
   }
 }
 
-/**
- * Get the absolute file path for an Excel resource.
- * Use this to generate Python code that reads the Excel with pd.read_excel(path).
- * @param {string} resourceId - Resource ID
- * @returns {Promise<Object>} { success, file_path?, error? }
- */
 async function excelGetFilePath(resourceId) {
   try {
     const queries = database.getQueries();
@@ -178,19 +161,7 @@ async function excelGetFilePath(resourceId) {
   }
 }
 
-/**
- * Set a single cell value.
- * @param {string} resourceId - Resource ID
- * @param {string} sheetName - Sheet name (or first sheet if null)
- * @param {string} cellRef - A1-style cell (e.g. A1, B2)
- * @param {string|number|boolean} value - Cell value
- * @returns {Promise<Object>}
- */
 async function excelSetCell(resourceId, sheetName, cellRef, value) {
-  if (!XLSX) {
-    return { success: false, error: 'xlsx module not available' };
-  }
-
   try {
     const queries = database.getQueries();
     const resource = queries.getResourceById.get(resourceId);
@@ -206,11 +177,16 @@ async function excelSetCell(resourceId, sheetName, cellRef, value) {
       return { success: false, error: 'Excel file not found on disk' };
     }
 
-    const wb = XLSX.readFile(fullPath);
-    const targetSheet = inferSheetName(wb, sheetName);
-    const ws = wb.Sheets[targetSheet];
+    const wb = new ExcelJS.Workbook();
+    await readWorkbookFromPath(wb, fullPath);
+
+    const targetName = inferSheetName(wb, sheetName);
+    if (!targetName) {
+      return { success: false, error: 'Workbook has no sheets' };
+    }
+    const ws = wb.getWorksheet(targetName);
     if (!ws) {
-      return { success: false, error: `Sheet "${targetSheet}" not found` };
+      return { success: false, error: `Sheet "${targetName}" not found` };
     }
 
     const cell = String(cellRef).trim().toUpperCase();
@@ -218,24 +194,14 @@ async function excelSetCell(resourceId, sheetName, cellRef, value) {
       return { success: false, error: `Invalid cell reference: ${cellRef}. Use A1-style (e.g. A1, B2)` };
     }
 
-    ws[cell] = cellValueToType(value);
+    ws.getCell(cell).value = normalizeSetValue(value);
 
-    if (ws['!ref']) {
-      const range = XLSX.utils.decode_range(ws['!ref']);
-      const decoded = XLSX.utils.decode_cell(cell);
-      range.e.r = Math.max(range.e.r, decoded.r);
-      range.e.c = Math.max(range.e.c, decoded.c);
-      ws['!ref'] = XLSX.utils.encode_range(range);
-    } else {
-      ws['!ref'] = cell + ':' + cell;
-    }
-
-    XLSX.writeFile(wb, fullPath);
+    await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
     return {
       success: true,
       resource_id: resourceId,
-      sheet_name: targetSheet,
+      sheet_name: targetName,
       cell,
       value,
     };
@@ -245,19 +211,7 @@ async function excelSetCell(resourceId, sheetName, cellRef, value) {
   }
 }
 
-/**
- * Set a range of values (2D array).
- * @param {string} resourceId - Resource ID
- * @param {string} sheetName - Sheet name
- * @param {string} rangeRef - A1-style range (e.g. A1:C3)
- * @param {Array<Array>} values - 2D array of values
- * @returns {Promise<Object>}
- */
 async function excelSetRange(resourceId, sheetName, rangeRef, values) {
-  if (!XLSX) {
-    return { success: false, error: 'xlsx module not available' };
-  }
-
   try {
     const queries = database.getQueries();
     const resource = queries.getResourceById.get(resourceId);
@@ -273,42 +227,40 @@ async function excelSetRange(resourceId, sheetName, rangeRef, values) {
       return { success: false, error: 'Excel file not found on disk' };
     }
 
-    const wb = XLSX.readFile(fullPath);
-    const targetSheet = inferSheetName(wb, sheetName);
-    let ws = wb.Sheets[targetSheet];
-    if (!ws) {
-      ws = {};
-      wb.SheetNames.push(targetSheet);
-      wb.Sheets[targetSheet] = ws;
+    const range = decodeA1Range(rangeRef);
+    if (!range) {
+      return { success: false, error: `Invalid range: ${rangeRef}` };
     }
 
-    const range = XLSX.utils.decode_range(rangeRef);
-    const rows = Array.isArray(values) ? values : [[values]];
-    let maxR = range.s.r;
-    let maxC = range.s.c;
+    const wb = new ExcelJS.Workbook();
+    await readWorkbookFromPath(wb, fullPath);
 
-    for (let r = 0; r < rows.length; r++) {
+    const targetName = inferSheetName(wb, sheetName);
+    if (!targetName) {
+      return { success: false, error: 'Workbook has no sheets' };
+    }
+    let ws = wb.getWorksheet(targetName);
+    if (!ws) {
+      ws = wb.addWorksheet(targetName);
+    }
+
+    const rows = Array.isArray(values) ? values : [[values]];
+    for (let r = 0; r < rows.length; r += 1) {
       const row = rows[r];
       const arr = Array.isArray(row) ? row : [row];
-      for (let c = 0; c < arr.length; c++) {
-        const cellAddr = XLSX.utils.encode_cell({ r: range.s.r + r, c: range.s.c + c });
-        ws[cellAddr] = cellValueToType(arr[c]);
-        maxR = Math.max(maxR, range.s.r + r);
-        maxC = Math.max(maxC, range.s.c + c);
+      for (let c = 0; c < arr.length; c += 1) {
+        const rr = range.s.r + r + 1;
+        const cc = range.s.c + c + 1;
+        ws.getRow(rr).getCell(cc).value = normalizeSetValue(arr[c]);
       }
     }
 
-    ws['!ref'] = XLSX.utils.encode_range({
-      s: { r: range.s.r, c: range.s.c },
-      e: { r: maxR, c: maxC },
-    });
-
-    XLSX.writeFile(wb, fullPath);
+    await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
     return {
       success: true,
       resource_id: resourceId,
-      sheet_name: targetSheet,
+      sheet_name: targetName,
       range: rangeRef,
       rows_written: rows.length,
     };
@@ -318,19 +270,7 @@ async function excelSetRange(resourceId, sheetName, rangeRef, values) {
   }
 }
 
-/**
- * Add a row to a sheet.
- * @param {string} resourceId - Resource ID
- * @param {string} sheetName - Sheet name
- * @param {Array} values - Row values
- * @param {number} [afterRow] - 0-based row index after which to insert (default: append)
- * @returns {Promise<Object>}
- */
 async function excelAddRow(resourceId, sheetName, values, afterRow) {
-  if (!XLSX) {
-    return { success: false, error: 'xlsx module not available' };
-  }
-
   try {
     const queries = database.getQueries();
     const resource = queries.getResourceById.get(resourceId);
@@ -346,37 +286,34 @@ async function excelAddRow(resourceId, sheetName, values, afterRow) {
       return { success: false, error: 'Excel file not found on disk' };
     }
 
-    const wb = XLSX.readFile(fullPath);
-    const targetSheet = inferSheetName(wb, sheetName);
-    let ws = wb.Sheets[targetSheet];
+    const wb = new ExcelJS.Workbook();
+    await readWorkbookFromPath(wb, fullPath);
+
+    const targetName = inferSheetName(wb, sheetName);
+    if (!targetName) {
+      return { success: false, error: 'Workbook has no sheets' };
+    }
+    let ws = wb.getWorksheet(targetName);
     if (!ws) {
-      ws = {};
-      wb.SheetNames.push(targetSheet);
-      wb.Sheets[targetSheet] = ws;
+      ws = wb.addWorksheet(targetName);
     }
 
-    const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    const rowIndex = afterRow != null ? afterRow + 1 : data.length;
+    const aoa = worksheetToAoa(ws);
+    const rowIndex = afterRow != null ? afterRow + 1 : aoa.length;
     const arr = Array.isArray(values) ? values : [values];
 
-    for (let c = 0; c < arr.length; c++) {
-      const cellAddr = XLSX.utils.encode_cell({ r: rowIndex, c });
-      ws[cellAddr] = cellValueToType(arr[c]);
+    const excelRow = rowIndex + 1;
+    const row = ws.getRow(excelRow);
+    for (let c = 0; c < arr.length; c += 1) {
+      row.getCell(c + 1).value = normalizeSetValue(arr[c]);
     }
 
-    const maxR = Math.max(data.length, rowIndex);
-    const maxC = Math.max(data[0]?.length || 0, arr.length);
-    ws['!ref'] = XLSX.utils.encode_range({
-      s: { r: 0, c: 0 },
-      e: { r: maxR, c: Math.max(maxC - 1, 0) },
-    });
-
-    XLSX.writeFile(wb, fullPath);
+    await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
     return {
       success: true,
       resource_id: resourceId,
-      sheet_name: targetSheet,
+      sheet_name: targetName,
       row_index: rowIndex,
       values: arr,
     };
@@ -386,18 +323,7 @@ async function excelAddRow(resourceId, sheetName, values, afterRow) {
   }
 }
 
-/**
- * Add a new sheet to the workbook.
- * @param {string} resourceId - Resource ID
- * @param {string} sheetName - New sheet name
- * @param {Array<Array>} [data] - Optional initial data (2D array)
- * @returns {Promise<Object>}
- */
 async function excelAddSheet(resourceId, sheetName, data) {
-  if (!XLSX) {
-    return { success: false, error: 'xlsx module not available' };
-  }
-
   try {
     const queries = database.getQueries();
     const resource = queries.getResourceById.get(resourceId);
@@ -413,17 +339,18 @@ async function excelAddSheet(resourceId, sheetName, data) {
       return { success: false, error: 'Excel file not found on disk' };
     }
 
-    const wb = XLSX.readFile(fullPath);
+    const wb = new ExcelJS.Workbook();
+    await readWorkbookFromPath(wb, fullPath);
+
     const name = String(sheetName || 'Sheet').trim();
-    if (wb.SheetNames.includes(name)) {
+    if (wb.getWorksheet(name)) {
       return { success: false, error: `Sheet "${name}" already exists` };
     }
 
-    const ws = XLSX.utils.aoa_to_sheet(data && Array.isArray(data) ? data : [['']]);
-    wb.SheetNames.push(name);
-    wb.Sheets[name] = ws;
+    const rows = data && Array.isArray(data) && data.length > 0 ? data : [['']];
+    addSheetFromAoa(wb, rows, name);
 
-    XLSX.writeFile(wb, fullPath);
+    await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
     return {
       success: true,
@@ -436,18 +363,7 @@ async function excelAddSheet(resourceId, sheetName, data) {
   }
 }
 
-/**
- * Create a new Excel resource.
- * @param {string} projectId - Project ID
- * @param {string} title - Resource title
- * @param {Object} [options] - { sheet_name?, initial_data?, folder_id? }
- * @returns {Promise<Object>}
- */
 async function excelCreate(projectId, title, options = {}) {
-  if (!XLSX) {
-    return { success: false, error: 'xlsx module not available' };
-  }
-
   try {
     const queries = database.getQueries();
     const project = queries.getProjectById.get(projectId);
@@ -460,21 +376,19 @@ async function excelCreate(projectId, title, options = {}) {
     const data = Array.isArray(initialData) ? initialData : [[options.initial_data ?? '']];
     if (data.length === 0) data.push(['']);
 
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(sheetName);
+    for (const row of data) {
+      ws.addRow(row);
+    }
 
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await wb.xlsx.writeBuffer();
     const filename = (title || 'Untitled').replace(/\.xlsx$/i, '') + '.xlsx';
-    const importResult = await fileStorage.importFromBuffer(
-      Buffer.from(buffer),
-      filename,
-      'document'
-    );
+    const importResult = await fileStorage.importFromBuffer(Buffer.from(buffer), filename, 'document');
 
     const resourceId = `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = Date.now();
-    const contentText = XLSX.utils.sheet_to_csv(ws).trim().substring(0, 500);
+    const contentText = worksheetToCsv(ws).trim().substring(0, 500);
 
     queries.createResourceWithFile.run(
       resourceId,
@@ -512,17 +426,7 @@ async function excelCreate(projectId, title, options = {}) {
   }
 }
 
-/**
- * Export Excel to destination path or return base64.
- * @param {string} resourceId - Resource ID
- * @param {Object} options - { format?: 'xlsx'|'csv', destination_path? }
- * @returns {Promise<Object>}
- */
 async function excelExport(resourceId, options = {}) {
-  if (!XLSX) {
-    return { success: false, error: 'xlsx module not available' };
-  }
-
   try {
     const queries = database.getQueries();
     const resource = queries.getResourceById.get(resourceId);
@@ -539,12 +443,13 @@ async function excelExport(resourceId, options = {}) {
     }
 
     const format = (options.format || 'xlsx').toLowerCase();
-    const wb = XLSX.readFile(fullPath);
+    const wb = new ExcelJS.Workbook();
+    await readWorkbookFromPath(wb, fullPath);
     const sheetName = inferSheetName(wb, options.sheet_name);
-    const ws = wb.Sheets[sheetName];
+    const ws = sheetName ? wb.getWorksheet(sheetName) : null;
 
     if (format === 'csv') {
-      const csv = ws ? XLSX.utils.sheet_to_csv(ws) : '';
+      const csv = ws ? worksheetToCsv(ws) : '';
       const buf = Buffer.from(csv, 'utf-8');
       if (options.destination_path) {
         fs.writeFileSync(options.destination_path, buf);
@@ -563,9 +468,9 @@ async function excelExport(resourceId, options = {}) {
       };
     }
 
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const buffer = await wb.xlsx.writeBuffer();
     if (options.destination_path) {
-      fs.writeFileSync(options.destination_path, buffer);
+      fs.writeFileSync(options.destination_path, Buffer.from(buffer));
       return {
         success: true,
         resource_id: resourceId,
@@ -577,7 +482,7 @@ async function excelExport(resourceId, options = {}) {
       success: true,
       resource_id: resourceId,
       format: 'xlsx',
-      data: buffer.toString('base64'),
+      data: Buffer.from(buffer).toString('base64'),
     };
   } catch (error) {
     console.error('[ExcelTools] excelExport error:', error);
