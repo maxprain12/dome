@@ -186,7 +186,3 @@ Si `VITE_ENABLE_DOME_PROVIDER` no es `true`, la opción de Dome Provider no apar
 - El `code_verifier` NUNCA se envía al server (solo el `code_challenge`)
 - El deep link `dome://` solo acepta callbacks de `dome-auth` — otros paths son ignorados
 - El Provider valida la firma JWT en cada request con el `TOKEN_HMAC_SECRET` del servidor
-
----
-
-*Ver también: [dome-provider/docs/api-reference.md](../../dome-provider/docs/api-reference.md) para la referencia de endpoints del Provider.*
