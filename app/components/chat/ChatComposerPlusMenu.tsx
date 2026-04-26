@@ -250,7 +250,7 @@ export function ChatComposerPlusMenuContent({
         style={{
           background: 'var(--bg-secondary)',
           borderColor: 'var(--border)',
-          boxShadow: '0 12px 40px color-mix(in srgb, #000 18%, transparent)',
+boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
         }}
       >
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
@@ -326,7 +326,7 @@ export function ChatComposerPlusMenuContent({
       style={{
         background: 'var(--bg-secondary)',
         borderColor: 'var(--border)',
-        boxShadow: '0 12px 40px color-mix(in srgb, #000 18%, transparent)',
+        boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
       }}
     >
       {view !== 'root' ? (

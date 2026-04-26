@@ -68,7 +68,7 @@ export default function FAQ({ data, title, onClose }: FAQProps) {
                       background: isExpanded
                         ? 'var(--dome-accent, #596037)'
                         : 'var(--bg-tertiary)',
-                      color: isExpanded ? '#FFFFFF' : 'var(--secondary-text)',
+                      color: isExpanded ? 'var(--base-text)' : 'var(--secondary-text)',
                     }}
                   >
                     Q
