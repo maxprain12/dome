@@ -658,7 +658,11 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
       }
     };
     const timer = setTimeout(() => {
-      runSearch().catch((err) => console.error('[InlineSearch] Unified search failed:', err));
+      try {
+        runSearch();
+      } catch (err) {
+        console.error('[InlineSearch] Unified search failed:', err);
+      }
     }, 250);
     return () => { ignore = true; clearTimeout(timer); };
   }, [query]);
