@@ -62,6 +62,15 @@ function replaceAll(template: string, replacements: Record<string, string>): str
   return result;
 }
 
+/** Coarse local time-of-day bucket (stable for prompt caching; avoids minute-level churn). */
+export function getPartOfDay(date: Date): 'morning' | 'afternoon' | 'evening' | 'night' {
+  const h = date.getHours();
+  if (h >= 5 && h < 12) return 'morning';
+  if (h >= 12 && h < 18) return 'afternoon';
+  if (h >= 18 && h < 22) return 'evening';
+  return 'night';
+}
+
 /**
  * Build Martin base prompt with placeholders replaced.
  */
@@ -87,28 +96,14 @@ export function buildMartinBasePrompt(options: {
 }
 
 /**
- * Build Many floating button prompt.
+ * Build Many floating persona (stable prefix — no UI context, date, or resource).
  */
-export function buildManyFloatingPrompt(options: {
-  location: string;
-  description: string;
-  date: string;
-  time: string;
-  resourceTitle?: string;
-  whatsappConnected?: boolean;
-}): string {
-  const resourceTitleLine = options.resourceTitle ? `- Active resource: "${options.resourceTitle}"\n` : '';
+export function buildManyFloatingPrompt(options: { whatsappConnected?: boolean }): string {
   const whatsappSuffix = options.whatsappConnected ? ' (connected)' : '';
   return replaceAll(prompts.many.floatingBase, {
-    location: options.location,
-    description: options.description,
-    date: options.date,
-    time: options.time,
-    resourceTitleLine,
     whatsappSuffix,
   });
 }
-
 
 /**
  * Build Martin resource context section.

@@ -11,7 +11,7 @@ const path = require('path');
 let mammoth = null;
 try {
   mammoth = require('mammoth');
-  console.log('[DocumentExtractor] mammoth module loaded successfully');
+  console.debug('[DocumentExtractor] mammoth module loaded successfully');
 } catch (error) {
   console.warn('[DocumentExtractor] mammoth module not available, DOCX extraction disabled');
 }

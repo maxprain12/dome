@@ -1,6 +1,7 @@
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, app } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { useViteDevServer, distIndexPath } = require('./runtime-env.cjs');
 
 /**
  * Window Manager para gestión de múltiples ventanas
@@ -93,6 +94,7 @@ class WindowManager {
       webPreferences: {
         ...this.defaultConfig.webPreferences,
         ...options.webPreferences,
+        ...(app.isPackaged ? { devTools: false } : {}),
       },
     };
     delete config.deferShow;
@@ -106,12 +108,7 @@ class WindowManager {
     const webContentsId = window.webContents.id;
     this.authorizedWindows.add(webContentsId);
 
-    // Determinar modo (dev o prod)
-    const indexPath = path.join(__dirname, '../dist/index.html');
-    const isDev =
-      process.env.NODE_ENV === 'development' ||
-      !require('electron').app.isPackaged ||
-      !fs.existsSync(indexPath);
+    const isDev = useViteDevServer();
 
     // Logging for debugging production issues (only in debug mode or development)
     const isDebug = isDev || process.env.DEBUG_PROD === 'true';
@@ -119,9 +116,9 @@ class WindowManager {
       console.log('[WindowManager] Creating window:', id);
       console.log('[WindowManager] Route:', route);
       console.log('[WindowManager] isDev:', isDev);
-      console.log('[WindowManager] app.isPackaged:', require('electron').app.isPackaged);
-      console.log('[WindowManager] Index path:', indexPath);
-      console.log('[WindowManager] Index exists:', fs.existsSync(indexPath));
+      console.log('[WindowManager] app.isPackaged:', app.isPackaged);
+      console.log('[WindowManager] Index path:', distIndexPath);
+      console.log('[WindowManager] Index exists:', fs.existsSync(distIndexPath));
     }
 
     // Cargar contenido
@@ -147,14 +144,15 @@ class WindowManager {
       });
     }
 
-    // Enable DevTools with keyboard shortcut (all windows, including production)
-    window.webContents.on('before-input-event', (event, input) => {
-      const isMac = process.platform === 'darwin';
-      const modifierKey = isMac ? input.meta : input.control;
-      if (modifierKey && input.shift && input.key.toLowerCase() === 'i') {
-        window.webContents.toggleDevTools();
-      }
-    });
+    if (!app.isPackaged) {
+      window.webContents.on('before-input-event', (event, input) => {
+        const isMac = process.platform === 'darwin';
+        const modifierKey = isMac ? input.meta : input.control;
+        if (modifierKey && input.shift && input.key.toLowerCase() === 'i') {
+          window.webContents.toggleDevTools();
+        }
+      });
+    }
 
     // Cleanup automático
     window.on('closed', () => {

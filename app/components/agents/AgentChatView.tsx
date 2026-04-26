@@ -249,7 +249,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     const baseInstructions =
       agent.systemInstructions?.trim() || agent.description || `You are ${agent.name}.`;
 
-    let prompt = buildDomeSystemPrompt({ baseInstructions });
+    let prompt = buildDomeSystemPrompt({ staticPersona: baseInstructions });
 
     if (agent.skillIds?.length && db.isAvailable()) {
       try {

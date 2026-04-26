@@ -440,17 +440,20 @@ async function askMartin(from, question) {
     const providerResult = queries.getSetting.get('ai_provider');
     const provider = providerResult?.value;
 
-    let baseInstructions = await buildEnhancedSystemPrompt();
-
+    const staticPersona = await buildEnhancedSystemPrompt();
+    let volatileContext = '';
     if (mightNeedResourceSearch(question)) {
       const resourceContext = await searchResourcesForContext(question);
       if (resourceContext) {
-        baseInstructions += resourceContext;
-        baseInstructions += '\n\nUse this resource information to answer the user\'s question.';
+        volatileContext =
+          resourceContext + '\n\nUse this resource information to answer the user\'s question.';
       }
     }
 
-    const systemPrompt = buildDomeSystemPrompt({ baseInstructions });
+    const systemPrompt = buildDomeSystemPrompt({
+      staticPersona,
+      volatileContext: volatileContext || undefined,
+    });
 
     const messages = [
       { role: 'system', content: systemPrompt },
