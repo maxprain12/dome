@@ -142,7 +142,5 @@ async function extractPdfTextWithCloud(resource, queries, opts = {}) {
 
 module.exports = {
   extractPdfTextWithCloud,
-  /** @deprecated */
-  extractPdfTextWithGemma: extractPdfTextWithCloud,
   buildPdfjsMarkedText,
 };

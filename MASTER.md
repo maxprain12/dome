@@ -17,7 +17,7 @@
 │  y investigación académica. Combina editor, IA, agentes,    │
 │  organización de recursos y herramientas de estudio.        │
 │                                                              │
-│  v2.1.4  ·  Bun  ·  Electron 32  ·  TypeScript             │
+│  v2.1.4  ·  npm  ·  Electron 41  ·  TypeScript             │
 └──────────────────────────────┬──────────────────────────────┘
                                │ OAuth PKCE + AI Proxy
                                │ dome://dome-auth/oauth/callback
@@ -27,8 +27,8 @@
 │  /Users/maxprain/Documents/dome-provider                    │
 │                                                             │
 │  Backend web que provee: autenticación OAuth, proxy de IA   │
-│  con cuota mensual, gestión de suscripciones y conversión   │
-│  de documentos (Docling).                                   │
+│  con cuota mensual, gestión de suscripciones y APIs de       │
+│  documentos/IA según el plan.                               │
 │                                                             │
 │  v0.1.0  ·  Next.js 16  ·  Fase 1 (stub AI)               │
 └─────────────────────────────────────────────────────────────┘
@@ -129,7 +129,7 @@
 | AI Proxy (stub) | [api-reference.md](../dome-provider/docs/api-reference.md) | ✅ Stub determinista |
 | Quota tracking (in-memory) | [api-reference.md](../dome-provider/docs/api-reference.md) | ✅ Fase 1 |
 | Stripe webhooks | [deployment.md](../dome-provider/docs/deployment.md) | ✅ Fase 1 |
-| Document conversion (Docling) | [docling-setup.md](../dome-provider/docs/docling-setup.md) | ✅ Fase 1 |
+| Document / AI endpoints (cloud) | [api-reference.md](../dome-provider/docs/api-reference.md) | ✅ Fase 1 |
 | Admin panel | [admin-guide.md](../dome-provider/docs/admin-guide.md) | ✅ Fase 1 |
 | Supabase RLS security | [rls-security-audit.md](../dome-provider/docs/rls-security-audit.md) | ✅ Auditado |
 
@@ -151,13 +151,13 @@
 
 ```bash
 # 1. Instalar dependencias
-bun install
+npm install
 
 # 2. Desarrollo con hot reload
-bun run electron:dev
+npm run electron:dev
 
 # 3. Build para distribución
-bun run electron:build
+npm run electron:build
 ```
 
 Requisito mínimo: configurar un AI provider en Settings → AI Configuration.
@@ -226,7 +226,7 @@ Dome Desktop (Electron)
 1. **Separación de procesos**: `electron/` puede usar Node.js; `app/` NO puede usar Node.js directamente
 2. **IPC obligatorio**: Toda DB y filesystem desde el renderer va via `window.electron.invoke()`
 3. **Whitelist IPC**: Cada canal nuevo debe añadirse en `electron/preload.cjs` ALLOWED_CHANNELS
-4. **Base de datos**: Usar `better-sqlite3` en main process; NUNCA `bun:sqlite` en renderer
+4. **Base de datos**: Usar `better-sqlite3` en main process; nunca módulos SQLite de otros runtimes en el renderer (solo IPC)
 5. **Type imports**: `verbatimModuleSyntax: true` → tipos con `import type { }`
 
 Ver: [CLAUDE.md](./CLAUDE.md) · [.claude/rules/architecture-rules.md](./.claude/rules/architecture-rules.md)

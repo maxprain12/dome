@@ -50,13 +50,13 @@ interface WhatsAppMessage {
 
 - **init(deps)**: Receives database, fileStorage, windowManager, ollamaService. Inits message-handler with session.
 - **start(options)**: session.connect({ printQr, onQr, onConnected, onDisconnected, onMessage }). onQr → windowManager.broadcast('whatsapp:qr', { qr }). onConnected → broadcast('whatsapp:connected', user). onDisconnected → broadcast('whatsapp:disconnected', reason). onMessage → messageHandler.handleMessage(message, context).
-- **stop()**: session.disconnect.
+- **stop()**: `session.stop()` (mantiene credenciales; no es logout completo).
 - **getStatus()**: Return { isRunning, state, qrCode, selfId, hasAuth } from session.
 - **send(chatId, content)** etc.: Delegate to session or client.
 
 ### Session (electron/whatsapp/session.cjs)
 
-- Manages WhatsApp client (e.g. whatsapp-web.js or similar). connect(), disconnect(), getConnectionState(), getQrCode(), getSelfId(), sendMessage(). Persists auth to disk; loads on restart.
+- Gestiona el cliente (Baileys). `connect()`, `stop()`, `logout()`, `getConnectionState()`, envío de mensajes. Persiste auth en disco.
 
 ### Message handler (electron/whatsapp/message-handler.cjs)
 
@@ -70,7 +70,7 @@ interface WhatsAppMessage {
 - **Start**: User clicks Start in WhatsAppSettingsPanel → whatsapp:start → main service.start() → session.connect() → QR generated → broadcast whatsapp:qr → renderer shows QR; user scans → onConnected → broadcast whatsapp:connected.
 - **Incoming message**: Client receives message → onMessage → messageHandler.handleMessage → allowlist check → insert whatsapp_messages, optionally create resource, run AI → broadcast or update UI.
 - **Send**: whatsapp:send(chatId, content) → session.sendMessage().
-- **Stop**: whatsapp:stop → service.stop() → session.disconnect → broadcast whatsapp:disconnected.
+- **Stop**: whatsapp:stop → service.stop() → `session.stop()` → broadcast whatsapp:disconnected.
 - **Status**: whatsapp:status → service.getStatus() → return to renderer for panel.
 
 ---

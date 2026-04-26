@@ -158,47 +158,6 @@ export async function getPDFOutline(
 }
 
 /**
- * Render PDF page to canvas
- * Note: This function is deprecated in favor of direct rendering in PDFPage component
- * to avoid canvas reuse issues. Kept for backward compatibility.
- */
-export async function renderPDFPage(
-  page: pdfjsLib.PDFPageProxy,
-  canvas: HTMLCanvasElement,
-  scale: number = 1.0
-): Promise<void> {
-  const viewport = page.getViewport({ scale });
-  const context = canvas.getContext('2d');
-
-  if (!context) {
-    throw new Error('Canvas context not available');
-  }
-
-  // Handle high DPI displays
-  const dpr = window.devicePixelRatio || 1;
-  const displayWidth = viewport.width;
-  const displayHeight = viewport.height;
-
-  // Set canvas dimensions - always set to ensure clean state
-  canvas.width = displayWidth * dpr;
-  canvas.height = displayHeight * dpr;
-  canvas.style.width = `${displayWidth}px`;
-  canvas.style.height = `${displayHeight}px`;
-
-  // Clear and reset context
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  context.scale(dpr, dpr);
-
-  const renderContext = {
-    canvasContext: context,
-    viewport: viewport,
-    canvas: canvas,
-  };
-
-  await page.render(renderContext).promise;
-}
-
-/**
  * Get text content from PDF page
  */
 export async function getPageTextContent(

@@ -5,7 +5,7 @@
 ### 1. Separación de Procesos en Electron
 
 **NUNCA usar `better-sqlite3`, `node:fs`, u otros módulos de Node.js en el renderer process (Vite + React).**
-**`bun:sqlite` no existe aquí en absoluto: Electron corre sobre Node.js, no Bun. Si lo ves importado, es un bug.**
+**Tampoco imports a módulos virtuales de otros runtimes (prefijos no soportados por Node en Electron).**
 
 #### ✅ Arquitectura Correcta:
 
@@ -40,7 +40,7 @@
 │                             │
 │   ❌ NO better-sqlite3      │
 │   ❌ NO node:fs directo     │
-│   ❌ NO bun:sqlite (nunca)  │
+│   ❌ NO imports SQLite/Node directos │
 │   ✅ Solo window.electron   │
 │   ✅ Solo IPC calls         │
 │                             │
@@ -93,8 +93,6 @@ export const db = {
 import Database from 'better-sqlite3';
 const db = new Database('dome.db');
 
-// ❌ Y bun:sqlite no existe en el proyecto en absoluto (Electron corre sobre Node)
-import { Database } from 'bun:sqlite';
 ```
 
 ### 3. Operaciones de Archivos
@@ -177,8 +175,8 @@ grep -rE "from ['\"]better-sqlite3['\"]" app/
 grep -rE "from ['\"]fs['\"]|from ['\"]node:fs['\"]" app/
 grep -rE "from ['\"]electron['\"]|from ['\"]child_process['\"]" app/
 
-# bun:sqlite no debería aparecer en NINGUNA parte del repo (Electron corre sobre Node, no Bun):
-grep -rE "bun:sqlite" .
+# Prefijos de módulos virtuales no estándar en el renderer (debe devolver 0 líneas en app/):
+grep -rE "bun:" app/ --include="*.ts" --include="*.tsx"
 ```
 
 ### 7. Mensajes de Error Comunes
@@ -189,7 +187,7 @@ grep -rE "bun:sqlite" .
 | `prepare is not a function` | Usando `better-sqlite3` en renderer | Mover a main process, llamar vía IPC |
 | `require is not defined` | Usando `require()` en renderer | Usar `import` o IPC |
 | `Database is not a constructor` | Importando `better-sqlite3` en renderer | Usar IPC client |
-| `Cannot find module 'bun:sqlite'` | Alguien importó `bun:sqlite` | Reemplazar por `better-sqlite3` (Electron corre sobre Node, no Bun) |
+| `Cannot find module` (módulo virtual) | Import no soportado en Chromium | Usar solo APIs vía IPC / `better-sqlite3` en main |
 
 ## Flujo de Desarrollo
 

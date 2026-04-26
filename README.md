@@ -4,7 +4,7 @@
 
 > Intelligent Desktop Application for Knowledge Management and Academic Research
 
-[![Bun](https://img.shields.io/badge/Bun-%23000000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh/)
+[![npm](https://img.shields.io/badge/npm-CB3837?style=flat&logo=npm&logoColor=white)](https://www.npmjs.com/)
 [![Electron](https://img.shields.io/badge/Electron-47848F?style=flat&logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
@@ -45,7 +45,7 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 | **Agent Canvas** | Visual drag-and-drop workflow builder (D3 + SVG edges) |
 | **Agent Teams** | Multi-agent collaboration in a shared chat session |
 | **Studio** | Generate mindmaps, quizzes, flashcards, guides, FAQs, and timelines from your content |
-| **PageIndex** | Reasoning-based AI indexing — no embeddings needed, runs automatically in background |
+| **Semantic search** | Local Nomic embeddings in SQLite, hybrid search (vectors + FTS + graph); PDF/image text via your cloud LLM (vision) |
 | **Flashcards** | SM-2 spaced repetition with AI-generated decks |
 | **Calendar** | Google Calendar sync + AI tools to create and manage events from chat |
 | **Google Drive** | Native import with PKCE OAuth 2.0 — tokens stored locally, never on Dome servers |
@@ -65,14 +65,14 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 
 | Component | Technology |
 |-----------|------------|
-| Runtime | [Bun](https://bun.sh/) |
-| Desktop | [Electron 32](https://www.electronjs.org/) |
+| Package manager / scripts | [npm](https://www.npmjs.com/) (lockfile: `package-lock.json`; CI: `npm ci`) |
+| Desktop | [Electron 41](https://www.electronjs.org/) |
 | Frontend | [Vite 7](https://vitejs.dev/) + [React 18](https://reactjs.org/) |
 | Styling | [Tailwind CSS](https://tailwindcss.com/) + [Mantine UI](https://mantine.dev/) |
 | AI Agent | [LangGraph](https://langchain-ai.github.io/langgraphjs/) + [LangChain](https://js.langchain.com/) |
 | MCP | [@langchain/mcp-adapters](https://js.langchain.com/docs/integrations/tools/mcp) |
 | Database | SQLite via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
-| AI Index | PageIndex (reasoning-based, SQLite-backed) |
+| Semantic index | Nomic embeddings (`resource_chunks`) + hybrid search; see `docs/indexing.md` |
 | State | [Zustand](https://github.com/pmndrs/zustand) |
 | Editor | [Tiptap](https://tiptap.dev/) + Dome Editor (MIT) |
 | Graphs | [D3.js](https://d3js.org/) |
@@ -86,21 +86,21 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 
 ## Installation
 
-**Prerequisites:** [Bun](https://bun.sh/) ≥ 1.3.0, [Node.js](https://nodejs.org/) ≥ 18, macOS / Windows / Linux.
+**Prerequisites:** [Node.js](https://nodejs.org/) (LTS 20+ or 22+ recommended) and **npm** (comes with Node), macOS / Windows / Linux.
 
 ```bash
 git clone https://github.com/maxprain12/dome.git
 cd dome
-bun install
+npm install
 cp .env.example .env.local   # optional — add your API keys
-bun run electron:dev
+npm run electron:dev
 ```
 
 ```bash
-bun run dev              # Vite dev server only
-bun run electron:dev     # Full dev (Vite + Electron)
-bun run electron:build   # Production build
-bun run rebuild:natives  # Rebuild native modules after Node version change
+npm run dev              # Vite dev server only
+npm run electron:dev     # Full dev (Vite + Electron)
+npm run electron:build   # Production build
+npm run rebuild:natives  # Rebuild native modules for the current Electron version
 ```
 
 ---

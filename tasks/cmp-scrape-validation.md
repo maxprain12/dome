@@ -4,7 +4,7 @@ Objetivo: comprobar que `webScraper.scrapeUrl` / `web:scrape` extrae el artícul
 
 ## Cómo probar
 
-1. Arrancar la app en dev (`bun run electron:dev`) o invocar el scraper desde el flujo que use `web:scrape`.
+1. Arrancar la app en dev (`npm run electron:dev`) o invocar el scraper desde el flujo que use `web:scrape`.
 2. Para cada URL, revisar:
    - El **texto** devuelto (`content`) no empieza solo con política de cookies / «Accept all».
    - `consentBlocked === false` cuando el sitio carga bien tras aceptar.

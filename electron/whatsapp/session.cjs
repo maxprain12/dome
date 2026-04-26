@@ -241,14 +241,6 @@ async function logout() {
 }
 
 /**
- * @deprecated Use stop() or logout() instead
- */
-async function disconnect() {
-  // Por compatibilidad, disconnect ahora solo detiene sin logout
-  stop();
-}
-
-/**
  * Verifica si hay una sesión activa
  */
 function isConnected() {
@@ -411,7 +403,6 @@ module.exports = {
   connect,
   stop,
   logout,
-  disconnect, // @deprecated - use stop() or logout()
   isConnected,
   getConnectionState,
   clearSession,

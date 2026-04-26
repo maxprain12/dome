@@ -18,4 +18,4 @@ Manual review required before bumping.
 - **Frozen packages deferred**: electron, xlsx, node-tar, lodash, path-to-regexp, picomatch, protobufjs
 - **Auto-remediated**: 7 LangChain patches (@langchain/anthropic, @langchain/core, @langchain/google-genai, @langchain/langgraph, @langchain/openai), better-sqlite3@12.9.0
 - **Semver bumps applied**: @tiptap/* (31 packages), @sinclair/typebox, @tabler/icons-react, autoprefixer, diff, i18next, jotai, marked, mermaid, pdfjs-dist, postcss, posthog-js, react-clear-modal, react-i18next, react-router-dom, tailwind-merge, turndown, typescript, wait-on, zustand
-- **bun.lock regeneration**: skipped (bun not available on VPS)
+- **Lockfile**: the repo is **npm**-only (`package-lock.json`); CI uses `npm ci`

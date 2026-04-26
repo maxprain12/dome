@@ -25,7 +25,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     try {
       const queries = database.getQueries();
 
-      // Get all valid file paths from database (resources + resource_images for Docling)
+      // Get all valid file paths from database (resources + resource_images / thumbnails)
       const resourcePaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
       const imagePaths = (queries.getResourceImageInternalPaths?.all?.() ?? []).map((r) => r.internal_path);
       const internalPaths = [...resourcePaths, ...imagePaths];

@@ -2386,7 +2386,7 @@ const en = {
     automation_named: 'Automation: {{name}}',
     figures_named: 'Figures: {{title}} ({{count}})',
     docling_legacy:
-      'Figure thumbnails from the old Docling pipeline are no longer available. Use the pdf_render_page tool or open the PDF viewer.',
+      'Figure thumbnails from a previous indexing flow are no longer stored. Use the pdf_render_page tool or open the PDF viewer.',
     calculator: 'Calculator',
     diagram: 'Diagram',
     tabs: 'Tabs',
@@ -4824,7 +4824,7 @@ const es = {
     automation_named: 'Automatización: {{name}}',
     figures_named: 'Figuras: {{title}} ({{count}})',
     docling_legacy:
-      'Las miniaturas de figuras del antiguo flujo Docling ya no están disponibles. Usa la herramienta pdf_render_page o abre el visor PDF.',
+      'Las miniaturas de figuras del flujo antiguo de indexación ya no están disponibles. Usa la herramienta pdf_render_page o abre el visor PDF.',
     calculator: 'Calculadora',
     diagram: 'Diagrama',
     tabs: 'Pestañas',
@@ -7263,7 +7263,7 @@ const fr = {
     automation_named: 'Automatisation : {{name}}',
     figures_named: 'Figures : {{title}} ({{count}})',
     docling_legacy:
-      'Les vignettes Docling ne sont plus disponibles. Utilisez l’outil pdf_render_page ou ouvrez le lecteur PDF.',
+      'Les miniatures de figures de l’ancien flux d’indexation ne sont plus disponibles. Utilisez l’outil pdf_render_page ou ouvrez le lecteur PDF.',
     calculator: 'Calculatrice',
     diagram: 'Diagramme',
     tabs: 'Onglets',
@@ -9702,7 +9702,7 @@ const pt = {
     automation_named: 'Automação: {{name}}',
     figures_named: 'Figuras: {{title}} ({{count}})',
     docling_legacy:
-      'As miniaturas do pipeline Docling antigo já não estão disponíveis. Use a ferramenta pdf_render_page ou abra o leitor de PDF.',
+      'As miniaturas de figuras do fluxo antigo de indexação já não estão disponíveis. Use a ferramenta pdf_render_page ou abra o leitor de PDF.',
     calculator: 'Calculadora',
     diagram: 'Diagrama',
     tabs: 'Separadores',

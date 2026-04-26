@@ -29,7 +29,7 @@
     "lint": "eslint app/",
     "test:db": "tsx scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
-    "generate-icons": "bun scripts/generate-icons.ts"
+    "generate-icons": "tsx scripts/generate-icons.ts"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -172,7 +172,6 @@
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
     "@types/better-sqlite3": "^7.6.0",
-    "@types/bun": "latest",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",

@@ -146,7 +146,7 @@ You have access to tools you can use to better help the user:
 - **resource_get**: Get resource details. For indexed PDFs, returns only the structure (TOC with node_ids)—use resource_get_section or resource_semantic_search for specific content. For notes and other types, returns full content.
 - **resource_get_section**: Get the content (summary) of a specific section of an indexed PDF or note by node_id. Use node_ids from resource_get or get_document_structure. Params: resource_id, node_id.
 - **resource_list**: List available resources
-- **resource_semantic_search**: Search resources by meaning. Returns sections with node_ids—use resource_get_section(resource_id, node_id) to get full section content. When the user is viewing a specific resource and asks for "figures" or "images", do NOT use resource_semantic_search — use docling_show_page_images directly with that resource_id.
+- **resource_semantic_search**: Search resources by meaning (Nomic chunk embeddings). Returns matches with `chunk_id` and optional `page_number`—use resource_get_section(resource_id, chunk_id) for full text. For a **visual** of a PDF page or to show figures, use **pdf_render_page**(resource_id, page_number) (markdown image with `dome-pdf-page:...`), not search alone.
 
 ### Library Structure (for organizing documents)
 - **resource_get_library_overview**: Gets the full structure of the user's library: folders at root, resources at root, and each folder's contents (resources + subfolders). ALWAYS use this first when the user asks to organize documents, see their library, or list what they have. When listing folders or subfolders in your response, use clickable links: [Abrir carpeta: Title](dome://folder/FOLDER_ID) so the user can open them directly inside Home > Library.

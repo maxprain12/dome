@@ -2,7 +2,7 @@
 /**
  * Initialization Module - Main Process
  * Handles initialization logic for SQLite, filesystem, and settings.
- * Document search uses PageIndex (reasoning-based RAG) in the main process.
+ * Semantic search uses local Nomic embeddings and hybrid search in the main process (see `electron/services/`, `semantic-index-scheduler.cjs`).
  */
 
 const path = require('path');

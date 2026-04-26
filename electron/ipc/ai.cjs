@@ -454,50 +454,6 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
   });
 
   /**
-   * Generate embeddings with cloud AI provider
-   */
-  ipcMain.handle('ai:embeddings', async (event, { provider, texts, model }) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    try {
-      // Validate inputs
-      if (!provider || !['openai', 'google', 'anthropic'].includes(provider)) {
-        throw new Error('Invalid provider for embeddings. Must be openai, google, or anthropic');
-      }
-      if (!Array.isArray(texts) || texts.length === 0) {
-        throw new Error('Texts must be a non-empty array');
-      }
-      if (texts.length > 100) {
-        throw new Error('Too many texts. Maximum 100');
-      }
-
-      // Get API key from settings
-      const queries = database.getQueries();
-      const apiKeyResult = queries.getSetting.get('ai_api_key');
-      const apiKey = apiKeyResult?.value;
-
-      if (!apiKey) {
-        throw new Error(`API key not configured for ${provider}`);
-      }
-
-      // Get default embedding model if not provided
-      if (!model) {
-        const modelResult = queries.getSetting.get('ai_embedding_model');
-        model = modelResult?.value;
-      }
-
-      console.log(`[AI Cloud] Embeddings - Provider: ${provider}, Model: ${model}, Texts: ${texts.length}`);
-      const embeddings = await aiCloudService.embeddings(provider, texts, apiKey, model);
-      return { success: true, embeddings };
-    } catch (error) {
-      console.error('[AI Cloud] Embeddings error:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  /**
    * Test AI connection by making a minimal API call
    * Returns { success, provider, model } or { success: false, error }
    */

@@ -20,7 +20,6 @@ Documentation for Dome's inter-process communication: channel whitelist, preload
 ### Request-response
 
 - **Pattern**: Renderer calls window.electron.invoke(channel, ...args) → preload validates channel → ipcRenderer.invoke(channel, ...args) → main ipcMain.handle(channel, async (event, ...args) => ...) → return value to renderer.
-- **Legacy**: send() is deprecated; use invoke for request-response.
 
 ### Events (main → renderer)
 
@@ -58,7 +57,7 @@ Documentation for Dome's inter-process communication: channel whitelist, preload
 - **whatsapp**: status, start, stop, logout, send, allowlist get/add/remove.
 - **auth**: profiles list, create, delete; resolve, validate.
 - **personality**: get-prompt, read-file, write-file, add-memory, list-files.
-- **ai**: chat, stream, embeddings, testConnection.
+- **ai**: chat, stream, LangGraph stream/abort/resume, testConnection (embeddings vía índice Nomic: `db:semantic:*`, no `ai:embeddings`).
 - **ai.tools**: resourceSearch, resourceGet, resourceList, resourceSemanticSearch, projectList, projectGet, interactionList, getRecentResources, getCurrentProject.
 - **window**: create, create-modal, close, list, broadcast, open-workspace, open-settings.
 

@@ -75,8 +75,7 @@ npm install --ignore-scripts      # regenerates package-lock.json
 ```
 
 Never commit a stale `package-lock.json` — CI runs `npm ci` which aborts on
-any drift between `package.json` and the lockfile. Do NOT use `bun` or touch
-`bun.lock` — the project is npm-only.
+any drift between `package.json` and the lockfile. The project is **npm**-only.
 
 ### Step 6 — Validate
 
