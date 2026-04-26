@@ -1871,6 +1871,8 @@ const en = {
     deselect_all: 'None',
     no_sources_in_project: 'No resources or folders in the project',
     select_project: 'Select a project',
+    sources_select: 'Select {{title}}',
+    sources_deselect: 'Deselect {{title}}',
   },
   quiz: {
     title: 'Quiz',
@@ -4144,6 +4146,8 @@ const es = {
     deselect_all: 'Ninguna',
     no_sources_in_project: 'No hay recursos ni carpetas en el proyecto',
     select_project: 'Selecciona un proyecto',
+    sources_select: 'Seleccionar {{title}}',
+    sources_deselect: 'Deseleccionar {{title}}',
   },
   quiz: {
     title: 'Quiz',
@@ -6420,6 +6424,8 @@ const fr = {
     deselect_all: 'Aucune',
     no_sources_in_project: 'Aucune ressource ni dossier dans le projet',
     select_project: 'Sélectionner un projet',
+    sources_select: 'Sélectionner {{title}}',
+    sources_deselect: 'Désélectionner {{title}}',
   },
   quiz: {
     title: 'Quiz',
@@ -8696,6 +8702,8 @@ const pt = {
     deselect_all: 'Nenhuma',
     no_sources_in_project: 'Nenhum recurso ou pasta no projeto',
     select_project: 'Selecione um projeto',
+    sources_select: 'Selecionar {{title}}',
+    sources_deselect: 'Desmarcar {{title}}',
   },
   quiz: {
     title: 'Quiz',

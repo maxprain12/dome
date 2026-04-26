@@ -294,7 +294,7 @@ export default function GenerateSourceModal({
         onMouseLeave={(e) => {
           if (!isCurrent) e.currentTarget.style.background = 'transparent';
         }}
-        aria-label={isSelected ? t('workspace.sources_deselect', { title: res.title }) : t('workspace.sources_select', { title: res.title })}
+        aria-label={isSelected ? t('studio.sources_deselect', { title: res.title }) : t('studio.sources_select', { title: res.title })}
       >
         <span className="shrink-0 w-[14px] flex items-center justify-center">
           {isSelected ? (
@@ -347,7 +347,7 @@ export default function GenerateSourceModal({
               onClick={handleSelectAll}
               className="text-xs font-medium cursor-pointer hover:underline focus-visible:ring-2 focus-visible:ring-offset-1 rounded"
               style={{ color: 'var(--accent)' }}
-              aria-label={allSelected ? t('ui.deselect_all') : t('ui.select_all')}
+              aria-label={allSelected ? t('studio.deselect_all') : t('studio.select_all')}
             >
               {allSelected ? t('studio.deselect_all') : t('studio.select_all')}
             </button>
