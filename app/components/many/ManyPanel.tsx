@@ -23,9 +23,8 @@ import {
   getUiLocationDescription,
 } from '@/lib/ai/shared-capabilities';
 import { createRememberFactTool } from '@/lib/ai/tools/memory';
-import { buildManyFloatingPrompt } from '@/lib/prompts/loader';
+import { buildManyFloatingPrompt, getPartOfDay } from '@/lib/prompts/loader';
 import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
-import { APP_SECTION_GUIDE } from '@/lib/chat/systemPrompts';
 import { showToast } from '@/lib/store/useToastStore';
 import ManyAvatar from './ManyAvatar';
 import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
@@ -601,73 +600,12 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     hadPendingApprovalRef.current = has;
   }, [pendingApproval]);
 
-  const buildSystemPrompt = useCallback(async () => {
+  const buildStaticPersona = useCallback(() => {
     if (petPromptOverride) {
       return petPromptOverride;
     }
-    const context = getUiLocationDescription(pathname || '/', homeSidebarSection, activeShellTabType);
-    const now = new Date();
-    let prompt = buildManyFloatingPrompt({
-      location: context.location,
-      description: context.description,
-      date: now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-      time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      resourceTitle: currentResourceTitle || undefined,
-      whatsappConnected,
-    });
-    prompt += `\n\n${APP_SECTION_GUIDE}\n\n${buildSharedUiContextBlock({
-      pathname: pathname || '/',
-      homeSidebarSection,
-      shellTabType: activeShellTabType,
-      currentFolderId,
-      currentResourceId: effectiveResourceId,
-      currentResourceTitle: currentResourceTitle || null,
-    })}`;
-    if (userMemory) {
-      prompt += `\n\n## What I know about you\n${userMemory}`;
-    }
-
-    if (pinnedResources.length > 0 && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
-      const pinnedIds = pinnedResources.map((r) => r.id);
-      let pinnedBlock = '\n\n## Pinned Context Resources\nThe following resources have been added to context by the user. Use their content directly — do NOT call resource_get or resource_search for these IDs unless you need pages not shown here.\n';
-      for (const resource of pinnedResources) {
-        try {
-          const result = await window.electron.ai.tools.resourceGet(resource.id, {
-            includeContent: true,
-            maxContentLength: 5000,
-          });
-          if (result?.success && result?.resource) {
-            const r = result.resource;
-            const content = getPreferredResourceContextContent(r);
-            pinnedBlock += `\n### [${resource.title}] (id: ${resource.id}, type: ${resource.type})\n`;
-            if (content?.trim()) {
-              pinnedBlock += content.slice(0, 5000);
-              if (content.length > 5000) pinnedBlock += '\n[Content truncated]';
-            } else {
-              pinnedBlock += '(No content available)';
-            }
-          }
-        } catch {
-          pinnedBlock += `\n### [${resource.title}] (id: ${resource.id})\n(Could not load content)`;
-        }
-      }
-      prompt += pinnedBlock;
-      prompt += `\n\n> Already loaded resource IDs (skip fetching): ${pinnedIds.join(', ')}`;
-    }
-
-    return prompt;
-  }, [
-    activeShellTabType,
-    currentFolderId,
-    currentResourceTitle,
-    effectiveResourceId,
-    homeSidebarSection,
-    pathname,
-    petPromptOverride,
-    pinnedResources,
-    userMemory,
-    whatsappConnected,
-  ]);
+    return buildManyFloatingPrompt({ whatsappConnected });
+  }, [petPromptOverride, whatsappConnected]);
 
   const hasLangGraph = typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
 
@@ -800,7 +738,64 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         throw new Error(t('chat.langgraph_required'));
       }
 
-      let systemPrompt = await buildSystemPrompt();
+      const staticPersona = buildStaticPersona();
+      const uiLoc = getUiLocationDescription(pathname || '/', homeSidebarSection, activeShellTabType);
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      const partOfDay = getPartOfDay(now);
+
+      const volatileParts: string[] = [];
+      volatileParts.push(
+        `## Current Context\n- Location: ${uiLoc.location}\n- The user is ${uiLoc.description}\n- Date: ${dateStr}\n- Time of day: ${partOfDay}` +
+          (currentResourceTitle ? `\n- Active resource: "${currentResourceTitle}"` : ''),
+      );
+      volatileParts.push(
+        buildSharedUiContextBlock({
+          pathname: pathname || '/',
+          homeSidebarSection,
+          shellTabType: activeShellTabType,
+          currentFolderId,
+          currentResourceId: effectiveResourceId,
+          currentResourceTitle: currentResourceTitle || null,
+        }),
+      );
+      if (userMemory) {
+        volatileParts.push(`## What I know about you\n${userMemory}`);
+      }
+
+      if (pinnedResources.length > 0 && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
+        const pinnedIds = pinnedResources.map((r) => r.id);
+        let pinnedBlock =
+          '## Pinned Context Resources\nThe following resources have been added to context by the user. Use their content directly — do NOT call resource_get or resource_search for these IDs unless you need pages not shown here.\n';
+        for (const resource of pinnedResources) {
+          try {
+            const result = await window.electron.ai.tools.resourceGet(resource.id, {
+              includeContent: true,
+              maxContentLength: 5000,
+            });
+            if (result?.success && result?.resource) {
+              const r = result.resource;
+              const content = getPreferredResourceContextContent(r);
+              pinnedBlock += `\n### [${resource.title}] (id: ${resource.id}, type: ${resource.type})\n`;
+              if (content?.trim()) {
+                pinnedBlock += content.slice(0, 5000);
+                if (content.length > 5000) pinnedBlock += '\n[Content truncated]';
+              } else {
+                pinnedBlock += '(No content available)';
+              }
+            }
+          } catch {
+            pinnedBlock += `\n### [${resource.title}] (id: ${resource.id})\n(Could not load content)`;
+          }
+        }
+        pinnedBlock += `\n\n> Already loaded resource IDs (skip fetching): ${pinnedIds.join(', ')}`;
+        volatileParts.push(pinnedBlock);
+      }
 
       if (effectiveResourceId && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
         try {
@@ -812,8 +807,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             const r = result.resource;
             const content = getPreferredResourceContextContent(r);
             if (content?.trim()) {
-              systemPrompt += `\n\n## Current Resource Content\nThe user is viewing "${r.title || currentResourceTitle}". Use this as the primary context for answering the user directly.\n\n${content.slice(0, 12000)}`;
-              if (content.length > 12000) systemPrompt += '\n\n[Content truncated for length]';
+              let block = `## Current Resource Content\nThe user is viewing "${r.title || currentResourceTitle}". Use this as the primary context for answering the user directly.\n\n${content.slice(0, 12000)}`;
+              if (content.length > 12000) block += '\n\n[Content truncated for length]';
+              volatileParts.push(block);
             }
           }
         } catch (e) {
@@ -829,6 +825,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       const primarySkillId = oneShotSkillId || stickySkillId;
       manySnap.setPendingOneShotSkill(null);
 
+      let skillsCatalogMarkdown: string | null = null;
       const activeSkillRecords: Array<{ allowed_tools: string[] }> = [];
       try {
         const listRes = await listSkills({ includeBody: true });
@@ -841,8 +838,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             if (s && body) {
               const name = s.name || 'unnamed';
               const desc = s.description || '';
-              const skillsBlock = `\n\n## Active Skill\n### ${name}\n${desc ? `${desc}\n\n` : ''}${body}\n`;
-              systemPrompt += skillsBlock;
+              const skillsBlock = `## Active Skill\n### ${name}\n${desc ? `${desc}\n\n` : ''}${body}\n`;
+              volatileParts.push(skillsBlock);
               activeSkillRecords.push({ allowed_tools: s.allowed_tools || [] });
             }
           } else {
@@ -860,15 +857,21 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               }
             }
             if (pathBlocks.length > 0) {
-              systemPrompt += `\n\n## Context skills (path match)\n${pathBlocks.join('\n')}\n`;
+              volatileParts.push(`## Context skills (path match)\n${pathBlocks.join('\n')}\n`);
             }
             const CATALOG = 1536;
             const lines: string[] = [];
             for (const s of all) {
               if (s.disable_model_invocation) continue;
               if (!s.body?.trim()) continue;
+              const slug = String(s.slug || s.id || '').trim();
+              const desc = String(s.description || s.name || '').trim();
+              if (!desc || desc === slug || desc === s.id) {
+                console.warn('[Many] Skipping skill catalog entry (orphan metadata):', s.id);
+                continue;
+              }
               const w = s.when_to_use ? ` — ${s.when_to_use}` : '';
-              const line = `- /${s.slug || s.id}: ${(s.description || s.name).slice(0, 400)}${w}`.trim();
+              const line = `- /${slug}: ${desc.slice(0, 400)}${w}`.trim();
               if (line.length > CATALOG) {
                 lines.push(`${line.slice(0, CATALOG - 1)}…`);
               } else {
@@ -876,7 +879,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               }
             }
             if (lines.length > 0) {
-              systemPrompt += `\n\n## Available Skills (use load_skill tool with field **name** = slash name, e.g. \`research-assistant\`)\n${lines.join(
+              skillsCatalogMarkdown = `## Available Skills (use load_skill tool with field **name** = slash name, e.g. \`research-assistant\`)\n${lines.join(
                 '\n',
               )}\n`;
             }
@@ -885,6 +888,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       } catch (e) {
         console.warn('[Many] Could not load skills:', e);
       }
+
+      const volatileContext = volatileParts.join('\n\n');
 
       const sharedContext = {
         pathname: pathname || '/',
@@ -919,7 +924,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         'es';
 
       const unifiedSystemPrompt = buildDomeSystemPrompt({
-        baseInstructions: systemPrompt,
+        staticPersona,
+        volatileContext,
+        skillsCatalogMarkdown,
         extraSections: [toolHint],
         voiceLanguage: sendOptions?.autoSpeak ? voiceLanguage : null,
       });
@@ -1029,11 +1036,14 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     messages,
     addMessage,
     setStatus,
-    buildSystemPrompt,
+    buildStaticPersona,
     effectiveResourceId,
     pathname,
     homeSidebarSection,
+    activeShellTabType,
     currentFolderId,
+    userMemory,
+    pinnedResources,
     toolsEnabled,
     mcpEnabled,
     supportsTools,

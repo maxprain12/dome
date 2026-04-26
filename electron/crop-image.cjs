@@ -11,7 +11,7 @@ const fs = require('fs');
 let sharp = null;
 try {
   sharp = require('sharp');
-  console.log('[CropImage] sharp module loaded successfully');
+  console.debug('[CropImage] sharp module loaded successfully');
 } catch (error) {
   console.warn('[CropImage] sharp module not available, image cropping disabled');
 }

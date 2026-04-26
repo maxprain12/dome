@@ -120,6 +120,7 @@ async function extractPptSlideImages(pptxPath) {
         sandbox: false,
         // Disable web security for the local app protocol (same as main window)
         webSecurity: true,
+        ...(app.isPackaged ? { devTools: false } : {}),
       },
     });
 

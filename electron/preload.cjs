@@ -1,5 +1,19 @@
 /* eslint-disable no-unused-vars */
+const fs = require('fs');
+const path = require('path');
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
+
+/**
+ * electron.app is main-process-only; preload must not use app.isPackaged.
+ * Detect production bundle via resources layout (app.asar or unpacked app/).
+ */
+function isPackagedPreload() {
+  const rp = process.resourcesPath;
+  if (!rp) return false;
+  if (fs.existsSync(path.join(rp, 'app.asar'))) return true;
+  if (fs.existsSync(path.join(rp, 'app', 'package.json'))) return true;
+  return false;
+}
 
 // NOTE: Console logs removed for production - debug logging for preload initialization
 
@@ -719,8 +733,8 @@ const electronHandler = {
   // ============================================
   // ENVIRONMENT
   // ============================================
-  isDev: process.env.NODE_ENV === 'development',
-  isProduction: process.env.NODE_ENV === 'production',
+  isDev: !isPackagedPreload() && process.env.NODE_ENV === 'development',
+  isProduction: isPackagedPreload() || process.env.NODE_ENV === 'production',
   nodeVersion: process.versions.node,
   chromeVersion: process.versions.chrome,
   electronVersion: process.versions.electron,

@@ -15,7 +15,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron .",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_OPTIONS=--max-old-space-size=8192 electron .\"",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development NODE_OPTIONS=--max-old-space-size=8192 electron .\"",
     "electron:build": "npm run build && npm run rebuild:natives && npm run verify:natives && node scripts/embed-env.cjs && cross-env DEBUG= electron-builder",
     "electron:build:verbose": "npm run build && npm run rebuild:natives && npm run verify:natives && node scripts/embed-env.cjs && cross-env DEBUG=electron-builder electron-builder",
     "electron:pack": "cross-env DEBUG= electron-builder",

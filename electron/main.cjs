@@ -3,6 +3,20 @@
 // fetch/stream AbortSignal usage (MCP servers, AI streams, etc.)
 require('events').EventEmitter.defaultMaxListeners = 30;
 
+// Transitive deps (p. ej. whatwg-url/tr46 vía node-fetch) aún resuelven el punycode
+// incorporado de Node; DEP0040 no lo podemos arreglar aquí sin overrides profundos.
+// Con un listener, Node deja de imprimir warnings a stderr; reenviamos el resto.
+process.on('warning', (warning) => {
+  if (
+    warning.name === 'DeprecationWarning' &&
+    warning.code === 'DEP0040' &&
+    String(warning.message).includes('punycode')
+  ) {
+    return;
+  }
+  console.warn(warning.stack || `${warning.name}: ${warning.message}`);
+});
+
 // Load .env in development
 const fs_env = require('fs');
 const path_env = require('path');
@@ -217,11 +231,10 @@ const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
 // IPC handlers (modularized)
 const { registerAll } = require('./ipc/index.cjs');
 const transcriptionShortcut = require('./transcription-shortcut.cjs');
+const { useViteDevServer } = require('./runtime-env.cjs');
 
-// Environment detection
-const isDev = process.env.NODE_ENV === 'development' ||
-  !app.isPackaged ||
-  !fs.existsSync(path.join(__dirname, '../dist/index.html'));
+// Modo desarrollo (Vite): nunca en app empaquetada
+const isDev = useViteDevServer();
 const isDebug = isDev || process.env.DEBUG_PROD === 'true';
 
 // Create application menu with Edit submenu for copy/paste/etc.
@@ -272,7 +285,7 @@ const menuTemplate = [
     submenu: [
       { role: 'reload' },
       { role: 'forceReload' },
-      { role: 'toggleDevTools' },
+      ...(app.isPackaged ? [] : [{ role: 'toggleDevTools' }]),
       { type: 'separator' },
       { role: 'resetZoom' },
       { role: 'zoomIn' },
@@ -315,16 +328,15 @@ function setupUserDataFolder() {
 // Install development tools (React DevTools)
 // Set SKIP_DEVTOOLS=1 to skip if you get sandbox/renderer errors
 async function installExtensions() {
+  if (app.isPackaged) return;
   if (!isDev) return;
   if (process.env.SKIP_DEVTOOLS === '1') return;
 
   try {
-    const {
-      default: installExtension,
-      REACT_DEVELOPER_TOOLS,
-    } = require('electron-devtools-installer');
+    const { REACT_DEVELOPER_TOOLS } = require('electron-devtools-installer');
+    const { installExtensionFromChromeStore } = require('./install-devtools-extension.cjs');
 
-    await installExtension(REACT_DEVELOPER_TOOLS, {
+    await installExtensionFromChromeStore(REACT_DEVELOPER_TOOLS, {
       loadExtensionOptions: { allowFileAccess: true },
       forceDownload: false,
     });
@@ -336,7 +348,7 @@ async function installExtensions() {
 
 // Create main window
 async function createWindow() {
-  if (isDebug) {
+  if (isDev) {
     await installExtensions();
   }
 
@@ -379,14 +391,15 @@ async function createWindow() {
     }
   });
 
-  // Enable DevTools in production with Cmd+Shift+I (Mac) or Ctrl+Shift+I (Windows/Linux)
-  mainWindow.webContents.on('before-input-event', (event, input) => {
-    const isMac = process.platform === 'darwin';
-    const modifierKey = isMac ? input.meta : input.control;
-    if (modifierKey && input.shift && input.key.toLowerCase() === 'i') {
-      mainWindow.webContents.toggleDevTools();
-    }
-  });
+  if (!app.isPackaged) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      const isMac = process.platform === 'darwin';
+      const modifierKey = isMac ? input.meta : input.control;
+      if (modifierKey && input.shift && input.key.toLowerCase() === 'i') {
+        mainWindow.webContents.toggleDevTools();
+      }
+    });
+  }
 
   // Initialize Ollama Manager
   ollamaManager.initialize(mainWindow);

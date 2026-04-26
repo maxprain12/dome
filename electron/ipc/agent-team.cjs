@@ -157,8 +157,11 @@ async function buildMemberDelegationTool({
     Array.isArray(agent.skillIds) ? agent.skillIds : [],
     database.getQueries(),
   );
-  const memberBaseInstructions = `${withSkills}\n\n${contextBlock}\nUse Dome tools when they improve the answer, especially for resource-aware tasks.`;
-  const memberSystemPrompt = buildDomeSystemPrompt({ baseInstructions: memberBaseInstructions });
+  const staticPersona = `${withSkills}\n\nUse Dome tools when they improve the answer, especially for resource-aware tasks.`;
+  const memberSystemPrompt = buildDomeSystemPrompt({
+    staticPersona,
+    volatileContext: contextBlock || undefined,
+  });
 
   const rawToolDefinitions = getToolDefinitionsByIds([
     ...(Array.isArray(agent.toolIds) ? agent.toolIds : []),
@@ -313,8 +316,8 @@ function register({ ipcMain, windowManager, database }) {
         .replace(/\{\{agentList\}\}/g, agentList)
         .replace(/\{\{supervisorInstructions\}\}/g, (supervisorInstructions || '').trim());
       const supervisorSystemPrompt = buildDomeSystemPrompt({
-        baseInstructions: supervisorBase,
-        extraSections: contextBlock ? [contextBlock] : [],
+        staticPersona: supervisorBase,
+        volatileContext: contextBlock || undefined,
       });
 
       // ── parentOnChunk: forwards member-tagged chunks to renderer ──────

@@ -150,11 +150,9 @@ function withTimeout(promise, timeoutMs, operationName) {
  */
 async function initializeApp() {
   const startTime = Date.now();
-  console.log('[Init] Starting initialization...');
 
   // If already initialized, return immediately
   if (isInitialized) {
-    console.debug('[Init] App already initialized (idempotent IPC)');
     return {
       success: true,
       needsOnboarding: checkOnboardingStatus(),
@@ -166,6 +164,8 @@ async function initializeApp() {
     console.log('[Init] ⚠️ Initialization already in progress, waiting...');
     return initializationPromise;
   }
+
+  console.log('[Init] Starting initialization...');
 
   // Mark as initializing and create the promise
   isInitializing = true;
