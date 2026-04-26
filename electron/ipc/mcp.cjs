@@ -14,7 +14,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     try {
       validateSender(event, windowManager);
     } catch (err) {
-      console.warn('[MCP] Unauthorized:', err.message);
+      console.warn('[MCP] Unauthorized:', err?.message);
       return { success: false, toolCount: 0, error: 'Unauthorized' };
     }
     try {
@@ -25,7 +25,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         toolCount,
       };
     } catch (err) {
-      console.warn('[MCP] Test connection failed:', err.message);
+      console.warn('[MCP] Test connection failed:', err?.message);
       return {
         success: false,
         toolCount: 0,
@@ -42,7 +42,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     try {
       validateSender(event, windowManager);
     } catch (err) {
-      console.warn('[MCP] Unauthorized:', err.message);
+      console.warn('[MCP] Unauthorized:', err?.message);
       return { success: false, toolCount: 0, error: 'Unauthorized' };
     }
     try {
@@ -66,15 +66,15 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     try {
       validateSender(event, windowManager);
     } catch (err) {
-      console.warn('[MCP OAuth] Unauthorized:', err.message);
-      return { success: false, toolCount: 0, error: 'Unauthorized' };
+      console.warn('[MCP OAuth] Unauthorized:', err?.message);
+      return { success: false, error: 'Unauthorized' };
     }
     try {
       const result = await mcpOauth.startOAuthFlow(providerId, database);
-      return { success: true, toolCount: 0, token: result.token };
+      return { success: true, token: result.token };
     } catch (err) {
       console.warn('[MCP OAuth] Flow failed:', err?.message);
-      return { success: false, toolCount: 0, error: err?.message || String(err) };
+      return { success: false, error: err?.message || String(err) };
     }
   });
 
@@ -85,14 +85,14 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     try {
       validateSender(event, windowManager);
     } catch (err) {
-      console.warn('[MCP] Unauthorized:', err.message);
-      return { success: false, toolCount: 0, providers: [], error: 'Unauthorized' };
+      console.warn('[MCP] Unauthorized:', err?.message);
+      return { success: false, providers: [], error: 'Unauthorized' };
     }
     try {
-      return { success: true, toolCount: 0, providers: mcpOauth.getSupportedProviders() };
+      return { success: true, providers: mcpOauth.getSupportedProviders() };
     } catch (err) {
       console.warn('[MCP] Get OAuth providers failed:', err?.message);
-      return { success: false, toolCount: 0, providers: [], error: err?.message || String(err) };
+      return { success: false, providers: [], error: err?.message || String(err) };
     }
   });
 }
