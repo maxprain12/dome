@@ -244,33 +244,6 @@ async function streamOpenAI(messages, apiKey, model, onChunk, baseURL = 'https:/
   }
 }
 
-/**
- * Generate embeddings with OpenAI
- * @deprecated Use PageIndex for semantic search instead of vector embeddings
- * @param {string[]} texts
- * @param {string} apiKey
- * @param {string} model
- * @returns {Promise<number[][]>}
- */
-async function embeddingsOpenAI(texts, apiKey, model = 'text-embedding-3-small') {
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ input: texts, model }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(`OpenAI Embeddings error: ${response.status} - ${error.error?.message || response.statusText}`);
-  }
-
-  const data = await response.json();
-  return data.data.map((item) => item.embedding);
-}
-
 // ============================================
 // ANTHROPIC
 // ============================================
@@ -849,73 +822,6 @@ async function streamGoogle(messages, apiKey, model, onChunk, tools = undefined,
   return fullResponse;
 }
 
-/**
- * Generate embeddings with Google
- * @deprecated Use PageIndex for semantic search instead of vector embeddings
- * @param {string[]} texts
- * @param {string} apiKey
- * @param {string} model
- * @returns {Promise<number[][]>}
- */
-async function embeddingsGoogle(texts, apiKey, model = 'text-embedding-004') {
-  const embeddings = [];
-
-  for (const text of texts) {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:embedContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: `models/${model}`,
-          content: { parts: [{ text }] },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(`Google Embedding error: ${response.status} - ${error.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    embeddings.push(data.embedding?.values ?? []);
-  }
-
-  return embeddings;
-}
-
-/**
- * Generate embeddings with Voyage AI (Anthropic's recommended embedding provider)
- * @deprecated Use PageIndex for semantic search instead of vector embeddings
- * @param {string[]} texts
- * @param {string} apiKey - Anthropic/Voyage API key
- * @param {string} model - e.g. voyage-multimodal-3, voyage-3-large
- * @param {string} [inputType] - 'query' | 'document' for retrieval tasks (optional)
- * @returns {Promise<number[][]>}
- */
-async function embeddingsVoyage(texts, apiKey, model = 'voyage-multimodal-3', inputType = 'document') {
-  const body = { input: texts, model };
-  if (inputType) body.input_type = inputType;
-
-  const response = await fetch('https://api.voyageai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(`Voyage Embeddings error: ${response.status} - ${error.error?.message || response.statusText}`);
-  }
-
-  const data = await response.json();
-  return data.data.map((item) => item.embedding);
-}
-
 // ============================================
 // UNIFIED INTERFACE
 // ============================================
@@ -982,37 +888,13 @@ async function stream(provider, messages, apiKey, model, onChunk, tools = undefi
   }
 }
 
-/**
- * Generate embeddings with cloud provider
- * @deprecated Use PageIndex for semantic search instead of vector embeddings
- * @param {string} provider
- * @param {string[]} texts
- * @param {string} apiKey
- * @param {string} model
- * @returns {Promise<number[][]>}
- */
-async function embeddings(provider, texts, apiKey, model) {
-  switch (provider) {
-    case 'openai':
-      return embeddingsOpenAI(texts, apiKey, model);
-    case 'anthropic':
-      return embeddingsVoyage(texts, apiKey, model);
-    case 'google':
-      return embeddingsGoogle(texts, apiKey, model);
-    default:
-      throw new Error(`Provider ${provider} does not support embeddings`);
-  }
-}
-
 module.exports = {
   // OpenAI
   chatOpenAI,
   streamOpenAI,
-  embeddingsOpenAI,
   // Anthropic (direct API)
   chatAnthropic,
   streamAnthropic,
-  embeddingsVoyage,
   // MiniMax (Anthropic-compatible)
   chatMiniMax,
   streamMiniMax,
@@ -1020,12 +902,10 @@ module.exports = {
   chatGoogle,
   streamGoogle,
   googleMessageToContentRow,
-  embeddingsGoogle,
   // Shared helpers
   parseDataUrl,
   buildOpenAIImageUserContent,
   // Unified
   chat,
   stream,
-  embeddings,
 };

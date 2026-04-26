@@ -100,8 +100,3 @@ export function buildCoreNoteExtensions(placeholder = 'Escribe algo...') {
     }),
   ];
 }
-
-/** @deprecated Use buildCoreNoteExtensions — alias for compatibility */
-export function buildNoteExtensions(placeholder = 'Escribe algo...') {
-  return buildCoreNoteExtensions(placeholder);
-}

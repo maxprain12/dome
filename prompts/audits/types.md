@@ -1,10 +1,12 @@
 ---
 name: audit-types
 description: TypeScript quality — remove `any`, add `import type`, clean non-null assertions.
-version: 1
+version: 2
 focus: types
-last_updated: 2026-04-17
+last_updated: 2026-04-26
 ---
+
+> **Context:** `prompts/shared/project-context.md` (v5), `AGENTS.md` (§ Baseline 2026-04).
 
 ## Focus: TypeScript Quality
 

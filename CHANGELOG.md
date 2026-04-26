@@ -9,10 +9,25 @@ All notable changes to Dome are documented in this file.
 - **Indexación**: transcripción/descr. de **PDF e imágenes** vía **LLM en la nube** (visión) del usuario; **embeddings Nomic** locales sin cambios (`resource_chunks`), caché en `resource_transcripts`, búsqueda híbrida.
 - **Chat / herramientas**: `resource_semantic_search` devuelve `chunk_id` y `page_number`; nueva herramienta `pdf_render_page`; enlaces markdown `dome-pdf-page:resource:page` para vistas de página.
 
+### Documentation
+
+- Referencias a **PageIndex** y **Docling** en README, `docs/`, `MASTER.md`, `CLAUDE.md` y prompts alineadas con el **pipeline de embeddings** (Nomic) e [indexing.md](docs/indexing.md); eliminado el índice a `vector-db.md` (no aplica). Enlaces rotos a `kb-index-policy.md` sustituidos por `indexing.md` / `kb-llm-wiki-model.md`.
+- `docs/ai-chat.md`, `docs/ipc.md`, `docs/whatsapp.md`: canal `ai:embeddings` y API preload `send()` / `ai.embeddings` retirados del texto.
+- **Audits VPS** (`prompts/audits/*.md`, `prompts/audits/_chain-header.md`): `version` y `last_updated` alineados (2026-04-26), referencia explícita a `prompts/shared/project-context.md` (v5) y `AGENTS.md` (baseline npm / Electron 41 / ExcelJS).
+
+### Removed (API obsoletas)
+
+- **IPC `ai:embeddings`** y funciones de embedding en cloud (`embeddingsOpenAI` / `Google` / `Voyage`, `aiCloudService.embeddings`) — el índice usa Nomic en main.
+- **`ollamaService.generateEmbeddings`** (lotes).
+- **Preload `window.electron.send()`** (usar `invoke`).
+- **WhatsApp** `session.disconnect` (usar `stop` / `logout`).
+- **`renderPDFPage`** en `pdf-loader.ts` (duplicaba render del visor).
+- **Alias Tiptap** `buildNoteExtensions`, **`extractPdfTextWithGemma`**, export **`MAX_INPUT_CHARS`** duplicado en `embeddings.service.cjs`.
+
 ### Removed
 
 - **Gemma on-device**: worker WebGPU, `gemma:*` IPC, `GemmaWorkerPage`, STT `local-gemma` (mapeado a Whisper cloud), UI y docs asociadas; visión/PDF región vía `cloud:llm:*` y `electron/services/cloud-llm.service.cjs`.
-- Runtime Python **pageindex-runtime**, bridge `pageindex-python.cjs`, `resource-indexer.cjs`, Docling en proceso principal, IPC `pageindex:*` / `docling:*`, y documentación asociada (`docs/pageindex.md`, `kb-index-policy.md`, `vector-db.md`).
+- Runtime Python **pageindex-runtime**, puentes y indexadores asociados, **Docling** en proceso principal, e IPC `pageindex:*` / `docling:*` (sustituidos por el índice semántico local documentado en `docs/indexing.md`).
 
 ## [2.1.4] - 2026-04-08
 
@@ -85,7 +100,7 @@ All notable changes to Dome are documented in this file.
 ### Changed
 
 - **Descargas**: Reintentos y manejo de errores más robusto.
-- **CI y scripts**: Workflows y `package.json` orientados a **npm** (en lugar de Bun) donde aplica.
+- **CI y scripts**: Workflows y `package.json` orientados a **npm** (`npm ci`, `package-lock.json`) donde aplica.
 
 ### Build & maintenance
 
@@ -98,7 +113,7 @@ All notable changes to Dome are documented in this file.
 ### Added
 
 - **Google Drive**: Conexión en Ajustes → Cloud Storage, importación con selector de archivos (OAuth 2.0 con PKCE). Ver `docs/cloud-storage-setup.md`.
-- **Docling**: Fase de conversión de documentos (p. ej. PDF) antes de PageIndex, con progreso en la cabecera del workspace.
+- **Conversión de documentos**: fase de preparación (p. ej. PDF) con progreso en la cabecera del workspace, previa a la indexación.
 - **Bandeja del sistema**: La app puede permanecer en segundo plano al cerrar la ventana; menú contextual en el icono de la bandeja.
 - **Inicio con el sistema**: Opción de lanzar Dome al iniciar sesión (configurable en Ajustes; sugerencia en primer arranque).
 - **Internacionalización (i18n)**: `react-i18next` en **en**, **es**, **fr** y **pt**; onboarding y UI ampliados.
@@ -110,7 +125,7 @@ All notable changes to Dome are documented in this file.
 - **Almacenamiento en la nube**: Se simplifica el producto a **solo Google Drive** (se retira la integración con OneDrive en la app).
 - **Editor y workspace**: Revisiones de contenido, título condicional, mejoras en URLs y componentes del workspace.
 - **Recursos**: Limpieza del tipo `document` y flujo de notas/recursos más coherente.
-- **Chat y artefactos**: Mejor manejo con integración Docling.
+- **Chat y artefactos**: Mejor manejo de resultados e imágenes en el flujo de documentos.
 - **Tema**: Gestión de tema reforzada.
 - **Documentación**: README actualizado (stack, estructura, releases/CI, sin Remotion).
 - **Pie del sidebar**: Créditos a desarrolladores actualizados.
@@ -179,11 +194,10 @@ All notable changes to Dome are documented in this file.
 - **Colores en carpetas**: Personalización de color y renombrado de carpetas.
 - **Mover recursos**: Funcionalidad para mover recursos entre carpetas.
 
-#### Indexación y búsqueda vectorial
+#### Indexación y búsqueda
 
-- **Resource indexer**: Servicio de indexación de recursos para LanceDB.
+- **Resource indexer** / **semantic-index-scheduler**: indexación hacia almacenamiento de vectores (evolucionó a embeddings Nomic en SQLite; ver `docs/indexing.md` en el árbol actual).
 - **IndexingSettings**: Panel de ajustes para indexación en Configuración.
-- **Documentación vector-db**: Nuevo documento `docs/vector-db.md` para inspeccionar LanceDB.
 
 #### AI y herramientas
 

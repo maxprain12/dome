@@ -1,6 +1,6 @@
 # Indexación semántica (IA en la nube + Nomic)
 
-Dome indexa recursos localmente para búsqueda híbrida (embeddings + FTS + grafo). **No** se usa PageIndex ni Docling.
+Dome indexa recursos localmente con **embeddings Nomic** en SQLite (`resource_chunks`) y **búsqueda híbrida** (vectores + FTS5 + grafo). El texto de PDFs e imágenes para el índice proviene del **LLM en la nube** del usuario (visión / multimodal), materializado en `resource_transcripts` y chunks.
 
 ## Flujo
 

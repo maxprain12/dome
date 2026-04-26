@@ -11,7 +11,7 @@ El **Dome Provider** es un backend web opcional que añade a Dome Desktop:
 1. **Cuenta unificada**: un usuario puede tener una cuenta Dome con suscripción
 2. **AI vía suscripción**: acceso a modelos de IA sin necesitar API keys propias
 3. **Cuota mensual**: tokens de IA incluidos según el plan (Starter/Pro/Team)
-4. **Conversión de documentos**: PDF → Markdown via Docling (cloud)
+4. **APIs y servicios en la nube** (según plan y versión del Provider: consulta la documentación publicada en el repositorio del backend)
 
 La integración es **completamente opcional**. Dome funciona perfectamente sin Provider usando OpenAI, Anthropic, Google u Ollama directamente.
 

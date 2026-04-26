@@ -2,8 +2,8 @@
 
 ## name: chain-header
 description: Injected at the top of an audit prompt when the agent is running as a step in a vps-audit-chain.sh invocation. Gives downstream agents the context of upstream agents' findings.
-version: 1
-last_updated: 2026-04-17
+version: 2
+last_updated: 2026-04-26
 
 ## Chain context — upstream audits have already run
 

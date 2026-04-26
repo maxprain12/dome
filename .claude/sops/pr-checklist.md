@@ -4,7 +4,7 @@ Before every PR is considered ready, verify each item below.
 
 ## Process Separation (Critical)
 
-- [ ] No Node.js/Bun modules imported in `app/` (check: `bun:sqlite`, `better-sqlite3`, `node:fs`, `electron`)
+- [ ] No Node.js modules or non-standard virtual imports in `app/` (check: `better-sqlite3`, `node:fs`, `electron`, `bun:` prefix)
 - [ ] New IPC channels are whitelisted in `electron/preload.cjs` ALLOWED_CHANNELS
 - [ ] New IPC handlers are registered in `electron/ipc/index.cjs`
 - [ ] Any file system access goes through IPC, never directly from renderer
@@ -44,5 +44,5 @@ npx tsc --noEmit
 npx eslint app/
 
 # Architecture: must return 0 results
-grep -r "bun:sqlite\|require('fs')\|require('better-sqlite3')" app/
+grep -rE "bun:|require('fs')\|require('better-sqlite3')" app/
 ```

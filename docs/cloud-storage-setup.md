@@ -152,7 +152,7 @@ From the Home or resource library:
 5. Click files to select them (multi-select supported; folders open on click).
 6. Click **Import** — selected files are downloaded and added to your Dome library.
 
-Imported files are automatically indexed by PageIndex after import.
+After import, files enter the same **semantic index** pipeline as other resources (Nomic embeddings, hybrid search; see [indexing.md](./indexing.md)).
 
 ---
 

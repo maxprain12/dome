@@ -8,8 +8,8 @@ Este directorio contiene las reglas y mejores prácticas para el desarrollo de D
 
 > Si un archivo de este directorio dice lo contrario, **gana esto**. El código autoritativo está en `/CLAUDE.md` (raíz del repo).
 
-- **Runtime**: Node.js + **npm** (CI corre `npm ci`). NO usar Bun ni tocar `bun.lock`.
-- **Main process (Electron)**: SQLite vía **`better-sqlite3`** — NO `bun:sqlite`.
+- **Runtime**: Node.js + **npm** (CI: `npm ci`; lockfile `package-lock.json`).
+- **Main process (Electron)**: SQLite vía **`better-sqlite3`**.
 - **Renderer**: Vite 7 + React 18 + React Router 7 (SPA cliente, entrada `app/main.tsx`). NO Next.js.
 - **TypeScript**: modo strict + `verbatimModuleSyntax: true` → imports de tipos SIEMPRE con `import type`.
 
@@ -73,7 +73,7 @@ Cuando Claude Code trabaja en este proyecto, debe:
 | `prepare is not a function` en renderer | `app/**/*.ts[x]` | Usar `window.electron.invoke('db:...')` |
 | Importing `better-sqlite3` en `app/` | `app/**/*.ts` | Mover a `electron/database.cjs` |
 | Importing `node:fs`/`fs` en `app/` | `app/**/*.ts` | Crear handler IPC |
-| Importing `bun:sqlite` **en cualquier sitio** | cualquier archivo | Reemplazar por `better-sqlite3` (Electron corre en Node, no Bun) |
+| Importar módulos virtuales no soportados en el renderer | `app/**` | Usar solo IPC; SQLite solo en `electron/` con `better-sqlite3` |
 
 ## Estructura Correcta
 
@@ -121,7 +121,7 @@ dome/
 ```bash
 # Verificar que NO hay imports de Node.js en app/ (debe devolver 0 líneas)
 grep -rE "from ['\"]better-sqlite3['\"]|from ['\"]fs['\"]|from ['\"]electron['\"]" app/
-grep -rE "from ['\"]bun:sqlite['\"]" .   # debe devolver 0 líneas en todo el repo
+grep -rE "bun:" app/ --include="*.ts" --include="*.tsx"   # debe devolver 0 líneas
 
 # Desarrollo
 npm run electron:dev     # Vite dev server + Electron con hot reload

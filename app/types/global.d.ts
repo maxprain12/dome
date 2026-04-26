@@ -240,7 +240,6 @@ declare global {
       };
       on: (channel: string, callback: (...args: any[]) => void) => RemoveListenerFn;
       once: (channel: string, callback: (...args: any[]) => void) => void;
-      send: (channel: string, ...args: any[]) => void;
       removeAllListeners: (channel: string) => void;
 
       // Platform Info
@@ -914,15 +913,6 @@ declare global {
           done?: boolean;
           agentName?: string | null;
         }) => void) => RemoveListenerFn;
-        embeddings: (
-          provider: 'openai' | 'google' | 'anthropic',
-          texts: string[],
-          model?: string
-        ) => Promise<{
-          success: boolean;
-          embeddings?: number[][];
-          error?: string;
-        }>;
         testConnection: () => Promise<{
           success: boolean;
           provider?: string;

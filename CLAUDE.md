@@ -10,11 +10,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Technology Stack
 
-- **Runtime**: npm for dependency management + build; Node.js for Electron main process (do NOT use bun)
-- **Desktop**: Electron 32 with strict security (contextIsolation, no nodeIntegration)
+- **Runtime**: **npm** for dependency management + build; Node.js in Electron main process; lockfile **`package-lock.json`**
+- **Desktop**: Electron 41 with strict security (contextIsolation, no nodeIntegration)
 - **Frontend**: Vite 7 + React 18 + React Router 7 (client-side SPA, entry: `app/main.tsx`)
-- **Database**: SQLite via **better-sqlite3** (NOT bun:sqlite — Electron runs on Node.js)
-- **Semantic search**: Local Nomic embeddings in SQLite (`resource_chunks`); optional local Gemma for PDF/image transcription
+- **Database**: SQLite via **better-sqlite3** in the main process (standard Node stack — the renderer must use IPC, not direct DB access)
+- **Semantic search**: Local Nomic embeddings in SQLite (`resource_chunks`); PDF/image text via your configured cloud LLM (vision) where applicable
 - **AI**: LangChain + LangGraph for agent workflows; multi-provider (OpenAI, Anthropic, Google, Ollama)
 - **State**: Zustand stores + Jotai atoms
 - **Styling**: Tailwind CSS + CSS Variables + Mantine UI components
@@ -23,7 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-The project uses **npm** (CI runs `npm ci` — do not use bun or touch `bun.lock`).
+The project uses **npm** only; the lockfile is **`package-lock.json`**.
 
 ```bash
 # Development (recommended)
@@ -138,7 +138,7 @@ dome/
 │   ├── pdf-extractor.cjs       # PDF text/page extraction
 │   ├── github-client.cjs       # GitHub API integration
 │   ├── crop-image.cjs          # Image cropping utilities
-│   ├── pageindex_bridge.py     # Python bridge for document indexing
+│   ├── services/               # Nomic embeddings, indexing.pipeline, chunking, hybrid search
 │   └── ppt-slide-extractor.cjs # PPTX slide extraction (hidden BrowserWindow)
 │
 ├── app/                         # Renderer Process (Browser context)
@@ -266,7 +266,7 @@ Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron
 
 ## Common Pitfalls
 
-1. `**bun:sqlite` in Electron**: Electron runs Node.js, not Bun. Always use `better-sqlite3` in main process.
+1. **SQLite**: Use `better-sqlite3` only in the main process. The renderer must not import SQLite or `node:fs` directly.
 2. **SQLite in renderer**: Use `window.electron.invoke('db:...')` — never import better-sqlite3 in `app/`
 3. **New IPC channel**: Must be added in both `electron/ipc/<domain>.cjs` AND `electron/preload.cjs` ALLOWED_CHANNELS
 4. **Type-only imports**: Use `import type { }` due to `verbatimModuleSyntax: true`
@@ -285,7 +285,7 @@ Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron
 
 - `.claude/rules/architecture-rules.md` — Critical architecture rules
 - `.claude/rules/electron-best-practices.md` — Electron patterns and security
-- `.claude/rules/dome-style-guide.md` — Code style (note: references to "bun:sqlite" and "Next.js" in that file are outdated)
+- `.claude/rules/dome-style-guide.md` — Code style (note: any legacy "Next.js" mention in that file may be outdated)
 
 ## Standard Operating Procedures (SOPs)
 

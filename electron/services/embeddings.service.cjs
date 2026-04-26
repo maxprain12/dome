@@ -14,8 +14,6 @@ const EMBED_DIM = 768;
  * Los documentos se fragmentan con `chunking.cjs`; `embedDocuments` no trunca el texto del chunk.
  */
 const MAX_QUERY_CHARS = 16000;
-/** @deprecated usar MAX_QUERY_CHARS — mantenido por compat en exports */
-const MAX_INPUT_CHARS = MAX_QUERY_CHARS;
 
 /** @type {string | null} */
 let _modelsDir = null;
@@ -180,7 +178,6 @@ module.exports = {
   EMBED_DIM,
   EMBED_BATCH,
   MAX_QUERY_CHARS,
-  MAX_INPUT_CHARS,
   resetPipeline,
   resetForTests,
 };

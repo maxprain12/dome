@@ -2,8 +2,8 @@
 
 ## name: project-context
 description: Shared project context injected into all audit and review prompts. Defines valid CSS variables, stack specifics, i18n rules, severity criteria, and finding-quality requirements so agents don't produce false positives.
-version: 2
-last_updated: 2026-04-18
+version: 5
+last_updated: 2026-04-26
 
 ## Project-specific context
 
@@ -37,7 +37,8 @@ being wrapped in a CSS var(). Fallback values inside `var(--x, fallback)` are ac
 
 ### Stack clarification
 
-- Runtime: Node.js + npm (CI, build, lockfile). Do NOT use bun or touch `bun.lock`. Electron uses better-sqlite3 (NOT bun:sqlite)
+- Runtime: Node.js + **npm** (CI, build, `package-lock.json`). Do NOT use Bun or `bun.lock`. Electron uses `better-sqlite3` in the main process; the renderer must not import DB/fs directly.
+- **Desktop: Electron 41.x** (see `package.json` `devDependencies.electron`). The **Node** version *inside* Electron follows the Electron release (not the developer’s system Node). `electron-builder` is kept aligned (major 26.x as of 2026-04) for `install-app-deps` / packaging.
 - Frontend: Vite + React 18 (NOT Next.js — ignore any Next.js references in style guides)
 - Routes: React Router v7 (client-side SPA), entry: `app/main.tsx`
 - i18n: react-i18next, all translations inline in `app/lib/i18n.ts` (en/es/fr/pt), default language: es
@@ -45,7 +46,7 @@ being wrapped in a CSS var(). Fallback values inside `var(--x, fallback)` are ac
 
 ### Architecture boundary (enforced in every audit)
 
-- Code in `app/` (renderer) must NEVER import Node.js modules (`fs`, `path`, `better-sqlite3`, `bun:sqlite`, `electron`, `child_process`, …).
+- Code in `app/` (renderer) must NEVER import Node.js modules (`fs`, `path`, `better-sqlite3`, `electron`, `child_process`, …) or non-Node virtual module prefixes in the renderer.
 - New IPC channels MUST be whitelisted in `electron/preload.cjs` `ALLOWED_CHANNELS`.
 - IPC handlers in `electron/ipc/*.cjs` MUST validate sender (`event.sender`) and sanitize inputs.
 - File system and database access from the renderer goes through IPC — never direct.

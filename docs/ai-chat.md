@@ -210,9 +210,9 @@ sequenceDiagram
 
 ### Cloud AI in main process
 
-- Chat, stream, and embeddings for OpenAI/Anthropic/Google run in the main process via IPC to avoid CORS and keep API keys out of the renderer.
+- Chat and stream for OpenAI/Anthropic/Google run in the main process via IPC to avoid CORS and keep API keys out of the renderer. Semantic **embeddings** for search use the local Nomic pipeline (`electron/services/embeddings.service.cjs`, `db:semantic:*`), not cloud embedding APIs.
 - API keys are read from SQLite in main; Anthropic uses direct API key, same as OpenAI and Google.
-- **Handlers**: `ai:chat`, `ai:stream`, `ai:embeddings` in `electron/main.cjs`; implementation in `electron/ai-cloud-service.cjs`.
+- **Handlers**: `ai:chat`, `ai:stream` (and LangGraph) in `electron/ipc/ai.cjs`; implementation in `electron/ai-cloud-service.cjs`.
 
 ### Streaming
 
@@ -257,9 +257,9 @@ sequenceDiagram
 
 - `chatWithTools(messages, tools, { signal })`: as in “Chat with tools” pattern; used by MartinFloatingButton when tools are enabled and provider supports tools.
 
-### Embeddings
+### Semantic index (search)
 
-- Via IPC `ai:embeddings` (provider, texts, model); supported for openai and google. Used for vector search (separate from chat; mention only).
+- Chunk embeddings and hybrid search are handled by the main-process semantic index (Nomic), not by `ai:cloud` embedding endpoints. See [indexing.md](./indexing.md).
 
 ### UI (MartinFloatingButton)
 
@@ -287,7 +287,6 @@ sequenceDiagram
 | `ai:stream` | invoke | Start stream (provider, messages, model, streamId) |
 | `ai:langgraph:stream` | invoke | Chat with tools via LangGraph agent (provider, messages, model, streamId, toolDefinitions) |
 | `ai:stream:chunk` | on | Stream chunks { streamId, type, text? \| error? } |
-| `ai:embeddings` | invoke | Embeddings (provider, texts, model) |
 | `ai:tools:resourceSearch` | invoke | FTS resource search (query, options) |
 | `ai:tools:resourceGet` | invoke | Get resource by id (resourceId, options) |
 | `ai:tools:resourceList` | invoke | List resources (options) |
@@ -326,9 +325,9 @@ sequenceDiagram
 | `app/components/chat/ChatMessageGroup.tsx` | Groups messages by role; groupMessagesByRole |
 | `app/components/chat/ChatToolCard.tsx` | Renders ToolCallData; ToolCallData type |
 | `app/lib/hooks/useInteractions.ts` | Load/save interactions for a resource (chat history as interactions) |
-| `electron/main.cjs` | IPC handlers ai:chat, ai:stream, ai:embeddings, ai:tools:*; validation and auth |
-| `electron/ai-cloud-service.cjs` | chat(provider, messages, apiKey, model), stream(..., onChunk), embeddings; OpenAI/Anthropic/Google |
+| `electron/main.cjs` | Registers IPC; validation and auth |
+| `electron/ai-cloud-service.cjs` | chat(provider, messages, apiKey, model), stream(..., onChunk); OpenAI/Anthropic/Google |
 | `electron/langgraph-agent.cjs` | LangGraph agent for chat with tools; invokeLangGraphAgent, runLangGraphAgentSync |
 | `electron/ai-tools-handler.cjs` | resourceSearch, resourceGet, resourceList, resourceSemanticSearch, projectList, projectGet, interactionList, getRecentResources, getCurrentProject (DB + vectorDB) |
 | `electron/personality-loader.cjs` | SOUL.md, USER.md, MEMORY.md, memory/*; getMartinDir, load personality files |
-| `electron/preload.cjs` | window.electron.ai.chat, .stream, .onStreamChunk, .embeddings, .tools.* whitelist and implementation |
+| `electron/preload.cjs` | window.electron.ai.chat, .stream, .onStreamChunk, .tools.* whitelist and implementation |

@@ -229,11 +229,11 @@ export interface StructuredTranscriptPayload {
 
 /**
  * Convenciones para KB LLM (wiki compilada por agentes).
- * Ver docs/kb-llm-wiki-model.md y docs/kb-index-policy.md.
+ * Ver docs/kb-llm-wiki-model.md y docs/indexing.md.
  */
 export interface DomeKbMetadata {
   wikiRole?: 'raw' | 'compiled' | 'index' | 'output';
-  /** Si es true, cada guardado puede programar reindex PageIndex (debounced) en el main process. */
+  /** Si es true, cada guardado puede programar reindex semántico (embeddings, debounced) en el main process. */
   reindexOnSave?: boolean;
   topicId?: string;
   pipelineVersion?: string;

@@ -1,10 +1,12 @@
 ---
 name: audit-errors
 description: Error handling & resilience — Error Boundaries, IPC try/catch, renderer .catch().
-version: 1
+version: 2
 focus: errors
-last_updated: 2026-04-17
+last_updated: 2026-04-26
 ---
+
+> **Context:** `prompts/shared/project-context.md` (v5), `AGENTS.md` (§ Baseline 2026-04).
 
 ## Focus: Error Handling & Resilience
 

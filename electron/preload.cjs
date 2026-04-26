@@ -281,7 +281,7 @@ const ALLOWED_CHANNELS = {
     'ollama:manager:status',
     'ollama:manager:download',
     'ollama:manager:versions',
-    // Vector Database channels removed (LanceDB replaced by PageIndex)
+    // Legacy vector DB / LanceDB IPC removed — semantic index is SQLite + Nomic (see `db:semantic:*`)
     // WhatsApp
     'whatsapp:status',
     'whatsapp:start',
@@ -316,7 +316,6 @@ const ALLOWED_CHANNELS = {
     'ai:langgraph:stream',
     'ai:langgraph:abort',
     'ai:langgraph:resume',
-    'ai:embeddings',
     'ai:testConnection',
     'ai:testWebSearch',
     'ai:webSearch',
@@ -703,16 +702,6 @@ const electronHandler = {
       throw new Error(`Channel not allowed: ${channel}`);
     }
     ipcRenderer.once(channel, (event, ...args) => callback(...args));
-  },
-
-  // send() is deprecated - use invoke() for request-response pattern
-  // This method is kept for backward compatibility but should not be used
-  // It does not validate channels as it's meant to be removed
-  send: (channel, ...args) => {
-    console.warn(`[Preload] send() is deprecated. Use invoke() instead. Channel: ${channel}`);
-    // Note: We don't validate channels here as send() should be removed
-    // If you need to use send(), add the channel to a whitelist first
-    ipcRenderer.send(channel, ...args);
   },
 
   removeAllListeners: (channel) => {
@@ -1315,10 +1304,6 @@ const electronHandler = {
       ipcRenderer.on('ai:stream:chunk', subscription);
       return () => ipcRenderer.removeListener('ai:stream:chunk', subscription);
     },
-
-    // Generate embeddings
-    embeddings: (provider, texts, model) =>
-      ipcRenderer.invoke('ai:embeddings', { provider, texts, model }),
 
     // Test AI connection (minimal API call to verify config)
     testConnection: () =>

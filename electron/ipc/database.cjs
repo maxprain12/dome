@@ -18,9 +18,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   }
 
   /**
-   * PageIndex reindex (debounced) when: metadata.dome_kb.reindexOnSave, or KB LLM is enabled for
+   * Semantic reindex (debounced) when: metadata.dome_kb.reindexOnSave, or KB LLM is enabled for
    * the project and autoReindexWikiOnSave is true in global settings.
-   * See docs/kb-index-policy.md.
+   * See docs/indexing.md and docs/kb-llm-wiki-model.md.
    */
   function maybeScheduleKbReindex(resourceId, mergedResource, current) {
     try {

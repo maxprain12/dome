@@ -146,7 +146,7 @@ npm run build       # must succeed
 Quick architecture self-check (must return 0 lines):
 
 ```bash
-grep -rn "better-sqlite3\|bun:sqlite\|from 'fs'" app/ --include="*.ts" --include="*.tsx"
+grep -rn "better-sqlite3\|from 'fs'\|from 'bun:" app/ --include="*.ts" --include="*.tsx"
 ```
 
 ### Step 5 — Open the PR

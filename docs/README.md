@@ -81,7 +81,7 @@ Documentación completa del proyecto Dome (v2.1.4). Organizada en dos audiencias
 | **Settings**                 | [settings.md](./settings.md)                               | Paneles de configuración, persistencia en settings table |
 | **Onboarding**               | [onboarding.md](./onboarding.md)                           | Flujo Welcome → Profile → AI → Complete                  |
 | **Ollama (guía)**            | [guia-instalacion-ollama.md](./guia-instalacion-ollama.md) | Instalación y configuración de Ollama local              |
-| **Vector DB** *(deprecated)* | [vector-db.md](./vector-db.md)                             | LanceDB — reemplazado por PageIndex en v2.0.0            |
+| **Indexación / embeddings** | [indexing.md](./indexing.md)                               | Nomic, `resource_chunks`, búsqueda híbrida (FTS + grafo) |
 
 
 ---

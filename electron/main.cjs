@@ -497,7 +497,7 @@ function configureFirstLaunchAutoStart() {
     if (!already) {
       // First install — enable start-at-login by default
       app.setLoginItemSettings({ openAtLogin: true });
-      queries.setSetting.run('auto_launch_initialized', '1');
+      queries.setSetting.run('auto_launch_initialized', '1', Date.now());
       console.log('[AutoLaunch] Enabled auto-launch on first install');
     }
   } catch (err) {
@@ -659,7 +659,7 @@ app
     ];
     // speaker-selection: Chromium checks this for audio output / loopback paths with getUserMedia & display capture.
     // Denying it logged "Check denied speaker-selection" and could trigger internal null-iteration errors.
-    // background-sync: dependencies may query this permission; allow on first-party origins to avoid log noise.
+    // background-sync: often queried by SW / tooling; we allow on first-party only.
     const _ALLOWED_PERMISSIONS = new Set([
       'media',
       'microphone',
@@ -669,9 +669,49 @@ app
       'background-sync',
     ]);
 
+    // Denegaciones habituales que no aportan (PWA, mapas, hardware); no spamear consola.
+    // DevTools hace cientos de comprobaciones de permisos al abrir.
+    const _QUIET_DENY_PERMISSIONS = new Set([
+      'geolocation',
+      'web-app-installation',
+      'midi',
+      'serial',
+      'usb',
+      'hid',
+      'bluetooth',
+      'local-fonts',
+      'window-management',
+      'file-system',
+      'idle-detection',
+    ]);
+
+    const _logPermissions =
+      process.env.DOME_LOG_PERMISSIONS === '1' || process.env.DOME_LOG_PERMISSIONS === 'true';
+
     function _isTrustedOrigin(origin) {
       if (!origin) return false;
       return _TRUSTED_ORIGIN_PREFIXES.some((prefix) => origin.startsWith(prefix));
+    }
+
+    function _isDevtoolsOrigin(origin) {
+      if (!origin || typeof origin !== 'string') return false;
+      return (
+        origin.startsWith('devtools://') ||
+        origin.startsWith('chrome-devtools://') ||
+        origin.includes('://devtools') // some builds
+      );
+    }
+
+    /**
+     * RequestHandler: pocos eventos; no spamear orígenes vacíos, DevTools, ni permisos que nunca usamos.
+     * CheckHandler: no loguear (Chromium hace cientos de checks); usar DOME_LOG_PERMISSIONS=1 para depurar.
+     */
+    function _shouldLogRequestDenial(permission, origin) {
+      if (_logPermissions) return true;
+      if (_QUIET_DENY_PERMISSIONS.has(permission)) return false;
+      if (_isDevtoolsOrigin(origin)) return false;
+      if (!origin || origin === '(unknown)') return false;
+      return true;
     }
 
     // Async handler: called when a renderer explicitly requests a permission
@@ -679,7 +719,7 @@ app
     session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
       const origin = details?.requestingUrl || webContents?.getURL?.() || '';
       const trusted = _isTrustedOrigin(origin) && _ALLOWED_PERMISSIONS.has(permission);
-      if (!trusted) {
+      if (!trusted && _shouldLogRequestDenial(permission, origin || '(unknown)')) {
         console.warn(`[Permissions] Denied "${permission}" request from "${origin || '(unknown)'}"`);
       }
       callback(trusted);
@@ -690,7 +730,7 @@ app
     session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
       const origin = requestingOrigin || details?.requestingUrl || webContents?.getURL?.() || '';
       const trusted = _isTrustedOrigin(origin) && _ALLOWED_PERMISSIONS.has(permission);
-      if (!trusted) {
+      if (!trusted && _logPermissions) {
         console.warn(`[Permissions] Check denied "${permission}" from "${origin || '(unknown)'}"`);
       }
       return trusted;

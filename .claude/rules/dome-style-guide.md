@@ -5,10 +5,10 @@
 **Dome** es una aplicación de escritorio para gestión de conocimiento e investigación académica.
 
 ### Stack Principal
-- **Runtime / Gestor de paquetes**: Node.js + **npm** (CI corre `npm ci`; NO usar Bun)
+- **Runtime / Gestor de paquetes**: Node.js + **npm** (CI: `npm ci`; lockfile `package-lock.json`)
 - **Frontend**: **Vite 7 + React 18 + React Router 7** (SPA cliente, entrada `app/main.tsx` — NO Next.js)
-- **Desktop**: Electron 32
-- **Base de Datos**: SQLite vía **`better-sqlite3`** (NO `bun:sqlite`) + LanceDB (vectorial)
+- **Desktop**: Electron 41
+- **Base de Datos**: SQLite vía **`better-sqlite3`** (solo en main) + índice semántico (embeddings Nomic, `resource_chunks`)
 - **Estilos**: Tailwind CSS + CSS Variables + Mantine UI
 - **Editor**: Tiptap
 - **Estado**: Zustand + Jotai
@@ -101,25 +101,22 @@ const resource = await window.electron.invoke('db:resources:getById', resourceId
 
 // ❌ MAL - String concatenation (SQL injection)
 db.exec(`SELECT * FROM resources WHERE id = '${resourceId}'`);
-
-// ❌ MAL - bun:sqlite no existe en Electron (corre sobre Node, no Bun)
-import { Database } from 'bun:sqlite';
 ```
 
 ### Error Handling
 ```typescript
-// ✅ BIEN - Try-catch con logging
+// ✅ BIEN - Try-catch con logging (ej.: IPC al índice semántico en main)
 try {
-  const result = await generateEmbeddings(text);
+  const result = await window.electron.invoke('db:semantic:search', text, 10, undefined);
   return result;
 } catch (error) {
-  console.error('Error al generar embeddings:', error);
-  throw new Error('No se pudieron generar los embeddings');
+  console.error('Error en búsqueda semántica:', error);
+  throw error;
 }
 
 // ❌ MAL - Ignorar errores
 try {
-  const result = await generateEmbeddings(text);
+  await window.electron.invoke('db:semantic:search', text, 10);
 } catch (error) {
   // Silent fail
 }
@@ -195,45 +192,19 @@ const dbPath = '/Users/usuario/Library/dome.db';
 
 ## Directrices de IA
 
-### Cuando generar embeddings
+### Indexación y embeddings (Nomic en main)
 ```typescript
-// Generar embeddings al:
-// 1. Crear un nuevo recurso
-// 2. Editar el contenido de un recurso
-// 3. Importar documentos
-
-async function createResource(data: ResourceData) {
-  // 1. Guardar en SQLite
-  queries.createResource.run(...);
-
-  // 2. Generar embeddings
-  const chunks = chunkText(data.content);
-  const embeddings = await generateEmbeddings(chunks);
-
-  // 3. Guardar en LanceDB
-  await insertResourceEmbeddings(embeddings);
-}
+// El pipeline real está en el proceso principal: semantic-index-scheduler,
+// chunking, embeddings.service (Nomic) → tabla resource_chunks.
+// Tras crear o editar un recurso, el main process programa reindexación; no
+// generes embeddings a mano desde el renderer.
 ```
 
 ### Búsqueda Semántica
 ```typescript
-// Flujo de búsqueda semántica:
-// 1. Usuario hace query
-// 2. Generar embedding del query
-// 3. Buscar en LanceDB
-// 4. Obtener metadatos de SQLite
-// 5. Mostrar resultados
-
-async function semanticSearch(query: string) {
-  const queryEmbedding = await generateEmbeddings([query]);
-  const results = await searchResourceEmbeddings(queryEmbedding[0]);
-
-  // JOIN con SQLite para metadatos completos
-  return results.map(r => ({
-    ...r,
-    resource: queries.getResourceById.get(r.resource_id)
-  }));
-}
+// Híbrida: Nomic (chunks) + FTS5 + grafo — implementado en main (hybrid-search).
+// Desde el renderer usa IPC, p. ej. db:semantic:* o las herramientas del agente
+// resource_semantic_search / resource_get_section.
 ```
 
 ## Variables CSS Disponibles
@@ -289,7 +260,7 @@ npm run clean            # Limpiar build artifacts y user data
 5. **Tipear** todo con TypeScript; imports de tipo con `import type { }`
 6. **Loguear** errores con `console.error`
 7. **2 espacios** de indentación
-8. **npm** como gestor de paquetes (NO Bun — Electron corre sobre Node.js)
+8. **npm** como único gestor de paquetes; lockfile `package-lock.json`
 
 ## Prioridades de Desarrollo
 

@@ -11,16 +11,14 @@ Antes de cada commit, verifica:
 ### 1. Separación de Procesos Electron
 
 ```bash
-# ❌ Verificar que NO hay imports de Node.js en el renderer
-grep -r "require('bun:sqlite')" app/
-grep -r "require('node:fs')" app/
-grep -r "from 'bun:sqlite'" app/
+# ❌ Verificar que NO hay imports de Node.js ni módulos virtuales no soportados en el renderer
+grep -rE "bun:|from 'fs'|from \"fs\"|require\\('node:fs'\\)|from 'node:fs'|from \"node:fs\"" app/ --include="*.ts" --include="*.tsx"
 
-# ✅ Debe retornar 0 resultados en app/
+# ✅ Debe retornar 0 resultados en app/ (ajusta el patrón según .github/workflows/ci.yml)
 ```
 
 **Regla de oro:**
-- `electron/` → Main Process → ✅ Puede usar Node.js/Bun APIs
+- `electron/` → Main Process → ✅ Puede usar Node.js
 - `app/` → Renderer Process → ❌ Solo IPC vía window.electron
 
 ### 2. Sistema de Sincronización
@@ -81,27 +79,27 @@ const ALLOWED_CHANNELS = {
 ## Comandos Útiles para Desarrollo
 
 ```bash
-# Desarrollo completo (Electron + Next.js)
-bun run electron:dev
+# Desarrollo completo (Electron + Vite)
+npm run electron:dev
 
-# Solo Next.js (para probar UI)
-bun run dev
+# Solo Vite (para probar UI, puerto 5173)
+npm run dev
 
 # Testing de base de datos
-bun run test:db
+npm run test:db
 
 # Limpiar datos locales
-bun run clean
+npm run clean
 
 # Build para producción
-bun run build && bun run dist
+npm run build
 ```
 
 ## Testing de Sincronización Cross-Window
 
 ### Test Básico
 
-1. Ejecutar aplicación: `bun run electron:dev`
+1. Ejecutar aplicación: `npm run electron:dev`
 2. Abrir 2 ventanas:
    - Ventana 1: Home
    - Ventana 2: Home en nueva ventana

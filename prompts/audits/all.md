@@ -2,11 +2,13 @@
 
 ## name: audit-all
 description: Comprehensive audit covering every focus. Used for weekly sweeps.
-version: 1
+version: 2
 focus: all
-last_updated: 2026-04-17
+last_updated: 2026-04-26
 
 ## Focus: Full Audit (all areas)
+
+> **Stack baselines:** `prompts/shared/project-context.md` (v5), `AGENTS.md` (§ Baseline 2026-04). Use **npm** / `package-lock.json` only; Electron 41; embeddings Nomic; no SheetJS (`xlsx`).
 
 Perform a comprehensive audit covering:
 

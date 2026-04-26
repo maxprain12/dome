@@ -14,7 +14,7 @@ Review the diff ONLY for architecture violations. Be direct — no preamble, no 
 
 ## Critical rules to enforce
 
-1. Code in `app/` (renderer) must NEVER import Node.js modules: `fs`, `path`, `better-sqlite3`, `bun:sqlite`, `electron`, `child_process`, etc.
+1. Code in `app/` (renderer) must NEVER import Node.js modules: `fs`, `path`, `better-sqlite3`, `electron`, `child_process`, etc., or any non-Node virtual import prefix.
 2. New IPC channels must be whitelisted in `electron/preload.cjs` `ALLOWED_CHANNELS`.
 3. IPC handlers in `electron/ipc/*.cjs` must validate the sender (`event.sender`) and sanitize inputs.
 4. ALL type-only imports must use `import type { }` (`verbatimModuleSyntax` is ON).

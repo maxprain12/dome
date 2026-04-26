@@ -88,7 +88,7 @@ interface DBResponse<T> {
 
 ## KB LLM (wiki compilada por agentes)
 
-Convenciones opcionales en `metadata.dome_kb` (`wikiRole`, `reindexOnSave`, `topicId`) para pipelines de investigación tipo wiki. Ver [kb-llm-wiki-model.md](./kb-llm-wiki-model.md) y [kb-index-policy.md](./kb-index-policy.md).
+Convenciones opcionales en `metadata.dome_kb` (`wikiRole`, `reindexOnSave`, `topicId`) para pipelines de investigación tipo wiki. Ver [kb-llm-wiki-model.md](./kb-llm-wiki-model.md) e [indexing.md](./indexing.md) (reindex semántico).
 
 Plantillas de prompt: `[prompts/kb-wiki-compile.md](../prompts/kb-wiki-compile.md)`, `[prompts/kb-wiki-health.md](../prompts/kb-wiki-health.md)`.
 

@@ -71,7 +71,7 @@ const data = await window.electron.invoke('db:resources:getAll', projectId);
 
 | Capa | Tecnología | Versión |
 |------|-----------|---------|
-| Runtime (dev) | Bun | latest |
+| Runtime (dev) | npm (Node.js) | 20+ (ver `.nvmrc` / `engines` si aplica) |
 | Runtime (Electron) | Node.js | 20+ |
 | Desktop shell | Electron | 32 |
 | Frontend bundler | Vite | 7 |
@@ -150,7 +150,7 @@ dome/
 │   │   ├── db/client.ts        # IPC wrapper para DB operations
 │   │   ├── store/              # Zustand stores (un store por dominio)
 │   │   ├── dome-editor/        # Tiptap extensions (MIT, Dome-owned)
-│   │   ├── chat/               # Chat utilities (docling, etc.)
+│   │   ├── chat/               # Chat utilities, tool cards, artifacts
 │   │   └── utils/              # Pure utilities
 │   │
 │   └── types/global.d.ts       # window.electron TypeScript types
@@ -309,7 +309,7 @@ const resource = await dbClient.getResourceById(id);
 
 ## 6. Indexación semántica (IA en la nube + Nomic)
 
-La búsqueda híbrida usa **chunks vectoriales locales** (Nomic en SQLite) más FTS5 y el grafo. Los PDFs y las imágenes se transcriben o describen con el **LLM en la nube** configurado en Ajustes → IA (visión / multimodal). Los **embeddings** siguen siendo locales (Nomic). **Ya no** se usa PageIndex, Docling, modelo Gemma on-device ni runtime Python embebido.
+La búsqueda híbrida usa **chunks vectoriales locales** (Nomic en `resource_chunks`) más FTS5 y el grafo. Los PDFs y las imágenes se transcriben o describen con el **LLM en la nube** del usuario (Ajustes → IA, visión / multimodal). No hay runtime Python embebido en el proceso principal; el índice semántico vive en SQLite. La transcripción on-device vía **Gemma** se retiró en versiones recientes.
 
 Documentación detallada: **[indexing.md](./indexing.md)**.
 
@@ -395,7 +395,7 @@ Definidas en `electron/ai-chat-with-tools.cjs` y `app/lib/ai/tools/`:
 | `web_fetch` | Descarga y procesa URLs |
 | `deep_research` | Investigación multi-paso |
 | `resource_search` | FTS en biblioteca Dome |
-| `resource_semantic_search` | PageIndex search |
+| `resource_semantic_search` | Búsqueda semántica (embeddings Nomic, chunks + `page_number`) |
 | `resource_get` | Lee contenido de recurso |
 | `resource_create` | Crea nota nueva |
 | `resource_update` | Edita nota existente |
@@ -693,17 +693,17 @@ if (provider === 'dome') {
 
 ```bash
 # Desarrollo
-bun run electron:dev            # Vite + Electron hot reload
-bun run dev                     # Solo Vite (port 5173)
+npm run electron:dev            # Vite + Electron hot reload
+npm run dev                     # Solo Vite (port 5173)
 
 # Producción
-bun run build                   # Build Vite → dist/
-bun run rebuild:natives         # Rebuild módulos nativos para Electron
-bun run electron:build          # Package completo (incluye rebuild)
+npm run build                   # Build Vite → dist/
+npm run rebuild:natives         # Rebuild módulos nativos para Electron
+npm run electron:build          # Package completo (incluye rebuild)
 
 # Utilidades
-bun run copy:pdf-worker         # Copia pdfjs-dist worker a public/
-bun run clean                   # Limpia build artifacts y userData
+npm run copy:pdf-worker         # Copia pdfjs-dist worker a public/
+npm run clean                   # Limpia build artifacts y userData
 ```
 
 ### Módulos nativos (ASAR unpacked)
@@ -758,7 +758,7 @@ El protocolo `app://dome/` en producción carga `dist/index.html` con el interce
 **Solución**:
 ```bash
 lsof -ti:5173 | xargs kill -9
-bun run electron:dev
+npm run electron:dev
 ```
 
 ### better-sqlite3 error tras actualizar Electron
@@ -767,9 +767,9 @@ bun run electron:dev
 
 **Solución**:
 ```bash
-bun run rebuild:natives
+npm run rebuild:natives
 # O:
-bun run verify:natives
+npm run verify:natives
 ```
 
 ### IPC handler no responde

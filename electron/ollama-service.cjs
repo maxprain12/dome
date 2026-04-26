@@ -200,31 +200,6 @@ Resumen:`;
 }
 
 /**
- * Generate embeddings for multiple texts
- * @deprecated Use PageIndex for semantic search instead of vector embeddings
- * @param {string[]} texts - Array of texts to embed
- * @param {string} model - Embedding model name
- * @param {string} baseUrl - Ollama base URL
- * @returns {Promise<number[][]>} Array of embedding vectors
- */
-async function generateEmbeddings(texts, model = DEFAULT_EMBEDDING_MODEL, baseUrl = DEFAULT_BASE_URL, apiKey = '') {
-  const embeddings = [];
-
-  for (const text of texts) {
-    try {
-      const embedding = await generateEmbedding(text, model, baseUrl, apiKey);
-      embeddings.push(embedding);
-    } catch (error) {
-      console.error(`[OllamaService] Error embedding text:`, error);
-      // Continue with next text
-      embeddings.push(null);
-    }
-  }
-
-  return embeddings;
-}
-
-/**
  * List available models from Ollama
  * @param {string} baseUrl - Ollama base URL
  * @returns {Promise<Array<{name: string, size: number, modified_at: string}>>} Array of available models
@@ -454,7 +429,6 @@ function chatStream(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_BASE_URL,
 module.exports = {
   checkAvailability,
   generateEmbedding,
-  generateEmbeddings,
   generateSummary,
   chat,
   chatStream,

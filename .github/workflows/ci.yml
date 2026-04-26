@@ -73,12 +73,12 @@ jobs:
 
       - name: Check no Node.js modules imported in renderer
         run: |
-          # These imports are forbidden in app/ (renderer process)
+          # Forbid direct Node/DB in app/; block non-Node virtual module imports in renderer
           PATTERNS=(
             "from 'better-sqlite3'"
             "require('better-sqlite3')"
-            "from 'bun:sqlite'"
-            "require('bun:sqlite')"
+            "from 'bun:"
+            "require('bun:"
             "from 'node:fs'"
             "require('node:fs')"
           )
