@@ -168,7 +168,7 @@ function ToolBtn({
         border: 'none',
         borderRadius: 5,
         background: active ? 'var(--dome-accent)' : 'transparent',
-        color: active ? '#fff' : disabled ? 'var(--dome-text-muted)' : 'var(--dome-text-secondary)',
+        color: active ? 'var(--base-text)' : disabled ? 'var(--dome-text-muted)' : 'var(--dome-text-secondary)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'background 120ms, color 120ms',
         opacity: disabled ? 0.4 : 1,

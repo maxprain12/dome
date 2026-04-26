@@ -140,7 +140,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
     position: 'fixed',
     inset: 0,
     zIndex: 100,
-    background: 'color-mix(in srgb, #000 45%, transparent)',
+    background: 'rgb(0 0 0 / 0.45)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
