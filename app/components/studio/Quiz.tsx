@@ -153,7 +153,7 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
                     <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
                       style={{
                         background: isCorrect ? 'var(--success)' : isWrong ? 'var(--error)' : isSelected ? 'var(--dome-accent, #596037)' : 'var(--bg-tertiary)',
-                        color: (isCorrect || isWrong || isSelected) ? '#FFFFFF' : 'var(--secondary-text)',
+                        color: (isCorrect || isWrong || isSelected) ? 'var(--base-text)' : 'var(--secondary-text)',
                       }}
                     >
                       {String.fromCharCode(65 + idx)}

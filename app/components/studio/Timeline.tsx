@@ -59,7 +59,7 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
                   <span
                     className="text-xs font-bold"
                     style={{
-                      color: index === 0 ? '#FFFFFF' : 'var(--secondary-text)',
+                      color: index === 0 ? 'var(--base-text)' : 'var(--secondary-text)',
                     }}
                   >
                     {index + 1}

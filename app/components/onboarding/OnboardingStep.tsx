@@ -82,7 +82,7 @@ const OnboardingStep = forwardRef<OnboardingStepRef, OnboardingStepProps>(
             className="px-6 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
               backgroundColor: canProceed && onNext ? 'var(--dome-accent)' : 'var(--dome-surface)',
-              color: canProceed && onNext ? '#fff' : 'var(--dome-text-muted)',
+              color: canProceed && onNext ? 'var(--base-text)' : 'var(--dome-text-muted)',
             }}
           >
             {nextLabel ?? t('onboarding.continue')}
