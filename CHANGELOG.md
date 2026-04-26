@@ -13,6 +13,7 @@ All notable changes to Dome are documented in this file.
 
 - Referencias a **PageIndex** y **Docling** en README, `docs/`, `MASTER.md`, `CLAUDE.md` y prompts alineadas con el **pipeline de embeddings** (Nomic) e [indexing.md](docs/indexing.md); eliminado el índice a `vector-db.md` (no aplica). Enlaces rotos a `kb-index-policy.md` sustituidos por `indexing.md` / `kb-llm-wiki-model.md`.
 - `docs/ai-chat.md`, `docs/ipc.md`, `docs/whatsapp.md`: canal `ai:embeddings` y API preload `send()` / `ai.embeddings` retirados del texto.
+- **Audits VPS** (`prompts/audits/*.md`, `prompts/audits/_chain-header.md`): `version` y `last_updated` alineados (2026-04-26), referencia explícita a `prompts/shared/project-context.md` (v5) y `AGENTS.md` (baseline npm / Electron 41 / ExcelJS).
 
 ### Removed (API obsoletas)
 

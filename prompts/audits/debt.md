@@ -1,10 +1,12 @@
 ---
 name: audit-debt
 description: Technical debt — dead code, duplicate logic, hardcoded colors, console.logs, stale TODOs.
-version: 1
+version: 2
 focus: debt
-last_updated: 2026-04-17
+last_updated: 2026-04-26
 ---
+
+> **Context:** `prompts/shared/project-context.md` (v5), `AGENTS.md` (§ Baseline 2026-04).
 
 ## Focus: Technical Debt
 

@@ -1,10 +1,12 @@
 ---
 name: audit-vulns
 description: Dependency vulnerability scan — npm audit HIGH/CRITICAL, safer alternatives.
-version: 1
+version: 2
 focus: vulns
-last_updated: 2026-04-17
+last_updated: 2026-04-26
 ---
+
+> **Context:** `prompts/shared/project-context.md` (v5), `AGENTS.md` (§ Baseline 2026-04). Use **npm** only; `package-lock.json` is the lockfile.
 
 ## Focus: Dependency Vulnerabilities
 

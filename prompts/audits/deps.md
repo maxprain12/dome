@@ -2,11 +2,13 @@
 
 ## name: audit-deps
 description: Package authorization & freshness — keep dependencies authorized, up-to-date within semver, and CVE-free.
-version: 1
+version: 2
 focus: deps
-last_updated: 2026-04-17
+last_updated: 2026-04-26
 
 ## Focus: Package Authorization & Freshness (deps audit)
+
+> **Context:** `prompts/shared/project-context.md` (v5), `AGENTS.md` (§ Baseline 2026-04). Lockfile: `package-lock.json`; CI: `npm ci`.
 
 Mission: keep every dependency in `package.json` authorized (already listed),
 up-to-date within its semver range, and free of HIGH/CRITICAL CVEs. This focus

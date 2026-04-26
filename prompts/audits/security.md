@@ -1,10 +1,12 @@
 ---
 name: audit-security
 description: Security audit — IPC validation, SQL injection, path traversal, hardcoded secrets, preload surface.
-version: 1
+version: 2
 focus: security
-last_updated: 2026-04-17
+last_updated: 2026-04-26
 ---
+
+> **Context:** `prompts/shared/project-context.md` (v5), `AGENTS.md` (§ Baseline 2026-04).
 
 ## Focus: Security Audit
 

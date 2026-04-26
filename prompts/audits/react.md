@@ -1,10 +1,12 @@
 ---
 name: audit-react
 description: React patterns & performance — useEffect cleanup, state mutations, missing deps, oversized components.
-version: 1
+version: 2
 focus: react
-last_updated: 2026-04-17
+last_updated: 2026-04-26
 ---
+
+> **Context:** `prompts/shared/project-context.md` (v5), `AGENTS.md` (§ Baseline 2026-04).
 
 ## Focus: React Patterns & Performance
 
