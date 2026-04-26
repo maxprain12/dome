@@ -16,14 +16,7 @@ try {
   console.warn('[DocumentExtractor] mammoth module not available, DOCX extraction disabled');
 }
 
-// Try to load xlsx (SheetJS)
-let XLSX = null;
-try {
-  XLSX = require('xlsx');
-  console.log('[DocumentExtractor] xlsx module loaded successfully');
-} catch (error) {
-  console.warn('[DocumentExtractor] xlsx module not available, XLSX extraction disabled');
-}
+const { readWorkbookFromPath, worksheetToCsv } = require('./exceljs-helpers.cjs');
 
 /**
  * Extract plain text from a DOCX file
@@ -52,39 +45,43 @@ const XLSX_SHEET_ROWS = 150;
 /** Default max chars for XLSX extraction (for indexing/RAG) */
 const XLSX_MAX_CHARS = 3000;
 
+const ExcelJS = require('exceljs');
+
 /**
- * Extract plain text from an XLSX/XLS file
- * Iterates all sheets with [Sheet: Name] headers for context preservation
- * @param {string} filePath - Path to the spreadsheet file
- * @param {number} maxChars - Maximum characters to extract (default 3000)
- * @returns {string|null}
+ * Extract plain text from an XLSX file (ExcelJS; legacy .xls is not supported).
+ * Iterates all sheets with [Sheet: Name] headers for context preservation.
+ * @param {string} filePath
+ * @param {number} maxChars
+ * @returns {Promise<string|null>}
  */
-function extractXlsxText(filePath, maxChars = XLSX_MAX_CHARS) {
-  if (!XLSX) {
-    console.warn('[DocumentExtractor] xlsx not available, skipping XLSX extraction');
+async function extractXlsxText(filePath, maxChars = XLSX_MAX_CHARS) {
+  const wb = new ExcelJS.Workbook();
+  try {
+    await readWorkbookFromPath(wb, filePath);
+  } catch (error) {
+    if (error && error.code === 'XLS_LEGACY') {
+      console.warn('[DocumentExtractor] Legacy .xls is not supported; use .xlsx');
+      return null;
+    }
+    console.error('[DocumentExtractor] Error reading spreadsheet:', error.message);
     return null;
   }
 
   try {
-    const workbook = XLSX.readFile(filePath, {
-      sheetRows: XLSX_SHEET_ROWS,
-      cellDates: true, // Convert Excel serial dates to JS Date for readable output
-    });
-    const sheetNames = workbook.SheetNames || [];
-    if (sheetNames.length === 0) return null;
+    if (wb.worksheets.length === 0) return null;
 
     const parts = [];
     let totalChars = 0;
 
-    for (const sheetName of sheetNames) {
+    for (const sheet of wb.worksheets) {
       if (totalChars >= maxChars) break;
-      const sheet = workbook.Sheets[sheetName];
-      if (!sheet) continue;
-
-      const csv = XLSX.utils.sheet_to_csv(sheet).trim();
+      const rawCsv = worksheetToCsv(sheet);
+      const lines = rawCsv.split('\n');
+      const limited = lines.slice(0, XLSX_SHEET_ROWS).join('\n');
+      const csv = limited.trim();
       if (!csv) continue;
 
-      const header = `[Sheet: ${sheetName}]\n`;
+      const header = `[Sheet: ${sheet.name}]\n`;
       const block = header + csv;
       const remaining = maxChars - totalChars;
       const chunk = block.length > remaining ? block.substring(0, remaining) : block;
@@ -156,7 +153,7 @@ async function extractDocumentText(filePath, mimeType) {
 
       case 'xlsx':
       case 'xls':
-        return extractXlsxText(filePath);
+        return await extractXlsxText(filePath);
 
       case 'csv':
         return extractCsvText(filePath);
@@ -248,7 +245,7 @@ async function extractChatAttachmentText(filePath, maxChars = MAX_CHAT_ATTACH_CH
     return extractDocxText(filePath, maxChars);
   }
   if (ext === '.xlsx' || ext === '.xls') {
-    return extractXlsxText(filePath, maxChars);
+    return await extractXlsxText(filePath, maxChars);
   }
   if (ext === '.csv') {
     return extractCsvText(filePath, maxChars);
