@@ -1,22 +1,47 @@
 /* eslint-disable no-console */
 
 /**
- * Agent Team IPC Handler
- * Orchestrates a supervisor LLM that delegates sub-tasks to specialized agents
- * and synthesizes the results into a final response.
+ * Agent Team IPC Handler — LangGraph supervisor.
+ *
+ * The supervisor is a `createAgent` whose tools are: (1) the team's own
+ * tools / MCP servers, and (2) one `delegate_to_<agentId>` tool per member
+ * agent. Each delegation tool spins up its own member `createAgent` and
+ * streams its events back through the parent `onChunk`, tagged with the
+ * member's `agentName` so the renderer can label the UI.
+ *
+ * The renderer expects this chunk shape on `ai:stream:chunk`:
+ *   { streamId, chunk: '<text>' }                    — supervisor synthesis text
+ *   { streamId, type: 'text', text, agentName: 'X' } — member text (status only)
+ *   { streamId, type: 'tool_call'|'tool_result', ... [, agentName] }
+ *   { streamId, agentName: 'X' }                     — switch UI to delegation/X
+ *   { streamId, agentName: null }                    — switch UI to synthesis
+ *   { streamId, done: true }                         — end of stream
+ *   { streamId, error: '<msg>' }
  */
 
 const { setMaxListeners } = require('events');
 const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
 const langgraphAgent = require('../langgraph-agent.cjs');
-const { getToolDefinitionsByIds } = require('../ai-chat-with-tools.cjs');
+const { getToolDefinitionsByIds } = require('../tool-dispatcher.cjs');
 const domeOauth = require('../dome-oauth.cjs');
-const { appendSkillsToPrompt } = require('../skill-prompt.cjs');
+const { appendSkillsToPrompt, filterToolsBySkill } = require('../skill-prompt.cjs');
+const { buildDomeSystemPrompt } = require('../system-prompt.cjs');
+const { readPrompt } = require('../prompts-loader.cjs');
 
 const agentTeamAbortControllers = new Map();
 
+const TEAM_SUPERVISOR_PROMPT_FALLBACK =
+  'You are the supervisor of an Agent Team in Dome. Delegate tasks to your members and synthesize their work into a single coherent answer for the user.';
+
+function getTeamSupervisorTemplate() {
+  const txt = readPrompt('martin/team-supervisor.txt');
+  return typeof txt === 'string' && txt.trim().length > 0
+    ? txt
+    : TEAM_SUPERVISOR_PROMPT_FALLBACK;
+}
+
 /**
- * Get AI settings from database (async for dome provider session refresh)
+ * Get AI settings from database (async for dome provider session refresh).
  */
 async function getAISettings(database) {
   const queries = database.getQueries();
@@ -50,7 +75,8 @@ async function getAISettings(database) {
 }
 
 /**
- * Load agent configs from dedicated agents table
+ * Load agent configs from dedicated agents table, falling back to legacy
+ * `many_agents` setting for older installs.
  */
 function loadAgents(database, projectId = 'default') {
   try {
@@ -82,112 +108,133 @@ function loadAgents(database, projectId = 'default') {
 
 function buildDelegationContext(payload = {}) {
   const lines = ['## Dome Context'];
-
   if (payload.pathname) lines.push(`- Route: ${payload.pathname}`);
   if (payload.homeSidebarSection) lines.push(`- Home section: ${payload.homeSidebarSection}`);
   if (payload.currentFolderId) lines.push(`- Current folder ID: ${payload.currentFolderId}`);
   if (payload.currentResourceId) lines.push(`- Current resource ID: ${payload.currentResourceId}`);
   if (payload.currentResourceTitle) lines.push(`- Current resource title: "${payload.currentResourceTitle}"`);
-
   if (lines.length === 1) return '';
   return `${lines.join('\n')}\n- Use this context when deciding which Dome resources or folders to inspect.\n`;
 }
 
 /**
- * Call an LLM (non-streaming) and return the text response
+ * Lowercase, snake-case, ASCII-only — must match LangChain tool name rules.
  */
-async function callLLM(settings, messages, tools, aiCloudService, ollamaService) {
-  const { provider, apiKey, model, baseUrl } = settings;
-
-  if (provider === 'ollama') {
-    let fullText = '';
-    let toolCalls = [];
-    await new Promise((resolve, reject) => {
-      ollamaService
-        .chatStream(
-          messages.map((m) => ({ role: m.role, content: m.content })),
-          model || 'llama3.2',
-          baseUrl || 'http://127.0.0.1:11434',
-          (data) => {
-            if (data.type === 'text' && data.text) fullText += data.text;
-            if (data.type === 'tool_call') toolCalls.push(data);
-            if (data.type === 'done') resolve();
-            if (data.type === 'error') reject(new Error(data.error));
-          },
-          {
-            temperature: 0.7,
-            think: false,
-            tools: tools || undefined,
-            apiKey: apiKey || undefined,
-          }
-        )
-        .then(resolve)
-        .catch(reject);
-    });
-    return { text: fullText, toolCalls };
-  }
-
-  if (provider === 'dome') {
-    if (!apiKey) throw new Error('Dome provider is not connected. Open Settings > AI > Dome.');
-    const res = await fetch(`${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({ model: model || 'dome/auto', messages }),
-    });
-    if (!res.ok) throw new Error(`Dome API error: ${res.status}`);
-    const data = await res.json();
-    return { text: data?.choices?.[0]?.message?.content || '', toolCalls: [] };
-  }
-
-  // OpenAI / Anthropic / Google via aiCloudService
-  const text = await aiCloudService.chat(provider, messages, apiKey, model);
-  return { text, toolCalls: [] };
+function toolNameForAgent(agent) {
+  const raw = String(agent.id || agent.name || 'agent')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+  return `delegate_to_${raw || 'agent'}`;
 }
 
 /**
- * Stream final synthesis text character by character
+ * Build a single member-as-tool wrapper. The wrapper accepts `{ task }`,
+ * runs the member as its own LangGraph agent, streams events back to the
+ * parent `onChunk` tagged with `agentName`, and returns the final text.
  */
-async function streamText(text, sender, streamId, delay = 6) {
-  const chunkSize = 4;
-  for (let i = 0; i < text.length; i += chunkSize) {
-    if (sender.isDestroyed()) break;
-    const chunk = text.slice(i, i + chunkSize);
-    sender.send('ai:stream:chunk', { streamId, chunk });
-    await new Promise((r) => setTimeout(r, delay));
-  }
+async function buildMemberDelegationTool({
+  agent,
+  contextBlock,
+  teamToolIds,
+  teamMcpServerIds,
+  settings,
+  controller,
+  database,
+  parentOnChunk,
+  send,
+  teamId,
+}) {
+  const { tool } = await import('@langchain/core/tools');
+  const zodMod = await import('zod');
+  const z = zodMod.z ?? zodMod.default ?? zodMod;
+
+  const baseInstructions = (agent.systemInstructions || agent.description || '').trim()
+    || `You are ${agent.name}, a specialized AI assistant.`;
+  const withSkills = appendSkillsToPrompt(
+    baseInstructions,
+    Array.isArray(agent.skillIds) ? agent.skillIds : [],
+    database.getQueries(),
+  );
+  const memberBaseInstructions = `${withSkills}\n\n${contextBlock}\nUse Dome tools when they improve the answer, especially for resource-aware tasks.`;
+  const memberSystemPrompt = buildDomeSystemPrompt({ baseInstructions: memberBaseInstructions });
+
+  const rawToolDefinitions = getToolDefinitionsByIds([
+    ...(Array.isArray(agent.toolIds) ? agent.toolIds : []),
+    ...(Array.isArray(teamToolIds) ? teamToolIds : []),
+  ]);
+  const toolDefinitions = filterToolsBySkill(agent.skillIds, rawToolDefinitions);
+  const mcpServerIds = Array.from(new Set([
+    ...(Array.isArray(agent.mcpServerIds) ? agent.mcpServerIds : []),
+    ...(Array.isArray(teamMcpServerIds) ? teamMcpServerIds : []),
+  ].filter((s) => typeof s === 'string' && s.trim().length > 0)));
+
+  const toolName = toolNameForAgent(agent);
+  const description = (agent.description && agent.description.trim())
+    ? `Delegate a focused subtask to "${agent.name}". ${agent.description.trim()}`
+    : `Delegate a focused subtask to "${agent.name}".`;
+
+  return tool(
+    async ({ task }) => {
+      // Tell the renderer to switch UI status to "delegating to <agent>".
+      send({ agentName: agent.name });
+      let memberResponse = '';
+      try {
+        await langgraphAgent.invokeLangGraphAgent({
+          provider: settings.provider,
+          model: settings.model,
+          apiKey: settings.apiKey,
+          baseUrl: settings.baseUrl,
+          messages: [
+            { role: 'system', content: memberSystemPrompt },
+            { role: 'user', content: String(task || '') },
+          ],
+          toolDefinitions,
+          useDirectTools: toolDefinitions.length > 0 || mcpServerIds.length > 0,
+          mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
+          signal: controller.signal,
+          threadId: `team_${teamId}_${agent.id}_${Date.now()}`,
+          skipHitl: true,
+          onChunk: (chunk) => {
+            if (!chunk || typeof chunk !== 'object') return;
+            if (chunk.type === 'text' && chunk.text) memberResponse += chunk.text;
+            // Suppress per-member done/usage to avoid prematurely closing the team stream.
+            if (chunk.type === 'done' || chunk.type === 'usage') return;
+            parentOnChunk({ ...chunk, agentName: agent.name });
+          },
+        });
+      } catch (err) {
+        if (err?.name === 'AbortError') throw err;
+        const msg = err?.message || String(err);
+        console.error(`[AgentTeam] member ${agent.name} failed:`, msg);
+        return `Error delegating to ${agent.name}: ${msg}`;
+      } finally {
+        // Switch UI status back to supervisor synthesis.
+        send({ agentName: null });
+      }
+      return memberResponse.trim() || `${agent.name} returned no content.`;
+    },
+    {
+      name: toolName,
+      description,
+      schema: z.object({
+        task: z
+          .string()
+          .describe('Concrete subtask for this agent. Include only the context they need to act.'),
+      }),
+    },
+  );
 }
 
-function register({ ipcMain, windowManager, database, aiCloudService, ollamaService }) {
-  /**
-   * ai:team:stream
-   *
-   * Input:
-   *   streamId: string
-   *   teamId: string
-   *   messages: Array<{ role: string; content: string }>
-   *   memberAgentIds: string[]
-   *   supervisorInstructions: string
-   *
-   * Emits ai:stream:chunk events:
-   *   { streamId, chunk: string }                  — streaming text from synthesis
-   *   { streamId, chunk: string, agentName: string } — text from agent delegation phase
-   *   { streamId, done: true }                      — end of stream
-   *   { streamId, error: string }                   — error
-   */
+function register({ ipcMain, windowManager, database }) {
   ipcMain.handle('ai:team:stream', async (event, payload) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-
     if (!payload || typeof payload !== 'object') {
-      const errorMsg = 'Invalid payload: must be an object';
-      console.error('[AgentTeam] Validation error:', errorMsg);
-      return { success: false, error: errorMsg };
+      return { success: false, error: 'Invalid payload: must be an object' };
     }
-
     let streamId, teamId, messages, memberAgentIds, supervisorInstructions, currentResourceId, currentResourceTitle, currentFolderId, pathname, homeSidebarSection, teamToolIds, teamMcpServerIds, projectId;
     try {
       ({
@@ -216,24 +263,16 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     }
 
     if (typeof streamId !== 'string' || !streamId) {
-      const errorMsg = 'Invalid payload: streamId must be a non-empty string';
-      console.error('[AgentTeam] Validation error:', errorMsg);
-      return { success: false, error: errorMsg };
+      return { success: false, error: 'Invalid payload: streamId must be a non-empty string' };
     }
     if (typeof teamId !== 'string' || !teamId) {
-      const errorMsg = 'Invalid payload: teamId must be a non-empty string';
-      console.error('[AgentTeam] Validation error:', errorMsg);
-      return { success: false, error: errorMsg };
+      return { success: false, error: 'Invalid payload: teamId must be a non-empty string' };
     }
     if (!Array.isArray(messages)) {
-      const errorMsg = 'Invalid payload: messages must be an array';
-      console.error('[AgentTeam] Validation error:', errorMsg);
-      return { success: false, error: errorMsg };
+      return { success: false, error: 'Invalid payload: messages must be an array' };
     }
     if (!Array.isArray(memberAgentIds)) {
-      const errorMsg = 'Invalid payload: memberAgentIds must be an array';
-      console.error('[AgentTeam] Validation error:', errorMsg);
-      return { success: false, error: errorMsg };
+      return { success: false, error: 'Invalid payload: memberAgentIds must be an array' };
     }
 
     const send = (data) => {
@@ -253,6 +292,10 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         .map((id) => allAgents.find((a) => a.id === id))
         .filter(Boolean);
 
+      if (memberAgents.length === 0) {
+        throw new Error('No se encontraron agentes del equipo. Verifica la configuración.');
+      }
+
       const contextBlock = buildDelegationContext({
         currentResourceId,
         currentResourceTitle,
@@ -261,214 +304,104 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         homeSidebarSection,
       });
 
-      if (memberAgents.length === 0) {
-        throw new Error('No se encontraron agentes del equipo. Verifica la configuración.');
-      }
-
-      // ── Step 1: Supervisor planning phase ─────────────────────────────
+      // ── Build supervisor prompt ───────────────────────────────────────
       const agentList = memberAgents
-        .map((a, i) => `${i + 1}. ${a.name} (id: ${a.id}) — ${a.description || 'Agente especializado'}`)
+        .map((a) => `- **${a.name}** (call \`${toolNameForAgent(a)}\`): ${a.description || 'Specialized agent'}`)
         .join('\n');
+      const template = getTeamSupervisorTemplate();
+      const supervisorBase = template
+        .replace(/\{\{agentList\}\}/g, agentList)
+        .replace(/\{\{supervisorInstructions\}\}/g, (supervisorInstructions || '').trim());
+      const supervisorSystemPrompt = buildDomeSystemPrompt({
+        baseInstructions: supervisorBase,
+        extraSections: contextBlock ? [contextBlock] : [],
+      });
 
-      const supervisorSystemPrompt = `${supervisorInstructions || 'Eres el supervisor de este equipo de agentes.'}
+      // ── parentOnChunk: forwards member-tagged chunks to renderer ──────
+      const parentOnChunk = (chunk) => {
+        if (!chunk || typeof chunk !== 'object') return;
+        send(chunk);
+      };
 
-Los agentes disponibles en tu equipo son:
-${agentList}
-
-Tu objetivo es:
-1. Analizar la solicitud del usuario.
-2. Decidir qué agentes necesitas y qué subtarea asignarle a cada uno.
-3. Responder en JSON con este formato exacto:
-{
-  "plan": "Breve descripción del plan de trabajo",
-  "delegations": [
-    { "agentId": "<id del agente>", "agentName": "<nombre>", "task": "<descripción clara de la subtarea>" }
-  ]
-}
-Solo responde con el JSON, sin texto adicional.
-
-${contextBlock}`.trim();
-
-      const planMessages = [
-        { role: 'system', content: supervisorSystemPrompt },
-        ...messages,
-      ];
-
-      send({ chunk: '' }); // Trigger UI to start showing status
-
-      let planJSON = '';
-      try {
-        const planResult = await callLLM(settings, planMessages, undefined, aiCloudService, ollamaService);
-        planJSON = planResult.text.trim();
-        // Extract JSON even if wrapped in markdown code blocks
-        const jsonMatch = planJSON.match(/```(?:json)?\s*([\s\S]*?)```/) || planJSON.match(/(\{[\s\S]*\})/);
-        if (jsonMatch) planJSON = jsonMatch[1].trim();
-      } catch (err) {
-        console.error('[AgentTeam] Planning phase error:', err);
-        throw new Error(`Error en la fase de planificación: ${err.message}`);
-      }
-
-      let plan;
-      try {
-        plan = JSON.parse(planJSON);
-      } catch {
-        // If JSON parse fails, create a simple single-agent delegation
-        const firstAgent = memberAgents[0];
-        plan = {
-          plan: 'Delegación directa',
-          delegations: [
-            {
-              agentId: firstAgent.id,
-              agentName: firstAgent.name,
-              task: messages[messages.length - 1]?.content || 'Responde la solicitud del usuario',
-            },
-          ],
-        };
-      }
-
-      const delegations = Array.isArray(plan.delegations) ? plan.delegations : [];
-      if (delegations.length === 0) {
-        // Fallback: delegate to first agent
-        const firstAgent = memberAgents[0];
-        delegations.push({
-          agentId: firstAgent.id,
-          agentName: firstAgent.name,
-          task: messages[messages.length - 1]?.content || '',
-        });
-      }
-
-      // ── Step 2: Execute each agent delegation ─────────────────────────
-      const agentResults = [];
-
-      for (const delegation of delegations) {
-        const agent = memberAgents.find((a) => a.id === delegation.agentId);
-        if (!agent) continue;
-
-        // Signal to UI which agent is working
-        send({ chunk: '', agentName: agent.name });
-
-        let agentSystemPrompt = agent.systemInstructions?.trim()
-          || agent.description
-          || `You are ${agent.name}, a specialized AI assistant.`;
-        agentSystemPrompt = appendSkillsToPrompt(
-          agentSystemPrompt,
-          Array.isArray(agent.skillIds) ? agent.skillIds : [],
-          database.getQueries(),
-        );
-
-        const toolDefinitions = getToolDefinitionsByIds([
-          ...(Array.isArray(agent.toolIds) ? agent.toolIds : []),
-          ...(Array.isArray(teamToolIds) ? teamToolIds : []),
-        ]);
-        const mcpServerIds = [
-          ...(Array.isArray(agent.mcpServerIds) ? agent.mcpServerIds : []),
-          ...(Array.isArray(teamMcpServerIds) ? teamMcpServerIds : []),
-        ];
-
-        const agentMessages = [
-          {
-            role: 'system',
-            content: `${agentSystemPrompt}\n\n${contextBlock}\nUse Dome tools when they improve the answer, especially for resource-aware tasks.`,
-          },
-          {
-            role: 'user',
-            content: delegation.task || messages[messages.length - 1]?.content || '',
-          },
-        ];
-
-        try {
-          let memberResponse = '';
-          const normalizedMcpServerIds = Array.from(
-            new Set(mcpServerIds.filter((serverId) => typeof serverId === 'string' && serverId.trim().length > 0))
-          );
-
-          await langgraphAgent.invokeLangGraphAgent({
-            provider: settings.provider,
-            model: settings.model,
-            apiKey: settings.apiKey,
-            baseUrl: settings.baseUrl,
-            messages: agentMessages,
-            toolDefinitions,
-            useDirectTools: toolDefinitions.length > 0 || normalizedMcpServerIds.length > 0,
-            mcpServerIds: normalizedMcpServerIds.length > 0 ? normalizedMcpServerIds : undefined,
-            signal: controller.signal,
-            threadId: `team_${teamId}_${agent.id}_${Date.now()}`,
-            skipHitl: true,
-            onChunk: (chunk) => {
-              if (!event.sender || event.sender.isDestroyed()) return;
-              if (chunk.type === 'text' && chunk.text) {
-                memberResponse += chunk.text;
-              }
-              send({
-                ...chunk,
-                agentName: agent.name,
-              });
-            },
-          });
-
-          agentResults.push({
-            agentName: agent.name,
-            agentId: agent.id,
-            task: delegation.task,
-            result: memberResponse,
-          });
-        } catch (err) {
-          console.error(`[AgentTeam] Agent ${agent.name} error:`, err);
-          agentResults.push({
-            agentName: agent.name,
-            agentId: agent.id,
-            task: delegation.task,
-            result: `Error: ${err.message}`,
-          });
-        }
-      }
-
-      // ── Step 3: Supervisor synthesis ──────────────────────────────────
-      send({ chunk: '', agentName: null }); // Signal synthesis phase
-
-      const resultSummary = agentResults
-        .map((r) => `## ${r.agentName}\n**Tarea:** ${r.task}\n**Resultado:**\n${r.result}`)
-        .join('\n\n---\n\n');
-
-      const synthesisSystemPrompt = `Eres el supervisor del equipo. Los agentes han completado sus tareas. 
-Sintetiza sus respuestas en una respuesta coherente, bien estructurada y útil para el usuario.
-Integra la información de todos los agentes de forma fluida, evitando repeticiones innecesarias.
-Si hay contradicciones, menciónalas claramente.
-Responde en el idioma del usuario.`;
-
-      const synthesisMessages = [
-        { role: 'system', content: synthesisSystemPrompt },
-        ...messages,
-        {
-          role: 'assistant',
-          content: `He coordinado el equipo. Plan: ${plan.plan || 'Delegar y sintetizar'}.`,
-        },
-        {
-          role: 'user',
-          content: `Los agentes han respondido. Por favor, sintetiza estos resultados:\n\n${resultSummary}\n\nProporciona una respuesta final integrada.`,
-        },
-      ];
-
-      let synthesisText = '';
-      try {
-        const synthesisResult = await callLLM(
+      // ── Build delegation tools ────────────────────────────────────────
+      const memberTools = [];
+      for (const agent of memberAgents) {
+        const t = await buildMemberDelegationTool({
+          agent,
+          contextBlock,
+          teamToolIds,
+          teamMcpServerIds,
           settings,
-          synthesisMessages,
-          undefined,
-          aiCloudService,
-          ollamaService
-        );
-        synthesisText = synthesisResult.text;
-      } catch (err) {
-        console.error('[AgentTeam] Synthesis error:', err);
-        // Fallback: concatenate agent results
-        synthesisText = agentResults
-          .map((r) => `**${r.agentName}:**\n${r.result}`)
-          .join('\n\n');
+          controller,
+          database,
+          parentOnChunk,
+          send,
+          teamId,
+        });
+        memberTools.push(t);
       }
 
-      // Stream the synthesis back to renderer
-      await streamText(synthesisText, event.sender, streamId);
+      // ── Supervisor's own tools (team-level tools + MCP servers) ──────
+      const teamToolDefinitions = getToolDefinitionsByIds(
+        Array.isArray(teamToolIds) ? teamToolIds : [],
+      );
+      const supervisorMcp = Array.isArray(teamMcpServerIds)
+        ? Array.from(new Set(teamMcpServerIds.filter((s) => typeof s === 'string' && s.trim())))
+        : [];
+
+      // ── supervisorOnChunk: translates LangGraph chunks for the renderer ──
+      // Supervisor text accumulates into the message bubble (renderer reads
+      // `data.chunk`). Member text is already forwarded with `type: 'text'` +
+      // `agentName`, so it does not enter this codepath.
+      const supervisorOnChunk = (chunk) => {
+        if (!chunk || typeof chunk !== 'object') return;
+        switch (chunk.type) {
+          case 'text':
+            if (chunk.text) send({ chunk: chunk.text });
+            return;
+          case 'thinking':
+            // Supervisor thinking is internal — drop it.
+            return;
+          case 'tool_call':
+          case 'tool_result':
+            send(chunk);
+            return;
+          case 'usage':
+            send(chunk);
+            return;
+          case 'done':
+            // Suppress: outer handler emits the final `done: true`.
+            return;
+          case 'error':
+            send({ error: chunk.error });
+            return;
+          default:
+            send(chunk);
+        }
+      };
+
+      // Mark the start of the supervisor turn so the renderer shows the
+      // synthesis label until a member tool flips it to "delegating".
+      send({ agentName: null });
+
+      await langgraphAgent.invokeLangGraphAgent({
+        provider: settings.provider,
+        model: settings.model,
+        apiKey: settings.apiKey,
+        baseUrl: settings.baseUrl,
+        messages: [
+          { role: 'system', content: supervisorSystemPrompt },
+          ...messages,
+        ],
+        toolDefinitions: teamToolDefinitions,
+        useDirectTools: true,
+        mcpServerIds: supervisorMcp.length > 0 ? supervisorMcp : undefined,
+        customTools: memberTools,
+        signal: controller.signal,
+        threadId: `team_supervisor_${teamId}_${Date.now()}`,
+        skipHitl: true,
+        onChunk: supervisorOnChunk,
+      });
 
       send({ done: true });
       return { success: true };

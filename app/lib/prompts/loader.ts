@@ -10,8 +10,8 @@ import martinNotebookContext from '../../../prompts/martin/notebook-context.txt?
 import martinExcelContext from '../../../prompts/martin/excel-context.txt?raw';
 import martinPptContext from '../../../prompts/martin/ppt-context.txt?raw';
 import martinDocumentContext from '../../../prompts/martin/document-context.txt?raw';
+import martinArtifacts from '../../../prompts/martin/artifacts.txt?raw';
 import martinFloatingBase from '../../../prompts/martin/floating-base.txt?raw';
-import martinSupervisor from '../../../prompts/martin/supervisor.txt?raw';
 import editorSystem from '../../../prompts/editor/system.txt?raw';
 import editorReview from '../../../prompts/editor/actions/review.txt?raw';
 import editorExpand from '../../../prompts/editor/actions/expand.txt?raw';
@@ -30,8 +30,8 @@ const manyPromptSet = {
   excelContext: martinExcelContext,
   pptContext: martinPptContext,
   documentContext: martinDocumentContext,
+  artifacts: martinArtifacts,
   floatingBase: martinFloatingBase,
-  supervisor: martinSupervisor,
 };
 
 export const prompts = {
@@ -109,31 +109,6 @@ export function buildManyFloatingPrompt(options: {
   });
 }
 
-
-/**
- * Build supervisor prompt for subagents architecture.
- * Used when LangGraph runs with subagent-invocation tools.
- */
-export function buildMartinSupervisorPrompt(options: {
-  location: string;
-  date?: string;
-  time?: string;
-  resourceTitle?: string;
-  includeDateTime?: boolean;
-}): string {
-  const resourceTitleLine = options.resourceTitle
-    ? `- Active resource: "${options.resourceTitle}"\n`
-    : '';
-  const dateTimeSection =
-    options.includeDateTime !== false && options.date && options.time
-      ? `- Date: ${options.date}\n- Time: ${options.time}\n`
-      : '';
-  return replaceAll(prompts.martin.supervisor, {
-    location: options.location,
-    dateTimeSection,
-    resourceTitleLine,
-  });
-}
 
 /**
  * Build Martin resource context section.

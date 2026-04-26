@@ -7,12 +7,15 @@ import ReadingIndicator from './ReadingIndicator';
 import MarkdownRenderer from './MarkdownRenderer';
 import SourceReference from './SourceReference';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
+import AgentRunTimeline from './AgentRunTimeline';
 import { extractCitationNumbers, type ParsedCitation } from '@/lib/utils/citations';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { buildPdfRegionHandoff } from '@/lib/pdf/pdf-region-handoff';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { showToast } from '@/lib/store/useToastStore';
 import type { PdfRegionMeta } from '@/lib/store/useManyStore';
+import { parseArtifactBlocks, stripArtifactBlocks } from '@/lib/chat/artifactSchemas';
+import type { PersistentRunStep } from '@/lib/automations/api';
 
 /**
  * ChatMessage - Individual message with actions
@@ -35,6 +38,8 @@ export interface ChatMessageData {
   agentLabel?: string;
   /** PDF region (cloud vision) — show handoff actions */
   pdfRegionMeta?: PdfRegionMeta;
+  /** Structured run steps streamed from LangGraph / run engine. */
+  runSteps?: PersistentRunStep[];
 }
 
 interface ChatMessageProps {
@@ -171,39 +176,31 @@ export default function ChatMessage({
       });
   }, [message.content, message.citationMap]);
 
-  // Parse artifacts from message content and split into segments for inline rendering
-  // Artifacts are embedded as JSON in ```artifact:TYPE ... ``` blocks — render at their position in text
   const contentSegments = useMemo(() => {
     if (!message.content) return [{ type: 'text' as const, content: '' }];
-
-    const artifactRegex = /```artifact:(\w+)\n([\s\S]*?)```/g;
-    const segments: Array<{ type: 'text'; content: string } | { type: 'artifact'; artifact: AnyArtifact }> = [];
-    let lastIndex = 0;
-    let match;
-
-    while ((match = artifactRegex.exec(message.content)) !== null) {
-      const textBefore = message.content.slice(lastIndex, match.index).trim();
-      if (textBefore) {
-        segments.push({ type: 'text', content: textBefore });
+    const parsed = parseArtifactBlocks(message.content, { allowStreaming: !!message.isStreaming });
+    return parsed.map((seg) => {
+      if (seg.kind === 'text') {
+        return { type: 'text' as const, content: seg.content };
       }
-      try {
-        const artifactType = match[1] as ArtifactType;
-        const artifactData = JSON.parse(match[2]);
-        segments.push({
-          type: 'artifact',
-          artifact: { type: artifactType, ...artifactData } as AnyArtifact,
-        });
-      } catch (error) {
-        console.warn('[ChatMessage] Failed to parse artifact:', error);
+      if (seg.kind === 'artifact') {
+        return {
+          type: 'artifact' as const,
+          artifact: { ...seg.value, type: seg.artifactType as ArtifactType } as AnyArtifact,
+        };
       }
-      lastIndex = match.index + match[0].length;
-    }
-    const textAfter = message.content.slice(lastIndex).trim();
-    if (textAfter) {
-      segments.push({ type: 'text', content: textAfter });
-    }
-    return segments.length > 0 ? segments : [{ type: 'text' as const, content: '' }];
-  }, [message.content]);
+      if (seg.kind === 'invalid') {
+        return {
+          type: 'text' as const,
+          content: `\`\`\`json\n${seg.raw}\n\`\`\`\n*${t('chat.artifact_invalid')}*`,
+        };
+      }
+      return {
+        type: 'text' as const,
+        content: `*${t('chat.artifact_streaming', { type: seg.artifactType, defaultValue: `Generando artefacto (${seg.artifactType})…` })}*`,
+      };
+    });
+  }, [message.content, message.isStreaming, t]);
 
   // Group tool calls by name for cleaner display
   const groupedToolCalls = useMemo(() => {
@@ -218,7 +215,7 @@ export default function ChatMessage({
   }, [message.toolCalls]);
 
   return (
-    <div className={`group relative ${className}`}>
+    <div className={`ai-message-item group relative ${className}`}>
       <div className={`flex flex-col gap-2 ${isUser ? 'items-end' : 'items-start'}`}>
 
         {/* Thinking - styled as minimalist card (Assistant only) */}
@@ -233,7 +230,7 @@ export default function ChatMessage({
                 <ChevronRight className={`h-3.5 w-3.5 transition-transform ${thinkingExpanded ? 'rotate-90' : ''}`} />
               </div>
               <span className="text-[13px] font-medium text-[var(--secondary-text)]">
-                Razonamiento
+                {t('chat.reasoning')}
               </span>
             </button>
 
@@ -260,6 +257,10 @@ export default function ChatMessage({
           </div>
         )}
 
+        {isAssistant && message.runSteps && message.runSteps.length > 0 ? (
+          <AgentRunTimeline steps={message.runSteps} className="max-w-full" />
+        ) : null}
+
         {!isUser && message.agentLabel ? (
           <div className="w-full min-w-0 max-w-full px-2">
             <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--secondary-text)' }}>
@@ -278,8 +279,8 @@ export default function ChatMessage({
                 onClick={handleCopy}
                 className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex h-6 w-6 items-center justify-center rounded-full hover:bg-[var(--bg-hover)]"
                 style={{ color: 'var(--tertiary-text)' }}
-                title="Copiar"
-                aria-label="Copiar mensaje"
+                title={t('chat.copy_message')}
+                aria-label={t('chat.copy_message')}
               >
                 {copied
                   ? <Check className="w-3 h-3" style={{ color: 'var(--success)' }} />
@@ -306,7 +307,7 @@ export default function ChatMessage({
                 <div className="min-w-0 w-full break-words" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                   {isUser ? (
                     <span className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>
-                      {message.content.replace(/```artifact:\w+\n[\s\S]*?```/g, '').trim()}
+                      {stripArtifactBlocks(message.content)}
                     </span>
                   ) : (
                     <>
@@ -332,7 +333,7 @@ export default function ChatMessage({
               ) : message.isStreaming ? (
                 <div className="flex items-center gap-2">
                   <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />
-                  <span className="text-[13px] text-[var(--secondary-text)]">{message.streamingLabel || 'Procesando...'}</span>
+                  <span className="text-[13px] text-[var(--secondary-text)]">{message.streamingLabel || t('chat.processing')}</span>
                 </div>
               ) : null}
 
@@ -398,8 +399,8 @@ export default function ChatMessage({
                     onClick={handleCopy}
                     className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
                     style={{ color: 'var(--tertiary-text)' }}
-                    title="Copiar mensaje"
-                    aria-label="Copiar mensaje"
+                    title={t('chat.copy_message')}
+                    aria-label={t('chat.copy_message')}
                   >
                     {copied ? <Check className="w-3 h-3" style={{ color: 'var(--success)' }} /> : <Copy className="w-3 h-3" />}
                   </button>

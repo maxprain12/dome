@@ -1,31 +1,38 @@
 
 import { memo, useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
-import { Database, Search, ArrowUp, StopCircle, Plug2, FileText, X, Paperclip, Mic, Loader2 } from 'lucide-react';
+import {
+  ArrowUp,
+  StopCircle,
+  FileText,
+  Mic,
+  Loader2,
+  Plus,
+} from 'lucide-react';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
 import { transcribeAudioBlob } from '@/lib/transcription/transcribeBlob';
 import { useMediaRecorder } from '@/lib/transcription/useMediaRecorder';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
-import { useManyStore, type PinnedResource } from '@/lib/store/useManyStore';
+import { useManyStore } from '@/lib/store/useManyStore';
+import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
+import { processAttachmentFile } from '@/lib/chat/processAttachmentFile';
+import { ChatComposerPlusMenuContent, type ChatComposerSkillsHandlers } from '@/components/chat/ChatComposerPlusMenu';
+import { ChatSkillChip } from '@/components/chat/ChatSkillChip';
+import {
+  AI_COMPOSER_INPUT_HANDLER,
+  AI_COMPOSER_TEXTAREA_CLASS,
+  AIComposerAttachmentTray,
+  AIComposerFrame,
+  AIComposerIconButton,
+  AIComposerPinnedResourceChip,
+} from '@/components/chat/AIComposer';
+import { useResourceMention } from '@/lib/chat/useResourceMention';
+import { useSlashSkills, type SlashSkillItem } from '@/lib/chat/useSlashSkills';
+import { InlineModelSwitcher } from '@/components/chat/InlineModelSwitcher';
+import { db } from '@/lib/db/client';
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={onChange}
-      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? 'bg-[var(--accent)]' : 'bg-[var(--bg-tertiary)]'}`}
-    >
-      <span
-        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform mt-0.5 ${checked ? 'translate-x-4' : 'translate-x-0.5'}`}
-      />
-    </button>
-  );
-}
-
-interface ManyChatInputProps {
+export interface ManyChatInputProps {
   input: string;
   setInput: Dispatch<SetStateAction<string>>;
   inputRef: React.RefObject<HTMLTextAreaElement>;
@@ -40,18 +47,13 @@ interface ManyChatInputProps {
   hasMcp: boolean;
   onSend: () => void;
   onAbort: () => void;
-  /** Send transcribed text as a new user message (voice "dictate and send") */
   onVoiceSend?: (text: string) => void;
-  /** When true, renders a larger welcome-screen variant (centered, wider, taller) */
   isWelcomeScreen?: boolean;
-  /** Overrides default placeholder (e.g. PDF Gemma region pending in Many) */
   inputPlaceholderOverride?: string | null;
-}
-
-interface MentionResource {
-  id: string;
-  title: string;
-  type: string;
+  attachments?: ChatAttachment[];
+  onAttachmentsChange?: (items: ChatAttachment[]) => void;
+  /** `full` = slash skills, nested + menu, inline model switcher; `legacy` = previous single-scroll + menu */
+  variant?: 'full' | 'legacy';
 }
 
 export default memo(function ManyChatInput({
@@ -72,9 +74,44 @@ export default memo(function ManyChatInput({
   onVoiceSend,
   isWelcomeScreen = false,
   inputPlaceholderOverride = null,
+  attachments = [],
+  onAttachmentsChange,
+  variant = 'full',
 }: ManyChatInputProps) {
   const { t } = useTranslation();
-  const { pinnedResources, addPinnedResource, removePinnedResource } = useManyStore();
+  const enhanced = variant === 'full';
+  const pinnedResources = useManyStore((s) => s.pinnedResources);
+  const addPinnedResource = useManyStore((s) => s.addPinnedResource);
+  const removePinnedResource = useManyStore((s) => s.removePinnedResource);
+  const pendingOneShotSkillId = useManyStore((s) => s.pendingOneShotSkillId);
+  const setPendingOneShotSkill = useManyStore((s) => s.setPendingOneShotSkill);
+  const activeSkillIdBySession = useManyStore((s) => s.activeSkillIdBySession);
+  const setActiveSkillForSession = useManyStore((s) => s.setActiveSkillForSession);
+  const currentSessionId = useManyStore((s) => s.currentSessionId);
+
+  const activeStickySkillId = currentSessionId ? activeSkillIdBySession[currentSessionId] ?? null : null;
+
+  const [skillLabels, setSkillLabels] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const ids = [pendingOneShotSkillId, activeStickySkillId].filter((x): x is string => !!x);
+    if (!ids.length || !db.isAvailable()) return;
+    let cancelled = false;
+    void db.getAISkills().then((res) => {
+      if (cancelled || !res.success || !Array.isArray(res.data)) return;
+      const next: Record<string, string> = {};
+      for (const row of res.data as Array<{ id?: string; name?: string }>) {
+        if (row.id && ids.includes(row.id)) {
+          next[row.id] = row.name || row.id;
+        }
+      }
+      setSkillLabels((prev) => ({ ...prev, ...next }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingOneShotSkillId, activeStickySkillId]);
+
   const [voiceToSend, setVoiceToSend] = useState(false);
   const voiceArmRef = useRef(false);
 
@@ -105,196 +142,93 @@ export default memo(function ManyChatInput({
   const voicePhase = voiceRecorder.phase;
 
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; above?: boolean } | null>(null);
-
-  // @ mention state
-  const [mentionActive, setMentionActive] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState('');
-  const [mentionResources, setMentionResources] = useState<MentionResource[]>([]);
-  const [mentionSelectedIdx, setMentionSelectedIdx] = useState(0);
-  const [mentionRect, setMentionRect] = useState<{ top: number; left: number } | null>(null);
-  const mentionDropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const selectMentionResource = useCallback(
-    (resource: MentionResource) => {
+  const mention = useResourceMention({
+    input,
+    setInput,
+    inputRef,
+    containerRef,
+    onPinResource: addPinnedResource,
+    enabled: true,
+  });
+
+  const slash = useSlashSkills({
+    input,
+    setInput,
+    inputRef: inputRef as React.RefObject<HTMLTextAreaElement | null>,
+    containerRef,
+    enabled: enhanced,
+  });
+
+  const applySlashOneShot = useCallback(
+    (skill: SlashSkillItem) => {
       const cursor = inputRef.current?.selectionStart ?? input.length;
-      const atIdx = input.slice(0, cursor).lastIndexOf('@');
-      if (atIdx !== -1) {
-        const newInput = input.slice(0, atIdx) + input.slice(cursor);
-        setInput(newInput);
-        requestAnimationFrame(() => {
-          if (inputRef.current) {
-            inputRef.current.selectionStart = atIdx;
-            inputRef.current.selectionEnd = atIdx;
-            inputRef.current.focus();
-          }
-        });
-      }
-      addPinnedResource(resource);
-      setMentionActive(false);
+      slash.removeSlashTokenFromInput(cursor);
+      slash.setSlashActive(false);
+      setPendingOneShotSkill(skill.id);
+      setSkillLabels((prev) => ({ ...prev, [skill.id]: skill.name }));
     },
-    [input, inputRef, setInput, addPinnedResource],
+    [input.length, inputRef, slash, setPendingOneShotSkill],
   );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (mentionActive) {
-        if (e.key === 'ArrowDown') {
-          e.preventDefault();
-          setMentionSelectedIdx((i) => Math.min(i + 1, mentionResources.length - 1));
-          return;
-        }
-        if (e.key === 'ArrowUp') {
-          e.preventDefault();
-          setMentionSelectedIdx((i) => Math.max(i - 1, 0));
-          return;
-        }
-        if (e.key === 'Enter' || e.key === 'Tab') {
-          e.preventDefault();
-          const selected = mentionResources[mentionSelectedIdx];
-          if (selected) selectMentionResource(selected);
-          return;
-        }
-        if (e.key === 'Escape') {
-          setMentionActive(false);
+      if (enhanced) {
+        const slashRes = slash.handleSlashKeyDown(e);
+        if (slashRes.handled) {
+          if (slashRes.skill) {
+            applySlashOneShot(slashRes.skill);
+          }
           return;
         }
       }
+      if (mention.mentionKeyDown(e)) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         onSend();
       }
     },
-    [mentionActive, mentionResources, mentionSelectedIdx, onSend, selectMentionResource],
+    [enhanced, slash, mention, applySlashOneShot, onSend],
   );
 
-  const handleInput = useCallback((e: React.FormEvent<HTMLTextAreaElement>) => {
-    const target = e.target as HTMLTextAreaElement;
-    target.style.height = 'auto';
-    target.style.height = Math.min(target.scrollHeight, 140) + 'px';
-  }, []);
+  const handleInput = AI_COMPOSER_INPUT_HANDLER;
 
-  // Detect @ trigger in input change
+  const handlePickFiles = useCallback(
+    async (fileList: FileList | null) => {
+      if (!fileList?.length || !onAttachmentsChange) return;
+      const next: ChatAttachment[] = [...attachments];
+      for (const file of Array.from(fileList)) {
+        const a = await processAttachmentFile(file);
+        if (a) next.push(a);
+      }
+      onAttachmentsChange(next);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    },
+    [attachments, onAttachmentsChange],
+  );
+
+  const insertAtSymbol = useCallback(() => {
+    mention.insertAtSymbol();
+  }, [mention]);
+
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const val = e.target.value;
       setInput(val);
-
-      // Find the last @ in the text up to cursor
       const cursor = e.target.selectionStart ?? val.length;
-      const textUpToCursor = val.slice(0, cursor);
-      const atIdx = textUpToCursor.lastIndexOf('@');
-
-      if (atIdx !== -1) {
-        const afterAt = textUpToCursor.slice(atIdx + 1);
-        // Only activate if no space after @
-        if (!afterAt.includes(' ') && !afterAt.includes('\n')) {
-          setMentionQuery(afterAt);
-          if (!mentionActive) {
-            setMentionActive(true);
-            setMentionSelectedIdx(0);
-            // Load resources
-            loadMentionResources(afterAt);
-          }
-          return;
-        }
-      }
-      setMentionActive(false);
-    },
-    [mentionActive, setInput],
-  );
-
-  const loadMentionResources = async (query: string) => {
-    const electron = typeof window !== 'undefined' ? window.electron : null;
-    if (!electron?.ai?.tools) return;
-    try {
-      let resources: MentionResource[] = [];
-      if (query.trim() && electron.ai?.tools?.resourceSearch) {
-        const result = await electron.ai.tools.resourceSearch(query, { limit: 15 });
-        if (result?.success && Array.isArray(result?.results)) {
-          resources = result.results.map((r: { id: string; title: string; type: string }) => ({
-            id: r.id,
-            title: r.title,
-            type: r.type,
-          }));
-        }
-      } else if (electron.ai?.tools?.resourceList) {
-        const result = await electron.ai.tools.resourceList({ limit: 20 });
-        if (result?.success && Array.isArray(result?.resources)) {
-          resources = result.resources.map((r: { id: string; title: string; type: string }) => ({
-            id: r.id,
-            title: r.title,
-            type: r.type,
-          }));
-        }
-      }
-      setMentionResources(resources);
-      setMentionSelectedIdx(0);
-    } catch {
-      setMentionResources([]);
-    }
-  };
-
-  // Re-filter when query changes
-  useEffect(() => {
-    if (!mentionActive) return;
-    loadMentionResources(mentionQuery);
-  }, [mentionQuery, mentionActive]);
-
-  // Position mention dropdown above the input area
-  useEffect(() => {
-    if (!mentionActive || !containerRef.current) {
-      setMentionRect(null);
-      return;
-    }
-    const rect = containerRef.current.getBoundingClientRect();
-    setMentionRect({ top: rect.top, left: rect.left });
-  }, [mentionActive]);
-
-  const placeholder =
-    inputPlaceholderOverride ??
-    (resourceToolsEnabled
-      ? t('many.input_placeholder_docs')
-      : toolsEnabled
-        ? t('many.input_placeholder_web')
-        : t('many.input_placeholder_docs'));
-
-  const canVoice = typeof window !== 'undefined' && !!window.electron?.transcription?.bufferToText;
-
-  const onVoicePointerDown = useCallback(
-    (e: React.PointerEvent) => {
-      if (e.button !== 0) return;
-      if (isLoading || voicePhase === 'processing' || voicePhase === 'recording') return;
-      e.preventDefault();
-      (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
-      voiceArmRef.current = true;
-      void voiceRecorder.startMicRecording().then(() => { voiceArmRef.current = false; });
-    },
-    [isLoading, voicePhase, voiceRecorder],
-  );
-
-  const onVoicePointerUp = useCallback(
-    (e: React.PointerEvent) => {
-      if (e.button !== 0) return;
-      try {
-        (e.currentTarget as HTMLButtonElement).releasePointerCapture(e.pointerId);
-      } catch { /* */ }
-      if (voicePhase === 'recording') {
-        voiceRecorder.stopRecording();
-      } else if (voiceArmRef.current) {
-        voiceArmRef.current = false;
-        voiceRecorder.cancelRecording();
+      mention.updateFromText(val, cursor);
+      if (enhanced) {
+        slash.updateFromText(val, cursor);
       }
     },
-    [voicePhase, voiceRecorder],
+    [setInput, enhanced, mention, slash],
   );
-
-  const onVoicePointerCancel = useCallback(() => {
-    if (voicePhase === 'recording') voiceRecorder.cancelRecording();
-  }, [voicePhase, voiceRecorder]);
 
   useEffect(() => {
     if (!showDropdown) {
@@ -333,55 +267,125 @@ export default memo(function ManyChatInput({
     });
   }, [showDropdown]);
 
-  // Close mention on click outside
-  useEffect(() => {
-    if (!mentionActive) return;
-    const handler = (e: MouseEvent) => {
-      if (mentionDropdownRef.current && !mentionDropdownRef.current.contains(e.target as Node)) {
-        setMentionActive(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [mentionActive]);
-
   const hasActiveCapabilities = resourceToolsEnabled || toolsEnabled || mcpEnabled;
+
+  const canVoice =
+    typeof window !== 'undefined' &&
+    typeof window.electron?.transcription?.bufferToText === 'function';
 
   const outerCls = isWelcomeScreen
     ? 'many-input-area bg-transparent px-0 pb-0'
     : 'many-input-area border-t border-[var(--border)] bg-[var(--bg)] px-4 py-3';
 
+  const skillsHandlers: ChatComposerSkillsHandlers | null = enhanced
+    ? {
+        onInvokeOneShot: (id) => {
+          setPendingOneShotSkill(id);
+          setShowDropdown(false);
+        },
+        onSetSticky: (id) => {
+          if (currentSessionId) setActiveSkillForSession(currentSessionId, id);
+          setShowDropdown(false);
+        },
+        activeStickySkillId: activeStickySkillId,
+        onCloseMenu: () => setShowDropdown(false),
+      }
+    : null;
+
+  const menuLayout = enhanced ? 'nested' : 'flat';
+
   return (
     <div className={outerCls}>
-      {/* Pinned resource chips */}
-      {pinnedResources.length > 0 && (
+      {(pinnedResources.length > 0 ||
+        (enhanced && (pendingOneShotSkillId || activeStickySkillId))) && (
         <div className={`flex flex-wrap gap-1.5 mb-2 ${isWelcomeScreen ? 'justify-center' : ''}`}>
           {pinnedResources.map((resource) => (
-            <PinnedResourceChip key={resource.id} resource={resource} onRemove={removePinnedResource} />
+            <AIComposerPinnedResourceChip key={resource.id} resource={resource} onRemove={removePinnedResource} />
           ))}
+          {enhanced && pendingOneShotSkillId ? (
+            <ChatSkillChip
+              label={skillLabels[pendingOneShotSkillId] || pendingOneShotSkillId}
+              onRemove={() => setPendingOneShotSkill(null)}
+            />
+          ) : null}
+          {enhanced && activeStickySkillId ? (
+            <ChatSkillChip
+              sticky
+              label={skillLabels[activeStickySkillId] || activeStickySkillId}
+              onRemove={() => currentSessionId && setActiveSkillForSession(currentSessionId, null)}
+            />
+          ) : null}
         </div>
       )}
 
-      <div
-        ref={containerRef}
-        className="relative flex flex-col overflow-hidden border transition-colors focus-within:border-[var(--border-hover)]"
-        style={{
-          borderRadius: 20,
-          background: 'var(--bg-secondary)',
-          borderColor: 'var(--border)',
-          boxShadow: isWelcomeScreen ? '0 2px 16px rgba(0,0,0,0.08)' : 'var(--shadow-sm)',
+      <AIComposerFrame
+        containerRef={containerRef}
+        isDragging={isDragging}
+        isWelcomeScreen={isWelcomeScreen}
+        onDragOver={(e) => {
+          if (!onAttachmentsChange) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => {
+          if (!onAttachmentsChange) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragging(false);
+          void handlePickFiles(e.dataTransfer?.files ?? null);
         }}
       >
+        {onAttachmentsChange ? (
+          <AIComposerAttachmentTray
+            attachments={attachments}
+            onRemove={(id) => onAttachmentsChange(attachments.filter((item) => item.id !== id))}
+          />
+        ) : null}
+        {onAttachmentsChange ? (
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            accept="image/*,.pdf,.doc,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.ppt,.pptx"
+            onChange={(e) => { void handlePickFiles(e.target.files); }}
+          />
+        ) : null}
         <textarea
           ref={inputRef}
           value={input}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           onInput={handleInput}
-          placeholder={isWelcomeScreen ? 'Pregúntame algo o describe una tarea...' : placeholder}
+          onPaste={(e) => {
+            if (!onAttachmentsChange) return;
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const it of items) {
+              if (it.kind === 'file' && it.type.startsWith('image/')) {
+                e.preventDefault();
+                const f = it.getAsFile();
+                if (f) void handlePickFiles((() => { const d = new DataTransfer(); d.items.add(f); return d.files; })());
+                break;
+              }
+            }
+          }}
+          placeholder={
+            inputPlaceholderOverride != null && inputPlaceholderOverride !== ''
+              ? inputPlaceholderOverride
+              : isWelcomeScreen
+                ? t('chat.ask_placeholder')
+                : resourceToolsEnabled
+                  ? t('many.input_placeholder_docs')
+                  : toolsEnabled
+                    ? t('many.input_placeholder_web')
+                    : t('many.input_placeholder_docs')
+          }
           disabled={isLoading}
           rows={isWelcomeScreen ? 2 : 1}
-          className="w-full resize-none border-none bg-transparent px-4 pt-4 pb-2 text-[14px] text-[var(--primary-text)] placeholder:text-[var(--tertiary-text)] focus:outline-none focus:ring-0 disabled:opacity-50"
+          className={AI_COMPOSER_TEXTAREA_CLASS}
           style={{
             lineHeight: '1.6',
             border: 'none',
@@ -391,128 +395,120 @@ export default memo(function ManyChatInput({
           }}
         />
 
-        {/* Bottom action row */}
         <div className="flex items-center justify-between px-3 pb-3">
-          <div className="flex items-center gap-1">
-            {/* Paperclip / @ mention */}
-            <button
+          <div className="flex min-w-0 flex-1 items-center gap-1">
+              <button
               type="button"
               ref={buttonRef}
-              onClick={() => {
-                // If supports tools, show the capabilities dropdown; otherwise insert @
-                if (supportsTools) {
-                  setShowDropdown(!showDropdown);
-                } else {
-                  const ta = inputRef.current;
-                  if (!ta) return;
-                  const pos = ta.selectionStart ?? input.length;
-                  const newVal = input.slice(0, pos) + '@' + input.slice(pos);
-                  setInput(newVal);
-                  requestAnimationFrame(() => {
-                    ta.focus();
-                    ta.selectionStart = pos + 1;
-                    ta.selectionEnd = pos + 1;
-                    const event = new Event('input', { bubbles: true });
-                    ta.dispatchEvent(event);
-                  });
-                }
-              }}
-              className={`flex h-8 w-8 items-center justify-center rounded-full transition-all ${showDropdown || hasActiveCapabilities
-                ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'
-                : 'text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]'
-                }`}
-              title={supportsTools ? t('many.capabilities_active') : t('many.add_to_context')}
+              onClick={() => setShowDropdown(!showDropdown)}
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all ${
+                showDropdown || hasActiveCapabilities
+                  ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'
+                  : 'text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]'
+              }`}
+              title={t('chat.compose_more')}
+              aria-haspopup="menu"
+              aria-expanded={showDropdown}
+              aria-label={t('chat.compose_more')}
             >
-              <Paperclip size={16} strokeWidth={1.75} />
+              <Plus size={18} strokeWidth={2} />
             </button>
 
-            {/* Capabilities dropdown portal */}
+            {enhanced ? <InlineModelSwitcher /> : null}
+
             {showDropdown && dropdownRect && typeof document !== 'undefined' && createPortal(
               <div
                 ref={dropdownRef}
-                className="fixed min-w-[300px] max-h-[min(360px,60vh)] rounded-xl border shadow-xl py-2 overflow-y-auto"
+                className="fixed z-[var(--z-dropdown)]"
                 style={{
                   top: dropdownRect.above ? undefined : dropdownRect.top,
                   bottom: dropdownRect.above ? window.innerHeight - dropdownRect.top : undefined,
-                  left: dropdownRect.left,
-                  backgroundColor: 'var(--bg-secondary)',
-                  borderColor: 'var(--border)',
-                  zIndex: 'var(--z-dropdown)',
+                  left: Math.min(dropdownRect.left, typeof window !== 'undefined' ? window.innerWidth - 420 : 0),
                 }}
               >
-                <div className="px-3 py-1.5">
-                  <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--secondary-text)' }}>
-                    Capacidades base
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
-                      <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
-                        <Database size={13} />
-                        Recursos
-                      </div>
-                      <Toggle checked={resourceToolsEnabled} onChange={() => setResourceToolsEnabled(!resourceToolsEnabled)} />
-                    </div>
-                    <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
-                      <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
-                        <Search size={13} />
-                        Web
-                      </div>
-                      <Toggle checked={toolsEnabled} onChange={() => setToolsEnabled(!toolsEnabled)} />
-                    </div>
-                    {hasMcp ? (
-                      <div className="flex items-center justify-between gap-3 px-2 py-1.5 rounded hover:bg-[var(--bg)]">
-                        <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--text)' }}>
-                          <Plug2 size={13} />
-                          MCP
-                        </div>
-                        <Toggle checked={mcpEnabled} onChange={() => setMcpEnabled(!mcpEnabled)} />
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-                {hasMcp ? (
-                  <>
-                    <div className="h-px my-1" style={{ backgroundColor: 'var(--border)' }} />
-                    <div className="px-3 py-1">
-                      <div className="text-[10px] uppercase tracking-wider font-medium px-1 mb-1.5" style={{ color: 'var(--secondary-text)' }}>
-                        MCP y tools globales
-                      </div>
-                      <McpCapabilitiesSection />
-                    </div>
-                  </>
-                ) : null}
+                <ChatComposerPlusMenuContent
+                  showAttach={!!onAttachmentsChange}
+                  onAttach={() => {
+                    fileInputRef.current?.click();
+                    setShowDropdown(false);
+                  }}
+                  showAddContext
+                  onAddContext={() => {
+                    insertAtSymbol();
+                    setShowDropdown(false);
+                  }}
+                  manyCapabilities={
+                    supportsTools
+                      ? {
+                          resourceToolsEnabled,
+                          setResourceToolsEnabled,
+                          toolsEnabled,
+                          setToolsEnabled,
+                          mcpEnabled,
+                          setMcpEnabled,
+                          hasMcp,
+                        }
+                      : null
+                  }
+                  toolsSlot={hasMcp ? <McpCapabilitiesSection /> : null}
+                  disableQuick={isLoading}
+                  menuLayout={menuLayout}
+                  isMenuOpen={showDropdown}
+                  skillsHandlers={skillsHandlers}
+                  onCloseMenu={() => setShowDropdown(false)}
+                />
               </div>,
               document.body
             )}
           </div>
 
-          {/* Voice + Send / Stop */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {canVoice ? (
               <div className="flex items-center gap-1">
-                <button
+              <AIComposerIconButton
                   type="button"
-                  onPointerDown={onVoicePointerDown}
-                  onPointerUp={onVoicePointerUp}
-                  onPointerCancel={onVoicePointerCancel}
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return;
+                    if (isLoading || voicePhase === 'processing' || voicePhase === 'recording') return;
+                    e.preventDefault();
+                    (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
+                    voiceArmRef.current = true;
+                    void voiceRecorder.startMicRecording().then(() => { voiceArmRef.current = false; });
+                  }}
+                  onPointerUp={(e) => {
+                    if (e.button !== 0) return;
+                    try {
+                      (e.currentTarget as HTMLButtonElement).releasePointerCapture(e.pointerId);
+                    } catch { /* */ }
+                    if (voicePhase === 'recording') {
+                      voiceRecorder.stopRecording();
+                    } else if (voiceArmRef.current) {
+                      voiceArmRef.current = false;
+                      voiceRecorder.cancelRecording();
+                    }
+                  }}
+                  onPointerCancel={() => {
+                    if (voicePhase === 'recording') voiceRecorder.cancelRecording();
+                  }}
                   onPointerLeave={(e) => {
                     if (voicePhase !== 'recording') return;
                     if (e.buttons === 0) voiceRecorder.cancelRecording();
                   }}
                   disabled={isLoading || voicePhase === 'processing'}
-                  className="flex h-9 w-9 items-center justify-center rounded-full transition-all select-none touch-none"
+                  className="select-none touch-none"
                   style={{
                     background: voicePhase === 'recording' ? 'var(--error)' : 'var(--bg-tertiary)',
-                    color: voicePhase === 'recording' ? '#fff' : 'var(--secondary-text)',
+                    color: voicePhase === 'recording' ? 'var(--base-text)' : 'var(--secondary-text)',
                   }}
                   title={t('manyVoice.ptt_subtitle')}
+                  ariaLabel={t('manyVoice.ptt_subtitle')}
                 >
                   {voicePhase === 'processing' ? (
                     <Loader2 size={16} className="animate-spin" aria-hidden />
                   ) : (
                     <Mic size={16} strokeWidth={2} aria-hidden />
                   )}
-                </button>
+                </AIComposerIconButton>
                 {onVoiceSend ? (
                   <button
                     type="button"
@@ -535,7 +531,8 @@ export default memo(function ManyChatInput({
                 onClick={onAbort}
                 className="flex h-9 w-9 items-center justify-center rounded-full transition-all"
                 style={{ background: 'var(--primary-text)', color: 'var(--bg)' }}
-                title="Detener"
+                title={t('chat.stop')}
+                aria-label={t('chat.stop')}
               >
                 <StopCircle size={16} />
               </button>
@@ -543,30 +540,95 @@ export default memo(function ManyChatInput({
               <button
                 type="button"
                 onClick={onSend}
-                disabled={!input.trim()}
+                disabled={!input.trim() && attachments.length === 0}
                 className="flex h-9 w-9 items-center justify-center rounded-full transition-all"
                 style={{
-                  background: input.trim() ? 'var(--primary-text)' : 'var(--bg-tertiary)',
-                  color: input.trim() ? 'var(--bg)' : 'var(--tertiary-text)',
-                  opacity: input.trim() ? 1 : 0.5,
+                  background: input.trim() || attachments.length > 0 ? 'var(--primary-text)' : 'var(--bg-tertiary)',
+                  color: input.trim() || attachments.length > 0 ? 'var(--bg)' : 'var(--tertiary-text)',
+                  opacity: input.trim() || attachments.length > 0 ? 1 : 0.5,
                 }}
-                title="Enviar"
+                title={t('chat.send')}
+                aria-label={t('chat.send')}
               >
                 <ArrowUp size={17} strokeWidth={2.5} />
               </button>
             )}
           </div>
         </div>
-      </div>
+      </AIComposerFrame>
 
-      {/* @ mention dropdown */}
-      {mentionActive && mentionRect && typeof document !== 'undefined' && createPortal(
+      {enhanced && slash.slashActive && slash.slashRect && typeof document !== 'undefined' && createPortal(
         <div
-          ref={mentionDropdownRef}
+          ref={slash.slashDropdownRef}
           className="fixed rounded-xl border shadow-lg py-1 overflow-y-auto"
           style={{
-            bottom: window.innerHeight - mentionRect.top + 6,
-            left: mentionRect.left,
+            bottom: window.innerHeight - slash.slashRect.top + 6,
+            left: slash.slashRect.left,
+            width: 300,
+            maxHeight: 260,
+            backgroundColor: 'var(--bg)',
+            borderColor: 'var(--border)',
+            zIndex: 'var(--z-popover)',
+          }}
+        >
+          <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--tertiary-text)' }}>
+            {t('chat.slash_skills_title')}
+          </div>
+          {slash.filteredSkills.length === 0 ? (
+            <div className="px-3 py-2 text-[12px]" style={{ color: 'var(--tertiary-text)' }}>
+              {t('common.no_results')}
+            </div>
+          ) : (
+            slash.filteredSkills.map((skill, idx) => (
+              <div
+                key={skill.id}
+                className="border-b border-[var(--border)] last:border-0"
+                style={{ background: idx === slash.slashSelectedIdx ? 'var(--bg-hover)' : 'transparent' }}
+              >
+                <button
+                  type="button"
+                  className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left"
+                  style={{ color: 'var(--primary-text)', fontSize: 13 }}
+                  onMouseEnter={() => slash.setSlashSelectedIdx(idx)}
+                  onClick={() => applySlashOneShot(skill)}
+                >
+                  <span className="font-medium">{skill.name}</span>
+                  {skill.description ? (
+                    <span className="text-[11px] text-[var(--tertiary-text)] line-clamp-2">{skill.description}</span>
+                  ) : null}
+                </button>
+                <div className="flex flex-wrap gap-2 px-3 pb-2">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-[10px] text-[var(--secondary-text)]">
+                    <input
+                      type="checkbox"
+                      checked={activeStickySkillId === skill.id}
+                      onChange={() => {
+                        if (!currentSessionId) return;
+                        const next = activeStickySkillId === skill.id ? null : skill.id;
+                        setActiveSkillForSession(currentSessionId, next);
+                        const cursor = inputRef.current?.selectionStart ?? input.length;
+                        slash.removeSlashTokenFromInput(cursor);
+                        slash.setSlashActive(false);
+                      }}
+                      className="rounded border-[var(--border)]"
+                    />
+                    {t('chat.slash_keep_active')}
+                  </label>
+                </div>
+              </div>
+            ))
+          )}
+        </div>,
+        document.body
+      )}
+
+      {mention.mentionActive && mention.mentionRect && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={mention.mentionDropdownRef}
+          className="fixed rounded-xl border shadow-lg py-1 overflow-y-auto"
+          style={{
+            bottom: window.innerHeight - mention.mentionRect.top + 6,
+            left: mention.mentionRect.left,
             width: 280,
             maxHeight: 240,
             backgroundColor: 'var(--bg)',
@@ -577,19 +639,19 @@ export default memo(function ManyChatInput({
           <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--tertiary-text)' }}>
             {t('many.add_to_context')}
           </div>
-          {mentionResources.length === 0 ? (
+          {mention.mentionResources.length === 0 ? (
             <div className="px-3 py-2 text-[12px]" style={{ color: 'var(--tertiary-text)' }}>
               {t('common.no_results')}
             </div>
           ) : (
-            mentionResources.map((resource, idx) => (
+            mention.mentionResources.map((resource, idx) => (
               <button
                 key={resource.id}
                 type="button"
-                onClick={() => selectMentionResource(resource)}
+                onClick={() => mention.selectMentionResource(resource)}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors"
                 style={{
-                  background: idx === mentionSelectedIdx ? 'var(--bg-hover)' : 'transparent',
+                  background: idx === mention.mentionSelectedIdx ? 'var(--bg-hover)' : 'transparent',
                   color: 'var(--primary-text)',
                   fontSize: 13,
                 }}
@@ -608,35 +670,3 @@ export default memo(function ManyChatInput({
     </div>
   );
 });
-
-function PinnedResourceChip({ resource, onRemove }: { resource: PinnedResource; onRemove: (id: string) => void }) {
-  return (
-    <div
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        padding: '3px 8px 3px 6px',
-        borderRadius: 6,
-        border: '1px solid color-mix(in srgb, var(--accent) 30%, var(--border))',
-        background: 'color-mix(in srgb, var(--accent) 8%, transparent)',
-        fontSize: 11,
-        color: 'var(--secondary-text)',
-        maxWidth: 180,
-      }}
-    >
-      <FileText style={{ width: 11, height: 11, flexShrink: 0, color: 'var(--accent)' }} />
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-        {resource.title}
-      </span>
-      <button
-        type="button"
-        onClick={() => onRemove(resource.id)}
-        style={{ display: 'flex', alignItems: 'center', flexShrink: 0, color: 'var(--tertiary-text)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-        title="Quitar del contexto"
-      >
-        <X style={{ width: 11, height: 11 }} />
-      </button>
-    </div>
-  );
-}

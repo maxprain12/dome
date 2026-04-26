@@ -202,6 +202,8 @@ export {
   createMemoryGetStub,
   createMemoryTools,
 } from './memory';
+
+export { createLoadSkillTools } from './load-skill';
 export type {
   MemorySearchConfig,
   MemorySearchResult,

@@ -231,6 +231,37 @@ async function extractTextFromPDF(filePath, maxChars = 50000) {
   }
 }
 
+const MAX_CHAT_ATTACH_CHARS = 80_000;
+
+/**
+ * Best-effort plain text for chat attachment (path on disk; same process as file picker / drag in Electron)
+ */
+async function extractChatAttachmentText(filePath, maxChars = MAX_CHAT_ATTACH_CHARS) {
+  if (!filePath || !fs.existsSync(filePath)) {
+    return null;
+  }
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === '.pdf') {
+    return extractTextFromPDF(filePath, maxChars);
+  }
+  if (ext === '.docx' || ext === '.doc') {
+    return extractDocxText(filePath, maxChars);
+  }
+  if (ext === '.xlsx' || ext === '.xls') {
+    return extractXlsxText(filePath, maxChars);
+  }
+  if (ext === '.csv') {
+    return extractCsvText(filePath, maxChars);
+  }
+  if (ext === '.txt' || ext === '.md' || ext === '.json' || ext === '.rtf') {
+    return extractPlainText(filePath, maxChars);
+  }
+  if (ext === '.pptx' || ext === '.ppt') {
+    return `[PowerPoint: ${path.basename(filePath)} — import as resource in the library to extract text.]`;
+  }
+  return null;
+}
+
 module.exports = {
   extractDocumentText,
   extractDocxText,
@@ -238,4 +269,5 @@ module.exports = {
   extractCsvText,
   extractPlainText,
   extractTextFromPDF,
+  extractChatAttachmentText,
 };

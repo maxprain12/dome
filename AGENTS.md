@@ -247,23 +247,24 @@ to a specific prompt version.
 ## Reference — where to look
 
 
-| Need                        | Location                                  |
-| --------------------------- | ----------------------------------------- |
-| Architecture rules          | `.claude/rules/architecture-rules.md`     |
-| New IPC step-by-step        | `.claude/sops/new-ipc-channel.md`         |
-| Feature flags usage         | `.claude/sops/feature-flags.md`           |
-| PR checklist                | `.claude/sops/pr-checklist.md`            |
-| Release process             | `.claude/sops/release.md`                 |
-| Color palette variables     | `.claude/rules/new-color-palette.md`      |
-| All translations            | `app/lib/i18n.ts`                         |
-| Existing IPC domains        | `electron/ipc/` (one file per domain)     |
-| Zustand stores              | `app/lib/store/`                          |
-| Tab system                  | `app/lib/store/useTabStore.ts`            |
-| Existing components         | `app/components/`                         |
-| Electron window creation    | `electron/window-manager.cjs`             |
-| AI review prompts           | `prompts/review/*.md`                     |
-| VPS audit prompts           | `prompts/audits/*.md` + `prompts/shared/` |
-| Audit milestones / targets  | `scripts/audit-milestones.json`           |
-| VPS audit + dashboard setup | `docs/vps-audit-setup.md`                 |
+| Need                        | Location                                                                                            |
+| --------------------------- | --------------------------------------------------------------------------------------------------- |
+| Architecture rules          | `.claude/rules/architecture-rules.md`                                                               |
+| New IPC step-by-step        | `.claude/sops/new-ipc-channel.md`                                                                   |
+| Feature flags usage         | `.claude/sops/feature-flags.md`                                                                     |
+| PR checklist                | `.claude/sops/pr-checklist.md`                                                                      |
+| Release process             | `.claude/sops/release.md`                                                                           |
+| Color palette variables     | `.claude/rules/new-color-palette.md`                                                                |
+| All translations            | `app/lib/i18n.ts`                                                                                   |
+| Existing IPC domains        | `electron/ipc/` (one file per domain)                                                               |
+| Zustand stores              | `app/lib/store/`                                                                                    |
+| Tab system                  | `app/lib/store/useTabStore.ts`                                                                      |
+| Existing components         | `app/components/`                                                                                   |
+| **Skills (SKILL.md)**       | `~/.dome/skills/`, project `.dome/skills/`, `electron/skills/bundled/` — see [CLAUDE.md](CLAUDE.md) |
+| Electron window creation    | `electron/window-manager.cjs`                                                                       |
+| AI review prompts           | `prompts/review/*.md`                                                                               |
+| VPS audit prompts           | `prompts/audits/*.md` + `prompts/shared/`                                                           |
+| Audit milestones / targets  | `scripts/audit-milestones.json`                                                                     |
+| VPS audit + dashboard setup | `docs/vps-audit-setup.md`                                                                           |
 
 

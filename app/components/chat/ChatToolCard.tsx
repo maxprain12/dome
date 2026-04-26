@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
+import { tryParseArtifact, ZOD_VALIDATED_ARTIFACT_TYPES } from '@/lib/chat/artifactSchemas';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { parseContentImages, parseImageResult } from '@/lib/chat/image-tool-utils';
 import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
@@ -174,10 +175,24 @@ function parseArtifactResult(result: unknown): AnyArtifact | null {
     if (details.artifact) artifact = details.artifact as AnyArtifact;
   }
   if (!artifact) return null;
-  const artifactType = artifact.type as ArtifactType;
+  const artifactType = (artifact as { type?: string }).type as ArtifactType | undefined;
   if (!artifactType) return null;
-  const validTypes: ArtifactType[] = ['pdf_summary', 'table', 'action_items', 'chart', 'code', 'list'];
-  if (!validTypes.includes(artifactType)) return null;
+  const legacyTypes: ArtifactType[] = [
+    'pdf_summary',
+    'table',
+    'action_items',
+    'chart',
+    'code',
+    'list',
+    'created_entity',
+    'docling_images',
+  ];
+  if (ZOD_VALIDATED_ARTIFACT_TYPES.has(artifactType)) {
+    const validated = tryParseArtifact(artifactType, artifact);
+    if (!validated.ok) return null;
+    return validated.value as AnyArtifact;
+  }
+  if (!legacyTypes.includes(artifactType)) return null;
   return artifact;
 }
 
@@ -482,7 +497,8 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
                       addPinnedResource({ id: item.id, title: item.title, type: item.type });
                     }
                   }}
-                  title={isPinned ? 'Quitar del contexto' : 'Añadir al contexto del chat'}
+                  title={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
+                  aria-label={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
                   className="!p-0 w-5 h-5 min-w-0 shrink-0 text-[var(--tertiary-text)] hover:text-[var(--accent)]"
                 >
                   {isPinned ? (
@@ -548,7 +564,8 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
         maxWidth: '100%',
         fontSize: 13,
         borderLeft: `2px solid ${accentColor}`,
-        borderRadius: '0 4px 4px 0',
+        borderRadius: '0 var(--radius-lg) var(--radius-lg) 0',
+        background: 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
         transition: 'background 150ms ease',
       }}
     >
@@ -600,7 +617,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
                   onClick={() => setShowRawJson(!showRawJson)}
                   className="!h-auto !px-0 !py-0 font-mono text-[10px] underline text-[var(--tertiary-text)] opacity-70 hover:opacity-100"
                 >
-                  {showRawJson ? 'Vista formateada' : 'Ver JSON'}
+                  {showRawJson ? t('chat.formatted_view') : t('chat.view_json')}
                 </DomeButton>
               </div>
             ) : null}
@@ -621,6 +638,7 @@ interface ChatToolCardGroupProps {
 
 export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardGroupProps) {
   const [expanded, setExpanded] = useState(false);
+  const { t } = useTranslation();
   const Icon = getIconForTool(name);
   const label = getLabelForTool(name);
   const category = getCategory(name);
@@ -638,7 +656,8 @@ export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardG
         maxWidth: '100%',
         fontSize: 13,
         borderLeft: `2px solid ${accentColor}`,
-        borderRadius: '0 4px 4px 0',
+        borderRadius: '0 var(--radius-lg) var(--radius-lg) 0',
+        background: 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
         transition: 'background 150ms ease',
       }}
     >
@@ -660,7 +679,7 @@ export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardG
               )}
             </div>
             <span className="text-[13px] font-semibold text-[var(--secondary-text)] leading-snug">
-              {label} ({count})
+              {t('chat.tool_group_count', { label, count })}
             </span>
           </>
         }

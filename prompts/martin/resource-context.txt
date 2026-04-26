@@ -5,3 +5,5 @@
 {{resourceTranscriptionSection}}
 
 Help the user understand, analyze, and work with this resource.
+
+**Do not duplicate this resource.** If the user asks for a dashboard, diagram, calculator, timeline, tabs, playground, or other rich artifact about this resource, emit it as an `artifact:TYPE` block in your reply (see artifacts.txt). Do NOT create new notes named "Dashboard - <resource title>" or similar — that just clones the resource and clutters the workspace. Save a new resource ONLY if the user explicitly says "save it as a note", "guárdalo", or "create a separate document".

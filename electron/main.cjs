@@ -975,6 +975,16 @@ app.on('before-quit', async () => {
   // Semantic indexer runs in-process; no separate subprocess to stop
   await webScraper.close?.();
   await ollamaManager.cleanup();
+  try {
+    require('./checkpointer.cjs').closeDomeCheckpointer();
+  } catch (e) {
+    console.warn('[Main] checkpointer close failed:', e?.message);
+  }
+  try {
+    await require('./observability.cjs').shutdownLangfuse();
+  } catch (e) {
+    console.warn('[Main] langfuse shutdown failed:', e?.message);
+  }
   database.closeDB();
 });
 

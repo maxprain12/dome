@@ -142,6 +142,7 @@ export {
   createDefaultTools,
   createAllMartinTools,
   createManyToolsForContext,
+  createLoadSkillTools,
   createToolsForAgent,
   createToolRegistry,
   
@@ -231,6 +232,10 @@ export {
   // Configuration
   getAIConfig,
   saveAIConfig,
+  getCustomModelsByProvider,
+  saveCustomModelsByProvider,
+  appendCustomModelId,
+  saveChatModelForProvider,
   
   // Chat functions
   chat,
@@ -246,7 +251,6 @@ export {
 
   // Utilities
   chunkText,
-  getMartinSystemPrompt,
 } from './client';
 
-export type { AIConfig, AIProvider } from './client';
+export type { AIConfig, AIProvider, CustomModelsByProvider } from './client';

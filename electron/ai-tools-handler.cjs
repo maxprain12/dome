@@ -26,6 +26,9 @@ const excelToolsHandler = require('./excel-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
 const calendarService = require('./calendar-service.cjs');
 const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
+const path = require('path');
+const skillRegistry = require('./skills/registry.cjs');
+const { renderSkillBody } = require('./skills/renderer.cjs');
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -917,6 +920,89 @@ async function getCurrentProject(automationProjectId = null) {
  * Handles headings, bold, italic, code, bullet/ordered lists,
  * horizontal rules, code blocks, and paragraphs.
  */
+function normalizeAiNoteMarkdown(markdown, title, queries, metadata = {}) {
+  const linkedResourceIds = new Set();
+  let text = String(markdown || '').replace(/\r\n/g, '\n').trim();
+  if (!text) return { markdown: '', linkedResourceIds: [] };
+
+  const explicitSourceIds = [
+    metadata.sourceResourceId,
+    metadata.source_resource_id,
+    metadata.originResourceId,
+    metadata.origin_resource_id,
+  ].filter((value) => typeof value === 'string' && value.trim());
+
+  const resolveResourceMention = (resourceId) => {
+    const resource = queries.getResourceById?.get(resourceId);
+    if (!resource) return null;
+    linkedResourceIds.add(resource.id);
+    const label = String(resource.title || resource.id).replace(/[\]]/g, '');
+    return `@[${label}](${resource.id})`;
+  };
+
+  text = text
+    .split('\n')
+    .map((line) => {
+      const origin = line.match(/^\s*(?:[-*]\s*)?(?:\*\*)?(nota origen|source note|original note)(?:\*\*)?\s*[:|]\s*([A-Za-z0-9_-]{8,})\s*$/i);
+      if (!origin) return line;
+      const mention = resolveResourceMention(origin[2]);
+      return mention ? `> **Nota origen:** ${mention}` : line;
+    })
+    .join('\n');
+
+  for (const sourceId of explicitSourceIds) {
+    if (text.includes(String(sourceId))) continue;
+    const mention = resolveResourceMention(String(sourceId));
+    if (mention) {
+      text = `> **Nota origen:** ${mention}\n\n${text}`;
+    }
+  }
+
+  if (!/^#\s+/m.test(text) && title) {
+    text = `# ${String(title).trim()}\n\n${text}`;
+  }
+
+  const lines = text.split('\n');
+  const normalizedLines = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trimEnd();
+    const isTableRow = /^\s*\|.*\|\s*$/.test(line);
+    normalizedLines.push(isTableRow ? line.replace(/\s*\|\s*/g, ' | ').replace(/^\s*/, '').replace(/\s*$/, '') : line);
+    const next = lines[i + 1] || '';
+    if (isTableRow && !/^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(next) && /^\s*\|.*\|\s*$/.test(next)) {
+      const columns = line.split('|').filter(Boolean).length;
+      normalizedLines.push(`| ${Array.from({ length: columns }, () => '---').join(' | ')} |`);
+    }
+  }
+
+  return {
+    markdown: normalizedLines.join('\n').replace(/\n{3,}/g, '\n\n').trim(),
+    linkedResourceIds: Array.from(linkedResourceIds),
+  };
+}
+
+function createManualResourceRelation(queries, sourceId, targetId, label = 'source_note') {
+  if (!sourceId || !targetId || sourceId === targetId) return;
+  const now = Date.now();
+  const id = `${sourceId}__${targetId}`;
+  const existing = queries.getSemanticRelationByPair?.get(sourceId, targetId);
+  if (existing) {
+    if (existing.relation_type === 'auto' || existing.relation_type === 'rejected') {
+      database.getDB().prepare(`
+        UPDATE semantic_relations
+        SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label), confirmed_at = NULL
+        WHERE id = ?
+      `).run(now, label, existing.id);
+    }
+    return;
+  }
+  try {
+    queries.insertSemanticRelation?.run(id, sourceId, targetId, 1.0, 'manual', label, now, null);
+  } catch (error) {
+    if (!String(error.message || error).includes('UNIQUE')) throw error;
+  }
+}
+
 function markdownToTipTapJSON(markdown) {
   if (!markdown || !markdown.trim()) {
     return JSON.stringify({ type: 'doc', content: [{ type: 'paragraph' }] });
@@ -936,8 +1022,8 @@ function markdownToTipTapJSON(markdown) {
 
   function parseInline(text) {
     const parts = [];
-    // Pattern: **bold**, *italic*, `code`, ~~strike~~
-    const re = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|~~(.+?)~~)/g;
+    // Pattern: @[resource](id), **bold**, *italic*, `code`, ~~strike~~
+    const re = /(@\[([^\]]+)\]\(([^)\s]+)\)|\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`|~~(.+?)~~)/g;
     let last = 0;
     let m;
     while ((m = re.exec(text)) !== null) {
@@ -945,13 +1031,23 @@ function markdownToTipTapJSON(markdown) {
         parts.push({ type: 'text', text: text.slice(last, m.index) });
       }
       if (m[2] !== undefined) {
-        parts.push({ type: 'text', marks: [{ type: 'bold' }], text: m[2] });
-      } else if (m[3] !== undefined) {
-        parts.push({ type: 'text', marks: [{ type: 'italic' }], text: m[3] });
+        parts.push({
+          type: 'mention',
+          attrs: {
+            id: m[3],
+            label: m[2],
+            resourceType: 'note',
+            mentionSuggestionChar: '@',
+          },
+        });
       } else if (m[4] !== undefined) {
-        parts.push({ type: 'text', marks: [{ type: 'code' }], text: m[4] });
+        parts.push({ type: 'text', marks: [{ type: 'bold' }], text: m[4] });
       } else if (m[5] !== undefined) {
-        parts.push({ type: 'text', marks: [{ type: 'strike' }], text: m[5] });
+        parts.push({ type: 'text', marks: [{ type: 'italic' }], text: m[5] });
+      } else if (m[6] !== undefined) {
+        parts.push({ type: 'text', marks: [{ type: 'code' }], text: m[6] });
+      } else if (m[7] !== undefined) {
+        parts.push({ type: 'text', marks: [{ type: 'strike' }], text: m[7] });
       }
       last = m.index + m[0].length;
     }
@@ -986,6 +1082,32 @@ function markdownToTipTapJSON(markdown) {
     if (/^---+$/.test(line.trim()) || /^\*\*\*+$/.test(line.trim())) {
       nodes.push({ type: 'horizontalRule' });
       i++;
+      continue;
+    }
+
+    if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[i + 1])) {
+      const tableRows = [];
+      const headerCells = line.split('|').slice(1, -1).map((cell) => cell.trim());
+      tableRows.push({
+        type: 'tableRow',
+        content: headerCells.map((cell) => ({
+          type: 'tableHeader',
+          content: [{ type: 'paragraph', content: parseInline(cell) }],
+        })),
+      });
+      i += 2;
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) {
+        const cells = lines[i].split('|').slice(1, -1).map((cell) => cell.trim());
+        tableRows.push({
+          type: 'tableRow',
+          content: cells.map((cell) => ({
+            type: 'tableCell',
+            content: [{ type: 'paragraph', content: parseInline(cell) }],
+          })),
+        });
+        i++;
+      }
+      nodes.push({ type: 'table', content: tableRows });
       continue;
     }
 
@@ -1110,10 +1232,21 @@ async function resourceCreate(data) {
     }
 
     let content = data.content || '';
+    let normalizedNoteLinks = [];
+    let metadataForCreate = data.metadata && typeof data.metadata === 'object' ? { ...data.metadata } : null;
     if (type === 'folder') {
       content = '';
     } else if (type === 'note') {
-      content = markdownToTipTapJSON(content);
+      const normalized = normalizeAiNoteMarkdown(content, data.title, queries, metadataForCreate || {});
+      content = markdownToTipTapJSON(normalized.markdown);
+      normalizedNoteLinks = normalized.linkedResourceIds;
+      if (normalizedNoteLinks.length > 0) {
+        metadataForCreate = {
+          ...(metadataForCreate || {}),
+          sourceResourceIds: normalizedNoteLinks,
+          aiNoteNormalized: true,
+        };
+      }
     } else if (type === 'notebook') {
       if (!content.trim()) {
         content = DEFAULT_NOTEBOOK_JSON;
@@ -1167,10 +1300,16 @@ async function resourceCreate(data) {
       content,
       null, // file_path
       resolvedFolderId,
-      data.metadata ? JSON.stringify(data.metadata) : null,
+      metadataForCreate ? JSON.stringify(metadataForCreate) : null,
       now,
       now
     );
+
+    if (type === 'note' && normalizedNoteLinks.length > 0) {
+      for (const targetId of normalizedNoteLinks) {
+        createManualResourceRelation(queries, id, targetId, 'source_note');
+      }
+    }
 
     const resource = {
       id,
@@ -1219,8 +1358,16 @@ async function resourceUpdate(resourceId, updates) {
     let content = updates.content !== undefined ? updates.content : existing.content;
 
     // Convert markdown to TipTap JSON for note resources
+    let normalizedNoteLinks = [];
     if (existing.type === 'note' && updates.content !== undefined) {
-      content = markdownToTipTapJSON(content);
+      let existingMetaForNormalize = {};
+      try { existingMetaForNormalize = existing.metadata ? JSON.parse(existing.metadata) : {}; } catch { existingMetaForNormalize = {}; }
+      const normalized = normalizeAiNoteMarkdown(content, title, queries, {
+        ...existingMetaForNormalize,
+        ...(updates.metadata && typeof updates.metadata === 'object' ? updates.metadata : {}),
+      });
+      content = markdownToTipTapJSON(normalized.markdown);
+      normalizedNoteLinks = normalized.linkedResourceIds;
     }
 
     // Merge metadata
@@ -1229,6 +1376,15 @@ async function resourceUpdate(resourceId, updates) {
       let existingMeta = {};
       try { existingMeta = metadata ? JSON.parse(metadata) : {}; } catch { existingMeta = {}; }
       metadata = JSON.stringify({ ...existingMeta, ...updates.metadata });
+    }
+    if (normalizedNoteLinks.length > 0) {
+      let existingMeta = {};
+      try { existingMeta = metadata ? JSON.parse(metadata) : {}; } catch { existingMeta = {}; }
+      metadata = JSON.stringify({
+        ...existingMeta,
+        sourceResourceIds: Array.from(new Set([...(existingMeta.sourceResourceIds || []), ...normalizedNoteLinks])),
+        aiNoteNormalized: true,
+      });
     }
 
     const now = Date.now();
@@ -1278,6 +1434,12 @@ async function resourceUpdate(resourceId, updates) {
     }
 
     queries.updateResource.run(title, content, metadata, now, resourceId);
+
+    if (existing.type === 'note' && normalizedNoteLinks.length > 0) {
+      for (const targetId of normalizedNoteLinks) {
+        createManualResourceRelation(queries, resourceId, targetId, 'source_note');
+      }
+    }
 
     let metadataObj = null;
     try {
@@ -1914,7 +2076,7 @@ async function getToolDefinition(toolName) {
 
   // Dome tools (lazy require to avoid circular dependency)
   try {
-    const { getAllToolDefinitions } = require('./ai-chat-with-tools.cjs');
+    const { getAllToolDefinitions } = require('./tool-dispatcher.cjs');
     const all = getAllToolDefinitions();
     const dome = all.find((d) => {
       const n = String(d?.function?.name || '')
@@ -1987,6 +2149,89 @@ async function rememberFact(key, value) {
   personalityLoader.updateLongTermMemory(key, value);
   personalityLoader.addMemoryEntry(`**${key}**: ${value}`);
   return { success: true, message: `Remembered: ${key}` };
+}
+
+// =============================================================================
+// File-based skills (SKILL.md) — used by load_skill / load_skill_file
+// =============================================================================
+
+function getDisableSkillShell() {
+  try {
+    const q = database.getQueries();
+    const row = q.getSetting.get('disable_skill_shell_execution');
+    return row?.value === '1' || row?.value === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * @param {Record<string, unknown>} args
+ */
+async function loadSkill(args = {}) {
+  const name = String(args.name || args.skill || '').trim();
+  if (!name) {
+    return { success: false, error: 'name is required (skill slash name, e.g. research-assistant)' };
+  }
+  const rec = skillRegistry.resolve(name) || skillRegistry.getById(name);
+  if (!rec) {
+    return { success: false, error: `Skill not found: ${name}. Use the exact /name from ## Available Skills.` };
+  }
+  if (rec.disable_model_invocation) {
+    return {
+      success: false,
+      error: 'This skill is manual-only. Use / in the input to invoke it, or ask the user to change disable-model-invocation in SKILL.md.',
+    };
+  }
+  if (rec.context === 'fork') {
+    return {
+      success: false,
+      error: 'This skill is configured for context: fork. Use the /skill command in chat or run it from the skills menu; forked subagent is not available in this tool path yet.',
+    };
+  }
+  const body = renderSkillBody(rec.body, {
+    argumentsLine: args.arguments != null ? String(args.arguments) : typeof args.A === 'string' ? args.A : '',
+    namedArgs: rec.arguments,
+    sessionId: String(args.session_id || args.sessionId || ''),
+    skillDir: rec.dirPath,
+    shell: rec.shell,
+    disableSkillShellExecution: getDisableSkillShell(),
+  });
+  return {
+    success: true,
+    skill: rec.name,
+    content: `## ${rec.name}\n\n${body}`,
+  };
+}
+
+/**
+ * @param {Record<string, unknown>} args
+ */
+async function loadSkillFile(args = {}) {
+  const skill = String(args.skill || args.name || '').trim();
+  const rel = String(args.path || '').replace(/^\/+/, '');
+  if (!skill || !rel) {
+    return { success: false, error: 'skill and path are required' };
+  }
+  const rec = skillRegistry.resolve(skill) || skillRegistry.getById(skill);
+  if (!rec?.dirPath) {
+    return { success: false, error: 'Skill not found' };
+  }
+  const clean = rel.split('/').filter((p) => p && p !== '..' && p !== '.').join(path.sep);
+  const full = path.resolve(rec.dirPath, clean);
+  const base = path.resolve(rec.dirPath);
+  if (full.length < base.length || (!full.startsWith(base + path.sep) && full !== base)) {
+    return { success: false, error: 'Invalid path' };
+  }
+  if (!fs.existsSync(full) || !fs.statSync(full).isFile()) {
+    return { success: false, error: 'File not found' };
+  }
+  const text = fs.readFileSync(full, 'utf8');
+  return {
+    success: true,
+    path: rel,
+    content: text.length > 200_000 ? `${text.slice(0, 200_000)}\n[truncated]` : text,
+  };
 }
 
 // =============================================================================
@@ -2162,6 +2407,91 @@ async function getRelatedResources({ resource_id } = {}) {
     };
   } catch (err) {
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Generate a semantic similarity graph around a resource.
+ * Mirrors the renderer `db:semantic:getGraph` implementation so that
+ * LangGraph tool calls from main can produce the same payload.
+ * @param {Object} params
+ * @param {string} params.focus_resource_id - Center resource
+ * @param {number} [params.min_weight=0.35] - Minimum edge similarity (0-1)
+ */
+async function generateKnowledgeGraph({ focus_resource_id, min_weight } = {}) {
+  try {
+    if (!focus_resource_id) {
+      return { success: false, error: 'focus_resource_id is required' };
+    }
+    const th = Math.max(0, Math.min(1, Number(min_weight ?? 0.35) || 0.35));
+    const center = focus_resource_id;
+    const db = database.getDB();
+
+    const nodes = db
+      .prepare(
+        `
+        SELECT r.id, r.title AS label, r.type AS resourceType,
+          (SELECT COUNT(*) FROM semantic_relations sr
+           WHERE (sr.source_id = r.id OR sr.target_id = r.id)
+           AND sr.similarity >= @th
+           AND sr.relation_type != 'rejected') AS connectionCount,
+          CASE WHEN r.id = @center THEN 1 ELSE 0 END AS isCurrentNote
+        FROM resources r
+        WHERE r.id IN (
+          SELECT source_id FROM semantic_relations
+          WHERE target_id = @center AND similarity >= @th AND relation_type != 'rejected'
+          UNION
+          SELECT target_id FROM semantic_relations
+          WHERE source_id = @center AND similarity >= @th AND relation_type != 'rejected'
+          UNION SELECT @center
+        )
+      `,
+      )
+      .all({ th, center });
+
+    const edges = db
+      .prepare(
+        `
+        SELECT id,
+               source_id AS source,
+               target_id AS target,
+               similarity,
+               relation_type,
+               label
+        FROM semantic_relations
+        WHERE (source_id = @center OR target_id = @center)
+          AND similarity >= @th
+          AND relation_type != 'rejected'
+        ORDER BY similarity DESC
+        LIMIT 60
+      `,
+      )
+      .all({ center, th });
+
+    return {
+      success: true,
+      status: 'success',
+      graph: {
+        node_count: nodes.length,
+        edge_count: edges.length,
+        focus_node: center,
+        nodes: nodes.map((n) => ({
+          id: n.id,
+          label: n.label || 'Untitled',
+          type: n.resourceType || 'note',
+        })),
+        edges: edges.map((e) => ({
+          source: e.source,
+          target: e.target,
+          relation: e.relation_type,
+          weight: e.similarity,
+          label: e.label,
+        })),
+      },
+    };
+  } catch (error) {
+    console.error('[AI Tools] generateKnowledgeGraph error:', error);
+    return { success: false, error: error.message };
   }
 }
 
@@ -2663,9 +2993,13 @@ module.exports = {
   // Memory tools
   rememberFact,
 
+  loadSkill,
+  loadSkillFile,
+
   // Graph / linking tools
   linkResources,
   getRelatedResources,
+  generateKnowledgeGraph,
 
   // Calendar tools
   calendarListEvents,

@@ -14,7 +14,8 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { app } = require('electron');
-const { chatWithToolsInMain, getWhatsAppToolDefinitions } = require('../ai-chat-with-tools.cjs');
+const { getWhatsAppToolDefinitions } = require('../tool-dispatcher.cjs');
+const { runLangGraphAgentSync } = require('../langgraph-agent.cjs');
 
 // Dependencias que se inyectan
 let database = null;
@@ -331,6 +332,7 @@ async function createUrlResource(from, url) {
 }
 
 const promptsLoader = require('../prompts-loader.cjs');
+const { buildDomeSystemPrompt } = require('../system-prompt.cjs');
 
 /**
  * Builds an enhanced system prompt with context about the user's resources.
@@ -438,17 +440,17 @@ async function askMartin(from, question) {
     const providerResult = queries.getSetting.get('ai_provider');
     const provider = providerResult?.value;
 
-    // Build enhanced system prompt with context
-    let systemPrompt = await buildEnhancedSystemPrompt();
+    let baseInstructions = await buildEnhancedSystemPrompt();
 
-    // If the question might need resources, search and add to context
     if (mightNeedResourceSearch(question)) {
       const resourceContext = await searchResourcesForContext(question);
       if (resourceContext) {
-        systemPrompt += resourceContext;
-        systemPrompt += '\n\nUse this resource information to answer the user\'s question.';
+        baseInstructions += resourceContext;
+        baseInstructions += '\n\nUse this resource information to answer the user\'s question.';
       }
     }
+
+    const systemPrompt = buildDomeSystemPrompt({ baseInstructions });
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -456,43 +458,54 @@ async function askMartin(from, question) {
     ];
 
     const toolDefinitions = getWhatsAppToolDefinitions();
+    const phoneKey = String(from || '').replace(/[^a-z0-9]/gi, '_').slice(0, 32) || 'anon';
+    const threadId = `wa_${phoneKey}_${Date.now()}`;
 
-    // 1. Intentar usar la IA configurada con tools (OpenAI, Anthropic, Google, Ollama)
+    async function runViaLangGraph(providerName) {
+      const apiKey =
+        providerName === 'ollama'
+          ? (queries.getSetting.get('ollama_api_key')?.value || undefined)
+          : queries.getSetting.get('ai_api_key')?.value;
+      const model =
+        providerName === 'ollama'
+          ? (queries.getSetting.get('ollama_model')?.value || 'llama3.2')
+          : queries.getSetting.get('ai_model')?.value;
+      const baseUrl =
+        providerName === 'ollama'
+          ? (queries.getSetting.get('ollama_base_url')?.value || ollamaService?.DEFAULT_BASE_URL || 'http://127.0.0.1:11434')
+          : undefined;
+      const result = await runLangGraphAgentSync({
+        provider: providerName,
+        model,
+        apiKey,
+        baseUrl,
+        messages,
+        toolDefinitions,
+        useDirectTools: true,
+        skipHitl: true,
+        threadId,
+      });
+      return result?.response ?? '';
+    }
+
     if (provider && ['openai', 'anthropic', 'google'].includes(provider)) {
       try {
-        const apiKeyResult = queries.getSetting.get('ai_api_key');
-        const apiKey = apiKeyResult?.value;
-
-        if (apiKey) {
-
-          const response = await chatWithToolsInMain(provider, messages, toolDefinitions, {
-            database,
-            windowManager,
-            maxIterations: 5,
-          });
-          await session.sendText(from, response);
-          return { success: true, response };
-        }
-
-        throw new Error(`API key no configurada para ${provider}`);
+        const apiKey = queries.getSetting.get('ai_api_key')?.value;
+        if (!apiKey) throw new Error(`API key no configurada para ${provider}`);
+        const response = await runViaLangGraph(provider);
+        await session.sendText(from, response);
+        return { success: true, response };
       } catch (error) {
         console.warn(`[WhatsApp Handler] Cloud AI error, trying Ollama fallback:`, error.message);
-        // Continuar a fallback de Ollama
       }
     }
 
-    // 2. Fallback a Ollama con tools si está disponible
     if (ollamaService) {
       const ollamaBaseUrl = queries.getSetting.get('ollama_base_url')?.value || ollamaService.DEFAULT_BASE_URL;
       const ollamaApiKey = queries.getSetting.get('ollama_api_key')?.value || '';
       const isAvailable = await ollamaService.checkAvailability(ollamaBaseUrl, ollamaApiKey);
       if (isAvailable) {
-
-        const response = await chatWithToolsInMain('ollama', messages, toolDefinitions, {
-          database,
-          windowManager,
-          maxIterations: 5,
-        });
+        const response = await runViaLangGraph('ollama');
         await session.sendText(from, response);
         return { success: true, response };
       }

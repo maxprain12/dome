@@ -1,36 +1,5 @@
 /* eslint-disable no-console */
 
-/**
- * Convert OpenAI-format tool definitions to Anthropic format
- * OpenAI: { type: 'function', function: { name, description, parameters } }
- * Anthropic: { name, description, input_schema }
- * @param {Array} tools - OpenAI-format tool definitions
- * @returns {Array} Anthropic-format tool definitions
- */
-function convertToolsToAnthropic(tools) {
-  if (!tools || !Array.isArray(tools)) return undefined;
-
-  return tools.map(tool => {
-    if (tool.type === 'function' && tool.function) {
-      return {
-        name: tool.function.name,
-        description: tool.function.description || '',
-        input_schema: tool.function.parameters || { type: 'object', properties: {} },
-      };
-    }
-    // Already in Anthropic format or unknown format
-    if (tool.name && tool.input_schema) {
-      return tool;
-    }
-    // Passthrough
-    return {
-      name: tool.name || 'unknown',
-      description: tool.description || '',
-      input_schema: tool.parameters || tool.input_schema || { type: 'object', properties: {} },
-    };
-  });
-}
-
 const { setMaxListeners } = require('events');
 const langgraphAgent = require('../langgraph-agent.cjs');
 const domeOauth = require('../dome-oauth.cjs');
@@ -117,27 +86,22 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
   });
 
   /**
-   * Stream chat with cloud AI provider
-   * Uses webContents.send to stream chunks back to renderer
+   * Stream chat with a provider for plain completions (no tools).
+   * Tool-calling is handled exclusively via LangGraph (ai:langgraph:stream / runs:startLangGraph).
    */
   ipcMain.handle('ai:stream', async (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    let provider;
-    let messages;
-    let model;
-    let streamId;
-    let tools;
-
     if (!params || typeof params !== 'object') {
       return { success: false, error: 'Invalid params' };
     }
-    ({ provider, messages, model, streamId, tools } = params);
+
+    const { provider, messages, streamId } = params;
+    let { model } = params;
 
     try {
-      // Validate inputs
       if (!provider || !['openai', 'anthropic', 'google', 'dome', 'ollama', 'minimax'].includes(provider)) {
         throw new Error('Invalid provider. Must be openai, anthropic, google, dome, ollama, or minimax');
       }
@@ -156,7 +120,6 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
             model: model || 'dome/auto',
             messages,
             stream: true,
-            ...(tools && tools.length > 0 ? { tools } : {}),
           }),
         });
 
@@ -169,7 +132,6 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         const decoder = new TextDecoder();
         let buffer = '';
         let fullContent = '';
-        const pendingToolCalls = {}; // index → { id, name, argumentsBuffer }
 
         while (true) {
           const { done, value } = await reader.read();
@@ -190,40 +152,10 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
             }
             try {
               const parsed = JSON.parse(raw);
-              const choice = parsed.choices?.[0];
-              if (!choice) continue;
-              const delta = choice.delta;
-              const finishReason = choice.finish_reason;
-
-              // Text content
+              const delta = parsed.choices?.[0]?.delta;
               if (delta?.content && event.sender && !event.sender.isDestroyed()) {
                 fullContent += delta.content;
                 event.sender.send('ai:stream:chunk', { streamId, type: 'text', text: delta.content });
-              }
-
-              // Accumulate streaming tool_calls deltas (arrive in pieces across chunks)
-              if (delta?.tool_calls) {
-                for (const tcDelta of delta.tool_calls) {
-                  const idx = tcDelta.index ?? 0;
-                  if (!pendingToolCalls[idx]) pendingToolCalls[idx] = { id: '', name: '', argumentsBuffer: '' };
-                  const p = pendingToolCalls[idx];
-                  if (tcDelta.id) p.id = tcDelta.id;
-                  if (tcDelta.function?.name) p.name = tcDelta.function.name;
-                  if (tcDelta.function?.arguments) p.argumentsBuffer += tcDelta.function.arguments;
-                }
-              }
-
-              // Emit complete tool calls when all args have arrived
-              if (finishReason === 'tool_calls') {
-                for (const p of Object.values(pendingToolCalls)) {
-                  if (p.id && p.name && event.sender && !event.sender.isDestroyed()) {
-                    event.sender.send('ai:stream:chunk', {
-                      streamId,
-                      type: 'tool_call',
-                      toolCall: { id: p.id, name: p.name, arguments: p.argumentsBuffer },
-                    });
-                  }
-                }
               }
             } catch {
               // ignore malformed SSE lines
@@ -231,28 +163,22 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
           }
         }
 
-        // Fallback done if stream ended without [DONE]
         if (event.sender && !event.sender.isDestroyed()) {
           event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
         }
         return { success: true, content: fullContent };
       }
 
-      // ollama: stream locally without API key
       if (provider === 'ollama') {
         try {
           const queries = database.getQueries();
-          const baseUrlResult = queries.getSetting.get('ollama_base_url');
-          const modelResult = queries.getSetting.get('ollama_model');
+          const baseUrl = queries.getSetting.get('ollama_base_url')?.value || ollamaService.DEFAULT_BASE_URL;
+          const chatModel = model || queries.getSetting.get('ollama_model')?.value || ollamaService.DEFAULT_MODEL;
           const tempResult = queries.getSetting.get('ollama_temperature');
           const topPResult = queries.getSetting.get('ollama_top_p');
           const numPredictResult = queries.getSetting.get('ollama_num_predict');
-          const ollamaApiKeyResult = queries.getSetting.get('ollama_api_key');
-          const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
-          const chatModel = model || modelResult?.value || ollamaService.DEFAULT_MODEL;
-          const ollamaApiKey = ollamaApiKeyResult?.value || '';
+          const ollamaApiKey = queries.getSetting.get('ollama_api_key')?.value || '';
 
-          // Ollama supports system, user, assistant roles - include system for context (e.g. resource content)
           const ollamaMessages = messages.map((m) => ({
             role: m.role === 'assistant' ? 'assistant' : m.role === 'system' ? 'system' : 'user',
             content: m.content,
@@ -269,7 +195,6 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
             top_p: topPResult?.value ? parseFloat(topPResult.value) : 0.9,
             num_predict: numPredictResult?.value ? parseInt(numPredictResult.value, 10) : 4000,
             think: true,
-            tools: tools && tools.length > 0 ? tools : undefined,
             apiKey: ollamaApiKey || undefined,
           };
 
@@ -288,31 +213,18 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         }
       }
 
-      // Get API key from settings
       const queries = database.getQueries();
-      const apiKeyResult = queries.getSetting.get('ai_api_key');
-      const apiKey = apiKeyResult?.value;
+      const apiKey = queries.getSetting.get('ai_api_key')?.value;
+      if (!apiKey) throw new Error(`API key not configured for ${provider}`);
+      if (!model) model = queries.getSetting.get('ai_model')?.value;
 
-      if (!apiKey) {
-        throw new Error(`API key not configured for ${provider}`);
-      }
+      console.log(`[AI Cloud] Stream - Provider: ${provider}, Model: ${model}, StreamId: ${streamId}`);
 
-      // Get default model if not provided
-      if (!model) {
-        const modelResult = queries.getSetting.get('ai_model');
-        model = modelResult?.value;
-      }
-
-      console.log(`[AI Cloud] Stream - Provider: ${provider}, Model: ${model}, StreamId: ${streamId}, Tools: ${tools ? tools.length : 0}`);
-
-      // Smart onChunk handler - supports both string (legacy) and object (rich) chunks
       const onChunk = (data) => {
         if (event.sender && !event.sender.isDestroyed()) {
           if (typeof data === 'string') {
-            // Legacy text-only chunk from providers that don't support rich chunks
             event.sender.send('ai:stream:chunk', { streamId, type: 'text', text: data });
           } else if (data && typeof data === 'object') {
-            // Rich chunk (text, tool_call, etc.) from enhanced streamAnthropic
             event.sender.send('ai:stream:chunk', { streamId, ...data });
           }
         }
@@ -320,16 +232,11 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
 
       let fullResponse;
       if (provider === 'anthropic') {
-        // Use direct Anthropic API with full tool support
-        // Convert OpenAI-format tools to Anthropic format if provided
-        const anthropicTools = tools ? convertToolsToAnthropic(tools) : undefined;
-        fullResponse = await aiCloudService.streamAnthropic(messages, apiKey, model, onChunk, anthropicTools);
+        fullResponse = await aiCloudService.streamAnthropic(messages, apiKey, model, onChunk);
       } else {
-        // OpenAI and Google: pass tools to stream (OpenAI format; Google converted in streamGoogle)
-        fullResponse = await aiCloudService.stream(provider, messages, apiKey, model, onChunk, tools);
+        fullResponse = await aiCloudService.stream(provider, messages, apiKey, model, onChunk);
       }
 
-      // Send done signal
       if (event.sender && !event.sender.isDestroyed()) {
         event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
       }
@@ -337,7 +244,6 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       return { success: true, content: fullResponse };
     } catch (error) {
       console.error('[AI Cloud] Stream error:', error);
-      // Send error to stream
       if (event.sender && !event.sender.isDestroyed()) {
         event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: error.message });
       }

@@ -24,11 +24,74 @@ import {
   Play,
   MessageCircle,
   ArrowUpRight,
+  Calculator,
+  Network,
+  LayoutGrid,
+  GraduationCap,
+  PanelsTopLeft,
+  FileCode2,
+  History,
+  PanelRight,
+  Download,
 } from 'lucide-react';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeButton from '@/components/ui/DomeButton';
+import { useTabStore } from '@/lib/store/useTabStore';
+import type {
+  CalculatorArtifactV,
+  DiagramArtifactV,
+  TabsArtifactV,
+  PlaygroundArtifactV,
+  DashboardArtifactV,
+  TimelineArtifactV,
+  HtmlArtifactV,
+} from '@/lib/chat/artifactSchemas';
+import CalculatorArtifact from '@/components/chat/artifacts/CalculatorArtifact';
+import DiagramArtifact from '@/components/chat/artifacts/DiagramArtifact';
+import TabsArtifact from '@/components/chat/artifacts/TabsArtifact';
+import PlaygroundArtifact from '@/components/chat/artifacts/PlaygroundArtifact';
+import DashboardArtifact from '@/components/chat/artifacts/DashboardArtifact';
+import TimelineArtifact from '@/components/chat/artifacts/TimelineArtifact';
+import HtmlArtifactFrame from '@/components/chat/artifacts/HtmlArtifactFrame';
+import {
+  buildDomeThemeStyleContent,
+  useDomeThemeSnapshot,
+} from '@/lib/chat/useDomeThemeSnapshot';
 
-export type ArtifactType = 'pdf_summary' | 'table' | 'action_items' | 'chart' | 'code' | 'list' | 'created_entity' | 'docling_images';
+/** Whitelist of accepted chart dataset colors — must reference Dome tokens. */
+const DOME_CHART_COLORS = new Set([
+  'var(--accent)',
+  'var(--success)',
+  'var(--warning)',
+  'var(--error)',
+  'var(--info)',
+  'var(--secondary-text)',
+  'var(--primary-text)',
+]);
+
+function sanitizeChartColor(raw: string | undefined): string {
+  if (!raw) return 'var(--accent)';
+  const value = raw.trim().toLowerCase().replace(/\s+/g, '');
+  const canonical = value.replace(/^var\(\s*/, 'var(').replace(/\s*\)$/, ')');
+  return DOME_CHART_COLORS.has(canonical) ? canonical : 'var(--accent)';
+}
+
+export type ArtifactType =
+  | 'pdf_summary'
+  | 'table'
+  | 'action_items'
+  | 'chart'
+  | 'code'
+  | 'list'
+  | 'created_entity'
+  | 'docling_images'
+  | 'calculator'
+  | 'diagram'
+  | 'tabs'
+  | 'playground'
+  | 'dashboard'
+  | 'timeline'
+  | 'html';
 
 export interface BaseArtifact {
   type: ArtifactType;
@@ -126,7 +189,14 @@ export type AnyArtifact =
   | CodeArtifact
   | ListArtifact
   | CreatedEntityArtifact
-  | DoclingImagesArtifact;
+  | DoclingImagesArtifact
+  | CalculatorArtifactV
+  | DiagramArtifactV
+  | TabsArtifactV
+  | PlaygroundArtifactV
+  | DashboardArtifactV
+  | TimelineArtifactV
+  | HtmlArtifactV;
 
 interface ArtifactCardProps {
   artifact: AnyArtifact;
@@ -144,6 +214,13 @@ const ARTIFACT_STYLES: Record<ArtifactType, { borderColor: string; iconColor: st
   list: { borderColor: 'var(--error)', iconColor: 'var(--error)' },
   created_entity: { borderColor: 'var(--accent)', iconColor: 'var(--accent)' },
   docling_images: { borderColor: 'var(--secondary-text)', iconColor: 'var(--secondary-text)' },
+  calculator: { borderColor: 'var(--accent)', iconColor: 'var(--accent)' },
+  diagram: { borderColor: 'var(--success)', iconColor: 'var(--success)' },
+  tabs: { borderColor: 'var(--secondary-text)', iconColor: 'var(--secondary-text)' },
+  playground: { borderColor: 'var(--warning)', iconColor: 'var(--warning)' },
+  dashboard: { borderColor: 'var(--accent)', iconColor: 'var(--accent)' },
+  timeline: { borderColor: 'var(--secondary-text)', iconColor: 'var(--secondary-text)' },
+  html: { borderColor: 'var(--accent)', iconColor: 'var(--accent)' },
 };
 
 // Icon mapping
@@ -156,6 +233,13 @@ const ARTIFACT_ICONS: Record<ArtifactType, typeof FileText> = {
   list: List,
   created_entity: Bot,
   docling_images: FileText,
+  calculator: Calculator,
+  diagram: Network,
+  tabs: PanelsTopLeft,
+  playground: GraduationCap,
+  dashboard: LayoutGrid,
+  timeline: History,
+  html: FileCode2,
 };
 
 function ArtifactHeader({
@@ -174,6 +258,20 @@ function ArtifactHeader({
   const { t } = useTranslation();
   const styles = ARTIFACT_STYLES[artifact.type];
   const Icon = ARTIFACT_ICONS[artifact.type];
+
+  const handleOpenTab = () => {
+    const title = artifact.title || getArtifactTitle(artifact);
+    useTabStore.getState().openArtifactTab(title, JSON.stringify(artifact));
+  };
+
+  const handleExportJson = () => {
+    const blob = new Blob([JSON.stringify(artifact, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'dome-artifact.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
 
   return (
     <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border)]">
@@ -205,23 +303,49 @@ function ArtifactHeader({
         </span>
       </DomeButton>
 
-      <DomeButton
-        type="button"
-        variant="ghost"
-        size="xs"
-        onClick={onCopy}
-        title={t('ui.copy_content')}
-        className="shrink-0 gap-1 h-auto py-1 px-2 text-[11px] text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
-        leftIcon={
-          copied ? (
-            <Check className="w-3 h-3 text-[var(--success)]" aria-hidden />
-          ) : (
-            <Copy className="w-3 h-3" aria-hidden />
-          )
-        }
-      >
-        {copied ? <span className="text-[var(--success)]">{t('common.copied')}</span> : t('common.copy')}
-      </DomeButton>
+      <div className="flex items-center gap-0.5 shrink-0">
+        <DomeButton
+          type="button"
+          variant="ghost"
+          size="xs"
+          onClick={handleOpenTab}
+          title={t('chat.open_in_tab')}
+          aria-label={t('chat.open_in_tab')}
+          className="gap-0 !p-1.5 h-8 w-8 min-w-0 text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+          iconOnly
+        >
+          <PanelRight className="w-3.5 h-3.5" aria-hidden />
+        </DomeButton>
+        <DomeButton
+          type="button"
+          variant="ghost"
+          size="xs"
+          onClick={handleExportJson}
+          title={t('chat.export_json')}
+          aria-label={t('chat.export_json')}
+          className="gap-0 !p-1.5 h-8 w-8 min-w-0 text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+          iconOnly
+        >
+          <Download className="w-3.5 h-3.5" aria-hidden />
+        </DomeButton>
+        <DomeButton
+          type="button"
+          variant="ghost"
+          size="xs"
+          onClick={onCopy}
+          title={t('ui.copy_content')}
+          className="shrink-0 gap-1 h-auto py-1 px-2 text-[11px] text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+          leftIcon={
+            copied ? (
+              <Check className="w-3 h-3 text-[var(--success)]" aria-hidden />
+            ) : (
+              <Copy className="w-3 h-3" aria-hidden />
+            )
+          }
+        >
+          {copied ? <span className="text-[var(--success)]">{t('common.copied')}</span> : t('common.copy')}
+        </DomeButton>
+      </div>
     </div>
   );
 }
@@ -245,6 +369,20 @@ function getArtifactTitle(artifact: AnyArtifact): string {
       const title = d.resource_title || d.title || i18n.t('artifacts.document');
       return i18n.t('artifacts.figures_named', { title, count: d.images?.length ?? 0 });
     }
+    case 'calculator':
+      return (artifact as CalculatorArtifactV).title || i18n.t('artifacts.calculator');
+    case 'diagram':
+      return (artifact as DiagramArtifactV).title || i18n.t('artifacts.diagram');
+    case 'tabs':
+      return (artifact as TabsArtifactV).title || i18n.t('artifacts.tabs');
+    case 'playground':
+      return (artifact as PlaygroundArtifactV).title || i18n.t('artifacts.playground');
+    case 'dashboard':
+      return (artifact as DashboardArtifactV).title || i18n.t('artifacts.dashboard');
+    case 'timeline':
+      return (artifact as TimelineArtifactV).title || i18n.t('artifacts.timeline');
+    case 'html':
+      return (artifact as HtmlArtifactV).title || i18n.t('artifacts.html');
     default: return i18n.t('artifacts.content');
   }
 }
@@ -259,8 +397,35 @@ function getArtifactContent(artifact: AnyArtifact): ReactNode {
     case 'list': return <ListContent artifact={artifact} />;
     case 'created_entity': return <CreatedEntityContent artifact={artifact as CreatedEntityArtifact} />;
     case 'docling_images': return <LegacyDoclingImagesNotice />;
+    case 'calculator': return <CalculatorArtifact artifact={artifact as CalculatorArtifactV} />;
+    case 'diagram': return <DiagramArtifact artifact={artifact as DiagramArtifactV} />;
+    case 'tabs': return <TabsArtifact artifact={artifact as TabsArtifactV} />;
+    case 'playground': return <PlaygroundArtifact artifact={artifact as PlaygroundArtifactV} />;
+    case 'dashboard': return <DashboardArtifact artifact={artifact as DashboardArtifactV} />;
+    case 'timeline': return <TimelineArtifact artifact={artifact as TimelineArtifactV} />;
+    case 'html': return <HtmlHtmlBridge artifact={artifact as HtmlArtifactV} />;
     default: return null;
   }
+}
+
+function HtmlHtmlBridge({ artifact }: { artifact: HtmlArtifactV }) {
+  const themeSnapshot = useDomeThemeSnapshot();
+  const openWindow = (srcdoc: string) => {
+    const w = window.open('', '_blank', 'noopener,noreferrer');
+    if (!w) return;
+    // Keep the external window visually aligned with Dome: inject the theme
+    // snapshot tokens + reset just before the existing <style id="dome-theme">.
+    // The iframe bootstrap will handle subsequent theme updates on its own when
+    // we postMessage — but for the external popup we simply write a fresh doc.
+    const themeCss = buildDomeThemeStyleContent(themeSnapshot.vars);
+    const withTokens = srcdoc.replace(
+      /<style id="dome-theme">[\s\S]*?<\/style>/,
+      `<style id="dome-theme">${themeCss}</style>`,
+    );
+    w.document.write(withTokens);
+    w.document.close();
+  };
+  return <HtmlArtifactFrame artifact={artifact} onOpenNewWindow={openWindow} />;
 }
 
 // =============================================================================
@@ -481,7 +646,7 @@ function ChartContent({ artifact }: { artifact: ChartArtifact }) {
                     height: '100%',
                     borderRadius: 3,
                     width: `${(dataset.data[idx] / maxValue) * 100}%`,
-                    backgroundColor: dataset.color || 'var(--accent)',
+                    backgroundColor: sanitizeChartColor(dataset.color),
                     transition: 'width 300ms ease',
                   }}
                 />
@@ -713,12 +878,12 @@ export default function ArtifactCard({ artifact, onOpenResource: _onOpenResource
     <div
       className={className}
       style={{
-        borderRadius: 6,
+        borderRadius: 'var(--radius-md)',
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${styles.borderColor}`,
         overflow: 'hidden',
         background: 'var(--bg-secondary)',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        boxShadow: 'var(--shadow-sm)',
       }}
     >
       <ArtifactHeader

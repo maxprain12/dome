@@ -7,6 +7,7 @@
  */
 
 import { generateId } from '../utils';
+import { listSkills } from '@/lib/skills/client';
 import { capturePostHog } from '../analytics/posthog';
 import { ANALYTICS_EVENTS } from '../analytics/events';
 import type {
@@ -558,7 +559,21 @@ class DatabaseClient {
 
   async getAISkills(): Promise<DBResponse<AISkillRecord[]>> {
     try {
-      return await window.electron.invoke('db:skills:list') as Promise<DBResponse<AISkillRecord[]>>;
+      if (typeof window === 'undefined' || !window.electron?.invoke) {
+        return { success: true, data: [] };
+      }
+      const res = await listSkills({ includeBody: true });
+      if (!res.success || !res.data) {
+        return { success: false, error: res.error || 'Failed to list skills' };
+      }
+      const data: AISkillRecord[] = res.data.map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        prompt: (s.body ?? '').trim(),
+        enabled: s.disable_model_invocation ? false : true,
+      }));
+      return { success: true, data };
     } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }
@@ -566,7 +581,17 @@ class DatabaseClient {
 
   async replaceAISkills(skills: AISkillRecord[]): Promise<DBResponse<void>> {
     try {
-      return await window.electron.invoke('db:skills:replaceAll', skills) as Promise<DBResponse<void>>;
+      if (typeof window === 'undefined' || !window.electron?.invoke) {
+        return { success: false, error: 'Not in Electron' };
+      }
+      const result = (await window.electron.invoke('skills:importLegacy', skills)) as {
+        success: boolean;
+        error?: string;
+      };
+      if (result.success) {
+        return { success: true, data: undefined };
+      }
+      return { success: false, error: result.error || 'Import failed' };
     } catch (e: unknown) {
       return { success: false, error: e instanceof Error ? e.message : String(e) };
     }

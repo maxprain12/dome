@@ -202,9 +202,10 @@ export function createGenerateQuizTool(): AnyAgentTool {
     label: 'Generar Quiz',
     name: 'generate_quiz',
     description:
-      'Generate a quiz from selected sources. Creates multiple-choice and true/false questions to test knowledge. ' +
+      'Generate a quiz/test/questionnaire from selected sources. ONLY call when the user explicitly asks for a quiz, test, exam, cuestionario, preguntas, examen, or evaluación. ' +
+      'Do NOT call for general requests like "dashboard", "summary", "analysis", "diagram" — those map to other tools or to rich artifacts. ' +
       'First use resource_search or resource_list to find relevant resources, then pass their IDs here. ' +
-      'The result includes source content that you should use to generate quiz questions. ' +
+      'Call AT MOST ONCE per user request. ' +
       'Return the quiz as a JSON structure with `type: "quiz"` containing an array of questions, each with ' +
       'question text, options (for multiple choice), the correct answer index, and an explanation.',
     parameters: GenerateQuizSchema,

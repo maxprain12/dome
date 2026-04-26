@@ -26,13 +26,16 @@ export type TabType =
   | 'learn'
   | 'transcriptions'
   | 'transcription-detail'
-  | 'semantic-graph';
+  | 'semantic-graph'
+  | 'artifact';
 
 export interface DomeTab {
   id: string;
   type: TabType;
   title: string;
   resourceId?: string;
+  /** JSON string of chat artifact for type === 'artifact' */
+  artifactPayload?: string;
   pinned?: boolean;
   color?: string;
 }
@@ -117,6 +120,7 @@ interface TabStore {
   openTranscriptionsTab: () => void;
   openTranscriptionDetailTab: (noteId: string, title: string) => void;
   openSemanticGraphTab: (focusResourceId?: string) => void;
+  openArtifactTab: (title: string, artifactJson: string) => void;
   updateTab: (tabId: string, updates: Partial<Pick<DomeTab, 'title' | 'color'>>) => void;
 }
 
@@ -428,6 +432,15 @@ export const useTabStore = create<TabStore>((set, get) => {
           ? i18n.t('semantic_graph.tab_title_focus')
           : i18n.t('semantic_graph.tab_title'),
         resourceId: focusResourceId,
+        pinned: false,
+      });
+    },
+
+    openArtifactTab: (title, artifactJson) => {
+      get().openTab({
+        type: 'artifact',
+        title: title.trim() || i18n.t('chat.artifact_tab'),
+        artifactPayload: artifactJson,
         pinned: false,
       });
     },

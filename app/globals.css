@@ -40,6 +40,67 @@
       contain-intrinsic-size: none;
     }
   }
+
+  .ai-surface-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .ai-composer-frame {
+    background: var(--bg-secondary);
+    border-radius: 20px;
+  }
+
+  .ai-composer-frame-dragging {
+    background: color-mix(in srgb, var(--accent) 6%, var(--bg-secondary));
+  }
+
+  .ai-composer-frame-welcome {
+    border-radius: 24px;
+  }
+
+  .ai-context-chip {
+    display: inline-flex;
+    max-width: 180px;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px 3px 6px;
+    border-radius: var(--radius-md);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    color: var(--secondary-text);
+    font-size: 11px;
+  }
+
+  .ai-message-item {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 112px;
+  }
+
+  @media (max-width: 980px) {
+    .dome-app-body {
+      position: relative;
+    }
+
+    .dome-main-content {
+      min-width: 0;
+    }
+
+    .dome-right-panel {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: var(--z-fixed);
+      width: min(380px, 86vw) !important;
+      min-width: min(380px, 86vw) !important;
+      border-left: 1px solid var(--dome-border);
+      box-shadow: var(--shadow-xl);
+      background: var(--dome-surface);
+    }
+  }
 }
 
 /* ============================================

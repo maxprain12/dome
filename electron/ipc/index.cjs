@@ -44,6 +44,7 @@ const browserContextHandlers = require('./browser-context.cjs');
 const transcriptionOverlayHandlers = require('./transcription-overlay.cjs');
 const callsHandlers = require('./calls.cjs');
 const kbLlmHandlers = require('./kb-llm.cjs');
+const skillsHandlers = require('./skills.cjs');
 
 /**
  * Register all IPC handlers
@@ -143,6 +144,7 @@ function registerAll(deps) {
     ollamaService,
   });
   kbLlmHandlers.register({ ipcMain, windowManager, database, validateSender });
+  skillsHandlers.register({ ipcMain, windowManager, database, validateSender, app });
 
 }
 

@@ -47,6 +47,10 @@ export interface ManyChatSession {
   title: string;
   messages: ManyMessage[];
   createdAt: number;
+  /** Last activity (message) — used for ordering / grouping in history */
+  updatedAt?: number;
+  /** Pinned sessions stay at the top of the list */
+  pinned?: boolean;
 }
 
 function createSessionId(): string {
@@ -79,6 +83,11 @@ function getInitialSessionsState(): {
         title: (!s.title || s.title === 'New chat')
           ? (s.messages.find((m: ManyMessage) => m.role === 'user')?.content?.slice(0, 50)?.trim() || 'New chat')
           : s.title,
+        updatedAt:
+          s.updatedAt ??
+          s.messages[s.messages.length - 1]?.timestamp ??
+          s.createdAt,
+        pinned: s.pinned ?? false,
       }));
     if (sessions.length === 0) return { sessions: [], currentSessionId: null, messages: [] };
     const sorted = [...sessions].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
@@ -165,6 +174,7 @@ interface ManyState {
   switchSession: (id: string) => void;
   deleteSession: (id: string) => void;
   updateSessionTitle: (id: string, title: string) => void;
+  toggleSessionPin: (id: string) => void;
   hydrateSession: (session: ManyChatSession) => void;
   setCurrentInput: (input: string) => void;
   incrementUnread: () => void;
@@ -184,6 +194,12 @@ interface ManyState {
   addPinnedResource: (resource: PinnedResource) => void;
   removePinnedResource: (id: string) => void;
   clearPinnedResources: () => void;
+  /** Skill invoked for the next user message only (slash one-shot); cleared after send */
+  pendingOneShotSkillId: string | null;
+  setPendingOneShotSkill: (id: string | null) => void;
+  /** Sticky skill per Many session (in-memory); applies until cleared */
+  activeSkillIdBySession: Record<string, string | null>;
+  setActiveSkillForSession: (sessionId: string, skillId: string | null) => void;
   /** Last text-to-speech error (voice assistant HUD) */
   ttsError: string | null;
   setTtsError: (message: string | null) => void;
@@ -257,6 +273,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
         const updated = {
           ...session,
           messages: [...session.messages, newMessage],
+          updatedAt: Date.now(),
           title:
             message.role === 'user' && (!session.title || session.title === 'New chat')
               ? message.content.slice(0, 50).trim() || 'New chat'
@@ -272,6 +289,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
         title: message.role === 'user' ? message.content.slice(0, 50).trim() || 'New chat' : 'New chat',
         messages: [newMessage],
         createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
       nextSessions = [newSession, ...sessions].slice(0, MAX_SESSIONS);
       nextCurrentId = newSession.id;
@@ -317,6 +335,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
       title: 'New chat',
       messages: [],
       createdAt: Date.now(),
+      updatedAt: Date.now(),
     };
     const { sessions } = get();
     const nextSessions = [newSession, ...sessions].slice(0, MAX_SESSIONS);
@@ -365,10 +384,21 @@ export const useManyStore = create<ManyState>((set, get) => ({
     const idx = sessions.findIndex((s) => s.id === id);
     if (idx >= 0) {
       const nextSessions = [...sessions];
-      nextSessions[idx] = { ...nextSessions[idx], title };
+      nextSessions[idx] = { ...nextSessions[idx], title, updatedAt: Date.now() };
       persistSessions(nextSessions);
       set({ sessions: nextSessions });
     }
+  },
+
+  toggleSessionPin: (id) => {
+    const { sessions } = get();
+    const idx = sessions.findIndex((s) => s.id === id);
+    if (idx < 0) return;
+    const nextSessions = [...sessions];
+    const cur = nextSessions[idx]!;
+    nextSessions[idx] = { ...cur, pinned: !cur.pinned, updatedAt: Date.now() };
+    persistSessions(nextSessions);
+    set({ sessions: nextSessions });
   },
 
   hydrateSession: (session) => {
@@ -377,7 +407,12 @@ export const useManyStore = create<ManyState>((set, get) => ({
     const normalizedSession: ManyChatSession = {
       ...session,
       createdAt: session.createdAt ?? Date.now(),
+      updatedAt:
+        session.updatedAt ??
+        session.messages[session.messages.length - 1]?.timestamp ??
+        session.createdAt,
       messages: Array.isArray(session.messages) ? session.messages : [],
+      pinned: session.pinned ?? false,
     };
     const nextSessions = idx >= 0
       ? sessions.map((item) => (item.id === session.id ? normalizedSession : item))
@@ -440,6 +475,15 @@ export const useManyStore = create<ManyState>((set, get) => ({
   removePinnedResource: (id) =>
     set((state) => ({ pinnedResources: state.pinnedResources.filter((r) => r.id !== id) })),
   clearPinnedResources: () => set({ pinnedResources: [] }),
+
+  pendingOneShotSkillId: null,
+  setPendingOneShotSkill: (id) => set({ pendingOneShotSkillId: id }),
+
+  activeSkillIdBySession: {},
+  setActiveSkillForSession: (sessionId, skillId) =>
+    set((state) => ({
+      activeSkillIdBySession: { ...state.activeSkillIdBySession, [sessionId]: skillId },
+    })),
 
   ttsError: null,
   setTtsError: (message) => set({ ttsError: message }),

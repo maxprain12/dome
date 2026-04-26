@@ -3,10 +3,10 @@
 const crypto = require('crypto');
 const { setMaxListeners } = require('events');
 const langgraphAgent = require('./langgraph-agent.cjs');
-const { getToolDefinitionsByIds } = require('./ai-chat-with-tools.cjs');
+const { getToolDefinitionsByIds } = require('./tool-dispatcher.cjs');
 const streamingTts = require('./streaming-tts.cjs');
 const { getOpenAIKey } = require('./openai-key.cjs');
-const { appendSkillsToPrompt } = require('./skill-prompt.cjs');
+const { appendSkillsToPrompt, filterToolsBySkill } = require('./skill-prompt.cjs');
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
 const RUN_STEP_CHANNEL = 'runs:step';
@@ -1341,7 +1341,8 @@ async function executeWorkflowRun(runId, params, workflow) {
             params.inputTemplate?.prompt ? String(params.inputTemplate.prompt) : null,
             inputPayload.text || '',
           ].filter(Boolean).join('\n\n');
-          const toolDefinitions = getToolDefinitionsByIds(agentDef.toolIds || []);
+          const rawToolDefinitions = getToolDefinitionsByIds(agentDef.toolIds || []);
+          const toolDefinitions = filterToolsBySkill(agentDef.skillIds, rawToolDefinitions);
           const mcpServerIds = Array.isArray(agentDef.mcpServerIds)
             ? agentDef.mcpServerIds
             : (Array.isArray(params.inputTemplate?.mcpServerIds) ? params.inputTemplate.mcpServerIds : []);

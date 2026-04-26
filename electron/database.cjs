@@ -256,6 +256,7 @@ function initDatabase() {
   `);
 
   db.exec(`
+    -- Legacy: one-time migration to ~/.dome/skills exports rows here; new runtime uses file SKILL.md (see electron/skills/*)
     CREATE TABLE IF NOT EXISTS ai_skills (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

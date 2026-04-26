@@ -24,6 +24,7 @@ import {
   Workflow,
   Activity,
   Network,
+  LayoutTemplate,
   MoreHorizontal,
   ChevronLeft,
   Layers,
@@ -72,6 +73,8 @@ function TabIcon({ tab }: { tab: DomeTab }) {
       return <Mic className={cls} strokeWidth={sw} />;
     case 'semantic-graph':
       return <Network className={cls} strokeWidth={sw} />;
+    case 'artifact':
+      return <LayoutTemplate className={cls} strokeWidth={sw} />;
     default: return <File className={cls} strokeWidth={sw} />;
   }
 }

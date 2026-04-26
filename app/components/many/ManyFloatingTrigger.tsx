@@ -48,7 +48,7 @@ export default memo(function ManyFloatingTrigger({
       {whatsappConnected && (
         <span
           className="absolute left-0 top-0 h-3 w-3 rounded-full border-2 border-[var(--bg)] bg-[#25D366]"
-          title="WhatsApp conectado"
+          title={t('chat.whatsapp_connected')}
           aria-hidden
         />
       )}
