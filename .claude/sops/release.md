@@ -2,7 +2,7 @@
 
 ## Pre-release Checklist
 
-- [ ] All in-progress features are merged or behind feature flags
+- [ ] All in-progress features are merged or intentionally deferred
 - [ ] CI is green on `main` (typecheck, lint, build all pass)
 - [ ] Tested the app end-to-end locally (`npm run electron:dev`)
 - [ ] Version bump is correct (semver: patch for bugfixes, minor for features, major for breaking changes)

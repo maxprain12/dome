@@ -5,7 +5,7 @@ export type NoteEmbedKind = 'youtube' | 'iframe';
 
 export interface NoteEditorBridgeStorage {
   projectId: string;
-  openResourcePicker: (mode: 'link') => void;
+  openResourcePicker: (mode?: 'link' | 'split' | 'mention') => void;
   openImagePicker: () => void;
   openEmbedModal: (kind: NoteEmbedKind) => void;
   aiActions: TipTapAIActions | null;

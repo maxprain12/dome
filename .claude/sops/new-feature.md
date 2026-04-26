@@ -7,22 +7,13 @@
 - Identify which IPC domains need changes (if any)
 - List the files to create/modify
 
-## 2. Gate behind feature flag (for anything experimental)
-
-```typescript
-// PostHog feature flag — see sops/feature-flags.md
-<FeatureFlagGate flag="dome-my-feature">
-  <MyNewFeature />
-</FeatureFlagGate>
-```
-
-## 3. Implement
+## 2. Implement
 
 - **Renderer-only** (UI state, display logic): code goes in `app/`
 - **Needs Node.js/file system/DB**: create IPC handler first (see `new-ipc-channel.md`), then call from renderer
 - Follow `pr-checklist.md` throughout
 
-## 4. i18n
+## 3. i18n
 
 Add translation keys to all 4 language objects in `app/lib/i18n.ts`:
 
@@ -37,7 +28,7 @@ Add translation keys to all 4 language objects in `app/lib/i18n.ts`:
 'my_feature.title': 'Minha Funcionalidade',
 ```
 
-## 5. Test locally
+## 4. Test locally
 
 ```bash
 npm run dev           # Renderer only
@@ -49,7 +40,6 @@ npm run electron:dev  # Full app (main + renderer)
 - Test both light and dark theme
 - Test with analytics disabled (PostHog not initialized)
 
-## 6. PR
+## 5. PR
 
 - Run `pr-checklist.md` before opening the PR
-- Feature flag can be enabled for the team first, then gradual rollout via PostHog dashboard

@@ -46,9 +46,11 @@ export function buildDomeResourceMention(
           type: string;
           project_id?: string;
         }>;
-        return rows
-          .filter((r) => !projectId || r.project_id === projectId)
-          .map((r) => ({ id: r.id, label: r.title, type: r.type }));
+        const mapped = rows.map((r) => ({ id: r.id, label: r.title, type: r.type, project_id: r.project_id }));
+        if (!projectId) return mapped.map(({ id, label, type }) => ({ id, label, type }));
+        const inProject = mapped.filter((r) => r.project_id === projectId);
+        const rest = mapped.filter((r) => r.project_id !== projectId);
+        return [...inProject, ...rest].map(({ id, label, type }) => ({ id, label, type }));
       },
       command: ({ editor, range, props }) => {
         const item = props as DomeMentionItem;

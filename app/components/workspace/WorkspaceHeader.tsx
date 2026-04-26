@@ -16,13 +16,16 @@ import {
   Sparkles,
   Network,
   PanelRight,
+  PanelRightOpen,
   MoreHorizontal,
   FileDown,
   Presentation,
+  Maximize2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
+import SplitResourcePicker from '@/components/workspace/SplitResourcePicker';
 import { type Resource } from '@/types';
 
 interface EditableTitle {
@@ -158,6 +161,12 @@ export default function WorkspaceHeader({
   const toggleSourcesPanel = useAppStore((s) => s.toggleSourcesPanel);
   const toggleStudioPanel  = useAppStore((s) => s.toggleStudioPanel);
   const openSemanticGraphTab = useTabStore((s) => s.openSemanticGraphTab);
+  const closeSplit = useTabStore((s) => s.closeSplit);
+  const activeTabSplitOpen = useTabStore(
+    (s) => Boolean(s.tabs.find((tb) => tb.id === s.activeTabId)?.splitOpen),
+  );
+  const currentProject = useAppStore((s) => s.currentProject);
+  const [splitPickerOpen, setSplitPickerOpen] = useState(false);
 
   const hasFile = !!(resource.internal_path || resource.file_path);
   const typeMeta = getTypeMeta(resource.type);
@@ -201,6 +210,59 @@ export default function WorkspaceHeader({
       if (res.success && res.data) await window.electron.showItemInFolder(res.data);
     } catch (err) { console.error(err); }
   }, [resource.id]);
+
+  /**
+   * Cmd/Ctrl+\ — toggles the split reference pane for note resources.
+   *   - if a split is already open in the active tab → close it,
+   *   - otherwise open the resource picker so the user can pick the
+   *     reference to load alongside the note.
+   *
+   * The shortcut is intentionally limited to notes (the only resource
+   * type that exposes the "Open reference" affordance in the header),
+   * and is disabled inside popout windows where there is no host tab
+   * to attach the split to.
+   */
+  useEffect(() => {
+    if (resource.type !== 'note') return;
+    if (window.location.pathname.startsWith('/focus/note/')) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key !== '\\') return;
+      const target = e.target as HTMLElement | null;
+      // Avoid stealing the shortcut from text inputs / contenteditable surfaces.
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA'].includes(target.tagName))) {
+        return;
+      }
+      e.preventDefault();
+      if (activeTabSplitOpen) {
+        closeSplit();
+      } else if (currentProject?.id) {
+        setSplitPickerOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [resource.type, activeTabSplitOpen, closeSplit, currentProject?.id]);
+
+  const handlePopoutNote = useCallback(async () => {
+    if (resource.type !== 'note') return;
+    if (!window.electron?.invoke) return;
+    try {
+      await window.electron.invoke('window:create', {
+        id: `note-focus:${resource.id}`,
+        route: `/focus/note/${encodeURIComponent(resource.id)}`,
+        options: {
+          width: 960,
+          height: 760,
+          minWidth: 560,
+          minHeight: 480,
+          title: `${resource.title} — Dome`,
+        },
+      });
+    } catch (err) {
+      console.error('[WorkspaceHeader] Failed to open note popout:', err);
+    }
+  }, [resource.id, resource.type, resource.title]);
 
   return (
     <header
@@ -369,6 +431,28 @@ export default function WorkspaceHeader({
           onClick={onToggleSidePanel}
         />
 
+        {/* Note-only actions: split reference + popout. Grouped after a
+            divider so they read as a separate cluster from the panel
+            toggles above. Hidden inside the popout window itself to
+            avoid recursive open-in-window controls. */}
+        {resource.type === 'note' && !window.location.pathname.startsWith('/focus/note/') && (
+          <>
+            <HDivider />
+            {currentProject?.id && (
+              <HeaderIconBtn
+                icon={<PanelRightOpen size={14} strokeWidth={2} />}
+                label={t('focused_editor.open_reference', 'Abrir referencia')}
+                onClick={() => setSplitPickerOpen(true)}
+              />
+            )}
+            <HeaderIconBtn
+              icon={<Maximize2 size={14} strokeWidth={2} />}
+              label={t('focused_editor.popout', 'Abrir en ventana')}
+              onClick={handlePopoutNote}
+            />
+          </>
+        )}
+
         <HDivider />
 
         {/* Presentation mode */}
@@ -431,6 +515,16 @@ export default function WorkspaceHeader({
           )}
         </div>,
         document.body,
+      )}
+
+      {/* Picker modal for opening a sibling resource as a split reference. */}
+      {currentProject?.id && (
+        <SplitResourcePicker
+          opened={splitPickerOpen}
+          onClose={() => setSplitPickerOpen(false)}
+          projectId={currentProject.id}
+          excludeResourceId={resource.id}
+        />
       )}
     </header>
   );

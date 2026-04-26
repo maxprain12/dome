@@ -38,6 +38,8 @@ import {
   Zap,
   Activity,
   Layers,
+  PanelRightOpen,
+  Maximize2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -161,9 +163,27 @@ interface ContextMenuProps {
   onColorChange: (r: Resource, color: string) => void;
   onDelete: (r: Resource) => void;
   onNewFolder: (parentId: string | null) => void;
+  onOpenInSplit?: (r: Resource) => void;
+  onOpenInWindow?: (r: Resource) => void;
+  /**
+   * True when the user has an active tab that can host a split view
+   * (any non-home tab where `openResourceInSplit` is meaningful).
+   */
+  canOpenInSplit?: boolean;
 }
 
-function ContextMenu({ state, onClose, onRename, onMove, onColorChange, onDelete, onNewFolder }: ContextMenuProps) {
+function ContextMenu({
+  state,
+  onClose,
+  onRename,
+  onMove,
+  onColorChange,
+  onDelete,
+  onNewFolder,
+  onOpenInSplit,
+  onOpenInWindow,
+  canOpenInSplit,
+}: ContextMenuProps) {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
   const [showColors, setShowColors] = useState(false);
@@ -217,6 +237,25 @@ function ContextMenu({ state, onClose, onRename, onMove, onColorChange, onDelete
       </div>
 
       <div style={{ padding: '4px 0' }}>
+        {/* Open as reference / popout — only for non-folder resources */}
+        {!isFolder && onOpenInSplit && canOpenInSplit && (
+          <CtxItem
+            icon={<PanelRightOpen className="w-3.5 h-3.5" />}
+            label={t('focused_editor.open_reference', 'Abrir como referencia')}
+            onClick={() => { onOpenInSplit(r); onClose(); }}
+          />
+        )}
+        {!isFolder && onOpenInWindow && r.type === 'note' && (
+          <CtxItem
+            icon={<Maximize2 className="w-3.5 h-3.5" />}
+            label={t('focused_editor.popout', 'Abrir en ventana')}
+            onClick={() => { onOpenInWindow(r); onClose(); }}
+          />
+        )}
+        {!isFolder && (onOpenInSplit || onOpenInWindow) && (
+          <div style={{ height: 1, background: 'var(--dome-border)', margin: '4px 6px' }} />
+        )}
+
         {/* Rename */}
         <CtxItem icon={<Edit3 className="w-3.5 h-3.5" />} label="Renombrar" onClick={() => { onRename(r); onClose(); }} />
 
@@ -733,6 +772,40 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
   const { openResourceTab, openFolderTab } = useTabStore.getState();
   const folders = resources.filter((r) => r.type === 'folder');
 
+  /**
+   * Whether there's an active tab capable of hosting a split. We avoid
+   * splitting the home tab because it has no primary resource.
+   */
+  const activeTabId = useTabStore((s) => s.activeTabId);
+  const tabs = useTabStore((s) => s.tabs);
+  const openResourceInSplit = useTabStore((s) => s.openResourceInSplit);
+  const canOpenInSplit = activeTabId !== null && activeTabId !== 'home' &&
+    Boolean(tabs.find((tb) => tb.id === activeTabId)?.resourceId);
+
+  const handleOpenInSplit = useCallback((r: Resource) => {
+    openResourceInSplit(r.id, r.type, r.title || '');
+  }, [openResourceInSplit]);
+
+  const handleOpenInWindow = useCallback(async (r: Resource) => {
+    if (!window.electron?.invoke) return;
+    if (r.type !== 'note') return;
+    try {
+      await window.electron.invoke('window:create', {
+        id: `note-focus:${r.id}`,
+        route: `/focus/note/${encodeURIComponent(r.id)}`,
+        options: {
+          width: 960,
+          height: 760,
+          minWidth: 560,
+          minHeight: 480,
+          title: `${r.title || 'Nota'} — Dome`,
+        },
+      });
+    } catch (err) {
+      console.error('[UnifiedSidebar] Failed to open popout:', err);
+    }
+  }, []);
+
   const handleToggle = useCallback((id: string) => {
     setExpandedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }, []);
@@ -956,6 +1029,9 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
         onColorChange={handleColorChange}
         onDelete={(r) => setDeleteResource(r)}
         onNewFolder={(parentId) => setNewFolderParentId(parentId)}
+        onOpenInSplit={handleOpenInSplit}
+        onOpenInWindow={(r) => { void handleOpenInWindow(r); }}
+        canOpenInSplit={canOpenInSplit}
       />
 
       {moveResource && (

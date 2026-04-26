@@ -74,11 +74,10 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
         style={{
           background: 'var(--dome-surface)',
           border: '1px solid var(--dome-border)',
-          borderRadius: 10,
-          boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          borderRadius: 8,
           padding: '6px',
-          minWidth: 260,
-          maxHeight: 360,
+          minWidth: 280,
+          maxHeight: 380,
           overflowY: 'auto',
         }}
       >
@@ -115,17 +114,23 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
                   onClick={() => selectItem(globalIndex)}
                   onMouseEnter={() => setSelectedIndex(globalIndex)}
                   style={{
+                    position: 'relative',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 10,
                     width: '100%',
-                    padding: '7px 10px',
+                    padding: '8px 10px',
                     border: 'none',
-                    borderRadius: 6,
-                    background: isSelected ? 'var(--dome-bg-hover)' : 'transparent',
+                    borderRadius: 8,
+                    background: isSelected
+                      ? 'color-mix(in srgb, var(--dome-accent) 10%, transparent)'
+                      : 'transparent',
                     cursor: 'pointer',
                     textAlign: 'left',
                     transition: 'background 100ms',
+                    boxShadow: isSelected
+                      ? 'inset 2px 0 0 var(--dome-accent)'
+                      : 'none',
                   }}
                 >
                   <span
@@ -136,10 +141,10 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
                       width: 28,
                       height: 28,
                       borderRadius: 6,
-                      background: 'var(--dome-bg-tertiary, var(--dome-bg-hover))',
-                      fontSize: 11,
-                      fontWeight: 400,
-                      color: 'var(--dome-text-secondary)',
+                      background: 'transparent',
+                      fontSize: 12,
+                      fontWeight: 500,
+                      color: 'var(--dome-text-muted)',
                       flexShrink: 0,
                     }}
                   >

@@ -31,19 +31,19 @@ function EditorButton({ onClick }: { onClick: () => void }) {
 }
 ```
 
-**Example (preload when feature flag is enabled):**
+**Example (preload when an editor preference is enabled):**
 
 ```tsx
-function FlagsProvider({ children, flags }: Props) {
+function PreferencesProvider({ children, prefs }: Props) {
   useEffect(() => {
-    if (flags.editorEnabled && typeof window !== 'undefined') {
+    if (prefs.editorEnabled && typeof window !== 'undefined') {
       void import('./monaco-editor').then(mod => mod.init())
     }
-  }, [flags.editorEnabled])
+  }, [prefs.editorEnabled])
 
-  return <FlagsContext.Provider value={flags}>
+  return <PreferencesContext.Provider value={prefs}>
     {children}
-  </FlagsContext.Provider>
+  </PreferencesContext.Provider>
 }
 ```
 

@@ -34,6 +34,13 @@ export interface DomeTab {
   type: TabType;
   title: string;
   resourceId?: string;
+  splitResource?: {
+    resourceId: string;
+    resourceType: string;
+    title: string;
+  };
+  splitWidth?: number;
+  splitOpen?: boolean;
   /** JSON string of chat artifact for type === 'artifact' */
   artifactPayload?: string;
   pinned?: boolean;
@@ -102,6 +109,10 @@ interface TabStore {
   activateTab: (tabId: string) => void;
   replaceTabType: (tabId: string, newType: TabType) => void;
   openResourceTab: (resourceId: string, resourceType: string, title: string) => void;
+  openResourceInSplit: (resourceId: string, resourceType: string, title: string, tabId?: string) => void;
+  closeSplit: (tabId?: string) => void;
+  resizeSplit: (width: number, tabId?: string) => void;
+  swapSplit: (tabId?: string) => void;
   openNoteTab: (resourceId: string, title: string) => void;
   openSettingsTab: () => void;
   openCalendarTab: () => void;
@@ -277,7 +288,7 @@ export const useTabStore = create<TabStore>((set, get) => {
     },
 
     duplicateTab: (tabId) => {
-      const { tabs, activeTabId } = get();
+      const { tabs } = get();
       const tab = tabs.find((t) => t.id === tabId);
       if (!tab) return;
       const id = generateTabId();
@@ -334,6 +345,88 @@ export const useTabStore = create<TabStore>((set, get) => {
       } catch {
         /* non-Electron or older build */
       }
+    },
+
+    openResourceInSplit: (resourceId, resourceType, title, tabId) => {
+      const { tabs, activeTabId } = get();
+      const targetTabId = tabId ?? activeTabId;
+      const newTabs = tabs.map((tab) => {
+        if (tab.id !== targetTabId) return tab;
+        return {
+          ...tab,
+          splitOpen: true,
+          splitResource: { resourceId, resourceType, title },
+          splitWidth: tab.splitWidth ?? 420,
+        };
+      });
+      set({ tabs: newTabs });
+      saveTabs(newTabs, activeTabId);
+    },
+
+    closeSplit: (tabId) => {
+      const { tabs, activeTabId } = get();
+      const targetTabId = tabId ?? activeTabId;
+      const newTabs = tabs.map((tab) => {
+        if (tab.id !== targetTabId) return tab;
+        return { ...tab, splitOpen: false, splitResource: undefined };
+      });
+      set({ tabs: newTabs });
+      saveTabs(newTabs, activeTabId);
+    },
+
+    resizeSplit: (width, tabId) => {
+      const { tabs, activeTabId } = get();
+      const targetTabId = tabId ?? activeTabId;
+      const clamped = Math.max(320, Math.min(width, 760));
+      const newTabs = tabs.map((tab) => (
+        tab.id === targetTabId ? { ...tab, splitWidth: clamped } : tab
+      ));
+      set({ tabs: newTabs });
+      saveTabs(newTabs, activeTabId);
+    },
+
+    swapSplit: (tabId) => {
+      // Swap primary ↔ reference panes inside a split tab. No-op when the
+      // tab has no resource or no open split (e.g. singleton tabs).
+      const { tabs, activeTabId } = get();
+      const targetTabId = tabId ?? activeTabId;
+      // Mirror the mapping used in openResourceTab so we get a valid TabType
+      // for the previously-referenced resource when it becomes the primary.
+      const resourceTypeToTab: Record<string, TabType> = {
+        note: 'note',
+        notebook: 'notebook',
+        url: 'url',
+        youtube: 'youtube',
+        docx: 'docx',
+        ppt: 'ppt',
+        document: 'resource',
+        pdf: 'resource',
+        image: 'resource',
+        audio: 'resource',
+        video: 'resource',
+        excel: 'resource',
+      };
+      const newTabs = tabs.map((tab) => {
+        if (tab.id !== targetTabId) return tab;
+        if (!tab.splitResource || !tab.resourceId) return tab;
+        const newPrimaryType: TabType = resourceTypeToTab[tab.splitResource.resourceType] ?? 'resource';
+        // Generic resourceType string for the previous primary going to the
+        // reference pane. Generic 'resource' tabs map back to 'document'.
+        const oldGenericType = tab.type === 'resource' ? 'document' : tab.type;
+        return {
+          ...tab,
+          type: newPrimaryType,
+          resourceId: tab.splitResource.resourceId,
+          title: tab.splitResource.title,
+          splitResource: {
+            resourceId: tab.resourceId,
+            resourceType: oldGenericType,
+            title: tab.title,
+          },
+        };
+      });
+      set({ tabs: newTabs });
+      saveTabs(newTabs, activeTabId);
     },
 
     openNoteTab: (resourceId, title) => {

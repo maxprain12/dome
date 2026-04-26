@@ -13,6 +13,9 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
 import PptCapturePage from './pages/PptCapturePage';
 import TranscriptionOverlayPage from './pages/TranscriptionOverlayPage';
+import NoteFocusPage from './pages/NoteFocusPage';
+
+const NOTE_FOCUS_PREFIX = '/focus/note/';
 function MainApp() {
   const { t } = useTranslation();
   useEffect(() => {
@@ -162,6 +165,18 @@ export default function App() {
         <TranscriptionOverlayPage />
       </ThemeProvider>
     );
+  }
+
+  // Bare popout window: /focus/note/<id> renders only the note editor, no shell.
+  if (pathname.startsWith(NOTE_FOCUS_PREFIX)) {
+    const resourceId = decodeURIComponent(pathname.slice(NOTE_FOCUS_PREFIX.length)).split('/')[0];
+    if (resourceId) {
+      return (
+        <ThemeProvider>
+          <NoteFocusPage resourceId={resourceId} />
+        </ThemeProvider>
+      );
+    }
   }
 
   // StrictMode only for the main shell — overlay / capture windows must not double-remount in dev

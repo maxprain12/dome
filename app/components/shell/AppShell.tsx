@@ -14,7 +14,6 @@ import ResizeHandle from '@/components/workspace/ResizeHandle';
 import WindowControls from '@/components/ui/WindowControls';
 import DomeButton from '@/components/ui/DomeButton';
 import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
-import { useFeatureFlagEnabled } from '@/lib/analytics/useFeatureFlag';
 const MANY_WIDTH_KEY = 'dome:many-panel-width-v1';
 const MANY_MIN = 280;
 const MANY_MAX = 600;
@@ -44,7 +43,6 @@ export default function AppShell() {
   manyWidthRef.current = manyWidth;
 
   const { openChatTab, activeTabId, tabs, openTranscriptionsTab } = useTabStore();
-  const callsV2 = useFeatureFlagEnabled('dome-calls-v2');
   const { leftSidebarCollapsed, toggleLeftSidebar } = useResizeStore();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -267,16 +265,11 @@ export default function AppShell() {
               iconOnly
               onClick={handleToggleDictationDock}
               onContextMenu={(e) => {
-                if (!callsV2) return;
                 e.preventDefault();
                 openTranscriptionsTab();
               }}
               className="relative !rounded-md w-[34px] h-full min-h-0 shrink-0 px-0 transition-colors"
-              title={
-                callsV2
-                  ? `${t('shell.dictation_dock')} · ${t('shell.open_transcriptions')}`
-                  : t('shell.dictation_dock')
-              }
+              title={`${t('shell.dictation_dock')} · ${t('shell.open_transcriptions')}`}
               style={{
                 background: dictationActive
                   ? 'color-mix(in srgb, var(--dome-accent) 12%, transparent)'
