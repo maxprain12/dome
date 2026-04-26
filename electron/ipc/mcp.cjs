@@ -67,14 +67,14 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       validateSender(event, windowManager);
     } catch (err) {
       console.warn('[MCP OAuth] Unauthorized:', err?.message);
-      return { success: false, error: 'Unauthorized' };
+      return { success: false, toolCount: 0, error: 'Unauthorized' };
     }
     try {
       const result = await mcpOauth.startOAuthFlow(providerId, database);
-      return { success: true, token: result.token };
+      return { success: true, toolCount: 0, token: result.token };
     } catch (err) {
       console.warn('[MCP OAuth] Flow failed:', err?.message);
-      return { success: false, error: err?.message || String(err) };
+      return { success: false, toolCount: 0, error: err?.message || String(err) };
     }
   });
 
