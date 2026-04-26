@@ -117,7 +117,6 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
           if (err) return reject(err);
 
-          zipfile.readEntry();
           zipfile.on('entry', (entry) => {
             try {
               const sanitizeEntryPath = (entryFileName) => {
@@ -138,10 +137,6 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                 }
                 return resolved;
               };
-
-              // '..' is intentionally allowed here because we need to extract archives
-              // that may contain entries with parent-directory references. The path.join
-              // and startsWith check above ensures extraction stays within tempDir.
 
               if (/\/$/.test(entry.fileName)) {
                 const dirPath = resolveWithinTempDir(entry.fileName);
