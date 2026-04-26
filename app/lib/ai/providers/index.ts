@@ -24,7 +24,7 @@ export type ProviderFactoryConfig = Record<string, never>;
  */
 export function createProvider(
   type: AIProviderType,
-  config?: ProviderFactoryConfig,
+  _config?: ProviderFactoryConfig,
 ): AIProviderInterface | null {
   switch (type) {
     // TODO: Add providers that need native implementation
@@ -36,6 +36,6 @@ export function createProvider(
 /**
  * Check if a provider type has a native implementation.
  */
-export function hasNativeProvider(type: AIProviderType): boolean {
+export function hasNativeProvider(_type: AIProviderType): boolean {
   return false;
 }
