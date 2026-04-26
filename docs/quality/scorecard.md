@@ -1,11 +1,22 @@
-# Scorecard por dominio × capa (plantilla)
+# Scorecard (dominios heurísticos)
 
-> **Autogenerado o semi-autogenerado** desde el panel de findings del VPS. Mientras se integra el pipeline, este archivo sirve de cabecera.
+> **Generado por** `vps-audit-dashboard.sh` — 2026-04-26 23:00 UTC
+> Excluye `resolved_reason: stale_unverifiable`. Origen: `/var/log/dome-audit-findings`.
 
-Celdas: **A–F** según ratio de hallazgos críticos abiertos vs. resueltos y edad, por dominio (derivado de rutas de archivo) y capa lógica.
+| Dominio (ruta) | Abiertos+verif | Peso ❌ (aprox) | Grado |
+| -------------- | -------------- | --------------- | ----- |
+| `Search` | 4 | 2 | **C** |
+| `agent-canvas` | 2 | 0 | **B** |
+| `chat` | 1 | 0 | **B** |
+| `editor` | 1 | 0 | **B** |
+| `ipc:agent-team` | 4 | 1 | **C** |
+| `ipc:mcp` | 34 | 17 | **F** |
+| `ipc:sync` | 5 | 2 | **C** |
+| `onboarding` | 1 | 0 | **B** |
+| `other` | 9 | 3 | **D** |
+| `settings` | 1 | 0 | **B** |
+| `studio` | 4 | 0 | **C** |
+| `viewers` | 4 | 0 | **C** |
+| `workspace` | 1 | 0 | **B** |
 
-| Dominio / Capa | UI | Service | … |
-| -------------- | -- | ------- | - |
-| *pendiente*    | —  | —       |   |
-
-Ver [methodology.md](methodology.md).
+Capas finas (Types/Repo/…) requieren anotación manual; esta tabla es aproximación por prefijo de ruta.
