@@ -29,9 +29,13 @@ export default defineConfig({
     emptyOutDir: true,
   },
 
-  // Development server
+  // Development server (override with DOME_VITE_PORT or VITE_DEV_PORT for worktrees)
   server: {
-    port: 5173,
+    port: (() => {
+      const p = process.env.DOME_VITE_PORT || process.env.VITE_DEV_PORT;
+      if (p && /^\d+$/.test(p)) return parseInt(p, 10);
+      return 5173;
+    })(),
     strictPort: true,
   },
 

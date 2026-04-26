@@ -47,7 +47,7 @@ interface AppPreferences {
 
 ### AI config (`app/lib/settings/index.ts`, `app/lib/ai/client.ts`)
 
-- Stored in settings table: ai_provider, ai_api_key, ai_model, ai_embedding_model, ai_base_url, ollama_*, venice_privacy_mode. See docs/ai-chat.md and getAIConfig/saveAIConfig in lib/settings.
+- Stored in settings table: ai_provider, ai_api_key, ai_model, ai_embedding_model, ai_base_url, ollama_*, venice_privacy_mode. See ai-chat.md and getAIConfig/saveAIConfig in lib/settings.
 
 ---
 
@@ -65,7 +65,7 @@ interface AppPreferences {
 - **Profile**: getUserProfile / saveUserProfile (user_name, user_email, user_avatar_data, user_avatar_path). Avatar file copy via window.electron.avatar.copyFile (main process).
 - **Preferences**: getAppPreferences / saveAppPreferences (app_theme, app_auto_save, app_auto_backup, app_citation_style, app_shortcuts). Theme applied via setTheme and IPC; useAppStore holds theme, citationStyle, autoSave, autoBackup, loadPreferences, updateTheme, updateCitationStyle, updatePreferences.
 - **AI**: getAIConfig / saveAIConfig (all ai_* and ollama_* keys); used by AI client and AISettingsPanel.
-- **Onboarding**: onboarding_completed (true/false); see docs/onboarding.md.
+- **Onboarding**: onboarding_completed (true/false); see onboarding.md.
 
 ### Theme
 
@@ -89,14 +89,14 @@ interface AppPreferences {
 
 - **General**: User name, email, avatar (select file → copy to dome-files/avatars via IPC, set user_avatar_path).
 - **Appearance**: Theme (light/dark/auto); applied app-wide via IPC theme.
-- **AI**: Provider, API key, model, embedding model, base URL, Ollama options, Venice privacy; Dome Provider OAuth connect. See docs/ai-chat.md and docs/dome-provider-integration.md.
-- **Calendar**: Connect/disconnect Google Calendar (OAuth PKCE); manage sync frequency; select default calendar. See docs/calendar.md.
-- **Cloud Storage**: Connect/disconnect Google Drive and OneDrive (OAuth PKCE). See docs/cloud-storage-setup.md.
-- **Indexing**: Full-library semantic reindex, Nomic embedding metrics, manual refresh (PDF/images use your configured cloud AI for transcription — see docs/indexing.md).
+- **AI**: Provider, API key, model, embedding model, base URL, Ollama options, Venice privacy; Dome Provider OAuth connect. See ai-chat.md and dome-provider-integration.md.
+- **Calendar**: Connect/disconnect Google Calendar (OAuth PKCE); manage sync frequency; select default calendar. See calendar.md.
+- **Cloud Storage**: Connect/disconnect Google Drive and OneDrive (OAuth PKCE). See cloud-storage-setup.md.
+- **Indexing**: Full-library semantic reindex, Nomic embedding metrics, manual refresh (PDF/images use your configured cloud AI for transcription — see indexing.md).
 - **Agents**: List and manage custom Many agents (create, edit, delete, set tools/MCP/model).
 - **Marketplace**: View/uninstall installed agents, plugins, skills, workflows, MCP servers.
 - **MCP Servers**: Configure Model Context Protocol servers for extended AI tool access.
-- **WhatsApp**: Status, start/stop, allowlist; see docs/whatsapp.md.
+- **WhatsApp**: Status, start/stop, allowlist; see whatsapp.md.
 - **Privacy**: Toggle opt-in PostHog analytics (feature usage tracking, error reporting).
 - **Advanced**: Storage usage, cleanup, migration, citation style, shortcuts, experimental features.
 

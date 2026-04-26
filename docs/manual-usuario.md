@@ -84,7 +84,7 @@ Elige cómo quieres usar la inteligencia artificial:
 | **Google** | Gemini Pro, Gemini Flash | De pago (API Key) |
 | **Dome** | Proxy con suscripción incluida | Suscripción mensual |
 
-Para Ollama, sigue la [guía de instalación](./guia-instalacion-ollama.md).
+Para Ollama, sigue la [guía de instalación](./features/guia-instalacion-ollama.md).
 
 ### Paso 4 — ¡Listo!
 Dome ya está configurado. Puedes empezar a añadir recursos.

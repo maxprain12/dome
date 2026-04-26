@@ -1,6 +1,6 @@
 # Database Feature (Main Process)
 
-Documentation for Dome's SQLite layer in the main process: schema, migrations, prepared queries, and FTS. Lives in `electron/database.cjs`; renderer uses IPC via `app/lib/db/client.ts` (see docs/resources.md for client API).
+Documentation for Dome's SQLite layer in the main process: schema, migrations, prepared queries, and FTS. Lives in `electron/database.cjs`; renderer uses IPC via `app/lib/db/client.ts` (see resources.md for client API).
 
 ---
 
@@ -72,7 +72,7 @@ Documentation for Dome's SQLite layer in the main process: schema, migrations, p
 - **WAL**: PRAGMA journal_mode = WAL; synchronous = NORMAL; foreign_keys ON.
 - **FTS**: Standalone FTS tables (no external content) to avoid SQLITE_CORRUPT_VTAB; triggers keep FTS in sync.
 - **Metadata/JSON**: resources.metadata, resource_interactions.position_data and metadata stored as TEXT (JSON); parse in JS.
-- **IPC**: All access from renderer via IPC; main runs getQueries() and returns serializable results; see docs/resources.md and docs/ipc.md.
+- **IPC**: All access from renderer via IPC; main runs getQueries() and returns serializable results; see resources.md and ipc.md.
 
 ---
 
@@ -82,4 +82,4 @@ Documentation for Dome's SQLite layer in the main process: schema, migrations, p
 |------|------|
 | `electron/database.cjs` | getDB, initDatabase, runMigrations, populateFTSTables, createDefaultProject, getQueries, checkIntegrity; IPC handlers call these |
 | `electron/main.cjs` | Registers IPC handlers for db:* (projects, resources, interactions, links, search, settings) |
-| `app/lib/db/client.ts` | Renderer DB client (see docs/resources.md) |
+| `app/lib/db/client.ts` | Renderer DB client (see resources.md) |

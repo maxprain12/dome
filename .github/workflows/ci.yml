@@ -48,6 +48,12 @@ jobs:
       - name: Lint renderer
         run: npm run lint
 
+      - name: IPC inventory up to date
+        run: npm run check:ipc-inventory
+
+      - name: IPC Zod policy (new files)
+        run: npm run check:ipc-zod
+
   build:
     name: Vite Build
     runs-on: ubuntu-latest
@@ -64,6 +70,20 @@ jobs:
 
       - name: Build renderer (Vite)
         run: npm run build
+
+  dependency-cruiser:
+    name: Dependency structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Depcruise (app)
+        run: npm run depcruise
 
   architecture-check:
     name: Architecture Guard

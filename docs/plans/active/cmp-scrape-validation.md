@@ -1,3 +1,10 @@
+---
+status: active
+created: 2026-04-27
+owner: team
+domain: web
+---
+
 # Validación manual: scraping y CMPs (cookies)
 
 Objetivo: comprobar que `webScraper.scrapeUrl` / `web:scrape` extrae el artículo o página principal y **no** el contenido del modal de cookies.

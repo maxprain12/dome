@@ -68,6 +68,15 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+// Isolated userData per worktree or agent run (set before any heavy main init).
+if (process.env.DOME_PROFILE && String(process.env.DOME_PROFILE).trim()) {
+  const safe = String(process.env.DOME_PROFILE).replace(/[^a-zA-Z0-9._-]/g, '_');
+  const def = app.getPath('userData');
+  const next = path.join(path.dirname(def), `${path.basename(def)}-wt-${safe}`);
+  app.setPath('userData', next);
+  console.log('[Main] DOME_PROFILE active — userData:', next);
+}
+
 // In packaged app, native modules live in app.asar.unpacked
 if (app.isPackaged) {
   const mod = require('module');

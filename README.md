@@ -72,7 +72,7 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 | AI Agent | [LangGraph](https://langchain-ai.github.io/langgraphjs/) + [LangChain](https://js.langchain.com/) |
 | MCP | [@langchain/mcp-adapters](https://js.langchain.com/docs/integrations/tools/mcp) |
 | Database | SQLite via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
-| Semantic index | Nomic embeddings (`resource_chunks`) + hybrid search; see `docs/indexing.md` |
+| Semantic index | Nomic embeddings (`resource_chunks`) + hybrid search; see `docs/features/indexing.md` |
 | State | [Zustand](https://github.com/pmndrs/zustand) |
 | Editor | [Tiptap](https://tiptap.dev/) + Dome Editor (MIT) |
 | Graphs | [D3.js](https://d3js.org/) |
@@ -129,7 +129,7 @@ DOME_GOOGLE_DRIVE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 DOME_GOOGLE_DRIVE_CLIENT_SECRET=GOCSPX-your-secret
 ```
 
-See [Cloud Storage Setup](docs/cloud-storage-setup.md) for the full OAuth guide.
+See [Cloud Storage Setup](docs/features/cloud-storage-setup.md) for the full OAuth guide.
 
 ### MCP servers
 

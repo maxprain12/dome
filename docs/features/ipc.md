@@ -47,7 +47,7 @@ Documentation for Dome's inter-process communication: channel whitelist, preload
 - **getPathForFile(file), getPathsForFiles(files)**: File path from File object (webUtils).
 - **platform**: isMac, isWindows, isLinux, platform.
 - **init**: initialize, checkOnboarding, getStatus.
-- **db**: projects, resources, interactions, links, search, settings (see docs/resources.md and preload for exact methods).
+- **db**: projects, resources, interactions, links, search, settings (see resources.md and preload for exact methods).
 - **resource**: import, importMultiple, getFilePath, readFile, export, delete, regenerateThumbnail.
 - **storage**: getUsage, cleanup, getPath.
 - **migration**: migrateResources, getStatus.

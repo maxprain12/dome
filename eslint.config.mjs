@@ -1,6 +1,10 @@
 // @ts-check
+import { createRequire } from 'module';
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
+
+const require = createRequire(import.meta.url);
+const eslintPluginDome = require('./tools/eslint-plugin-dome/index.cjs');
 
 export default tseslint.config(
   // Ignore non-renderer directories
@@ -23,6 +27,7 @@ export default tseslint.config(
   {
     plugins: {
       'react-hooks': reactHooks,
+      dome: eslintPluginDome,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -35,6 +40,9 @@ export default tseslint.config(
 
       // Allow require() in .cjs files (electron main process — but we exclude electron/ above)
       '@typescript-eslint/no-require-imports': 'error',
+
+      // P-001 — renderer must not import Node/DB/Electron (see docs/principles.md)
+      'dome/no-renderer-node-imports': 'error',
     },
   },
 );

@@ -27,8 +27,11 @@ if [ ! -d "$REPO_DIR/.git" ]; then
   exit 0
 fi
 
-# Refresh main so we check against latest merged state
-(cd "$REPO_DIR" && git fetch --quiet origin main 2>/dev/null && git checkout --quiet main 2>/dev/null && git pull --quiet origin main 2>/dev/null) || true
+# Refresh main so we check against latest merged state. Use reset --hard so
+# the resolver auto-heals if local main diverged (otherwise the resolver reads
+# stale files and fixes the user shipped on origin/main never get marked
+# resolved).
+(cd "$REPO_DIR" && git fetch --quiet origin main 2>/dev/null && git checkout --quiet main 2>/dev/null && git reset --hard --quiet origin/main 2>/dev/null) || true
 
 shopt -s nullglob
 FILES=("$FINDINGS_DIR"/*.findings.json)
@@ -47,13 +50,28 @@ for json_path in "${FILES[@]}"; do
 import json
 import os
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 focus = os.environ["FOCUS"]
 repo = os.environ["REPO_DIR"]
 path = os.environ["json_path"]
 log_path = os.environ["RESOLUTIONS_LOG"]
-now = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+now_dt = datetime.now(timezone.utc)
+now = now_dt.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+# Findings in `verifying` with no usable pattern or file anchor cannot be
+# grep-verified by this resolver. After this age they are auto-resolved with
+# reason=stale_unverifiable — if the underlying issue persists, the next audit
+# will re-extract it and reopen it via the normal upsert flow.
+STALE_UNVERIFIABLE_HOURS = int(os.environ.get("STALE_UNVERIFIABLE_HOURS", "48"))
+
+def parse_ts(s):
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except Exception:
+        return None
 
 try:
     with open(path) as f:
@@ -86,10 +104,19 @@ for f in findings:
     rel = f.get("file", "")
     pattern = f.get("pattern", "")
     if not rel or rel == "unknown" or not pattern:
-        # Cannot verify without file/pattern → leave as verifying, do not resolve
+        # Cannot verify without file/pattern. Mark as verifying if just seen,
+        # or auto-resolve as stale_unverifiable after STALE_UNVERIFIABLE_HOURS
+        # so the backlog does not grow unbounded from low-signal extractions.
         if status == "open":
             f["status"] = "verifying"
             f["verifying_since"] = now
+            continue
+        since = parse_ts(f.get("verifying_since"))
+        if since and (now_dt - since) >= timedelta(hours=STALE_UNVERIFIABLE_HOURS):
+            f["status"] = "resolved"
+            f["resolved_at"] = now
+            f["resolved_reason"] = "stale_unverifiable"
+            transitions.append((f["id"], "resolved", "stale_unverifiable"))
         continue
 
     content = file_contents(rel)

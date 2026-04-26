@@ -70,7 +70,7 @@ declare -A FOCUS_FINDINGS
 declare -A FOCUS_LAST_PR
 declare -A FOCUS_LAST_RUN
 
-FOCUS_TYPES=("security" "types" "i18n" "debt" "vulns" "react" "errors" "deps" "all")
+FOCUS_TYPES=("security" "types" "i18n" "debt" "vulns" "react" "errors" "deps" "docs" "arch" "principles" "all")
 
 for focus in "${FOCUS_TYPES[@]}"; do
   count=0
@@ -105,6 +105,31 @@ else:
 " 2>/dev/null || echo "none none none none")
   FOCUS_LAST_PR[$focus]="$last_pr"
 done
+
+# ── Last successful audit run per focus (from log) ────────────────────────────
+# Greps "[dome-audit YYYY-MM-DD HH:MM] Starting audit (focus: <focus>)" and keeps
+# the most recent timestamp per focus. Drives the freshness badge on focus cards.
+FOCUS_LAST_RUN_JSON="{}"
+if [ -f "$LOG_FILE" ]; then
+  FOCUS_LAST_RUN_JSON=$(python3 - "$LOG_FILE" << 'PY'
+import json, re, sys
+from pathlib import Path
+log = Path(sys.argv[1])
+pat = re.compile(r'^\[dome-audit (\d{4}-\d{2}-\d{2} \d{2}:\d{2})\] Starting audit \(focus: (\w+)\)')
+last = {}
+try:
+    for line in log.read_text(errors='replace').splitlines():
+        m = pat.match(line)
+        if m:
+            ts, focus = m.group(1), m.group(2)
+            last[focus] = ts
+except Exception:
+    pass
+print(json.dumps(last))
+PY
+)
+fi
+export FOCUS_LAST_RUN_JSON
 
 # ── Compute code health score (0-100) ─────────────────────────────────────────
 # Simple heuristic: starts at 100, deduct points for open findings
@@ -270,6 +295,7 @@ export HISTORY_FILE MILESTONES_FILE
 # ── Per-focus cards HTML ───────────────────────────────────────────────────────
 FOCUS_CARDS_HTML=$(echo "$AUDIT_PRS" | python3 -c "
 import json, os, re, sys
+from datetime import datetime, timezone
 
 FOCUS_TYPES = [
     ('security', '🔒', 'Security', '#ef4444', '4x/day'),
@@ -280,13 +306,34 @@ FOCUS_TYPES = [
     ('i18n',     '🌍', 'i18n',     '#8b5cf6', '2x/day'),
     ('vulns',    '🛡️',  'Vulns',    '#dc2626', '2x/week'),
     ('deps',     '📦', 'Deps',     '#10b981', 'daily'),
+    ('docs',     '📄', 'Docs',     '#8b5cf6', 'daily'),
+    ('arch',     '🏗️', 'Arch',     '#6366f1', 'daily'),
+    ('principles', '📐', 'Principles', '#14b8a6', 'daily'),
     ('all',      '🔍', 'Full',     '#6b7280', 'weekly'),
 ]
+
+# Expected max interval per focus (hours). Freshness badge turns yellow/red
+# when actual run lag exceeds this. Must be kept in sync with cron schedule.
+FOCUS_MAX_INTERVAL_HOURS = {
+    'security': 7, 'errors': 7, 'types': 7, 'react': 7,   # 4x/day → ~6h cadence
+    'debt': 14, 'i18n': 14,                               # 2x/day → ~12h cadence
+    'deps': 30,                                           # daily
+    'vulns': 90,                                          # 2x/week → ~84h
+    'docs': 30, 'arch': 30, 'principles': 30,             # daily (cron operator)
+    'all': 200,                                           # weekly → ~168h
+}
 
 findings_dir = '/var/log/dome-audit-findings'
 # AUDIT_PRS JSON is ~150KB — too large for python3 -c interpolation (ARG_MAX).
 # Read it from stdin instead.
 audit_prs = json.load(sys.stdin)
+
+# Last successful run per focus from log (injected via FOCUS_LAST_RUN_JSON).
+try:
+    last_run_by_focus = json.loads(os.environ.get('FOCUS_LAST_RUN_JSON', '{}'))
+except Exception:
+    last_run_by_focus = {}
+now_utc = datetime.now(timezone.utc)
 
 # Load history for sparklines
 history_file = os.environ.get('HISTORY_FILE', '')
@@ -355,10 +402,37 @@ def get_last_pr(focus):
     matches = [p for p in audit_prs if focus in p['title'].lower()]
     return matches[0] if matches else None
 
+def freshness_badge(focus):
+    # Returns (html, tooltip) for the last-run freshness chip.
+    ts = last_run_by_focus.get(focus)
+    if not ts:
+        return '<span class=\"fresh-chip fresh-unknown\" title=\"No run recorded in log\">never</span>'
+    try:
+        run_dt = datetime.strptime(ts, '%Y-%m-%d %H:%M').replace(tzinfo=timezone.utc)
+    except Exception:
+        return f'<span class=\"fresh-chip fresh-unknown\" title=\"{ts}\">?</span>'
+    age_sec = (now_utc - run_dt).total_seconds()
+    age_h = age_sec / 3600.0
+    max_h = FOCUS_MAX_INTERVAL_HOURS.get(focus, 48)
+    if age_h < 1:
+        age_str = f'{int(age_sec/60)}m ago'
+    elif age_h < 48:
+        age_str = f'{age_h:.1f}h ago'
+    else:
+        age_str = f'{int(age_h/24)}d ago'
+    if age_h <= max_h:
+        cls = 'fresh-ok'
+    elif age_h <= max_h * 2:
+        cls = 'fresh-warn'
+    else:
+        cls = 'fresh-bad'
+    return f'<span class=\"fresh-chip {cls}\" title=\"Last audit started: {ts} UTC (expected every ≤{max_h}h)\">🕒 {age_str}</span>'
+
 cards = []
 for focus, icon, label, color, freq in FOCUS_TYPES:
     count, verifying = get_findings_count(focus)
     pr = get_last_pr(focus)
+    fresh_html = freshness_badge(focus)
 
     # Sparkline from history (last 30 points)
     hist = history_by_focus.get(focus, [])[-30:]
@@ -403,7 +477,7 @@ for focus, icon, label, color, freq in FOCUS_TYPES:
           <div>{findings_html}</div>
           <div class=\"sparkline-wrap\">{spark_html}</div>
         </div>
-        <div class=\"focus-card-pr\">{pr_html}</div>
+        <div class=\"focus-card-pr\">{pr_html} {fresh_html}</div>
       </div>
     </div>''')
 
@@ -920,6 +994,17 @@ cat > "$OUTPUT_FILE" << HTML
       font-size: 10px; font-weight: 500;
       vertical-align: middle;
     }
+    .fresh-chip {
+      display: inline-block; margin-left: 8px;
+      padding: 1px 7px; border-radius: 3px;
+      font-size: 10px; font-weight: 500;
+      vertical-align: middle;
+      border: 1px solid transparent;
+    }
+    .fresh-ok      { background: rgba(58,155,107,0.12); color: #3a9b6b; border-color: rgba(58,155,107,0.25); }
+    .fresh-warn    { background: rgba(179,128,25,0.12); color: #b38019; border-color: rgba(179,128,25,0.30); }
+    .fresh-bad     { background: rgba(209,77,77,0.14);  color: #d14d4d; border-color: rgba(209,77,77,0.35); }
+    .fresh-unknown { background: var(--bg3); color: var(--text3); }
     .pipeline-box {
       background: var(--bg2); border: 1px solid var(--border);
       border-radius: 8px; padding: 12px 16px;
@@ -1259,6 +1344,91 @@ ${PENDING_HTML}
 HTML
 
 echo "$LOG_PREFIX Dashboard written to $OUTPUT_FILE"
+
+# ── Regenerate in-repo quality scorecard (domain heuristic, excludes stale_unverifiable) ──
+SCORECARD_OUT="${REPO_DIR}/docs/quality/scorecard.md"
+if [ -d "${REPO_DIR}/docs/quality" ] && [ -d "$FINDINGS_DIR" ]; then
+  REPO_DIR="$REPO_DIR" FINDINGS_DIR="$FINDINGS_DIR" SCORECARD_OUT="$SCORECARD_OUT" python3 << 'PY' || true
+import json, os, re
+from datetime import datetime, timezone
+
+fd = os.environ.get("FINDINGS_DIR", "/var/log/dome-audit-findings")
+outp = os.environ.get("SCORECARD_OUT", "")
+if not outp:
+    raise SystemExit(0)
+
+by = {}  # domain -> {"n": int, "sev": int}
+for fn in os.listdir(fd):
+    if not fn.endswith(".findings.json"):
+        continue
+    p = os.path.join(fd, fn)
+    try:
+        data = json.load(open(p, encoding="utf-8", errors="replace"))
+    except Exception:
+        continue
+    if isinstance(data, dict) and "findings" in data:
+        data = data["findings"]
+    if not isinstance(data, list):
+        continue
+    for f in data:
+        if not isinstance(f, dict):
+            continue
+        if f.get("resolved_reason") == "stale_unverifiable":
+            continue
+        st = f.get("status", "")
+        if st not in ("open", "verifying"):
+            continue
+        fp = f.get("file") or ""
+        dom = "other"
+        m = re.search(r"app/components/([^/]+)/", fp)
+        if m:
+            dom = m.group(1)
+        else:
+            m = re.search(r"electron/ipc/([^.]+)\.cjs", fp)
+            if m:
+                dom = "ipc:" + m.group(1)
+        b = f.get("body") or ""
+        sev = 1 if (isinstance(b, str) and (b.strip().startswith("❌") or "error" in b.lower()[:20])) else 0
+        o = by.setdefault(dom, {"n": 0, "sev": 0})
+        o["n"] += 1
+        o["sev"] += sev
+
+def grade(n, sev):
+    if n == 0:
+        return "A"
+    if n <= 2 and sev == 0:
+        return "B"
+    if n <= 5:
+        return "C"
+    if n <= 15:
+        return "D"
+    return "F"
+
+now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+lines = [
+    "# Scorecard (dominios heurísticos)",
+    "",
+    f"> **Generado por** `vps-audit-dashboard.sh` — {now}",
+    f"> Excluye `resolved_reason: stale_unverifiable`. Origen: `{fd}`.",
+    "",
+    "| Dominio (ruta) | Abiertos+verif | Peso ❌ (aprox) | Grado |",
+    "| -------------- | -------------- | --------------- | ----- |",
+]
+for dom in sorted(by.keys()):
+    o = by[dom]
+    g = grade(o["n"], o["sev"])
+    lines.append(f"| `{dom}` | {o['n']} | {o['sev']} | **{g}** |")
+if len(by) == 0:
+    lines.append("| — | 0 | 0 | **A** |")
+lines.append("")
+lines.append("Capas finas (Types/Repo/…) requieren anotación manual; esta tabla es aproximación por prefijo de ruta.")
+os.makedirs(os.path.dirname(outp) or ".", exist_ok=True)
+with open(outp, "w", encoding="utf-8") as w:
+    w.write("\n".join(lines) + "\n")
+print("Scorecard written:", outp)
+PY
+  echo "$LOG_PREFIX Scorecard refreshed at $SCORECARD_OUT (if REPO present)"
+fi
 
 # ── Serve if not already running ─────────────────────────────────────────────
 if ! pgrep -f "python3 -m http.server 8080" > /dev/null 2>&1; then

@@ -311,7 +311,7 @@ const resource = await dbClient.getResourceById(id);
 
 La búsqueda híbrida usa **chunks vectoriales locales** (Nomic en `resource_chunks`) más FTS5 y el grafo. Los PDFs y las imágenes se transcriben o describen con el **LLM en la nube** del usuario (Ajustes → IA, visión / multimodal). No hay runtime Python embebido en el proceso principal; el índice semántico vive en SQLite. La transcripción on-device vía **Gemma** se retiró en versiones recientes.
 
-Documentación detallada: **[indexing.md](./indexing.md)**.
+Documentación detallada: **[indexing.md](./features/indexing.md)**.
 
 ### Flujo resumido
 
@@ -332,7 +332,7 @@ Recursos → semantic-index-scheduler → indexing.pipeline.cjs
 
 ### KB LLM (wiki compilada por agentes)
 
-Metadatos y FTS5: [kb-llm-wiki-model.md](./kb-llm-wiki-model.md). Si `metadata.dome_kb.reindexOnSave` es `true`, las actualizaciones pueden programar reindexación semántica vía `semantic-index-scheduler.cjs`.
+Metadatos y FTS5: [kb-llm-wiki-model.md](./features/kb-llm-wiki-model.md). Si `metadata.dome_kb.reindexOnSave` es `true`, las actualizaciones pueden programar reindexación semántica vía `semantic-index-scheduler.cjs`.
 
 ---
 
