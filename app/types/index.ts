@@ -229,7 +229,7 @@ export interface StructuredTranscriptPayload {
 
 /**
  * Convenciones para KB LLM (wiki compilada por agentes).
- * Ver docs/kb-llm-wiki-model.md y docs/indexing.md.
+ * Ver docs/features/kb-llm-wiki-model.md y docs/features/indexing.md.
  */
 export interface DomeKbMetadata {
   wikiRole?: 'raw' | 'compiled' | 'index' | 'output';

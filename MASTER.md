@@ -50,8 +50,8 @@
 |-----------|-------------|
 | [Manual Técnico](./docs/manual-tecnico.md) | Arquitectura, IPC, DB schema, AI, build, troubleshooting |
 | [CLAUDE.md](./CLAUDE.md) | Guía para Claude Code: reglas críticas de arquitectura |
-| [docs/ipc.md](./docs/ipc.md) | Whitelist de canales IPC, seguridad |
-| [docs/database.md](./docs/database.md) | Schema SQLite completo |
+| [docs/ipc.md](./docs/features/ipc.md) | Whitelist de canales IPC, seguridad |
+| [docs/database.md](./docs/features/database.md) | Schema SQLite completo |
 
 ### Para desarrolladores de Dome Provider
 
@@ -72,50 +72,50 @@
 
 | Feature | Doc | Estado |
 |---------|-----|--------|
-| AI Chat (Martin/Many) | [ai-chat.md](./docs/ai-chat.md) | ✅ Implementado |
-| Indexación semántica (IA en la nube + Nomic) | [indexing.md](./docs/indexing.md) | ✅ v2.2+ |
-| Agent Canvas | [agent-canvas.md](./docs/agent-canvas.md) | ✅ v2.0.8 |
-| Agent Teams | [agent-teams.md](./docs/agent-teams.md) | ✅ v2.0.8 |
-| Studio | [studio.md](./docs/studio.md) | ✅ Implementado |
-| Marketplace (SDK) | [marketplace/](./docs/marketplace/) | ✅ v2.0.8 |
+| AI Chat (Martin/Many) | [ai-chat.md](./docs/features/ai-chat.md) | ✅ Implementado |
+| Indexación semántica (IA en la nube + Nomic) | [indexing.md](./docs/features/indexing.md) | ✅ v2.2+ |
+| Agent Canvas | [agent-canvas.md](./docs/features/agent-canvas.md) | ✅ v2.0.8 |
+| Agent Teams | [agent-teams.md](./docs/features/agent-teams.md) | ✅ v2.0.8 |
+| Studio | [studio.md](./docs/features/studio.md) | ✅ Implementado |
+| Marketplace (SDK) | [marketplace/](./docs/features/marketplace/) | ✅ v2.0.8 |
 
 ### Productividad
 
 | Feature | Doc | Estado |
 |---------|-----|--------|
-| Calendar + Google Calendar | [calendar.md](./docs/calendar.md) | ✅ v2.0.0 |
-| Flashcards SM-2 | [flashcards.md](./docs/flashcards.md) | ✅ Implementado |
-| Automatizaciones | [automations.md](./docs/automations.md) | ✅ v2.0.8 |
-| Run Engine | [runs.md](./docs/runs.md) | ✅ v2.0.8 |
+| Calendar + Google Calendar | [calendar.md](./docs/features/calendar.md) | ✅ v2.0.0 |
+| Flashcards SM-2 | [flashcards.md](./docs/features/flashcards.md) | ✅ Implementado |
+| Automatizaciones | [automations.md](./docs/features/automations.md) | ✅ v2.0.8 |
+| Run Engine | [runs.md](./docs/features/runs.md) | ✅ v2.0.8 |
 
 ### Contenido & Editor
 
 | Feature | Doc | Estado |
 |---------|-----|--------|
-| Editor (Tiptap) | [editor.md](./docs/editor.md) | ✅ Implementado |
-| Recursos & Proyectos | [resources.md](./docs/resources.md) | ✅ Implementado |
-| Workspace | [workspace.md](./docs/workspace.md) | ✅ Implementado |
-| Viewers (PDF, Video, etc.) | [viewers.md](./docs/viewers.md) | ✅ Implementado |
+| Editor (Tiptap) | [editor.md](./docs/features/editor.md) | ✅ Implementado |
+| Recursos & Proyectos | [resources.md](./docs/features/resources.md) | ✅ Implementado |
+| Workspace | [workspace.md](./docs/features/workspace.md) | ✅ Implementado |
+| Viewers (PDF, Video, etc.) | [viewers.md](./docs/features/viewers.md) | ✅ Implementado |
 
 ### Extensiones & Integración
 
 | Feature | Doc | Estado |
 |---------|-----|--------|
-| Plugins (Pets & Views) | [plugins.md](./docs/plugins.md) | ✅ v2.0.8 |
-| Cloud Storage (GDrive/OneDrive) | [cloud-storage-setup.md](./docs/cloud-storage-setup.md) | ✅ v2.0.8 |
-| WhatsApp | [whatsapp.md](./docs/whatsapp.md) | ✅ Implementado |
-| Dome Provider Integration | [dome-provider-integration.md](./docs/dome-provider-integration.md) | ✅ v2.0.8 |
-| Ollama (guía instalación) | [guia-instalacion-ollama.md](./docs/guia-instalacion-ollama.md) | ✅ Guía |
+| Plugins (Pets & Views) | [plugins.md](./docs/features/plugins.md) | ✅ v2.0.8 |
+| Cloud Storage (GDrive/OneDrive) | [cloud-storage-setup.md](./docs/features/cloud-storage-setup.md) | ✅ v2.0.8 |
+| WhatsApp | [whatsapp.md](./docs/features/whatsapp.md) | ✅ Implementado |
+| Dome Provider Integration | [dome-provider-integration.md](./docs/features/dome-provider-integration.md) | ✅ v2.0.8 |
+| Ollama (guía instalación) | [guia-instalacion-ollama.md](./docs/features/guia-instalacion-ollama.md) | ✅ Guía |
 
 ### Infraestructura
 
 | Feature | Doc | Estado |
 |---------|-----|--------|
-| Database (SQLite) | [database.md](./docs/database.md) | ✅ Implementado |
-| IPC Architecture | [ipc.md](./docs/ipc.md) | ✅ Implementado |
-| File Storage | [file-storage.md](./docs/file-storage.md) | ✅ Implementado |
-| Settings | [settings.md](./docs/settings.md) | ✅ Implementado |
-| Onboarding | [onboarding.md](./docs/onboarding.md) | ✅ Implementado |
+| Database (SQLite) | [database.md](./docs/features/database.md) | ✅ Implementado |
+| IPC Architecture | [ipc.md](./docs/features/ipc.md) | ✅ Implementado |
+| File Storage | [file-storage.md](./docs/features/file-storage.md) | ✅ Implementado |
+| Settings | [settings.md](./docs/features/settings.md) | ✅ Implementado |
+| Onboarding | [onboarding.md](./docs/features/onboarding.md) | ✅ Implementado |
 
 ---
 

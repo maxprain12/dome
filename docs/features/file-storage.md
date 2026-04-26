@@ -1,6 +1,6 @@
 # File Storage Feature (Main Process)
 
-Documentation for Dome's internal file storage in the main process: directory layout, import/export, deduplication, and cleanup. Lives in `electron/file-storage.cjs`; renderer uses IPC (resource:*, storage:*) via db client (see docs/resources.md).
+Documentation for Dome's internal file storage in the main process: directory layout, import/export, deduplication, and cleanup. Lives in `electron/file-storage.cjs`; renderer uses IPC (resource:*, storage:*) via db client (see resources.md).
 
 ---
 
@@ -88,4 +88,4 @@ Documentation for Dome's internal file storage in the main process: directory la
 | `electron/main.cjs`         | IPC handlers resource:import, resource:readFile, resource:getFilePath, resource:export, resource:delete, storage:getUsage, storage:cleanup, storage:getPath; call file-storage and database |
 | `electron/thumbnail.cjs`    | Generate thumbnail for image/PDF/video; return base64 or path; used after import                                                                                                            |
 | `electron/preload.cjs`      | Exposes resource.* and storage.* to renderer                                                                                                                                                |
-| `app/lib/db/client.ts`      | db.importFile, readResourceFile, exportResource, deleteResource, getStorageUsage, cleanupStorage, getStoragePath (see docs/resources.md)                                                    |
+| `app/lib/db/client.ts`      | db.importFile, readResourceFile, exportResource, deleteResource, getStorageUsage, cleanupStorage, getStoragePath (see resources.md)                                                    |

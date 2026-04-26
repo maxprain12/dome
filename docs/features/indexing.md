@@ -35,4 +35,4 @@ Dome indexa recursos localmente con **embeddings Nomic** en SQLite (`resource_ch
 - `resource_get_section` — por `chunk_id`
 - `pdf_render_page` — vista visual de una página
 
-Ver también: [manual-tecnico.md](./manual-tecnico.md) (arquitectura general), [settings.md](./settings.md) (ajustes de UI).
+Ver también: [manual-tecnico.md](../manual-tecnico.md) (arquitectura general), [settings.md](./settings.md) (ajustes de UI).

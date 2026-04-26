@@ -1,0 +1,9 @@
+{
+  "name": "eslint-plugin-dome",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.cjs",
+  "peerDependencies": {
+    "eslint": ">=8"
+  }
+}

@@ -77,8 +77,14 @@ if [ ! -d "$REPO_DIR/.git" ]; then
 fi
 
 cd "$REPO_DIR"
-git checkout main
-git pull origin main
+# Force-sync local main to origin/main. We never keep local changes on main —
+# audits commit on ephemeral branches (line 85 below). If a previous run left
+# main diverged (e.g. an agent committed directly to main and push was rejected),
+# a plain `git pull` would fail with "Need to specify how to reconcile divergent
+# branches" and silently wedge all future audits until someone intervenes.
+git fetch --quiet origin main
+git checkout --quiet main
+git reset --hard --quiet origin/main
 echo "$LOG_PREFIX Repo updated to $(git rev-parse --short HEAD)"
 
 # ── Create audit branch ───────────────────────────────────────────────────────
@@ -347,13 +353,68 @@ Flag: none
 EOF
 )"
 
-# Enable auto-merge — if CI passes, merges automatically
-gh pr merge --auto --squash --repo "$REPO_SLUG" "$ACTUAL_BRANCH"
-
-PR_NUMBER=$(gh pr view --repo "$REPO_SLUG" "$ACTUAL_BRANCH" --json number --jq '.number' 2>/dev/null)
-echo "$LOG_PREFIX Audit PR created and auto-merge enabled."
+PR_NUMBER=$(gh pr view --repo "$REPO_SLUG" "$ACTUAL_BRANCH" --json number --jq '.number' 2>/dev/null || echo '')
+echo "$LOG_PREFIX Audit PR created."
 echo "$LOG_PREFIX Branch: $ACTUAL_BRANCH"
-echo "$LOG_PREFIX PR URL: https://github.com/${REPO_SLUG}/pull/${PR_NUMBER}"
+if [ -n "$PR_NUMBER" ]; then
+  echo "$LOG_PREFIX PR URL: https://github.com/${REPO_SLUG}/pull/${PR_NUMBER}"
+fi
+
+# ── Inline AI review ─────────────────────────────────────────────────────────
+# Audit PRs enable --auto and all CI checks pass in <1 min, so they merge in
+# seconds. The :23/:53 cron of vps-pr-review.sh finds "Found 0 open PRs" and
+# the AI review never lands. Run it inline here, BEFORE auto-merge, and write
+# the same dedupe marker that vps-pr-review.sh uses so the cron skips it if
+# it ever races. Failures are non-fatal — the audit work is still valid.
+if [ -n "$PR_NUMBER" ]; then
+  AI_REVIEW_ENV_FILE="${AI_REVIEW_ENV_FILE:-/opt/dome-audit/.minimax-api.env}"
+  if [ -f "$AI_REVIEW_ENV_FILE" ]; then
+    # shellcheck disable=SC1090
+    set -a; . "$AI_REVIEW_ENV_FILE"; set +a
+  fi
+  if [ -n "${AI_REVIEW_API_KEY:-}" ]; then
+    export AI_REVIEW_BASE_URL="${AI_REVIEW_BASE_URL:-https://api.minimax.io/v1}"
+    export AI_REVIEW_MODEL="${AI_REVIEW_MODEL:-MiniMax-M2.7}"
+    export GITHUB_TOKEN="${GH_TOKEN:-$(gh auth token 2>/dev/null || true)}"
+    export PR_NUMBER
+    export REPO="$REPO_SLUG"
+
+    HEAD_SHA=$(git rev-parse HEAD)
+    MARKER_DIR="/var/log/dome-audit-findings/pr-reviews"
+    mkdir -p "$MARKER_DIR"
+    MARKER="${MARKER_DIR}/${PR_NUMBER}-${HEAD_SHA}.done"
+
+    DIFF_FILE=$(mktemp /tmp/audit-pr-${PR_NUMBER}-XXXXXX.diff)
+    git diff "origin/main...HEAD" > "$DIFF_FILE" 2>/dev/null || true
+    DIFF_SIZE=$(wc -c < "$DIFF_FILE")
+
+    if [ "$DIFF_SIZE" -lt 100 ]; then
+      echo "$LOG_PREFIX Inline AI review: trivial diff (${DIFF_SIZE}b) — marking done without review"
+      touch "$MARKER"
+    else
+      echo "$LOG_PREFIX Running inline AI review for PR #${PR_NUMBER} (diff=${DIFF_SIZE}b)..."
+      REVIEW_LOG=$(mktemp /tmp/audit-pr-${PR_NUMBER}-review-XXXXXX.log)
+      if timeout 300 node "$REPO_DIR/scripts/ai-review.mjs" < "$DIFF_FILE" > "$REVIEW_LOG" 2>&1; then
+        touch "$MARKER"
+        tail -n 6 "$REVIEW_LOG" | sed "s|^|$LOG_PREFIX   |"
+        echo "$LOG_PREFIX Inline AI review posted to PR #${PR_NUMBER}"
+      else
+        EXIT=$?
+        echo "$LOG_PREFIX Inline AI review failed (exit $EXIT) — non-fatal, auto-merge continues" >&2
+        tail -n 20 "$REVIEW_LOG" | sed "s|^|$LOG_PREFIX   |" >&2
+      fi
+      rm -f "$REVIEW_LOG"
+    fi
+    rm -f "$DIFF_FILE"
+    unset AI_REVIEW_API_KEY GITHUB_TOKEN
+  else
+    echo "$LOG_PREFIX AI_REVIEW_API_KEY not available — skipping inline review" >&2
+  fi
+fi
+
+# Enable auto-merge — if CI passes, merges automatically
+gh pr merge --auto --squash --repo "$REPO_SLUG" "$ACTUAL_BRANCH" || true
+echo "$LOG_PREFIX Audit PR auto-merge enabled."
 
 # ── Extract AI review findings (runs in background, review may not be posted yet)
 # Wait 3 minutes for the AI review workflow to complete, then extract findings
