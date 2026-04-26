@@ -11,28 +11,14 @@
 import type {} from '@/types/global';
 
 import { db } from '../db/client';
-import {
-  getDefaultModelId,
-  getDefaultEmbeddingModelId,
-  type AIProviderType,
-  type ModelDefinition,
-  PROVIDERS,
-  findModelById,
-  modelSupportsTools,
-} from './models';
+import { getDefaultModelId } from './models';
+import type { AIProviderType } from './models';
 import type {
-  ChatOptions,
-  ChatResponse,
   ChatStreamChunk,
-  ChatMessage,
   ToolDefinition,
 } from './types';
-import {
-  createToolRegistry,
-  toOpenAIToolDefinitions,
-  toAnthropicToolDefinitions,
-  type AnyAgentTool,
-} from './tools';
+import type { AnyAgentTool } from './tools';
+import { toOpenAIToolDefinitions } from './tools';
 import {
   buildMartinBasePrompt,
   buildMartinResourceContext,
