@@ -274,7 +274,7 @@ export interface ResourceMetadata {
   notebook_workspace_path?: string;
   /** Wiki / corpus KB mantenido por agentes (opcional) */
   dome_kb?: DomeKbMetadata;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Tipos de proyectos
@@ -314,7 +314,7 @@ export interface SourceMetadata {
   abstract?: string;
   keywords?: string[];
   citation_count?: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Tipos de citas
@@ -348,7 +348,7 @@ export interface SemanticSearchResult {
   resource_id: string;
   text: string;
   score: number;
-  metadata: any;
+  metadata: Record<string, unknown>;
 }
 
 // Estilos de citación
