@@ -349,6 +349,10 @@ export default function CanvasWorkspace({ selectedNodeId, onNodeSelect }: Canvas
 
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
+      return () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+      };
     },
     [addEdge],
   );
