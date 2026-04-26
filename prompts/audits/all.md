@@ -1,10 +1,10 @@
 ---
-name: audit-all
+
+## name: audit-all
 description: Comprehensive audit covering every focus. Used for weekly sweeps.
 version: 1
 focus: all
 last_updated: 2026-04-17
----
 
 ## Focus: Full Audit (all areas)
 

@@ -60,14 +60,14 @@ export default function McpCapabilitiesSection({
 
   if (visibleServers.length === 0) {
     return (
-      <div className="px-3 py-2 text-[12px]" style={{ color: 'var(--dome-text-muted)' }}>
-        No hay MCPs configurados con tools disponibles.
+      <div className="px-1 py-2 text-[12px] leading-relaxed" style={{ color: 'var(--tertiary-text)' }}>
+        {t('chat.mcp_no_servers')}
       </div>
     );
   }
 
   return (
-      <div className="space-y-3 px-3 py-1">
+    <div className="space-y-4 px-1 py-0.5">
       {visibleServers.map((server) => {
         const normalizedServerId = normalizeMcpServerId(server.name);
         const tools = server.tools ?? [];
@@ -75,42 +75,59 @@ export default function McpCapabilitiesSection({
         const isSaving = savingServerId === normalizedServerId;
 
         return (
-          <div key={server.name} className="min-w-0 rounded-lg border p-2.5" style={{ borderColor: 'var(--dome-border)', backgroundColor: 'var(--dome-bg)' }}>
+          <div
+            key={server.name}
+            className="min-w-0 rounded-xl border p-3.5"
+            style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <Plug2 className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} />
-                  <span className="break-words text-[12px] font-medium" style={{ color: 'var(--dome-text)', overflowWrap: 'anywhere' }}>
+                  <Plug2 className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--tertiary-text)' }} />
+                  <span
+                    className="min-w-0 truncate text-[13px] font-medium"
+                    style={{ color: 'var(--primary-text)' }}
+                    title={server.name}
+                  >
                     {server.name}
                   </span>
                 </div>
-                <div className="mt-0.5 break-words text-[10px]" style={{ color: 'var(--dome-text-muted)', overflowWrap: 'anywhere' }}>
+                <div
+                  className="mt-1 break-words text-[10px] leading-snug"
+                  style={{ color: 'var(--tertiary-text)', overflowWrap: 'anywhere' }}
+                >
                   {tools.length > 0
-                    ? `${tools.filter((tool) => tool.enabled !== false).length}/${tools.length} tools globales activas`
-                    : 'Sin tools descubiertas todavía'}
+                    ? t('chat.mcp_tools_active', {
+                        active: tools.filter((tool) => tool.enabled !== false).length,
+                        total: tools.length,
+                      })
+                    : t('chat.mcp_no_discovered')}
                 </div>
               </div>
               {onToggleServer ? (
                 <button
                   type="button"
                   onClick={() => onToggleServer(server.name)}
-                  className="rounded px-2 py-1 text-[10px] font-medium border"
+                  className="shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-medium"
                   style={{
-                    borderColor: 'var(--dome-border)',
-                    color: serverEnabled ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-                    backgroundColor: serverEnabled ? 'var(--dome-surface)' : 'transparent',
+                    borderColor: 'var(--border)',
+                    color: serverEnabled ? 'var(--primary-text)' : 'var(--tertiary-text)',
+                    backgroundColor: serverEnabled ? 'var(--bg-tertiary)' : 'transparent',
                   }}
                 >
-                  {serverEnabled ? 'Activo' : 'Inactivo'}
+                  {serverEnabled ? t('agent.active') : t('agent.inactive')}
                 </button>
               ) : null}
             </div>
 
             {tools.length > 0 ? (
-              <div className="mt-2 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
-                    Tools
+              <div className="mt-3.5">
+                <div className="flex items-center justify-between gap-2 pb-2">
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    style={{ color: 'var(--tertiary-text)' }}
+                  >
+                    {t('chat.tools_section')}
                   </span>
                   <div className="flex items-center gap-1.5">
                     <button
@@ -126,10 +143,10 @@ export default function McpCapabilitiesSection({
                           server.name
                         )
                       }
-                      className="rounded px-1.5 py-0.5 text-[10px] font-medium"
-                      style={{ backgroundColor: 'var(--dome-accent-bg)', color: 'var(--dome-accent)' }}
+                      className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                      style={{ backgroundColor: 'var(--translucent)', color: 'var(--accent)' }}
                     >
-                      Todas
+                      {t('chat.mcp_all')}
                     </button>
                     <button
                       type="button"
@@ -144,50 +161,72 @@ export default function McpCapabilitiesSection({
                           server.name
                         )
                       }
-                      className="rounded px-1.5 py-0.5 text-[10px] font-medium border"
-                      style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
+                      className="rounded-full border px-2 py-0.5 text-[10px] font-medium"
+                      style={{ borderColor: 'var(--border)', color: 'var(--tertiary-text)' }}
                     >
-                      Ninguna
+                      {t('chat.mcp_none')}
                     </button>
                   </div>
                 </div>
-                {tools.map((tool) => (
-                  <label
-                    key={tool.id}
-                    className="flex items-start justify-between gap-3 rounded-md px-2 py-1.5 cursor-pointer hover:bg-[var(--dome-surface)]"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="break-words text-[12px]" style={{ color: 'var(--dome-text)', overflowWrap: 'anywhere' }}>
-                        {tool.name}
-                      </div>
-                      {tool.description ? (
-                        <div className="mt-0.5 break-words text-[10px] leading-4" style={{ color: 'var(--dome-text-muted)', overflowWrap: 'anywhere' }}>
-                          {tool.description}
+                <div className="max-h-[min(220px,40vh)] space-y-2 overflow-y-auto pr-0.5">
+                  {tools.map((tool) => {
+                    const toolId = tool.id || tool.name;
+                    return (
+                      <label
+                        key={toolId}
+                        className="block cursor-pointer"
+                      >
+                        <div
+                          className="flex items-start justify-between gap-2.5 rounded-xl border border-transparent bg-[var(--bg-tertiary)] p-2.5 transition-colors hover:border-[var(--border)]"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div
+                              className="truncate text-[12px] font-medium"
+                              style={{ color: 'var(--primary-text)' }}
+                              title={tool.name}
+                            >
+                              {tool.name}
+                            </div>
+                            {tool.description ? (
+                              <p
+                                className="mt-1 line-clamp-3 text-[11px] leading-relaxed"
+                                style={{ color: 'var(--tertiary-text)' }}
+                                title={tool.description}
+                              >
+                                {tool.description}
+                              </p>
+                            ) : null}
+                          </div>
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 shrink-0 rounded accent-[var(--accent)]"
+                            aria-label={tool.name}
+                            checked={tool.enabled !== false}
+                            disabled={isSaving}
+                            onChange={(event) =>
+                              persistServers(
+                                servers.map((currentServer) =>
+                                  currentServer.name === server.name
+                                    ? toggleGlobalMcpTool(
+                                        currentServer,
+                                        toolId,
+                                        event.target.checked
+                                      )
+                                    : currentServer
+                                ),
+                                server.name
+                              )
+                            }
+                          />
                         </div>
-                      ) : null}
-                    </div>
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 rounded shrink-0"
-                      checked={tool.enabled !== false}
-                      disabled={isSaving}
-                      onChange={(event) =>
-                        persistServers(
-                          servers.map((currentServer) =>
-                            currentServer.name === server.name
-                              ? toggleGlobalMcpTool(currentServer, tool.id || tool.name, event.target.checked)
-                              : currentServer
-                          ),
-                          server.name
-                        )
-                      }
-                    />
-                  </label>
-                ))}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
-              <div className="mt-2 text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
-                Descubre las tools desde Ajustes &gt; MCP o probando este servidor allí.
+              <div className="mt-3 text-[10px] leading-relaxed" style={{ color: 'var(--tertiary-text)' }}>
+                {t('chat.mcp_settings_hint')}
               </div>
             )}
           </div>

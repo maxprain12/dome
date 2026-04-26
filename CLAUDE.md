@@ -54,6 +54,7 @@ npm run postinstall      # Install Electron native dependencies (runs automatica
 ### Process Separation (MUST FOLLOW)
 
 **Main Process** (`electron/*.cjs`):
+
 - Has full Node.js/Electron API access
 - Manages SQLite database via `better-sqlite3`
 - Handles file system operations
@@ -62,12 +63,14 @@ npm run postinstall      # Install Electron native dependencies (runs automatica
 - Exposes safe APIs via IPC handlers in `electron/ipc/`
 
 **Renderer Process** (`app/**/*.ts`, `app/**/*.tsx`):
+
 - Runs Vite + React application (entry: `app/main.tsx`)
 - NO direct Node.js module access
 - Uses `window.electron` API (exposed via preload.cjs)
 - Routes handled by React Router (client-side SPA)
 
 **Example - WRONG**:
+
 ```typescript
 // ❌ NEVER do this in app/
 import Database from 'better-sqlite3';
@@ -75,6 +78,7 @@ import fs from 'fs';
 ```
 
 **Example - CORRECT**:
+
 ```typescript
 // ✅ In app/ - use IPC client
 const projects = await window.electron.invoke('db:projects:getAll');
@@ -98,18 +102,20 @@ IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`,
 ### Database Architecture
 
 **SQLite** (`electron/database.cjs` via `better-sqlite3`):
+
 - Stored at `app.getPath('userData')/dome.db`
 - Key tables: `projects`, `resources`, `sources`, `tags`, `interactions`, `settings`
 - Full-text search via FTS5
 - Accessed via `db:*` IPC channels from renderer
 
 **Semantic index** (`electron/services/embeddings.service.cjs`, `resource_chunks`):
+
 - Nomic embeddings stored in SQLite; hybrid search combines FTS + graph + vectors
 
 ### Custom Protocols
 
-- **`app://dome/`**: Production URL scheme (loads `dist/index.html`; dev loads `http://localhost:5173`)
-- **`dome://`**: OAuth callback deep links for MCP integrations (single-instance lock routes these to the correct handler)
+- `**app://dome/`**: Production URL scheme (loads `dist/index.html`; dev loads `http://localhost:5173`)
+- `**dome://**`: OAuth callback deep links for MCP integrations (single-instance lock routes these to the correct handler)
 
 ## Code Organization
 
@@ -171,10 +177,11 @@ dome/
 │   └── types/                  # TypeScript type definitions (global.d.ts has window.electron types)
 │
 ├── prompts/                     # System prompt templates (martin/tools.txt, etc.)
+├── electron/skills/bundled/     # Shipped SKILL.md packs (Claude-style Agent Skills)
 ├── public/
 │   ├── agents/                  # Agent definition JSON bundles (one dir per agent)
 │   ├── workflows/               # Workflow definition JSON files
-│   ├── skills/                  # Skill definition files
+│   ├── skills/                    # (Legacy) manifest JSON for marketplace; runtime uses SKILL.md
 │   ├── mcp/                     # MCP server config files
 │   └── agents.json / workflows.json / skills.json  # Catalogs for the above
 └── scripts/                     # Build and utility scripts
@@ -249,6 +256,7 @@ Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron
 - **Dev**: Vite on port 5173, Electron loads `http://localhost:5173`
 - **Prod**: Vite builds to `dist/`, Electron loads via `app://dome/` protocol
 - **Native modules** unpacked from asar: `better-sqlite3`, `sharp`, `node-pty`, `@napi-rs/canvas`, `archiver`, `yauzl`
+
 ## Security Requirements
 
 1. `contextIsolation: true`, `nodeIntegration: false` on all windows
@@ -258,11 +266,20 @@ Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron
 
 ## Common Pitfalls
 
-1. **`bun:sqlite` in Electron**: Electron runs Node.js, not Bun. Always use `better-sqlite3` in main process.
+1. `**bun:sqlite` in Electron**: Electron runs Node.js, not Bun. Always use `better-sqlite3` in main process.
 2. **SQLite in renderer**: Use `window.electron.invoke('db:...')` — never import better-sqlite3 in `app/`
 3. **New IPC channel**: Must be added in both `electron/ipc/<domain>.cjs` AND `electron/preload.cjs` ALLOWED_CHANNELS
 4. **Type-only imports**: Use `import type { }` due to `verbatimModuleSyntax: true`
 5. **File paths**: Always use IPC handlers, never access filesystem directly from renderer
+
+## File-based skills (Claude / Agent Skills)
+
+- **User**: `~/.dome/skills/<id>/SKILL.md` (personal, highest priority)
+- **Project (optional)**: Set *Project skills root* in **Settings > Skills**; skills load from `<root>/.dome/skills/`
+- **Bundled**: `electron/skills/bundled/<id>/SKILL.md`
+- **Plugins**: `userData/plugins/<pluginId>/skills/...` (id = `pluginId:folderName`)
+- Main process watches these paths; the UI can call `load_skill` / `load_skill_file` tools in Many. YAML frontmatter matches Agent Skills (name, description, `disable-model-invocation`, `paths`, `context`, etc.).
+- **Limitations (current)**: `allowed-tools` is stored but not auto-merged into the LangGraph tool policy; `context: fork` skills are rejected by `load_skill` (use `/skill` or the + menu instead of expecting a subagent fork).
 
 ## Additional Documentation
 
@@ -281,3 +298,4 @@ Actionable checklists for common tasks — follow these before opening a PR or i
 - `.claude/sops/release.md` — How to cut a release
 - `.claude/rules/ui-style-guidelines.md` — UI design system
 - `.claude/rules/new-color-palette.md` — Current color palette variables
+

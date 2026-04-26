@@ -1,10 +1,10 @@
 ---
-name: audit-deps
+
+## name: audit-deps
 description: Package authorization & freshness — keep dependencies authorized, up-to-date within semver, and CVE-free.
 version: 1
 focus: deps
 last_updated: 2026-04-17
----
 
 ## Focus: Package Authorization & Freshness (deps audit)
 
@@ -30,11 +30,12 @@ npm audit --json > /tmp/npm-audit.json
 ```
 
 Parse the JSON. For every advisory with severity ∈ {high, critical}:
+
 - Note: module name, version range, CVE id, advisory URL, patched range
 - If `fixAvailable` is true and it's a safe (patch/minor) bump → apply via
-  `npm install <pkg>@<patched-version> --save --ignore-scripts`
+`npm install <pkg>@<patched-version> --save --ignore-scripts`
 - If fix requires a major bump of a frozen package (see Step 4) → add a
-  row in `SECURITY.md` documenting the CVE (create the file if missing)
+row in `SECURITY.md` documenting the CVE (create the file if missing)
 
 ### Step 3 — Outdated scan (patch + minor only)
 
@@ -43,6 +44,7 @@ npm outdated --json > /tmp/npm-outdated.json
 ```
 
 For every package where `current < wanted` (i.e. the semver range allows it):
+
 - Bump to `wanted` via: `npm install <pkg>@<wanted> --save --ignore-scripts`
 - Do NOT bump to `latest` when `latest` crosses a major boundary
 
@@ -53,7 +55,7 @@ Skip packages listed in the FROZEN whitelist (Step 4).
 - `electron`
 - `better-sqlite3`
 - `@langchain/core`, `@langchain/langgraph`, `@langchain/openai`, `@langchain/anthropic`,
-  `@langchain/google-genai`, `@langchain/community`
+`@langchain/google-genai`, `@langchain/community`
 - `vite`, `@vitejs/plugin-react`
 - `react`, `react-dom`
 - `@tiptap/*` (breaking changes between minors)
@@ -100,3 +102,4 @@ packages deferred, exact list of bumped packages with from→to versions.
 - NEVER bump a frozen package.
 - NEVER run `npm audit fix --force` — it ignores semver constraints.
 - If in doubt, do less and document in `SECURITY.md`.
+

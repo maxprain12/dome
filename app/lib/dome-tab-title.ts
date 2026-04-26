@@ -38,6 +38,8 @@ export function getDomeTabDisplayTitle(tab: DomeTab, t: TFunction): string {
       return tab.title?.trim() ? tab.title : t('transcriptions.tab_title');
     case 'semantic-graph':
       return tab.title?.trim() ? tab.title : t('semantic_graph.tab_title');
+    case 'artifact':
+      return tab.title?.trim() ? tab.title : t('chat.artifact_tab');
     default:
       return tab.title;
   }

@@ -37,6 +37,7 @@ import {
 import { loadAvailablePlugins, type AvailablePlugin } from '@/lib/marketplace/loader';
 import { loadMcpServersSetting, saveMcpServersSetting } from '@/lib/mcp/settings';
 import { db } from '@/lib/db/client';
+import { installSkillFromManifest } from '@/lib/skills/client';
 import type { MCPServerConfig } from '@/types';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
@@ -352,29 +353,12 @@ export default function MarketplaceView() {
         showToast('info', t('toast.skill_already_active', { name: skill.name }));
         return;
       }
-      // Load current ai_skills list (SkillConfig format)
-      const currentResult = await db.getAISkills();
-      const currentList: Array<{ id: string; name: string; description: string; prompt: string; enabled: boolean }> =
-        currentResult.success && Array.isArray(currentResult.data)
-          ? currentResult.data.map((s) => ({
-              id: s.id,
-              name: s.name,
-              description: s.description ?? '',
-              prompt: s.prompt ?? '',
-              enabled: s.enabled !== false,
-            }))
-          : [];
-
-      // Add the new skill using the marketplace manifest fields
-      const newSkill = {
+      const result = await installSkillFromManifest({
         id: skill.id,
         name: skill.name,
         description: skill.description ?? '',
-        prompt: skill.instructions ?? '',
-        enabled: true,
-      };
-      const updated = [...currentList, newSkill];
-      const result = await db.replaceAISkills(updated);
+        instructions: skill.instructions ?? '',
+      });
       if (result.success) {
         setInstalledSkillIds((prev) => new Set([...prev, skill.id]));
         showToast('success', t('toast.skill_added', { name: skill.name }));

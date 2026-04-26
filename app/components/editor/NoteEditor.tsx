@@ -6,6 +6,7 @@ import ReactDOM from 'react-dom';
 import { buildCoreNoteExtensions } from '@/lib/tiptap/extensions';
 import { SlashCommandExtension, SLASH_COMMANDS, type SlashCommand } from '@/lib/tiptap/slash-commands';
 import { buildDomeResourceMention } from '@/lib/tiptap/extensions/resource-mention';
+import { createTipTapAIActions } from '@/lib/tiptap/ai-actions';
 import type { DomeMentionItem } from '@/lib/tiptap/extensions/resource-mention';
 import type { NoteEmbedKind } from '@/lib/tiptap/extensions/note-editor-bridge';
 import { SlashMenuPortal } from './SlashCommandMenu';
@@ -175,8 +176,8 @@ export default function NoteEditor({
           }
           const men = el?.closest?.('.dome-resource-mention');
           if (men) {
-            const id = men.getAttribute('data-id');
-            const label = men.getAttribute('data-label') ?? '';
+            const id = men.getAttribute('data-id') ?? men.getAttribute('data-resource-id');
+            const label = men.getAttribute('data-label') ?? men.getAttribute('data-title') ?? '';
             const rt = men.getAttribute('data-resource-type') ?? 'note';
             if (id) {
               event.preventDefault();
@@ -213,6 +214,7 @@ export default function NoteEditor({
       setEmbedKind(k);
       setEmbedOpen(true);
     };
+    s.aiActions = createTipTapAIActions(editor);
   }, [editor, projectId]);
 
   if (!editor) return null;

@@ -1,4 +1,5 @@
 import { Extension } from '@tiptap/core';
+import type { TipTapAIActions } from '@/lib/tiptap/ai-actions';
 
 export type NoteEmbedKind = 'youtube' | 'iframe';
 
@@ -7,6 +8,7 @@ export interface NoteEditorBridgeStorage {
   openResourcePicker: (mode: 'link') => void;
   openImagePicker: () => void;
   openEmbedModal: (kind: NoteEmbedKind) => void;
+  aiActions: TipTapAIActions | null;
 }
 
 declare module '@tiptap/core' {
@@ -24,6 +26,7 @@ export const NoteEditorBridge = Extension.create({
       openResourcePicker: () => {},
       openImagePicker: () => {},
       openEmbedModal: () => {},
+      aiActions: null,
     } satisfies NoteEditorBridgeStorage;
   },
 });

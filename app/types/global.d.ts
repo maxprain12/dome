@@ -189,6 +189,11 @@ declare global {
       file: {
         listDirectory: (dirPath: string) => Promise<{ success: boolean; data?: Array<{ name: string; isDirectory: boolean; path: string }>; error?: string }>;
         readFileAsText: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
+        readAttachment: (filePath: string) => Promise<{
+          success: boolean;
+          data?: { name: string; text: string | null };
+          error?: string;
+        }>;
         writeFile: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>;
         copyFile: (sourcePath: string, destPath: string) => Promise<{ success: boolean; error?: string }>;
         readFile: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;

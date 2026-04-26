@@ -1,10 +1,15 @@
 /* eslint-disable no-console */
 /**
- * AI Chat with Tools - Main Process
+ * Tool Dispatcher - Main Process
  *
- * Runs the chat loop with tool execution for contexts that don't have
- * access to the renderer (e.g. WhatsApp). Streams from the configured
- * provider, executes tool calls via aiToolsHandler, and returns the final response.
+ * Canonical registry and dispatcher for Dome tools in the main process.
+ * Exposes:
+ *   - TOOL_HANDLER_MAP / normalizeToolName: map of tool name → aiToolsHandler method
+ *   - executeToolInMain(name, args, ctx): single entry point to run a tool call
+ *   - getAllToolDefinitions / getWhatsAppToolDefinitions / getToolDefinitionsByIds / getToolDefsBySubagent:
+ *     OpenAI-format definitions used by LangGraph runs (renderer, WhatsApp, workflows, automations).
+ *
+ * There is no chat loop here. LangGraph is the only chat engine (see langgraph-agent.cjs).
  */
 
 const aiToolsHandler = require('./ai-tools-handler.cjs');
@@ -55,7 +60,12 @@ const TOOL_HANDLER_MAP = {
   remember_fact: 'rememberFact',
   // Graph / linking tools
   link_resources: 'linkResources',
+  create_resource_link: 'linkResources',
   get_related_resources: 'getRelatedResources',
+  interaction_list: 'interactionList',
+  generate_knowledge_graph: 'generateKnowledgeGraph',
+  generate_mindmap: 'generateKnowledgeGraph',
+  analyze_graph_structure: 'generateKnowledgeGraph',
 
   // Calendar tools
   calendar_list_events: 'calendarListEvents',
@@ -64,6 +74,8 @@ const TOOL_HANDLER_MAP = {
   calendar_update_event: 'calendarUpdateEvent',
   calendar_delete_event: 'calendarDeleteEvent',
   get_tool_definition: 'getToolDefinition',
+  load_skill: 'loadSkill',
+  load_skill_file: 'loadSkillFile',
 
   // Entity creation
   agent_create: 'agentCreate',
@@ -408,6 +420,27 @@ async function executeToolInMain(toolName, args, toolContext) {
         else result = await fn({ resource_id: rid });
         break;
       }
+      case 'interactionList': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else {
+          result = await fn(rid, { type: args.type, limit: args.limit });
+        }
+        break;
+      }
+      case 'generateKnowledgeGraph': {
+        const rid = args.focus_resource_id || args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else {
+          result = await fn({
+            focus_resource_id: rid,
+            min_weight: args.min_weight,
+          });
+        }
+        break;
+      }
       case 'calendarListEvents':
         result = await fn({ start_at: args.start_at, end_at: args.end_at, calendar_ids: args.calendar_ids });
         break;
@@ -461,46 +494,6 @@ async function executeToolInMain(toolName, args, toolContext) {
     console.error('[AI Chat Tools] Tool execution error:', toolName, error);
     return { success: false, error: error.message };
   }
-}
-
-/**
- * Chat with tools - main process
- * Uses LangGraph agent exclusively.
- * @param {string} provider - openai | anthropic | google | ollama
- * @param {Array<{role, content}>} messages - Initial messages
- * @param {Array} toolDefinitions - OpenAI-format tool definitions
- * @param {object} options - { database, windowManager }
- * @returns {Promise<string>} Final response text
- */
-async function chatWithToolsInMain(provider, messages, toolDefinitions, options = {}) {
-  const database = options.database;
-  const queries = database?.getQueries?.();
-
-  if (!queries) throw new Error('Database required for chatWithToolsInMain');
-
-  const langgraphAgent = require('./langgraph-agent.cjs');
-  const apiKey =
-    provider === 'ollama'
-      ? (queries.getSetting?.get?.('ollama_api_key')?.value || undefined)
-      : queries.getSetting?.get?.('ai_api_key')?.value;
-  const model =
-    provider === 'ollama'
-      ? (queries.getSetting?.get?.('ollama_model')?.value || 'llama3.2')
-      : queries.getSetting?.get?.('ai_model')?.value;
-  const baseUrl =
-    provider === 'ollama'
-      ? (queries.getSetting?.get?.('ollama_base_url')?.value || 'http://127.0.0.1:11434')
-      : undefined;
-
-  const result = await langgraphAgent.runLangGraphAgentSync({
-    provider,
-    model,
-    apiKey,
-    baseUrl,
-    messages,
-    toolDefinitions,
-  });
-  return result?.response ?? '';
 }
 
 /**
@@ -921,7 +914,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_create',
-        description: 'Create a new resource (note, folder, url, etc.).',
+        description: 'Create a new persisted resource (note, folder, url, notebook). DO NOT use for visual/interactive outputs like dashboards, diagrams, calculators, timelines, tabs, playgrounds — those are RICH ARTIFACTS rendered inline in the chat (emit an `artifact:TYPE` fenced block instead). Call AT MOST ONCE per user request — never loop creating multiple notes for the same ask.',
         parameters: {
           type: 'object',
           properties: {
@@ -1413,8 +1406,9 @@ function getToolDefinitionsByIds(toolIds) {
 }
 
 module.exports = {
-  chatWithToolsInMain,
   executeToolInMain,
+  normalizeToolName,
+  TOOL_HANDLER_MAP,
   getAllToolDefinitions,
   getWhatsAppToolDefinitions,
   getToolDefinitionsByIds,

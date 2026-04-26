@@ -17,13 +17,7 @@ import type {
   ChatStreamChunk,
   ToolDefinition,
 } from './types';
-import type { AnyAgentTool } from './tools';
-import { toOpenAIToolDefinitions } from './tools';
-import {
-  buildMartinBasePrompt,
-  buildMartinResourceContext,
-  prompts as promptTemplates,
-} from '@/lib/prompts/loader';
+import { toOpenAIToolDefinitions, type AnyAgentTool } from './tools';
 import { chunk as llmChunk } from 'llm-chunk';
 
 // =============================================================================
@@ -41,6 +35,47 @@ export interface AIConfig {
   ollamaBaseURL?: string;
   ollamaModel?: string;
   ollamaEmbeddingModel?: string;
+}
+
+/** User-added model ids per provider (Settings key `ai_custom_models`). */
+export type CustomModelsByProvider = Partial<Record<AIProviderType, string[]>>;
+
+export async function getCustomModelsByProvider(): Promise<CustomModelsByProvider> {
+  try {
+    const r = await db.getSetting('ai_custom_models');
+    if (!r.data?.trim()) return {};
+    const parsed = JSON.parse(r.data) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as CustomModelsByProvider;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+export async function saveCustomModelsByProvider(map: CustomModelsByProvider): Promise<void> {
+  await db.setSetting('ai_custom_models', JSON.stringify(map));
+}
+
+export async function appendCustomModelId(provider: AIProviderType, modelId: string): Promise<void> {
+  const id = modelId.trim();
+  if (!id) return;
+  const map = await getCustomModelsByProvider();
+  const list = map[provider] ?? [];
+  if (list.includes(id)) return;
+  map[provider] = [...list, id];
+  await saveCustomModelsByProvider(map);
+}
+
+/** Updates only the active chat model for the current provider (does not change provider). */
+export async function saveChatModelForProvider(provider: AIProvider, modelId: string): Promise<void> {
+  const p: AIProviderType = provider === 'local' ? 'ollama' : (provider as AIProviderType);
+  if (p === 'ollama') {
+    await db.setSetting('ollama_model', modelId);
+  } else {
+    await db.setSetting('ai_model', modelId);
+  }
 }
 
 // =============================================================================
@@ -629,9 +664,14 @@ export async function chat(
   }
 }
 
+/**
+ * Plain streaming completion without tools. For tool-calling, use chatWithToolsStream (LangGraph).
+ * The optional `tools` positional arg is kept as `undefined`-only for backward call-site
+ * compatibility; it is no longer forwarded to providers.
+ */
 export async function* chatStream(
   messages: Array<{ role: string; content: string }>,
-  tools?: ToolDefinition[],
+  _tools?: ToolDefinition[] | undefined,
   signal?: AbortSignal,
 ): AsyncIterable<ChatStreamChunk> {
   const config = await getAIConfig();
@@ -646,7 +686,7 @@ export async function* chatStream(
         messages,
         config.apiKey,
         config.model || getDefaultModelId('openai'),
-        tools,
+        undefined,
         signal,
       );
       break;
@@ -657,7 +697,7 @@ export async function* chatStream(
         messages,
         config.apiKey,
         config.model || getDefaultModelId('anthropic'),
-        tools,
+        undefined,
         signal,
       );
       break;
@@ -668,7 +708,7 @@ export async function* chatStream(
         messages,
         config.apiKey,
         config.model || getDefaultModelId('google'),
-        tools,
+        undefined,
         signal,
       );
       break;
@@ -679,7 +719,7 @@ export async function* chatStream(
         messages,
         config.apiKey,
         config.model || getDefaultModelId('minimax'),
-        tools,
+        undefined,
         signal,
       );
       break;
@@ -688,7 +728,7 @@ export async function* chatStream(
       yield* streamDome(
         messages,
         config.model || getDefaultModelId('dome'),
-        tools,
+        undefined,
       );
       break;
 
@@ -697,7 +737,7 @@ export async function* chatStream(
         messages,
         config.ollamaModel || config.model || 'llama3.2',
         signal,
-        tools,
+        undefined,
       );
       break;
 
@@ -917,94 +957,6 @@ export function chunkText(text: string, maxChunkSize: number = 512): string[] {
     console.warn('[AI] chunkText error:', err instanceof Error ? err.message : err);
     return [];
   }
-}
-
-export interface MartinSystemPromptOptions {
-  /** Current resource context */
-  resourceContext?: {
-    title?: string;
-    type?: string;
-    content?: string;
-    summary?: string;
-    transcription?: string;
-  };
-  /** Whether tools are enabled */
-  toolsEnabled?: boolean;
-  /** Current location in the app */
-  location?: 'workspace' | 'home' | 'whatsapp';
-  /** Current date/time to include */
-  includeDateTime?: boolean;
-  /** AI provider (e.g. google) for provider-specific instructions */
-  provider?: string;
-}
-
-export function getMartinSystemPrompt(options?: MartinSystemPromptOptions | {
-  title?: string;
-  type?: string;
-  content?: string;
-  summary?: string;
-  transcription?: string;
-}): string {
-  // Handle legacy usage (passing resourceContext directly)
-  const opts: MartinSystemPromptOptions = options && ('resourceContext' in options || 'toolsEnabled' in options || 'location' in options)
-    ? options as MartinSystemPromptOptions
-    : { resourceContext: options as MartinSystemPromptOptions['resourceContext'] };
-
-  const { resourceContext, toolsEnabled = false, location = 'workspace', includeDateTime = true, provider } = opts;
-
-  const now = new Date();
-  const date = includeDateTime
-    ? now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-    : '';
-  const time = includeDateTime ? now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-
-  let prompt = buildMartinBasePrompt({
-    location,
-    date,
-    time,
-    resourceTitle: resourceContext?.title,
-    includeDateTime,
-  });
-
-  if (toolsEnabled) {
-    prompt += promptTemplates.martin.tools;
-  }
-
-  if (resourceContext) {
-    const isNotebook = resourceContext.type === 'notebook';
-    const isExcel = resourceContext.type === 'excel';
-    const isPpt = resourceContext.type === 'ppt';
-    const isDocument = resourceContext.type === 'document';
-    const contentOverride = isNotebook
-      ? 'This is a notebook. Use notebook_get to read its structure, cells, and code.'
-      : isExcel && toolsEnabled
-        ? 'This is an Excel spreadsheet. Use excel_get to read its sheets, cells, and ranges. The preview below is limited; always call excel_get for accurate data.'
-        : isPpt && toolsEnabled
-          ? 'This is a PowerPoint presentation. Use ppt_get_slides to read slide content, ppt_create to create new presentations, ppt_export to export.'
-          : isDocument && toolsEnabled
-            ? 'This is an imported Word document. Use resource_get to read its content. Edit with resource_update (content as HTML or Markdown). If you create a new written artifact from it, save it as a note.'
-            : resourceContext.content;
-    prompt += '\n\n' + buildMartinResourceContext({
-      type: resourceContext.type,
-      summary: resourceContext.summary,
-      content: contentOverride,
-      transcription: resourceContext.transcription,
-    });
-    if (isNotebook && toolsEnabled) {
-      prompt += '\n\n' + promptTemplates.martin.notebookContext;
-    }
-    if (isExcel && toolsEnabled) {
-      prompt += '\n\n' + promptTemplates.martin.excelContext;
-    }
-    if ((isPpt || (location === 'home' && resourceContext.type === 'folder')) && toolsEnabled) {
-      prompt += '\n\n' + promptTemplates.martin.pptContext;
-    }
-    if (isDocument && toolsEnabled) {
-      prompt += '\n\n' + promptTemplates.martin.documentContext;
-    }
-  }
-
-  return prompt;
 }
 
 // =============================================================================

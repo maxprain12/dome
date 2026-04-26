@@ -5,9 +5,11 @@ import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import type { ManyAgent } from '@/types';
 import { getManyAgentById } from '@/lib/agents/api';
 import { useAgentChatStore } from '@/lib/store/useAgentChatStore';
+import type { PinnedResource } from '@/lib/store/useManyStore';
 import {
   getAIConfig,
   createToolsForAgent,
+  createLoadSkillTools,
   toOpenAIToolDefinitions,
   providerSupportsTools,
   type AIProviderType,
@@ -21,80 +23,53 @@ import ReadingIndicator from '@/components/chat/ReadingIndicator';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { buildCitationMap } from '@/lib/utils/citations';
-import AgentChatInput from './AgentChatInput';
+import UnifiedChatInput from '@/components/chat/UnifiedChatInput';
+import { UnifiedChatHeader } from '@/components/chat/UnifiedChatHeader';
+import { UnifiedChatEmptyState } from '@/components/chat/UnifiedChatEmptyState';
+import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
 import { ChevronLeft } from 'lucide-react';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
 import { useTranslation } from 'react-i18next';
 import {
   abortRun,
   getActiveRunBySession,
-  onRunChunk,
-  onRunUpdated,
   startLangGraphRun,
   type PersistentRun,
 } from '@/lib/automations/api';
+import { CHAT_THINKING_ROTATION_KEYS } from '@/lib/chat/streamingLabels';
+import { buildAttachmentPrefix } from '@/lib/chat/attachmentTypes';
+import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
+import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
+import { useLangGraphRunStream } from '@/lib/chat/useLangGraphRunStream';
 
-const RESOURCE_LINK_INSTRUCTION = `
-When mentioning a resource (note, PDF, video, etc.) that the user can open, ALWAYS use this format: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, excel, ppt, video, audio, image, folder.
+type AgentResourcePayload = {
+  content?: string | null;
+  summary?: string | null;
+  transcription?: string | null;
+  metadata?: Record<string, unknown> | null;
+};
 
-NEVER use resource:// - it does not work. ONLY dome://resource/ID/TYPE works. NEVER use [[Title]] wikilinks or file:// or raw URLs for internal resources—they open in the browser instead of in Dome. CRITICAL: For url-type resources (websites), NEVER use the actual web URL (https://...)—always use dome://resource/ID/url. Using https:// opens in the browser instead of Dome. NEVER use /resource/ID as the link URL—always use dome://resource/ID/TYPE. If the user asks for "enlace", "link", or "abrir", use: [Abrir](dome://resource/RESOURCE_ID/TYPE).
-
-When listing resources, show ONLY the title (e.g. "CE_Python.pdf"), never "Root/..." or folder paths. Format: [Title](dome://resource/ID/TYPE).
-
-When listing folders or subfolders (e.g. from get_library_overview), use: [Abrir carpeta: Title](dome://folder/FOLDER_ID).
-Example: [Abrir carpeta: POO](dome://folder/res_xxx).
-
-For PDFs, when a specific page is relevant (e.g. after pdf_annotation_create, or when referencing a page), use: [Ver: Title p. N](dome://resource/RESOURCE_ID/pdf?page=N).
-
-When mentioning a Studio output (mindmap, quiz, guide, FAQ, timeline, table, flashcards, audio, video, research), format it as: [Ver: Title](dome://studio/OUTPUT_ID/TYPE).
-
-ALWAYS include a dome:// link in your response when you create any element via tools (resource_create, flashcard_create, pdf_annotation_create, etc.) so the user can open it. Exception: elements from Studio tile buttons are shown automatically, so no link needed in that context.
-
-When you use evidence from resource_semantic_search or resource_get, cite the supporting source inline as [1], [2], etc. Reuse the numbering order from the latest tool results in the same answer.`;
+function getAgentResourceContext(resource: AgentResourcePayload): string {
+  const scrapedContent =
+    typeof resource.metadata?.scraped_content === 'string' ? resource.metadata.scraped_content : '';
+  const metadataSummary = typeof resource.metadata?.summary === 'string' ? resource.metadata.summary : '';
+  return (
+    [resource.content, scrapedContent, resource.summary, resource.transcription, metadataSummary]
+      .find((value) => typeof value === 'string' && value.trim().length > 0)
+      ?.trim() || ''
+  );
+}
 
 interface AgentChatViewProps {
   agentId: string;
   onBack?: () => void;
 }
 
-const THINKING_LABELS = [
-  'Analyzing request...',
-  'Searching for information...',
-  'Consulting sources...',
-  'Processing data...',
-  'Preparing response...',
-  'Working on it...',
-];
-
-const TOOL_LABELS: Record<string, string> = {
-  ppt_create: 'Creating presentation...',
-  ppt_get_slides: 'Reading slides...',
-  ppt_export: 'Exporting presentation...',
-  resource_get: 'Reading document...',
-  resource_list: 'Listing resources...',
-  resource_search: 'Searching resources...',
-  resource_semantic_search: 'Semantic search...',
-  resource_create: 'Creating resource...',
-  resource_update: 'Updating resource...',
-  get_library_overview: 'Exploring library...',
-  web_search: 'Searching the web...',
-  web_fetch: 'Reading web page...',
-  deep_research: 'Investigating deeply...',
-  excel_get: 'Reading spreadsheet...',
-  excel_create: 'Creating spreadsheet...',
-  notebook_get: 'Reading notebook...',
-  notebook_add_cell: 'Adding cell...',
-  call_data_agent: 'Data agent working...',
-  call_writer_agent: 'Writer agent working...',
-  call_research_agent: 'Research agent working...',
-  call_library_agent: 'Library agent working...',
-  pdf_annotation_create: 'Creating PDF annotation...',
-};
-
 export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const { t } = useTranslation();
   const [agent, setAgent] = useState<ManyAgent | null>(null);
   const [input, setInput] = useState('');
+  const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
@@ -104,6 +79,9 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const [supportsTools, setSupportsTools] = useState(false);
   const [disabledMcpIds, setDisabledMcpIds] = useState<Set<string>>(new Set());
   const [disabledToolIds, setDisabledToolIds] = useState<Set<string>>(new Set());
+  const [pinnedResources, setPinnedResources] = useState<PinnedResource[]>([]);
+  const [pendingOneShotSkillId, setPendingOneShotSkillId] = useState<string | null>(null);
+  const [activeStickySkillId, setActiveStickySkillId] = useState<string | null>(null);
   const thinkingLabelIdxRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -143,7 +121,16 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         setSupportsTools(false);
       }
     };
-    load();
+    void load();
+    window.addEventListener('dome:ai-config-changed', load);
+    return () => window.removeEventListener('dome:ai-config-changed', load);
+  }, []);
+
+  const addPinnedResource = useCallback((r: PinnedResource) => {
+    setPinnedResources((prev) => (prev.some((x) => x.id === r.id) ? prev : [...prev, r]));
+  }, []);
+  const removePinnedResource = useCallback((id: string) => {
+    setPinnedResources((prev) => prev.filter((x) => x.id !== id));
   }, []);
 
   const refreshSessionFromDb = useCallback(async () => {
@@ -212,99 +199,31 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     };
   }, [applyRunSnapshot, currentSessionId]);
 
-  useEffect(() => {
-    if (!activeRunId) {
-      return;
-    }
-    const unsubUpdated = onRunUpdated(({ run }) => {
-      if (run.id !== activeRunId) {
-        return;
-      }
+  const handleRunStatus = useCallback(
+    (run: PersistentRun) => {
       applyRunSnapshot(run);
-      if (['completed', 'failed', 'cancelled'].includes(run.status)) {
-        setActiveRunId(null);
-        void refreshSessionFromDb();
-        if (run.status === 'completed') {
-          window.dispatchEvent(new Event('dome:resources-changed'));
-        }
+    },
+    [applyRunSnapshot],
+  );
+
+  const handleRunTerminal = useCallback(
+    (run: PersistentRun) => {
+      setActiveRunId(null);
+      void refreshSessionFromDb();
+      if (run.status === 'completed') {
+        window.dispatchEvent(new Event('dome:resources-changed'));
       }
-    });
-    const unsubChunk = onRunChunk((payload) => {
-      if (payload.runId !== activeRunId) {
-        return;
-      }
-      if (payload.type === 'text' && payload.text) {
-        setStreamingMessage((prev) =>
-          prev
-            ? { ...prev, content: `${prev.content ?? ''}${payload.text ?? ''}` }
-            : {
-                id: `run-${payload.runId}`,
-                role: 'assistant',
-                content: payload.text ?? '',
-                timestamp: Date.now(),
-                isStreaming: true,
-                toolCalls: [],
-                streamingLabel: t('chat.running_background'),
-              },
-        );
-      } else if (payload.type === 'thinking' && payload.text) {
-        setStreamingMessage((prev) => (prev ? { ...prev, thinking: `${prev.thinking || ''}${payload.text}` } : prev));
-      } else if (payload.type === 'tool_call' && payload.toolCall) {
-        const toolCall = payload.toolCall;
-        const args = (() => {
-          try {
-            return typeof toolCall.arguments === 'string'
-              ? JSON.parse(toolCall.arguments)
-              : {};
-          } catch {
-            return {};
-          }
-        })();
-        setStreamingMessage((prev) => {
-          const nextToolCalls: ToolCallData[] = [
-            ...(prev?.toolCalls || []),
-            {
-              id: toolCall.id,
-              name: toolCall.name,
-              arguments: args,
-              status: 'running' as ToolCallData['status'],
-            },
-          ];
-          return prev
-            ? {
-                ...prev,
-                toolCalls: nextToolCalls,
-                streamingLabel: `${TOOL_LABELS[toolCall.name || ''] || toolCall.name || 'Herramienta'}...`,
-              }
-            : {
-                id: `run-${payload.runId}`,
-                role: 'assistant',
-                content: '',
-                timestamp: Date.now(),
-                isStreaming: true,
-                toolCalls: nextToolCalls,
-                streamingLabel: `${toolCall.name}...`,
-              };
-        });
-      } else if (payload.type === 'tool_result' && payload.toolCallId) {
-        setStreamingMessage((prev) => {
-          if (!prev?.toolCalls) {
-            return prev;
-          }
-          return {
-            ...prev,
-            toolCalls: prev.toolCalls.map((call) =>
-              call.id === payload.toolCallId ? { ...call, status: 'success', result: payload.result } : call,
-            ),
-          };
-        });
-      }
-    });
-    return () => {
-      unsubUpdated();
-      unsubChunk();
-    };
-  }, [activeRunId, applyRunSnapshot, refreshSessionFromDb, t]);
+    },
+    [refreshSessionFromDb],
+  );
+
+  useLangGraphRunStream({
+    activeRunId,
+    setStreamingMessage,
+    onRunStatus: handleRunStatus,
+    onRunTerminal: handleRunTerminal,
+    t,
+  });
 
   const scrollToBottom = useCallback(
     (force = false) => {
@@ -327,11 +246,10 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
   const buildSystemPrompt = useCallback(async () => {
     if (!agent) return '';
-    let prompt = agent.systemInstructions?.trim() || agent.description || `You are ${agent.name}.`;
-    prompt += '\n\n' + RESOURCE_LINK_INSTRUCTION;
+    const baseInstructions =
+      agent.systemInstructions?.trim() || agent.description || `You are ${agent.name}.`;
 
-    const now = new Date();
-    prompt += `\n\nCurrent date: ${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
+    let prompt = buildDomeSystemPrompt({ baseInstructions });
 
     if (agent.skillIds?.length && db.isAvailable()) {
       try {
@@ -352,12 +270,13 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     const interval = setInterval(() => {
       setStreamingMessage((prev) => {
         if (!prev || !prev.isStreaming || (prev.toolCalls && prev.toolCalls.length > 0)) return prev;
-        thinkingLabelIdxRef.current = (thinkingLabelIdxRef.current + 1) % THINKING_LABELS.length;
-        return { ...prev, streamingLabel: THINKING_LABELS[thinkingLabelIdxRef.current] };
+        thinkingLabelIdxRef.current = (thinkingLabelIdxRef.current + 1) % CHAT_THINKING_ROTATION_KEYS.length;
+        const k = CHAT_THINKING_ROTATION_KEYS[thinkingLabelIdxRef.current] ?? 'chat.thinking_l1';
+        return { ...prev, streamingLabel: t(k) };
       });
     }, 3000);
     return () => clearInterval(interval);
-  }, [isLoading]);
+  }, [isLoading, t]);
 
   const hasLangGraph =
     typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
@@ -373,7 +292,9 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   );
   const activeTools = useMemo(() => {
     if (!enabledToolIds.length) return [];
-    return createToolsForAgent(enabledToolIds);
+    const base = createToolsForAgent(enabledToolIds);
+    base.push(...createLoadSkillTools());
+    return base;
   }, [enabledToolIds]);
   const toolDefs = useMemo(
     () => (activeTools.length > 0 ? toOpenAIToolDefinitions(activeTools) : []),
@@ -386,12 +307,15 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     (enabledMcpIds.length > 0 || toolDefs.length > 0);
 
   const handleSend = useCallback(async () => {
-    const userMessage = input.trim();
+    const attPrefix = buildAttachmentPrefix(chatAttachments, t('chat.attachment_extraction_empty'));
+    const textPart = input.trim();
+    const userMessage = [attPrefix, textPart].filter((s) => s.length > 0).join('\n\n').trim();
     if (!userMessage || isLoading || isSubmittingRef.current || !agent) return;
 
     isSubmittingRef.current = true;
     thinkingLabelIdxRef.current = 0;
     setInput('');
+    setChatAttachments([]);
     setIsLoading(true);
     setStatus('thinking');
     setError(null);
@@ -416,7 +340,57 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         return;
       }
 
-      const systemPrompt = await buildSystemPrompt();
+      let systemPrompt = await buildSystemPrompt();
+
+      const primarySkillId = pendingOneShotSkillId || activeStickySkillId;
+      setPendingOneShotSkillId(null);
+
+      if (pinnedResources.length > 0 && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
+        let pinnedBlock =
+          '\n\n## Pinned Context Resources\nThe following resources have been pinned by the user. Use their content directly.\n';
+        for (const resource of pinnedResources) {
+          try {
+            const result = await window.electron.ai.tools.resourceGet(resource.id, {
+              includeContent: true,
+              maxContentLength: 5000,
+            });
+            if (result?.success && result?.resource) {
+              const r = result.resource;
+              const content = getAgentResourceContext(r);
+              pinnedBlock += `\n### [${resource.title}] (id: ${resource.id}, type: ${resource.type})\n`;
+              if (content.trim()) {
+                pinnedBlock += content.slice(0, 5000);
+                if (content.length > 5000) pinnedBlock += '\n[Content truncated]';
+              } else {
+                pinnedBlock += '(No content available)';
+              }
+            }
+          } catch {
+            pinnedBlock += `\n### [${resource.title}] (id: ${resource.id})\n(Could not load content)`;
+          }
+        }
+        systemPrompt += pinnedBlock;
+      }
+
+      if (primarySkillId && db.isAvailable()) {
+        try {
+          const skillsResult = await db.getAISkills();
+          if (skillsResult.success && Array.isArray(skillsResult.data)) {
+            const s = skillsResult.data.find((x: { id?: string }) => x.id === primarySkillId) as
+              | { name?: string; description?: string; prompt?: string }
+              | undefined;
+            if (s && String(s.prompt ?? '').trim()) {
+              const name = s.name || 'unnamed';
+              const desc = s.description || '';
+              const prompt = s.prompt || '';
+              systemPrompt += `\n\n## Active Skill\n### ${name}\n${desc ? `${desc}\n\n` : ''}${prompt}\n`;
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }
+
       const apiMessages = [
         { role: 'system', content: systemPrompt },
         ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
@@ -434,7 +408,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           timestamp: Date.now(),
           isStreaming: true,
           toolCalls: [],
-          streamingLabel: t('ui.loading'),
+          streamingLabel: t('chat.thinking_l1'),
         });
 
         const threadId = `agent_${agentId}_${Date.now()}`;
@@ -487,6 +461,11 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         setActiveRunId(run.id);
         applyRunSnapshot(run);
       } else {
+        if (hasAgentTools && !hasLangGraph) {
+          throw new Error(
+            'Este agente usa herramientas y requiere LangGraph. Reinicia Dome o revisa la configuración.'
+          );
+        }
         const { chatStream } = await import('@/lib/ai');
         setStreamingMessage({
           id: `streaming-${Date.now()}`,
@@ -495,11 +474,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           timestamp: Date.now(),
           isStreaming: true,
         });
-        for await (const chunk of chatStream(
-          apiMessages,
-          toolDefs.length > 0 ? toolDefs : undefined,
-          controller.signal
-        )) {
+        for await (const chunk of chatStream(apiMessages, undefined, controller.signal)) {
           if (chunk.type === 'text' && chunk.text) {
             fullResponse += chunk.text;
             setStreamingMessage((prev) =>
@@ -543,7 +518,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     setStatus,
     buildSystemPrompt,
     useToolsStream,
-    activeTools,
     toolDefs,
     enabledMcpIds,
     scrollToBottom,
@@ -551,6 +525,10 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     chatProjectId,
     applyRunSnapshot,
     t,
+    chatAttachments,
+    pinnedResources,
+    pendingOneShotSkillId,
+    activeStickySkillId,
   ]);
 
   const handleAbort = useCallback(() => {
@@ -608,81 +586,57 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const agentAvatarSrc = agent ? `/agents/sprite_${agent.iconIndex}.png` : undefined;
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-      {/* Fixed Header */}
-      <header
-        className="shrink-0 flex items-center justify-between px-5 py-3"
-        style={{ borderBottom: '1px solid var(--dome-border)', background: 'var(--dome-surface)' }}
-      >
-        <div className="flex items-center gap-3">
-          {onBack && (
+    <div className="flex flex-col h-full min-h-0 overflow-hidden bg-[var(--bg)]">
+      <UnifiedChatHeader
+        startSlot={
+          onBack ? (
             <button
               type="button"
               onClick={onBack}
-              className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-[var(--dome-surface)] transition-colors shrink-0"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)]"
               title={t('agent.back')}
             >
-              <ChevronLeft className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+              <ChevronLeft className="w-4 h-4" />
             </button>
-          )}
-          <div
-            className="w-8 h-8 rounded-xl overflow-hidden shrink-0"
-            style={{ background: 'var(--dome-accent-bg)' }}
-          >
-            <img
-              src={`/agents/sprite_${agent.iconIndex}.png`}
-              alt={agent.name}
-              className="w-full h-full object-contain"
-            />
-          </div>
-          <div>
-            <div className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
-              {agent.name}
-            </div>
-            <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              {providerInfo}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
+          ) : undefined
+        }
+        left={
+          <img
+            src={`/agents/sprite_${agent.iconIndex}.png`}
+            alt={agent.name}
+            className="h-full w-full object-contain p-0.5"
+          />
+        }
+        title={agent.name}
+        subtitle={providerInfo}
+        actions={
           <button
             type="button"
             onClick={handleClear}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-all"
-            style={{ color: 'var(--dome-text-muted)', background: 'var(--dome-bg)' }}
+            className="rounded-lg px-2.5 py-1.5 text-xs text-[var(--secondary-text)] transition-colors hover:bg-[var(--bg-hover)]"
             title={t('agent.clear_chat')}
           >
             {t('agent.clear_chat')}
           </button>
-        </div>
-      </header>
+        }
+      />
 
-      {/* Scrollable messages area - fixed in middle */}
-      <div
+      <UnifiedChatMessageArea
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-5 py-5 flex flex-col gap-5"
+        className="px-4 py-4 flex flex-col gap-5"
       >
         {chatMessages.length === 0 && !streamingMessage ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-            <div
-              className="w-14 h-14 rounded-2xl overflow-hidden"
-              style={{ background: 'var(--dome-accent-bg)' }}
-            >
+          <UnifiedChatEmptyState
+            avatar={
               <img
                 src={`/agents/sprite_${agent.iconIndex}.png`}
                 alt=""
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain p-1"
               />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
-                {agent.name}
-              </h2>
-              <p className="text-sm mt-1 max-w-md" style={{ color: 'var(--dome-text-muted)' }}>
-                {agent.description || t('agent.empty_chat')}
-              </p>
-            </div>
-          </div>
+            }
+            title={agent.name}
+            description={agent.description || t('agent.empty_chat')}
+          />
         ) : (
           <>
             {messageGroups.map((group, index) => (
@@ -716,17 +670,18 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           </>
         )}
         <div ref={messagesEndRef} />
-      </div>
+      </UnifiedChatMessageArea>
 
       {/* Fixed Input */}
-      <AgentChatInput
+      <UnifiedChatInput
+        mode="agent"
         input={input}
         setInput={setInput}
         inputRef={inputRef}
         isLoading={isLoading}
         onSend={handleSend}
         onAbort={handleAbort}
-        placeholder={`Pregunta a ${agent.name}...`}
+        placeholder={t('chat.ask_agent_placeholder', { name: agent.name })}
         mcpServerIds={agent.mcpServerIds ?? []}
         toolIds={agent.toolIds ?? []}
         disabledMcpIds={disabledMcpIds}
@@ -748,6 +703,15 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           })
         }
         hasAgentFunctions={hasAgentTools}
+        attachments={chatAttachments}
+        onAttachmentsChange={setChatAttachments}
+        pinnedResources={pinnedResources}
+        onAddPinnedResource={addPinnedResource}
+        onRemovePinnedResource={removePinnedResource}
+        pendingOneShotSkillId={pendingOneShotSkillId}
+        onSetPendingOneShotSkill={setPendingOneShotSkillId}
+        activeStickySkillId={activeStickySkillId}
+        onSetActiveStickySkill={setActiveStickySkillId}
       />
     </div>
   );

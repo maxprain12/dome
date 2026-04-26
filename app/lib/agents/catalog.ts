@@ -331,6 +331,51 @@ const GROUP_LABELS: Record<ToolCatalogEntry['group'], string> = {
   calendar: 'Calendario',
 };
 
+/** Order of tool groups in agent + menu (drill-down root). */
+export const TOOL_GROUP_ORDER: readonly ToolCatalogEntry['group'][] = [
+  'web',
+  'resources',
+  'context',
+  'flashcards',
+  'studio',
+  'audio',
+  'research',
+  'graph',
+  'notebook',
+  'excel',
+  'ppt',
+  'calendar',
+] as const;
+
+export type ToolGroupId = ToolCatalogEntry['group'] | 'other';
+
+/**
+ * Partitions enabled agent tool ids by catalog group, in a stable order.
+ * Unknown tool ids are grouped under `other` (last).
+ */
+export function getToolGroupsForAgentMenu(toolIds: string[]): { group: ToolGroupId; ids: string[] }[] {
+  const by = new Map<ToolGroupId, string[]>();
+  for (const id of toolIds) {
+    const entry = getToolById(id);
+    const g: ToolGroupId = entry?.group ?? 'other';
+    const list = by.get(g) ?? [];
+    list.push(id);
+    by.set(g, list);
+  }
+  const out: { group: ToolGroupId; ids: string[] }[] = [];
+  for (const g of TOOL_GROUP_ORDER) {
+    const ids = by.get(g);
+    if (ids && ids.length > 0) {
+      out.push({ group: g, ids });
+    }
+  }
+  const other = by.get('other');
+  if (other && other.length > 0) {
+    out.push({ group: 'other', ids: other });
+  }
+  return out;
+}
+
 export function getToolCatalog() {
   return MANY_TOOL_CATALOG;
 }

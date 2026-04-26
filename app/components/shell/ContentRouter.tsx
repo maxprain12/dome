@@ -26,6 +26,7 @@ const FolderTabView = lazy(() => import('@/components/shell/FolderTabView'));
 const TranscriptionsListPage = lazy(() => import('@/components/transcription/TranscriptionsListPage'));
 const TranscriptionDetailPage = lazy(() => import('@/components/transcription/TranscriptionDetailPage'));
 const SemanticGraphView = lazy(() => import('@/components/semantic-graph/SemanticGraphView'));
+const ArtifactTabView = lazy(() => import('@/components/shell/ArtifactTabView'));
 
 function Loading() {
   const { t } = useTranslation();
@@ -321,6 +322,16 @@ function TabContent({ tab }: { tab: DomeTab }) {
             <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
               <SemanticGraphView focusResourceId={tab.resourceId} />
             </div>
+          </Suspense>
+        </ErrorBoundary>
+      );
+
+    case 'artifact':
+      if (!tab.artifactPayload) return <NoResource />;
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <ArtifactTabView rawJson={tab.artifactPayload} />
           </Suspense>
         </ErrorBoundary>
       );

@@ -324,19 +324,45 @@ export function createPdfExtractTablesTool(): AnyAgentTool {
           });
         }
 
+        const rawTables = Array.isArray(result.tables) ? result.tables : [];
+        const normalizedTables = rawTables.map((t: { page?: number; rows?: string[] }) => {
+          const rawRows = Array.isArray(t.rows) ? t.rows : [];
+          const split = rawRows.map((row) => (typeof row === 'string' ? row.split(' | ').map((c) => c.trim()) : []));
+          const headers = split[0] ?? [];
+          const rows = split.slice(1);
+          return { page: t.page, headers, rows };
+        });
+
+        const artifact =
+          normalizedTables.length <= 1
+            ? {
+                type: 'table' as const,
+                resource_id: resourceId,
+                title: result.title || 'Tabla extraída',
+                headers: normalizedTables[0]?.headers ?? [],
+                rows: normalizedTables[0]?.rows ?? [],
+              }
+            : {
+                type: 'tabs' as const,
+                title: result.title || 'Tablas extraídas',
+                tabs: normalizedTables.map((t, idx) => ({
+                  id: `table-${idx + 1}`,
+                  label: t.page ? `Página ${t.page}` : `Tabla ${idx + 1}`,
+                  content: {
+                    type: 'table' as const,
+                    headers: t.headers,
+                    rows: t.rows,
+                  },
+                })),
+              };
+
         return jsonResult({
           status: 'success',
-          artifact: {
-            type: 'table',
-            resource_id: resourceId,
-            title: result.title,
-            tables: result.tables,
-            count: result.count,
-          },
+          artifact,
           resource_id: resourceId,
           title: result.title,
-          tables: result.tables,
-          count: result.count,
+          tables: normalizedTables,
+          count: normalizedTables.length,
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

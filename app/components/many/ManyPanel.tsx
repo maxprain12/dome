@@ -1,16 +1,17 @@
-import { useState, useEffect, useRef, useCallback, useMemo, type ElementType } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Search, FolderOpen, ClipboardList, Bot, BarChart2, Calendar, Mail } from 'lucide-react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import ManyChatHeader from './ManyChatHeader';
-import ManyChatInput from './ManyChatInput';
+import UnifiedChatInput from '@/components/chat/UnifiedChatInput';
 import { useManyStore, type ManyChatSession, type ManyMessage, type PendingPdfRegion } from '@/lib/store/useManyStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import {
   getAIConfig,
   createManyToolsForContext,
+  createLoadSkillTools,
   providerSupportsTools,
   toOpenAIToolDefinitions,
   type AIProviderType,
@@ -22,7 +23,9 @@ import {
   getUiLocationDescription,
 } from '@/lib/ai/shared-capabilities';
 import { createRememberFactTool } from '@/lib/ai/tools/memory';
-import { buildManyFloatingPrompt, prompts } from '@/lib/prompts/loader';
+import { buildManyFloatingPrompt } from '@/lib/prompts/loader';
+import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
+import { APP_SECTION_GUIDE } from '@/lib/chat/systemPrompts';
 import { showToast } from '@/lib/store/useToastStore';
 import ManyAvatar from './ManyAvatar';
 import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
@@ -31,14 +34,13 @@ import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { buildCitationMap } from '@/lib/utils/citations';
 import { db } from '@/lib/db/client';
+import { listSkills, filterToolsBySkill } from '@/lib/skills/client';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
 import {
   abortRun,
   getActiveRunBySession,
-  onRunChunk,
-  onRunUpdated,
   resumeRun,
   startLangGraphRun,
   type PersistentRun,
@@ -46,76 +48,23 @@ import {
 import { registerManyMessageSender, type ManySendOptions } from '@/lib/many/manySendController';
 import { runPdfRegionStream } from '@/lib/hooks/usePdfRegionStream';
 import PdfRegionBanner from '@/components/many/PdfRegionBanner';
+import { streamingLabelForToolName } from '@/lib/chat/streamingLabels';
+import { useLangGraphRunStream } from '@/lib/chat/useLangGraphRunStream';
+import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
+import { buildAttachmentPrefix } from '@/lib/chat/attachmentTypes';
+import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 
-
-const QUICK_PROMPTS_BASE = [
-  'Summarize my current resource',
-  'What should I focus on?',
-  'Help me organize my notes',
-];
-
-const QUICK_PROMPTS_WITH_TOOLS = [
-  'Search my resources',
-  'Query my database',
-];
-
-const STREAMING_LABELS: Record<string, string> = {
-  call_data_agent: 'Procesando datos',
-  call_writer_agent: 'Creando contenido',
-  call_library_agent: 'Consultando biblioteca',
-  call_research_agent: 'Investigando',
-};
-
-const VOICE_LANGUAGE_NAMES: Record<string, string> = {
-  en: 'English',
-  es: 'Spanish',
-  fr: 'French',
-  pt: 'Portuguese',
-};
-
-function buildVoicePrompt(language: string): string {
-  const langName = VOICE_LANGUAGE_NAMES[language] || 'Spanish';
-  return `\n\n## Voice Response Mode\nYou are speaking aloud in a live voice conversation. Follow these rules:\n- Keep responses SHORT and conversational (2-4 sentences for simple questions).\n- Use natural spoken language — avoid markdown, bullet lists, headers, and code blocks.\n- Summarize instead of enumerating long lists.\n- Avoid saying "of course!", "certainly!", or other filler phrases.\n- Respond in ${langName}.`;
+/** Minimal path check for skill `paths:` (avoids bundling micromatch in the renderer). */
+function skillPathPatternsMatch(patterns: string[], ctxPath: string, pathnameOnly: string): boolean {
+  for (const raw of patterns) {
+    const p = String(raw || '').trim();
+    if (!p) continue;
+    const norm = p.replace(/\*\*/g, '').replace(/\*/g, '').replace(/^\//, '');
+    if (!norm) continue;
+    if (ctxPath.includes(norm) || pathnameOnly.includes(norm)) return true;
+  }
+  return false;
 }
-
-const CHAT_CITATION_INSTRUCTION = `## Citation Guidance
-- When you use evidence from resource_semantic_search or resource_get, cite the supporting source inline as [1], [2], etc.
-- Reuse the numbering order from the most recent tool results in this answer.
-- Prefer one citation per concrete factual claim or paragraph grounded in the library.`;
-
-const APP_SECTION_GUIDE = `## Dome App Sections
-Dome is a single-window app with a browser-like tab bar. Each section opens as a tab.
-
-- **Home**: the starting tab — shows recent resources, quick actions, and workspace overview.
-- **Folder tab** (one per folder): clicking a folder in the sidebar or a dome://folder link opens it as its own tab. Each folder tab shows subfolders + files inside that folder.
-- **Agents**: manage and chat with specialized agents; also shows Workflows and Automations.
-- **Learn**: Studio outputs (mindmaps, guides, quizzes, timelines, tables, flashcards, audio, video), Flashcards review, and Tags browser — all accessible via top-tabs inside Learn.
-- **Calendar**: view and manage events.
-- **Marketplace**: explore and install agents, workflows, and assets.
-- **Settings**: app configuration, AI providers, integrations.
-- **Resource tab** (one per resource): opens a specific note, notebook, PDF, DOCX, PPT, URL, video, or audio file for editing or viewing.
-
-## Sidebar (Unified Workspace)
-The left sidebar shows the full folder tree of the workspace. Clicking any folder opens it as a Folder tab. Folders can be nested; each Folder tab shows its subfolders in a grid and its files in a list.
-
-## Navigation Guidance
-- If the user asks how to find something, describe it using the tab and sidebar names above (e.g. "en la barra lateral izquierda busca la carpeta X", "abre la pestaña Agents", "ve a Learn > Studio").
-- Prefer actionable guidance plus clickable internal links when available.
-- If a workflow or specialized agent is the best route, mention it clearly.
-
-## Deep Link Rules
-- Resource links must use \`dome://resource/RESOURCE_ID/TYPE\`.
-- Folder links must use \`dome://folder/FOLDER_ID\` — opens that folder as a tab in the current window.
-- Studio links must use \`dome://studio/OUTPUT_ID/TYPE\`.
-- **CRITICAL — Never invent IDs**: Always use the exact \`id\` field returned by tools (resource_create, resource_search, resource_get_library_overview, etc.). Resource IDs look like \`res_1234567890_abc123\`. Folder IDs use the same format — folders are resources too. NEVER invent IDs like \`fol_...\`, \`folder-123\`, or anything not returned by a tool. If you do not have the ID, call \`resource_get_library_overview\` or \`resource_search\` first.
-
-## Active browser tab (macOS)
-- When the user asks to save the page they are viewing **in an external browser** (Safari, Chrome, etc.), call \`browser_get_active_tab\` to obtain the live URL and title, then \`resource_create\` with \`type: "url"\` and \`metadata.url\`, then offer to run indexing if appropriate. If the tool errors, ask the user to paste the URL or focus a supported browser.`;
-
-const ENTITY_CREATION_RULES = `## Entity Creation (agent_create, workflow_create, automation_create)
-- **agent_create**: Always pass \`tool_ids\` — an agent without tools cannot work. Example: Noticiero needs ["web_fetch", "resource_create"]. After calling, your response MUST include the artifact block: \`\`\`artifact:created_entity (newline) {JSON from tool, strip ENTITY_CREATED: prefix} (newline) \`\`\`. This block renders the visual card. Without it, the user only sees plain text.
-- **workflow_create**: When workflow nodes reference custom agents, create those agents first with agent_create (including tool_ids!), then reference their ID in nodes.
-- **automation_create**: Dome has native automations. After creating an agent that could run recurrently (e.g. Noticiero), offer to create an automation. Never mention n8n or Make.`;
 
 type ResourceContextPayload = {
   content?: string | null;
@@ -155,14 +104,14 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const [searchParams] = useSearchParams();
   const {
     status,
-    setFullscreen,
+    setFullscreen: _setFullscreen,
     setStatus,
     messages,
     addMessage,
     clearMessages,
     startNewChat,
-    switchSession,
-    deleteSession,
+    switchSession: _switchSession,
+    deleteSession: _deleteSession,
     hydrateSession,
     sessions,
     currentSessionId,
@@ -182,6 +131,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const setPendingManyHandoff = useManyStore((s) => s.setPendingManyHandoff);
 
   const [input, setInput] = useState('');
+  const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [userMemory, setUserMemory] = useState<string>('');
   const [toolsEnabled, setToolsEnabled] = useState(true);
@@ -231,7 +181,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         setProviderInfo(displayInfo);
         setSupportsTools(providerSupportsTools(config.provider as AIProviderType));
       } else {
-        setProviderInfo('Not configured');
+        setProviderInfo(t('chat.not_configured'));
         setSupportsTools(false);
       }
     };
@@ -239,7 +189,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     const handleConfigChanged = () => loadProviderInfo();
     window.addEventListener('dome:ai-config-changed', handleConfigChanged);
     return () => window.removeEventListener('dome:ai-config-changed', handleConfigChanged);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!isVisible || isHeadless) return;
@@ -321,7 +271,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
       hydrateSession({
         id: currentSessionId,
-        title: result.data.title || currentSession?.title || 'New chat',
+        title: result.data.title || currentSession?.title || t('chat.session_fallback_new'),
         messages: persistedMessages,
         createdAt: currentSession?.createdAt ?? result.data.messages[0]?.created_at ?? Date.now(),
       } satisfies ManyChatSession);
@@ -332,7 +282,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     return () => {
       cancelled = true;
     };
-  }, [currentSessionId, currentSession, hydrateSession]);
+  }, [currentSessionId, currentSession, hydrateSession, t]);
 
   // Startup: recover sessions from DB that are missing from localStorage.
   // Runs once on mount. Handles the case where localStorage was cleared but DB survived.
@@ -375,7 +325,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
           hydrateS({
             id: dbSession.id,
-            title: fullResult.data.title || dbSession.title || 'Chat',
+            title: fullResult.data.title || dbSession.title || t('chat.session_fallback_chat'),
             messages: msgs,
             createdAt: dbSession.created_at ?? Date.now(),
           } satisfies ManyChatSession);
@@ -386,7 +336,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     })();
 
     return () => { cancelled = true; };
-  }, []); // Only run once on mount
+  }, [t]); // also when language changes
 
   const refreshSessionFromDb = useCallback(async (): Promise<boolean> => {
     if (!currentSessionId || !db.isAvailable()) {
@@ -421,12 +371,12 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     if (!hasContent && !hasToolCalls) return false;
     hydrateSession({
       id: currentSessionId,
-      title: result.data.title || currentSession?.title || 'New chat',
+      title: result.data.title || currentSession?.title || t('chat.session_fallback_new'),
       messages: dbMessages,
       createdAt: currentSession?.createdAt ?? result.data.messages[0]?.created_at ?? Date.now(),
     } satisfies ManyChatSession);
     return true;
-  }, [currentSession, currentSessionId, hydrateSession]);
+  }, [currentSession, currentSessionId, hydrateSession, t]);
   refreshSessionFromDbRef.current = refreshSessionFromDb;
 
   const applyRunSnapshot = useCallback((run: PersistentRun | null) => {
@@ -465,7 +415,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         timestamp: run.updatedAt || Date.now(),
         isStreaming: run.status !== 'waiting_approval',
         toolCalls: prev?.toolCalls || [],
-        streamingLabel: run.status === 'waiting_approval' ? 'Esperando aprobación...' : (prev?.streamingLabel || 'Ejecutando en background...'),
+        streamingLabel:
+          run.status === 'waiting_approval'
+            ? t('chat.waiting_approval')
+            : (prev?.streamingLabel || t('chat.running_background')),
       }));
       return;
     }
@@ -473,7 +426,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     setStatus('idle');
     setStreamingMessage(null);
     setPendingApproval(null);
-  }, [setStatus]);
+  }, [setStatus, t]);
 
   useEffect(() => {
     if (!currentSessionId) {
@@ -495,166 +448,100 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     };
   }, [applyRunSnapshot, currentSessionId]);
 
-  useEffect(() => {
-    if (!activeRunId) {
-      return;
-    }
-    const unsubUpdated = onRunUpdated(({ run }) => {
-      if (run.id !== activeRunId) {
-        return;
+  const handleManyRunStatus = useCallback(
+    (run: PersistentRun) => {
+      if (!['completed', 'failed', 'cancelled'].includes(run.status)) {
+        applyRunSnapshot(run);
       }
-      if (['completed', 'failed', 'cancelled'].includes(run.status)) {
-        if (voiceAutoSpeakForRunIdRef.current === run.id) {
-          voiceAutoSpeakForRunIdRef.current = null;
-        }
-        // Clear non-message state immediately
-        setActiveRunId(null);
-        setIsLoading(false);
-        setStatus('idle');
-        setPendingApproval(null);
-        // Keep the assistant response visible until DB messages are loaded.
-        // If streamingMessage is null (e.g. cleared by a re-mount), reconstruct
-        // it from the run data so the conversation never appears blank.
-        setStreamingMessage((prev) => {
-          if (prev) return { ...prev, isStreaming: false };
-          const toolCalls = Array.isArray(run.metadata?.toolCalls)
-            ? (run.metadata.toolCalls as ToolCallData[])
-            : [];
-          if (!run.outputText && toolCalls.length === 0) return null;
-          return {
-            id: `run-${run.id}`,
-            role: 'assistant',
-            content: run.outputText || '',
-            timestamp: run.updatedAt || Date.now(),
-            isStreaming: false,
-            toolCalls,
-          };
-        });
-        // Capture final content from run for localStorage fallback.
-        const finalContent = run.outputText || '';
-        const finalToolCalls: ToolCallData[] = Array.isArray(run.metadata?.toolCalls)
+    },
+    [applyRunSnapshot],
+  );
+
+  const handleManyRunTerminal = useCallback(
+    (run: PersistentRun) => {
+      if (voiceAutoSpeakForRunIdRef.current === run.id) {
+        voiceAutoSpeakForRunIdRef.current = null;
+      }
+      setActiveRunId(null);
+      setIsLoading(false);
+      setStatus('idle');
+      setPendingApproval(null);
+      setStreamingMessage((prev) => {
+        if (prev) return { ...prev, isStreaming: false };
+        const toolCalls = Array.isArray(run.metadata?.toolCalls)
           ? (run.metadata.toolCalls as ToolCallData[])
           : [];
-
-        // Use ref so this listener is not re-registered every time currentSession
-        // changes (which would create a window where the event could be missed).
-        const tryRefresh = (attemptsLeft: number) => {
-          void refreshSessionFromDbRef.current().then((hydrated) => {
+        if (!run.outputText && toolCalls.length === 0) return null;
+        return {
+          id: `run-${run.id}`,
+          role: 'assistant',
+          content: run.outputText || '',
+          timestamp: run.updatedAt || Date.now(),
+          isStreaming: false,
+          toolCalls,
+        };
+      });
+      const finalContent = run.outputText || '';
+      const finalToolCalls: ToolCallData[] = Array.isArray(run.metadata?.toolCalls)
+        ? (run.metadata.toolCalls as ToolCallData[])
+        : [];
+      const tryRefresh = (attemptsLeft: number) => {
+        void refreshSessionFromDbRef
+          .current()
+          .then((hydrated) => {
             if (hydrated) {
               setStreamingMessage(null);
             } else if (attemptsLeft > 0) {
-              // DB message may not be written yet — retry once after a short delay.
               setTimeout(() => tryRefresh(attemptsLeft - 1), 600);
             } else {
-              // DB hydration failed after all retries. Persist assistant message
-              // directly to localStorage so it survives closing the panel.
               if (finalContent || finalToolCalls.length > 0) {
                 addMessage({ role: 'assistant', content: finalContent, toolCalls: finalToolCalls });
               }
               setStreamingMessage(null);
             }
-          }).catch((err) => {
-            // Keep the streaming message visible as fallback so the chat is never blank.
+          })
+          .catch((err) => {
             console.warn('[Many] refreshSessionFromDb failed, persisting to localStorage:', err);
             if (finalContent || finalToolCalls.length > 0) {
               addMessage({ role: 'assistant', content: finalContent, toolCalls: finalToolCalls });
             }
             setStreamingMessage(null);
           });
-        };
-        tryRefresh(2);
-        // Note: TTS is now handled via streaming (run-engine feeds chunks to streaming-tts.cjs)
-        // voiceAutoSpeakForRunIdRef is kept only to track state for HUD
-        if (run.status === 'completed') {
-          window.dispatchEvent(new Event('dome:resources-changed'));
-        }
-      } else {
-        applyRunSnapshot(run);
+      };
+      tryRefresh(2);
+      if (run.status === 'completed') {
+        window.dispatchEvent(new Event('dome:resources-changed'));
       }
-    });
-    const unsubChunk = onRunChunk((payload) => {
-      if (payload.runId !== activeRunId) {
+    },
+    [addMessage, setStatus],
+  );
+
+  const handleManyPendingApproval = useCallback(
+    (approval: { actionRequests: Array<{ name: string; args: Record<string, unknown>; description?: string }>; reviewConfigs: Array<{ actionName: string; allowedDecisions: string[] }>; submitResume: (decisions: Array<unknown>) => void } | null) => {
+      if (!approval) {
+        setPendingApproval(null);
         return;
       }
-      if (payload.type === 'text' && payload.text) {
-        setStreamingMessage((prev) =>
-          prev
-            ? { ...prev, content: `${prev.content || ''}${payload.text}` }
-            : {
-                id: `run-${payload.runId}`,
-                role: 'assistant',
-                content: payload.text ?? '',
-                timestamp: Date.now(),
-                isStreaming: true,
-                toolCalls: [],
-                streamingLabel: 'Ejecutando en background...',
-              },
-        );
-      } else if (payload.type === 'thinking' && payload.text) {
-        setStreamingMessage((prev) => (prev ? { ...prev, thinking: `${prev.thinking || ''}${payload.text}` } : prev));
-      } else if (payload.type === 'tool_call' && payload.toolCall) {
-        const tc = payload.toolCall;
-        const args = (() => {
-          try {
-            return typeof tc.arguments === 'string' ? JSON.parse(tc.arguments) : {};
-          } catch {
-            return {};
-          }
-        })();
-        setStreamingMessage((prev) => {
-          const nextToolCalls: ToolCallData[] = [
-            ...(prev?.toolCalls || []),
-            {
-              id: tc.id,
-              name: tc.name,
-              arguments: args,
-              status: 'running' as const,
-            },
-          ];
-          return prev
-            ? {
-                ...prev,
-                toolCalls: nextToolCalls,
-                streamingLabel: `${STREAMING_LABELS[tc.name || ''] || tc.name || 'Herramienta'}...`,
-              }
-            : {
-                id: `run-${payload.runId}`,
-                role: 'assistant',
-                content: '',
-                timestamp: Date.now(),
-                isStreaming: true,
-                toolCalls: nextToolCalls,
-                streamingLabel: `${tc.name}...`,
-              };
-        });
-      } else if (payload.type === 'tool_result' && payload.toolCallId) {
-        setStreamingMessage((prev) => {
-          if (!prev?.toolCalls) {
-            return prev;
-          }
-          return {
-            ...prev,
-            toolCalls: prev.toolCalls.map((call) =>
-              call.id === payload.toolCallId ? { ...call, status: 'success', result: payload.result } : call,
-            ),
-          };
-        });
-      } else if (payload.type === 'interrupt' && payload.actionRequests && payload.reviewConfigs) {
-        setPendingApproval({
-          actionRequests: payload.actionRequests,
-          reviewConfigs: payload.reviewConfigs,
-          submitResume: (decisions) => {
-            hitlDecisionsRef.current = decisions;
-            void resumeRun(payload.runId, decisions as Array<unknown>);
-          },
-        });
-      }
-    });
-    return () => {
-      unsubUpdated();
-      unsubChunk();
-    };
-  }, [activeRunId, applyRunSnapshot, addMessage, setStatus]);
+      setPendingApproval({
+        actionRequests: approval.actionRequests,
+        reviewConfigs: approval.reviewConfigs,
+        submitResume: (decisions) => {
+          hitlDecisionsRef.current = decisions;
+          approval.submitResume(decisions);
+        },
+      });
+    },
+    [],
+  );
+
+  useLangGraphRunStream({
+    activeRunId,
+    setStreamingMessage,
+    setPendingApproval: handleManyPendingApproval,
+    onRunStatus: handleManyRunStatus,
+    onRunTerminal: handleManyRunTerminal,
+    t,
+  });
 
   const setMcpEnabled = useCallback(async (value: boolean) => {
     setMcpEnabledState(value);
@@ -669,6 +556,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       includeResources: resourceToolsEnabled,
     });
     tools.push(createRememberFactTool());
+    tools.push(...createLoadSkillTools());
     return tools;
   }, [toolsEnabled, resourceToolsEnabled, pathname]);
 
@@ -735,12 +623,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       currentResourceId: effectiveResourceId,
       currentResourceTitle: currentResourceTitle || null,
     })}`;
-    prompt += `\n\n${CHAT_CITATION_INSTRUCTION}`;
     if (userMemory) {
       prompt += `\n\n## What I know about you\n${userMemory}`;
     }
 
-    // Inject pinned resource content
     if (pinnedResources.length > 0 && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
       const pinnedIds = pinnedResources.map((r) => r.id);
       let pinnedBlock = '\n\n## Pinned Context Resources\nThe following resources have been added to context by the user. Use their content directly — do NOT call resource_get or resource_search for these IDs unless you need pages not shown here.\n';
@@ -850,7 +736,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   );
 
   const handleSend = useCallback(async (messageOverride?: string, sendOptions?: ManySendOptions) => {
-    const userMessage = messageOverride || input.trim();
+    const attPrefix = buildAttachmentPrefix(chatAttachments, t('chat.attachment_extraction_empty'));
+    const textPart = (messageOverride ?? input).trim();
+    const userMessage = [attPrefix, textPart].filter((s) => s.length > 0).join('\n\n').trim();
     if (!userMessage || isSubmittingRef.current) return;
 
     if (pdfRegionStreamingMessage?.isStreaming) return;
@@ -872,6 +760,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
     isSubmittingRef.current = true;
     setInput('');
+    setChatAttachments([]);
     setIsLoading(true);
     setStatus('thinking');
     setError(null);
@@ -891,7 +780,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       if (!config) {
         addMessage({
           role: 'assistant',
-          content: 'No tengo configuración de IA. Ve a **Ajustes > AI** para configurar un proveedor.',
+          content: t('chat.no_ai_config'),
         });
         return;
       }
@@ -899,16 +788,16 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       const needsApiKey = ['openai', 'anthropic', 'google'].includes(config.provider);
       const hasApiKey = !!config.apiKey;
       if (needsApiKey && !hasApiKey && !['synthetic', 'venice'].includes(config.provider)) {
-        setError('API key not configured. Go to Settings to configure it.');
+        setError(t('chat.api_key_error_inline'));
         addMessage({
           role: 'assistant',
-          content: 'La API key no está configurada. Ve a **Ajustes > AI** para añadir tu clave.',
+          content: t('chat.no_api_key'),
         });
         return;
       }
 
       if (!hasLangGraph) {
-        throw new Error('Many requiere el runtime LangGraph para funcionar.');
+        throw new Error(t('chat.langgraph_required'));
       }
 
       let systemPrompt = await buildSystemPrompt();
@@ -932,37 +821,69 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         }
       }
 
-      // Append user-configured skills (prompt-driven specializations)
-      let skillsBlock = '';
-      if (db.isAvailable()) {
-        try {
-          const skillsResult = await db.getAISkills();
-          if (skillsResult.success && Array.isArray(skillsResult.data)) {
-            const skills = skillsResult.data.filter((s: { enabled?: boolean }) => s.enabled !== false);
-            if (skills.length > 0) {
-              const MAX_SKILLS_CHARS = 8000;
-              let block = '\n\n## Available Skills\n';
-              for (const s of skills) {
-                const name = s.name || 'unnamed';
-                const desc = s.description || '';
-                const prompt = s.prompt || '';
-                if (!prompt.trim()) continue;
-                const section = `### Skill: ${name}\n${desc ? `${desc}\n\n` : ''}${prompt}\n\n`;
-                if (block.length + section.length > MAX_SKILLS_CHARS) {
-                  block += '\n[Additional skills truncated for context length]';
-                  break;
+      // User-configured skills: one-shot or sticky session skill, else all enabled (legacy)
+      const manySnap = useManyStore.getState();
+      const sessionIdForSkill = manySnap.currentSessionId;
+      const oneShotSkillId = manySnap.pendingOneShotSkillId;
+      const stickySkillId = sessionIdForSkill ? manySnap.activeSkillIdBySession[sessionIdForSkill] ?? null : null;
+      const primarySkillId = oneShotSkillId || stickySkillId;
+      manySnap.setPendingOneShotSkill(null);
+
+      const activeSkillRecords: Array<{ allowed_tools: string[] }> = [];
+      try {
+        const listRes = await listSkills({ includeBody: true });
+        if (listRes.success && Array.isArray(listRes.data) && listRes.data.length > 0) {
+          const all = listRes.data;
+          const ctxPath = `${pathname || '/'}#${effectiveResourceId || ''}`;
+          if (primarySkillId) {
+            const s = all.find((x) => x.id === primarySkillId);
+            const body = s?.body?.trim() || '';
+            if (s && body) {
+              const name = s.name || 'unnamed';
+              const desc = s.description || '';
+              const skillsBlock = `\n\n## Active Skill\n### ${name}\n${desc ? `${desc}\n\n` : ''}${body}\n`;
+              systemPrompt += skillsBlock;
+              activeSkillRecords.push({ allowed_tools: s.allowed_tools || [] });
+            }
+          } else {
+            const pathBlocks: string[] = [];
+            for (const s of all) {
+              if (s.disable_model_invocation) continue;
+              if (!s.paths?.length) continue;
+              const match = skillPathPatternsMatch(s.paths, ctxPath, pathname || '/');
+              if (match) {
+                const b = s.body?.trim() || '';
+                if (b) {
+                  pathBlocks.push(`### ${s.name || s.id}\n${b}\n`);
+                  activeSkillRecords.push({ allowed_tools: s.allowed_tools || [] });
                 }
-                block += section;
-              }
-              if (block.trim().length > 20) {
-                skillsBlock = block;
-                systemPrompt += skillsBlock;
               }
             }
+            if (pathBlocks.length > 0) {
+              systemPrompt += `\n\n## Context skills (path match)\n${pathBlocks.join('\n')}\n`;
+            }
+            const CATALOG = 1536;
+            const lines: string[] = [];
+            for (const s of all) {
+              if (s.disable_model_invocation) continue;
+              if (!s.body?.trim()) continue;
+              const w = s.when_to_use ? ` — ${s.when_to_use}` : '';
+              const line = `- /${s.slug || s.id}: ${(s.description || s.name).slice(0, 400)}${w}`.trim();
+              if (line.length > CATALOG) {
+                lines.push(`${line.slice(0, CATALOG - 1)}…`);
+              } else {
+                lines.push(line);
+              }
+            }
+            if (lines.length > 0) {
+              systemPrompt += `\n\n## Available Skills (use load_skill tool with field **name** = slash name, e.g. \`research-assistant\`)\n${lines.join(
+                '\n',
+              )}\n`;
+            }
           }
-        } catch (e) {
-          console.warn('[Many] Could not load skills:', e);
         }
+      } catch (e) {
+        console.warn('[Many] Could not load skills:', e);
       }
 
       const sharedContext = {
@@ -973,10 +894,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         currentResourceTitle: currentResourceTitle || null,
       };
       const toolHint = buildSharedResourceHint(sharedContext);
-      const toolDefinitions =
+      const rawToolDefinitions =
         toolsEnabled && supportsTools && activeTools.length > 0
           ? toOpenAIToolDefinitions(activeTools)
           : [];
+      const toolDefinitions = filterToolsBySkill(activeSkillRecords, rawToolDefinitions);
       const toolIds = toolsEnabled ? activeTools.map((tool) => tool.name) : [];
       const mcpServerIds =
         toolsEnabled && mcpEnabled
@@ -995,16 +917,12 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         sendOptions?.voiceLanguage ||
         (typeof localStorage !== 'undefined' ? localStorage.getItem('dome:language') : null) ||
         'es';
-      const voicePromptSuffix = sendOptions?.autoSpeak ? buildVoicePrompt(voiceLanguage) : '';
 
-      const unifiedSystemPrompt =
-        systemPrompt +
-        '\n\n' +
-        prompts.martin.tools +
-        '\n\n## Tool Usage Mode\n- You are running in a single direct-tools runtime.\n- Decide yourself whether to answer directly or call tools.\n- If the current context already contains enough information, answer directly without tools.\n- Use tools only when you need fresh workspace data, external information, or to perform an action.\n- Never delegate or hand off the response to subagents.\n\n' +
-        ENTITY_CREATION_RULES +
-        toolHint +
-        voicePromptSuffix;
+      const unifiedSystemPrompt = buildDomeSystemPrompt({
+        baseInstructions: systemPrompt,
+        extraSections: [toolHint],
+        voiceLanguage: sendOptions?.autoSpeak ? voiceLanguage : null,
+      });
 
       const runMessages = [
         { role: 'system', content: unifiedSystemPrompt },
@@ -1019,7 +937,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         timestamp: Date.now(),
         isStreaming: true,
         toolCalls: [],
-        streamingLabel: toolDefinitions.length > 0 || mcpServerIds.length > 0 ? 'Pensando y evaluando herramientas...' : 'Procesando...',
+        streamingLabel:
+          toolDefinitions.length > 0 || mcpServerIds.length > 0
+            ? t('chat.thinking_evaluating_tools')
+            : t('chat.processing'),
       });
 
       const threadId = `many_${effectiveResourceId || 'global'}_${Date.now()}`;
@@ -1054,7 +975,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       const run = await startLangGraphRun({
         ownerType: 'many',
         ownerId: currentSessionId || `many-${Date.now()}`,
-        title: userMessage.slice(0, 80) || 'Many run',
+        title: userMessage.slice(0, 80) || t('chat.many_run_title'),
         sessionId: dbSessionId,
         contextId: effectiveResourceId ?? null,
         sessionTitle: currentSession?.title || null,
@@ -1080,9 +1001,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         if (fullResponse) addMessage({ role: 'assistant', content: fullResponse });
       } else {
         console.error('[Many] Error:', err);
-        const msg = err instanceof Error ? err.message : 'Unknown error';
-        addMessage({ role: 'assistant', content: `Lo siento, tuve un problema: ${msg}` });
-        showToast('error', `Many: ${msg}`);
+        const msg = err instanceof Error ? err.message : t('chat.error_unknown');
+        addMessage({ role: 'assistant', content: t('chat.error_prefix', { msg }) });
+        showToast('error', t('chat.many_error_toast', { msg }));
       }
     } finally {
       if (providerForAnalytics && !delegatedToRunEngine) {
@@ -1127,6 +1048,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     chatProjectId,
     handlePdfRegionSend,
     pdfRegionStreamingMessage?.isStreaming,
+    t,
+    chatAttachments,
   ]);
 
   useEffect(() => {
@@ -1219,23 +1142,16 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const context = getUiLocationDescription(pathname || '/', homeSidebarSection, activeShellTabType);
 
   const loadingHint = useMemo(() => {
-    if (pendingApproval) return 'Esperando aprobación';
-    const running = streamingMessage?.toolCalls?.find((t) => t.status === 'running');
-    if (running) {
-      const labels: Record<string, string> = {
-        call_data_agent: 'Procesando datos',
-        call_writer_agent: 'Creando contenido',
-        call_library_agent: 'Consultando biblioteca',
-        call_research_agent: 'Investigando',
-      };
-      return `${labels[running.name] || running.name.replace(/_/g, ' ')}...`;
+    if (pendingApproval) return t('chat.waiting_approval_hint');
+    const running = streamingMessage?.toolCalls?.find((tc) => tc.status === 'running');
+    if (running?.name) {
+      return streamingLabelForToolName(running.name, t);
     }
-    // When thinking with tools but no toolCalls yet (LangGraph invoke buffers until end)
     if (isLoading && toolsEnabled && status === 'thinking') {
-      return 'Ejecutando herramientas...';
+      return t('chat.executing_tools');
     }
     return undefined;
-  }, [pendingApproval, streamingMessage?.toolCalls, isLoading, toolsEnabled, status]);
+  }, [pendingApproval, streamingMessage?.toolCalls, isLoading, toolsEnabled, status, t]);
 
   if (isHeadless) {
     return null;
@@ -1274,14 +1190,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         contextDescription={context.description}
         messagesCount={messages.length}
         loadingHint={loadingHint}
-        sessions={sessions}
-        currentSessionId={currentSessionId}
-        isFullscreen={isFullscreen}
-        onToggleFullscreen={() => setFullscreen(!isFullscreen)}
         onClear={handleClear}
         onStartNewChat={startNewChat}
-        onSwitchSession={switchSession}
-        onDeleteSession={deleteSession}
         onClose={onClose}
       />
 
@@ -1303,12 +1213,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               marginBottom: 36,
             }}
           >
-            ¿En qué puedo ayudarte?
+            {t('chat.welcome_heading')}
           </h1>
 
           {/* Big centered input */}
           <div className="w-full max-w-2xl mb-6">
-            <ManyChatInput
+            <UnifiedChatInput
+              mode="many"
               input={input}
               setInput={setInput}
               inputRef={inputRef}
@@ -1328,6 +1239,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               inputPlaceholderOverride={
                 pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null
               }
+              attachments={chatAttachments}
+              onAttachmentsChange={setChatAttachments}
             />
           </div>
 
@@ -1335,42 +1248,42 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           <div className="flex flex-col items-center gap-3 w-full max-w-2xl">
             <div className="flex flex-wrap justify-center gap-2">
               {([
-                { Icon: Search, label: 'Buscar en mi biblioteca' },
-                { Icon: FolderOpen, label: 'Organizar recursos' },
-                { Icon: ClipboardList, label: 'Preparar reunión' },
-              ] as { Icon: ElementType; label: string }[]).map(({ Icon, label }) => (
+                { Icon: Search, labelKey: 'chat.quick_search_library' as const },
+                { Icon: FolderOpen, labelKey: 'chat.quick_organize' as const },
+                { Icon: ClipboardList, labelKey: 'chat.quick_prepare_meeting' as const },
+              ] as const).map(({ Icon, labelKey }) => (
                 <button
-                  key={label}
+                  key={labelKey}
                   type="button"
-                  onClick={() => { setInput(label); inputRef.current?.focus(); }}
+                  onClick={() => { setInput(t(labelKey)); inputRef.current?.focus(); }}
                   className="flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-medium transition-colors"
                   style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)', background: 'transparent' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-hover)'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
                 >
                   <Icon size={14} />
-                  {label}
+                  {t(labelKey)}
                 </button>
               ))}
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {([
-                { Icon: Bot, label: 'Estrategia con IA' },
-                { Icon: BarChart2, label: 'Crear tabla' },
-                { Icon: Calendar, label: 'Reporte semanal' },
-                { Icon: Mail, label: 'Redactar email' },
-              ] as { Icon: ElementType; label: string }[]).map(({ Icon, label }) => (
+                { Icon: Bot, labelKey: 'chat.quick_ai_strategy' as const },
+                { Icon: BarChart2, labelKey: 'chat.quick_create_table' as const },
+                { Icon: Calendar, labelKey: 'chat.quick_weekly_report' as const },
+                { Icon: Mail, labelKey: 'chat.quick_draft_email' as const },
+              ] as const).map(({ Icon, labelKey }) => (
                 <button
-                  key={label}
+                  key={labelKey}
                   type="button"
-                  onClick={() => { setInput(label); inputRef.current?.focus(); }}
+                  onClick={() => { setInput(t(labelKey)); inputRef.current?.focus(); }}
                   className="flex items-center gap-2 rounded-xl border px-4 py-2.5 text-[13px] font-medium transition-colors"
                   style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)', background: 'transparent' }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-hover)'; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
                 >
                   <Icon size={14} />
-                  {label}
+                  {t(labelKey)}
                 </button>
               ))}
             </div>
@@ -1378,8 +1291,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         </div>
       ) : (
         /* ── MESSAGES AREA ── */
-        <div
-          className="many-panel-messages flex-1 overflow-y-auto overflow-x-hidden min-h-0 py-6"
+        <UnifiedChatMessageArea
+          ref={messagesContainerRef}
+          className="many-panel-messages py-6"
           style={{ paddingLeft: isFullscreen ? '10%' : '16px', paddingRight: isFullscreen ? '10%' : '16px' }}
         >
           {chatMessages.length === 0 && !streamingMessage && !pdfRegionStreamingMessage ? (
@@ -1387,19 +1301,24 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               <div className="mb-3 flex justify-center">
                 <ManyAvatar size="lg" />
               </div>
-              <p className="text-[15px] font-medium text-[var(--primary-text)]">Hi, I&apos;m Many</p>
+              <p className="text-[15px] font-medium text-[var(--primary-text)]">{t('chat.many_welcome_title')}</p>
               <p className="mx-auto mt-1 max-w-xs text-[13px] text-[var(--tertiary-text)]">
-                Your personal assistant in Dome. Ask me anything.
+                {t('chat.many_welcome_subtitle')}
               </p>
               <div className="mx-auto mt-5 flex max-w-md flex-wrap justify-center gap-2">
-                {[...QUICK_PROMPTS_BASE, ...(supportsTools ? QUICK_PROMPTS_WITH_TOOLS : [])].map((prompt) => (
+                {[
+                  'chat.quick_empty_summarize',
+                  'chat.quick_empty_focus',
+                  'chat.quick_empty_organize',
+                  ...(supportsTools ? (['chat.quick_empty_search_resources', 'chat.quick_empty_query_db'] as const) : []),
+                ].map((key) => (
                   <button
-                    key={prompt}
+                    key={key}
                     type="button"
-                    onClick={() => { setInput(prompt); inputRef.current?.focus(); }}
+                    onClick={() => { setInput(t(key)); inputRef.current?.focus(); }}
                     className="rounded-full border border-[var(--border)] px-3 py-1.5 text-[12px] text-[var(--secondary-text)] transition-colors hover:bg-[var(--bg-hover)]"
                   >
-                    {prompt}
+                    {t(key)}
                   </button>
                 ))}
               </div>
@@ -1419,7 +1338,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                   <ManyAvatar size="sm" />
                   <div className="flex items-center gap-2 rounded-2xl rounded-tl-md bg-[var(--bg-secondary)] px-4 py-3">
                     <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />
-                    <span className="text-[13px] text-[var(--secondary-text)]">Analizando tu consulta...</span>
+                    <span className="text-[13px] text-[var(--secondary-text)]">{t('chat.analyzing')}</span>
                   </div>
                 </div>
               ) : null}
@@ -1437,7 +1356,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             </>
           )}
           <div ref={messagesEndRef} />
-        </div>
+        </UnifiedChatMessageArea>
       )}
 
       {isVisible && !isHeadless && pendingPdfRegion ? (
@@ -1454,8 +1373,12 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         >
           <div className="flex items-center justify-between gap-3">
             <span className="text-[11px] text-[var(--secondary-text)]">
-              {pendingApproval.actionRequests.length}{' '}
-              {pendingApproval.actionRequests.length === 1 ? 'acción pendiente' : 'acciones pendientes'}
+              {t(
+                pendingApproval.actionRequests.length === 1
+                  ? 'chat.pending_action_one'
+                  : 'chat.pending_action_other',
+                { count: pendingApproval.actionRequests.length },
+              )}
             </span>
             <div className="flex gap-1.5">
               <button
@@ -1466,7 +1389,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                 }}
                 className="rounded-md bg-[var(--accent)] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[var(--accent-hover)]"
               >
-                Aprobar todo
+                {t('chat.approve_all')}
               </button>
               <button
                 type="button"
@@ -1474,20 +1397,20 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                   pendingApproval.submitResume(
                     pendingApproval.actionRequests.map(() => ({
                       type: 'reject' as const,
-                      message: 'Rechazado por el usuario',
+                      message: t('chat.rejected_by_user'),
                     })),
                   );
                   setPendingApproval(null);
                 }}
                 className="rounded-md px-2.5 py-1 text-[11px] font-medium text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
               >
-                Rechazar
+                {t('chat.reject')}
               </button>
             </div>
           </div>
           <details className="mt-1.5">
             <summary className="cursor-pointer text-[11px] text-[var(--secondary-text)] hover:text-[var(--primary-text)]">
-              Ver detalles
+              {t('chat.view_details')}
             </summary>
             <div className="mt-1 space-y-1 rounded border border-[var(--border)] bg-[var(--bg)] p-2">
               {pendingApproval.actionRequests.map((req, i) => (
@@ -1513,7 +1436,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       ) && (
         isFullscreen ? (
           <div className="px-[10%] pb-4">
-            <ManyChatInput
+            <UnifiedChatInput
+              mode="many"
               input={input}
               setInput={setInput}
               inputRef={inputRef}
@@ -1532,10 +1456,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               inputPlaceholderOverride={
                 pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null
               }
+              attachments={chatAttachments}
+              onAttachmentsChange={setChatAttachments}
             />
           </div>
         ) : (
-          <ManyChatInput
+          <UnifiedChatInput
+            mode="many"
             input={input}
             setInput={setInput}
             inputRef={inputRef}
@@ -1554,6 +1481,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             inputPlaceholderOverride={
               pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null
             }
+            attachments={chatAttachments}
+            onAttachmentsChange={setChatAttachments}
           />
         )
       )}

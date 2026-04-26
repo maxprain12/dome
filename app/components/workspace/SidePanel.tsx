@@ -255,7 +255,17 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
                     {t('workspace.backlink_similarity', { pct: Math.round(link.similarity * 100) })}
                   </span>
                 ) : null}
-                {link.link_type === 'manual' ? (
+                {link.label ? (
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full font-medium"
+                    style={{
+                      background: 'var(--dome-accent-bg)',
+                      color: 'var(--dome-text)',
+                    }}
+                  >
+                    {t(`workspace.backlink_relation_${link.label}`, { defaultValue: link.label.replace(/_/g, ' ') })}
+                  </span>
+                ) : link.link_type === 'manual' ? (
                   <span
                     className="text-xs px-2 py-0.5 rounded-full font-medium"
                     style={{

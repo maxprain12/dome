@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { Search, X, Plus } from 'lucide-react';
+import { useState, useMemo, type CSSProperties, type FormEvent } from 'react';
+import { Search, X, Plus, Pin, Pencil, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { cn } from '@/lib/utils';
-import { useManyStore } from '@/lib/store/useManyStore';
+import { useManyStore, type ManyChatSession } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeButton from '@/components/ui/DomeButton';
@@ -10,16 +11,52 @@ import { DomeInput } from '@/components/ui/DomeInput';
 import DomeListRow from '@/components/ui/DomeListRow';
 import DomeListState from '@/components/ui/DomeListState';
 
-function timeAgo(ts: number): string {
+function timeAgo(ts: number, t: TFunction): string {
   const diff = Date.now() - ts;
   const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) return t('chat.time_ago_seconds', { n: Math.max(0, seconds) });
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60) return t('chat.time_ago_minutes', { n: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return t('chat.time_ago_hours', { n: hours });
   const days = Math.floor(hours / 24);
-  return `${days}d`;
+  return t('chat.time_ago_days', { n: days });
+}
+
+function startOfLocalDay(d: Date): number {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x.getTime();
+}
+
+function monday0(today0: number): number {
+  const d = new Date(today0);
+  const day = d.getDay();
+  const monday = new Date(d);
+  monday.setDate(d.getDate() - day + (day === 0 ? -6 : 1));
+  monday.setHours(0, 0, 0, 0);
+  return monday.getTime();
+}
+
+type GroupId = 'chat.group_today' | 'chat.group_yesterday' | 'chat.group_this_week' | 'chat.group_older';
+
+function timeGroupKey(ts: number): { key: GroupId } {
+  const t0 = startOfLocalDay(new Date());
+  const dayMs = 24 * 60 * 60 * 1000;
+  const today0 = t0;
+  const y0 = today0 - dayMs;
+  const mt = new Date(ts);
+  if (mt.getTime() >= today0 && mt.getTime() < today0 + dayMs) {
+    return { key: 'chat.group_today' };
+  }
+  if (mt.getTime() >= y0 && mt.getTime() < today0) {
+    return { key: 'chat.group_yesterday' };
+  }
+  const mon0 = monday0(today0);
+  if (mt.getTime() >= mon0 && mt.getTime() < y0) {
+    return { key: 'chat.group_this_week' };
+  }
+  return { key: 'chat.group_older' };
 }
 
 interface ChatHistoryPanelProps {
@@ -31,12 +68,42 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
   const sessions = useManyStore((s) => s.sessions);
   const currentSessionId = useManyStore((s) => s.currentSessionId);
   const [searchQuery, setSearchQuery] = useState('');
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const { openChatTab } = useTabStore.getState();
 
-  const filteredSessions = sessions.filter((s) =>
-    (s.title || '').toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const sortedSessions = useMemo(() => {
+    const f = searchQuery.toLowerCase();
+    return [...sessions]
+      .filter((s) => (s.title || '').toLowerCase().includes(f))
+      .sort((a, b) => {
+        if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+        const at = a.updatedAt ?? a.messages[a.messages.length - 1]?.timestamp ?? a.createdAt;
+        const bt = b.updatedAt ?? b.messages[b.messages.length - 1]?.timestamp ?? b.createdAt;
+        return bt - at;
+      });
+  }, [sessions, searchQuery]);
+
+  const groups = useMemo(() => {
+    const map = new Map<GroupId, ManyChatSession[]>();
+    for (const s of sortedSessions) {
+      const ts = s.updatedAt ?? s.messages[s.messages.length - 1]?.timestamp ?? s.createdAt;
+      const { key } = timeGroupKey(ts);
+      const list = map.get(key) ?? [];
+      list.push(s);
+      map.set(key, list);
+    }
+    const order: GroupId[] = [
+      'chat.group_today',
+      'chat.group_yesterday',
+      'chat.group_this_week',
+      'chat.group_older',
+    ];
+    return order
+      .filter((k) => (map.get(k) ?? []).length > 0)
+      .map((k) => ({ id: k, label: t(k), sessions: map.get(k)! }));
+  }, [sortedSessions, t]);
 
   const handleNewChat = () => {
     useManyStore.getState().startNewChat();
@@ -54,13 +121,71 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
     useManyStore.getState().deleteSession?.(sessionId);
   };
 
+  const handleStartRename = (e: React.MouseEvent, s: ManyChatSession) => {
+    e.stopPropagation();
+    setRenameId(s.id);
+    setRenameValue(s.title || t('chat.new_chat'));
+  };
+
+  const handleApplyRename = (e: FormEvent) => {
+    e.preventDefault();
+    if (renameId && renameValue.trim()) {
+      useManyStore.getState().updateSessionTitle(renameId, renameValue.trim());
+    }
+    setRenameId(null);
+  };
+
   const newChatLabel = t('chat.new_chat');
+  const modalOverlay: CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 100,
+    background: 'color-mix(in srgb, #000 45%, transparent)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  };
 
   return (
     <div
       className="flex flex-col h-full w-full min-w-[240px] border-l border-[var(--dome-border)]"
       style={{ background: 'var(--dome-sidebar-bg)' }}
     >
+      {renameId ? (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center p-3"
+          style={modalOverlay}
+          role="dialog"
+          aria-modal
+          onClick={() => setRenameId(null)}
+        >
+          <form
+            onSubmit={handleApplyRename}
+            onClick={(ev) => ev.stopPropagation()}
+            className="w-full max-w-sm rounded-lg border border-[var(--dome-border)] bg-[var(--dome-surface)] p-3 shadow-lg"
+            style={{ background: 'var(--dome-surface)' }}
+          >
+            <p className="text-xs font-medium text-[var(--dome-text)] mb-2">{t('chat.rename_conversation')}</p>
+            <DomeInput
+              className="gap-0 mb-3"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              autoFocus
+              inputClassName="!text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <DomeButton type="button" variant="ghost" size="sm" onClick={() => setRenameId(null)}>
+                {t('common.cancel')}
+              </DomeButton>
+              <DomeButton type="submit" variant="primary" size="sm" leftIcon={<Check className="w-3.5 h-3.5" />}>
+                {t('common.save')}
+              </DomeButton>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
       <DomeSubpageHeader
         title={t('chat.chats_title')}
         className="!py-2 !px-3 !items-center border-b border-[var(--dome-border)] bg-transparent"
@@ -113,15 +238,21 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto py-2 px-1.5 min-h-0">
-        {filteredSessions.length === 0 ? (
+        {sortedSessions.length === 0 ? (
           <DomeListState
             variant="empty"
             compact
             title={searchQuery ? t('chat.no_results') : t('chat.no_chats')}
           />
         ) : (
-          filteredSessions.map((session) => {
+          groups.map((g) => (
+            <div key={g.id} className="mb-3 last:mb-0">
+              <p className="px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--dome-text-muted)]">
+                {g.label}
+              </p>
+              {g.sessions.map((session) => {
             const isActive = session.id === currentSessionId;
+            const pinLabel = session.pinned ? t('chat.unpin_conversation') : t('chat.pin_conversation');
             return (
               <DomeListRow
                 key={session.id}
@@ -129,9 +260,39 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
                 onClick={() => handleOpenSession(session)}
                 trailing={
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {session.pinned && (
+                      <Pin className="w-3 h-3 text-[var(--dome-accent)]" fill="currentColor" aria-hidden />
+                    )}
                     <span className="tabular-nums text-[11px] text-[var(--tertiary-text)] group-hover:hidden">
-                      {timeAgo(session.createdAt ?? 0)}
+                      {timeAgo(session.updatedAt ?? session.messages[session.messages.length - 1]?.timestamp ?? session.createdAt, t)}
                     </span>
+                    <DomeButton
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      iconOnly
+                      className="hidden group-hover:flex !p-0.5 w-[22px] h-[22px] min-w-0 text-[var(--dome-text-muted)]"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        useManyStore.getState().toggleSessionPin(session.id);
+                      }}
+                      title={pinLabel}
+                      aria-label={pinLabel}
+                    >
+                      <Pin className="w-3.5 h-3.5" strokeWidth={2} />
+                    </DomeButton>
+                    <DomeButton
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      iconOnly
+                      className="hidden group-hover:flex !p-0.5 w-[22px] h-[22px] min-w-0 text-[var(--dome-text-muted)]"
+                      onClick={(e) => handleStartRename(e, session)}
+                      title={t('chat.rename_conversation')}
+                      aria-label={t('chat.rename_conversation')}
+                    >
+                      <Pencil className="w-3.5 h-3.5" strokeWidth={2} />
+                    </DomeButton>
                     <DomeButton
                       type="button"
                       variant="ghost"
@@ -153,7 +314,9 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
                 )}
               />
             );
-          })
+          })}
+            </div>
+          ))
         )}
       </div>
     </div>

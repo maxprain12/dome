@@ -203,6 +203,20 @@ const ALLOWED_CHANNELS = {
     'db:mcp:setGlobalEnabled',
     'db:skills:list',
     'db:skills:replaceAll',
+    'skills:list',
+    'skills:get',
+    'skills:render',
+    'skills:invoke',
+    'skills:reload',
+    'skills:openFolder',
+    'skills:openPersonalRoot',
+    'skills:setProjectRoot',
+    'skills:getProjectRoot',
+    'skills:save',
+    'skills:create',
+    'skills:readFile',
+    'skills:installFromManifest',
+    'skills:importLegacy',
     'db:marketplace:getAgentInstalls',
     'db:marketplace:replaceAgentInstalls',
     'db:marketplace:getWorkflowInstalls',
@@ -227,6 +241,7 @@ const ALLOWED_CHANNELS = {
     // File operations
     'file:generateHash',
     'file:readFile',
+    'file:readAttachment',
     'file:readFileAsText',
     'file:writeFile',
     'file:deleteFile',
@@ -576,6 +591,7 @@ const ALLOWED_CHANNELS = {
     'dome:open-resource-in-tab',
     'dome:open-settings-in-tab',
     'dome:open-singleton-tab',
+    'skills:updated',
   ],
 };
 
@@ -1199,6 +1215,8 @@ const electronHandler = {
     // Read file contents
     readFile: (filePath) => ipcRenderer.invoke('file:readFile', filePath),
     readFileAsText: (filePath) => ipcRenderer.invoke('file:readFileAsText', filePath),
+    /** @returns {Promise<{ success: boolean, data?: { name: string, text: string | null }, error?: string }>} */
+    readAttachment: (filePath) => ipcRenderer.invoke('file:readAttachment', filePath),
     writeFile: (filePath, content) => ipcRenderer.invoke('file:writeFile', filePath, content),
 
     // Delete a file

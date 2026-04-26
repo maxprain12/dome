@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { db } from '@/lib/db/client';
-import type { SkillConfig } from '@/components/settings/SkillsSettingsPanel';
+import { db, type AISkillRecord } from '@/lib/db/client';
 
 interface AgentSkillsStepProps {
   selectedIds: string[];
@@ -10,7 +9,7 @@ interface AgentSkillsStepProps {
 }
 
 export default function AgentSkillsStep({ selectedIds, onChange }: AgentSkillsStepProps) {
-  const [skills, setSkills] = useState<SkillConfig[]>([]);
+  const [skills, setSkills] = useState<AISkillRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadSkills = useCallback(async () => {
@@ -26,7 +25,7 @@ export default function AgentSkillsStep({ selectedIds, onChange }: AgentSkillsSt
         return;
       }
       setSkills(
-        result.data.map((s: SkillConfig) => ({
+        result.data.map((s: AISkillRecord) => ({
           id: s.id || '',
           name: s.name || '',
           description: s.description || '',

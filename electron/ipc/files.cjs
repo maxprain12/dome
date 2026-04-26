@@ -11,6 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { extractChatAttachmentText } = require('../document-extractor.cjs');
 
 function register({ ipcMain, app, windowManager, sanitizePath }) {
   ipcMain.handle('file:generateHash', (event, filePath) => {
@@ -167,6 +168,30 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     } catch (error) {
       console.error('[File] Error copying file:', error);
       return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Extract plain text from a file on disk (chat attachments: PDF, DOCX, XLSX, etc.)
+   */
+  ipcMain.handle('file:readAttachment', async (event, filePath) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const safePath = sanitizePath(filePath, true);
+      if (!fs.existsSync(safePath)) {
+        return { success: false, error: 'File not found' };
+      }
+      const name = path.basename(safePath);
+      const text = await extractChatAttachmentText(safePath);
+      if (text == null || String(text).trim() === '') {
+        return { success: true, data: { name, text: null } };
+      }
+      return { success: true, data: { name, text: String(text) } };
+    } catch (error) {
+      console.error('[File] readAttachment:', error);
+      return { success: false, error: error.message || String(error) };
     }
   });
 

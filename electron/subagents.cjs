@@ -7,8 +7,37 @@
  * Each subagent is wrapped as a tool the main agent can invoke.
  */
 
-const aiChatWithTools = require('./ai-chat-with-tools.cjs');
-const { executeToolInMain, getToolDefsBySubagent } = aiChatWithTools;
+const toolDispatcher = require('./tool-dispatcher.cjs');
+const { executeToolInMain, getToolDefsBySubagent } = toolDispatcher;
+const { readPrompt } = require('./prompts-loader.cjs');
+
+/** Canonical subagent names. Order matters: it's the default tool order
+ *  the supervisor sees, and the supervisor's choice can be order-biased. */
+const SUBAGENT_NAMES = ['research', 'library', 'writer', 'data'];
+
+/** Recursion limit for an individual subagent run. Mirrors the main agent's
+ *  budget — Excel/PPT subagents legitimately loop over many rows/slides. */
+const SUBAGENT_RECURSION_LIMIT = 100;
+
+const SUBAGENT_DESCRIPTIONS = {
+  research:
+    'Delegate to the research subagent for web search, fetching URLs, and deep research. Use when the user needs external information, fact-finding, or in-depth analysis of a topic.',
+  library:
+    "Delegate to the library subagent to search, read, and organize the user's resources. Use when the user asks about their notes, PDFs, projects, or wants to organize their library.",
+  writer:
+    'Delegate to the writer subagent to create notes, flashcards, edit or delete resources, and modify notebooks (add/update/delete cells). Use when the user wants to create content, edit existing resources, add code to a notebook, or create study materials.',
+  data: "Delegate to the data subagent for Excel AND PowerPoint. Use when the user works with spreadsheets (read/write cells, export) OR when they want to create a real .pptx presentation. For 'create PPT from folder X', 'presentación con documentos de [carpeta]', or any request for a PowerPoint file—delegate here. Never delegate PPT creation to writer (writer creates notes/documents, not .pptx).",
+};
+
+/** Cache prompt file contents — small, hot-path read on every tool call. */
+const subagentPromptCache = new Map();
+function getSubagentSystemPrompt(name) {
+  if (subagentPromptCache.has(name)) return subagentPromptCache.get(name);
+  const text = readPrompt(`martin/subagents/${name}.txt`);
+  const prompt = typeof text === 'string' ? text.trim() : '';
+  subagentPromptCache.set(name, prompt);
+  return prompt;
+}
 
 /**
  * Create a subagent wrapped as a LangChain tool.
@@ -56,68 +85,21 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
   const subagentTools = await createLangChainTools(toolDefs, wrappedExecuteFn);
   const subagent = createAgent({ model: llm, tools: subagentTools });
 
-  const descriptions = {
-    research:
-      'Delegate to the research subagent for web search, fetching URLs, and deep research. Use when the user needs external information, fact-finding, or in-depth analysis of a topic.',
-    library:
-      'Delegate to the library subagent to search, read, and organize the user\'s resources. Use when the user asks about their notes, PDFs, projects, or wants to organize their library.',
-    writer:
-      'Delegate to the writer subagent to create notes, flashcards, edit or delete resources, and modify notebooks (add/update/delete cells). Use when the user wants to create content, edit existing resources, add code to a notebook, or create study materials.',
-    data: "Delegate to the data subagent for Excel AND PowerPoint. Use when the user works with spreadsheets (read/write cells, export) OR when they want to create a real .pptx presentation. For 'create PPT from folder X', 'presentación con documentos de [carpeta]', or any request for a PowerPoint file—delegate here. Never delegate PPT creation to writer (writer creates notes/documents, not .pptx).",
-  };
-
   const name = `call_${agentName}_agent`;
-  const description = descriptions[agentName] || `Delegate to the ${agentName} subagent.`;
-
-  const systemPrompts = {
-    library: `You are the library subagent. You search, read, and organize the user's resources.
-
-## Document flow (avoid redundant calls)
-- When the user is viewing a resource (resource_id in context): ALWAYS start with resource_get. It returns structure for indexed PDFs.
-- Do NOT call get_document_structure after resource_get—it is redundant.
-- Use resource_get_section(resource_id, chunk_id) for a specific chunk from semantic search results. Only call resource_semantic_search when you need to find passages by meaning (e.g. "figures", "methodology") within or across documents.
-- For "what is this document about" or "show me details": resource_get first, then resource_get_section for key sections. Avoid redundant resource_semantic_search unless you need semantic search.
-
-## PDF page previews in chat (CRITICAL)
-When the user asks to "show a page", "see page N", or needs a visual of a PDF page:
-- Call pdf_render_page(resource_id, page_number) only when a rendered page is needed. It returns a markdown_image line with ![...](dome-pdf-page:RESOURCE_ID:PAGE) — embed that in your reply (on-demand PNG, no base64 in the model).
-- Prefer resource_semantic_search + resource_get for text; use pdf_render_page for visuals.
-
-LINK FORMAT (CRITICAL): When listing resources from get_library_overview or resource_list, ALWAYS use: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact id and type from the tool results. NEVER use the actual web URL (https://...) for url-type resources—always use dome://resource/ID/url. Using https:// opens in the browser instead of Dome. For folders/subfolders, use: [Abrir carpeta: Title](dome://folder/FOLDER_ID).`,
-    data: `You are the data subagent. You handle Excel and PowerPoint.
-For PowerPoint: ALWAYS use ppt_create to create real .pptx files. NEVER use resource_create (writer's tool) for presentations—that creates notes/documents, not PPTs.
-
-⚠️ CONTENT REQUIREMENT (CRITICAL): Every slide MUST display real text extracted from the source documents.
-- NEVER create slides with empty titles, empty bullets, or placeholder text (e.g. "Título del contenido", "Point 1")
-- Extract chapter titles, key concepts, definitions, metrics, and examples from resource_get content
-- Put that extracted text explicitly into add_text() and add_bullets() calls in the script
-- Before calling ppt_create: verify every slide has non-empty content
-
-Contrast: dark bg → light text (FFFFFF, E0E1DD); light bg → dark text (1E2761, 2D3748). Never dark-on-dark.
-
-PREFER ppt_create with script (Python / python-pptx) for rich, themed presentations. Generate full Python code that:
-- Uses: from pptx import Presentation; from pptx.util import Inches, Pt; prs = Presentation()
-- Sets prs.slide_width = Inches(10); prs.slide_height = Inches(5.625)
-- Uses add_text(), add_bullets(), fill_bg(), add_rect() helpers. Hex colors WITHOUT # (e.g. "1E2761")
-- MUST end with: prs.save(os.environ['PPTX_OUTPUT_PATH'])
-Choose a palette (Midnight Executive, Forest & Moss, Ocean Gradient, etc.) matching the content.
-
-FALLBACK: If you cannot generate a script, use ppt_create with spec (title, theme, slides array with real bullets).
-
-PPT from folder: (1) get_library_overview; (2) resource_list with folder_id; (3) resource_get for each doc (include_content: true, max_content_length: 50000); (4) build script or spec from content—put REAL extracted text into every slide; (5) verify each slide has non-empty content; (6) ppt_create with title, script (or spec), project_id, folder_id. If folder_id causes error, retry without it.`,
-  };
+  const description = SUBAGENT_DESCRIPTIONS[agentName] || `Delegate to the ${agentName} subagent.`;
+  const systemPrompt = getSubagentSystemPrompt(agentName);
 
   return tool(
     async ({ query }) => {
       const { HumanMessage, SystemMessage } = await import('@langchain/core/messages');
       const messages = [];
-      if (systemPrompts[agentName]) {
-        messages.push(new SystemMessage(systemPrompts[agentName]));
+      if (systemPrompt) {
+        messages.push(new SystemMessage(systemPrompt));
       }
       messages.push(new HumanMessage(query));
       const result = await subagent.invoke(
         { messages },
-        { recursionLimit: 100 }
+        { recursionLimit: SUBAGENT_RECURSION_LIMIT }
       );
       const lastMsg = result?.messages?.at(-1);
       const content = lastMsg?.content;

@@ -127,11 +127,19 @@ export default function AppShell() {
     return () => unsub?.();
   }, []);
 
+  // Auto-open the right panel when the user switches INTO a chat tab.
+  // Tracking the previous tab id (instead of `rightSidebarOpen`) is what lets
+  // the user actually close the panel while still on a chat tab — otherwise
+  // every close immediately re-fires this effect and pops the panel back open.
+  const prevActiveTabIdRef = useRef<string | null>(null);
   useEffect(() => {
+    const prev = prevActiveTabIdRef.current;
+    prevActiveTabIdRef.current = activeTabId ?? null;
+    if (prev === activeTabId) return;
     if (isChatTab && !rightSidebarOpen) {
       setRightSidebarOpen(true);
     }
-  }, [isChatTab, rightSidebarOpen]);
+  }, [activeTabId, isChatTab, rightSidebarOpen]);
 
   useEffect(() => {
     const onReq = () => {
@@ -324,7 +332,7 @@ export default function AppShell() {
       </div>
 
       {/* ── Body row ── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="dome-app-body flex flex-1 min-h-0 overflow-hidden">
         {/* Left sidebar */}
         {!leftSidebarCollapsed && (
           <UnifiedSidebar collapsed={false} onCollapse={toggleLeftSidebar} />
@@ -332,7 +340,7 @@ export default function AppShell() {
 
         {/* Main content */}
         <main
-          className="flex flex-col flex-1 min-w-0 overflow-hidden"
+          className="dome-main-content flex flex-col flex-1 min-w-0 overflow-hidden"
           style={{ background: 'var(--dome-surface)' }}
         >
           <div className="flex flex-1 min-h-0 overflow-hidden relative">
@@ -345,7 +353,7 @@ export default function AppShell() {
           <>
             {showManyInSidebar ? <ResizeHandle onResize={handleManyResize} direction="horizontal" /> : null}
             <div
-              className="shrink-0 overflow-hidden"
+              className="dome-right-panel shrink-0 overflow-hidden"
               style={{
                 width: showChatHistory ? 280 : manyWidth,
                 minWidth: showChatHistory ? 280 : manyWidth,
