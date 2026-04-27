@@ -113,9 +113,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
       fs.mkdirSync(tempDir, { recursive: true });
 
+      let zipfile;
       await new Promise((resolve, reject) => {
-        yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
+        yauzl.open(zipPath, { lazyEntries: true }, (err, zf) => {
           if (err) return reject(err);
+          zipfile = zf;
 
           zipfile.on('entry', (entry) => {
             try {
@@ -124,6 +126,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                 if (normalized.includes('\0')) {
                   throw new Error('Path contains null byte');
                 }
+                // '..' is intentionally allowed through — the resolveWithinTempDir
+                // check below guards against traversal out of tempDir.
                 return normalized;
               };
 
