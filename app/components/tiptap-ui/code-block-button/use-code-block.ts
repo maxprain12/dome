@@ -216,7 +216,7 @@ export function shouldShowButton(props: {
  *   const { isVisible, isActive, handleToggle, label } = useCodeBlock({
  *     editor: myEditor,
  *     hideWhenUnavailable: true,
- *     onToggled: (isActive) => console.log('Code block toggled:', isActive)
+ *     onToggled: undefined
  *   })
  *
  *   if (!isVisible) return null

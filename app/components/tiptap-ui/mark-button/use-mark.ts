@@ -153,7 +153,7 @@ export function getFormattedMarkName(type: Mark): string {
  *     editor: myEditor,
  *     type: "italic",
  *     hideWhenUnavailable: true,
- *     onToggled: () => console.log('Mark toggled!')
+ *     onToggled: undefined
  *   })
  *
  *   if (!isVisible) return null
