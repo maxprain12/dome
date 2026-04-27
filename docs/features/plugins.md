@@ -167,7 +167,7 @@ my-plugin/
 
 Para crear y publicar un plugin en el Marketplace de Dome, sigue la guía detallada:
 
-**[docs/marketplace/plugin-repo.md](./marketplace/plugin-repo.md)**
+**[docs/features/marketplace/plugin-repo.md](../marketplace/plugin-repo.md)**
 
 Incluye:
 - Estructura de archivos requerida
@@ -206,4 +206,4 @@ function validateManifest(manifest) {
 
 ---
 
-*Ver también: [marketplace/plugin-repo.md](./marketplace/plugin-repo.md) para guía de desarrollo de plugins.*
+*Ver también: [marketplace/plugin-repo.md](../marketplace/plugin-repo.md) para guía de desarrollo de plugins.*
