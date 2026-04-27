@@ -4,6 +4,35 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.1.5] - 2026-04-27
+
+### Added
+
+- **Arnés Codex**: principios, arquitectura, IPC, tooling y perfiles para agentes.
+
+### Changed
+
+- **Many / chat**: chat unificado con **LangGraph**, skills y artefactos.
+- **Editor y workspace**: editor enfocado, flujo de notas con IA aislada, menciones y mejoras de workspace.
+- **Many**: optimización del system prompt y ajustes de runtime en Electron.
+- **Stack**: **Electron 41**, **ExcelJS**, actualización de dependencias y auditoría npm.
+
+### Fixed
+
+- **Sync**: condiciones de carrera en handlers de extracción ZIP y limpieza en IPC (`electron/ipc/sync.cjs`).
+- **UI**: evitar anidar botones inválidos en `DomeListRow` cuando hay acciones trailing.
+- **MCP**: respuesta de `mcp:startOAuthFlow` alineada con forma estándar e inclusión de `toolCount`.
+
+### Documentation
+
+- Eliminado enlace roto al repositorio externo **dome-provider** en documentación.
+
+### Chore
+
+- **`.gitignore`**: ignorar `bun.lock` (el proyecto usa **npm** y `package-lock.json`).
+
+[2.1.5]: https://github.com/maxprain12/dome/releases/tag/v2.1.5
+
 ## [2.1.4] - 2026-04-27
 
 ### Added
