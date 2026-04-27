@@ -1,6 +1,6 @@
 # Manual Técnico — Dome Desktop
 
-> Referencia técnica consolidada para desarrolladores de Dome (v2.1.4).
+> Referencia técnica consolidada para desarrolladores de Dome (v2.1.5).
 > Asume conocimiento de TypeScript, React y Electron.
 
 ---
@@ -782,4 +782,4 @@ Checklist:
 
 ---
 
-*Manual Técnico — Dome v2.1.4*
+*Manual Técnico — Dome v2.1.5*

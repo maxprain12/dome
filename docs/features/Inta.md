@@ -246,7 +246,7 @@ This week in Dome ↓
 The product gets better every week because you tell us what breaks and what's missing.
 Thanks to everyone who reported bugs this version 🙌
 
-v2.1.4 available at dome.app
+v2.1.5 available at dome.app
 
 #changelog #devlog #productivity #PKM #buildinpublic
 ```

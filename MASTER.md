@@ -17,7 +17,7 @@
 │  y investigación académica. Combina editor, IA, agentes,    │
 │  organización de recursos y herramientas de estudio.        │
 │                                                              │
-│  v2.1.4  ·  npm  ·  Electron 41  ·  TypeScript             │
+│  v2.1.5  ·  npm  ·  Electron 41  ·  TypeScript             │
 └──────────────────────────────┬──────────────────────────────┘
                                │ OAuth PKCE + AI Proxy
                                │ dome://dome-auth/oauth/callback
@@ -233,4 +233,4 @@ Ver: [CLAUDE.md](./CLAUDE.md) · [.claude/rules/architecture-rules.md](./.claude
 
 ---
 
-*Última actualización: v2.1.4 (2026-04-27) — Dome Desktop + Dome Provider Fase 1*
+*Última actualización: v2.1.5 (2026-04-27) — Dome Desktop + Dome Provider Fase 1*
