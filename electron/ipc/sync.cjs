@@ -113,11 +113,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
       fs.mkdirSync(tempDir, { recursive: true });
 
-      let zipfile;
       await new Promise((resolve, reject) => {
-        yauzl.open(zipPath, { lazyEntries: true }, (err, zf) => {
+        yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
           if (err) return reject(err);
-          zipfile = zf;
 
           zipfile.on('entry', (entry) => {
             try {
