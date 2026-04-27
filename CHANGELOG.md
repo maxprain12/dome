@@ -4,6 +4,16 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.1.4] - 2026-04-27
+
+### Added
+
+- **Many Voice**: `ManyVoiceBridge` for IPC when the Many panel is closed; floating voice HUD refinements.
+- **Transcription**: shared `useMediaRecorder`, audio level meter, dedicated transcription overlay window.
+- **Calendar**: import service, sync scheduler, and settings panel wiring.
+- **KB LLM**: main-process provisioning/shared helpers, `kb-llm` IPC domain, settings panel, prompts and docs (`kb-*`).
+- **Learn**: `LearnTabShell` route integration.
+
 ### Changed
 
 - **Indexación**: transcripción/descr. de **PDF e imágenes** vía **LLM en la nube** (visión) del usuario; **embeddings Nomic** locales sin cambios (`resource_chunks`), caché en `resource_transcripts`, búsqueda híbrida.
@@ -14,6 +24,10 @@ All notable changes to Dome are documented in this file.
 - Referencias a **PageIndex** y **Docling** en README, `docs/`, `MASTER.md`, `CLAUDE.md` y prompts alineadas con el **pipeline de embeddings** (Nomic) e [indexing.md](docs/indexing.md); eliminado el índice a `vector-db.md` (no aplica). Enlaces rotos a `kb-index-policy.md` sustituidos por `indexing.md` / `kb-llm-wiki-model.md`.
 - `docs/ai-chat.md`, `docs/ipc.md`, `docs/whatsapp.md`: canal `ai:embeddings` y API preload `send()` / `ai.embeddings` retirados del texto.
 - **Audits VPS** (`prompts/audits/*.md`, `prompts/audits/_chain-header.md`): `version` y `last_updated` alineados (2026-04-26), referencia explícita a `prompts/shared/project-context.md` (v5) y `AGENTS.md` (baseline npm / Electron 41 / ExcelJS).
+
+### Fixed
+
+- **Realtime voice (STS)**: abort in-flight `RealtimeVoiceSession.start()` safely when the user dismisses the overlay; stop wake-word Web Speech listener after explicit HUD dismiss so the mic is not left active in the background.
 
 ### Removed (API obsoletas)
 
@@ -26,26 +40,9 @@ All notable changes to Dome are documented in this file.
 
 ### Removed
 
+- Legacy `ManyVoiceAssistantDock` (superseded by overlay + bridge).
 - **Gemma on-device**: worker WebGPU, `gemma:*` IPC, `GemmaWorkerPage`, STT `local-gemma` (mapeado a Whisper cloud), UI y docs asociadas; visión/PDF región vía `cloud:llm:*` y `electron/services/cloud-llm.service.cjs`.
 - Runtime Python **pageindex-runtime**, puentes y indexadores asociados, **Docling** en proceso principal, e IPC `pageindex:*` / `docling:*` (sustituidos por el índice semántico local documentado en `docs/indexing.md`).
-
-## [2.1.4] - 2026-04-08
-
-### Added
-
-- **Many Voice**: `ManyVoiceBridge` for IPC when the Many panel is closed; floating voice HUD refinements.
-- **Transcription**: shared `useMediaRecorder`, audio level meter, dedicated transcription overlay window.
-- **Calendar**: import service, sync scheduler, and settings panel wiring.
-- **KB LLM**: main-process provisioning/shared helpers, `kb-llm` IPC domain, settings panel, prompts and docs (`kb-*`).
-- **Learn**: `LearnTabShell` route integration.
-
-### Fixed
-
-- **Realtime voice (STS)**: abort in-flight `RealtimeVoiceSession.start()` safely when the user dismisses the overlay; stop wake-word Web Speech listener after explicit HUD dismiss so the mic is not left active in the background.
-
-### Removed
-
-- Legacy `ManyVoiceAssistantDock` (superseded by overlay + bridge).
 
 [2.1.4]: https://github.com/maxprain12/dome/releases/tag/v2.1.4
 
