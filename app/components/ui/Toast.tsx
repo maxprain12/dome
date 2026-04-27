@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, X, AlertTriangle, Info } from 'lucide-react';
 import { useToastStore, type Toast } from '@/lib/store/useToastStore';
 
@@ -11,6 +12,7 @@ const TOAST_ICONS = {
 } as const;
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
+  const { t } = useTranslation();
   const [isExiting, setIsExiting] = useState(false);
 
   const handleDismiss = () => {
@@ -37,7 +39,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${colorVar[toast.type] || 'var(--accent)'}`,
         borderRadius: 8,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+        boxShadow: 'var(--shadow-md)',
         minWidth: 280,
         maxWidth: 420,
         animation: isExiting ? 'toast-exit 0.2s ease-in forwards' : 'toast-enter 0.25s ease-out',
@@ -88,7 +90,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
           lineHeight: 1,
           marginTop: -1,
         }}
-        aria-label="Cerrar"
+        aria-label={t('common.close')}
       >
         <X size={14} strokeWidth={2.5} />
       </button>

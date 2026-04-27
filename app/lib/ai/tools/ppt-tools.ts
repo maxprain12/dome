@@ -7,10 +7,9 @@
 import { Type } from '@sinclair/typebox';
 import type { AnyAgentTool, ToolResultContent } from './types';
 import { jsonResult, readStringParam } from './common';
+import { isElectronAI } from '@/lib/utils/formatting';
 
-function isElectron(): boolean {
-  return typeof window !== 'undefined' && window.electron?.ai?.tools !== undefined;
-}
+const isElectron = isElectronAI;
 
 const PptCreateSchema = Type.Object({
   title: Type.String({

@@ -8,6 +8,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam } from './common';
+import { isElectronAI } from '@/lib/utils/formatting';
 
 // =============================================================================
 // Constants
@@ -245,9 +246,7 @@ export function createMemoryGetTool(config: MemoryGetConfig): AnyAgentTool {
 // Helper Functions
 // =============================================================================
 
-function isElectron(): boolean {
-  return typeof window !== 'undefined' && window.electron?.ai?.tools !== undefined;
-}
+const isElectron = isElectronAI;
 
 // =============================================================================
 // Real implementations using IPC to main process

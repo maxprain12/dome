@@ -9,6 +9,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readStringArrayParam } from './common';
+import { isElectronAI } from '@/lib/utils/formatting';
 
 // =============================================================================
 // Constants
@@ -50,9 +51,7 @@ const GenerateAudioScriptSchema = Type.Object({
 // Helper Functions
 // =============================================================================
 
-function isElectron(): boolean {
-  return typeof window !== 'undefined' && window.electron?.ai?.tools !== undefined;
-}
+const isElectron = isElectronAI;
 
 function validateFormat(value: string | undefined): 'podcast' | 'briefing' | 'debate' {
   if (!value) return 'podcast';

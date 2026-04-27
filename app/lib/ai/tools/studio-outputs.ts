@@ -9,6 +9,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam, readStringArrayParam } from './common';
+import { isElectronAI } from '@/lib/utils/formatting';
 
 // =============================================================================
 // Constants
@@ -69,9 +70,7 @@ const GenerateQuizSchema = Type.Object({
 // Helper Functions
 // =============================================================================
 
-function isElectron(): boolean {
-  return typeof window !== 'undefined' && window.electron?.ai?.tools !== undefined;
-}
+const isElectron = isElectronAI;
 
 function clampLimit(value: number | undefined, defaultVal: number, maxVal: number): number {
   if (value === undefined || value === null) return defaultVal;

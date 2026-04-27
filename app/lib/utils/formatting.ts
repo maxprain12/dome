@@ -233,3 +233,18 @@ export function getResourceTypeLabel(type: string): string {
   };
   return labels[type] ?? type;
 }
+
+/** Check if running in Electron renderer */
+export function isElectron(): boolean {
+  return typeof window !== 'undefined' && window.electron !== undefined;
+}
+
+/** Check if Electron AI tools are available */
+export function isElectronAI(): boolean {
+  return typeof window !== 'undefined' && window.electron?.ai?.tools !== undefined;
+}
+
+/** Check if Electron DB is available */
+export function isElectronDB(): boolean {
+  return typeof window !== 'undefined' && window.electron?.db !== undefined;
+}
