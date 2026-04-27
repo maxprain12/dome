@@ -1,6 +1,6 @@
 # Scorecard (dominios heurísticos)
 
-> **Generado por** `vps-audit-dashboard.sh` — 2026-04-27 17:15 UTC
+> **Generado por** `vps-audit-dashboard.sh` — 2026-04-27 18:00 UTC
 > Excluye `resolved_reason: stale_unverifiable`. Origen: `/var/log/dome-audit-findings`.
 
 | Dominio (ruta) | Abiertos+verif | Peso ❌ (aprox) | Grado |
