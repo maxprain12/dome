@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 
 interface ResizeHandleProps {
   onResize: (deltaX: number) => void;
@@ -6,6 +6,8 @@ interface ResizeHandleProps {
 }
 
 export default function ResizeHandle({ onResize, onResizeEnd }: ResizeHandleProps) {
+  const listenersRef = useRef<{ move: (e: MouseEvent) => void; up: () => void } | null>(null);
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -23,8 +25,10 @@ export default function ResizeHandle({ onResize, onResizeEnd }: ResizeHandleProp
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
         onResizeEnd?.();
+        listenersRef.current = null;
       };
 
+      listenersRef.current = { move: handleMouseMove, up: handleMouseUp };
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
       document.body.style.cursor = 'col-resize';
@@ -32,6 +36,17 @@ export default function ResizeHandle({ onResize, onResizeEnd }: ResizeHandleProp
     },
     [onResize, onResizeEnd],
   );
+
+  useEffect(() => {
+    return () => {
+      if (listenersRef.current) {
+        document.removeEventListener('mousemove', listenersRef.current.move);
+        document.removeEventListener('mouseup', listenersRef.current.up);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+  }, []);
 
   return (
     <div

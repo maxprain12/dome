@@ -24,6 +24,7 @@ function buildSrcDoc(artifact: HtmlArtifactV, themeCss: string): string {
   const boot = `
 <script>
 (function() {
+  var resizeTimer;
   function postReady() {
     if (!window.parent) return;
     try {
@@ -55,8 +56,11 @@ function buildSrcDoc(artifact: HtmlArtifactV, themeCss: string): string {
   if (window.ResizeObserver) {
     new ResizeObserver(postResize).observe(document.body);
   } else {
-    setInterval(postResize, 500);
+    resizeTimer = setInterval(postResize, 500);
   }
+  window.addEventListener('unload', function() {
+    if (resizeTimer) clearInterval(resizeTimer);
+  });
   ${js ? js : ''}
 })();
 </script>`.trim();
