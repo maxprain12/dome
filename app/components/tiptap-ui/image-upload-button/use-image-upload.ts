@@ -116,7 +116,7 @@ export function shouldShowButton(props: {
  *   const { isVisible, handleImage, label, isActive } = useImage({
  *     editor: myEditor,
  *     hideWhenUnavailable: true,
- *     onInserted: () => console.log('Image inserted!')
+ *     onInserted: undefined
  *   })
  *
  *   if (!isVisible) return null

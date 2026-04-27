@@ -206,7 +206,7 @@ export function shouldShowButton(props: {
  *   const { isVisible, handleToggle, label, isActive } = useBlockquote({
  *     editor: myEditor,
  *     hideWhenUnavailable: true,
- *     onToggled: () => console.log('Blockquote toggled!')
+ *     onToggled: undefined
  *   })
  *
  *   if (!isVisible) return null
