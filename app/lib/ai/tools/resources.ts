@@ -9,6 +9,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam, readBooleanParam } from './common';
+import { isElectronAI } from '@/lib/utils/formatting';
 
 // =============================================================================
 // Constants
@@ -133,9 +134,7 @@ const ResourceSemanticSearchSchema = Type.Object({
 // Helper Functions
 // =============================================================================
 
-function isElectron(): boolean {
-  return typeof window !== 'undefined' && window.electron?.ai?.tools !== undefined;
-}
+const isElectron = isElectronAI;
 
 function validateResourceType(type: string | undefined): ResourceType | undefined {
   if (!type) return undefined;

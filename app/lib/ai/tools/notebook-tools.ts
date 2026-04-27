@@ -13,14 +13,13 @@ import {
   serializeNotebookContent,
 } from '@/lib/notebook/default-notebook';
 import type { NotebookContent, NotebookCell, NotebookCodeCell } from '@/types';
+import { isElectronAI } from '@/lib/utils/formatting';
 
 // =============================================================================
 // Helpers
 // =============================================================================
 
-function isElectron(): boolean {
-  return typeof window !== 'undefined' && window.electron?.ai?.tools !== undefined;
-}
+const isElectron = isElectronAI;
 
 function sourceToString(source: string | string[]): string {
   return typeof source === 'string' ? source : (source || []).join('');

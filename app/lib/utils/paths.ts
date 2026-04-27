@@ -52,13 +52,3 @@ export function getUserDataPath(): string {
   return getDefaultUserDataPath();
 }
 
-/**
- * Checks if running in Electron
- */
-export function isElectron(): boolean {
-  return !!(
-    typeof window !== 'undefined' &&
-    window.electron
-  );
-}
-

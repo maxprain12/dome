@@ -8,6 +8,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam } from './common';
+import { isElectronAI } from '@/lib/utils/formatting';
 
 // =============================================================================
 // Schemas
@@ -56,9 +57,7 @@ const FlashcardCreateSchema = Type.Object({
 // Helper
 // =============================================================================
 
-function isElectron(): boolean {
-  return typeof window !== 'undefined' && window.electron?.ai?.tools !== undefined;
-}
+const isElectron = isElectronAI;
 
 // =============================================================================
 // Tool Factory

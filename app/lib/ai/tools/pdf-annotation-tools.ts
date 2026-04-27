@@ -9,12 +9,9 @@ import { Type } from '@sinclair/typebox';
 import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam } from './common';
 import { generateId } from '@/lib/utils';
+import { isElectronDB } from '@/lib/utils/formatting';
 
-// Default position for AI-created notes (PDF points: 72pt = 1 inch from top-left)
-const DEFAULT_NOTE_X = 72;
-const DEFAULT_NOTE_Y = 72;
-const DEFAULT_NOTE_WIDTH = 200;
-const DEFAULT_NOTE_HEIGHT = 150;
+const isElectron = isElectronDB;
 
 const PdfAnnotationCreateSchema = Type.Object({
   resource_id: Type.String({
@@ -34,9 +31,10 @@ const PdfAnnotationCreateSchema = Type.Object({
   ),
 });
 
-function isElectron(): boolean {
-  return typeof window !== 'undefined' && window.electron?.db !== undefined;
-}
+const DEFAULT_NOTE_X = 72;
+const DEFAULT_NOTE_Y = 72;
+const DEFAULT_NOTE_WIDTH = 200;
+const DEFAULT_NOTE_HEIGHT = 150;
 
 export function createPdfAnnotationCreateTool(): AnyAgentTool {
   return {

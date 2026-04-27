@@ -9,6 +9,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam } from './common';
+import { isElectronAI } from '@/lib/utils/formatting';
 
 // =============================================================================
 // Constants
@@ -77,9 +78,7 @@ const GetLibraryOverviewSchema = Type.Object({
 // Helper Functions
 // =============================================================================
 
-function isElectron(): boolean {
-  return typeof window !== 'undefined' && window.electron?.ai?.tools !== undefined;
-}
+const isElectron = isElectronAI;
 
 function validateInteractionType(type: string | undefined): InteractionType | undefined {
   if (!type) return undefined;

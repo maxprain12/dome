@@ -11,6 +11,7 @@ import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readBooleanParam } from './common';
 import { serializeNotebookContent } from '@/lib/notebook/default-notebook';
 import type { NotebookContent, NotebookCell } from '@/types';
+import { isElectronAI } from '@/lib/utils/formatting';
 
 // =============================================================================
 // Schemas
@@ -135,9 +136,7 @@ const ResourceMoveToFolderSchema = Type.Object({
 // Helper
 // =============================================================================
 
-function isElectron(): boolean {
-  return typeof window !== 'undefined' && window.electron?.ai?.tools !== undefined;
-}
+const isElectron = isElectronAI;
 
 // =============================================================================
 // Tool Factories
