@@ -303,8 +303,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "${productName}-Setup-${version}.${ext}",
-      "compression": "maximum"
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     }
   }
 }
