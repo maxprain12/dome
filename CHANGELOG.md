@@ -4,6 +4,14 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.1.6] - 2026-04-27
+
+### Fixed
+
+- **CI / empaquetado**: compatibilidad con **electron-builder 26** eliminando la opción NSIS obsoleta `compression` del `package.json`; corregía el fallo de los jobs macOS y Windows del workflow de release.
+
+[2.1.6]: https://github.com/maxprain12/dome/releases/tag/v2.1.6
+
 ## [2.1.5] - 2026-04-27
 
 ### Added

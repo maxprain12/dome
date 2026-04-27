@@ -1,6 +1,6 @@
 # Dome – índice de documentación
 
-Documentación del proyecto Dome (v2.1.5). Además de este índice:
+Documentación del proyecto Dome (v2.1.6). Además de este índice:
 
 - **[Principios de ingeniería](principles.md)** — P-001…P-010, citados por linters y auditorías.
 - **[Arquitectura](architecture/README.md)** — capas, dominios, IPC, ADRs, worktree.
