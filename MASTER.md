@@ -233,4 +233,4 @@ Ver: [CLAUDE.md](./CLAUDE.md) · [.claude/rules/architecture-rules.md](./.claude
 
 ---
 
-*Última actualización: v2.1.4 — Dome Desktop + Dome Provider Fase 1*
+*Última actualización: v2.1.4 (2026-04-27) — Dome Desktop + Dome Provider Fase 1*
