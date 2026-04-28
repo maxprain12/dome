@@ -117,6 +117,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
           if (err) return reject(err);
 
+          zipfile.on('end', () => resolve());
+          zipfile.on('error', reject);
+
           zipfile.on('entry', (entry) => {
             try {
               const sanitizeEntryPath = (entryFileName) => {
@@ -166,13 +169,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
               reject(err);
             }
           });
-          zipfile.on('end', () => resolve());
-          zipfile.on('error', reject);
-          try {
-            zipfile.readEntry();
-          } catch (err) {
-            reject(err);
-          }
+
+          zipfile.readEntry();
         });
       });
 
