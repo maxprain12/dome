@@ -130,8 +130,8 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
           onClick={handleToggleAll}
           className="flex items-center justify-center w-6 h-6 rounded transition-colors duration-150"
           style={{ color: 'var(--secondary-text)' }}
-          title={allSelected ? t('ui.deselect_all') : t('ui.select_all')}
-          aria-label={allSelected ? t('ui.deselect_all_sources_aria') : t('ui.select_all_sources_aria')}
+          title={allSelected ? t('common.deselect_all') : t('common.select_all')}
+          aria-label={allSelected ? t('common.deselect_all') : t('common.select_all')}
         >
           {allSelected ? (
             <CheckSquare size={14} style={{ color: 'var(--accent)' }} />
@@ -186,8 +186,8 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
                 }}
                 aria-label={
                   isSelected
-                    ? t('workspace.sources_deselect', { title: res.title })
-                    : t('workspace.sources_select', { title: res.title })
+                    ? t('studio.sources_deselect', { title: res.title })
+                    : t('studio.sources_select', { title: res.title })
                 }
               >
                 {/* Checkbox */}
