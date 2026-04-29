@@ -118,7 +118,10 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           if (err) return reject(err);
 
           zipfile.on('end', () => resolve());
-          zipfile.on('error', reject);
+          zipfile.on('error', (e) => {
+            zipError = e;
+            reject(e);
+          });
 
           zipfile.on('entry', (entry) => {
             try {
@@ -146,7 +149,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
               if (/\/$/.test(entry.fileName)) {
                 const dirPath = resolveWithinTempDir(entry.fileName);
                 fs.mkdirSync(dirPath, { recursive: true });
-                zipfile.readEntry();
+                try {
+                  zipfile.readEntry();
+                } catch (readErr) {
+                  reject(readErr);
+                }
                 return;
               }
 
@@ -161,7 +168,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                 readStream.on('error', reject);
                 writeStream.on('error', reject);
                 writeStream.on('finish', () => {
-                  zipfile.readEntry();
+                  try {
+                    zipfile.readEntry();
+                  } catch (readErr) {
+                    reject(readErr);
+                  }
                 });
                 readStream.pipe(writeStream);
               });
@@ -170,7 +181,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             }
           });
 
-          zipfile.readEntry();
+          try {
+            zipfile.readEntry();
+          } catch (readErr) {
+            reject(readErr);
+          }
         });
       });
 
