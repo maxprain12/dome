@@ -119,7 +119,6 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
           zipfile.on('end', () => resolve());
           zipfile.on('error', (e) => {
-            zipError = e;
             reject(e);
           });
 
