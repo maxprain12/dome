@@ -2070,6 +2070,8 @@ const en = {
     select_project: 'Select a project',
     sources_select: 'Select {{title}}',
     sources_deselect: 'Deselect {{title}}',
+    select_sources: 'Select sources',
+    confirm_sources: 'Confirm',
   },
   quiz: {
     title: 'Quiz',
@@ -4550,6 +4552,8 @@ const es = {
     select_project: 'Selecciona un proyecto',
     sources_select: 'Seleccionar {{title}}',
     sources_deselect: 'Deseleccionar {{title}}',
+    select_sources: 'Seleccionar fuentes',
+    confirm_sources: 'Confirmar',
   },
   quiz: {
     title: 'Quiz',
@@ -7031,6 +7035,8 @@ const fr = {
     select_project: 'Sélectionner un projet',
     sources_select: 'Sélectionner {{title}}',
     sources_deselect: 'Désélectionner {{title}}',
+    select_sources: 'Sélectionner les sources',
+    confirm_sources: 'Confirmer',
   },
   quiz: {
     title: 'Quiz',
@@ -9512,6 +9518,8 @@ const pt = {
     select_project: 'Selecione um projeto',
     sources_select: 'Selecionar {{title}}',
     sources_deselect: 'Desmarcar {{title}}',
+    select_sources: 'Selecionar fontes',
+    confirm_sources: 'Confirmar',
   },
   quiz: {
     title: 'Quiz',

@@ -375,7 +375,7 @@ export default function GenerateSourceModal({
             onClick={onClose}
             className="btn btn-ghost min-h-[44px] px-4"
           >
-            Cancelar
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -383,7 +383,7 @@ export default function GenerateSourceModal({
             disabled={confirmDisabled}
             className="btn btn-primary min-h-[44px] px-4 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Generar
+            {t('learn.generate')}
           </button>
         </div>
       </div>
