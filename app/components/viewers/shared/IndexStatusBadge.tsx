@@ -67,6 +67,10 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
   const handleRetry = async () => {
     setBusy(true);
     setError(null);
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
     try {
       await window.electron?.db?.semantic?.indexResource?.(resourceId);
       pollRef.current = setInterval(async () => {
