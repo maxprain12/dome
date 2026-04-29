@@ -85,6 +85,13 @@ export default function WorkspaceSplitView({ tab, primary, reference }: Workspac
     startWidthRef.current = splitWidth;
     setIsResizing(true);
 
+    if (resizeListenersRef.current.move) {
+      window.removeEventListener('pointermove', resizeListenersRef.current.move);
+    }
+    if (resizeListenersRef.current.up) {
+      window.removeEventListener('pointerup', resizeListenersRef.current.up);
+    }
+
     const handlePointerMove = (moveEvent: PointerEvent) => {
       resizeSplit(startWidthRef.current - (moveEvent.clientX - startXRef.current), tab.id);
     };
