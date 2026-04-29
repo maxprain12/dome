@@ -265,19 +265,6 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: err.message || 'Unexpected error during payload processing' };
     }
 
-    if (typeof streamId !== 'string' || !streamId) {
-      return { success: false, error: 'Invalid payload: streamId must be a non-empty string' };
-    }
-    if (typeof teamId !== 'string' || !teamId) {
-      return { success: false, error: 'Invalid payload: teamId must be a non-empty string' };
-    }
-    if (!Array.isArray(messages)) {
-      return { success: false, error: 'Invalid payload: messages must be an array' };
-    }
-    if (!Array.isArray(memberAgentIds)) {
-      return { success: false, error: 'Invalid payload: memberAgentIds must be an array' };
-    }
-
     const send = (data) => {
       if (event.sender && !event.sender.isDestroyed()) {
         event.sender.send('ai:stream:chunk', { streamId, ...data });

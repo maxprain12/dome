@@ -117,6 +117,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
           if (err) return reject(err);
 
+          let zipError;
           zipfile.on('end', () => resolve());
           zipfile.on('error', (e) => {
             zipError = e;
@@ -167,7 +168,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                 const writeStream = fs.createWriteStream(destPath);
                 readStream.on('error', reject);
                 writeStream.on('error', reject);
-                writeStream.on('finish', () => {
+                readStream.on('finish', () => {
                   try {
                     zipfile.readEntry();
                   } catch (readErr) {
