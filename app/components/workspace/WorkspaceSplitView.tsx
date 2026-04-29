@@ -55,6 +55,7 @@ export default function WorkspaceSplitView({ tab, primary, reference }: Workspac
   const openResourceTab = useTabStore((s) => s.openResourceTab);
   const splitResource = tab.splitResource;
   const splitWidth = tab.splitWidth ?? 420;
+  const resizeListenersRef = useRef<{ move: ((e: PointerEvent) => void) | null; up: (() => void) | null }>({ move: null, up: null });
 
   // Track viewport width to enforce a responsive cap (max 50% of viewport on
   // narrow screens). The hard floor (320) and ceiling (760) live in the store.
@@ -64,6 +65,18 @@ export default function WorkspaceSplitView({ tab, primary, reference }: Workspac
     onResize();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Cleanup residual pointer listeners if component unmounts during drag
+  useEffect(() => {
+    return () => {
+      if (resizeListenersRef.current.move) {
+        window.removeEventListener('pointermove', resizeListenersRef.current.move);
+      }
+      if (resizeListenersRef.current.up) {
+        window.removeEventListener('pointerup', resizeListenersRef.current.up);
+      }
+    };
   }, []);
 
   const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
@@ -79,9 +92,13 @@ export default function WorkspaceSplitView({ tab, primary, reference }: Workspac
     const handlePointerUp = () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
+      resizeListenersRef.current.move = null;
+      resizeListenersRef.current.up = null;
       setIsResizing(false);
     };
 
+    resizeListenersRef.current.move = handlePointerMove;
+    resizeListenersRef.current.up = handlePointerUp;
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
   }, [resizeSplit, splitWidth, tab.id]);
