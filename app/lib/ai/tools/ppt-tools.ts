@@ -9,8 +9,6 @@ import type { AnyAgentTool, ToolResultContent } from './types';
 import { jsonResult, readStringParam } from './common';
 import { isElectronAI } from '@/lib/utils/formatting';
 
-const isElectron = isElectronAI;
-
 const PptCreateSchema = Type.Object({
   title: Type.String({
     description: 'Title for the new PowerPoint resource.',
@@ -118,7 +116,7 @@ export function createPptCreateTool(): AnyAgentTool {
     parameters: PptCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'PPT tools require Electron.' });
         }
         const params = args as Record<string, unknown>;
@@ -159,7 +157,7 @@ export function createPptGetFilePathTool(): AnyAgentTool {
     parameters: PptGetFilePathSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'PPT tools require Electron.' });
         }
         const resourceId = readStringParam(args as Record<string, unknown>, 'resource_id', {
@@ -185,7 +183,7 @@ export function createPptExportTool(): AnyAgentTool {
     parameters: PptExportSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'PPT tools require Electron.' });
         }
         const resourceId = readStringParam(args as Record<string, unknown>, 'resource_id', {
@@ -212,7 +210,7 @@ export function createPptGetSlidesTool(): AnyAgentTool {
     parameters: PptGetSlidesSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'PPT tools require Electron.' });
         }
         const resourceId = readStringParam(args as Record<string, unknown>, 'resource_id', {
@@ -248,7 +246,7 @@ export function createPptGetSlideImagesTool(): AnyAgentTool {
     parameters: PptGetSlideImagesSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'PPT tools require Electron.' });
         }
         const resourceId = readStringParam(args as Record<string, unknown>, 'resource_id', {

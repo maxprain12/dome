@@ -57,8 +57,6 @@ const FlashcardCreateSchema = Type.Object({
 // Helper
 // =============================================================================
 
-const isElectron = isElectronAI;
-
 // =============================================================================
 // Tool Factory
 // =============================================================================
@@ -78,7 +76,7 @@ export function createFlashcardCreateTool(): AnyAgentTool {
     parameters: FlashcardCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Flashcard creation requires Electron environment.',

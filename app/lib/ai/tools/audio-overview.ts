@@ -51,8 +51,6 @@ const GenerateAudioScriptSchema = Type.Object({
 // Helper Functions
 // =============================================================================
 
-const isElectron = isElectronAI;
-
 function validateFormat(value: string | undefined): 'podcast' | 'briefing' | 'debate' {
   if (!value) return 'podcast';
   const normalized = value.toLowerCase().trim();
@@ -84,7 +82,7 @@ export function createGenerateAudioScriptTool(): AnyAgentTool {
     parameters: GenerateAudioScriptSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Audio script generation requires Electron environment.',

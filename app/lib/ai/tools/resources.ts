@@ -134,8 +134,6 @@ const ResourceSemanticSearchSchema = Type.Object({
 // Helper Functions
 // =============================================================================
 
-const isElectron = isElectronAI;
-
 function validateResourceType(type: string | undefined): ResourceType | undefined {
   if (!type) return undefined;
   const normalized = type.toLowerCase().trim();
@@ -165,7 +163,7 @@ export function createResourceSearchTool(): AnyAgentTool {
     parameters: ResourceSearchSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Resource search requires Electron environment.',
@@ -228,7 +226,7 @@ export function createResourceGetTool(): AnyAgentTool {
     parameters: ResourceGetSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Resource get requires Electron environment.',
@@ -324,7 +322,7 @@ export function createResourceGetSectionTool(): AnyAgentTool {
     parameters: ResourceGetSectionSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Resource get section requires Electron environment.',
@@ -373,7 +371,7 @@ export function createPdfRenderPageTool(): AnyAgentTool {
     parameters: PdfRenderPageSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Requires Electron.' });
         }
         const params = args as Record<string, unknown>;
@@ -414,7 +412,7 @@ export function createResourceListTool(): AnyAgentTool {
     parameters: ResourceListSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Resource list requires Electron environment.',
@@ -479,7 +477,7 @@ export function createResourceSemanticSearchTool(): AnyAgentTool {
     parameters: ResourceSemanticSearchSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Semantic search requires Electron environment.',

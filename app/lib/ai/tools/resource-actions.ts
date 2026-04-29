@@ -136,8 +136,6 @@ const ResourceMoveToFolderSchema = Type.Object({
 // Helper
 // =============================================================================
 
-const isElectron = isElectronAI;
-
 // =============================================================================
 // Tool Factories
 // =============================================================================
@@ -192,7 +190,7 @@ export function createResourceCreateTool(): AnyAgentTool {
     parameters: ResourceCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Resource creation requires Electron environment.',
@@ -288,7 +286,7 @@ export function createResourceUpdateTool(): AnyAgentTool {
     parameters: ResourceUpdateSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Resource update requires Electron environment.',
@@ -350,7 +348,7 @@ export function createResourceDeleteTool(): AnyAgentTool {
     parameters: ResourceDeleteSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Resource deletion requires Electron environment.',
@@ -411,7 +409,7 @@ export function createResourceMoveToFolderTool(): AnyAgentTool {
     parameters: ResourceMoveToFolderSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Resource move requires Electron environment.',

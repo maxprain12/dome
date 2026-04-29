@@ -10,8 +10,6 @@ import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam } from './common';
 import { isElectronAI } from '@/lib/utils/formatting';
 
-const isElectron = isElectronAI;
-
 // =============================================================================
 // Schemas
 // =============================================================================
@@ -85,7 +83,7 @@ export function createPdfExtractTextTool(): AnyAgentTool {
     parameters: PdfExtractTextSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'PDF extraction requires Electron environment.',
@@ -141,7 +139,7 @@ export function createPdfGetMetadataTool(): AnyAgentTool {
     parameters: PdfGetMetadataSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'PDF metadata requires Electron environment.',
@@ -188,7 +186,7 @@ export function createPdfGetStructureTool(): AnyAgentTool {
     parameters: PdfGetStructureSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'PDF structure requires Electron environment.',
@@ -237,7 +235,7 @@ export function createPdfSummarizeTool(): AnyAgentTool {
     parameters: PdfSummarizeSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'PDF summarization requires Electron environment.',
@@ -304,7 +302,7 @@ export function createPdfExtractTablesTool(): AnyAgentTool {
     parameters: PdfExtractTablesSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'PDF table extraction requires Electron environment.',

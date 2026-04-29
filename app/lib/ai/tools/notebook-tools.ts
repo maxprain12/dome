@@ -19,8 +19,6 @@ import { isElectronAI } from '@/lib/utils/formatting';
 // Helpers
 // =============================================================================
 
-const isElectron = isElectronAI;
-
 function sourceToString(source: string | string[]): string {
   return typeof source === 'string' ? source : (source || []).join('');
 }
@@ -115,7 +113,7 @@ export function createNotebookGetTool(): AnyAgentTool {
     parameters: NotebookGetSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Notebook tools require Electron environment.',
@@ -191,7 +189,7 @@ export function createNotebookAddCellTool(): AnyAgentTool {
     parameters: NotebookAddCellSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Notebook tools require Electron environment.',
@@ -282,7 +280,7 @@ export function createNotebookUpdateCellTool(): AnyAgentTool {
     parameters: NotebookUpdateCellSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Notebook tools require Electron environment.',
@@ -369,7 +367,7 @@ export function createNotebookDeleteCellTool(): AnyAgentTool {
     parameters: NotebookDeleteCellSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Notebook tools require Electron environment.',

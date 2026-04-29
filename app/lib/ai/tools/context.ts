@@ -78,8 +78,6 @@ const GetLibraryOverviewSchema = Type.Object({
 // Helper Functions
 // =============================================================================
 
-const isElectron = isElectronAI;
-
 function validateInteractionType(type: string | undefined): InteractionType | undefined {
   if (!type) return undefined;
   const normalized = type.toLowerCase().trim();
@@ -109,7 +107,7 @@ export function createProjectListTool(): AnyAgentTool {
     parameters: ProjectListSchema,
     execute: async () => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Project list requires Electron environment.',
@@ -158,7 +156,7 @@ export function createProjectGetTool(): AnyAgentTool {
     parameters: ProjectGetSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Project get requires Electron environment.',
@@ -218,7 +216,7 @@ export function createInteractionListTool(): AnyAgentTool {
     parameters: InteractionListSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Interaction list requires Electron environment.',
@@ -297,7 +295,7 @@ export function createGetRecentResourcesTool(): AnyAgentTool {
     parameters: GetRecentResourcesSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Get recent resources requires Electron environment.',
@@ -349,7 +347,7 @@ export function createGetCurrentProjectTool(): AnyAgentTool {
     parameters: GetCurrentProjectSchema,
     execute: async () => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Get current project requires Electron environment.',
@@ -404,7 +402,7 @@ export function createGetLibraryOverviewTool(): AnyAgentTool {
     parameters: GetLibraryOverviewSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Library overview requires Electron environment.',
