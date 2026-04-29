@@ -70,8 +70,6 @@ const GenerateQuizSchema = Type.Object({
 // Helper Functions
 // =============================================================================
 
-const isElectron = isElectronAI;
-
 function clampLimit(value: number | undefined, defaultVal: number, maxVal: number): number {
   if (value === undefined || value === null) return defaultVal;
   return Math.max(1, Math.min(maxVal, Math.floor(value)));
@@ -105,7 +103,7 @@ export function createGenerateMindmapTool(): AnyAgentTool {
     parameters: GenerateMindmapSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Mind map generation requires Electron environment.',
@@ -210,7 +208,7 @@ export function createGenerateQuizTool(): AnyAgentTool {
     parameters: GenerateQuizSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Quiz generation requires Electron environment.',

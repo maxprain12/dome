@@ -246,8 +246,6 @@ export function createMemoryGetTool(config: MemoryGetConfig): AnyAgentTool {
 // Helper Functions
 // =============================================================================
 
-const isElectron = isElectronAI;
-
 // =============================================================================
 // Real implementations using IPC to main process
 // =============================================================================
@@ -264,7 +262,7 @@ export function createMemorySearchWithIPC(): AnyAgentTool {
     parameters: MemorySearchSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Memory search requires Electron environment.',
@@ -351,7 +349,7 @@ export function createMemoryGetWithIPC(): AnyAgentTool {
     parameters: MemoryGetSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({
             status: 'error',
             error: 'Memory get requires Electron environment.',
@@ -478,7 +476,7 @@ export function createRememberFactTool(): AnyAgentTool {
     parameters: RememberFactSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Not in Electron environment' });
         }
         const params = args as Record<string, unknown>;

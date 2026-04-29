@@ -10,8 +10,6 @@ import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam } from './common';
 import { isElectronAI } from '@/lib/utils/formatting';
 
-const isElectron = isElectronAI;
-
 const CalendarCreateSchema = Type.Object({
   title: Type.String({ description: 'Event title.' }),
   start_at: Type.String({
@@ -65,7 +63,7 @@ export function createCalendarCreateTool(): AnyAgentTool {
     parameters: CalendarCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Calendar tools require Electron environment.' });
         }
 
@@ -116,7 +114,7 @@ export function createCalendarUpdateTool(): AnyAgentTool {
     parameters: CalendarUpdateSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Calendar tools require Electron environment.' });
         }
 
@@ -159,7 +157,7 @@ export function createCalendarDeleteTool(): AnyAgentTool {
     parameters: CalendarDeleteSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Calendar tools require Electron environment.' });
         }
 
@@ -195,7 +193,7 @@ export function createCalendarListTool(): AnyAgentTool {
     parameters: CalendarListSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Calendar tools require Electron environment.' });
         }
 

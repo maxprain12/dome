@@ -10,8 +10,6 @@ import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam } from './common';
 import { isElectronAI } from '@/lib/utils/formatting';
 
-const isElectron = isElectronAI;
-
 // =============================================================================
 // Schemas
 // =============================================================================
@@ -156,7 +154,7 @@ export function createExcelGetTool(): AnyAgentTool {
     parameters: ExcelGetSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Excel tools require Electron.' });
         }
         const resourceId = readStringParam(args as Record<string, unknown>, 'resource_id', { required: true });
@@ -184,7 +182,7 @@ export function createExcelGetFilePathTool(): AnyAgentTool {
     parameters: ExcelGetFilePathSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Excel tools require Electron.' });
         }
         const resourceId = readStringParam(args as Record<string, unknown>, 'resource_id', {
@@ -210,7 +208,7 @@ export function createExcelSetCellTool(): AnyAgentTool {
     parameters: ExcelSetCellSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Excel tools require Electron.' });
         }
         const params = args as Record<string, unknown>;
@@ -242,7 +240,7 @@ export function createExcelSetRangeTool(): AnyAgentTool {
     parameters: ExcelSetRangeSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Excel tools require Electron.' });
         }
         const params = args as Record<string, unknown>;
@@ -277,7 +275,7 @@ export function createExcelAddRowTool(): AnyAgentTool {
     parameters: ExcelAddRowSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Excel tools require Electron.' });
         }
         const params = args as Record<string, unknown>;
@@ -311,7 +309,7 @@ export function createExcelAddSheetTool(): AnyAgentTool {
     parameters: ExcelAddSheetSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Excel tools require Electron.' });
         }
         const params = args as Record<string, unknown>;
@@ -341,7 +339,7 @@ export function createExcelCreateTool(): AnyAgentTool {
     parameters: ExcelCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Excel tools require Electron.' });
         }
         const params = args as Record<string, unknown>;
@@ -372,7 +370,7 @@ export function createExcelExportTool(): AnyAgentTool {
     parameters: ExcelExportSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronAI()) {
           return jsonResult({ status: 'error', error: 'Excel tools require Electron.' });
         }
         const params = args as Record<string, unknown>;
