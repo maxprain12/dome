@@ -18,7 +18,9 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
   const [globalIndexing, setGlobalIndexing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const retryResourceIdRef = useRef<string | null>(null);
 
   const indexable = resourceType ? INDEXABLE.has(resourceType) : true;
 
@@ -61,6 +63,10 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
         clearInterval(pollRef.current);
         pollRef.current = null;
       }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     };
   }, [refresh, resourceId]);
 
@@ -71,22 +77,30 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
     try {
       await window.electron?.db?.semantic?.indexResource?.(resourceId);
+      retryResourceIdRef.current = resourceId;
       pollRef.current = setInterval(async () => {
+        if (retryResourceIdRef.current !== resourceId) return;
         await refresh();
         const res = await window.electron?.db?.semantic?.resourceHasChunks?.(resourceId);
+        if (retryResourceIdRef.current !== resourceId) return;
         if (res?.success && res.data?.hasChunks) {
           if (pollRef.current) clearInterval(pollRef.current);
           pollRef.current = null;
           setBusy(false);
         }
       }, 2000);
-      setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         if (pollRef.current) {
           clearInterval(pollRef.current);
           pollRef.current = null;
         }
+        retryResourceIdRef.current = null;
         setBusy(false);
         void refresh();
       }, 120000);
