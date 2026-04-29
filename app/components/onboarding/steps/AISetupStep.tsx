@@ -25,9 +25,9 @@ interface OllamaModel {
 type OnboardingProviderType = AIProviderType | 'skip';
 
 // Dome brand colors
-const DOME_GREEN = '#596037';
-const DOME_GREEN_LIGHT = '#E0EAB4';
-const DOME_GREEN_DARK = '#3B4025';
+const DOME_GREEN = 'var(--dome-accent)';
+const DOME_GREEN_LIGHT = 'var(--success-bg)';
+const DOME_GREEN_DARK = 'var(--accent-hover)';
 
 export default function AISetupStep({ onComplete }: AISetupStepProps) {
   const { t } = useTranslation();

@@ -11,8 +11,8 @@ import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeBadge from '@/components/ui/DomeBadge';
 import DomeListState from '@/components/ui/DomeListState';
 
-const DOME_GREEN = '#596037';
-const DOME_GREEN_LIGHT = '#E0EAB4';
+const DOME_GREEN = 'var(--dome-accent)';
+const DOME_GREEN_LIGHT = 'var(--success-bg)';
 
 interface CloudAccount {
   provider: 'google';

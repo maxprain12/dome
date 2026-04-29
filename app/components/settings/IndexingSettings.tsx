@@ -8,7 +8,7 @@ import DomeButton from '@/components/ui/DomeButton';
 import DomeProgressBar from '@/components/ui/DomeProgressBar';
 import DomeCallout from '@/components/ui/DomeCallout';
 
-const DOME_GREEN = '#596037';
+const DOME_GREEN = 'var(--dome-accent)';
 
 interface SemanticIndexingStatusPayload {
   modelVersion: string;
