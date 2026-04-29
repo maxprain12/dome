@@ -61,7 +61,7 @@ export default function PptCapturePage() {
 
     document.body.setAttribute(
       'style',
-      'margin:0;padding:0;overflow:hidden;background:#fff;width:960px;height:540px;',
+      'margin:0;padding:0;overflow:hidden;background:var(--bg-secondary);width:960px;height:540px;',
     );
     if (root) {
       root.setAttribute(
