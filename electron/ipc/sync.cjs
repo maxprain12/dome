@@ -117,12 +117,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         yauzl.open(zipPath, { lazyEntries: true }, (err, zf) => {
           if (err) return reject(err);
 
-          let zipError;
           zf.on('end', () => resolve());
-          zf.on('error', (e) => {
-            zipError = e;
-            reject(e);
-          });
+          zf.on('error', (e) => reject(e));
 
           zf.on('entry', (entry) => {
             try {
