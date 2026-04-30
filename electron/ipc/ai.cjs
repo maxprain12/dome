@@ -25,7 +25,12 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     if (!params || typeof params !== 'object') {
       return { success: false, error: 'Invalid params' };
     }
-    ({ provider, messages, model } = params);
+    let provider, messages, model;
+    try {
+      ({ provider, messages, model } = params);
+    } catch (err) {
+      return { success: false, error: 'Invalid params: could not read properties' };
+    }
 
     try {
       // Validate inputs
@@ -97,9 +102,12 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     if (!params || typeof params !== 'object') {
       return { success: false, error: 'Invalid params' };
     }
-
-    const { provider, messages, streamId } = params;
-    let { model } = params;
+    let provider, messages, model, streamId;
+    try {
+      ({ provider, messages, model, streamId } = params);
+    } catch (err) {
+      return { success: false, error: 'Invalid params: could not read properties' };
+    }
 
     try {
       if (!provider || !['openai', 'anthropic', 'google', 'dome', 'ollama', 'minimax'].includes(provider)) {
