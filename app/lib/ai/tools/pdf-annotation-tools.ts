@@ -11,8 +11,6 @@ import { jsonResult, readStringParam, readNumberParam } from './common';
 import { generateId } from '@/lib/utils';
 import { isElectronDB } from '@/lib/utils/formatting';
 
-const isElectron = isElectronDB;
-
 const PdfAnnotationCreateSchema = Type.Object({
   resource_id: Type.String({
     description: 'The ID of the PDF resource to add the annotation to.',
@@ -46,7 +44,7 @@ export function createPdfAnnotationCreateTool(): AnyAgentTool {
     parameters: PdfAnnotationCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
-        if (!isElectron()) {
+        if (!isElectronDB()) {
           return jsonResult({
             status: 'error',
             error: 'PDF annotation creation requires Electron environment.',
