@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
-const transcriptionOverlay = require('../transcription-overlay.cjs');
 const hubTrayState = require('../hub-tray-state.cjs');
+const transcriptionMainHub = require('../transcription-main-hub.cjs');
 
 /**
  * @param {Object} params
@@ -9,16 +9,15 @@ const hubTrayState = require('../hub-tray-state.cjs');
  */
 function register({ ipcMain, windowManager }) {
   /**
-   * Overlay reports recording phase so main can broadcast to all windows (e.g. AppShell mic indicator).
+   * Main-window hub reports recording phase for tray tooltip + AppShell mic indicator.
    * @param {{ phase?: string, mode?: string, seconds?: number, captureKind?: string }} payload
    */
   ipcMain.handle('transcription-overlay:set-state', async (event, payload = {}) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
-    if (!ov || ov.isDestroyed() || ov.webContents.id !== event.sender.id) {
-      return { success: false, error: 'Only transcription overlay may report state' };
+    if (!transcriptionMainHub.senderIsMainWebContents(windowManager, event.sender.id)) {
+      return { success: false, error: 'Only main window may report hub state' };
     }
     const safe =
       payload != null && typeof payload === 'object' && !Array.isArray(payload)
@@ -36,7 +35,7 @@ function register({ ipcMain, windowManager }) {
       });
       return { success: true };
     } catch (err) {
-      console.error('[TranscriptionOverlay] set-state:', err);
+      console.error('[TranscriptionHub] set-state:', err);
       return { success: false, error: err.message };
     }
   });
@@ -46,84 +45,11 @@ function register({ ipcMain, windowManager }) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
-      transcriptionOverlay.showAndFocus(windowManager);
-      const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
-      if (ov && !ov.isDestroyed()) {
-        ov.webContents.send('transcription:toggle-recording');
-      }
+      transcriptionMainHub.sendToggleRecordingToMain(windowManager);
       return { success: true };
     } catch (err) {
-      console.error('[TranscriptionOverlay] toggle-from-ui:', err);
+      console.error('[TranscriptionHub] toggle-from-ui:', err);
       return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('transcription-overlay:overlay-set-visible', async (event, { visible }) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
-    if (!ov || ov.isDestroyed()) {
-      return { success: false, error: 'Overlay missing' };
-    }
-    try {
-      if (visible) {
-        transcriptionOverlay.reposition(ov);
-        ov.show();
-      } else {
-        ov.hide();
-      }
-      return { success: true };
-    } catch (error) {
-      console.error('[TranscriptionOverlay] overlay-set-visible error:', error.message);
-      return { success: false, error: error.message };
-    }
-  });
-
-  ipcMain.handle('transcription-overlay:window-chrome', async (event, payload = {}) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
-    if (!ov || ov.isDestroyed() || ov.webContents.id !== event.sender.id) {
-      return { success: false, error: 'Only transcription overlay may control its window' };
-    }
-    const action = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload.action : undefined;
-    try {
-      if (action === 'minimize') {
-        ov.minimize();
-        return { success: true };
-      }
-      if (action === 'close') {
-        ov.hide();
-        return { success: true };
-      }
-      return { success: false, error: 'Invalid action' };
-    } catch (err) {
-      console.error('[TranscriptionOverlay] window-chrome:', err);
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('transcription-overlay:overlay-resize', async (event, { height }) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
-    if (!ov || ov.isDestroyed()) return { success: false, error: 'Overlay missing' };
-    try {
-      const h = Math.max(72, Math.min(780, Math.round(Number(height))));
-      const bounds = ov.getBounds();
-      const { screen } = require('electron');
-      const display = screen.getPrimaryDisplay();
-      const { x: dx, y: dy, width: dw, height: dh } = display.workArea;
-      const posX = Math.round(dx + (dw - bounds.width) / 2);
-      const posY = Math.round(dy + dh - h - 24);
-      ov.setBounds({ x: posX, y: posY, width: bounds.width, height: h });
-      return { success: true };
-    } catch (error) {
-      console.error('[TranscriptionOverlay] overlay-resize error:', error.message);
-      return { success: false, error: error.message };
     }
   });
 
@@ -136,8 +62,8 @@ function register({ ipcMain, windowManager }) {
     if (!noteId) {
       return { success: false, error: 'noteId is required' };
     }
-    const mainWin = windowManager.get('main');
-    if (!mainWin || mainWin.isDestroyed()) {
+    const mainWin = transcriptionMainHub.getMainWindow(windowManager);
+    if (!mainWin) {
       return { success: false, error: 'Main window not available' };
     }
     try {
@@ -151,7 +77,7 @@ function register({ ipcMain, windowManager }) {
       });
       return { success: true };
     } catch (err) {
-      console.error('[TranscriptionOverlay] open-note-in-main:', err);
+      console.error('[TranscriptionHub] open-note-in-main:', err);
       return { success: false, error: err.message };
     }
   });

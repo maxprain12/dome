@@ -9,8 +9,7 @@ const aiCloud = require('../ai-cloud-service.cjs');
 const { MINIMAX_BASE_URL } = require('../minimax-config.cjs');
 const database = require('../database.cjs');
 const domeOauth = require('../dome-oauth.cjs');
-
-const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
+const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
 
 const VISION_PROVIDERS = new Set(['openai', 'anthropic', 'google', 'minimax', 'dome', 'ollama']);
 
@@ -230,7 +229,7 @@ async function generateText(opts) {
  */
 async function domeChatCompletions(body) {
   const db = database;
-  const res = await domeOauth.fetchWithDomeAuth(db, `${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
+  const res = await domeOauth.fetchWithDomeAuth(db, `${getDomeProviderBaseUrl()}/api/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ temperature: 0.7, ...body }),
@@ -251,7 +250,7 @@ async function domeChatCompletions(body) {
  */
 async function domeStreamChatCompletions(p, onChunk) {
   const db = database;
-  const res = await domeOauth.fetchWithDomeAuth(db, `${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
+  const res = await domeOauth.fetchWithDomeAuth(db, `${getDomeProviderBaseUrl()}/api/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...p, stream: true, temperature: 0.7 }),

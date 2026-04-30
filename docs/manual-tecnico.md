@@ -646,12 +646,14 @@ Los plugins se guardan en:
 
 ### Configuración en Dome Desktop
 
-```javascript
-// electron/ipc/agent-team.cjs
-const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
-```
+La URL base del provider se obtiene desde [`electron/dome-provider-url.cjs`](../../electron/dome-provider-url.cjs):
 
-En desarrollo, configurar `DOME_PROVIDER_URL=http://localhost:3001` en el `.env` de Dome.
+1. `process.env.DOME_PROVIDER_URL` (override en desarrollo / pruebas)
+2. Valor incluido en `electron/app-credentials.cjs` por `node scripts/embed-env.cjs` (clave `DOME_PROVIDER_URL`, opcional en CI)
+3. App empaquetada (`app.isPackaged`): `https://provider.dome.app`
+4. Desarrollo sin `.env`: `http://localhost:3001` (alineado con `APP_URL` de dome-provider)
+
+En desarrollo, puedes seguir usando `DOME_PROVIDER_URL=http://localhost:3001` en el `.env` de Dome.
 
 ### OAuth session (`electron/dome-oauth.cjs`)
 
@@ -673,14 +675,16 @@ La tabla `dome_provider_sessions` almacena:
 ### Cuando usar el provider como proveedor AI
 
 ```javascript
-// electron/ipc/agent-team.cjs
+// electron/ipc/agent-team.cjs (simplificado)
+const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
+// ...
 if (provider === 'dome') {
   const session = await domeOauth.getOrRefreshSession(database);
   return {
     provider: 'dome',
-    apiKey: session?.accessToken,   // Bearer token del Provider
+    apiKey: session?.accessToken,
     model: 'dome/auto',
-    baseUrl: DOME_PROVIDER_URL,
+    baseUrl: `${getDomeProviderBaseUrl()}/api/v1`,
   };
 }
 ```

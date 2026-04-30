@@ -343,6 +343,7 @@ const ALLOWED_CHANNELS = {
     'ai:tools:pdfRenderPage',
     'ai:tools:resourceList',
     'ai:tools:resourceSemanticSearch',
+    'ai:tools:resourceHybridSearch',
     'ai:tools:pdfExtractText',
     'ai:tools:pdfGetMetadata',
     'ai:tools:pdfGetStructure',
@@ -429,12 +430,9 @@ const ALLOWED_CHANNELS = {
     'transcription:set-display-media-source',
     'transcription:get-permissions-status',
     'transcription:request-screen-access',
-    // Transcription overlay hub
+    // Transcription hub (embedded in main window)
     'transcription-overlay:toggle-from-ui',
     'transcription-overlay:set-state',
-    'transcription-overlay:overlay-set-visible',
-    'transcription-overlay:overlay-resize',
-    'transcription-overlay:window-chrome',
     'transcription-overlay:open-note-in-main',
     // Streaming TTS control (renderer → main)
     'audio:stop-streaming-tts',
@@ -555,7 +553,7 @@ const ALLOWED_CHANNELS = {
     'audio:generation-progress',
     // Voice recording / dictation toggle (from tray or global shortcut)
     'transcription:toggle-recording',
-    'transcription:overlay-loaded',
+    'transcription:expand-hub-dock',
     'transcription:tray-action',
     'transcription:state',
     // Streaming TTS events (main → renderer)
@@ -1351,6 +1349,8 @@ const electronHandler = {
       // Semantic search using embeddings
       resourceSemanticSearch: (query, options) =>
         ipcRenderer.invoke('ai:tools:resourceSemanticSearch', { query, options }),
+      resourceHybridSearch: (query, options) =>
+        ipcRenderer.invoke('ai:tools:resourceHybridSearch', { query, options }),
 
       // PDF extraction tools
       pdfExtractText: (resourceId, options) =>
@@ -1527,16 +1527,7 @@ const electronHandler = {
   transcriptionOverlay: {
     toggleFromUi: () => ipcRenderer.invoke('transcription-overlay:toggle-from-ui'),
     setState: (payload) => ipcRenderer.invoke('transcription-overlay:set-state', payload),
-    overlaySetVisible: (visible) =>
-      ipcRenderer.invoke('transcription-overlay:overlay-set-visible', { visible }),
-    overlayResize: (height) => ipcRenderer.invoke('transcription-overlay:overlay-resize', { height }),
-    overlayWindowChrome: (action) => ipcRenderer.invoke('transcription-overlay:window-chrome', { action }),
     openNoteInMain: (payload) => ipcRenderer.invoke('transcription-overlay:open-note-in-main', payload),
-    onOverlayLoaded: (callback) => {
-      const subscription = () => callback();
-      ipcRenderer.on('transcription:overlay-loaded', subscription);
-      return () => ipcRenderer.removeListener('transcription:overlay-loaded', subscription);
-    },
   },
 
   // ============================================

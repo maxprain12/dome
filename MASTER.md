@@ -1,15 +1,22 @@
 # Dome – Índice Maestro del Ecosistema
 
-> Documento central de navegación para todo el proyecto Dome (Desktop + Provider).
+> Documento central de navegación para todo el proyecto Dome (Desktop + Provider + sitio público).
 
 ---
 
 ## ¿Qué es Dome?
 
-**Dome** es un ecosistema de dos componentes:
+**Dome** es un ecosistema de tres piezas relacionadas:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
+│  Dome Sitio público (Astro)                                 │
+│  landing-page-dome                                           │
+│  Marketing y descarga (GitHub Releases). Enlace opcional a  │
+│  cuenta/login en la nube (`PUBLIC_DOME_ACCOUNT_URL`).        │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+┌──────────────────────────────┴──────────────────────────────┐
 │  Dome Desktop (Electron + Vite + React)                     │
 │  /Users/maxprain/Documents/dome                             │
 │                                                             │
@@ -24,15 +31,15 @@
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  Dome Provider (Next.js + Supabase + Stripe)                │
-│  /Users/maxprain/Documents/dome-provider                    │
+│  /Users/maxprain/Documents/dome-provider                      │
 │                                                             │
-│  Backend web que provee: autenticación OAuth, proxy de IA   │
-│  con cuota mensual, gestión de suscripciones y APIs de       │
-│  documentos/IA según el plan.                               │
+│  OAuth, proxy IA, cuotas Stripe. Indexación en Desktop.      │
 │                                                             │
 │  v0.1.0  ·  Next.js 16  ·  Fase 1 (stub AI)               │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**Marca:** la interfaz web (landing + Dome Provider) sigue [dome-provider/docs/design-brand.md](../dome-provider/docs/design-brand.md); Dome Desktop usa otro tema según el producto en este repo.
 
 ---
 
@@ -43,6 +50,12 @@
 | Documento | Descripción |
 |-----------|-------------|
 | [Manual de Usuario](./docs/manual-usuario.md) | Instalación, onboarding y uso completo de todas las funcionalidades |
+
+### Sitio público (landing)
+
+| Documento | Descripción |
+|-----------|-------------|
+| [landing-page-dome/README.md](../landing-page-dome/README.md) | Marketing (Astro), descarga y enlace opcional a cuenta en la nube |
 
 ### Para desarrolladores de Dome Desktop
 
@@ -61,6 +74,7 @@
 | [dome-provider/CLAUDE.md](../dome-provider/CLAUDE.md) | Guía para Claude Code del provider |
 | [dome-provider/docs/api-reference.md](../dome-provider/docs/api-reference.md) | Referencia completa de todos los endpoints |
 | [dome-provider/docs/deployment.md](../dome-provider/docs/deployment.md) | Deploy en producción (Vercel + Supabase + Stripe) |
+| [dome-provider/docs/design-brand.md](../dome-provider/docs/design-brand.md) | Marca web (landing + provider) vs app escritorio |
 | [dome-provider/docs/admin-guide.md](../dome-provider/docs/admin-guide.md) | Panel de administración |
 | [dome-provider/docs/phase2-roadmap.md](../dome-provider/docs/phase2-roadmap.md) | Roadmap Fase 2: persistencia real, modelos upstream |
 

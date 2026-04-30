@@ -7,6 +7,8 @@ export const ANALYTICS_EVENTS = {
   RESOURCE_IMPORTED: 'resource_imported',
   RESOURCE_CREATED: 'resource_created',
   SEARCH_PERFORMED: 'search_performed',
+  /** User picked a row from Cmd+K or home inline search (see search-signals.ts). */
+  SEARCH_RESULT_SELECTED: 'search_result_selected',
   PROJECT_CREATED: 'project_created',
   PROJECT_SWITCHED: 'project_switched',
   AI_CHAT_STARTED: 'ai_chat_started',

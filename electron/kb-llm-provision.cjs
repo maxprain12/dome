@@ -15,6 +15,7 @@ const {
 
 const COMPILE_TOOLS = [
   'resource_search',
+  'resource_hybrid_search',
   'resource_get',
   'resource_get_section',
   'resource_semantic_search',
@@ -27,6 +28,7 @@ const COMPILE_TOOLS = [
 
 const HEALTH_TOOLS = [
   'resource_search',
+  'resource_hybrid_search',
   'resource_get',
   'resource_semantic_search',
   'resource_list',

@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 const crypto = require('crypto');
 const { shell } = require('electron');
+const { getDomeProviderBaseUrl } = require('./dome-provider-url.cjs');
 
-const PROVIDER_BASE_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
 const REDIRECT_URI = 'dome://dome-auth/oauth/callback';
 const CLIENT_ID = 'dome-desktop';
 
@@ -33,7 +33,7 @@ async function refreshAccessToken(database, refreshToken) {
     refresh_token: refreshToken,
     client_id: CLIENT_ID,
   });
-  const response = await fetch(`${PROVIDER_BASE_URL}/api/oauth/token`, {
+  const response = await fetch(`${getDomeProviderBaseUrl()}/api/oauth/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
@@ -166,7 +166,7 @@ async function disconnect(database) {
   const row = queries.getDomeProviderSessionWithRefresh.get();
   if (row?.refresh_token) {
     try {
-      await fetch(`${PROVIDER_BASE_URL}/api/oauth/revoke`, {
+      await fetch(`${getDomeProviderBaseUrl()}/api/oauth/revoke`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: row.refresh_token, token_type_hint: 'refresh_token' }),
@@ -179,7 +179,7 @@ async function disconnect(database) {
 }
 
 function openDashboard() {
-  shell.openExternal(`${PROVIDER_BASE_URL}/dashboard`);
+  shell.openExternal(`${getDomeProviderBaseUrl()}/dashboard`);
 }
 
 async function exchangeCodeForToken(code, codeVerifier) {
@@ -191,7 +191,7 @@ async function exchangeCodeForToken(code, codeVerifier) {
     redirect_uri: REDIRECT_URI,
   });
 
-  const response = await fetch(`${PROVIDER_BASE_URL}/api/oauth/token`, {
+  const response = await fetch(`${getDomeProviderBaseUrl()}/api/oauth/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
@@ -215,7 +215,7 @@ function startOAuthFlow(database) {
     const state = crypto.randomBytes(24).toString('base64url');
     const userId = getUserIdentifier(database);
 
-    const authUrl = new URL(`${PROVIDER_BASE_URL}/api/oauth/authorize`);
+    const authUrl = new URL(`${getDomeProviderBaseUrl()}/api/oauth/authorize`);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('client_id', CLIENT_ID);
     authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
@@ -232,7 +232,7 @@ function startOAuthFlow(database) {
 }
 
 async function exchangeConnectCode(code) {
-  const response = await fetch(`${PROVIDER_BASE_URL}/api/oauth/connect`, {
+  const response = await fetch(`${getDomeProviderBaseUrl()}/api/oauth/connect`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code }),
@@ -348,5 +348,5 @@ module.exports = {
   fetchWithDomeAuth,
   disconnect,
   openDashboard,
-  PROVIDER_BASE_URL,
+  getDomeProviderBaseUrl,
 };

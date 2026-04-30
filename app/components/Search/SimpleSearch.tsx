@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { orderUnifiedResourcesByHybrid } from '@/lib/search/hybrid-search';
+import { recordSearchResultSelected } from '@/lib/search/search-signals';
 
 interface SearchResult {
   id: string;
@@ -126,7 +128,18 @@ export function useSimpleSearch({ onResourceSelect }: UseSimpleSearchOptions = {
         if (window.electron?.db?.search?.unified) {
           const result = await window.electron.db.search.unified(query);
           if (result.success && result.data?.resources) {
-            setResults(result.data.resources.slice(0, 10));
+            const resources = result.data.resources;
+            const ordered = await orderUnifiedResourcesByHybrid(query, resources, {
+              mergeTake: 10,
+            });
+            setResults(
+              ordered.map((r) => ({
+                id: r.id,
+                title: r.title || 'Untitled',
+                type: r.type || 'note',
+                updated_at: r.updated_at,
+              })),
+            );
           }
         }
       } catch (error) {
@@ -187,11 +200,17 @@ export function useSimpleSearch({ onResourceSelect }: UseSimpleSearchOptions = {
   }, [close, currentProject?.id, t]);
 
   const handleResultClick = useCallback(
-    (result: SearchResult) => {
+    (result: SearchResult, rank1Indexed: number) => {
+      recordSearchResultSelected({
+        surface: 'cmdk_modal',
+        query: query.trim(),
+        selectedId: result.id,
+        rank1Indexed,
+      });
       onResourceSelect?.(result);
       close();
     },
-    [onResourceSelect, close]
+    [onResourceSelect, close, query],
   );
 
   return {
@@ -247,7 +266,7 @@ interface SearchModalProps {
   handleNewNote: () => void;
   handleUpload: () => void;
   handleAddUrl: () => void;
-  handleResultClick: (result: SearchResult) => void;
+  handleResultClick: (result: SearchResult, rank1Indexed: number) => void;
 }
 
 export function SearchModal({
@@ -358,11 +377,11 @@ export function SearchModal({
 
         {query && results.length > 0 && (
           <div className="max-h-80 overflow-y-auto p-2">
-            {results.map((result) => (
+            {results.map((result, index) => (
               <button
                 key={result.id}
                 type="button"
-                onClick={() => handleResultClick(result)}
+                onClick={() => handleResultClick(result, index + 1)}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--dome-surface)]"
               >
                 <span style={{ color: 'var(--dome-text-muted)' }}>
@@ -520,6 +539,22 @@ function getSnippet(content: string | null | undefined, query: string, maxLen = 
   return start > 0 ? `…${raw}` : raw;
 }
 
+function flatRankFor(
+  groups: Record<string, AdvancedResult[]>,
+  category: AdvancedResult['category'],
+  itemIndex: number,
+): number {
+  const order: AdvancedResult['category'][] = ['resource', 'interaction', 'studio', 'graph'];
+  let r = 0;
+  for (const c of order) {
+    const items = groups[c];
+    if (!items?.length) continue;
+    if (c === category) return r + itemIndex + 1;
+    r += items.length;
+  }
+  return itemIndex + 1;
+}
+
 interface InlineSearchProps {
   onResourceSelect?: (resource: { id: string; type: string; title: string }) => void;
   placeholder?: string;
@@ -582,7 +617,10 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
           if (res.success && res.data) {
             // Resources
             if (Array.isArray(res.data.resources) && res.data.resources.length > 0) {
-              allGroups.resource = res.data.resources.slice(0, 6).map((r: {
+              const ordered = await orderUnifiedResourcesByHybrid(query, res.data.resources, {
+                mergeTake: 24,
+              });
+              allGroups.resource = ordered.slice(0, 6).map((r: {
                 id: string; title?: string; type?: string; content?: string;
                 updated_at?: number; metadata?: string | Record<string, unknown>;
               }) => {
@@ -666,7 +704,14 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
   const totalResults = Object.values(groups).reduce((s, g) => s + g.length, 0);
   const showDropdown = isFocused && query.trim().length > 0;
 
-  const handleSelect = (result: AdvancedResult) => {
+  const handleSelect = (result: AdvancedResult, category: AdvancedResult['category'], itemIndex: number) => {
+    recordSearchResultSelected({
+      surface: 'inline_home',
+      query: query.trim(),
+      selectedId: result.id,
+      rank1Indexed: flatRankFor(groups, category, itemIndex),
+      category,
+    });
     onResourceSelect?.({ id: result.id, type: result.type, title: result.title });
     setQuery('');
     setGroups({});
@@ -758,11 +803,11 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
                     </div>
                     {/* Items */}
                     <div className="p-1.5 flex flex-col gap-0.5">
-                      {items.map((result) => (
+                      {items.map((result, itemIndex) => (
                         <button
                           key={`${cat}-${result.id}`}
                           type="button"
-                          onMouseDown={(e) => { e.preventDefault(); handleSelect(result); }}
+                          onMouseDown={(e) => { e.preventDefault(); handleSelect(result, cat, itemIndex); }}
                           className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-[var(--dome-surface)]"
                         >
                           {/* Icon */}

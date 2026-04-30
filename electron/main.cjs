@@ -916,13 +916,6 @@ app
       }
     });
 
-    try {
-      const transcriptionOverlay = require('./transcription-overlay.cjs');
-      transcriptionOverlay.ensureCreated(windowManager);
-    } catch (txOvErr) {
-      console.warn('[Main] Transcription overlay init:', txOvErr?.message);
-    }
-
     // Create tray icon for background operation (automations, notifications)
     createTray(mainWindow);
 

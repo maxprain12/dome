@@ -589,14 +589,6 @@ export default function DictationMode({ hubMode = 'dictation', isActive = true }
     return undefined;
   }, [hubMode, phase, seconds, visible, recordingInputKind, canPause]);
 
-  // ── Overlay window sync ────────────────────────────────────────────────────
-
-  useEffect(() => {
-    if (!window.electron?.transcriptionOverlay?.overlaySetVisible) return undefined;
-    void window.electron.transcriptionOverlay.overlaySetVisible(visible);
-    return undefined;
-  }, [visible]);
-
   // Live desktop/window preview (getDisplayMedia video only) while idle + source picked.
   useEffect(() => {
     if (!visible || phase !== 'idle' || !pickedSourceId || screenPermStatus === 'denied' || systemCaptureStarting) {

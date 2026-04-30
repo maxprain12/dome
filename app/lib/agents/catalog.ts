@@ -6,7 +6,22 @@ export interface ToolCatalogEntry {
   id: string;
   label: string;
   description: string;
-  group: 'web' | 'resources' | 'context' | 'flashcards' | 'studio' | 'audio' | 'research' | 'graph' | 'notebook' | 'excel' | 'ppt' | 'calendar';
+  group:
+    | 'web'
+    | 'resources'
+    | 'context'
+    | 'flashcards'
+    | 'studio'
+    | 'audio'
+    | 'research'
+    | 'graph'
+    | 'notebook'
+    | 'excel'
+    | 'ppt'
+    | 'calendar'
+    | 'marketplace'
+    | 'entity'
+    | 'media';
 }
 
 export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
@@ -39,7 +54,7 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
   {
     id: 'resource_get_section',
     label: 'Resource Get Section',
-    description: 'Obtiene el contenido (summary) de una sección específica de un PDF o nota indexada por node_id. Usar tras get_document_structure o resource_semantic_search.',
+    description: 'Obtiene el contenido (summary) de una sección específica de un PDF o nota indexada por node_id. Usar tras get_document_structure, resource_hybrid_search o resource_semantic_search.',
     group: 'resources',
   },
   {
@@ -49,9 +64,16 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
     group: 'resources',
   },
   {
+    id: 'resource_hybrid_search',
+    label: 'Hybrid Search',
+    description:
+      'Búsqueda unificada en la biblioteca: fusiona texto completo (FTS), embeddings por chunks y coincidencias en el grafo de conocimiento (RRF). Herramienta preferida frente a búsqueda solo léxica o solo semántica.',
+    group: 'resources',
+  },
+  {
     id: 'resource_semantic_search',
     label: 'Semantic Search',
-    description: 'Busca recursos por significado semántico usando embeddings vectoriales (LanceDB). Encuentra documentos conceptualmente relacionados aunque no coincidan en palabras exactas. Más preciso que la búsqueda de texto para preguntas complejas.',
+    description: 'Busca recursos por significado semántico usando embeddings vectoriales. Encuentra documentos conceptualmente relacionados aunque no coincidan en palabras exactas. Opcional si ya usas resource_hybrid_search.',
     group: 'resources',
   },
   {
@@ -129,7 +151,8 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
   {
     id: 'generate_mindmap',
     label: 'Generate Mindmap',
-    description: 'Genera un mapa mental jerárquico en formato JSON a partir de un tema o documento. El mapa se guarda como recurso visual interactivo en la biblioteca del proyecto. Perfecto para organizar ideas y estructurar conocimiento.',
+    description:
+      'Recopila fragmentos de recursos de la biblioteca para que el modelo elabore un mapa mental (p. ej. artifact:diagram o nodos/edges). Para el grafo semántico por embeddings usa generate_knowledge_graph.',
     group: 'studio',
   },
   {
@@ -314,6 +337,57 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
     description: 'Elimina un evento del calendario por su ID. Permite al agente limpiar la agenda cuando una tarea se completa, cancela o se reprograma definitivamente.',
     group: 'calendar',
   },
+
+  {
+    id: 'marketplace_search',
+    label: 'Marketplace Search',
+    description:
+      'Busca agentes y workflows en el catálogo empaquetado y en fuentes GitHub configuradas. Devuelve ids para instalar con marketplace_install.',
+    group: 'marketplace',
+  },
+  {
+    id: 'marketplace_install',
+    label: 'Marketplace Install',
+    description: 'Instala un agente o workflow del marketplace a partir del id devuelto por marketplace_search.',
+    group: 'marketplace',
+  },
+  {
+    id: 'browser_get_active_tab',
+    label: 'Pestaña activa (macOS)',
+    description:
+      'Solo macOS: obtiene URL y título del navegador en primer plano (Safari, Chrome, Edge…). Úsalo antes de resource_create tipo url.',
+    group: 'media',
+  },
+  {
+    id: 'workflow_create',
+    label: 'Crear workflow',
+    description: 'Crea un workflow en el lienzo con nodos y aristas válidos (text-input, document, image, agent, output).',
+    group: 'entity',
+  },
+  {
+    id: 'agent_create',
+    label: 'Crear agente',
+    description: 'Crea un agente Many con instrucciones y tool_ids. Los hijos pueden especializar tareas recurrentes.',
+    group: 'entity',
+  },
+  {
+    id: 'automation_create',
+    label: 'Crear automatización',
+    description: 'Crea una automatización nativa (manual, agenda o contextual) que ejecuta un agente o workflow.',
+    group: 'entity',
+  },
+  {
+    id: 'image_crop',
+    label: 'Recortar imagen',
+    description: 'Recorta un archivo de imagen en disco y devuelve un data URL para mostrar en el chat.',
+    group: 'media',
+  },
+  {
+    id: 'image_thumbnail',
+    label: 'Miniatura imagen',
+    description: 'Genera una miniatura en data URL a partir de una ruta de imagen local.',
+    group: 'media',
+  },
 ];
 
 const GROUP_LABELS: Record<ToolCatalogEntry['group'], string> = {
@@ -329,6 +403,9 @@ const GROUP_LABELS: Record<ToolCatalogEntry['group'], string> = {
   excel: 'Excel',
   ppt: 'Slides',
   calendar: 'Calendario',
+  marketplace: 'Marketplace',
+  entity: 'Entidades',
+  media: 'Medios',
 };
 
 /** Order of tool groups in agent + menu (drill-down root). */
@@ -336,6 +413,9 @@ export const TOOL_GROUP_ORDER: readonly ToolCatalogEntry['group'][] = [
   'web',
   'resources',
   'context',
+  'marketplace',
+  'entity',
+  'media',
   'flashcards',
   'studio',
   'audio',

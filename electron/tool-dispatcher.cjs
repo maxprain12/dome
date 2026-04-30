@@ -24,6 +24,7 @@ const TOOL_HANDLER_MAP = {
   resource_get_section: 'resourceGetSection',
   resource_list: 'resourceList',
   resource_semantic_search: 'resourceSemanticSearch',
+  resource_hybrid_search: 'resourceHybridSearch',
   get_document_structure: 'getDocumentStructure',
   project_list: 'projectList',
   project_get: 'projectGet',
@@ -64,10 +65,15 @@ const TOOL_HANDLER_MAP = {
   get_related_resources: 'getRelatedResources',
   interaction_list: 'interactionList',
   generate_knowledge_graph: 'generateKnowledgeGraph',
-  generate_mindmap: 'generateKnowledgeGraph',
+  generate_mindmap: 'gatherStudioMindmapContext',
+  generate_quiz: 'gatherStudioQuizContext',
   analyze_graph_structure: 'generateKnowledgeGraph',
 
-  // Calendar tools
+  // Calendar tools (alias short names from renderer Many ↔ same handlers as *_event)
+  calendar_list: 'calendarListEvents',
+  calendar_create: 'calendarCreateEvent',
+  calendar_update: 'calendarUpdateEvent',
+  calendar_delete: 'calendarDeleteEvent',
   calendar_list_events: 'calendarListEvents',
   calendar_get_upcoming: 'calendarGetUpcoming',
   calendar_create_event: 'calendarCreateEvent',
@@ -80,6 +86,13 @@ const TOOL_HANDLER_MAP = {
   // Entity creation
   agent_create: 'agentCreate',
   automation_create: 'automationCreate',
+  workflow_create: 'workflowCreate',
+
+  marketplace_search: 'marketplaceSearch',
+  marketplace_install: 'marketplaceInstall',
+  browser_get_active_tab: 'browserGetActiveTabTool',
+  image_crop: 'imageCropTool',
+  image_thumbnail: 'imageThumbnailTool',
 
   pdf_render_page: 'pdfRenderPage',
 
@@ -170,6 +183,17 @@ async function executeToolInMain(toolName, args, toolContext) {
         result = await fn(args.query || '', {
           project_id: automationProjectId || args.project_id || args.projectId,
           limit: args.limit || args.count || 10,
+        });
+        break;
+      case 'resourceHybridSearch':
+        result = await fn(args.query || '', {
+          project_id: automationProjectId || args.project_id || args.projectId,
+          type: args.type,
+          limit: args.limit || args.count || 10,
+          semantic_min_score: args.semantic_min_score,
+          include_backlinks: args.include_backlinks,
+          candidate_limit: args.candidate_limit,
+          rrf_k: args.rrf_k,
         });
         break;
       case 'projectList':
@@ -430,7 +454,9 @@ async function executeToolInMain(toolName, args, toolContext) {
         break;
       }
       case 'generateKnowledgeGraph': {
-        const rid = args.focus_resource_id || args.resource_id || args.resourceId;
+        let rid = args.focus_resource_id || args.resource_id || args.resourceId;
+        const sourceIds = Array.isArray(args.source_ids) ? args.source_ids.filter((x) => typeof x === 'string' && x.trim()) : [];
+        if (!rid && sourceIds.length > 0) rid = sourceIds[0];
         const denied = denyUnlessResourceInScope(rid);
         if (denied) result = denied;
         else {
@@ -512,11 +538,10 @@ function getToolDefsBySubagent() {
   return {
     research: pick('web_search', 'web_fetch', 'deep_research'),
     library: pick(
-      'resource_search',
+      'resource_hybrid_search',
       'resource_get',
       'resource_get_section',
       'resource_list',
-      'resource_semantic_search',
       'get_document_structure',
       'get_related_resources',
       'link_resources',
@@ -673,6 +698,26 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'resource_hybrid_search',
+        description:
+          'Hybrid library search: merges full-text (FTS), semantic chunk similarity, and knowledge-graph node matches with RRF. Prefer this over resource_search or resource_semantic_search alone. Results may include chunk_id for resource_get_section.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query' },
+            project_id: { type: 'string', description: 'Filter by project' },
+            type: { type: 'string', description: 'Filter by resource type' },
+            limit: { type: 'number', description: 'Max results (1-50). Default: 10' },
+            semantic_min_score: { type: 'number', description: 'Min semantic score 0-1. Default: 0.3' },
+            include_backlinks: { type: 'boolean', description: 'Include graph neighbors' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'resource_semantic_search',
         description: 'Semantic search over Nomic chunk embeddings. Results include chunk_id (format resourceId#index). Use resource_get_section(resource_id, chunk_id) for full chunk text, or pdf_render_page to see a PDF page as an image.',
         parameters: {
@@ -791,7 +836,11 @@ function getAllToolDefinitions() {
         parameters: {
           type: 'object',
           properties: {
-            window_minutes: { type: 'number', description: 'Look-ahead window in minutes. Default: 60. Use 1440 for today, 10080 for a week.' },
+            window_minutes: {
+              type: 'number',
+              description:
+                'Look-ahead window in minutes. Default ~7 days (10080). Use 180 for a few hours, 1440 for ~1 day.',
+            },
             limit: { type: 'number', description: 'Max events to return. Default: 10.' },
           },
         },
@@ -1369,6 +1418,165 @@ function getAllToolDefinitions() {
             enabled: { type: 'boolean', description: 'Whether active. Default: true' },
           },
           required: ['title', 'target_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'workflow_create',
+        description:
+          'Create a new visual workflow (canvas) with nodes and edges. Valid node types: text-input, document, image, agent, output.',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Workflow name (required)' },
+            description: { type: 'string', description: 'Short description' },
+            project_id: { type: 'string', description: 'Project ID (default: default)' },
+            nodes: {
+              type: 'array',
+              description: 'Nodes: { id?, type, position?: {x,y}, data?: {} }',
+            },
+            edges: {
+              type: 'array',
+              description: 'Edges: { id?, source, target, sourceHandle?, targetHandle? }',
+            },
+          },
+          required: ['name'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'marketplace_search',
+        description:
+          'Search bundled and configured marketplace catalogs for agents and workflows. Use when the user wants to browse or find installable agents/workflows.',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query (keywords); omit or empty to list top items' },
+            type: { type: 'string', description: 'all | agents | workflows' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'marketplace_install',
+        description:
+          'Install an agent or workflow from marketplace_search results. Requires marketplaceId from search and type agent or workflow.',
+        parameters: {
+          type: 'object',
+          properties: {
+            marketplaceId: { type: 'string', description: 'Template id from marketplace_search' },
+            type: { type: 'string', enum: ['agent', 'workflow'], description: 'agent or workflow' },
+            project_id: { type: 'string', description: 'Project scope (default: default)' },
+          },
+          required: ['marketplaceId', 'type'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'browser_get_active_tab',
+        description:
+          'macOS only. Returns URL and title of the active tab when Safari, Chrome, Chromium, Brave, or Edge is focused. Then use resource_create type url to save.',
+        parameters: { type: 'object', properties: {} },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'image_crop',
+        description: 'Crop a region from an image file on disk. Returns cropped image as data URL.',
+        parameters: {
+          type: 'object',
+          properties: {
+            imagePath: { type: 'string', description: 'Absolute path to image file' },
+            x: { type: 'number' },
+            y: { type: 'number' },
+            width: { type: 'number' },
+            height: { type: 'number' },
+            format: { type: 'string', description: 'jpeg | png | webp' },
+            quality: { type: 'number' },
+            maxWidth: { type: 'number' },
+            maxHeight: { type: 'number' },
+          },
+          required: ['imagePath', 'width', 'height'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'image_thumbnail',
+        description: 'Generate a thumbnail data URL for an image file on disk.',
+        parameters: {
+          type: 'object',
+          properties: {
+            imagePath: { type: 'string', description: 'Absolute path to image file' },
+            width: { type: 'number', description: 'Max width (default 256)' },
+            height: { type: 'number', description: 'Max height (default 256)' },
+            format: { type: 'string' },
+            quality: { type: 'number' },
+          },
+          required: ['imagePath'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'generate_knowledge_graph',
+        description:
+          'Build a semantic similarity graph around a focus resource (from library embeddings). Pass focus_resource_id or source_ids (first id used as focus).',
+        parameters: {
+          type: 'object',
+          properties: {
+            focus_resource_id: { type: 'string', description: 'Center resource id' },
+            source_ids: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Optional; first id used as focus if focus_resource_id omitted',
+            },
+            min_weight: { type: 'number', description: 'Min edge similarity 0-1 (default 0.35)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'generate_mindmap',
+        description:
+          'Gather source snippets from library resources to help you produce a mind map or artifact:diagram. Does not build the graph structure itself—call after resolving resource IDs.',
+        parameters: {
+          type: 'object',
+          properties: {
+            project_id: { type: 'string', description: 'Scope listing when source_ids omitted' },
+            source_ids: { type: 'array', items: { type: 'string' }, description: 'Resource IDs to summarize' },
+            topic: { type: 'string', description: 'Optional focus topic label' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'generate_quiz',
+        description:
+          'Gather source content from resources so you can output a structured quiz (type quiz) in the reply. Call only when user asks for quiz/test/questions.',
+        parameters: {
+          type: 'object',
+          properties: {
+            project_id: { type: 'string' },
+            source_ids: { type: 'array', items: { type: 'string' } },
+            num_questions: { type: 'number', description: '1-20, default 5' },
+            difficulty: { type: 'string', description: 'easy | medium | hard' },
+          },
         },
       },
     },

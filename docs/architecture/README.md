@@ -1,5 +1,6 @@
 # Arquitectura – índice
 
+**Ecosistema:** el índice [MASTER](../../MASTER.md) relaciona Dome Desktop, dome-provider y el sitio `landing-page-dome`; este directorio cubre sólo **arquitectura del cliente Desktop**.
 - [Capas y dependencias](layers.md) — modelo de referencia (Types → Config → Repo → Service → Runtime → UI).
 - [Dominios de producto](domains.md) — mapa al código (`app/`, `electron/ipc/`).
 - [Fronteras renderer / main](boundaries.md) — IPC, validación, seguridad.

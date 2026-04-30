@@ -54,7 +54,8 @@ jobs:
       - name: IPC Zod policy (new files)
         run: npm run check:ipc-zod
 
-  build:
+      - name: Tool definitions vs handlers
+        run: npm run check:tool-coverage
     name: Vite Build
     runs-on: ubuntu-latest
     steps:

@@ -380,7 +380,7 @@ async function listEvents(startMs, endMs, options = {}) {
 /**
  * Get upcoming events within a time window
  */
-async function getUpcomingEvents(windowMinutes = 60, limit = 20) {
+async function getUpcomingEvents(windowMinutes = 10080, limit = 20) {
   try {
     const now = Date.now();
     const endMs = now + windowMinutes * 60 * 1000;
@@ -396,6 +396,8 @@ async function getUpcomingEvents(windowMinutes = 60, limit = 20) {
 
 function rowToEvent(row) {
   if (!row) return null;
+  const startAt = row.start_at;
+  const endAt = row.end_at;
   return {
     id: row.id,
     calendar_id: row.calendar_id,
@@ -404,8 +406,11 @@ function rowToEvent(row) {
     title: row.title,
     description: row.description,
     location: row.location,
-    start_at: row.start_at,
-    end_at: row.end_at,
+    start_at: startAt,
+    end_at: endAt,
+    /** ISO 8601 UTC — helps models answer “what day” without confusing epoch ms. */
+    start_at_iso: startAt != null ? new Date(startAt).toISOString() : null,
+    end_at_iso: endAt != null ? new Date(endAt).toISOString() : null,
     timezone: row.timezone,
     all_day: !!row.all_day,
     status: row.status,

@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Globe,
@@ -13,6 +13,15 @@ import {
   FileTextIcon,
   Image,
   PlusCircle,
+  Calendar,
+  ShoppingBag,
+  GitBranch,
+  Crop,
+  Layers,
+  Bot,
+  Zap,
+  Network,
+  GraduationCap,
 } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
@@ -22,6 +31,8 @@ import { parseContentImages, parseImageResult } from '@/lib/chat/image-tool-util
 import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeBadge from '@/components/ui/DomeBadge';
+import { getToolDisplayLabel } from '@/lib/chat/toolDisplayLabels';
+import { extractCalendarEventFromToolResult, unwrapToolResultPayload } from '@/lib/chat/calendarToolArtifact';
 
 /**
  * ChatToolCard - Polished display for tool calls with category color system
@@ -56,6 +67,9 @@ const CATEGORY_COLORS: Record<ToolCategory, string> = {
 function getCategory(name: string): ToolCategory {
   const n = (name || '').toLowerCase();
   if (n.includes('search') || n.includes('web_fetch') || n.includes('web_search') || n.includes('fetch')) return 'search';
+  if (n.includes('calendar')) return 'db';
+  if (n.includes('marketplace')) return 'mcp';
+  if (n.includes('flashcard')) return 'file';
   if (n.includes('pdf') || n.includes('file') || n.includes('resource') || n.includes('image') || n.includes('notebook')) return 'file';
   if (n.includes('agent') || n.includes('call_') || n.includes('delegate')) return 'agent';
   if (n.includes('postgres') || n.includes('sql') || n.includes('query') || n.includes('database') || n.includes('db')) return 'db';
@@ -81,33 +95,138 @@ const TOOL_ICONS: Record<string, typeof Globe> = {
   pdf_get_structure: FileTextIcon,
   pdf_summarize: FileTextIcon,
   pdf_extract_tables: FileTextIcon,
-  image_crop: Image,
-  image_thumbnail: Image,
   pdf_render_page: Image,
+  marketplace_search: ShoppingBag,
+  marketplace_install: ShoppingBag,
+  browser_get_active_tab: Globe,
+  workflow_create: GitBranch,
+  agent_create: Bot,
+  automation_create: Zap,
+  image_crop: Crop,
+  image_thumbnail: Layers,
+  generate_mindmap: Network,
+  generate_quiz: GraduationCap,
+  generate_knowledge_graph: Network,
+  calendar_list_events: Calendar,
+  calendar_list: Calendar,
+  calendar_get_upcoming: Calendar,
+  calendar_create: Calendar,
+  calendar_create_event: Calendar,
+  calendar_update: Calendar,
+  calendar_update_event: Calendar,
+  calendar_delete: Calendar,
+  calendar_delete_event: Calendar,
+  flashcard_create: Layers,
 };
 
-const TOOL_LABELS: Record<string, string> = {
-  web_search: 'Búsqueda web',
-  web_fetch: 'Obteniendo contenido',
-  resource_create: 'Creando recurso',
-  resource_get: 'Obteniendo recurso',
-  resource_search: 'Buscando recursos',
-  call_research_agent: 'Delegando investigación',
-  call_library_agent: 'Delegando consulta de biblioteca',
-  call_writer_agent: 'Delegando creación de contenido',
-  call_data_agent: 'Delegando procesamiento de datos',
-  notebook_add_cell: 'Añadiendo celda',
-  notebook_update_cell: 'Actualizando celda',
-  notebook_delete_cell: 'Eliminando celda',
-  pdf_extract_text: 'Extrayendo texto de PDF',
-  pdf_get_metadata: 'Obteniendo metadatos de PDF',
-  pdf_get_structure: 'Obteniendo estructura de PDF',
-  pdf_summarize: 'Resumiendo PDF',
-  pdf_extract_tables: 'Extrayendo tablas de PDF',
-  image_crop: 'Recortando imagen',
-  image_thumbnail: 'Generando miniatura',
-  pdf_render_page: 'Renderizando página PDF',
-};
+function renderToolSuccessHighlight(
+  toolName: string,
+  rawResult: unknown,
+  t: (key: string, opts?: Record<string, unknown> & { defaultValue?: string }) => string,
+): ReactNode | null {
+  const cal = extractCalendarEventFromToolResult(toolName, rawResult);
+  if (cal) {
+    return (
+      <div
+        className="rounded-md border p-2.5 space-y-1"
+        style={{
+          borderColor: 'var(--border)',
+          background: 'color-mix(in srgb, var(--accent) 8%, transparent)',
+        }}
+      >
+        <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--primary-text)' }}>
+          <Calendar className="w-3.5 h-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
+          <span className="truncate">{cal.title || t('chat.calendar_event_untitled', { defaultValue: 'Evento' })}</span>
+        </div>
+        {cal.startLabel ? (
+          <p className="text-[11px]" style={{ color: 'var(--secondary-text)' }}>
+            {cal.startLabel}
+            {cal.endLabel && cal.endLabel !== cal.startLabel ? ` → ${cal.endLabel}` : ''}
+          </p>
+        ) : null}
+        {cal.location ? (
+          <p className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
+            {cal.location}
+          </p>
+        ) : null}
+        {cal.id ? (
+          <p className="text-[10px] font-mono opacity-70 truncate" style={{ color: 'var(--tertiary-text)' }}>
+            {cal.id}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
+  const parsed = unwrapToolResultPayload(rawResult);
+  if (!parsed) return null;
+  const n = (toolName || '').toLowerCase();
+  const ok = parsed.success === true || parsed.status === 'success';
+
+  if (n === 'flashcard_create' && ok && parsed.deck && typeof parsed.deck === 'object') {
+    const deck = parsed.deck as Record<string, unknown>;
+    const title = String(deck.title || '');
+    const count = typeof deck.card_count === 'number' ? deck.card_count : 0;
+    return (
+      <div
+        className="rounded-md border p-2.5 space-y-1"
+        style={{
+          borderColor: 'var(--border)',
+          background: 'color-mix(in srgb, var(--success) 8%, transparent)',
+        }}
+      >
+        <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--primary-text)' }}>
+          <Layers className="w-3.5 h-3.5 shrink-0 text-[var(--success)]" aria-hidden />
+          <span className="truncate">{title}</span>
+        </div>
+        <p className="text-[11px]" style={{ color: 'var(--secondary-text)' }}>
+          {t('chat.flashcard_deck_count', { count, defaultValue: '{{count}} tarjetas' })}
+        </p>
+      </div>
+    );
+  }
+
+  if (n === 'resource_create' && ok && parsed.resource && typeof parsed.resource === 'object') {
+    const r = parsed.resource as Record<string, unknown>;
+    const title = String(r.title || '');
+    const id = String(r.id || '');
+    const typ = String(r.type || '');
+    return (
+      <div
+        className="rounded-md border p-2.5 flex gap-2 items-start"
+        style={{ borderColor: 'var(--border)', background: 'var(--bg-tertiary)' }}
+      >
+        <FileText className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--accent)]" aria-hidden />
+        <div className="min-w-0">
+          <p className="text-xs font-semibold truncate" style={{ color: 'var(--primary-text)' }}>
+            {title}
+          </p>
+          <p className="text-[10px] font-mono opacity-70 truncate" style={{ color: 'var(--tertiary-text)' }}>
+            {typ} · {id}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const st = parsed.status;
+  if (st === 'success') {
+    const thumb = typeof parsed.thumbnail === 'string' ? parsed.thumbnail : '';
+    const cropped = typeof parsed.croppedImage === 'string' ? parsed.croppedImage : '';
+    const src = cropped || thumb;
+    if (src.startsWith('data:')) {
+      return (
+        <img
+          src={src}
+          alt=""
+          className="max-w-[220px] max-h-[160px] object-contain rounded-md border border-[var(--border)]"
+        />
+      );
+    }
+  }
+
+  return null;
+}
 
 function getIconForTool(name: string): typeof Globe {
   const norm = (name || '').toLowerCase();
@@ -115,15 +234,6 @@ function getIconForTool(name: string): typeof Globe {
   if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query') || norm.includes('database')) return Database;
   if (norm.includes('mcp_') || norm.startsWith('mcp')) return Plug;
   return Globe;
-}
-
-function getLabelForTool(name: string): string {
-  if (TOOL_LABELS[name]) return TOOL_LABELS[name];
-  const norm = (name || '').toLowerCase();
-  if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query')) return 'Consulta a base de datos';
-  if (norm.includes('mcp') || norm.startsWith('mcp_')) return 'Tool MCP';
-  const humanized = name.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  return humanized || name;
 }
 
 /** Parse result as document-style array [{ content, metadata }] */
@@ -302,7 +412,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
   const { pinnedResources, addPinnedResource, removePinnedResource } = useManyStore();
 
   const Icon = getIconForTool(toolCall.name);
-  const label = getLabelForTool(toolCall.name);
+  const label = getToolDisplayLabel(toolCall.name, t);
   const category = getCategory(toolCall.name);
   const accentColor = CATEGORY_COLORS[category];
 
@@ -347,6 +457,13 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
           {toolCall.error}
         </div>
       );
+    }
+
+    if (!showRawJson) {
+      const highlight = renderToolSuccessHighlight(toolCall.name, toolCall.result, t);
+      if (highlight) {
+        return <div style={{ marginTop: 4 }}>{highlight}</div>;
+      }
     }
 
     if (showRawJson) {
@@ -640,7 +757,7 @@ export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardG
   const [expanded, setExpanded] = useState(false);
   const { t } = useTranslation();
   const Icon = getIconForTool(name);
-  const label = getLabelForTool(name);
+  const label = getToolDisplayLabel(name, t);
   const category = getCategory(name);
   const accentColor = CATEGORY_COLORS[category];
   const count = calls.length;

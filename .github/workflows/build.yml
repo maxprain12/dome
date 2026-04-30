@@ -47,6 +47,7 @@ jobs:
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
           DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
+          DOME_PROVIDER_URL: ${{ secrets.DOME_PROVIDER_URL }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -93,6 +94,7 @@ jobs:
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
           DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
+          DOME_PROVIDER_URL: ${{ secrets.DOME_PROVIDER_URL }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}

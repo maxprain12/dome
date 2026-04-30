@@ -33,6 +33,8 @@ import {
   History,
   PanelRight,
   Download,
+  Calendar,
+  Layers,
 } from 'lucide-react';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeButton from '@/components/ui/DomeButton';
@@ -45,6 +47,8 @@ import type {
   DashboardArtifactV,
   TimelineArtifactV,
   HtmlArtifactV,
+  CalendarEventArtifactV,
+  FlashcardDeckArtifactV,
 } from '@/lib/chat/artifactSchemas';
 import CalculatorArtifact from '@/components/chat/artifacts/CalculatorArtifact';
 import DiagramArtifact from '@/components/chat/artifacts/DiagramArtifact';
@@ -53,6 +57,10 @@ import PlaygroundArtifact from '@/components/chat/artifacts/PlaygroundArtifact';
 import DashboardArtifact from '@/components/chat/artifacts/DashboardArtifact';
 import TimelineArtifact from '@/components/chat/artifacts/TimelineArtifact';
 import HtmlArtifactFrame from '@/components/chat/artifacts/HtmlArtifactFrame';
+import {
+  CalendarEventArtifact,
+  FlashcardDeckArtifact,
+} from '@/components/chat/artifacts/CalendarFlashcardArtifacts';
 import {
   buildDomeThemeStyleContent,
   useDomeThemeSnapshot,
@@ -91,7 +99,9 @@ export type ArtifactType =
   | 'playground'
   | 'dashboard'
   | 'timeline'
-  | 'html';
+  | 'html'
+  | 'calendar_event'
+  | 'flashcard_deck';
 
 export interface BaseArtifact {
   type: ArtifactType;
@@ -196,7 +206,9 @@ export type AnyArtifact =
   | PlaygroundArtifactV
   | DashboardArtifactV
   | TimelineArtifactV
-  | HtmlArtifactV;
+  | HtmlArtifactV
+  | CalendarEventArtifactV
+  | FlashcardDeckArtifactV;
 
 interface ArtifactCardProps {
   artifact: AnyArtifact;
@@ -221,6 +233,8 @@ const ARTIFACT_STYLES: Record<ArtifactType, { borderColor: string; iconColor: st
   dashboard: { borderColor: 'var(--accent)', iconColor: 'var(--accent)' },
   timeline: { borderColor: 'var(--secondary-text)', iconColor: 'var(--secondary-text)' },
   html: { borderColor: 'var(--accent)', iconColor: 'var(--accent)' },
+  calendar_event: { borderColor: 'var(--accent)', iconColor: 'var(--accent)' },
+  flashcard_deck: { borderColor: 'var(--success)', iconColor: 'var(--success)' },
 };
 
 // Icon mapping
@@ -240,6 +254,8 @@ const ARTIFACT_ICONS: Record<ArtifactType, typeof FileText> = {
   dashboard: LayoutGrid,
   timeline: History,
   html: FileCode2,
+  calendar_event: Calendar,
+  flashcard_deck: Layers,
 };
 
 function ArtifactHeader({
@@ -383,6 +399,10 @@ function getArtifactTitle(artifact: AnyArtifact): string {
       return (artifact as TimelineArtifactV).title || i18n.t('artifacts.timeline');
     case 'html':
       return (artifact as HtmlArtifactV).title || i18n.t('artifacts.html');
+    case 'calendar_event':
+      return (artifact as CalendarEventArtifactV).title || i18n.t('artifacts.calendar_event');
+    case 'flashcard_deck':
+      return (artifact as FlashcardDeckArtifactV).title || i18n.t('artifacts.flashcard_deck');
     default: return i18n.t('artifacts.content');
   }
 }
@@ -404,6 +424,10 @@ function getArtifactContent(artifact: AnyArtifact): ReactNode {
     case 'dashboard': return <DashboardArtifact artifact={artifact as DashboardArtifactV} />;
     case 'timeline': return <TimelineArtifact artifact={artifact as TimelineArtifactV} />;
     case 'html': return <HtmlHtmlBridge artifact={artifact as HtmlArtifactV} />;
+    case 'calendar_event':
+      return <CalendarEventArtifact artifact={artifact as CalendarEventArtifactV} />;
+    case 'flashcard_deck':
+      return <FlashcardDeckArtifact artifact={artifact as FlashcardDeckArtifactV} />;
     default: return null;
   }
 }

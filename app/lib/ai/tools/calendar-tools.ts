@@ -49,6 +49,19 @@ const CalendarListSchema = Type.Object({
   }),
 });
 
+/** Default look-ahead (~7d). A short default (e.g. 60m) makes “later today” events disappear on follow-up tool calls. */
+const DEFAULT_UPCOMING_WINDOW_MINUTES = 10080;
+
+const CalendarUpcomingSchema = Type.Object({
+  window_minutes: Type.Optional(
+    Type.Number({
+      description:
+        'Look-ahead window in minutes. Default 10080 (~7 days). Use 180 for 3 hours, 1440 for ~1 day.',
+    }),
+  ),
+  limit: Type.Optional(Type.Number({ description: 'Max events to return. Default 10.' })),
+});
+
 const CalendarDeleteSchema = Type.Object({
   event_id: Type.String({ description: 'ID of the event to delete.' }),
 });
@@ -149,6 +162,53 @@ export function createCalendarUpdateTool(): AnyAgentTool {
   };
 }
 
+export function createCalendarGetUpcomingTool(): AnyAgentTool {
+  return {
+    label: 'Próximos eventos del calendario',
+    name: 'calendar_get_upcoming',
+    description:
+      'Lista los próximos eventos del calendario desde ahora. Úsala cuando el usuario pregunte qué tiene hoy, esta semana, o su agenda próxima sin dar un rango explícito start/end.',
+    parameters: CalendarUpcomingSchema,
+    execute: async (_toolCallId, args) => {
+      try {
+        if (!isElectronAI()) {
+          return jsonResult({ status: 'error', error: 'Calendar tools require Electron environment.' });
+        }
+
+        const params = args as Record<string, unknown>;
+        const windowMinutes =
+          typeof params.window_minutes === 'number' && params.window_minutes > 0
+            ? params.window_minutes
+            : typeof params.windowMinutes === 'number' && params.windowMinutes > 0
+              ? params.windowMinutes
+              : undefined;
+        const limit =
+          typeof params.limit === 'number' && params.limit > 0 ? params.limit : undefined;
+
+        const result = await window.electron.calendar.getUpcoming({
+          windowMinutes: windowMinutes ?? DEFAULT_UPCOMING_WINDOW_MINUTES,
+          limit: limit ?? 10,
+        });
+
+        if (!result.success) {
+          return jsonResult({ status: 'error', error: result.error || 'Failed to load upcoming events.' });
+        }
+
+        return jsonResult({
+          status: 'success',
+          events: result.events || [],
+          count: result.events?.length ?? 0,
+        });
+      } catch (error) {
+        return jsonResult({
+          status: 'error',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+  };
+}
+
 export function createCalendarDeleteTool(): AnyAgentTool {
   return {
     label: 'Eliminar evento de calendario',
@@ -237,5 +297,6 @@ export function createCalendarTools(): AnyAgentTool[] {
     createCalendarUpdateTool(),
     createCalendarDeleteTool(),
     createCalendarListTool(),
+    createCalendarGetUpcomingTool(),
   ];
 }

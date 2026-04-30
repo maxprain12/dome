@@ -3,10 +3,10 @@
 const { setMaxListeners } = require('events');
 const langgraphAgent = require('../langgraph-agent.cjs');
 const domeOauth = require('../dome-oauth.cjs');
+const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
 
 /** Abort controllers by streamId for ai:langgraph:stream (enables renderer to stop stream) */
 const langGraphAbortControllers = new Map();
-const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
 
 function register({ ipcMain, windowManager, database, aiCloudService, ollamaService }) {
   /**
@@ -40,7 +40,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       }
 
       if (provider === 'dome') {
-        const response = await domeOauth.fetchWithDomeAuth(database, `${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
+        const response = await domeOauth.fetchWithDomeAuth(database, `${getDomeProviderBaseUrl()}/api/v1/chat/completions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -113,7 +113,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       }
 
       if (provider === 'dome') {
-        const response = await domeOauth.fetchWithDomeAuth(database, `${DOME_PROVIDER_URL}/api/v1/chat/completions`, {
+        const response = await domeOauth.fetchWithDomeAuth(database, `${getDomeProviderBaseUrl()}/api/v1/chat/completions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -504,7 +504,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
 
       if (provider === 'dome') {
         try {
-          const quotaResponse = await domeOauth.fetchWithDomeAuth(database, `${DOME_PROVIDER_URL}/api/v1/me/quota`);
+          const quotaResponse = await domeOauth.fetchWithDomeAuth(database, `${getDomeProviderBaseUrl()}/api/v1/me/quota`);
           if (!quotaResponse.ok) {
             const text = await quotaResponse.text();
             return { success: false, error: `Dome provider no disponible: ${text}` };

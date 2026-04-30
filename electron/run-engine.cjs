@@ -30,9 +30,9 @@ const SYSTEM_AGENTS = {
   },
   library: {
     name: 'Library Agent',
-    toolIds: ['resource_search', 'resource_get', 'resource_get_section', 'resource_list', 'resource_semantic_search'],
+    toolIds: ['resource_hybrid_search', 'resource_get', 'resource_get_section', 'resource_list'],
     systemPrompt: `Eres un agente de biblioteca experto en gestión del conocimiento personal.
-- Busca y recupera información relevante de los documentos del usuario
+- Usa resource_hybrid_search para encontrar documentos (combina texto, significado y grafo); luego resource_get o resource_get_section según necesites
 - Analiza y conecta conceptos entre diferentes recursos de la biblioteca
 - Extrae ideas clave, citas importantes y patrones de los documentos
 - Sugiere conexiones entre materiales relacionados
@@ -66,7 +66,7 @@ const SYSTEM_AGENTS = {
   },
   curator: {
     name: 'Curator Agent',
-    toolIds: ['get_related_resources', 'resource_semantic_search', 'resource_list', 'flashcard_create', 'resource_create'],
+    toolIds: ['get_related_resources', 'resource_hybrid_search', 'resource_list', 'flashcard_create', 'resource_create'],
     systemPrompt: `Eres un agente curador experto en organización del conocimiento.
 - Identifica relaciones entre recursos y conceptos
 - Sugiere conexiones relevantes
@@ -773,13 +773,13 @@ async function getProviderConfig(providerArg, modelArg) {
     model = modelArg || queries.getSetting.get('ollama_model')?.value || 'llama3.2';
   } else if (provider === 'dome') {
     const domeOauth = require('./dome-oauth.cjs');
+    const { getDomeProviderBaseUrl } = require('./dome-provider-url.cjs');
     const session = await domeOauth.getOrRefreshSession(_database);
     if (!session?.connected || !session?.accessToken) {
       throw new Error('Dome provider is not connected. Open Settings > AI > Dome and connect your account.');
     }
-    const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
     apiKey = session.accessToken;
-    baseUrl = `${DOME_PROVIDER_URL}/api/v1`;
+    baseUrl = `${getDomeProviderBaseUrl()}/api/v1`;
     model = modelArg || queries.getSetting.get('ai_model')?.value || 'dome/auto';
   } else {
     apiKey = queries.getSetting.get('ai_api_key')?.value;

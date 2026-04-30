@@ -205,7 +205,8 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
   ipcMain.handle('calendar:getUpcoming', async (event, params) => {
     try {
       validateSender(event, windowManager);
-      const windowMinutes = typeof params?.windowMinutes === 'number' && params.windowMinutes > 0 ? params.windowMinutes : 60;
+      const windowMinutes =
+        typeof params?.windowMinutes === 'number' && params.windowMinutes > 0 ? params.windowMinutes : 10080;
       const limit = typeof params?.limit === 'number' && params.limit > 0 ? params.limit : 20;
       return await calendarService.getUpcomingEvents(windowMinutes, limit);
     } catch (err) {

@@ -2,6 +2,8 @@
 
 import { X, Download, CheckCircle2, Star, Wrench, Tag } from 'lucide-react';
 import type { MarketplaceAgent } from '@/types';
+import { useTranslation } from 'react-i18next';
+import { getToolDisplayLabel } from '@/lib/chat/toolDisplayLabels';
 
 interface MarketplaceAgentDetailProps {
   agent: MarketplaceAgent;
@@ -26,42 +28,6 @@ const TAG_COLORS: Record<string, { bg: string; text: string }> = {
   web: { bg: 'var(--dome-bg)', text: 'var(--dome-text-muted)' },
 };
 
-const TOOL_LABELS: Record<string, string> = {
-  web_search: 'Web search',
-  web_fetch: 'Web fetch',
-  deep_research: 'Deep research',
-  resource_search: 'Library search',
-  resource_get: 'Open resource',
-  resource_create: 'Create resource',
-  resource_update: 'Update resource',
-  resource_list: 'List resources',
-  resource_semantic_search: 'Semantic search',
-  resource_get_library_overview: 'Library overview',
-  flashcard_create: 'Flashcards',
-  generate_quiz: 'Quiz',
-  generate_mindmap: 'Mind map',
-  generate_knowledge_graph: 'Knowledge graph',
-  create_resource_link: 'Link resources',
-  get_related_resources: 'Related resources',
-  analyze_graph_structure: 'Graph analysis',
-  calendar_create_event: 'Calendar',
-  calendar_get_upcoming: 'Upcoming events',
-  calendar_list: 'Calendar list',
-  calendar_update_event: 'Update event',
-  get_current_project: 'Current project',
-  excel_get: 'Excel read',
-  excel_set_cell: 'Excel cell',
-  excel_set_range: 'Excel range',
-  excel_add_row: 'Excel row',
-  excel_add_sheet: 'Excel sheet',
-  excel_create: 'Excel create',
-  excel_export: 'Excel export',
-  ppt_create: 'PowerPoint',
-  ppt_get_slides: 'Slides',
-  ppt_export: 'Export PPT',
-  generate_audio_script: 'Audio script',
-};
-
 export default function MarketplaceAgentDetail({
   agent,
   isInstalled,
@@ -70,6 +36,7 @@ export default function MarketplaceAgentDetail({
   onInstall,
   onClose,
 }: MarketplaceAgentDetailProps) {
+  const { t } = useTranslation();
   return (
     <div
       className="fixed inset-0 z-[var(--z-modal,1000)] flex items-center justify-center"
@@ -191,7 +158,7 @@ export default function MarketplaceAgentDetail({
                         border: '1px solid var(--dome-border)',
                       }}
                     >
-                      {TOOL_LABELS[toolId] ?? toolId}
+                      {getToolDisplayLabel(toolId, t)}
                     </span>
                   ))}
                 </div>

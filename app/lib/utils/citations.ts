@@ -86,7 +86,11 @@ export function buildCitationMap(
       parsedResultRaw !== null && typeof parsedResultRaw === 'object'
         ? (parsedResultRaw as Record<string, unknown>)
         : null;
-    if (toolResult.name === 'resource_search' || toolResult.name === 'resource_semantic_search') {
+    if (
+      toolResult.name === 'resource_search' ||
+      toolResult.name === 'resource_semantic_search' ||
+      toolResult.name === 'resource_hybrid_search'
+    ) {
       const results = (Array.isArray(parsedResult?.results) ? parsedResult.results : []) as Record<
         string,
         unknown

@@ -5,14 +5,9 @@ import {
   ArrowUp,
   StopCircle,
   FileText,
-  Mic,
-  Loader2,
   Plus,
 } from 'lucide-react';
-import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
-import { transcribeAudioBlob } from '@/lib/transcription/transcribeBlob';
-import { useMediaRecorder } from '@/lib/transcription/useMediaRecorder';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
 import { useManyStore } from '@/lib/store/useManyStore';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
@@ -24,7 +19,6 @@ import {
   AI_COMPOSER_TEXTAREA_CLASS,
   AIComposerAttachmentTray,
   AIComposerFrame,
-  AIComposerIconButton,
   AIComposerPinnedResourceChip,
 } from '@/components/chat/AIComposer';
 import { useResourceMention } from '@/lib/chat/useResourceMention';
@@ -47,7 +41,6 @@ export interface ManyChatInputProps {
   hasMcp: boolean;
   onSend: () => void;
   onAbort: () => void;
-  onVoiceSend?: (text: string) => void;
   isWelcomeScreen?: boolean;
   inputPlaceholderOverride?: string | null;
   attachments?: ChatAttachment[];
@@ -71,7 +64,6 @@ export default memo(function ManyChatInput({
   hasMcp,
   onSend,
   onAbort,
-  onVoiceSend,
   isWelcomeScreen = false,
   inputPlaceholderOverride = null,
   attachments = [],
@@ -111,35 +103,6 @@ export default memo(function ManyChatInput({
       cancelled = true;
     };
   }, [pendingOneShotSkillId, activeStickySkillId]);
-
-  const [voiceToSend, setVoiceToSend] = useState(false);
-  const voiceArmRef = useRef(false);
-
-  const voiceRecorder = useMediaRecorder({
-    onBlob: async (blob) => {
-      const tr = await transcribeAudioBlob(blob);
-      if (!tr.success) {
-        notifications.show({ title: t('manyVoice.transcribe_failed'), message: tr.error, color: 'red' });
-        return;
-      }
-      if (voiceToSend && onVoiceSend) {
-        onVoiceSend(tr.text);
-      } else {
-        setInput((prev) => `${prev}${prev && !/\s$/.test(prev) ? ' ' : ''}${tr.text}`);
-      }
-    },
-    onEmpty: () => {
-      notifications.show({
-        title: t('media.dock_empty_recording'),
-        message: t('media.dock_empty_recording'),
-        color: 'yellow',
-      });
-    },
-    onError: (msg) => {
-      notifications.show({ title: t('media.dock_mic_permission'), message: msg, color: 'red' });
-    },
-  });
-  const voicePhase = voiceRecorder.phase;
 
   const [showDropdown, setShowDropdown] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -269,10 +232,6 @@ export default memo(function ManyChatInput({
 
   const hasActiveCapabilities = resourceToolsEnabled || toolsEnabled || mcpEnabled;
 
-  const canVoice =
-    typeof window !== 'undefined' &&
-    typeof window.electron?.transcription?.bufferToText === 'function';
-
   const outerCls = isWelcomeScreen
     ? 'many-input-area bg-transparent px-0 pb-0'
     : 'many-input-area border-t border-[var(--border)] bg-[var(--bg)] px-4 py-3';
@@ -395,7 +354,7 @@ export default memo(function ManyChatInput({
           }}
         />
 
-        <div className="flex items-center justify-between px-3 pb-3">
+        <div className="flex min-w-0 items-center justify-between gap-2 px-3 pb-3">
           <div className="flex min-w-0 flex-1 items-center gap-1">
               <button
               type="button"
@@ -419,11 +378,11 @@ export default memo(function ManyChatInput({
             {showDropdown && dropdownRect && typeof document !== 'undefined' && createPortal(
               <div
                 ref={dropdownRef}
-                className="fixed z-[var(--z-dropdown)]"
+                className="fixed z-[var(--z-popover)]"
                 style={{
                   top: dropdownRect.above ? undefined : dropdownRect.top,
                   bottom: dropdownRect.above ? window.innerHeight - dropdownRect.top : undefined,
-                  left: Math.min(dropdownRect.left, typeof window !== 'undefined' ? window.innerWidth - 420 : 0),
+                  left: Math.min(dropdownRect.left, typeof window !== 'undefined' ? window.innerWidth - 340 : 0),
                 }}
               >
                 <ChatComposerPlusMenuContent
@@ -462,69 +421,7 @@ export default memo(function ManyChatInput({
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {canVoice ? (
-              <div className="flex items-center gap-1">
-              <AIComposerIconButton
-                  type="button"
-                  onPointerDown={(e) => {
-                    if (e.button !== 0) return;
-                    if (isLoading || voicePhase === 'processing' || voicePhase === 'recording') return;
-                    e.preventDefault();
-                    (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
-                    voiceArmRef.current = true;
-                    void voiceRecorder.startMicRecording().then(() => { voiceArmRef.current = false; });
-                  }}
-                  onPointerUp={(e) => {
-                    if (e.button !== 0) return;
-                    try {
-                      (e.currentTarget as HTMLButtonElement).releasePointerCapture(e.pointerId);
-                    } catch { /* */ }
-                    if (voicePhase === 'recording') {
-                      voiceRecorder.stopRecording();
-                    } else if (voiceArmRef.current) {
-                      voiceArmRef.current = false;
-                      voiceRecorder.cancelRecording();
-                    }
-                  }}
-                  onPointerCancel={() => {
-                    if (voicePhase === 'recording') voiceRecorder.cancelRecording();
-                  }}
-                  onPointerLeave={(e) => {
-                    if (voicePhase !== 'recording') return;
-                    if (e.buttons === 0) voiceRecorder.cancelRecording();
-                  }}
-                  disabled={isLoading || voicePhase === 'processing'}
-                  className="select-none touch-none"
-                  style={{
-                    background: voicePhase === 'recording' ? 'var(--error)' : 'var(--bg-tertiary)',
-                    color: voicePhase === 'recording' ? 'var(--base-text)' : 'var(--secondary-text)',
-                  }}
-                  title={t('manyVoice.ptt_subtitle')}
-                  ariaLabel={t('manyVoice.ptt_subtitle')}
-                >
-                  {voicePhase === 'processing' ? (
-                    <Loader2 size={16} className="animate-spin" aria-hidden />
-                  ) : (
-                    <Mic size={16} strokeWidth={2} aria-hidden />
-                  )}
-                </AIComposerIconButton>
-                {onVoiceSend ? (
-                  <button
-                    type="button"
-                    onClick={() => setVoiceToSend((v) => !v)}
-                    className="rounded px-1.5 py-0.5 text-[10px] font-medium"
-                    style={{
-                      background: voiceToSend ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'transparent',
-                      color: 'var(--secondary-text)',
-                    }}
-                    title={t('manyVoice.toggle_send_mode')}
-                  >
-                    {voiceToSend ? t('manyVoice.mode_send') : t('manyVoice.mode_input')}
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
+          <div className="flex shrink-0 items-center gap-2">
             {isLoading ? (
               <button
                 type="button"

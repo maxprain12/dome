@@ -341,7 +341,7 @@ export default memo(function AgentChatInput({
           }}
         />
 
-        <div className="flex items-center justify-between px-3 pb-3">
+        <div className="flex min-w-0 items-center justify-between gap-2 px-3 pb-3">
           <div className="flex min-w-0 flex-1 items-center gap-1">
             {showPlus ? (
               <>
@@ -366,10 +366,10 @@ export default memo(function AgentChatInput({
                     ref={dropdownRef}
                     className="fixed"
                     style={{
-                      zIndex: 'var(--z-dropdown)',
+                      zIndex: 'var(--z-popover)',
                       top: dropdownRect.above ? undefined : dropdownRect.top,
                       bottom: dropdownRect.above ? window.innerHeight - dropdownRect.top : undefined,
-                      left: Math.min(dropdownRect.left, window.innerWidth - 420),
+                      left: Math.min(dropdownRect.left, window.innerWidth - 340),
                     }}
                   >
                     <ChatComposerPlusMenuContent

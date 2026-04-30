@@ -65,8 +65,12 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
   // Wrap executeFn to emit real-time tool_call / tool_result events
   let rtCounter = 0;
   const wrappedExecuteFn = onChunk
-    ? async (name, args) => {
-        const id = `sub_${agentName}_${name}_${++rtCounter}_${Date.now()}`;
+    ? async (name, args, invocationConfig) => {
+        const fromAgent = invocationConfig?.toolCall?.id;
+        const id =
+          fromAgent != null && String(fromAgent).length > 0
+            ? String(fromAgent)
+            : `sub_${agentName}_${name}_${++rtCounter}_${Date.now()}`;
         onChunk({
           type: 'tool_call',
           toolCall: {

@@ -21,15 +21,15 @@ function MenuPillButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className="group flex min-h-[48px] w-full items-center gap-3.5 rounded-2xl px-2.5 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+      className="group flex min-h-[36px] w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
     >
       <span
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--secondary-text)] transition-colors group-hover:border-[var(--border-hover)] group-hover:bg-[var(--bg)]"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--secondary-text)] transition-colors group-hover:border-[var(--border-hover)] group-hover:bg-[var(--bg)]"
         aria-hidden
       >
-        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        <Icon className="h-4 w-4" strokeWidth={1.75} />
       </span>
-      <span className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-[var(--primary-text)]">{label}</span>
+      <span className="min-w-0 flex-1 text-[12px] font-medium leading-snug text-[var(--primary-text)]">{label}</span>
     </button>
   );
 }
@@ -50,16 +50,16 @@ function MenuNavRow({
       type="button"
       disabled={disabled}
       onClick={onNavigate}
-      className="group flex min-h-[48px] w-full items-center gap-3.5 rounded-2xl px-2.5 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
+      className="group flex min-h-[36px] w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
     >
       <span
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--secondary-text)] transition-colors group-hover:border-[var(--border-hover)] group-hover:bg-[var(--bg)]"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--secondary-text)] transition-colors group-hover:border-[var(--border-hover)] group-hover:bg-[var(--bg)]"
         aria-hidden
       >
-        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+        <Icon className="h-4 w-4" strokeWidth={1.75} />
       </span>
-      <span className="min-w-0 flex-1 text-[13px] font-medium leading-snug text-[var(--primary-text)]">{label}</span>
-      <ChevronRight className="h-[18px] w-[18px] shrink-0 text-[var(--tertiary-text)]" aria-hidden />
+      <span className="min-w-0 flex-1 text-[12px] font-medium leading-snug text-[var(--primary-text)]">{label}</span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-[var(--tertiary-text)]" aria-hidden />
     </button>
   );
 }
@@ -246,21 +246,21 @@ export function ChatComposerPlusMenuContent({
   if (menuLayout === 'flat') {
     return (
       <div
-        className="flex max-h-[min(480px,72vh)] w-[min(calc(100vw-20px),400px)] flex-col overflow-hidden rounded-2xl border shadow-2xl"
+        className="flex max-h-[min(400px,60vh)] w-[min(calc(100vw-20px),320px)] flex-col overflow-hidden rounded-2xl border shadow-2xl"
         style={{
           background: 'var(--bg-secondary)',
           borderColor: 'var(--border)',
-boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
+          boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
         }}
       >
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2">
           <p
-            className="px-1 pb-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wider"
+            className="px-1 pb-1 pt-0.5 text-[9px] font-semibold uppercase tracking-wider"
             style={{ color: 'var(--tertiary-text)' }}
           >
             {t('chat.menu_quick_actions')}
           </p>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {showAttach ? (
               <MenuPillButton
                 icon={Paperclip}
@@ -281,9 +281,9 @@ boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
 
           {manyCapabilities ? (
             <>
-              <div className="mx-3 my-4 h-px bg-[var(--border)]" role="separator" />
+              <div className="mx-3 my-3 h-px bg-[var(--border)]" role="separator" />
               <p
-                className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider"
+                className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider"
                 style={{ color: 'var(--tertiary-text)' }}
               >
                 {t('chat.capabilities_base')}
@@ -294,10 +294,10 @@ boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
 
           {toolsSlot ? (
             <>
-              <div className="mx-3 my-4 h-px bg-[var(--border)]" role="separator" />
+              <div className="mx-3 my-3 h-px bg-[var(--border)]" role="separator" />
               {!hideToolsSectionHeader ? (
                 <p
-                  className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider"
+                  className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider"
                   style={{ color: 'var(--tertiary-text)' }}
                 >
                   {t(toolsSectionLabelKey)}
@@ -322,7 +322,7 @@ boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
 
   return (
     <div
-      className="flex max-h-[min(480px,72vh)] w-[min(calc(100vw-20px),400px)] flex-col overflow-hidden rounded-2xl border shadow-2xl"
+      className="flex max-h-[min(400px,60vh)] w-[min(calc(100vw-20px),320px)] flex-col overflow-hidden rounded-2xl border shadow-2xl"
       style={{
         background: 'var(--bg-secondary)',
         borderColor: 'var(--border)',
@@ -352,7 +352,7 @@ boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
           ) : null}
         </div>
       ) : onCloseMenu ? (
-        <div className="flex shrink-0 justify-end border-b border-[var(--border)] px-2 py-1">
+        <div className="flex shrink-0 justify-end border-b border-[var(--border)] px-2 py-0.5">
           <button
             type="button"
             className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)]"
@@ -365,18 +365,18 @@ boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
       ) : null}
 
       <div
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-3 py-3 transition-transform duration-150"
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2 transition-transform duration-150"
         style={{ transform: view === 'root' ? 'translateX(0)' : 'translateX(0)' }}
       >
         {view === 'root' ? (
           <>
             <p
-              className="px-1 pb-2 pt-0.5 text-[10px] font-semibold uppercase tracking-wider"
+              className="px-1 pb-1 pt-0.5 text-[9px] font-semibold uppercase tracking-wider"
               style={{ color: 'var(--tertiary-text)' }}
             >
               {t('chat.menu_quick_actions')}
             </p>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {showAttach ? (
                 <MenuPillButton
                   icon={Paperclip}
