@@ -56,6 +56,8 @@ jobs:
 
       - name: Tool definitions vs handlers
         run: npm run check:tool-coverage
+
+  build:
     name: Vite Build
     runs-on: ubuntu-latest
     steps:

@@ -31,6 +31,7 @@
     "generate:ipc-inventory": "node scripts/generate-ipc-inventory.mjs",
     "check:ipc-inventory": "node scripts/generate-ipc-inventory.mjs --check",
     "check:ipc-zod": "node scripts/check-ipc-zod.mjs",
+    "check:tool-coverage": "node scripts/verify-tool-coverage.mjs",
     "test:db": "tsx scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "tsx scripts/generate-icons.ts"
