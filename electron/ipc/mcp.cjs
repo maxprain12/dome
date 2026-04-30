@@ -20,17 +20,10 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     try {
       const tools = await getMCPTools(database);
       const toolCount = Array.isArray(tools) ? tools.length : 0;
-      return {
-        success: true,
-        toolCount,
-      };
+      return { success: true, toolCount };
     } catch (err) {
       console.warn('[MCP] Test connection failed:', err?.message);
-      return {
-        success: false,
-        toolCount: 0,
-        error: err?.message || String(err),
-      };
+      return { success: false, toolCount: 0, error: err?.message || String(err) };
     }
   });
 
