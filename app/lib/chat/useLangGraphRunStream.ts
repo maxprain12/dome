@@ -22,6 +22,7 @@ import {
   type PersistentRunStep,
 } from '@/lib/automations/api';
 import { streamingLabelForToolName } from './streamingLabels';
+import { coalesceDuplicateToolCalls, applyToolResultChunk } from './coalesceToolCalls';
 
 export interface RunPendingApproval {
   actionRequests: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
@@ -121,19 +122,26 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
           }
         })();
         setStreamingMessage((prev) => {
-          const nextToolCalls: ToolCallData[] = [
-            ...(prev?.toolCalls ?? []),
-            {
-              id: tc.id,
-              name: tc.name,
-              arguments: parsedArgs,
-              status: 'running' as ToolCallData['status'],
-            },
-          ];
+          const existing = prev?.toolCalls ?? [];
+          const entry: ToolCallData = {
+            id: tc.id,
+            name: tc.name,
+            arguments: parsedArgs,
+            status: 'running' as ToolCallData['status'],
+          };
+          const idx = existing.findIndex((c) => c.id === tc.id);
+          const nextToolCalls: ToolCallData[] =
+            idx >= 0
+              ? (() => {
+                  const next = existing.slice();
+                  next[idx] = { ...next[idx], ...entry };
+                  return next;
+                })()
+              : [...existing, entry];
           return prev
             ? {
                 ...prev,
-                toolCalls: nextToolCalls,
+                toolCalls: coalesceDuplicateToolCalls(nextToolCalls),
                 streamingLabel: streamingLabelForToolName(tc.name, t),
               }
             : {
@@ -142,7 +150,7 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
                 content: '',
                 timestamp: Date.now(),
                 isStreaming: true,
-                toolCalls: nextToolCalls,
+                toolCalls: coalesceDuplicateToolCalls(nextToolCalls),
                 streamingLabel: streamingLabelForToolName(tc.name, t),
               };
         });
@@ -154,11 +162,7 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
           if (!prev?.toolCalls) return prev;
           return {
             ...prev,
-            toolCalls: prev.toolCalls.map((call) =>
-              call.id === payload.toolCallId
-                ? { ...call, status: 'success' as ToolCallData['status'], result: payload.result }
-                : call,
-            ),
+            toolCalls: applyToolResultChunk(prev.toolCalls, String(payload.toolCallId), payload.result),
           };
         });
         return;

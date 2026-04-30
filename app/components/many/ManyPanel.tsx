@@ -49,6 +49,7 @@ import { runPdfRegionStream } from '@/lib/hooks/usePdfRegionStream';
 import PdfRegionBanner from '@/components/many/PdfRegionBanner';
 import { streamingLabelForToolName } from '@/lib/chat/streamingLabels';
 import { useLangGraphRunStream } from '@/lib/chat/useLangGraphRunStream';
+import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
 import { buildAttachmentPrefix } from '@/lib/chat/attachmentTypes';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
@@ -466,24 +467,28 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       setStatus('idle');
       setPendingApproval(null);
       setStreamingMessage((prev) => {
-        if (prev) return { ...prev, isStreaming: false };
-        const toolCalls = Array.isArray(run.metadata?.toolCalls)
+        const metaToolCallsRaw = Array.isArray(run.metadata?.toolCalls)
           ? (run.metadata.toolCalls as ToolCallData[])
           : [];
-        if (!run.outputText && toolCalls.length === 0) return null;
+        const metaToolCalls = coalesceDuplicateToolCalls(metaToolCallsRaw);
+        if (prev) {
+          const toolCalls = metaToolCalls.length > 0 ? metaToolCalls : coalesceDuplicateToolCalls(prev.toolCalls ?? []);
+          return { ...prev, isStreaming: false, toolCalls };
+        }
+        if (!run.outputText && metaToolCalls.length === 0) return null;
         return {
           id: `run-${run.id}`,
           role: 'assistant',
           content: run.outputText || '',
           timestamp: run.updatedAt || Date.now(),
           isStreaming: false,
-          toolCalls,
+          toolCalls: metaToolCalls,
         };
       });
       const finalContent = run.outputText || '';
-      const finalToolCalls: ToolCallData[] = Array.isArray(run.metadata?.toolCalls)
-        ? (run.metadata.toolCalls as ToolCallData[])
-        : [];
+      const finalToolCalls: ToolCallData[] = coalesceDuplicateToolCalls(
+        Array.isArray(run.metadata?.toolCalls) ? (run.metadata.toolCalls as ToolCallData[]) : [],
+      );
       const tryRefresh = (attemptsLeft: number) => {
         void refreshSessionFromDbRef
           .current()
@@ -1153,7 +1158,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
   const loadingHint = useMemo(() => {
     if (pendingApproval) return t('chat.waiting_approval_hint');
-    const running = streamingMessage?.toolCalls?.find((tc) => tc.status === 'running');
+    const calls = coalesceDuplicateToolCalls(streamingMessage?.toolCalls ?? []);
+    const running = calls.find((tc) => tc.status === 'running');
     if (running?.name) {
       return streamingLabelForToolName(running.name, t);
     }
@@ -1244,7 +1250,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               hasMcp={hasLangGraph}
               onSend={() => handleSend()}
               onAbort={handleAbort}
-              onVoiceSend={(text) => void handleSend(text, { autoSpeak: true })}
               isWelcomeScreen
               inputPlaceholderOverride={
                 pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null
@@ -1462,7 +1467,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               hasMcp={hasLangGraph}
               onSend={() => handleSend()}
               onAbort={handleAbort}
-              onVoiceSend={(text) => void handleSend(text, { autoSpeak: true })}
               inputPlaceholderOverride={
                 pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null
               }
@@ -1487,7 +1491,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             hasMcp={hasLangGraph}
             onSend={() => handleSend()}
             onAbort={handleAbort}
-            onVoiceSend={(text) => void handleSend(text, { autoSpeak: true })}
             inputPlaceholderOverride={
               pendingPdfRegion ? t('many.input_placeholder_pdf_region') : null
             }

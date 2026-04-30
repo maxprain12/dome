@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n, { getDateTimeLocaleTag } from '@/lib/i18n';
+import { getToolDisplayLabel } from '@/lib/chat/toolDisplayLabels';
 import {
   X,
   CheckCircle2,
@@ -12,8 +13,16 @@ import {
   FileText,
   Database,
   Plug,
-  Image,
   FileTextIcon,
+  ShoppingBag,
+  GitBranch,
+  Bot,
+  Zap,
+  Network,
+  GraduationCap,
+  Crop,
+  Layers,
+  Calendar,
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import DomeDrawerLayout from '@/components/ui/DomeDrawerLayout';
@@ -30,17 +39,41 @@ import type { PersistentRun, PersistentRunStep } from '@/lib/automations/api';
 import { getRunProgress } from '@/lib/automations/run-progress';
 import { statusLabel } from '@/lib/automations/run-status';
 
-// ─── Shared helpers (subset of ChatToolCard logic, dependency-free) ──────────
+// ─── Shared helpers (aligned with ChatToolCard icons + toolDisplayLabels) ───
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const TOOL_ICONS: Record<string, any> = {
-  web_search: Search, web_fetch: Globe,
-  resource_create: FileText, resource_get: FileText, resource_search: Search,
-  call_research_agent: Search, call_library_agent: FileText,
-  call_writer_agent: FileText, call_data_agent: Database,
-  pdf_extract_text: FileTextIcon, pdf_get_metadata: FileTextIcon,
-  pdf_summarize: FileTextIcon, pdf_extract_tables: FileTextIcon,
-  image_crop: Image, image_thumbnail: Image,
+  web_search: Search,
+  web_fetch: Globe,
+  resource_create: FileText,
+  resource_get: FileText,
+  resource_search: Search,
+  resource_hybrid_search: Search,
+  call_research_agent: Search,
+  call_library_agent: FileText,
+  call_writer_agent: FileText,
+  call_data_agent: Database,
+  pdf_extract_text: FileTextIcon,
+  pdf_get_metadata: FileTextIcon,
+  pdf_summarize: FileTextIcon,
+  pdf_extract_tables: FileTextIcon,
+  image_crop: Crop,
+  image_thumbnail: Layers,
+  marketplace_search: ShoppingBag,
+  marketplace_install: ShoppingBag,
+  workflow_create: GitBranch,
+  agent_create: Bot,
+  automation_create: Zap,
+  browser_get_active_tab: Globe,
+  generate_mindmap: Network,
+  generate_quiz: GraduationCap,
+  generate_knowledge_graph: Network,
+  calendar_list_events: Calendar,
+  calendar_get_upcoming: Calendar,
+  calendar_create_event: Calendar,
+  calendar_update_event: Calendar,
+  calendar_delete_event: Calendar,
+  flashcard_create: Layers,
 };
 
 function getIconForTool(name: string) {
@@ -49,13 +82,6 @@ function getIconForTool(name: string) {
   if (n.includes('postgres') || n.includes('sql') || n.includes('database')) return Database;
   if (n.startsWith('mcp')) return Plug;
   return Globe;
-}
-
-function getLabelForTool(name: string): string {
-  const key = `runLog.tools.${name}`;
-  const translated = i18n.t(key);
-  if (translated !== key) return translated;
-  return name.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || name;
 }
 
 function formatArgsSummary(args: Record<string, unknown>): string {
@@ -132,7 +158,7 @@ export function RunStepCard({ step }: { step: PersistentRunStep }) {
 
   const toolName = isToolCall ? step.title : '';
   const Icon = isToolCall ? getIconForTool(toolName) : isThinking ? Clock : isMessage ? FileText : Globe;
-  const label = isToolCall ? getLabelForTool(toolName) : step.title;
+  const label = isToolCall ? getToolDisplayLabel(toolName, t) : step.title;
 
   // Parse tool args from metadata
   const toolArgs = useMemo(() => {

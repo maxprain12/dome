@@ -25,12 +25,14 @@ Full rules: [docs/principles.md](docs/principles.md) · Architecture: [docs/arch
 
 ### Step 0 — Classify
 
-| Type | Branch prefix |
-| ---- | -------------- |
-| feature | `feat/` |
-| fix | `fix/` |
-| refactor | `refactor/` |
-| docs/config only | `docs/` |
+
+| Type             | Branch prefix |
+| ---------------- | ------------- |
+| feature          | `feat/`       |
+| fix              | `fix/`        |
+| refactor         | `refactor/`   |
+| docs/config only | `docs/`       |
+
 
 ### Step 1 — Branch
 
@@ -77,26 +79,29 @@ gh pr merge --auto --squash
 
 ## Prompts (versioned)
 
-| What | Where |
-| ---- | ----- |
-| AI review (3 passes) | `prompts/review/*.md` + `scripts/ai-review.mjs` |
-| VPS audits | `prompts/audits/<focus>.md` + `prompts/shared/project-context.md` |
-| Version bump | Change `version:` in frontmatter when prompt semantics change |
+
+| What                 | Where                                                             |
+| -------------------- | ----------------------------------------------------------------- |
+| AI review (3 passes) | `prompts/review/*.md` + `scripts/ai-review.mjs`                   |
+| VPS audits           | `prompts/audits/<focus>.md` + `prompts/shared/project-context.md` |
+| Version bump         | Change `version:` in frontmatter when prompt semantics change     |
+
 
 ---
 
 ## Where to look
 
-| Need | Location |
-| ---- | -------- |
-| Principles / P-ids | [docs/principles.md](docs/principles.md) |
-| Architecture / IPC list | [docs/architecture/](docs/architecture/) |
-| Feature docs | [docs/features/](docs/features/) |
-| Plans | [docs/plans/](docs/plans/) |
-| Architecture rules (long) | [.claude/rules/architecture-rules.md](.claude/rules/architecture-rules.md) |
-| SOPs | [.claude/sops/](.claude/sops/) |
-| i18n | [app/lib/i18n.ts](app/lib/i18n.ts) |
-| IPC domain files | [electron/ipc/](electron/ipc/) |
-| Skills | `~/.dome/skills/`, `.dome/skills/`, [electron/skills/bundled/](electron/skills/bundled/) — [CLAUDE.md](CLAUDE.md) |
-| Audit milestones | [scripts/audit-milestones.json](scripts/audit-milestones.json) |
-| VPS setup | [docs/vps-audit-setup.md](docs/vps-audit-setup.md) |
+
+| Need                      | Location                                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Principles / P-ids        | [docs/principles.md](docs/principles.md)                                                                          |
+| Architecture / IPC list   | [docs/architecture/](docs/architecture/)                                                                          |
+| Feature docs              | [docs/features/](docs/features/)                                                                                  |
+| Plans                     | [docs/plans/](docs/plans/)                                                                                        |
+| Architecture rules (long) | [.claude/rules/architecture-rules.md](.claude/rules/architecture-rules.md)                                        |
+| SOPs                      | [.claude/sops/](.claude/sops/)                                                                                    |
+| i18n                      | [app/lib/i18n.ts](app/lib/i18n.ts)                                                                                |
+| IPC domain files          | [electron/ipc/](electron/ipc/)                                                                                    |
+| Skills                    | `~/.dome/skills/`, `.dome/skills/`, [electron/skills/bundled/](electron/skills/bundled/) — [CLAUDE.md](CLAUDE.md) |
+| Audit milestones          | [scripts/audit-milestones.json](scripts/audit-milestones.json)                                                    |
+| VPS setup                 | [docs/vps-audit-setup.md](docs/vps-audit-setup.md)                                                                |

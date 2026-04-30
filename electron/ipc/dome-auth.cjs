@@ -66,7 +66,7 @@ function register({ ipcMain, windowManager, database }) {
       }
       const response = await domeOauth.fetchWithDomeAuth(
         database,
-        `${domeOauth.PROVIDER_BASE_URL}/api/v1/me/quota`,
+        `${domeOauth.getDomeProviderBaseUrl()}/api/v1/me/quota`,
       );
       if (!response.ok) {
         const text = await response.text();

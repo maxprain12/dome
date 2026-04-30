@@ -15,6 +15,8 @@ import { useManyStore } from '@/lib/store/useManyStore';
 import { showToast } from '@/lib/store/useToastStore';
 import type { PdfRegionMeta } from '@/lib/store/useManyStore';
 import { parseArtifactBlocks, stripArtifactBlocks } from '@/lib/chat/artifactSchemas';
+import { calendarArtifactFromToolCalls } from '@/lib/chat/calendarToolArtifact';
+import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import type { PersistentRunStep } from '@/lib/automations/api';
 
 /**
@@ -202,17 +204,29 @@ export default function ChatMessage({
     });
   }, [message.content, message.isStreaming, t]);
 
+  const displayToolCalls = useMemo(
+    () => coalesceDuplicateToolCalls(message.toolCalls ?? []),
+    [message.toolCalls],
+  );
+
   // Group tool calls by name for cleaner display
   const groupedToolCalls = useMemo(() => {
-    if (!message.toolCalls || message.toolCalls.length === 0) return [];
+    if (!displayToolCalls.length) return [];
     const grouped = new Map<string, ToolCallData[]>();
-    for (const tc of message.toolCalls) {
+    for (const tc of displayToolCalls) {
       const arr = grouped.get(tc.name) ?? [];
       arr.push(tc);
       grouped.set(tc.name, arr);
     }
     return Array.from(grouped.entries()).map(([name, calls]) => ({ name, calls }));
-  }, [message.toolCalls]);
+  }, [displayToolCalls]);
+
+  const derivedCalendarArtifact = useMemo((): AnyArtifact | null => {
+    if (!isAssistant || !displayToolCalls.length) return null;
+    const c = message.content || '';
+    if (c.includes('artifact:calendar_event')) return null;
+    return calendarArtifactFromToolCalls(displayToolCalls);
+  }, [isAssistant, displayToolCalls, message.content]);
 
   return (
     <div className={`ai-message-item group relative ${className}`}>
@@ -256,6 +270,12 @@ export default function ChatMessage({
             )}
           </div>
         )}
+
+        {derivedCalendarArtifact ? (
+          <div className="w-full min-w-0 max-w-full my-2">
+            <ArtifactCard artifact={derivedCalendarArtifact} />
+          </div>
+        ) : null}
 
         {isAssistant && message.runSteps && message.runSteps.length > 0 ? (
           <AgentRunTimeline steps={message.runSteps} className="max-w-full" />

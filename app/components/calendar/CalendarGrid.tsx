@@ -12,6 +12,8 @@ import {
   startOfYear, eachMonthOfInterval, endOfYear, addMinutes,
 } from 'date-fns';
 import type { CalendarEvent, CalendarViewMode } from '@/lib/store/useCalendarStore';
+import type { Locale } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/i18n';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,12 +40,22 @@ const HOUR_HEIGHT = 56;
 const DAY_START_HOUR = 0;
 const DAY_END_HOUR = 24;
 const MODES: CalendarViewMode[] = ['day', 'week', 'month', 'year'];
-const MODE_LABELS: Record<CalendarViewMode, string> = {
-  day: 'Día', week: 'Semana', month: 'Mes', year: 'Año',
-};
-const WEEKDAYS_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+function formatHeader(date: Date, mode: CalendarViewMode, locale: Locale): string {
+  switch (mode) {
+    case 'day':
+      return format(date, 'PPPP', { locale });
+    case 'week': {
+      const s = startOfWeek(date, { weekStartsOn: 1 });
+      const e = endOfWeek(date, { weekStartsOn: 1 });
+      return `${format(s, 'd MMM', { locale })} – ${format(e, 'd MMM yyyy', { locale })}`;
+    }
+    case 'month':
+      return format(date, 'MMMM yyyy', { locale });
+    case 'year':
+      return format(date, 'yyyy');
+  }
+}
 
 function navigateDate(date: Date, mode: CalendarViewMode, dir: 1 | -1): Date {
   switch (mode) {
@@ -51,19 +63,6 @@ function navigateDate(date: Date, mode: CalendarViewMode, dir: 1 | -1): Date {
     case 'week':  return dir === 1 ? addWeeks(date, 1)  : subWeeks(date, 1);
     case 'month': return dir === 1 ? addMonths(date, 1) : subMonths(date, 1);
     case 'year':  return dir === 1 ? addYears(date, 1)  : subYears(date, 1);
-  }
-}
-
-function formatHeader(date: Date, mode: CalendarViewMode): string {
-  switch (mode) {
-    case 'day': return format(date, "EEEE, d 'de' MMMM yyyy");
-    case 'week': {
-      const s = startOfWeek(date, { weekStartsOn: 1 });
-      const e = endOfWeek(date, { weekStartsOn: 1 });
-      return `${format(s, 'd MMM')} – ${format(e, 'd MMM yyyy')}`;
-    }
-    case 'month': return format(date, 'MMMM yyyy');
-    case 'year':  return format(date, 'yyyy');
   }
 }
 
@@ -109,12 +108,14 @@ function MonthView({
   onDayClick,
   onEventClick,
   onEventDateChange,
+  weekdayShortLabels,
 }: {
   date: Date;
   events: CalendarEvent[];
   onDayClick: (d: Date) => void;
   onEventClick: (e: CalendarEvent) => void;
   onEventDateChange?: (p: EventDateChangePayload) => void;
+  weekdayShortLabels: string[];
 }) {
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const dragEventRef = useRef<CalendarEvent | null>(null);
@@ -150,7 +151,7 @@ function MonthView({
     <div className="w-full h-full flex flex-col">
       {/* Weekday header */}
       <div className="grid grid-cols-7 border-b shrink-0" style={{ borderColor: 'var(--dome-border)' }}>
-        {WEEKDAYS_SHORT.map((wd) => (
+        {weekdayShortLabels.map((wd) => (
           <div key={wd} className="py-2 text-center text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
             {wd}
           </div>
@@ -370,11 +371,13 @@ function WeekView({
   events,
   onEventClick,
   onEventDateChange,
+  dfLocale,
 }: {
   date: Date;
   events: CalendarEvent[];
   onEventClick?: (e: CalendarEvent) => void;
   onEventDateChange?: (p: EventDateChangePayload) => void;
+  dfLocale: Locale;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const weekStart = startOfWeek(date, { weekStartsOn: 1 });
@@ -415,7 +418,7 @@ function WeekView({
               background: 'var(--dome-bg)',
             }}
           >
-            <div className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>{format(day, 'EEE')}</div>
+            <div className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>{format(day, 'EEE', { locale: dfLocale })}</div>
             <div
               className="text-base mx-auto mt-0.5 w-8 h-8 flex items-center justify-center rounded-full font-medium"
               style={{
@@ -548,10 +551,12 @@ function YearView({
   date,
   events,
   onMonthClick,
+  dfLocale,
 }: {
   date: Date;
   events: CalendarEvent[];
   onMonthClick: (d: Date) => void;
+  dfLocale: Locale;
 }) {
   const months = eachMonthOfInterval({ start: startOfYear(date), end: endOfYear(date) });
 
@@ -590,7 +595,7 @@ function YearView({
               className="text-[12px] font-semibold mb-2 capitalize"
               style={{ color: isCurrentMonth ? 'var(--dome-accent)' : 'var(--dome-text)' }}
             >
-              {format(month, 'MMMM')}
+              {format(month, 'MMMM', { locale: dfLocale })}
             </div>
 
             <div className="grid grid-cols-7 gap-px mb-1">
@@ -652,7 +657,26 @@ export default function CalendarGrid({
   onEventClick,
   onEventDateChange,
 }: CalendarGridProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const dfLocale = useMemo(() => getDateFnsLocale(), [i18n.language]);
+  const modeLabels = useMemo(
+    (): Record<CalendarViewMode, string> => ({
+      day: t('calendarPage.view_day'),
+      week: t('calendarPage.view_week'),
+      month: t('calendarPage.view_month'),
+      year: t('calendarPage.view_year'),
+    }),
+    [t],
+  );
+  const weekdayShortLabels = useMemo(() => {
+    const ws = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => format(addDays(ws, i), 'EEE', { locale: dfLocale }));
+  }, [dfLocale]);
+  const headerTitle = useMemo(
+    () => formatHeader(currentDate, viewMode, dfLocale),
+    [currentDate, viewMode, dfLocale],
+  );
+
   const handlePrev = useCallback(
     () => onCurrentDateChange(navigateDate(currentDate, viewMode, -1)),
     [currentDate, viewMode, onCurrentDateChange],
@@ -700,10 +724,10 @@ export default function CalendarGrid({
             className="text-xs px-2.5 py-1 rounded-lg border hover:bg-[var(--dome-surface)] transition-colors ml-1"
             style={{ color: 'var(--dome-text)', borderColor: 'var(--dome-border)' }}
           >
-            Hoy
+            {t('calendarPage.today')}
           </button>
           <span className="text-sm font-semibold ml-2 capitalize" style={{ color: 'var(--dome-text)' }}>
-            {formatHeader(currentDate, viewMode)}
+            {headerTitle}
           </span>
         </div>
 
@@ -721,7 +745,7 @@ export default function CalendarGrid({
                 borderRight: i < MODES.length - 1 ? '1px solid var(--dome-border)' : undefined,
               }}
             >
-              {MODE_LABELS[m]}
+              {modeLabels[m]}
             </button>
           ))}
         </div>
@@ -736,6 +760,7 @@ export default function CalendarGrid({
             onDayClick={onDayClick}
             onEventClick={onEventClick}
             onEventDateChange={onEventDateChange}
+            weekdayShortLabels={weekdayShortLabels}
           />
         )}
         {viewMode === 'week' && (
@@ -744,6 +769,7 @@ export default function CalendarGrid({
             events={events}
             onEventClick={onEventClick}
             onEventDateChange={onEventDateChange}
+            dfLocale={dfLocale}
           />
         )}
         {viewMode === 'day' && (
@@ -759,6 +785,7 @@ export default function CalendarGrid({
             date={currentDate}
             events={events}
             onMonthClick={handleYearMonthClick}
+            dfLocale={dfLocale}
           />
         )}
       </div>

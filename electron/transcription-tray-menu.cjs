@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 const hubTrayState = require('./hub-tray-state.cjs');
-const transcriptionOverlay = require('./transcription-overlay.cjs');
+const transcriptionMainHub = require('./transcription-main-hub.cjs');
 
 /**
  * @param {import('./window-manager.cjs')} windowManager
@@ -9,16 +9,7 @@ const transcriptionOverlay = require('./transcription-overlay.cjs');
  * @param {() => void} opts.quitApp
  */
 function sendTrayAction(windowManager, action) {
-  try {
-    transcriptionOverlay.ensureCreated(windowManager);
-    transcriptionOverlay.showAndFocus(windowManager);
-    const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
-    if (ov && !ov.isDestroyed()) {
-      ov.webContents.send('transcription:tray-action', { action });
-    }
-  } catch (e) {
-    console.warn('[TranscriptionTray] send action', action, e?.message);
-  }
+  transcriptionMainHub.sendTrayActionToMain(windowManager, action);
 }
 
 /**
@@ -77,8 +68,7 @@ function buildTranscriptionTrayTemplate(windowManager, opts) {
       label: 'Mostrar hub de transcripción',
       click: () => {
         try {
-          transcriptionOverlay.ensureCreated(windowManager);
-          transcriptionOverlay.showAndFocus(windowManager);
+          transcriptionMainHub.focusMainExpandHubDock(windowManager);
         } catch (e) {
           console.warn('[TranscriptionTray] show hub:', e?.message);
         }
@@ -98,12 +88,7 @@ function buildTranscriptionTrayTemplate(windowManager, opts) {
       label: 'Grabar / dictado',
       click: () => {
         try {
-          transcriptionOverlay.ensureCreated(windowManager);
-          transcriptionOverlay.showAndFocus(windowManager);
-          const ov = windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID);
-          if (ov && !ov.isDestroyed()) {
-            ov.webContents.send('transcription:toggle-recording');
-          }
+          transcriptionMainHub.sendToggleRecordingToMain(windowManager);
         } catch (e) {
           console.warn('[TranscriptionTray] toggle recording:', e?.message);
           opts.openMainWindow();

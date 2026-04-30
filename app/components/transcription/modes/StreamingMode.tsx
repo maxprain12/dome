@@ -116,12 +116,6 @@ export default function StreamingMode({ isActive = true }: Props) {
     return () => setTranscriptionTrayHandlers(null);
   }, [visible, rec, rec.phase, rec.stopRecording, rec.cancelRecording, rec.pauseRecording, rec.resumeRecording]);
 
-  useEffect(() => {
-    if (!window.electron?.transcriptionOverlay?.overlaySetVisible) return undefined;
-    void window.electron.transcriptionOverlay.overlaySetVisible(visible);
-    return undefined;
-  }, [visible]);
-
   if (!visible) return null;
 
   const _isRecording = rec.phase === 'recording';

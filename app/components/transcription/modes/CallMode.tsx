@@ -427,12 +427,6 @@ export default function CallMode({ isActive = true }: Props) {
   ]);
 
   useEffect(() => {
-    if (!window.electron?.transcriptionOverlay?.overlaySetVisible) return undefined;
-    void window.electron.transcriptionOverlay.overlaySetVisible(visible);
-    return undefined;
-  }, [visible]);
-
-  useEffect(() => {
     if (!showLiveTranscript || !window.electron?.calls?.getLive) {
       if (livePollRef.current) clearInterval(livePollRef.current);
       livePollRef.current = null;

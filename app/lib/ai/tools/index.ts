@@ -243,6 +243,7 @@ export {
   createCalendarUpdateTool,
   createCalendarDeleteTool,
   createCalendarListTool,
+  createCalendarGetUpcomingTool,
   createCalendarTools,
 } from './calendar-tools';
 

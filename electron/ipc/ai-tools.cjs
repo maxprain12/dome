@@ -149,6 +149,27 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
   });
 
   /**
+   * Hybrid search (RRF: semantic + graph + FTS)
+   */
+  ipcMain.handle('ai:tools:resourceHybridSearch', async (event, { query, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const result = await aiToolsHandler.resourceHybridSearch(query, options || {});
+      toolTrace('resourceHybridSearch', { query, options }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceHybridSearch', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('resourceHybridSearch', { query, options }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:resourceHybridSearch', false);
+      console.error('[AI Tools] resourceHybridSearch error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
    * List all projects
    */
   ipcMain.handle('ai:tools:projectList', async (event) => {

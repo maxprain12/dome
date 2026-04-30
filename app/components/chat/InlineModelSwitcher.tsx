@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -36,6 +37,8 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
   const [addingCustom, setAddingCustom] = useState(false);
   const [customDraft, setCustomDraft] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
+  const portalDropdownRef = useRef<HTMLDivElement>(null);
+  const [portalAnchor, setPortalAnchor] = useState<DOMRect | null>(null);
 
   const refresh = useCallback(async () => {
     const cfg = await getAIConfig();
@@ -78,14 +81,33 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
     return () => window.removeEventListener('dome:ai-config-changed', onCfg);
   }, [refresh]);
 
+  useLayoutEffect(() => {
+    if (!open || !containerRef.current) {
+      setPortalAnchor(null);
+      return;
+    }
+    const update = () => {
+      if (containerRef.current) {
+        setPortalAnchor(containerRef.current.getBoundingClientRect());
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const h = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setAddingCustom(false);
-        setCustomDraft('');
-      }
+      const t = e.target as Node;
+      if (containerRef.current?.contains(t) || portalDropdownRef.current?.contains(t)) return;
+      setOpen(false);
+      setAddingCustom(false);
+      setCustomDraft('');
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
@@ -159,11 +181,11 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
   if (!visible) return null;
 
   return (
-    <div ref={containerRef} className="relative shrink-0">
+    <div ref={containerRef} className="relative min-w-0 shrink">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex max-w-[140px] items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] px-2.5 py-1 text-left text-[11px] font-medium text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+        className="flex max-w-[min(140px,100%)] items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] px-2.5 py-1 text-left text-[11px] font-medium text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
         title={t('chat.model_switcher_title')}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -171,69 +193,79 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
         <span className="min-w-0 flex-1 truncate">{selectedLabel}</span>
         <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
       </button>
-      {open ? (
-        <div
-          role="listbox"
-          className="absolute bottom-full right-0 z-[var(--z-dropdown)] mb-1 max-h-56 min-w-[200px] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg)] py-1 shadow-lg"
-        >
-          {options.map((o) => {
-            const sel = o.id === currentModelId;
-            return (
-              <button
-                key={o.id}
-                type="button"
-                role="option"
-                aria-selected={sel}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] hover:bg-[var(--bg-hover)]"
-                style={{ color: 'var(--primary-text)' }}
-                onClick={() => void pickModel(o.id)}
-              >
-                {sel ? <Check className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" aria-hidden /> : (
-                  <span className="w-3.5 shrink-0" aria-hidden />
-                )}
-                <span className="min-w-0 flex-1 truncate">{o.label}</span>
-              </button>
-            );
-          })}
-          {allowCustom ? (
-            <div className="border-t border-[var(--border)] px-2 py-2">
-              {addingCustom ? (
-                <div className="flex flex-col gap-1.5">
-                  <input
-                    type="text"
-                    value={customDraft}
-                    onChange={(e) => setCustomDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void submitCustom();
-                      }
-                    }}
-                    placeholder={t('chat.custom_model_placeholder')}
-                    className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1 text-[11px] text-[var(--primary-text)]"
-                    autoFocus
-                  />
+      {open && portalAnchor && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              ref={portalDropdownRef}
+              role="listbox"
+              className="fixed z-[var(--z-popover)] max-h-56 min-w-[200px] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg)] py-1 shadow-lg"
+              style={{
+                right: window.innerWidth - portalAnchor.right,
+                bottom: window.innerHeight - portalAnchor.top + 8,
+                minWidth: Math.max(200, portalAnchor.width),
+                maxWidth: Math.min(320, window.innerWidth - 16),
+              }}
+            >
+              {options.map((o) => {
+                const sel = o.id === currentModelId;
+                return (
                   <button
+                    key={o.id}
                     type="button"
-                    className="rounded-md bg-[var(--bg-tertiary)] px-2 py-1 text-[11px] font-medium text-[var(--primary-text)] hover:bg-[var(--bg-hover)]"
-                    onClick={() => void submitCustom()}
+                    role="option"
+                    aria-selected={sel}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] hover:bg-[var(--bg-hover)]"
+                    style={{ color: 'var(--primary-text)' }}
+                    onClick={() => void pickModel(o.id)}
                   >
-                    {t('common.add')}
+                    {sel ? <Check className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" aria-hidden /> : (
+                      <span className="w-3.5 shrink-0" aria-hidden />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{o.label}</span>
                   </button>
+                );
+              })}
+              {allowCustom ? (
+                <div className="border-t border-[var(--border)] px-2 py-2">
+                  {addingCustom ? (
+                    <div className="flex flex-col gap-1.5">
+                      <input
+                        type="text"
+                        value={customDraft}
+                        onChange={(e) => setCustomDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void submitCustom();
+                          }
+                        }}
+                        placeholder={t('chat.custom_model_placeholder')}
+                        className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1 text-[11px] text-[var(--primary-text)]"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        className="rounded-md bg-[var(--bg-tertiary)] px-2 py-1 text-[11px] font-medium text-[var(--primary-text)] hover:bg-[var(--bg-hover)]"
+                        onClick={() => void submitCustom()}
+                      >
+                        {t('common.add')}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-medium text-[var(--accent)] hover:bg-[var(--bg-hover)]"
+                      onClick={() => setAddingCustom(true)}
+                    >
+                      {t('chat.add_custom_model')}
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  className="w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-medium text-[var(--accent)] hover:bg-[var(--bg-hover)]"
-                  onClick={() => setAddingCustom(true)}
-                >
-                  {t('chat.add_custom_model')}
-                </button>
-              )}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+              ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

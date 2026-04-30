@@ -1038,6 +1038,41 @@ declare global {
             }>;
             error?: string;
           }>;
+          resourceHybridSearch: (
+            query: string,
+            options?: {
+              project_id?: string;
+              type?: string;
+              limit?: number;
+              semantic_min_score?: number;
+              include_backlinks?: boolean;
+              candidate_limit?: number;
+              rrf_k?: number;
+            }
+          ) => Promise<{
+            success: boolean;
+            query?: string;
+            method?: string;
+            count?: number;
+            navigation_note?: string | null;
+            results?: Array<{
+              id: string;
+              title: string;
+              type: string;
+              project_id: string;
+              hybrid_sources?: string[];
+              similarity?: number;
+              snippet: string;
+              chunk_id?: string;
+              chunk_index?: number;
+              page_number?: number | null;
+              search_hint?: string | null;
+              created_at: number;
+              updated_at: number;
+              metadata?: Record<string, any>;
+            }>;
+            error?: string;
+          }>;
           pdfRenderPage: (payload: {
             resource_id: string;
             page_number: number;
@@ -1577,11 +1612,7 @@ declare global {
           /** Whether pause/resume is supported (tray menu). */
           canPause?: boolean;
         }) => Promise<{ success: boolean; error?: string }>;
-        overlaySetVisible: (visible: boolean) => Promise<{ success: boolean; error?: string }>;
-        overlayResize: (height: number) => Promise<{ success: boolean; error?: string }>;
-        overlayWindowChrome: (action: 'minimize' | 'close') => Promise<{ success: boolean; error?: string }>;
         openNoteInMain: (payload: { noteId: string; title?: string }) => Promise<{ success: boolean; error?: string }>;
-        onOverlayLoaded: (callback: () => void) => RemoveListenerFn;
       };
 
       // Ollama API

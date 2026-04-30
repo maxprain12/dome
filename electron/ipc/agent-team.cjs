@@ -20,7 +20,7 @@
  */
 
 const { setMaxListeners } = require('events');
-const DOME_PROVIDER_URL = process.env.DOME_PROVIDER_URL || 'http://localhost:3000';
+const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
 const langgraphAgent = require('../langgraph-agent.cjs');
 const { getToolDefinitionsByIds } = require('../tool-dispatcher.cjs');
 const domeOauth = require('../dome-oauth.cjs');
@@ -62,7 +62,7 @@ async function getAISettings(database) {
       provider: 'dome',
       apiKey: session?.accessToken,
       model: queries.getSetting.get('ai_model')?.value || 'dome/auto',
-      baseUrl: DOME_PROVIDER_URL,
+      baseUrl: `${getDomeProviderBaseUrl()}/api/v1`,
     };
   }
 

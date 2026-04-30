@@ -59,6 +59,7 @@ La integración es **completamente opcional**. Dome funciona perfectamente sin P
 
 | Archivo | Rol |
 |---------|-----|
+| `electron/dome-provider-url.cjs` | URL base del provider (env, embed CI, fallback prod `:3001` dev) |
 | `electron/dome-oauth.cjs` | Gestión de sesión OAuth con el Provider |
 | `electron/ipc/dome-auth.cjs` | IPC handlers para `dome-auth:*` channels |
 | `electron/ipc/agent-team.cjs` | Usa Provider como proveedor AI para Agent Teams |
@@ -103,13 +104,14 @@ Cuando el usuario selecciona "Dome" en Settings → AI:
 
 ```javascript
 // electron/ipc/agent-team.cjs — getAISettings()
+const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
 if (provider === 'dome') {
   const session = await domeOauth.getOrRefreshSession(database);
   return {
     provider: 'dome',
-    apiKey: session?.accessToken,     // Bearer token del Provider
-    model: 'dome/auto',               // modelo proxy del Provider
-    baseUrl: DOME_PROVIDER_URL,       // http://localhost:3001 (dev) o URL prod
+    apiKey: session?.accessToken,
+    model: 'dome/auto',
+    baseUrl: `${getDomeProviderBaseUrl()}/api/v1`,
   };
 }
 ```
@@ -122,12 +124,14 @@ El cliente AI (`app/lib/ai/client.ts`) trata al Provider como un endpoint OpenAI
 
 ```bash
 # .env o .env.local en el proyecto dome/
-DOME_PROVIDER_URL=http://localhost:3001        # URL del Provider (dev)
-# Para producción:
-# DOME_PROVIDER_URL=https://provider.dome.app
+DOME_PROVIDER_URL=http://localhost:3001        # Override explícito (dev o staging)
+# Producción empaquetada: si no defines DOME_PROVIDER_URL, el main process usa
+# https://provider.dome.app (o el valor en app-credentials tras `embed-env`).
 
 VITE_ENABLE_DOME_PROVIDER=true                 # Habilita la opción "Dome" en Settings
 ```
+
+Para **releases de GitHub Actions**, el workflow puede pasar `DOME_PROVIDER_URL` a `scripts/embed-env.cjs` como secret (opcional).
 
 Si `VITE_ENABLE_DOME_PROVIDER` no es `true`, la opción de Dome Provider no aparece en la UI de configuración de AI.
 

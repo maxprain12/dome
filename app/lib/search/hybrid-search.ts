@@ -27,7 +27,7 @@ interface GraphNodeData {
   relation?: string;
 }
 
-interface HybridSearchOptions {
+export interface HybridSearchOptions {
   maxResults?: number;
   includeBacklinks?: boolean;
   /** Minimum chunk cosine score to keep a semantic hit (0–1). */
@@ -35,6 +35,21 @@ interface HybridSearchOptions {
   /** RRF constant k (default 60). */
   rrfK?: number;
 }
+
+/** Row shape from `db.search.unified` resources list (for re-ranking). */
+export interface UnifiedSearchResourceRow {
+  id: string;
+  title?: string;
+  type?: string;
+  content?: string;
+  updated_at?: number;
+  metadata?: string | Record<string, unknown>;
+}
+
+export type OrderUnifiedHybridOptions = HybridSearchOptions & {
+  /** Max resources to return after merge (default: all unified resources). */
+  mergeTake?: number;
+};
 
 interface RankedListItem {
   id: string;
@@ -211,6 +226,46 @@ export async function hybridSearch(
     maxResults,
     rrfK,
   );
+}
+
+/**
+ * Re-order unified FTS resource rows using hybrid RRF ordering (semantic + graph + FTS).
+ * Resources only in unified but not in hybrid candidates are appended in original order.
+ */
+export async function orderUnifiedResourcesByHybrid(
+  query: string,
+  unifiedResources: UnifiedSearchResourceRow[],
+  options: OrderUnifiedHybridOptions = {},
+): Promise<UnifiedSearchResourceRow[]> {
+  const q = query.trim();
+  if (!q || unifiedResources.length === 0) {
+    return unifiedResources;
+  }
+  const mergeTake = options.mergeTake ?? unifiedResources.length;
+  const maxResults = Math.max(mergeTake * 3, 30);
+  const hybrid = await hybridSearch(q, {
+    maxResults,
+    includeBacklinks: options.includeBacklinks,
+    semanticThreshold: options.semanticThreshold,
+    rrfK: options.rrfK,
+  });
+  const byId = new Map(unifiedResources.map((r) => [r.id, r]));
+  const out: UnifiedSearchResourceRow[] = [];
+  const seen = new Set<string>();
+  for (const h of hybrid) {
+    const row = byId.get(h.id);
+    if (row && !seen.has(row.id)) {
+      seen.add(row.id);
+      out.push(row);
+    }
+  }
+  for (const r of unifiedResources) {
+    if (!seen.has(r.id)) {
+      seen.add(r.id);
+      out.push(r);
+    }
+  }
+  return mergeTake >= out.length ? out : out.slice(0, mergeTake);
 }
 
 /**

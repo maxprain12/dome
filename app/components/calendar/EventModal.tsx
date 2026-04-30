@@ -79,7 +79,7 @@ export default function EventModal({
 
   const handleDelete = async () => {
     if (!event || !onDelete) return;
-    if (!confirm(t('common.delete_confirm'))) return;
+    if (!confirm(t('calendarPage.delete_event_confirm'))) return;
     setDeleting(true);
     try {
       await onDelete(event.id);
@@ -102,7 +102,7 @@ export default function EventModal({
       >
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--dome-border)' }}>
           <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
-            {event ? t('common.edit') : t('common.new')} evento
+            {event ? t('calendarPage.edit_event') : t('calendarPage.new_event')}
           </h2>
           <button
             type="button"
@@ -129,7 +129,7 @@ export default function EventModal({
                 borderColor: 'var(--dome-border)',
                 color: 'var(--dome-text)',
               }}
-              placeholder="Nombre del evento"
+              placeholder={t('calendarPage.event_title_placeholder')}
               required
             />
           </div>
@@ -148,7 +148,7 @@ export default function EventModal({
                 borderColor: 'var(--dome-border)',
                 color: 'var(--dome-text)',
               }}
-              placeholder="Lugar"
+              placeholder={t('calendarPage.event_location_placeholder')}
             />
           </div>
 
@@ -160,7 +160,7 @@ export default function EventModal({
               onChange={(e) => setAllDay(e.target.checked)}
             />
             <label htmlFor="allDay" className="text-sm" style={{ color: 'var(--dome-text)' }}>
-              Todo el día
+              {t('calendarPage.all_day')}
             </label>
           </div>
 
@@ -168,7 +168,7 @@ export default function EventModal({
             <>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
-                  Inicio
+                  {t('calendarPage.event_start')}
                 </label>
                 <input
                   type="datetime-local"
@@ -184,7 +184,7 @@ export default function EventModal({
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
-                  Fin
+                  {t('calendarPage.event_end')}
                 </label>
                 <input
                   type="datetime-local"
@@ -205,7 +205,7 @@ export default function EventModal({
             <>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
-                  Fecha inicio
+                  {t('calendarPage.start_date')}
                 </label>
                 <input
                   type="date"
@@ -221,7 +221,7 @@ export default function EventModal({
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
-                  Fecha fin
+                  {t('calendarPage.end_date')}
                 </label>
                 <input
                   type="date"
@@ -252,7 +252,7 @@ export default function EventModal({
                 borderColor: 'var(--dome-border)',
                 color: 'var(--dome-text)',
               }}
-              placeholder="Notas..."
+              placeholder={t('calendarPage.event_notes_placeholder')}
             />
           </div>
 
@@ -273,7 +273,7 @@ export default function EventModal({
                 className="px-4 py-2 rounded-lg font-medium disabled:opacity-50"
                 style={{ background: 'var(--dome-error-bg)', color: 'var(--dome-error)' }}
               >
-                {deleting ? 'Eliminando...' : t('common.delete')}
+                {deleting ? t('calendarPage.deleting') : t('common.delete')}
               </button>
             )}
             <button

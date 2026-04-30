@@ -102,7 +102,7 @@ const ResourceGetSectionSchema = Type.Object({
     description: 'The ID of the resource.',
   }),
   chunk_id: Type.String({
-    description: 'Chunk id from resource_semantic_search (format: resourceId#index).',
+    description: 'Chunk id from resource_hybrid_search or resource_semantic_search (format: resourceId#index).',
   }),
 });
 
@@ -126,6 +126,42 @@ const ResourceSemanticSearchSchema = Type.Object({
       description: 'Maximum number of results to return (1-50). Default: 10.',
       minimum: 1,
       maximum: MAX_SEARCH_LIMIT,
+    }),
+  ),
+});
+
+const ResourceHybridSearchSchema = Type.Object({
+  query: Type.String({
+    description:
+      'Search the library combining full-text, semantic chunk similarity, and knowledge-graph nodes (RRF fusion). Preferred over separate keyword or semantic-only search.',
+  }),
+  project_id: Type.Optional(
+    Type.String({
+      description: 'Filter results to a specific project ID.',
+    }),
+  ),
+  type: Type.Optional(
+    Type.String({
+      description: 'Filter by resource type: pdf, video, audio, image, url, folder, etc.',
+    }),
+  ),
+  limit: Type.Optional(
+    Type.Number({
+      description: 'Maximum number of results (1-50). Default: 10.',
+      minimum: 1,
+      maximum: MAX_SEARCH_LIMIT,
+    }),
+  ),
+  semantic_min_score: Type.Optional(
+    Type.Number({
+      description: 'Minimum semantic chunk score (0-1). Default: 0.3.',
+      minimum: 0,
+      maximum: 1,
+    }),
+  ),
+  include_backlinks: Type.Optional(
+    Type.Boolean({
+      description: 'Include 1-hop graph neighbors of matched nodes. Default: false.',
     }),
   ),
 });
@@ -467,6 +503,82 @@ export function createResourceListTool(): AnyAgentTool {
 }
 
 /**
+ * Create a hybrid search tool (RRF: FTS + semantic + graph).
+ */
+export function createResourceHybridSearchTool(): AnyAgentTool {
+  return {
+    label: 'Búsqueda híbrida',
+    name: 'resource_hybrid_search',
+    description:
+      'Search the user library with reciprocal-rank fusion: full-text, semantic embeddings, and knowledge graph. Use this first when looking for relevant resources.',
+    parameters: ResourceHybridSearchSchema,
+    execute: async (_toolCallId, args) => {
+      try {
+        if (!isElectronAI()) {
+          return jsonResult({
+            status: 'error',
+            error: 'Hybrid search requires Electron environment.',
+          });
+        }
+
+        const params = args as Record<string, unknown>;
+        const query = readStringParam(params, 'query', { required: true });
+        const projectId = readStringParam(params, 'project_id');
+        const typeRaw = readStringParam(params, 'type');
+        const limitRaw = readNumberParam(params, 'limit', { integer: true });
+        const semMin = readNumberParam(params, 'semantic_min_score');
+        const includeBacklinks = readBooleanParam(params, 'include_backlinks');
+
+        const type = validateResourceType(typeRaw);
+        const limit = clampLimit(limitRaw, DEFAULT_SEARCH_LIMIT, MAX_SEARCH_LIMIT);
+
+        const result = await window.electron.ai.tools.resourceHybridSearch(query, {
+          project_id: projectId,
+          type,
+          limit,
+          semantic_min_score: semMin,
+          include_backlinks: includeBacklinks ?? undefined,
+        });
+
+        if (!result.success) {
+          return jsonResult({
+            status: 'error',
+            error: result.error || 'Hybrid search failed',
+          });
+        }
+
+        return jsonResult({
+          status: 'success',
+          query: result.query,
+          method: result.method,
+          count: result.count,
+          navigation_note: result.navigation_note,
+          results: result.results?.map((r) => ({
+            id: r.id,
+            title: r.title,
+            type: r.type,
+            hybrid_sources: r.hybrid_sources,
+            similarity: r.similarity,
+            snippet: r.snippet,
+            chunk_id: r.chunk_id,
+            chunk_index: r.chunk_index,
+            page_number: r.page_number,
+            search_hint: r.search_hint,
+            updated_at: new Date(r.updated_at).toISOString(),
+          })),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return jsonResult({
+          status: 'error',
+          error: message,
+        });
+      }
+    },
+  };
+}
+
+/**
  * Create a semantic search tool using embeddings.
  */
 export function createResourceSemanticSearchTool(): AnyAgentTool {
@@ -541,6 +653,7 @@ export function createResourceSemanticSearchTool(): AnyAgentTool {
 export function createResourceTools(): AnyAgentTool[] {
   return [
     createResourceSearchTool(),
+    createResourceHybridSearchTool(),
     createResourceGetTool(),
     createResourceGetSectionTool(),
     createResourceListTool(),

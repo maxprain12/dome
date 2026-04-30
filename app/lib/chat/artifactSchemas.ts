@@ -176,6 +176,30 @@ export const htmlArtifactSchema = z.object({
   height: z.number().positive().optional(),
 });
 
+export const calendarEventArtifactSchema = z.object({
+  type: z.literal('calendar_event'),
+  title: z.string(),
+  start_at: z.string(),
+  end_at: z.string(),
+  event_id: z.string().optional(),
+  location: z.string().optional(),
+  all_day: z.boolean().optional(),
+});
+
+const flashcardPreviewCardSchema = z.object({
+  question: z.string(),
+  answer: z.string(),
+});
+
+export const flashcardDeckArtifactSchema = z.object({
+  type: z.literal('flashcard_deck'),
+  title: z.string(),
+  deck_id: z.string().optional(),
+  resource_id: z.string().optional(),
+  card_count: z.number().int().nonnegative().optional(),
+  preview: z.array(flashcardPreviewCardSchema).max(8).optional(),
+});
+
 export type CalculatorArtifactV = z.infer<typeof calculatorArtifactSchema>;
 export type DiagramArtifactV = z.infer<typeof diagramArtifactSchema>;
 export type TabsArtifactV = z.infer<typeof tabsArtifactSchema>;
@@ -183,6 +207,8 @@ export type PlaygroundArtifactV = z.infer<typeof playgroundArtifactSchema>;
 export type DashboardArtifactV = z.infer<typeof dashboardArtifactSchema>;
 export type TimelineArtifactV = z.infer<typeof timelineArtifactSchema>;
 export type HtmlArtifactV = z.infer<typeof htmlArtifactSchema>;
+export type CalendarEventArtifactV = z.infer<typeof calendarEventArtifactSchema>;
+export type FlashcardDeckArtifactV = z.infer<typeof flashcardDeckArtifactSchema>;
 
 export function tryParseArtifact(type: string, data: unknown): { ok: true; value: unknown } | { ok: false } {
   const parsers: Record<string, z.ZodType<unknown>> = {
@@ -193,6 +219,8 @@ export function tryParseArtifact(type: string, data: unknown): { ok: true; value
     dashboard: dashboardArtifactSchema,
     timeline: timelineArtifactSchema,
     html: htmlArtifactSchema,
+    calendar_event: calendarEventArtifactSchema,
+    flashcard_deck: flashcardDeckArtifactSchema,
   };
   const schema = parsers[type];
   if (!schema) return { ok: false };
@@ -210,6 +238,8 @@ export const ZOD_VALIDATED_ARTIFACT_TYPES = new Set<string>([
   'dashboard',
   'timeline',
   'html',
+  'calendar_event',
+  'flashcard_deck',
 ]);
 
 /**

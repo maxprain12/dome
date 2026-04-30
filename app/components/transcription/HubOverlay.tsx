@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import DictationMode from '@/components/transcription/DictationMode';
-import TranscriptionOverlayWindowControls from '@/components/transcription/TranscriptionOverlayWindowControls';
+import TranscriptionHubChrome from '@/components/transcription/TranscriptionHubChrome';
 import CallMode from '@/components/transcription/modes/CallMode';
 import StreamingMode from '@/components/transcription/modes/StreamingMode';
 
@@ -14,9 +14,12 @@ const modeStripStyle = {
   background: 'color-mix(in srgb, var(--dome-surface) 96%, transparent)',
 } as const;
 
-export default function HubOverlay() {
+type Props = {
+  onRequestCloseDock: () => void;
+};
+
+export default function HubOverlay({ onRequestCloseDock }: Props) {
   const { t } = useTranslation();
-  const hubRootRef = useRef<HTMLDivElement | null>(null);
   const [mode, setMode] = useState<HubMode>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -50,22 +53,9 @@ export default function HubOverlay() {
     }
   }, [mode]);
 
-  useLayoutEffect(() => {
-    if (typeof ResizeObserver === 'undefined') return undefined;
-    const el = hubRootRef.current;
-    if (!el) return undefined;
-    const ro = new ResizeObserver(() => {
-      const h = Math.ceil(el.getBoundingClientRect().height);
-      const padded = Math.min(780, Math.max(80, h + 28));
-      void window.electron?.transcriptionOverlay?.overlayResize?.(padded);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [mode]);
-
   return (
-    <div ref={hubRootRef} className="flex w-full min-w-0 flex-col items-center gap-1.5 pointer-events-none sm:gap-2">
-      <TranscriptionOverlayWindowControls />
+    <div className="flex w-full min-w-0 flex-col items-center gap-1.5 pointer-events-none sm:gap-2">
+      <TranscriptionHubChrome onRequestCloseDock={onRequestCloseDock} />
       <div
         className="pointer-events-auto flex w-full max-w-[min(96vw,920px)] flex-wrap items-center justify-center gap-0.5 rounded-xl border px-1 py-0.5 sm:justify-start sm:gap-1 sm:px-1.5 sm:py-1"
         style={modeStripStyle}

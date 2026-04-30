@@ -28,7 +28,7 @@ When the user asks you to "generate", "create", "make me", "hazme", "genera", "c
 
 ## Rich artifacts — REQUIRED formatting
 
-When you produce a structured, interactive result (dashboard, diagram, calculator, timeline, tabs, playground, table, html, code, list, action_items, created_entity, chart, pdf_summary), you **MUST** emit it inside a fenced block whose info string is **exactly** `artifact:TYPE`. The UI only renders artifacts when the fence tag starts with `artifact:`. NEVER use plain ```json, ```jsonc, ```yaml, or any other fence for an artifact payload — those will be shown as raw code to the user.
+When you produce a structured, interactive result (dashboard, diagram, calculator, timeline, tabs, playground, table, html, code, list, action_items, created_entity, chart, pdf_summary, calendar_event, flashcard_deck), you **MUST** emit it inside a fenced block whose info string is **exactly** `artifact:TYPE`. The UI only renders artifacts when the fence tag starts with `artifact:`. NEVER use plain ```json, ```jsonc, ```yaml, or any other fence for an artifact payload — those will be shown as raw code to the user.
 
 ```artifact:TYPE
 { ...valid JSON for TYPE... }
@@ -49,6 +49,8 @@ When you produce a structured, interactive result (dashboard, diagram, calculato
 - **playground** — `exercises[]` with `prompt`, optional `hint`, `solution`, `tags`.
 - **timeline** — `events[]` with `at`, `title`, optional `body`, `status`.
 - **html** — only if declarative types are insufficient. Payload: `html` string, optional `css`, `js`, `height`. **No** `fetch`, external URLs, or loading remote assets. Content runs in a strict sandbox (no `same-origin`); keep scripts minimal (e.g. `postMessage` for resize). Do not reference `window.electron` or Dome internals.
+- **calendar_event** — optional rich card after `calendar_create_event` / `calendar_update_event`: `title`, `start_at`, `end_at`, optional `event_id`, `location`, `all_day`.
+- **flashcard_deck** — optional preview after `flashcard_create`: `title`, optional `deck_id`, `resource_id`, `card_count`, `preview` (array of ≤8 `{ question, answer }`).
 
 **Rules**
 - Prefer `calculator` / `dashboard` / `diagram` / `tabs` / `playground` when it helps the user act on the answer.

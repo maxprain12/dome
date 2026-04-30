@@ -3,7 +3,7 @@
  * Global shortcut to toggle in-app voice recording / dictation.
  */
 const { globalShortcut } = require('electron');
-const transcriptionOverlay = require('./transcription-overlay.cjs');
+const transcriptionMainHub = require('./transcription-main-hub.cjs');
 
 let registeredAccelerator = null;
 
@@ -27,15 +27,7 @@ function isShortcutRegistrationEnabled(database) {
 }
 
 function sendToggleToMain(windowManager) {
-  transcriptionOverlay.showAndFocus(windowManager);
-  const win =
-    windowManager.get(transcriptionOverlay.TRANSCRIPTION_OVERLAY_ID) || windowManager.get('main');
-  if (!win || win.isDestroyed()) return;
-  try {
-    win.webContents.send('transcription:toggle-recording');
-  } catch (err) {
-    console.warn('[Transcription] toggle send failed:', err?.message);
-  }
+  transcriptionMainHub.sendToggleRecordingToMain(windowManager);
 }
 
 /**

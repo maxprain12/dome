@@ -12,7 +12,6 @@ import AppShell from '@/components/shell/AppShell';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
 import PptCapturePage from './pages/PptCapturePage';
-import TranscriptionOverlayPage from './pages/TranscriptionOverlayPage';
 import NoteFocusPage from './pages/NoteFocusPage';
 
 const NOTE_FOCUS_PREFIX = '/focus/note/';
@@ -159,14 +158,6 @@ export default function App() {
     return <PptCapturePage />;
   }
 
-  if (pathname === '/transcription-overlay') {
-    return (
-      <ThemeProvider>
-        <TranscriptionOverlayPage />
-      </ThemeProvider>
-    );
-  }
-
   // Bare popout window: /focus/note/<id> renders only the note editor, no shell.
   if (pathname.startsWith(NOTE_FOCUS_PREFIX)) {
     const resourceId = decodeURIComponent(pathname.slice(NOTE_FOCUS_PREFIX.length)).split('/')[0];
@@ -179,8 +170,7 @@ export default function App() {
     }
   }
 
-  // StrictMode only for the main shell — overlay / capture windows must not double-remount in dev
-  // (resets voice HUD state and closes the floating window right after toggle).
+  // StrictMode for main shell — /ppt-capture avoids StrictMode above so slide capture isn’t doubled.
   return (
     <ThemeProvider>
       <StrictMode>

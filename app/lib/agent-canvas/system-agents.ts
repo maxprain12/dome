@@ -40,9 +40,9 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
     color: '#22c55e',
     bg: '#f0fdf4',
     emoji: '📚',
-    toolIds: ['resource_search', 'resource_get', 'resource_get_section', 'resource_list', 'resource_semantic_search'],
+    toolIds: ['resource_hybrid_search', 'resource_get', 'resource_get_section', 'resource_list'],
     systemPrompt: `Eres un agente de biblioteca experto en gestión del conocimiento personal.
-- Busca y recupera información relevante de los documentos del usuario
+- Usa resource_hybrid_search para encontrar documentos (combina texto, significado y grafo); luego resource_get o resource_get_section según necesites
 - Analiza y conecta conceptos entre diferentes recursos de la biblioteca
 - Extrae ideas clave, citas importantes y patrones de los documentos
 - Sugiere conexiones entre materiales relacionados
@@ -120,7 +120,7 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
       'get_related_resources',
       'create_resource_link',
       'analyze_graph_structure',
-      'resource_semantic_search',
+      'resource_hybrid_search',
       'resource_list',
       'flashcard_create',
       'resource_create',

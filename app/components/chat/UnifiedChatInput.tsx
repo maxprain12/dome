@@ -8,7 +8,7 @@ export type UnifiedChatInputProps =
   | ({ mode: 'agent' } & ComponentProps<typeof AgentChatInput>);
 
 /**
- * Entrada de chat unificada: `mode="many"` reutiliza Many (capacidades, @, voz, adjuntos);
+ * Entrada de chat unificada: `mode="many"` reutiliza Many (capacidades, @, adjuntos);
  * `mode="agent"` reutiliza el input de agente (MCPs/tools, adjuntos). Los stores siguen en los padres.
  * Incluye / skills, @ en agente, selector de modelo y menú + anidado.
  */

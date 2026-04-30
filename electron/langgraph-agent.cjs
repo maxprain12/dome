@@ -438,8 +438,8 @@ async function createLangChainToolsFromOpenAIDefinitions(defs, executeFn) {
 
     const schema = Object.keys(zodShape).length > 0 ? z.object(zodShape) : z.object({});
     const lcTool = tool(
-      async (input) => {
-        const result = await executeFn(normName, input || {});
+      async (input, config) => {
+        const result = await executeFn(normName, input || {}, config);
         return typeof result === 'string' ? result : JSON.stringify(result);
       },
       { name: normName, description: description || '', schema },
@@ -599,6 +599,9 @@ const CALENDAR_HITL_TOOLS = {
   calendar_create_event: true,
   calendar_update_event: true,
   calendar_delete_event: true,
+  calendar_create: true,
+  calendar_update: true,
+  calendar_delete: true,
 };
 
 function buildHitlInterruptOn(skipHitl, useDirectTools) {
@@ -609,6 +612,9 @@ function buildHitlInterruptOn(skipHitl, useDirectTools) {
       calendar_create_event: false,
       calendar_update_event: false,
       calendar_delete_event: false,
+      calendar_create: false,
+      calendar_update: false,
+      calendar_delete: false,
     };
   }
   if (useDirectTools) {
@@ -653,8 +659,12 @@ async function createConfiguredLangGraphAgent(llm, opts) {
 
   let tools;
   if (useDirectTools) {
-    const executeFn = async (name, args) => {
-      const id = `rt_${threadId || 'x'}_${++rtCallCounter}`;
+    const executeFn = async (name, args, invocationConfig) => {
+      const fromAgent = invocationConfig?.toolCall?.id;
+      const id =
+        fromAgent != null && String(fromAgent).length > 0
+          ? String(fromAgent)
+          : `rt_${threadId || 'x'}_${++rtCallCounter}`;
       rtEmittedCallIds.add(id);
       if (onChunk) {
         onChunk({

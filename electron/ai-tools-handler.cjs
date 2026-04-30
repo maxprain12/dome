@@ -29,6 +29,7 @@ const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
 const path = require('path');
 const skillRegistry = require('./skills/registry.cjs');
 const { renderSkillBody } = require('./skills/renderer.cjs');
+const { rrfMerge } = require('./hybrid-rrf.cjs');
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -626,6 +627,196 @@ async function resourceSemanticSearch(query, options = {}) {
     };
   } catch (error) {
     console.error('[AI Tools] resourceSemanticSearch error:', error);
+    return resourceSearch(query, options);
+  }
+}
+
+/**
+ * Hybrid search: RRF over semantic chunks + knowledge graph + FTS (aligned with app hybrid search).
+ * @param {string} query
+ * @param {Object} options
+ * @param {string} [options.project_id]
+ * @param {string} [options.type]
+ * @param {number} [options.limit]
+ * @param {number} [options.semantic_min_score]
+ * @param {number} [options.rrf_k]
+ * @param {boolean} [options.include_backlinks]
+ * @returns {Promise<Object>}
+ */
+async function resourceHybridSearch(query, options = {}) {
+  try {
+    const limit = Math.min(options.limit || 10, 50);
+    const semanticThreshold = options.semantic_min_score ?? 0.3;
+    const rrfK = options.rrf_k ?? 60;
+    const includeBacklinks = !!options.include_backlinks;
+    const maxCandidates = Math.min(Number(options.candidate_limit) || 40, 80);
+
+    semanticIndexScheduler.init(database);
+    const queries = database.getQueries();
+    const db = database.getDB();
+
+    let inProject = null;
+    if (options.project_id) {
+      inProject = new Set(
+        db.prepare('SELECT id FROM resources WHERE project_id = ?').all(options.project_id).map((r) => r.id),
+      );
+    }
+
+    const semanticMeta = new Map();
+
+    let semanticItems = [];
+    try {
+      const hits = await semanticIndexScheduler.getIndexer().searchSemantic(query, { limit: maxCandidates * 2 });
+      let filtered = (hits || []).filter((h) => (h.score ?? 0) >= semanticThreshold);
+      if (inProject) filtered = filtered.filter((h) => inProject.has(h.resource_id));
+      for (const h of filtered.slice(0, maxCandidates)) {
+        const res = queries.getResourceById.get(h.resource_id);
+        if (!res) continue;
+        if (options.type && res.type !== options.type) continue;
+        semanticItems.push({
+          id: h.resource_id,
+          title: res.title || 'Untitled',
+          type: res.type,
+          snippet: h.snippet || '',
+          metadata: { semanticScore: h.score, chunk_index: h.chunk_index, page_number: h.page_number },
+        });
+        const prev = semanticMeta.get(h.resource_id);
+        if (!prev || (h.score ?? 0) > (prev.score ?? 0)) {
+          semanticMeta.set(h.resource_id, h);
+        }
+      }
+    } catch (e) {
+      console.warn('[AI Tools] resourceHybridSearch semantic leg:', e.message);
+    }
+
+    let graphItems = [];
+    try {
+      const pattern = `%${String(query || '').slice(0, 200)}%`;
+      const nodes = queries.searchGraphNodes.all(pattern, pattern) || [];
+      const seenGraphResources = new Set();
+      const addGraphNode = (node) => {
+        let props = node.properties;
+        if (typeof props === 'string') {
+          try {
+            props = JSON.parse(props);
+          } catch {
+            props = {};
+          }
+        }
+        const rid = node.resource_id || (props && props.resource_id);
+        if (!rid) return;
+        const res = queries.getResourceById.get(rid);
+        if (!res) return;
+        if (inProject && !inProject.has(rid)) return;
+        if (options.type && res.type !== options.type) return;
+        if (seenGraphResources.has(rid)) return;
+        seenGraphResources.add(rid);
+        graphItems.push({
+          id: rid,
+          title: node.label || res.title || 'Untitled',
+          type: res.type,
+          metadata: { nodeType: node.type, reason: 'Graph node match' },
+        });
+      };
+      for (const node of nodes) {
+        addGraphNode(node);
+      }
+      if (includeBacklinks && nodes.length > 0) {
+        for (const node of nodes.slice(0, 5)) {
+          const neighbors = queries.getNodeNeighbors.all(node.id, node.id, node.id) || [];
+          for (const neighbor of neighbors) {
+            addGraphNode(neighbor);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[AI Tools] resourceHybridSearch graph leg:', e.message);
+    }
+
+    let ftsItems = [];
+    try {
+      const ftsOut = await resourceSearch(query, { ...options, limit: maxCandidates });
+      if (ftsOut.success && ftsOut.results && ftsOut.results.length) {
+        ftsItems = ftsOut.results.map((r) => ({
+          id: r.id,
+          title: r.title,
+          type: r.type,
+          snippet: r.snippet,
+          metadata: {},
+        }));
+      }
+    } catch (e) {
+      console.warn('[AI Tools] resourceHybridSearch fts leg:', e.message);
+    }
+
+    const merged = rrfMerge(
+      [
+        { tag: 'semantic', items: semanticItems },
+        { tag: 'graph', items: graphItems },
+        { tag: 'fts', items: ftsItems },
+      ],
+      maxCandidates,
+      rrfK,
+    );
+
+    const results = [];
+    for (const m of merged) {
+      const resource = queries.getResourceById.get(m.id);
+      if (!resource) continue;
+      if (options.project_id && resource.project_id !== options.project_id) continue;
+      if (options.type && resource.type !== options.type) continue;
+
+      let metadata = null;
+      try {
+        metadata = resource.metadata ? JSON.parse(resource.metadata) : null;
+      } catch {
+        metadata = null;
+      }
+
+      const hit = semanticMeta.get(resource.id);
+      const chunkId = hit ? `${resource.id}#${hit.chunk_index}` : undefined;
+      const snippetFromFts = ftsItems.find((x) => x.id === resource.id)?.snippet;
+      const rawSnippet = hit?.snippet || snippetFromFts || m.metadata?.snippet || '';
+      const snippet = String(rawSnippet).replace(/<\/?mark>/gi, '');
+
+      results.push({
+        id: resource.id,
+        title: resource.title,
+        type: resource.type,
+        project_id: resource.project_id,
+        hybrid_sources: m.sources,
+        similarity: hit?.score,
+        snippet,
+        chunk_id: chunkId,
+        chunk_index: hit?.chunk_index,
+        page_number: hit?.page_number ?? null,
+        search_hint: hit
+          ? `Para el texto completo del fragmento: resource_get_section("${resource.id}", "${chunkId}")`
+          : null,
+        created_at: resource.created_at,
+        updated_at: resource.updated_at,
+        metadata,
+      });
+
+      if (results.length >= limit) break;
+    }
+
+    const out = {
+      success: true,
+      query,
+      method: 'hybrid_rrf',
+      count: results.length,
+      results,
+      navigation_note:
+        results.length > 0
+          ? 'Resultados fusionados (semántica + grafo + texto). Si chunk_id está presente, usa resource_get_section para el fragmento; pdf_render_page para ver la página.'
+          : null,
+    };
+    traceLog('resourceHybridSearch', { query, options }, out);
+    return out;
+  } catch (error) {
+    traceLog('resourceHybridSearch', { query, options }, null, error);
+    console.error('[AI Tools] resourceHybridSearch error:', error);
     return resourceSearch(query, options);
   }
 }
@@ -2523,12 +2714,12 @@ async function calendarListEvents({ start_at, end_at, calendar_ids } = {}) {
 /**
  * Get upcoming events starting from now.
  * @param {Object} params
- * @param {number} [params.window_minutes] - Default 60
+ * @param {number} [params.window_minutes] - Default 10080 (~7 days); short windows hide same-day events.
  * @param {number} [params.limit]          - Default 10
  */
 async function calendarGetUpcoming({ window_minutes, limit } = {}) {
   try {
-    return await calendarService.getUpcomingEvents(window_minutes ?? 60, limit ?? 10);
+    return await calendarService.getUpcomingEvents(window_minutes ?? 10080, limit ?? 10);
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -2919,6 +3110,58 @@ async function gemmaScreenUnderstand(args) {
 }
 
 // =============================================================================
+// LangGraph bridges (bundled marketplace, browser tab, workflow, images, studio)
+// =============================================================================
+
+const aiToolsExtra = require('./ai-tools-extra.cjs');
+
+async function marketplaceSearch(args) {
+  return aiToolsExtra.marketplaceSearch(args);
+}
+
+async function marketplaceInstall(args) {
+  const out = await aiToolsExtra.marketplaceInstall(args);
+  if (windowManagerRef && typeof out === 'string' && out.startsWith('ENTITY_CREATED:')) {
+    try {
+      const payload = JSON.parse(out.slice('ENTITY_CREATED:'.length));
+      if (payload.entityType === 'agent') windowManagerRef.broadcast('dome:agents-changed');
+      if (payload.entityType === 'workflow') windowManagerRef.broadcast('dome:workflows-changed');
+    } catch {
+      /* ignore */
+    }
+  }
+  return out;
+}
+
+async function browserGetActiveTabTool(args) {
+  return aiToolsExtra.browserGetActiveTab();
+}
+
+async function workflowCreate(args) {
+  return aiToolsExtra.workflowCreate(args, windowManagerRef);
+}
+
+async function imageCropTool(args) {
+  const r = await aiToolsExtra.imageCropForTool(args);
+  if (r.success) return { status: 'success', croppedImage: r.dataUrl };
+  return { status: 'error', error: r.error || 'Crop failed' };
+}
+
+async function imageThumbnailTool(args) {
+  const r = await aiToolsExtra.imageThumbnailForTool(args);
+  if (r.success) return { status: 'success', thumbnail: r.dataUrl };
+  return { status: 'error', error: r.error || 'Thumbnail failed' };
+}
+
+async function gatherStudioMindmapContext(args) {
+  return aiToolsExtra.gatherStudioMindmapContext(args, resourceGet, resourceList);
+}
+
+async function gatherStudioQuizContext(args) {
+  return aiToolsExtra.gatherStudioQuizContext(args, resourceGet, resourceList);
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -2936,6 +3179,7 @@ module.exports = {
   resourceGetSection,
   resourceList,
   resourceSemanticSearch,
+  resourceHybridSearch,
   getDocumentStructure,
   getLibraryOverview,
 
@@ -3011,6 +3255,15 @@ module.exports = {
   // Entity creation
   agentCreate,
   automationCreate,
+
+  marketplaceSearch,
+  marketplaceInstall,
+  browserGetActiveTabTool,
+  workflowCreate,
+  imageCropTool,
+  imageThumbnailTool,
+  gatherStudioMindmapContext,
+  gatherStudioQuizContext,
 
   // MCP file import
   importFileToLibrary,

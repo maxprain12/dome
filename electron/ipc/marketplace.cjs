@@ -710,4 +710,4 @@ function register({ ipcMain, windowManager, validateSender }) {
   });
 }
 
-module.exports = { register };
+module.exports = { register, fetchAgents, fetchWorkflows };
