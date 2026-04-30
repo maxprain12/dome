@@ -12,7 +12,7 @@ import DomeBadge from '@/components/ui/DomeBadge';
 import DomeListState from '@/components/ui/DomeListState';
 
 const DOME_GREEN = 'var(--dome-accent)';
-const DOME_GREEN_LIGHT = 'var(--success-bg)';
+const DOME_GREEN_LIGHT = 'color-mix(in srgb, var(--success) 20%, transparent)';
 
 interface CloudAccount {
   provider: 'google';

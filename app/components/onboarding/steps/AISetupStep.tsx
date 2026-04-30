@@ -26,7 +26,7 @@ type OnboardingProviderType = AIProviderType | 'skip';
 
 // Dome brand colors
 const DOME_GREEN = 'var(--dome-accent)';
-const DOME_GREEN_LIGHT = 'var(--success-bg)';
+const DOME_GREEN_LIGHT = 'color-mix(in srgb, var(--success) 20%, transparent)';
 const DOME_GREEN_DARK = 'var(--accent-hover)';
 
 export default function AISetupStep({ onComplete }: AISetupStepProps) {
