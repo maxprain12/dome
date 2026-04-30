@@ -114,15 +114,17 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       fs.mkdirSync(tempDir, { recursive: true });
 
       await new Promise((resolve, reject) => {
-        yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
+        yauzl.open(zipPath, { lazyEntries: true }, (err, zf) => {
           if (err) return reject(err);
 
-          zipfile.on('end', () => resolve());
-          zipfile.on('error', (e) => {
+          let zipError;
+          zf.on('end', () => resolve());
+          zf.on('error', (e) => {
+            zipError = e;
             reject(e);
           });
 
-          zipfile.on('entry', (entry) => {
+          zf.on('entry', (entry) => {
             try {
               const sanitizeEntryPath = (entryFileName) => {
                 const normalized = path.normalize(entryFileName);
@@ -149,14 +151,19 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                 const dirPath = resolveWithinTempDir(entry.fileName);
                 fs.mkdirSync(dirPath, { recursive: true });
                 try {
-                  zipfile.readEntry();
+                  zf.readEntry();
                 } catch (readErr) {
                   reject(readErr);
                 }
                 return;
               }
 
-              zipfile.openReadStream(entry, (openErr, readStream) => {
+              if (!validateSender(event)) {
+                reject(new Error('Unauthorized'));
+                return;
+              }
+
+              zf.openReadStream(entry, (openErr, readStream) => {
                 if (openErr) {
                   reject(openErr);
                   return;
@@ -168,7 +175,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                 writeStream.on('error', reject);
                 writeStream.on('finish', () => {
                   try {
-                    zipfile.readEntry();
+                    zf.readEntry();
                   } catch (readErr) {
                     reject(readErr);
                   }
@@ -181,7 +188,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           });
 
           try {
-            zipfile.readEntry();
+            zf.readEntry();
           } catch (readErr) {
             reject(readErr);
           }
