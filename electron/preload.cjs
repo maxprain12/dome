@@ -443,10 +443,6 @@ const ALLOWED_CHANNELS = {
     'db:studio:getById',
     'db:studio:update',
     'db:studio:delete',
-    'ollama:list-models',
-    'ollama:generate-embedding',
-    'ollama:generate-summary',
-    'ollama:chat',
     'indexing:full-sync',
     'pdf:render-page',
     // Notebook (Python via IPC)
