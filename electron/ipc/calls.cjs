@@ -67,14 +67,24 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    return callSessionEngine.setPaused(payload.sessionId, true);
+    try {
+      return await callSessionEngine.setPaused(payload.sessionId, true);
+    } catch (err) {
+      console.error('[calls:pause]', err);
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.handle('calls:resume', async (event, payload = {}) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    return callSessionEngine.setPaused(payload.sessionId, false);
+    try {
+      return await callSessionEngine.setPaused(payload.sessionId, false);
+    } catch (err) {
+      console.error('[calls:resume]', err);
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.handle('calls:stop', async (event, payload = {}) => {

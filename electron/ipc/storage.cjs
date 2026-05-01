@@ -54,7 +54,12 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    return { success: true, data: fileStorage.getStorageDir() };
+    try {
+      return { success: true, data: fileStorage.getStorageDir() };
+    } catch (error) {
+      console.error('[Storage] Error getting path:', error);
+      return { success: false, error: error.message };
+    }
   });
 }
 
