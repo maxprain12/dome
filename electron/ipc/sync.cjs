@@ -154,7 +154,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                 return;
               }
 
-              if (!validateSender(event)) {
+              if (!windowManager.isAuthorized(event.sender.id)) {
                 reject(new Error('Unauthorized'));
                 return;
               }
