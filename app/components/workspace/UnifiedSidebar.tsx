@@ -539,7 +539,7 @@ function TreeNode({
   const renameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isRenaming) { setRenameValue(node.name); setTimeout(() => renameRef.current?.select(), 10); }
+    if (isRenaming) { setRenameValue(node.name); const timer = setTimeout(() => renameRef.current?.select(), 10); return () => clearTimeout(timer); }
   }, [isRenaming, node.name]);
 
   const handleClick = () => {
