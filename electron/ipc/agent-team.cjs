@@ -262,7 +262,7 @@ function register({ ipcMain, windowManager, database }) {
         return { success: false, error: errorMsg };
       }
       console.error('[AgentTeam] Unexpected error during destructuring:', err);
-      return { success: false, error: err.message || 'Unexpected error during payload processing' };
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
 
     if (typeof streamId !== 'string' || !streamId) {
