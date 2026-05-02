@@ -10,7 +10,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       return { success: true, data: usage };
     } catch (error) {
       console.error('[Storage] Error getting usage:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -42,7 +42,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       return { success: true, data: result };
     } catch (error) {
       console.error('[Storage] Error during cleanup:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
