@@ -596,7 +596,7 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
             }}
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Refresh</span>
+            <span>{t('workspace.refresh')}</span>
           </button>
         </div>
       )}
