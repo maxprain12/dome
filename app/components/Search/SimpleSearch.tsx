@@ -231,6 +231,7 @@ export function useSimpleSearch({ onResourceSelect }: UseSimpleSearchOptions = {
 }
 
 export function SearchButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
@@ -243,7 +244,7 @@ export function SearchButton({ onClick }: { onClick: () => void }) {
       }}
     >
       <Search className="h-3.5 w-3.5" strokeWidth={1.5} />
-      <span>Search...</span>
+      <span>{t('common.search_placeholder')}</span>
       <kbd
         className="ml-2 rounded border px-1.5 py-0.5 text-xs"
         style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
