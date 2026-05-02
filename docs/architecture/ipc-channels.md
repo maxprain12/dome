@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `npm run generate:ipc-inventory`.
-> Última generación: 2026-05-01T22:00:21.126Z
+> Última generación: 2026-05-02T10:00:05.618Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -97,14 +97,6 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `calendar:setSettings` | `electron/ipc/calendar.cjs:144` |
 | `calendar:syncNow` | `electron/ipc/calendar.cjs:105` |
 | `calendar:updateEvent` | `electron/ipc/calendar.cjs:77` |
-| `calls:append-chunk` | `electron/ipc/calls.cjs:36` |
-| `calls:cancel` | `electron/ipc/calls.cjs:92` |
-| `calls:get-live` | `electron/ipc/calls.cjs:55` |
-| `calls:pause` | `electron/ipc/calls.cjs:66` |
-| `calls:regenerate-summary` | `electron/ipc/calls.cjs:103` |
-| `calls:resume` | `electron/ipc/calls.cjs:73` |
-| `calls:start` | `electron/ipc/calls.cjs:18` |
-| `calls:stop` | `electron/ipc/calls.cjs:80` |
 | `cloud:auth-google` | `electron/ipc/cloud-storage.cjs:273` |
 | `cloud:disconnect` | `electron/ipc/cloud-storage.cjs:378` |
 | `cloud:get-accounts` | `electron/ipc/cloud-storage.cjs:254` |
@@ -367,22 +359,18 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `system:get-login-item` | `electron/ipc/system.cjs:177` |
 | `system:quit` | `electron/ipc/system.cjs:210` |
 | `system:set-login-item` | `electron/ipc/system.cjs:188` |
-| `transcription-overlay:open-note-in-main` | `electron/ipc/transcription-overlay.cjs:56` |
-| `transcription-overlay:set-state` | `electron/ipc/transcription-overlay.cjs:15` |
-| `transcription-overlay:toggle-from-ui` | `electron/ipc/transcription-overlay.cjs:43` |
-| `transcription:buffer-to-note` | `electron/ipc/transcription.cjs:272` |
-| `transcription:buffer-to-text` | `electron/ipc/transcription.cjs:166` |
-| `transcription:get-defaults` | `electron/ipc/transcription.cjs:485` |
-| `transcription:get-permissions-status` | `electron/ipc/transcription.cjs:123` |
-| `transcription:get-settings` | `electron/ipc/transcription.cjs:592` |
-| `transcription:list-desktop-capture-sources` | `electron/ipc/transcription.cjs:684` |
-| `transcription:patch-transcript-speakers` | `electron/ipc/transcription.cjs:656` |
-| `transcription:regenerate-linked-note` | `electron/ipc/transcription.cjs:636` |
-| `transcription:request-microphone-access` | `electron/ipc/transcription.cjs:84` |
-| `transcription:request-screen-access` | `electron/ipc/transcription.cjs:147` |
-| `transcription:resource-to-note` | `electron/ipc/transcription.cjs:228` |
-| `transcription:set-display-media-source` | `electron/ipc/transcription.cjs:105` |
-| `transcription:set-settings` | `electron/ipc/transcription.cjs:496` |
+| `transcription:get-active` | `electron/ipc/transcription.cjs:401` |
+| `transcription:get-permissions` | `electron/ipc/transcription.cjs:242` |
+| `transcription:get-settings` | `electron/ipc/transcription.cjs:143` |
+| `transcription:list-capture-sources` | `electron/ipc/transcription.cjs:290` |
+| `transcription:request-mic` | `electron/ipc/transcription.cjs:259` |
+| `transcription:request-screen` | `electron/ipc/transcription.cjs:273` |
+| `transcription:resource-to-note` | `electron/ipc/transcription.cjs:412` |
+| `transcription:session-append` | `electron/ipc/transcription.cjs:379` |
+| `transcription:session-control` | `electron/ipc/transcription.cjs:390` |
+| `transcription:session-start` | `electron/ipc/transcription.cjs:351` |
+| `transcription:set-display-media-source` | `electron/ipc/transcription.cjs:340` |
+| `transcription:set-settings` | `electron/ipc/transcription.cjs:152` |
 | `updater:check` | `electron/ipc/updater.cjs:9` |
 | `updater:download` | `electron/ipc/updater.cjs:20` |
 | `updater:install` | `electron/ipc/updater.cjs:31` |

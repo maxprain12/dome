@@ -47,6 +47,21 @@ function buildTranscriptionSession(resource) {
   return { captureKind, callPlatform, inferredAt: Date.now() };
 }
 
+/** @returns {Array<'mic'|'system'>|undefined} */
+function getCaptureSourcesForDiarization(resource) {
+  const meta = parseMetadata(resource.metadata);
+  if (Array.isArray(meta.sources)) {
+    const f = meta.sources.filter((s) => s === 'mic' || s === 'system');
+    if (f.length > 0) return f;
+  }
+  if (meta.capture_kind === 'mic_and_system') return ['mic', 'system'];
+  if (meta.capture_kind === 'system') return ['system'];
+  if (meta.capture_kind === 'microphone' || meta.from_microphone || meta.source === 'microphone_recording') {
+    return ['mic'];
+  }
+  return undefined;
+}
+
 function getDefaults(database) {
   const transcriptionService = require('./transcription-service.cjs');
   const queries = database.getQueries();
@@ -171,6 +186,7 @@ async function transcribeResourceToNote(ctx) {
       model,
       language,
       database,
+      captureSources: getCaptureSourcesForDiarization(resource),
     });
     if (!text) return { success: false, error: 'Empty transcription' };
 
@@ -249,4 +265,5 @@ module.exports = {
   getDefaults,
   parseMetadata,
   buildTranscriptionSession,
+  getCaptureSourcesForDiarization,
 };

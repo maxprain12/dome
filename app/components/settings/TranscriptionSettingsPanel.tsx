@@ -88,18 +88,17 @@ export default function TranscriptionSettingsPanel() {
   const [micPerm, setMicPerm] = useState<PermStatus>('unknown');
   const [screenPerm, setScreenPerm] = useState<PermStatus>('unknown');
   const [permLoading, setPermLoading] = useState(false);
-  const [callSummaryModel, setCallSummaryModel] = useState('gpt-4o-mini');
-  const [callAutoSummary, setCallAutoSummary] = useState(true);
-  const [callChunkSec, setCallChunkSec] = useState('30');
-  const [hubDefaultMode, setHubDefaultMode] = useState<'remember' | 'dictation' | 'call' | 'streaming'>('remember');
-  const [callShowLiveTranscriptDefault, setCallShowLiveTranscriptDefault] = useState(true);
+  const [summaryModel, setSummaryModel] = useState('gpt-4o-mini');
+  const [autoSummary, setAutoSummary] = useState(false);
+  const [chunkSec, setChunkSec] = useState('4');
+  const [liveTranscriptDefault, setLiveTranscriptDefault] = useState(true);
   const isMac = window.electron?.isMac ?? false;
 
   const loadPermissions = useCallback(async () => {
-    if (!window.electron?.transcription?.getPermissionsStatus) return;
-    const res = await window.electron.transcription.getPermissionsStatus();
+    if (!window.electron?.transcription?.getPermissions) return;
+    const res = await window.electron.transcription.getPermissions();
     if (res.success) {
-      setMicPerm((res.microphone as PermStatus) ?? 'unknown');
+      setMicPerm((res.mic as PermStatus) ?? 'unknown');
       setScreenPerm((res.screen as PermStatus) ?? 'unknown');
     }
   }, []);
@@ -121,27 +120,17 @@ export default function TranscriptionSettingsPanel() {
       setApiBaseUrl(res.data.apiBaseUrl || '');
       setPrompt(res.data.prompt || '');
       setGlobalShortcut(res.data.globalShortcut || '');
-      setTranscriptionShortcutEnabled(!!res.data.transcriptionGlobalShortcutEnabled);
-      setHasDedicatedKey(!!res.data.hasDedicatedOpenAIKey);
-      setHasGroqKey(!!res.data.hasGroqApiKey);
+      setTranscriptionShortcutEnabled(!!res.data.globalShortcutEnabled);
+      setHasDedicatedKey(!!res.data.hasOpenAIKey);
+      setHasGroqKey(!!res.data.hasGroqKey);
       if (res.data.pauseThresholdSec != null) {
         setPauseThresholdSec(String(res.data.pauseThresholdSec));
       }
-      const d = res.data as typeof res.data & {
-        callSummaryModel?: string;
-        callAutoSummary?: boolean;
-        callChunkSec?: number;
-        hubDefaultMode?: 'remember' | 'dictation' | 'call' | 'streaming';
-        callShowLiveTranscriptDefault?: boolean;
-      };
-      if (d.callSummaryModel) setCallSummaryModel(d.callSummaryModel);
-      if (typeof d.callAutoSummary === 'boolean') setCallAutoSummary(d.callAutoSummary);
-      if (d.callChunkSec != null) setCallChunkSec(String(d.callChunkSec));
-      if (d.hubDefaultMode === 'remember' || d.hubDefaultMode === 'dictation' || d.hubDefaultMode === 'call' || d.hubDefaultMode === 'streaming') {
-        setHubDefaultMode(d.hubDefaultMode);
-      }
-      if (typeof d.callShowLiveTranscriptDefault === 'boolean') {
-        setCallShowLiveTranscriptDefault(d.callShowLiveTranscriptDefault);
+      if (res.data.summaryModel) setSummaryModel(res.data.summaryModel);
+      if (typeof res.data.autoSummary === 'boolean') setAutoSummary(res.data.autoSummary);
+      if (res.data.chunkSec != null) setChunkSec(String(res.data.chunkSec));
+      if (typeof res.data.liveTranscriptDefault === 'boolean') {
+        setLiveTranscriptDefault(res.data.liveTranscriptDefault);
       }
     }
   }, []);
@@ -161,12 +150,11 @@ export default function TranscriptionSettingsPanel() {
     pauseThresholdSec?: number | null;
     dedicatedOpenaiKey?: string;
     groqApiKey?: string;
-    transcriptionGlobalShortcutEnabled?: boolean;
-    callSummaryModel?: string;
-    callAutoSummary?: boolean;
-    callChunkSec?: number;
-    hubDefaultMode?: 'remember' | 'dictation' | 'call' | 'streaming';
-    callShowLiveTranscriptDefault?: boolean;
+    globalShortcutEnabled?: boolean;
+    summaryModel?: string;
+    autoSummary?: boolean;
+    chunkSec?: number;
+    liveTranscriptDefault?: boolean;
   }) => {
     if (!window.electron?.transcription?.setSettings) return;
     setSaved(false);
@@ -184,17 +172,16 @@ export default function TranscriptionSettingsPanel() {
       model,
       language: language.trim() || null,
       globalShortcut: globalShortcut.trim(),
-      transcriptionGlobalShortcutEnabled: transcriptionShortcutEnabled,
+      globalShortcutEnabled: transcriptionShortcutEnabled,
       apiBaseUrl: apiBaseUrl.trim(),
       prompt: prompt.trim(),
       pauseThresholdSec: pauseThresholdSec.trim() ? parseFloat(pauseThresholdSec) : null,
       ...(dedicatedKey.trim() ? { dedicatedOpenaiKey: dedicatedKey.trim() } : {}),
       ...(groqKey.trim() ? { groqApiKey: groqKey.trim() } : {}),
-      callSummaryModel: callSummaryModel.trim() || 'gpt-4o-mini',
-      callAutoSummary,
-      callChunkSec: callChunkSec.trim() ? parseInt(callChunkSec, 10) : 30,
-      hubDefaultMode,
-      callShowLiveTranscriptDefault,
+      summaryModel: summaryModel.trim() || 'gpt-4o-mini',
+      autoSummary,
+      chunkSec: chunkSec.trim() ? parseInt(chunkSec, 10) : 4,
+      liveTranscriptDefault,
     });
   };
 
@@ -257,7 +244,7 @@ export default function TranscriptionSettingsPanel() {
                 onRequest={async () => {
                   setPermLoading(true);
                   try {
-                    await window.electron?.transcription?.requestMicrophoneAccess?.();
+                    await window.electron?.transcription?.requestMic?.();
                     await loadPermissions();
                   } finally {
                     setPermLoading(false);
@@ -273,7 +260,7 @@ export default function TranscriptionSettingsPanel() {
                 onRequest={async () => {
                   setPermLoading(true);
                   try {
-                    await window.electron?.transcription?.requestScreenAccess?.();
+                    await window.electron?.transcription?.requestScreen?.();
                     await loadPermissions();
                   } finally {
                     setPermLoading(false);
@@ -339,6 +326,9 @@ export default function TranscriptionSettingsPanel() {
               onChange={(e) => setModel(e.target.value)}
             >
               <option value="whisper-1">{t('settings.transcription.model_option_whisper1')}</option>
+              <option value="gpt-4o-transcribe">{t('settings.transcription.model_option_gpt4o_transcribe')}</option>
+              <option value="gpt-4o-mini-transcribe">{t('settings.transcription.model_option_gpt4o_mini_transcribe')}</option>
+              <option value="gpt-4o-transcribe-diarize">{t('settings.transcription.model_option_gpt4o_transcribe_diarize')}</option>
               <option value={MODEL_GROQ_TURBO}>whisper-large-v3-turbo</option>
               <option value={MODEL_GROQ_LARGE}>whisper-large-v3</option>
             </DomeSelect>
@@ -413,62 +403,43 @@ export default function TranscriptionSettingsPanel() {
         </DomeCard>
       </div>
 
-      {/* 3b — Resúmenes de reunión (IA) */}
+      {/* 3b — Defaults & summaries */}
       <div>
         <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
-          {t('settings.transcription.section_calls_ai')}
+          {t('settings.transcription.section_defaults')}
         </DomeSectionLabel>
         <DomeCard>
-          <DomeInput
-            label={t('settings.transcription.call_summary_model')}
-            value={callSummaryModel}
-            onChange={(e) => setCallSummaryModel(e.target.value)}
-            placeholder={t('settings.transcription.call_summary_model_placeholder')}
-            className="mb-3"
-          />
           <DomeCheckbox
             className="mb-3"
-            label={t('settings.transcription.call_auto_summary')}
-            checked={callAutoSummary}
-            onChange={(e) => setCallAutoSummary(e.target.checked)}
+            label={t('settings.transcription.live_preview_default')}
+            checked={liveTranscriptDefault}
+            onChange={(e) => setLiveTranscriptDefault(e.target.checked)}
           />
           <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.call_chunk_length')}
+            {t('settings.transcription.chunk_length')}
           </label>
           <p className="text-[10px] mb-2" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.call_chunk_help')}
+            {t('settings.transcription.chunk_help')}
           </p>
-          <DomeSelect className="max-w-[200px]" value={callChunkSec} onChange={(e) => setCallChunkSec(e.target.value)}>
+          <DomeSelect className="max-w-[200px] mb-4" value={chunkSec} onChange={(e) => setChunkSec(e.target.value)}>
+            <option value="2">2</option>
+            <option value="4">4</option>
+            <option value="8">8</option>
+            <option value="15">15</option>
             <option value="30">30</option>
-            <option value="45">45</option>
-            <option value="60">60</option>
           </DomeSelect>
-        </DomeCard>
-      </div>
 
-      {/* 3c — Hub flotante */}
-      <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
-          {t('settings.transcription.section_hub')}
-        </DomeSectionLabel>
-        <DomeCard>
-          <DomeSelect
-            className="max-w-md mb-3"
-            label={t('settings.transcription.hub_default_mode')}
-            value={hubDefaultMode}
-            onChange={(e) =>
-              setHubDefaultMode(e.target.value as 'remember' | 'dictation' | 'call' | 'streaming')
-            }
-          >
-            <option value="remember">{t('settings.transcription.hub_default_remember')}</option>
-            <option value="dictation">{t('settings.transcription.hub_default_dictation')}</option>
-            <option value="call">{t('settings.transcription.hub_default_call')}</option>
-            <option value="streaming">{t('settings.transcription.hub_default_streaming')}</option>
-          </DomeSelect>
+          <DomeInput
+            label={t('settings.transcription.summary_model')}
+            value={summaryModel}
+            onChange={(e) => setSummaryModel(e.target.value)}
+            placeholder="gpt-4o-mini"
+            className="mb-3"
+          />
           <DomeCheckbox
-            label={t('settings.transcription.call_live_transcript_default')}
-            checked={callShowLiveTranscriptDefault}
-            onChange={(e) => setCallShowLiveTranscriptDefault(e.target.checked)}
+            label={t('settings.transcription.auto_summary')}
+            checked={autoSummary}
+            onChange={(e) => setAutoSummary(e.target.checked)}
           />
         </DomeCard>
       </div>

@@ -454,9 +454,6 @@ function createTray(mainWindow) {
   }
   appTray.setToolTip('Dome');
 
-  const transcriptionTrayMenu = require('./transcription-tray-menu.cjs');
-  const hubTrayState = require('./hub-tray-state.cjs');
-
   const openMainWindow = () => {
     const win = windowManager.get('main');
     if (win && !win.isDestroyed()) {
@@ -472,15 +469,13 @@ function createTray(mainWindow) {
     app.quit();
   };
 
-  const refreshTrayChrome = () => {
-    transcriptionTrayMenu.applyTrayMenuAndTooltip(appTray, windowManager, {
-      openMainWindow,
-      quitApp,
-    });
-  };
-
-  hubTrayState.setRefreshCallback(refreshTrayChrome);
-  refreshTrayChrome();
+  appTray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Open Dome', click: openMainWindow },
+      { type: 'separator' },
+      { label: 'Quit', click: quitApp },
+    ]),
+  );
 
   // Single click on tray icon shows/hides the main window
   appTray.on('click', () => {
@@ -957,11 +952,6 @@ app
     updateService.setBeforeQuitCallback(() => {
       isQuitting = true;
       if (appTray) {
-        try {
-          require('./hub-tray-state.cjs').setRefreshCallback(null);
-        } catch {
-          /* */
-        }
         appTray.destroy();
         appTray = null;
       }
@@ -1017,11 +1007,6 @@ app.on('before-quit', async () => {
   isQuitting = true;
   console.log('👋 Cerrando Dome...');
   if (appTray) {
-    try {
-      require('./hub-tray-state.cjs').setRefreshCallback(null);
-    } catch {
-      /* */
-    }
     appTray.destroy();
     appTray = null;
   }

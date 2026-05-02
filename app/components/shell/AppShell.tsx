@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Mic } from 'lucide-react';
 import DomeTabBar from './DomeTabBar';
 import ContentRouter from './ContentRouter';
 import ManyPanel from '@/components/many/ManyPanel';
@@ -14,12 +13,10 @@ import ResizeHandle from '@/components/workspace/ResizeHandle';
 import WindowControls from '@/components/ui/WindowControls';
 import DomeButton from '@/components/ui/DomeButton';
 import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
-import HubOverlay from '@/components/transcription/HubOverlay';
-import { HubUiProvider } from '@/lib/transcription/hubUiContext';
-import { dispatchTranscriptionTrayAction, parseTrayActionPayload } from '@/lib/transcription/hubTrayHandlers';
+import TranscriptionPill from '@/components/transcription/TranscriptionPill';
+import { useTranscriptionStore } from '@/lib/transcription/useTranscriptionStore';
 
 const MANY_WIDTH_KEY = 'dome:many-panel-width-v1';
-const HUB_DOCK_EXPANDED_KEY = 'dome:transcription-hub-dock-expanded-v1';
 const MANY_MIN = 280;
 const MANY_MAX = 600;
 const MANY_DEFAULT = 380;
@@ -42,21 +39,10 @@ export default function AppShell() {
   /** Muestra Many en la columna derecha aunque la pestaña activa sea Chat (p. ej. HITL). */
   const [manyRightOverride, setManyRightOverride] = useState(false);
 
-  // ── Voice hub dock (embedded bottom panel) ─────────────
-  const [hubDockExpanded, setHubDockExpanded] = useState(() => {
-    try {
-      return localStorage.getItem(HUB_DOCK_EXPANDED_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-
-  // ── Voice overlay active indicators ──────────────────
-  const [dictationActive, setDictationActive] = useState(false);
   const manyWidthRef = useRef(manyWidth);
   manyWidthRef.current = manyWidth;
 
-  const { openChatTab, activeTabId, tabs, openTranscriptionsTab } = useTabStore();
+  const { openChatTab, activeTabId, tabs } = useTabStore();
   const { leftSidebarCollapsed, toggleLeftSidebar } = useResizeStore();
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -69,13 +55,14 @@ export default function AppShell() {
     setManyWidth(readInt(MANY_WIDTH_KEY, MANY_DEFAULT, MANY_MIN, MANY_MAX));
   }, []);
 
+  // Transcription: subscribe once to the main-process broadcast and prime settings.
   useEffect(() => {
-    try {
-      localStorage.setItem(HUB_DOCK_EXPANDED_KEY, hubDockExpanded ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
-  }, [hubDockExpanded]);
+    const tx = window.electron?.transcription;
+    if (!tx) return undefined;
+    void useTranscriptionStore.getState().loadSettings();
+    const off = tx.onState(useTranscriptionStore.getState()._onStateBroadcast);
+    return () => off?.();
+  }, []);
 
   const handleManyResize = useCallback((deltaX: number) => {
     // Panel is on the right: dragging handle left (negative deltaX) expands it
@@ -87,15 +74,6 @@ export default function AppShell() {
 
   const handleToggleRightSidebar = useCallback(() => {
     setRightSidebarOpen(prev => !prev);
-  }, []);
-
-  const handleToggleDictationDock = useCallback(async () => {
-    setHubDockExpanded(true);
-    try {
-      await window.electron?.transcriptionOverlay?.toggleFromUi?.();
-    } catch {
-      /* ignore */
-    }
   }, []);
 
   const handleNewChat = useCallback(() => {
@@ -174,41 +152,6 @@ export default function AppShell() {
       window.removeEventListener('dome:many-requires-panel', onReq);
       window.removeEventListener('dome:many-hitl-cleared', onClr);
     };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.electron?.on) return undefined;
-    const unsub = window.electron.on('transcription:expand-hub-dock', () => {
-      setHubDockExpanded(true);
-    });
-    return () => unsub?.();
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.electron?.on) return undefined;
-    const unsub = window.electron.on('transcription:tray-action', (payload: unknown) => {
-      const action = parseTrayActionPayload(payload);
-      if (action) dispatchTranscriptionTrayAction(action);
-    });
-    return () => unsub?.();
-  }, []);
-
-  // Hub activity indicator — broadcast from main-window hub via main process
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.electron?.on) return undefined;
-    const unsub = window.electron.on(
-      'transcription:state',
-      (payload: unknown) => {
-        if (payload == null || typeof payload !== 'object' || Array.isArray(payload)) {
-          setDictationActive(false);
-          return;
-        }
-        const ph = (payload as { phase?: string }).phase;
-        const busy = ph === 'recording' || ph === 'paused' || ph === 'processing';
-        setDictationActive(Boolean(busy));
-      },
-    );
-    return () => unsub?.();
   }, []);
 
   const showChatHistory = Boolean(isChatTab && !manyRightOverride);
@@ -293,45 +236,12 @@ export default function AppShell() {
             } as React.CSSProperties}
           />
 
-          {/* Voice: transcription hub (panel inferior integrado) */}
+          {/* Transcription pill — single entry point for recording */}
           <div
             className="flex shrink-0 items-stretch gap-0.5 pr-1"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              iconOnly
-              onClick={handleToggleDictationDock}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                openTranscriptionsTab();
-              }}
-              className="relative !rounded-md w-[34px] h-full min-h-0 shrink-0 px-0 transition-colors"
-              title={`${t('shell.dictation_dock')} · ${t('shell.open_transcriptions')}`}
-              style={{
-                background: dictationActive
-                  ? 'color-mix(in srgb, var(--dome-accent) 12%, transparent)'
-                  : undefined,
-                color: dictationActive ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-              }}
-              aria-pressed={dictationActive}
-              aria-label={t('shell.dictation_dock')}
-            >
-              <Mic className="h-[15px] w-[15px]" aria-hidden />
-              {dictationActive && (
-                <span
-                  className="absolute top-[6px] right-[6px] rounded-full"
-                  style={{
-                    width: 5, height: 5,
-                    background: 'var(--dome-accent)',
-                    animation: 'pulse-dot 1.4s ease-in-out infinite',
-                  }}
-                  aria-hidden
-                />
-              )}
-            </DomeButton>
+            <TranscriptionPill />
           </div>
 
           {/* Right sidebar toggle */}
@@ -376,31 +286,7 @@ export default function AppShell() {
           className="dome-main-content flex flex-col flex-1 min-w-0 overflow-hidden"
           style={{ background: 'var(--dome-surface)' }}
         >
-          <HubUiProvider>
-            <div className="flex flex-1 min-h-0 flex-col overflow-hidden relative">
-              <div className="flex flex-1 min-h-0 overflow-hidden">
-                <ContentRouter />
-              </div>
-              <div
-                className="shrink-0 overflow-hidden transition-[max-height] duration-200 ease-out"
-                style={{
-                  maxHeight: hubDockExpanded ? 'min(45vh, 520px)' : 0,
-                  pointerEvents: hubDockExpanded ? 'auto' : 'none',
-                }}
-                aria-hidden={!hubDockExpanded}
-              >
-                <div
-                  className="box-border max-h-[min(45vh,520px)] w-full overflow-x-hidden overflow-y-auto border-t border-solid px-2 pb-2 pt-1 sm:px-3 sm:pb-3 [scrollbar-gutter:stable]"
-                  style={{
-                    borderTopColor: 'var(--dome-border)',
-                    background: 'var(--dome-surface)',
-                  }}
-                >
-                  <HubOverlay onRequestCloseDock={() => setHubDockExpanded(false)} />
-                </div>
-              </div>
-            </div>
-          </HubUiProvider>
+          <ContentRouter />
         </main>
 
         {/* Right sidebar with resize handle */}

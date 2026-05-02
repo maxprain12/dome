@@ -11,14 +11,33 @@ function newSegmentId() {
 
 /**
  * @param {WhisperLikeSegment[]} raw
- * @param {{ pauseThresholdSec?: number, maxSpeakers?: number }} opts
+ * @param {{ pauseThresholdSec?: number, maxSpeakers?: number, speakerMode?: 'alternating' | 'single' }} opts
+ *
+ * - `single`: one speaker — use for mic-only or system-only capture (pause-based rotation is wrong for solo speech).
+ * - `alternating` + `maxSpeakers`: rotate on long gaps between Whisper segments (heuristic “turns”).
  */
 function applyAlternatingSpeakerHeuristic(raw, opts = {}) {
   const pauseThresholdSec = opts.pauseThresholdSec ?? 1.35;
   const maxSpeakers = Math.max(2, Math.min(12, opts.maxSpeakers ?? 8));
+  const speakerMode = opts.speakerMode ?? 'alternating';
 
   if (!raw.length) {
     return { segments: [], speakers: {}, diarization: /** @type {const} */ ('none') };
+  }
+
+  if (speakerMode === 'single') {
+    const segments = raw.map((seg) => ({
+      id: newSegmentId(),
+      startTime: seg.start,
+      endTime: seg.end,
+      text: seg.text.trim(),
+      speakerId: 'auto-0',
+    }));
+    return {
+      segments,
+      speakers: { 'auto-0': { label: 'Persona A' } },
+      diarization: /** @type {const} */ ('heuristic'),
+    };
   }
 
   let speakerIdx = 0;

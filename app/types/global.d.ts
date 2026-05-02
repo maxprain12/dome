@@ -1428,68 +1428,7 @@ declare global {
       };
 
       transcription: {
-        requestMicrophoneAccess: () => Promise<{
-          success: boolean;
-          granted?: boolean;
-          error?: string;
-        }>;
-        resourceToNote: (args: {
-          resourceId: string;
-          title?: string;
-          language?: string | null;
-          model?: string;
-          updateAudioMetadata?: boolean;
-        }) => Promise<{
-          success: boolean;
-          note?: import('./index').Resource;
-          text?: string;
-          structured?: import('./index').StructuredTranscriptPayload;
-          sourceResourceId?: string;
-          error?: string;
-        }>;
-        bufferToNote: (args: {
-          buffer: ArrayBuffer;
-          extension?: string;
-          projectId?: string;
-          folderId?: string | null;
-          title?: string;
-          audioTitle?: string;
-          saveRecordingAsAudio?: boolean;
-          language?: string | null;
-          model?: string;
-          captureKind?: 'microphone' | 'system' | 'call' | 'mic_and_system';
-          callPlatform?: string;
-        }) => Promise<{
-          success: boolean;
-          note?: import('./index').Resource;
-          text?: string;
-          structured?: import('./index').StructuredTranscriptPayload;
-          audioResourceId?: string | null;
-          error?: string;
-        }>;
-        bufferToText: (args: {
-          buffer: ArrayBuffer;
-          extension?: string;
-          language?: string | null;
-          model?: string;
-        }) => Promise<{
-          success: boolean;
-          text?: string;
-          structured?: import('./index').StructuredTranscriptPayload | null;
-          error?: string;
-        }>;
-        getDefaults: () => Promise<{
-          success: boolean;
-          data?: {
-            sttProvider?: 'openai' | 'groq' | 'custom';
-            model: string;
-            language: string | null;
-            apiBaseUrl?: string;
-            prompt?: string;
-            pauseThresholdSec?: number;
-          };
-          error?: string;
-        }>;
+        // Settings
         getSettings: () => Promise<{
           success: boolean;
           data?: {
@@ -1498,16 +1437,16 @@ declare global {
             language: string | null;
             apiBaseUrl: string;
             prompt: string;
-            hasDedicatedOpenAIKey: boolean;
-            hasGroqApiKey: boolean;
+            pauseThresholdSec: number;
+            hasOpenAIKey: boolean;
+            hasGroqKey: boolean;
             globalShortcut: string;
-            transcriptionGlobalShortcutEnabled?: boolean;
-            pauseThresholdSec?: number;
-            callSummaryModel?: string;
-            callAutoSummary?: boolean;
-            callChunkSec?: number;
-            hubDefaultMode?: 'remember' | 'dictation' | 'call' | 'streaming';
-            callShowLiveTranscriptDefault?: boolean;
+            globalShortcutEnabled: boolean;
+            defaultSources: Array<'mic' | 'system'>;
+            liveTranscriptDefault: boolean;
+            autoSummary: boolean;
+            chunkSec: number;
+            summaryModel: string;
           };
           error?: string;
         }>;
@@ -1518,26 +1457,32 @@ declare global {
           dedicatedOpenaiKey?: string | null;
           groqApiKey?: string | null;
           globalShortcut?: string;
-          transcriptionGlobalShortcutEnabled?: boolean;
+          globalShortcutEnabled?: boolean;
           apiBaseUrl?: string;
           prompt?: string | null;
           pauseThresholdSec?: number | string | null;
-          callSummaryModel?: string;
-          callAutoSummary?: boolean;
-          callChunkSec?: number;
-          hubDefaultMode?: 'remember' | 'dictation' | 'call' | 'streaming';
-          callShowLiveTranscriptDefault?: boolean;
-        }) => Promise<{ success: boolean; error?: string }>;
-        regenerateLinkedNote: (args: { resourceId: string }) => Promise<{
+          defaultSources?: Array<'mic' | 'system'>;
+          liveTranscriptDefault?: boolean;
+          autoSummary?: boolean;
+          chunkSec?: number;
+          summaryModel?: string;
+        }) => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        // Permissions
+        getPermissions: () => Promise<{
           success: boolean;
-          noteId?: string;
+          mic?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
+          screen?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
           error?: string;
         }>;
-        patchTranscriptSpeakers: (args: {
-          resourceId: string;
-          speakersPatch: Record<string, { label: string; isSelf?: boolean }>;
-        }) => Promise<{ success: boolean; error?: string }>;
-        listDesktopCaptureSources: () => Promise<{
+        requestMic: () => Promise<{ success: boolean; granted?: boolean; error?: string }>;
+        requestScreen: () => Promise<{
+          success: boolean;
+          granted?: boolean;
+          screen?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
+          error?: string;
+        }>;
+        // Capture sources
+        listCaptureSources: () => Promise<{
           success: boolean;
           sources?: Array<{
             id: string;
@@ -1550,69 +1495,59 @@ declare global {
           errorCode?: 'screen_capture_permission';
         }>;
         setDisplayMediaSource: (sourceId: string) => Promise<{ success: boolean; error?: string }>;
-        getPermissionsStatus: () => Promise<{
-          success: boolean;
-          microphone?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
-          screen?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
-          error?: string;
-        }>;
-        requestScreenAccess: () => Promise<{
-          success: boolean;
-          screen?: 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
-          error?: string;
-        }>;
-        onToggleRecording: (callback: () => void) => RemoveListenerFn;
-      };
-
-      calls: {
-        start: (args: {
+        // Session lifecycle
+        sessionStart: (args: {
+          sources: Array<'mic' | 'system'>;
+          systemSourceId?: string;
           projectId?: string;
           folderId?: string | null;
-          callPlatform?: string;
-          saveRecordingAsAudio?: boolean;
+          livePreview?: boolean;
+          saveAudio?: boolean;
         }) => Promise<{ success: boolean; sessionId?: string; error?: string }>;
-        appendChunk: (args: {
+        sessionAppend: (args: {
           sessionId: string;
           track: 'mic' | 'system';
-          buffer: ArrayBuffer;
           seq: number;
           startMs: number;
+          buffer: ArrayBuffer;
           extension?: string;
-        }) => Promise<{ success: boolean; error?: string; skipped?: boolean; chunkText?: string; plainText?: string }>;
-        getLive: (args: { sessionId: string }) => Promise<{
+        }) => Promise<{ success: boolean; error?: string }>;
+        sessionControl: (args: {
+          sessionId: string;
+          action: 'pause' | 'resume' | 'cancel' | 'stop';
+        }) => Promise<{ success: boolean; resourceId?: string; error?: string }>;
+        getActive: () => Promise<{
           success: boolean;
-          plainText?: string;
-          segmentCount?: number;
-          durationMs?: number;
-          paused?: boolean;
+          data?: {
+            sessionId: string | null;
+            phase: 'idle' | 'recording' | 'paused' | 'transcribing' | 'error';
+            sources: Array<'mic' | 'system'>;
+            seconds: number;
+            livePreview: boolean;
+            partialText: string;
+            error: string | null;
+          };
           error?: string;
         }>;
-        pause: (args: { sessionId: string }) => Promise<{ success: boolean; error?: string }>;
-        resume: (args: { sessionId: string }) => Promise<{ success: boolean; error?: string }>;
-        stop: (args: { sessionId: string }) => Promise<{
+        // Manual conversion
+        resourceToNote: (args: { resourceId: string }) => Promise<{
           success: boolean;
           note?: import('./index').Resource;
-          text?: string;
-          structured?: import('./index').StructuredTranscriptPayload;
-          audioResourceId?: string | null;
           error?: string;
         }>;
-        cancel: (args: { sessionId: string }) => Promise<{ success: boolean; error?: string }>;
-        regenerateSummary: (args: { noteId: string }) => Promise<{ success: boolean; error?: string }>;
-      };
-
-      transcriptionOverlay: {
-        toggleFromUi: () => Promise<{ success: boolean; error?: string }>;
-        setState: (payload: {
-          mode?: string;
-          phase?: string;
-          seconds?: number;
-          hubVisible?: boolean;
-          captureKind?: string;
-          /** Whether pause/resume is supported (tray menu). */
-          canPause?: boolean;
-        }) => Promise<{ success: boolean; error?: string }>;
-        openNoteInMain: (payload: { noteId: string; title?: string }) => Promise<{ success: boolean; error?: string }>;
+        // Subscriptions
+        onState: (
+          callback: (payload: {
+            sessionId: string | null;
+            phase: 'idle' | 'recording' | 'paused' | 'transcribing' | 'error';
+            sources: Array<'mic' | 'system'>;
+            seconds: number;
+            livePreview: boolean;
+            partialText: string;
+            error: string | null;
+          }) => void,
+        ) => RemoveListenerFn;
+        onToggleRecording: (callback: () => void) => RemoveListenerFn;
       };
 
       // Ollama API

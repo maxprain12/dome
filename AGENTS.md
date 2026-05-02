@@ -105,3 +105,5 @@ gh pr merge --auto --squash
 | Skills                    | `~/.dome/skills/`, `.dome/skills/`, [electron/skills/bundled/](electron/skills/bundled/) — [CLAUDE.md](CLAUDE.md) |
 | Audit milestones          | [scripts/audit-milestones.json](scripts/audit-milestones.json)                                                    |
 | VPS setup                 | [docs/vps-audit-setup.md](docs/vps-audit-setup.md)                                                                |
+
+

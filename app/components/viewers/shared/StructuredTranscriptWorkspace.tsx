@@ -17,7 +17,7 @@ import TranscriptToolbar from './transcript/TranscriptToolbar';
 import TranscriptSearchBar from './transcript/TranscriptSearchBar';
 import TranscriptSegmentList from './transcript/TranscriptSegmentList';
 import TranscriptEmptyState from './transcript/TranscriptEmptyState';
-import { countOccurrences } from './transcript/transcriptUtils';
+import { countOccurrences, getSpeakerColor, buildSpeakerOrder } from './transcript/transcriptUtils';
 
 interface StructuredTranscriptWorkspaceProps {
   resource: Resource;
@@ -89,6 +89,8 @@ export default function StructuredTranscriptWorkspace({
     return [...s];
   }, [segments]);
 
+  const speakerOrder = useMemo(() => buildSpeakerOrder(segments), [segments]);
+
   const matchCount = useMemo(() => {
     const q = searchQuery.trim();
     if (!q) return 0;
@@ -159,7 +161,6 @@ export default function StructuredTranscriptWorkspace({
     try {
       const result = await window.electron.transcription.resourceToNote({
         resourceId: resource.id,
-        updateAudioMetadata: true,
       });
       if (result.success && result.note) {
         notifications.show({
@@ -185,23 +186,20 @@ export default function StructuredTranscriptWorkspace({
     }
   }, [resource.id, t]);
 
+  // Regenerating the linked note is no longer a one-shot IPC: the user can
+  // re-run the conversion via `resourceToNote`, which is idempotent (returns the
+  // existing note if one is already linked). To force a fresh note, the user
+  // unlinks via the audio resource metadata and re-converts. Keeping a thin
+  // wrapper here so the toolbar API stays the same.
   const handleRegenerateNote = useCallback(async () => {
-    if (!window.electron?.transcription?.regenerateLinkedNote) return;
+    if (!window.electron?.transcription?.resourceToNote) return;
     setRegenerating(true);
     try {
-      const res = await window.electron.transcription.regenerateLinkedNote({ resourceId: resource.id });
+      const res = await window.electron.transcription.resourceToNote({ resourceId: resource.id });
       if (res.success) {
-        notifications.show({
-          title: t('media.regenerate_note_done'),
-          message: t('media.regenerate_note_done'),
-          color: 'green',
-        });
+        notifications.show({ title: t('media.regenerate_note_done'), message: '', color: 'green' });
       } else {
-        notifications.show({
-          title: t('media.regenerate_note_failed'),
-          message: res.error || '',
-          color: 'red',
-        });
+        notifications.show({ title: t('media.regenerate_note_failed'), message: res.error || '', color: 'red' });
       }
     } catch (e) {
       notifications.show({
@@ -217,12 +215,25 @@ export default function StructuredTranscriptWorkspace({
   const flushSpeakerRename = useCallback(
     async (speakerId: string, rawLabel: string) => {
       const label = rawLabel.trim();
-      if (!label || !window.electron?.transcription?.patchTranscriptSpeakers) return;
+      if (!label || !window.electron?.db?.resources?.update) return;
       const prev = speakersMap[speakerId]?.label ?? '';
       if (label === prev) return;
-      const res = await window.electron.transcription.patchTranscriptSpeakers({
-        resourceId: resource.id,
-        speakersPatch: { [speakerId]: { label } },
+      const fresh = await window.electron.db.resources.getById(resource.id);
+      if (!fresh.success || !fresh.data) return;
+      const currentMeta = parseResourceMetadata(fresh.data);
+      const ts = currentMeta.transcription_structured;
+      if (!ts) return;
+      const nextSpeakers = {
+        ...(ts.speakers || {}),
+        [speakerId]: { ...(ts.speakers?.[speakerId] || {}), label },
+      };
+      const nextMeta = {
+        ...currentMeta,
+        transcription_structured: { ...ts, speakers: nextSpeakers },
+      };
+      const res = await window.electron.db.resources.update({
+        ...fresh.data,
+        metadata: JSON.stringify(nextMeta),
       });
       if (!res.success) {
         notifications.show({
@@ -283,31 +294,34 @@ export default function StructuredTranscriptWorkspace({
           />
           
           {structured && uniqueSpeakerIds.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-3">
-              {uniqueSpeakerIds.map((sid) => (
-                <label key={sid} className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
-                  <span className="font-medium">{t('media.speaker')}:</span>
-                  <input
-                    value={localSpeakerLabels[sid] ?? (speakersMap[sid]?.label || sid)}
-                    onChange={(e) =>
-                      setLocalSpeakerLabels((prev) => ({
-                        ...prev,
-                        [sid]: e.target.value,
-                      }))
-                    }
-                    onBlur={(e) => void flushSpeakerRename(sid, e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                    }}
-                    className="w-24 rounded border px-2 py-1 text-xs outline-none transition-colors focus:border-[var(--dome-accent)] focus:ring-1 focus:ring-[var(--dome-accent)]"
-                    style={{
-                      borderColor: 'var(--dome-border)',
-                      background: 'var(--dome-bg)',
-                      color: 'var(--dome-text)',
-                    }}
-                  />
-                </label>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              {uniqueSpeakerIds.map((sid) => {
+                const colors = getSpeakerColor(speakerOrder.get(sid) ?? 0);
+                return (
+                  <label
+                    key={sid}
+                    className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition-colors hover:brightness-95"
+                    style={{ background: colors.chipBg, cursor: 'text' }}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: colors.dot }} aria-hidden />
+                    <input
+                      value={localSpeakerLabels[sid] ?? (speakersMap[sid]?.label || sid)}
+                      onChange={(e) =>
+                        setLocalSpeakerLabels((prev) => ({
+                          ...prev,
+                          [sid]: e.target.value,
+                        }))
+                      }
+                      onBlur={(e) => void flushSpeakerRename(sid, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      }}
+                      className="w-20 bg-transparent text-[11px] font-semibold outline-none"
+                      style={{ color: colors.label }}
+                    />
+                  </label>
+                );
+              })}
             </div>
           ) : null}
         </div>
@@ -326,6 +340,7 @@ export default function StructuredTranscriptWorkspace({
             activeSegmentId={activeSegmentId}
             searchQuery={searchQuery}
             rowRefs={rowRefs}
+            speakerOrder={speakerOrder}
           />
         )}
       </div>
