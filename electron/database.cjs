@@ -2651,6 +2651,74 @@ function runMigrations(db) {
       console.error('[DB] Migration 26 failed:', error);
     }
   }
+
+  // Migration 27: transcription sessions & chunks (clean-slate redesign)
+  if (version < 27) {
+    console.log('[DB] Running migration 27 - transcription sessions & chunks');
+    try {
+      const now = Date.now();
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS transcription_sessions (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL DEFAULT 'default',
+          folder_id TEXT,
+          status TEXT NOT NULL CHECK(status IN ('recording','paused','transcribing','done','error','cancelled')),
+          sources TEXT NOT NULL,
+          live_preview INTEGER NOT NULL DEFAULT 0,
+          save_audio INTEGER NOT NULL DEFAULT 1,
+          session_dir TEXT NOT NULL,
+          resource_id TEXT,
+          partial_text TEXT NOT NULL DEFAULT '',
+          error_message TEXT,
+          started_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          finished_at INTEGER,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_transcription_sessions_status ON transcription_sessions(status)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_transcription_sessions_project ON transcription_sessions(project_id)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS transcription_chunks (
+          session_id TEXT NOT NULL,
+          seq INTEGER NOT NULL,
+          track TEXT NOT NULL CHECK(track IN ('mic','system')),
+          start_ms INTEGER NOT NULL,
+          duration_ms INTEGER,
+          file_path TEXT NOT NULL,
+          text TEXT,
+          PRIMARY KEY (session_id, track, seq),
+          FOREIGN KEY (session_id) REFERENCES transcription_sessions(id) ON DELETE CASCADE
+        )
+      `);
+
+      // Prune legacy settings keys from the previous hub/call architecture
+      const legacyKeys = [
+        'transcription_hub_default_mode',
+        'transcription_call_live_transcript_default',
+        'transcription_call_chunk_sec',
+        'transcription_call_summary_model',
+        'transcription_call_auto_summary',
+      ];
+      for (const k of legacyKeys) {
+        try { db.prepare('DELETE FROM settings WHERE key = ?').run(k); } catch { /* ignore */ }
+      }
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '27', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '27', updated_at = excluded.updated_at
+      `).run(now);
+
+      invalidateQueries();
+      console.log('[DB] Migration 27 complete - transcription sessions & chunks');
+    } catch (error) {
+      console.error('[DB] Migration 27 failed:', error);
+    }
+  }
 }
 
 /**
@@ -3501,6 +3569,54 @@ function getQueries() {
     `),
     deleteCalendarNotificationsForEvent: db.prepare(`
       DELETE FROM calendar_notifications WHERE event_id = ?
+    `),
+
+    // Transcription sessions (redesign — single unified pipeline)
+    insertTranscriptionSession: db.prepare(`
+      INSERT INTO transcription_sessions
+        (id, project_id, folder_id, status, sources, live_preview, save_audio, session_dir, partial_text, started_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)
+    `),
+    updateTranscriptionSessionStatus: db.prepare(`
+      UPDATE transcription_sessions
+      SET status = ?, updated_at = ?, error_message = ?
+      WHERE id = ?
+    `),
+    appendTranscriptionPartial: db.prepare(`
+      UPDATE transcription_sessions
+      SET partial_text = partial_text || ?, updated_at = ?
+      WHERE id = ?
+    `),
+    finalizeTranscriptionSession: db.prepare(`
+      UPDATE transcription_sessions
+      SET status = 'done', resource_id = ?, finished_at = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    getTranscriptionSession: db.prepare(`
+      SELECT * FROM transcription_sessions WHERE id = ?
+    `),
+    getStaleTranscriptionSessions: db.prepare(`
+      SELECT * FROM transcription_sessions
+      WHERE status IN ('recording','paused','transcribing')
+      ORDER BY started_at ASC
+    `),
+    deleteTranscriptionSession: db.prepare(`
+      DELETE FROM transcription_sessions WHERE id = ?
+    `),
+
+    // Transcription chunks
+    insertTranscriptionChunk: db.prepare(`
+      INSERT OR REPLACE INTO transcription_chunks
+        (session_id, seq, track, start_ms, duration_ms, file_path, text)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateTranscriptionChunkText: db.prepare(`
+      UPDATE transcription_chunks SET text = ? WHERE session_id = ? AND track = ? AND seq = ?
+    `),
+    listSessionChunks: db.prepare(`
+      SELECT * FROM transcription_chunks
+      WHERE session_id = ?
+      ORDER BY track ASC, seq ASC
     `),
   };
 

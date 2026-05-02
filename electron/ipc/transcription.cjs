@@ -1,7 +1,26 @@
 /* eslint-disable no-console */
-const fs = require('fs');
-const path = require('path');
-const semanticIndexScheduler = require('../semantic-index-scheduler.cjs');
+/**
+ * Transcription IPC — single namespace for the redesigned engine.
+ *
+ * 12 channels total (vs 36 across transcription:* / calls:* / overlay:*):
+ *   transcription:get-settings
+ *   transcription:set-settings
+ *   transcription:get-permissions
+ *   transcription:request-mic
+ *   transcription:request-screen
+ *   transcription:list-capture-sources
+ *   transcription:set-display-media-source   (internal — primes the request handler)
+ *   transcription:session-start
+ *   transcription:session-append
+ *   transcription:session-control            (pause | resume | cancel | stop)
+ *   transcription:get-active                 (renderer reconnect after reload)
+ *   transcription:resource-to-note           (manual conversion from detail page)
+ *
+ * Broadcast: transcription:state (main -> renderer)
+ */
+
+const transcriptionService = require('../transcription-service.cjs');
+const transcriptionSession = require('../transcription-session.cjs');
 
 function generateResourceId() {
   return `res_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
@@ -9,56 +28,83 @@ function generateResourceId() {
 
 function parseMetadata(raw) {
   if (!raw || typeof raw !== 'string') return {};
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(raw); } catch { return {}; }
 }
 
-function deriveNoteTitle(text) {
+function deriveTitle(text) {
   const cleaned = String(text || '').replace(/\s+/g, ' ').trim();
-  if (!cleaned) {
-    return `Transcripción — ${new Date().toLocaleString()}`;
-  }
+  if (!cleaned) return `Transcription — ${new Date().toLocaleString()}`;
   const slice = cleaned.slice(0, 60);
   return slice + (cleaned.length > 60 ? '…' : '');
 }
 
-function getTranscriptionDefaults(database) {
-  const transcriptionService = require('../transcription-service.cjs');
-  const queries = database.getQueries();
-  const providerRow = queries.getSetting.get('transcription_stt_provider');
-  let sttProvider = providerRow?.value && String(providerRow.value).trim().toLowerCase();
-  if (sttProvider === 'local-gemma') sttProvider = 'openai';
-  if (sttProvider !== 'groq' && sttProvider !== 'openai' && sttProvider !== 'custom') {
-    sttProvider = transcriptionService.getTranscriptionSttProvider(database);
+function readDefaultSources(database) {
+  try {
+    const row = database.getQueries().getSetting.get('transcription_default_sources');
+    const raw = row?.value && String(row.value).trim();
+    if (!raw) return ['mic'];
+    const parsed = JSON.parse(raw);
+    const valid = Array.isArray(parsed)
+      ? parsed.filter((s) => s === 'mic' || s === 'system')
+      : [];
+    return valid.length ? valid : ['mic'];
+  } catch {
+    return ['mic'];
   }
+}
+
+function readBoolSetting(database, key, fallback) {
+  try {
+    const row = database.getQueries().getSetting.get(key);
+    if (!row || row.value == null) return fallback;
+    const v = String(row.value).trim().toLowerCase();
+    if (v === '0' || v === 'false' || v === 'off') return false;
+    if (v === '1' || v === 'true' || v === 'on') return true;
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function getSettingsPayload(database) {
+  const queries = database.getQueries();
+
+  let sttProvider = transcriptionService.getTranscriptionSttProvider(database);
+  if (sttProvider !== 'groq' && sttProvider !== 'openai' && sttProvider !== 'custom') {
+    sttProvider = 'openai';
+  }
+
   const modelRow = queries.getSetting.get('transcription_model');
   const langRow = queries.getSetting.get('transcription_language');
   const baseRow = queries.getSetting.get('transcription_api_base_url');
   const promptRow = queries.getSetting.get('transcription_prompt');
   const pauseRow = queries.getSetting.get('transcription_pause_threshold_sec');
-  let model = modelRow?.value && String(modelRow.value).trim();
-  if (!model) {
-    model = sttProvider === 'groq' ? transcriptionService.DEFAULT_GROQ_MODEL : 'whisper-1';
-  }
-  const languageRaw = langRow?.value && String(langRow.value).trim();
-  const language = languageRaw || null;
-  const apiBaseUrl = baseRow?.value && String(baseRow.value).trim() ? String(baseRow.value).trim() : '';
-  const prompt = promptRow?.value && String(promptRow.value).trim() ? String(promptRow.value).trim() : '';
+  const keyRow = queries.getSetting.get('transcription_openai_api_key');
+  const groqKeyRow = queries.getSetting.get('transcription_groq_api_key');
+  const shortcutRow = queries.getSetting.get('transcription_global_shortcut');
+  const shortcutEnRow = queries.getSetting.get('transcription_global_shortcut_enabled');
+  const chunkSecRow = queries.getSetting.get('transcription_chunk_sec');
+  const summaryModelRow = queries.getSetting.get('transcription_summary_model');
+
+  const model = (modelRow?.value && String(modelRow.value).trim())
+    || (sttProvider === 'groq' ? transcriptionService.DEFAULT_GROQ_MODEL : 'whisper-1');
+  const language = (langRow?.value && String(langRow.value).trim()) || null;
+  const apiBaseUrl = (baseRow?.value && String(baseRow.value).trim()) || '';
+  const prompt = (promptRow?.value && String(promptRow.value).trim()) || '';
   const pauseParsed = parseFloat(String(pauseRow?.value || ''));
-  const pauseThresholdSec =
-    Number.isFinite(pauseParsed) && pauseParsed >= 0.4 && pauseParsed <= 8 ? pauseParsed : 1.35;
-  const hubModeRow = queries.getSetting.get('transcription_hub_default_mode');
-  const hubRaw = hubModeRow?.value != null ? String(hubModeRow.value).trim().toLowerCase() : '';
-  const hubDefaultMode =
-    hubRaw === 'dictation' || hubRaw === 'call' || hubRaw === 'streaming' || hubRaw === 'remember'
-      ? hubRaw
-      : 'remember';
-  const liveRow = queries.getSetting.get('transcription_call_live_transcript_default');
-  const liveRaw = liveRow?.value != null ? String(liveRow.value).trim().toLowerCase() : '';
-  const callShowLiveTranscriptDefault = liveRaw !== '0' && liveRaw !== 'false' && liveRaw !== 'off';
+  const pauseThresholdSec = Number.isFinite(pauseParsed) && pauseParsed >= 0.4 && pauseParsed <= 8
+    ? pauseParsed
+    : 1.35;
+  const globalShortcut = (shortcutRow?.value && String(shortcutRow.value).trim()) || '';
+  const shortcutEnabledRaw = shortcutEnRow?.value != null ? String(shortcutEnRow.value).trim().toLowerCase() : '';
+  const globalShortcutEnabled = shortcutEnabledRaw === '0' || shortcutEnabledRaw === 'false' || shortcutEnabledRaw === 'off'
+    ? false
+    : (shortcutEnabledRaw === '1' || shortcutEnabledRaw === 'true' || shortcutEnabledRaw === 'on'
+      ? true
+      : Boolean(globalShortcut));
+  const chunkSecParsed = parseInt(String(chunkSecRow?.value || ''), 10);
+  const chunkSec = Number.isFinite(chunkSecParsed) ? Math.min(60, Math.max(2, chunkSecParsed)) : 4;
+
   return {
     sttProvider,
     model,
@@ -66,440 +112,49 @@ function getTranscriptionDefaults(database) {
     apiBaseUrl,
     prompt,
     pauseThresholdSec,
-    hubDefaultMode,
-    callShowLiveTranscriptDefault,
+    hasOpenAIKey: Boolean(keyRow?.value && String(keyRow.value).trim()),
+    hasGroqKey: Boolean(groqKeyRow?.value && String(groqKeyRow.value).trim()),
+    globalShortcut,
+    globalShortcutEnabled,
+    defaultSources: readDefaultSources(database),
+    liveTranscriptDefault: readBoolSetting(database, 'transcription_live_transcript_default', true),
+    autoSummary: readBoolSetting(database, 'transcription_auto_summary', false),
+    chunkSec,
+    summaryModel: (summaryModelRow?.value && String(summaryModelRow.value).trim()) || 'gpt-4o-mini',
   };
 }
 
-function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandler, thumbnail, initModule, ollamaService, pendingDisplayMediaSources }) {
-  const transcriptionService = require('../transcription-service.cjs');
-  const transcriptionStructured = require('../transcription-structured.cjs');
+function register({
+  ipcMain,
+  windowManager,
+  database,
+  fileStorage,
+  aiToolsHandler,
+  thumbnail,
+  initModule,
+  ollamaService,
+  pendingDisplayMediaSources,
+}) {
   const transcriptionShortcut = require('../transcription-shortcut.cjs');
-  const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
-  semanticIndexScheduler.init(database);
+  const sessionDeps = { database, fileStorage, windowManager, thumbnail, initModule, ollamaService };
 
-  /**
-   * macOS microphone permission (no-op elsewhere; Chromium handles the rest).
-   */
-  ipcMain.handle('transcription:request-microphone-access', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
+  // -- Settings -----------------------------------------------------------
+
+  ipcMain.handle('transcription:get-settings', async (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try {
-      if (process.platform === 'darwin') {
-        const { systemPreferences } = require('electron');
-        const granted = await systemPreferences.askForMediaAccess('microphone');
-        return { success: true, granted };
-      }
-      return { success: true, granted: true };
-    } catch (err) {
-      console.error('[Transcription] microphone access error:', err);
-      return { success: false, error: err.message };
-    }
-  });
-
-  /**
-   * Store the desired desktopCapturer source ID before the renderer calls getDisplayMedia().
-   * The setDisplayMediaRequestHandler in main.cjs reads this to select the right source.
-   */
-  ipcMain.handle('transcription:set-display-media-source', async (event, { sourceId } = {}) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    if (typeof sourceId !== 'string' || !sourceId) {
-      return { success: false, error: 'sourceId required' };
-    }
-    if (pendingDisplayMediaSources && typeof pendingDisplayMediaSources.set === 'function') {
-      pendingDisplayMediaSources.set(sourceId);
-    }
-    return { success: true };
-  });
-
-  /**
-   * Returns current microphone and screen recording permission status.
-   * On macOS uses systemPreferences.getMediaAccessStatus().
-   * On Windows/Linux returns 'granted' (managed by OS).
-   */
-  ipcMain.handle('transcription:get-permissions-status', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    try {
-      if (process.platform === 'darwin') {
-        const { systemPreferences } = require('electron');
-        const microphone = systemPreferences.getMediaAccessStatus('microphone');
-        const screen = systemPreferences.getMediaAccessStatus('screen');
-        return { success: true, microphone, screen };
-      }
-      return { success: true, microphone: 'granted', screen: 'granted' };
-    } catch (err) {
-      console.error('[Transcription] get-permissions-status error:', err);
-      return { success: false, error: err.message };
-    }
-  });
-
-  /**
-   * Triggers the macOS Screen Recording permission dialog by calling getSources().
-   * On macOS, there is no systemPreferences.askForMediaAccess('screen') — the only
-   * way to prompt is to actually attempt screen capture.
-   * Returns the updated permission status after the attempt.
-   */
-  ipcMain.handle('transcription:request-screen-access', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    try {
-      if (process.platform === 'darwin') {
-        const { desktopCapturer, systemPreferences } = require('electron');
-        // This call triggers the OS permission prompt on first use
-        await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } });
-        const screen = systemPreferences.getMediaAccessStatus('screen');
-        return { success: true, screen };
-      }
-      return { success: true, screen: 'granted' };
-    } catch (err) {
-      console.error('[Transcription] request-screen-access error:', err);
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('transcription:buffer-to-text', async (event, payload = {}) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    try {
-      const raw = payload.buffer;
-      if (!raw) {
-        return { success: false, error: 'buffer is required' };
-      }
-      const buf = Buffer.from(raw instanceof ArrayBuffer ? raw : raw.buffer || raw);
-
-      const apiKey = transcriptionService.getTranscriptionApiKey(database);
-      if (!apiKey) {
-        const prov = transcriptionService.getTranscriptionSttProvider(database);
-        return {
-          success: false,
-          error:
-            prov === 'groq'
-              ? 'Configura tu clave de Groq para transcripción (Ajustes → Transcripción).'
-              : 'Configure una clave de API para transcripción (Ajustes → Transcripción).',
-        };
-      }
-
-      const defaults = getTranscriptionDefaults(database);
-      const model = payload.model || defaults.model;
-      const language =
-        payload.language !== undefined
-          ? payload.language
-            ? String(payload.language).trim()
-            : null
-          : defaults.language;
-
-      const ext = (payload.extension || 'webm').replace(/^\./, '') || 'webm';
-      const tempDir = path.join(require('electron').app.getPath('temp'), 'dome-transcription');
-      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-      const tempInput = path.join(tempDir, `dome-stt-text-${Date.now()}.${ext}`);
-      fs.writeFileSync(tempInput, buf);
-      try {
-        const { text, structured } = await transcriptionService.transcribeFilePath(tempInput, {
-          apiKey,
-          model,
-          language,
-          database,
-        });
-        if (!text) {
-          return { success: false, error: 'Transcription returned empty text' };
-        }
-        return { success: true, text, structured: structured || null };
-      } finally {
-        try {
-          if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
-        } catch (_) {
-          /* */
-        }
-      }
-    } catch (err) {
-      console.error('[Transcription] buffer-to-text error:', err);
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('transcription:resource-to-note', async (event, payload = {}) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    try {
-      const resourceId = payload.resourceId;
-      if (!resourceId) {
-        return { success: false, error: 'resourceId is required' };
-      }
-
-      const { transcribeResourceToNote } = require('../transcription-note-helper.cjs');
-      const result = await transcribeResourceToNote({
-        resourceId,
-        database,
-        fileStorage,
-        windowManager,
-        aiToolsHandler,
-        initModule,
-        ollamaService,
-        model: payload.model,
-        language: payload.language,
-        titleOverride: payload.title,
-        updateAudioMetadata: payload.updateAudioMetadata !== false,
-      });
-
-      if (!result.success && result.error === 'No STT API key for transcription') {
-        const prov = require('../transcription-service.cjs').getTranscriptionSttProvider(database);
-        return {
-          success: false,
-          error:
-            prov === 'groq'
-              ? 'Configura tu clave de Groq para transcripción (Ajustes → Transcripción).'
-              : 'Configure una clave de API para transcripción (Ajustes → Transcripción).',
-        };
-      }
-
-      return result;
-    } catch (err) {
-      console.error('[Transcription] resource-to-note error:', err);
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('transcription:buffer-to-note', async (event, payload = {}) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    try {
-      const raw = payload.buffer;
-      if (!raw) {
-        return { success: false, error: 'buffer is required' };
-      }
-      const buf = Buffer.from(raw instanceof ArrayBuffer ? raw : raw.buffer || raw);
-
-      const projectId = payload.projectId || 'default';
-      const folderId = payload.folderId != null && payload.folderId !== '' ? payload.folderId : null;
-      if (folderId) {
-        const folder = database.getQueries().getResourceById.get(folderId);
-        if (!folder || folder.type !== 'folder') {
-          return { success: false, error: 'Invalid folder_id' };
-        }
-      }
-
-      const queries = database.getQueries();
-      const projectExists = queries.getProjectById.get(projectId);
-      if (!projectExists) {
-        return { success: false, error: 'Project not found' };
-      }
-
-      const apiKey = transcriptionService.getTranscriptionApiKey(database);
-      if (!apiKey) {
-        const prov = transcriptionService.getTranscriptionSttProvider(database);
-        return {
-          success: false,
-          error:
-            prov === 'groq'
-              ? 'Configura tu clave de Groq para transcripción (Ajustes → Transcripción).'
-              : 'Configure una clave de API para transcripción (Ajustes → Transcripción).',
-        };
-      }
-
-      const defaults = getTranscriptionDefaults(database);
-      const model = payload.model || defaults.model;
-      const language =
-        payload.language !== undefined
-          ? payload.language
-          ? String(payload.language).trim()
-          : null
-          : defaults.language;
-
-      const ext = (payload.extension || 'webm').replace(/^\./, '') || 'webm';
-      const tempDir = path.join(require('electron').app.getPath('temp'), 'dome-transcription');
-      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-      const tempInput = path.join(tempDir, `dome-mic-${Date.now()}.${ext}`);
-      fs.writeFileSync(tempInput, buf);
-
-      const captureKind =
-        payload.captureKind === 'system'
-          ? 'system'
-          : payload.captureKind === 'call'
-            ? 'call'
-            : payload.captureKind === 'mic_and_system'
-              ? 'mic_and_system'
-              : 'microphone';
-      const callPlatform =
-        typeof payload.callPlatform === 'string' && payload.callPlatform.trim()
-          ? payload.callPlatform.trim()
-          : 'unknown';
-
-      let audioResourceId = null;
-      try {
-        if (payload.saveRecordingAsAudio) {
-                        const importResult = await fileStorage.importFile(tempInput, 'audio');
-              const dup = queries.findByHash.get(importResult.hash);
-              if (dup) {
-                audioResourceId = dup.id;
-              } else {
-                const audioId = generateResourceId();
-                const nowA = Date.now();
-                const thumb = thumbnail
-                  ? await thumbnail.generateThumbnail(
-                      fileStorage.getFullPath(importResult.internalPath),
-                      'audio',
-                      importResult.mimeType
-                    )
-                  : null;
-
-                const sourceTag =
-                  captureKind === 'system'
-                    ? 'system_audio'
-                    : captureKind === 'call'
-                      ? 'call_recording'
-                      : captureKind === 'mic_and_system'
-                        ? 'mic_system_recording'
-                        : 'microphone_recording';
-
-                queries.createResourceWithFile.run(
-                  audioId,
-                  projectId,
-                  'audio',
-                  payload.audioTitle?.trim() || `Grabación ${new Date().toLocaleString()}`,
-                  null,
-                  null,
-                  importResult.internalPath,
-                  importResult.mimeType,
-                  importResult.size,
-                  importResult.hash,
-                  thumb,
-                  importResult.originalName,
-                  JSON.stringify({
-                    source: sourceTag,
-                    capture_kind: captureKind,
-                    call_platform: callPlatform,
-                    created_at: nowA,
-                  }),
-                  nowA,
-                  nowA
-                );
-            audioResourceId = audioId;
-            const ar = queries.getResourceById.get(audioId);
-            windowManager.broadcast('resource:created', ar);
-            if (semanticIndexScheduler.shouldIndex(ar)) {
-              semanticIndexScheduler.scheduleSemanticReindex(audioId);
-            }
-          }
-        }
-
-        const { text, structured } = await transcriptionService.transcribeFilePath(tempInput, {
-          apiKey,
-          model,
-          language,
-          database,
-        });
-        if (!text) {
-          return { success: false, error: 'Transcription returned empty text' };
-        }
-
-        const structuredPayload = {
-          ...structured,
-          session: { captureKind, callPlatform, inferredAt: Date.now() },
-        };
-        const md = transcriptionStructured.structuredToMarkdownForNote(
-          structuredPayload.segments || [],
-          structuredPayload.speakers || {},
-        );
-        const tipTap = aiToolsHandler.markdownToTipTapJSON(md || text);
-
-        const now = Date.now();
-        const noteId = generateResourceId();
-        const title = payload.title?.trim() || deriveNoteTitle(text);
-        const noteMeta = {
-          source: 'transcription',
-          source_audio_id: audioResourceId || undefined,
-          source_media_type: audioResourceId ? 'audio' : undefined,
-          transcription_model: model,
-          transcription_language: language || 'auto',
-          transcribed_at: now,
-          from_microphone: captureKind === 'microphone' || captureKind === 'mic_and_system',
-          capture_variant: captureKind === 'mic_and_system' ? 'mic_and_system' : undefined,
-          transcription_diarization: structuredPayload.diarization || 'heuristic',
-        };
-        queries.createResource.run(
-          noteId,
-          projectId,
-          'note',
-          title,
-          tipTap,
-          null,
-          folderId,
-          JSON.stringify(noteMeta),
-          now,
-          now
-        );
-        const noteResource = queries.getResourceById.get(noteId);
-        windowManager.broadcast('resource:created', noteResource);
-        if (semanticIndexScheduler.shouldIndex(noteResource)) {
-          semanticIndexScheduler.scheduleSemanticReindex(noteId);
-        }
-
-        if (audioResourceId) {
-          const ar = queries.getResourceById.get(audioResourceId);
-          if (ar) {
-            const meta = parseMetadata(ar.metadata);
-            meta.transcription = text;
-            meta.transcription_structured = structuredPayload;
-            meta.transcription_note_id = noteId;
-            meta.transcription_model = model;
-            meta.transcription_language = language || 'auto';
-            meta.transcribed_at = now;
-            meta.processing_status = 'completed';
-            queries.updateResource.run(ar.title, ar.content, JSON.stringify(meta), now, audioResourceId);
-            windowManager.broadcast('resource:updated', { id: audioResourceId, metadata: meta });
-          }
-        }
-
-        return {
-          success: true,
-          note: noteResource,
-          text,
-          structured: structuredPayload,
-          audioResourceId,
-        };
-      } finally {
-        try {
-          if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
-        } catch (_) {
-          /* */
-        }
-      }
-    } catch (err) {
-      console.error('[Transcription] buffer-to-note error:', err);
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('transcription:get-defaults', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    try {
-      return { success: true, data: getTranscriptionDefaults(database) };
+      return { success: true, data: getSettingsPayload(database) };
     } catch (err) {
       return { success: false, error: err.message };
     }
   });
 
   ipcMain.handle('transcription:set-settings', async (event, payload = {}) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try {
       const queries = database.getQueries();
       const now = Date.now();
+
       if (payload.sttProvider != null) {
         let p = String(payload.sttProvider).trim().toLowerCase();
         if (p === 'local-gemma') p = 'openai';
@@ -516,25 +171,17 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
       }
       if (payload.dedicatedOpenaiKey !== undefined) {
         const k = payload.dedicatedOpenaiKey;
-        queries.setSetting.run(
-          'transcription_openai_api_key',
-          k === '' || k === null ? '' : String(k).trim(),
-          now
-        );
+        queries.setSetting.run('transcription_openai_api_key', k === '' || k === null ? '' : String(k).trim(), now);
       }
       if (payload.groqApiKey !== undefined) {
         const k = payload.groqApiKey;
-        queries.setSetting.run(
-          'transcription_groq_api_key',
-          k === '' || k === null ? '' : String(k).trim(),
-          now
-        );
+        queries.setSetting.run('transcription_groq_api_key', k === '' || k === null ? '' : String(k).trim(), now);
       }
-      if (payload.globalShortcut != null) {
-        queries.setSetting.run('transcription_global_shortcut', String(payload.globalShortcut).trim(), now);
+      if (payload.globalShortcut !== undefined) {
+        queries.setSetting.run('transcription_global_shortcut', String(payload.globalShortcut || '').trim(), now);
       }
-      if (payload.transcriptionGlobalShortcutEnabled !== undefined) {
-        const on = payload.transcriptionGlobalShortcutEnabled === true || payload.transcriptionGlobalShortcutEnabled === '1';
+      if (payload.globalShortcutEnabled !== undefined) {
+        const on = payload.globalShortcutEnabled === true || payload.globalShortcutEnabled === '1';
         queries.setSetting.run('transcription_global_shortcut_enabled', on ? '1' : '0', now);
       }
       if (payload.apiBaseUrl !== undefined) {
@@ -555,142 +202,98 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
           queries.setSetting.run('transcription_pause_threshold_sec', String(clamped), now);
         }
       }
-      if (payload.callSummaryModel !== undefined) {
-        const m = payload.callSummaryModel == null ? '' : String(payload.callSummaryModel).trim();
-        queries.setSetting.run('transcription_call_summary_model', m || 'gpt-4o-mini', now);
+      if (payload.defaultSources !== undefined) {
+        const valid = Array.isArray(payload.defaultSources)
+          ? payload.defaultSources.filter((s) => s === 'mic' || s === 'system')
+          : [];
+        queries.setSetting.run('transcription_default_sources', JSON.stringify(valid.length ? valid : ['mic']), now);
       }
-      if (payload.callAutoSummary !== undefined) {
-        const on = payload.callAutoSummary === true || payload.callAutoSummary === '1';
-        queries.setSetting.run('transcription_call_auto_summary', on ? '1' : '0', now);
+      if (payload.liveTranscriptDefault !== undefined) {
+        const on = payload.liveTranscriptDefault === true || payload.liveTranscriptDefault === '1';
+        queries.setSetting.run('transcription_live_transcript_default', on ? '1' : '0', now);
       }
-      if (payload.callChunkSec !== undefined) {
-        const n = Number(payload.callChunkSec);
-        const sec = Number.isFinite(n) ? Math.min(60, Math.max(20, Math.round(n))) : 30;
-        queries.setSetting.run('transcription_call_chunk_sec', String(sec), now);
+      if (payload.autoSummary !== undefined) {
+        const on = payload.autoSummary === true || payload.autoSummary === '1';
+        queries.setSetting.run('transcription_auto_summary', on ? '1' : '0', now);
       }
-      if (payload.hubDefaultMode !== undefined) {
-        const m = String(payload.hubDefaultMode || 'remember').trim().toLowerCase();
-        const ok =
-          m === 'dictation' || m === 'call' || m === 'streaming' || m === 'remember' ? m : 'remember';
-        queries.setSetting.run('transcription_hub_default_mode', ok, now);
+      if (payload.chunkSec !== undefined) {
+        const n = Number(payload.chunkSec);
+        const sec = Number.isFinite(n) ? Math.min(60, Math.max(2, Math.round(n))) : 4;
+        queries.setSetting.run('transcription_chunk_sec', String(sec), now);
       }
-      if (payload.callShowLiveTranscriptDefault !== undefined) {
-        const on = payload.callShowLiveTranscriptDefault === true || payload.callShowLiveTranscriptDefault === '1';
-        queries.setSetting.run('transcription_call_live_transcript_default', on ? '1' : '0', now);
+      if (payload.summaryModel !== undefined) {
+        const m = payload.summaryModel == null ? '' : String(payload.summaryModel).trim();
+        queries.setSetting.run('transcription_summary_model', m || 'gpt-4o-mini', now);
       }
+
       try {
         transcriptionShortcut.registerFromDatabase(database, windowManager);
       } catch (regErr) {
         console.warn('[Transcription] shortcut refresh:', regErr?.message);
       }
-      return { success: true, data: getTranscriptionDefaults(database) };
+      return { success: true, data: getSettingsPayload(database) };
     } catch (err) {
       return { success: false, error: err.message };
     }
   });
 
-  ipcMain.handle('transcription:get-settings', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    try {
-      const queries = database.getQueries();
-      const defaults = getTranscriptionDefaults(database);
-      const keyRow = queries.getSetting.get('transcription_openai_api_key');
-      const groqKeyRow = queries.getSetting.get('transcription_groq_api_key');
-      const shortcutRow = queries.getSetting.get('transcription_global_shortcut');
-      const tsEn = queries.getSetting.get('transcription_global_shortcut_enabled');
-      const callSumModelRow = queries.getSetting.get('transcription_call_summary_model');
-      const callAutoSumRow = queries.getSetting.get('transcription_call_auto_summary');
-      const callChunkRow = queries.getSetting.get('transcription_call_chunk_sec');
-      const gShortcut = shortcutRow?.value || '';
-      const parseTri = (row, hasAccel) => {
-        const v = row?.value != null ? String(row.value).trim().toLowerCase() : '';
-        if (v === '0' || v === 'false' || v === 'off') return false;
-        if (v === '1' || v === 'true' || v === 'on') return true;
-        return Boolean(hasAccel);
-      };
-      const callChunkParsed = parseInt(String(callChunkRow?.value || '30'), 10);
-      const callChunkSec = Number.isFinite(callChunkParsed) ? Math.min(60, Math.max(20, callChunkParsed)) : 30;
-      const callAutoRaw = callAutoSumRow?.value != null ? String(callAutoSumRow.value).trim() : '';
-      const callAutoSummary = callAutoRaw !== '0' && callAutoRaw !== 'false' && callAutoRaw !== 'off';
-      return {
-        success: true,
-        data: {
-          ...defaults,
-          hasDedicatedOpenAIKey: Boolean(keyRow?.value && String(keyRow.value).trim()),
-          hasGroqApiKey: Boolean(groqKeyRow?.value && String(groqKeyRow.value).trim()),
-          globalShortcut: gShortcut,
-          transcriptionGlobalShortcutEnabled: parseTri(tsEn, gShortcut),
-          pauseThresholdSec: defaults.pauseThresholdSec,
-          callSummaryModel: (callSumModelRow?.value && String(callSumModelRow.value).trim()) || 'gpt-4o-mini',
-          callAutoSummary,
-          callChunkSec,
-        },
-      };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
-  });
+  // -- Permissions --------------------------------------------------------
 
-  ipcMain.handle('transcription:regenerate-linked-note', async (event, payload = {}) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
+  ipcMain.handle('transcription:get-permissions', async (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try {
-      const { regenerateLinkedNoteFromStructured } = require('../transcription-note-helper.cjs');
-      const resourceId = payload.resourceId;
-      if (!resourceId) return { success: false, error: 'resourceId is required' };
-      return regenerateLinkedNoteFromStructured({
-        resourceId,
-        database,
-        windowManager,
-        aiToolsHandler,
-      });
-    } catch (err) {
-      console.error('[Transcription] regenerate-linked-note:', err);
-      return { success: false, error: err.message };
-    }
-  });
-
-  ipcMain.handle('transcription:patch-transcript-speakers', async (event, payload = {}) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    try {
-      const resourceId = payload.resourceId;
-      const speakersPatch = payload.speakersPatch;
-      if (!resourceId || !speakersPatch || typeof speakersPatch !== 'object') {
-        return { success: false, error: 'resourceId and speakersPatch are required' };
+      if (process.platform === 'darwin') {
+        const { systemPreferences } = require('electron');
+        return {
+          success: true,
+          mic: systemPreferences.getMediaAccessStatus('microphone'),
+          screen: systemPreferences.getMediaAccessStatus('screen'),
+        };
       }
-      const queries = database.getQueries();
-      const r = queries.getResourceById.get(resourceId);
-      if (!r) return { success: false, error: 'Resource not found' };
-      const meta = parseMetadata(r.metadata);
-      const ts = meta.transcription_structured;
-      if (!ts) return { success: false, error: 'No structured transcript' };
-      ts.speakers = { ...(ts.speakers || {}), ...speakersPatch };
-      meta.transcription_structured = ts;
-      const now = Date.now();
-      queries.updateResource.run(r.title, r.content, JSON.stringify(meta), now, resourceId);
-      windowManager.broadcast('resource:updated', { id: resourceId, metadata: meta });
-      return { success: true };
+      return { success: true, mic: 'granted', screen: 'granted' };
     } catch (err) {
-      console.error('[Transcription] patch-transcript-speakers:', err);
       return { success: false, error: err.message };
     }
   });
 
-  ipcMain.handle('transcription:list-desktop-capture-sources', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
+  ipcMain.handle('transcription:request-mic', async (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      if (process.platform === 'darwin') {
+        const { systemPreferences } = require('electron');
+        const granted = await systemPreferences.askForMediaAccess('microphone');
+        return { success: true, granted };
+      }
+      return { success: true, granted: true };
+    } catch (err) {
+      return { success: false, error: err.message };
     }
+  });
+
+  ipcMain.handle('transcription:request-screen', async (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      if (process.platform === 'darwin') {
+        const { desktopCapturer, systemPreferences } = require('electron');
+        await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } });
+        const screen = systemPreferences.getMediaAccessStatus('screen');
+        return { success: true, granted: screen === 'granted', screen };
+      }
+      return { success: true, granted: true, screen: 'granted' };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // -- Capture sources ----------------------------------------------------
+
+  ipcMain.handle('transcription:list-capture-sources', async (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try {
       const { desktopCapturer } = require('electron');
       const sources = await desktopCapturer.getSources({
         types: ['screen', 'window'],
-        // 16:9 thumbs; slightly larger + higher JPEG quality for readable preview.
-        thumbnailSize: { width: 704, height: 396 },
+        thumbnailSize: { width: 480, height: 270 },
         fetchWindowIcons: true,
       });
       return {
@@ -701,22 +304,16 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
           let thumbnailDataUrl = '';
           try {
             if (s.thumbnail && !s.thumbnail.isEmpty()) {
-              const jpeg = s.thumbnail.toJPEG(90);
+              const jpeg = s.thumbnail.toJPEG(85);
               thumbnailDataUrl = jpeg.length
                 ? `data:image/jpeg;base64,${jpeg.toString('base64')}`
                 : s.thumbnail.toDataURL();
             }
-          } catch {
-            thumbnailDataUrl = '';
-          }
+          } catch { /* ignore */ }
           let iconDataUrl = '';
           try {
-            if (s.appIcon && !s.appIcon.isEmpty()) {
-              iconDataUrl = s.appIcon.toDataURL();
-            }
-          } catch {
-            iconDataUrl = '';
-          }
+            if (s.appIcon && !s.appIcon.isEmpty()) iconDataUrl = s.appIcon.toDataURL();
+          } catch { /* ignore */ }
           return {
             id: s.id,
             name: s.name,
@@ -727,17 +324,149 @@ function register({ ipcMain, windowManager, database, fileStorage, aiToolsHandle
         }),
       };
     } catch (err) {
-      console.error('[Transcription] list-desktop-capture-sources:', err);
+      console.error('[Transcription] list-capture-sources:', err);
       const base = err instanceof Error ? err.message : String(err);
-      const error =
-        process.platform === 'darwin'
-          ? `${base} Si persiste, concede a Dome permiso de «Grabación de pantalla» en Preferencias del Sistema → Privacidad y seguridad.`
-          : base;
+      const error = process.platform === 'darwin'
+        ? `${base} If this persists, grant Dome the "Screen Recording" permission in System Settings → Privacy & Security.`
+        : base;
       return {
         success: false,
         error,
         ...(process.platform === 'darwin' ? { errorCode: 'screen_capture_permission' } : {}),
       };
+    }
+  });
+
+  ipcMain.handle('transcription:set-display-media-source', async (event, { sourceId } = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    if (typeof sourceId !== 'string' || !sourceId) return { success: false, error: 'sourceId required' };
+    if (pendingDisplayMediaSources && typeof pendingDisplayMediaSources.set === 'function') {
+      pendingDisplayMediaSources.set(sourceId);
+    }
+    return { success: true };
+  });
+
+  // -- Session lifecycle --------------------------------------------------
+
+  ipcMain.handle('transcription:session-start', async (event, payload = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const apiKey = transcriptionService.getTranscriptionApiKey(database);
+      if (!apiKey) {
+        const prov = transcriptionService.getTranscriptionSttProvider(database);
+        return {
+          success: false,
+          error: prov === 'groq'
+            ? 'Configure your Groq API key in Settings → Transcription.'
+            : 'Configure an API key in Settings → Transcription.',
+        };
+      }
+      const { sessionId } = transcriptionSession.startSession(sessionDeps, {
+        sources: payload.sources,
+        systemSourceId: payload.systemSourceId,
+        projectId: payload.projectId,
+        folderId: payload.folderId,
+        livePreview: payload.livePreview,
+        saveAudio: payload.saveAudio,
+      });
+      return { success: true, sessionId };
+    } catch (err) {
+      console.error('[Transcription] session-start:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('transcription:session-append', async (event, payload = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      await transcriptionSession.appendChunk(sessionDeps, payload);
+      return { success: true };
+    } catch (err) {
+      console.error('[Transcription] session-append:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('transcription:session-control', async (event, payload = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const result = await transcriptionSession.controlSession(sessionDeps, payload.sessionId, payload.action);
+      return { success: true, ...result };
+    } catch (err) {
+      console.error('[Transcription] session-control:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('transcription:get-active', async (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      return { success: true, data: transcriptionSession.getActiveState() };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // -- Manual conversion: audio resource -> note --------------------------
+
+  ipcMain.handle('transcription:resource-to-note', async (event, payload = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
+    try {
+      const resourceId = payload.resourceId;
+      if (!resourceId) return { success: false, error: 'resourceId is required' };
+
+      const queries = database.getQueries();
+      const resource = queries.getResourceById.get(resourceId);
+      if (!resource) return { success: false, error: 'Resource not found' };
+
+      const meta = parseMetadata(resource.metadata);
+      const transcript = String(meta.transcription || '').trim();
+      if (!transcript) return { success: false, error: 'Resource has no transcript' };
+
+      // If the user has already linked a note, return that.
+      if (meta.transcription_note_id) {
+        const existing = queries.getResourceById.get(meta.transcription_note_id);
+        if (existing) return { success: true, note: existing };
+      }
+
+      const now = Date.now();
+      const noteId = generateResourceId();
+      const title = deriveTitle(transcript);
+      const tipTap = aiToolsHandler.markdownToTipTapJSON(transcript);
+
+      const noteMeta = {
+        source: 'transcription',
+        source_audio_id: resource.id,
+        source_media_type: 'audio',
+        transcription: transcript,
+        transcription_structured: meta.transcription_structured,
+        transcribed_at: meta.transcribed_at || now,
+      };
+
+      queries.createResource.run(
+        noteId,
+        resource.project_id,
+        'note',
+        title,
+        tipTap,
+        null,
+        resource.folder_id || null,
+        JSON.stringify(noteMeta),
+        now,
+        now,
+      );
+      const noteResource = queries.getResourceById.get(noteId);
+      windowManager.broadcast('resource:created', noteResource);
+
+      // Back-link from audio resource for idempotence.
+      meta.transcription_note_id = noteId;
+      queries.updateResource.run(resource.title, resource.content, JSON.stringify(meta), now, resource.id);
+      windowManager.broadcast('resource:updated', { id: resource.id, metadata: meta });
+
+      return { success: true, note: noteResource };
+    } catch (err) {
+      console.error('[Transcription] resource-to-note:', err);
+      return { success: false, error: err.message };
     }
   });
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { notifications } from '@mantine/notifications';
 import DomeButton from '@/components/ui/DomeButton';
@@ -6,12 +6,6 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { downloadTextFile, structuredToMarkdown, structuredToSrt } from '@/lib/transcription/export';
 import type { TranscriptStructured } from '@/lib/transcription/export';
 import type { Resource } from '@/types';
-
-type CallMeta = {
-  summary?: string;
-  action_items?: string[];
-  decisions?: string[];
-};
 
 function parseMeta(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== 'string') return {};
@@ -23,20 +17,25 @@ function parseMeta(raw: unknown): Record<string, unknown> {
 }
 
 export default function TranscriptionDetailPage({ noteId }: { noteId: string }) {
+  // Note: the prop is named `noteId` for legacy compatibility — it is actually a
+  // generic resource id (audio with metadata.kind = 'transcription' for new
+  // recordings, or a legacy 'note' resource for older data).
+  const resourceId = noteId;
   const { t } = useTranslation();
   const openNoteTab = useTabStore((s) => s.openNoteTab);
   const [resource, setResource] = useState<Resource | null>(null);
   const [loading, setLoading] = useState(true);
+  const [converting, setConverting] = useState(false);
 
   const load = useCallback(async () => {
-    if (!noteId || !window.electron?.db?.resources?.getById) {
+    if (!resourceId || !window.electron?.db?.resources?.getById) {
       setResource(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const res = await window.electron.db.resources.getById(noteId);
+      const res = await window.electron.db.resources.getById(resourceId);
       if (res.success && res.data) setResource(res.data);
       else setResource(null);
     } catch {
@@ -44,7 +43,7 @@ export default function TranscriptionDetailPage({ noteId }: { noteId: string }) 
     } finally {
       setLoading(false);
     }
-  }, [noteId]);
+  }, [resourceId]);
 
   useEffect(() => {
     void load();
@@ -53,21 +52,29 @@ export default function TranscriptionDetailPage({ noteId }: { noteId: string }) 
   useEffect(() => {
     if (!window.electron?.on) return undefined;
     const unsub = window.electron.on('resource:updated', (payload: { id?: string }) => {
-      if (payload?.id === noteId) void load();
+      if (payload?.id === resourceId) void load();
     });
     return () => unsub?.();
-  }, [load, noteId]);
+  }, [load, resourceId]);
 
-  const meta = resource ? parseMeta(resource.metadata) : {};
+  const meta = useMemo(() => (resource ? parseMeta(resource.metadata) : {}), [resource]);
   const structured = meta.transcription_structured as TranscriptStructured | undefined;
-  const call = (meta.call || {}) as CallMeta;
-  const sourceAudioId = typeof meta.source_audio_id === 'string' ? meta.source_audio_id : '';
+  const transcriptText = typeof meta.transcription === 'string' ? meta.transcription : '';
+  const linkedNoteId = typeof meta.transcription_note_id === 'string' ? meta.transcription_note_id : '';
+  const isAudioTranscription = resource?.type === 'audio' && meta.kind === 'transcription';
 
-  const onRegenerateSummary = async () => {
+  const onConvertToNote = async () => {
+    if (!resource) return;
+    setConverting(true);
     try {
-      const res = await window.electron?.calls?.regenerateSummary?.({ noteId });
-      if (res?.success) {
-        notifications.show({ title: t('common.success'), message: t('call.summary_ready'), color: 'green' });
+      const res = await window.electron?.transcription?.resourceToNote({ resourceId: resource.id });
+      if (res?.success && res.note) {
+        notifications.show({
+          title: t('transcriptions.detail_convert_to_note', 'Convert to note'),
+          message: res.note.title || '',
+          color: 'green',
+        });
+        openNoteTab(res.note.id, res.note.title || '');
         void load();
       } else {
         notifications.show({ title: t('common.error'), message: res?.error || '', color: 'red' });
@@ -78,28 +85,8 @@ export default function TranscriptionDetailPage({ noteId }: { noteId: string }) 
         message: e instanceof Error ? e.message : '',
         color: 'red',
       });
-    }
-  };
-
-  const onRetranscribe = async () => {
-    if (!sourceAudioId) {
-      notifications.show({ title: t('common.error'), message: t('transcriptions.list_empty'), color: 'yellow' });
-      return;
-    }
-    try {
-      const res = await window.electron?.transcription?.regenerateLinkedNote?.({ resourceId: sourceAudioId });
-      if (res?.success) {
-        notifications.show({ title: t('media.regenerate_note_done'), message: '', color: 'green' });
-        void load();
-      } else {
-        notifications.show({ title: t('media.regenerate_note_failed'), message: res?.error || '', color: 'red' });
-      }
-    } catch (e) {
-      notifications.show({
-        title: t('media.regenerate_note_failed'),
-        message: e instanceof Error ? e.message : '',
-        color: 'red',
-      });
+    } finally {
+      setConverting(false);
     }
   };
 
@@ -123,7 +110,7 @@ export default function TranscriptionDetailPage({ noteId }: { noteId: string }) 
     );
   }
 
-  const md = structured ? structuredToMarkdown(structured) : '';
+  const md = structured ? structuredToMarkdown(structured) : transcriptText;
   const srt = structured ? structuredToSrt(structured) : '';
 
   return (
@@ -133,57 +120,29 @@ export default function TranscriptionDetailPage({ noteId }: { noteId: string }) 
           {resource.title}
         </h1>
         <div className="flex flex-wrap gap-2">
-          <DomeButton type="button" size="sm" variant="outline" onClick={() => openNoteTab(resource.id, resource.title || '')}>
-            {t('transcriptions.open_note')}
-          </DomeButton>
-          <DomeButton type="button" size="sm" variant="outline" onClick={() => void onRegenerateSummary()}>
-            {t('transcriptions.detail_regenerate_summary')}
-          </DomeButton>
-          <DomeButton type="button" size="sm" variant="outline" onClick={() => void onRetranscribe()} disabled={!sourceAudioId}>
-            {t('transcriptions.detail_retranscribe')}
-          </DomeButton>
+          {isAudioTranscription && linkedNoteId && (
+            <DomeButton type="button" size="sm" variant="outline" onClick={() => openNoteTab(linkedNoteId, resource.title || '')}>
+              {t('transcriptions.open_note', 'Open note')}
+            </DomeButton>
+          )}
+          {isAudioTranscription && !linkedNoteId && (
+            <DomeButton
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void onConvertToNote()}
+              disabled={converting || !transcriptText}
+            >
+              {converting ? t('common.loading') : t('transcriptions.detail_convert_to_note', 'Convert to note')}
+            </DomeButton>
+          )}
+          {!isAudioTranscription && resource.type === 'note' && (
+            <DomeButton type="button" size="sm" variant="outline" onClick={() => openNoteTab(resource.id, resource.title || '')}>
+              {t('transcriptions.open_note', 'Open note')}
+            </DomeButton>
+          )}
         </div>
       </div>
-
-      {(call.summary || (call.action_items && call.action_items.length)) && (
-        <div
-          className="rounded-xl border p-3 text-sm"
-          style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
-        >
-          {call.summary ? (
-            <div className="mb-3">
-              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('transcriptions.detail_summary')}
-              </h2>
-              <p style={{ color: 'var(--dome-text)' }}>{call.summary}</p>
-            </div>
-          ) : null}
-          {call.action_items && call.action_items.length > 0 ? (
-            <div className="mb-3">
-              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('transcriptions.detail_actions')}
-              </h2>
-              <ul className="list-disc pl-5" style={{ color: 'var(--dome-text)' }}>
-                {call.action_items.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-          {call.decisions && call.decisions.length > 0 ? (
-            <div>
-              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('transcriptions.detail_decisions')}
-              </h2>
-              <ul className="list-disc pl-5" style={{ color: 'var(--dome-text)' }}>
-                {call.decisions.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </div>
-      )}
 
       <div className="flex flex-wrap gap-2">
         <DomeButton

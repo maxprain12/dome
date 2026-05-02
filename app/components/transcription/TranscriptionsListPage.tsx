@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, Search } from 'lucide-react';
+import { Mic, Search } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import type { Resource } from '@/types';
 import DomeButton from '@/components/ui/DomeButton';
-
-type FilterKind = 'all' | 'dictation' | 'call';
 
 function parseMeta(raw: unknown): Record<string, unknown> {
   if (!raw || typeof raw !== 'string') return {};
@@ -17,22 +15,29 @@ function parseMeta(raw: unknown): Record<string, unknown> {
   }
 }
 
-function transcriptionKind(meta: Record<string, unknown>): 'dictation' | 'call' | null {
-  const src = meta.source;
-  if (src === 'call') return 'call';
-  if (src === 'transcription') return 'dictation';
-  return null;
+/**
+ * A resource counts as a transcription if EITHER:
+ *   - it's a 'note' with `meta.source` ∈ {transcription, call}  (legacy)
+ *   - it's an 'audio' with `meta.kind === 'transcription'`        (new)
+ */
+function isTranscriptionResource(r: Resource, meta: Record<string, unknown>): boolean {
+  if (r.type === 'note') {
+    const src = meta.source;
+    return src === 'transcription' || src === 'call';
+  }
+  if (r.type === 'audio') {
+    return meta.kind === 'transcription';
+  }
+  return false;
 }
 
 export default function TranscriptionsListPage() {
   const { t } = useTranslation();
   const currentProject = useAppStore((s) => s.currentProject);
   const openTranscriptionDetailTab = useTabStore((s) => s.openTranscriptionDetailTab);
-  const openNoteTab = useTabStore((s) => s.openNoteTab);
 
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<FilterKind>('all');
   const [query, setQuery] = useState('');
 
   const load = useCallback(async () => {
@@ -45,11 +50,8 @@ export default function TranscriptionsListPage() {
     setLoading(true);
     try {
       const res = await window.electron.db.resources.getByProject(pid);
-      if (res.success && Array.isArray(res.data)) {
-        setResources(res.data);
-      } else {
-        setResources([]);
-      }
+      if (res.success && Array.isArray(res.data)) setResources(res.data);
+      else setResources([]);
     } catch {
       setResources([]);
     } finally {
@@ -71,22 +73,17 @@ export default function TranscriptionsListPage() {
     };
   }, [load]);
 
-  const notes = useMemo(() => {
+  const items = useMemo(() => {
     const q = query.trim().toLowerCase();
     return resources
-      .filter((r) => r.type === 'note')
       .map((r) => ({ r, meta: parseMeta(r.metadata) }))
-      .filter(({ meta }) => transcriptionKind(meta) != null)
-      .filter(({ meta }) => {
-        if (filter === 'all') return true;
-        return transcriptionKind(meta) === filter;
-      })
+      .filter(({ r, meta }) => isTranscriptionResource(r, meta))
       .filter(({ r }) => {
         if (!q) return true;
         return (r.title || '').toLowerCase().includes(q);
       })
       .sort((a, b) => (b.r.updated_at || 0) - (a.r.updated_at || 0));
-  }, [resources, filter, query]);
+  }, [resources, query]);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
@@ -109,17 +106,6 @@ export default function TranscriptionsListPage() {
               style={{ color: 'var(--dome-text)' }}
             />
           </div>
-          {(['all', 'dictation', 'call'] as const).map((f) => (
-            <DomeButton
-              key={f}
-              type="button"
-              size="sm"
-              variant={filter === f ? 'primary' : 'outline'}
-              onClick={() => setFilter(f)}
-            >
-              {f === 'all' ? t('transcriptions.filter_all') : f === 'dictation' ? t('transcriptions.filter_dictation') : t('transcriptions.filter_call')}
-            </DomeButton>
-          ))}
         </div>
       </div>
 
@@ -128,14 +114,19 @@ export default function TranscriptionsListPage() {
           <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
             {t('common.loading')}
           </p>
-        ) : notes.length === 0 ? (
+        ) : items.length === 0 ? (
           <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
             {t('transcriptions.list_empty')}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {notes.map(({ r, meta }) => {
-              const kind = transcriptionKind(meta)!;
+            {items.map(({ r, meta }) => {
+              const sources = Array.isArray(meta.sources) ? (meta.sources as string[]) : [];
+              const sourceLabel = sources.length
+                ? sources.join(' + ')
+                : r.type === 'audio'
+                ? t('transcriptions.source_audio', 'Audio')
+                : t('transcriptions.source_note', 'Note');
               return (
                 <li
                   key={r.id}
@@ -144,7 +135,7 @@ export default function TranscriptionsListPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
+                      <Mic className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
                       <span className="truncate text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                         {r.title || r.id}
                       </span>
@@ -152,23 +143,18 @@ export default function TranscriptionsListPage() {
                         className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium"
                         style={{ background: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}
                       >
-                        {kind === 'call' ? t('transcriptions.type_call') : t('transcriptions.type_dictation')}
+                        {sourceLabel}
                       </span>
                     </div>
                   </div>
-                  <div className="flex shrink-0 gap-2">
-                    <DomeButton type="button" size="sm" variant="ghost" onClick={() => openNoteTab(r.id, r.title || '')}>
-                      {t('transcriptions.open_note')}
-                    </DomeButton>
-                    <DomeButton
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openTranscriptionDetailTab(r.id, r.title || '')}
-                    >
-                      {t('common.view')}
-                    </DomeButton>
-                  </div>
+                  <DomeButton
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openTranscriptionDetailTab(r.id, r.title || '')}
+                  >
+                    {t('common.view')}
+                  </DomeButton>
                 </li>
               );
             })}

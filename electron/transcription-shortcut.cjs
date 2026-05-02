@@ -1,14 +1,15 @@
 /* eslint-disable no-console */
 /**
- * Global shortcut to toggle in-app voice recording / dictation.
+ * Global shortcut to toggle transcription. Sends `transcription:toggle-recording`
+ * to the main window; the renderer's TranscriptionPill listens via the
+ * `onToggleRecording` API exposed in preload.cjs.
  */
 const { globalShortcut } = require('electron');
-const transcriptionMainHub = require('./transcription-main-hub.cjs');
 
 let registeredAccelerator = null;
 
 /**
- * Global dictation shortcut is opt-in via `transcription_global_shortcut_enabled`.
+ * Global shortcut is opt-in via `transcription_global_shortcut_enabled`.
  * Legacy: if the flag row is missing but a non-empty accelerator is stored, register (migration).
  */
 function isShortcutRegistrationEnabled(database) {
@@ -26,8 +27,25 @@ function isShortcutRegistrationEnabled(database) {
   }
 }
 
+function focusMain(windowManager) {
+  const mainWin = windowManager.get('main');
+  if (!mainWin || mainWin.isDestroyed()) return null;
+  try {
+    if (!mainWin.isVisible()) mainWin.show();
+    if (mainWin.isMinimized()) mainWin.restore();
+    mainWin.focus();
+  } catch { /* ignore */ }
+  return mainWin;
+}
+
 function sendToggleToMain(windowManager) {
-  transcriptionMainHub.sendToggleRecordingToMain(windowManager);
+  const mainWin = focusMain(windowManager);
+  if (!mainWin) return;
+  try {
+    mainWin.webContents.send('transcription:toggle-recording');
+  } catch (e) {
+    console.warn('[TranscriptionShortcut] toggle-recording:', e?.message);
+  }
 }
 
 /**
@@ -46,20 +64,16 @@ function registerFromDatabase(database, windowManager) {
     if (ok) {
       registeredAccelerator = accel;
     } else {
-      console.warn('[Transcription] Global shortcut registration returned false:', accel);
+      console.warn('[TranscriptionShortcut] register returned false:', accel);
     }
   } catch (err) {
-    console.warn('[Transcription] Global shortcut error:', err?.message);
+    console.warn('[TranscriptionShortcut] register error:', err?.message);
   }
 }
 
 function unregisterAll() {
   if (registeredAccelerator) {
-    try {
-      globalShortcut.unregister(registeredAccelerator);
-    } catch (_) {
-      /* */
-    }
+    try { globalShortcut.unregister(registeredAccelerator); } catch { /* ignore */ }
     registeredAccelerator = null;
   }
 }

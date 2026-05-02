@@ -416,24 +416,19 @@ const ALLOWED_CHANNELS = {
     'audio:generate-podcast',
     'audio:get-status',
     'audio:list',
-    // Transcription (STT → note)
-    'transcription:request-microphone-access',
-    'transcription:resource-to-note',
-    'transcription:buffer-to-note',
-    'transcription:buffer-to-text',
-    'transcription:get-defaults',
+    // Transcription (unified session engine — 12 channels)
     'transcription:get-settings',
     'transcription:set-settings',
-    'transcription:regenerate-linked-note',
-    'transcription:patch-transcript-speakers',
-    'transcription:list-desktop-capture-sources',
+    'transcription:get-permissions',
+    'transcription:request-mic',
+    'transcription:request-screen',
+    'transcription:list-capture-sources',
     'transcription:set-display-media-source',
-    'transcription:get-permissions-status',
-    'transcription:request-screen-access',
-    // Transcription hub (embedded in main window)
-    'transcription-overlay:toggle-from-ui',
-    'transcription-overlay:set-state',
-    'transcription-overlay:open-note-in-main',
+    'transcription:session-start',
+    'transcription:session-append',
+    'transcription:session-control',
+    'transcription:get-active',
+    'transcription:resource-to-note',
     // Streaming TTS control (renderer → main)
     'audio:stop-streaming-tts',
     // Database - Studio Outputs
@@ -482,15 +477,6 @@ const ALLOWED_CHANNELS = {
     'calendar:disconnectGoogle',
     'calendar:previewIcs',
     'calendar:importIcs',
-    // Call transcription sessions
-    'calls:start',
-    'calls:append-chunk',
-    'calls:get-live',
-    'calls:pause',
-    'calls:resume',
-    'calls:stop',
-    'calls:cancel',
-    'calls:regenerate-summary',
     // Plugins
     'plugin:list',
     'plugin:install-from-folder',
@@ -549,8 +535,6 @@ const ALLOWED_CHANNELS = {
     'audio:generation-progress',
     // Voice recording / dictation toggle (from tray or global shortcut)
     'transcription:toggle-recording',
-    'transcription:expand-hub-dock',
-    'transcription:tray-action',
     'transcription:state',
     // Streaming TTS events (main → renderer)
     'tts:sentence-playing',
@@ -763,20 +747,6 @@ const electronHandler = {
   sync: {
     export: () => ipcRenderer.invoke('sync:export'),
     import: () => ipcRenderer.invoke('sync:import'),
-  },
-
-  // ============================================
-  // CALL TRANSCRIPTION SESSIONS API
-  // ============================================
-  calls: {
-    start: (args) => ipcRenderer.invoke('calls:start', args),
-    appendChunk: (args) => ipcRenderer.invoke('calls:append-chunk', args),
-    getLive: (args) => ipcRenderer.invoke('calls:get-live', args),
-    pause: (args) => ipcRenderer.invoke('calls:pause', args),
-    resume: (args) => ipcRenderer.invoke('calls:resume', args),
-    stop: (args) => ipcRenderer.invoke('calls:stop', args),
-    cancel: (args) => ipcRenderer.invoke('calls:cancel', args),
-    regenerateSummary: (args) => ipcRenderer.invoke('calls:regenerate-summary', args),
   },
 
   // ============================================
@@ -1486,44 +1456,43 @@ const electronHandler = {
   },
 
   // ============================================
-  // TRANSCRIPTION API (speech-to-text → notes)
+  // TRANSCRIPTION API (unified session engine)
   // ============================================
   transcription: {
-    requestMicrophoneAccess: () => ipcRenderer.invoke('transcription:request-microphone-access'),
-    resourceToNote: (args) => ipcRenderer.invoke('transcription:resource-to-note', args),
-    bufferToNote: (args) => ipcRenderer.invoke('transcription:buffer-to-note', args),
-    bufferToText: (args) => ipcRenderer.invoke('transcription:buffer-to-text', args),
-    getDefaults: () => ipcRenderer.invoke('transcription:get-defaults'),
+    // Settings
     getSettings: () => ipcRenderer.invoke('transcription:get-settings'),
     setSettings: (args) => ipcRenderer.invoke('transcription:set-settings', args),
-    regenerateLinkedNote: (args) => ipcRenderer.invoke('transcription:regenerate-linked-note', args),
-    patchTranscriptSpeakers: (args) =>
-      ipcRenderer.invoke('transcription:patch-transcript-speakers', args),
-    listDesktopCaptureSources: () => ipcRenderer.invoke('transcription:list-desktop-capture-sources'),
+    // Permissions
+    getPermissions: () => ipcRenderer.invoke('transcription:get-permissions'),
+    requestMic: () => ipcRenderer.invoke('transcription:request-mic'),
+    requestScreen: () => ipcRenderer.invoke('transcription:request-screen'),
+    // Capture sources (system audio)
+    listCaptureSources: () => ipcRenderer.invoke('transcription:list-capture-sources'),
     setDisplayMediaSource: (sourceId) =>
       ipcRenderer.invoke('transcription:set-display-media-source', { sourceId }),
-    getPermissionsStatus: () => ipcRenderer.invoke('transcription:get-permissions-status'),
-    requestScreenAccess: () => ipcRenderer.invoke('transcription:request-screen-access'),
+    // Session lifecycle
+    sessionStart: (args) => ipcRenderer.invoke('transcription:session-start', args),
+    sessionAppend: (args) => ipcRenderer.invoke('transcription:session-append', args),
+    sessionControl: (args) => ipcRenderer.invoke('transcription:session-control', args),
+    getActive: () => ipcRenderer.invoke('transcription:get-active'),
+    // Manual conversion
+    resourceToNote: (args) => ipcRenderer.invoke('transcription:resource-to-note', args),
+    // Broadcast subscriptions
+    onState: (callback) => {
+      const handler = (_event, payload) => {
+        try { callback(payload); } catch { /* ignore */ }
+      };
+      ipcRenderer.on('transcription:state', handler);
+      return () => ipcRenderer.removeListener('transcription:state', handler);
+    },
     onToggleRecording: (callback) => {
       transcriptionToggleCallbacks.add(callback);
       if (pendingTranscriptionToggle) {
         pendingTranscriptionToggle = false;
-        try {
-          callback();
-        } catch (_) {
-          /* ignore */
-        }
+        try { callback(); } catch (_) { /* ignore */ }
       }
-      return () => {
-        transcriptionToggleCallbacks.delete(callback);
-      };
+      return () => { transcriptionToggleCallbacks.delete(callback); };
     },
-  },
-
-  transcriptionOverlay: {
-    toggleFromUi: () => ipcRenderer.invoke('transcription-overlay:toggle-from-ui'),
-    setState: (payload) => ipcRenderer.invoke('transcription-overlay:set-state', payload),
-    openNoteInMain: (payload) => ipcRenderer.invoke('transcription-overlay:open-note-in-main', payload),
   },
 
   // ============================================

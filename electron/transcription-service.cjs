@@ -136,6 +136,31 @@ function getPauseThresholdFromDb(database) {
   return 1.35;
 }
 
+/**
+ * Diarización heurística: una sola fuente de audio → un hablante; mic+sistema → como mucho 2 etiquetas alternadas.
+ * @param {string[]|null|undefined} captureSources
+ * @param {number} pauseThresholdSec
+ * @returns {{ pauseThresholdSec: number, speakerMode: 'single' | 'alternating', maxSpeakers: number }}
+ */
+function buildHeuristicSpeakerOpts(captureSources, pauseThresholdSec) {
+  const base = { pauseThresholdSec };
+  let result;
+  if (!captureSources || !Array.isArray(captureSources) || captureSources.length === 0) {
+    result = { ...base, speakerMode: 'alternating', maxSpeakers: 8 };
+  } else {
+    const hasMic = captureSources.includes('mic');
+    const hasSys = captureSources.includes('system');
+    if (hasMic && hasSys) {
+      result = { ...base, speakerMode: 'alternating', maxSpeakers: 2 };
+    } else if (hasMic || hasSys) {
+      result = { ...base, speakerMode: 'single' };
+    } else {
+      result = { ...base, speakerMode: 'alternating', maxSpeakers: 8 };
+    }
+  }
+  return result;
+}
+
 function getTempDir() {
   return path.join(app.getPath('temp'), 'dome-transcription');
 }
@@ -220,15 +245,20 @@ function safeUnlink(p) {
  * @param {Buffer} fileBuffer
  * @param {string} apiKey
  * @param {{ model?: string, language?: string|null, apiUrl?: string, prompt?: string|null, verbose?: boolean, sttProvider?: 'openai'|'groq'|'custom' }} opts
- * @returns {Promise<{ text: string, whisperSegments: Array<{ start: number, end: number, text: string }>, duration: number|null, language: string|null }>}
+ * @returns {Promise<{ text: string, whisperSegments: Array<{ start: number, end: number, text: string, speaker?: string }>, duration: number|null, language: string|null }>}
  */
 async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
   const model = opts.model || 'whisper-1';
   const language = opts.language && String(opts.language).trim() ? String(opts.language).trim() : null;
   const apiUrl = opts.apiUrl || `${DEFAULT_OPENAI_ORIGIN}/v1/audio/transcriptions`;
   const prompt = opts.prompt && String(opts.prompt).trim() ? String(opts.prompt).trim() : null;
-  const tryVerbose = opts.verbose !== false;
   const sttProvider = opts.sttProvider || 'openai';
+
+  // gpt-4o-transcribe family only supports json/text (not verbose_json).
+  // gpt-4o-transcribe-diarize additionally supports diarized_json with speaker labels.
+  const isGpt4oTranscribe = /^gpt-4o(-mini)?-transcribe(-diarize)?$/.test(model);
+  const isDiarize = model === 'gpt-4o-transcribe-diarize';
+  const tryVerbose = !isGpt4oTranscribe && opts.verbose !== false;
 
   async function doRequest(useVerbose) {
     const blob = new Blob([fileBuffer], { type: 'audio/mpeg' });
@@ -237,7 +267,9 @@ async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
     form.append('model', model);
     if (language) form.append('language', language);
     if (prompt) form.append('prompt', prompt);
-    if (useVerbose) {
+    if (isDiarize) {
+      try { form.append('response_format', 'diarized_json'); } catch (_) { /* */ }
+    } else if (useVerbose) {
       try {
         form.append('response_format', 'verbose_json');
       } catch (_) {
@@ -297,7 +329,7 @@ async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
   }
 
   const text = data.text.trim();
-  /** @type {Array<{ start: number, end: number, text: string }>} */
+  /** @type {Array<{ start: number, end: number, text: string, speaker?: string }>} */
   let whisperSegments = [];
   if (Array.isArray(data.segments)) {
     whisperSegments = data.segments
@@ -306,6 +338,7 @@ async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
         start: typeof s.start === 'number' ? s.start : 0,
         end: typeof s.end === 'number' ? s.end : 0,
         text: String(s.text).trim(),
+        ...(isDiarize && typeof s.speaker === 'string' ? { speaker: s.speaker } : {}),
       }));
   }
 
@@ -334,6 +367,7 @@ async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
  * @param {Object|null} [options.database] - when set, resolves API URL and prompt from settings
  * @param {string} [options.apiUrl] - overrides URL from database
  * @param {string|null} [options.prompt] - overrides prompt from database
+ * @param {Array<'mic'|'system'>} [options.captureSources] - for heuristic diarization (single vs two-party)
  * @returns {Promise<{ text: string, structured: Object }>}
  */
 async function transcribeFilePath(inputAbsolutePath, options) {
@@ -384,6 +418,11 @@ async function transcribeFilePath(inputAbsolutePath, options) {
       options.pauseThresholdSec != null && Number.isFinite(options.pauseThresholdSec)
         ? options.pauseThresholdSec
         : getPauseThresholdFromDb(database);
+    const captureSources =
+      Array.isArray(options.captureSources) && options.captureSources.length
+        ? options.captureSources.filter((s) => s === 'mic' || s === 'system')
+        : [];
+    const heuristicOpts = buildHeuristicSpeakerOpts(captureSources, pauseThresholdSec);
 
     if (stat.size <= MAX_REQUEST_BYTES) {
       const buf = fs.readFileSync(normalizedPath);
@@ -398,10 +437,27 @@ async function transcribeFilePath(inputAbsolutePath, options) {
         detail.duration != null && detail.duration > 0
           ? detail.duration
           : await probeDurationSeconds(normalizedPath).catch(() => 0);
-      const { segments, speakers, diarization } = transcriptionStructured.applyAlternatingSpeakerHeuristic(
-        detail.whisperSegments,
-        { pauseThresholdSec },
-      );
+      const hasSpeakers = detail.whisperSegments.some((s) => s.speaker);
+      let segments, speakers, diarization;
+      if (hasSpeakers) {
+        // Real diarization from gpt-4o-transcribe-diarize: use API speaker labels directly.
+        segments = detail.whisperSegments.map((s) => ({
+          id: `seg-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          startTime: s.start,
+          endTime: s.end,
+          text: s.text,
+          speakerId: s.speaker,
+        }));
+        const speakerIds = [...new Set(segments.map((s) => s.speakerId))].sort();
+        speakers = {};
+        speakerIds.forEach((id, i) => { speakers[id] = { label: `Speaker ${i + 1}` }; });
+        diarization = 'real';
+      } else {
+        ({ segments, speakers, diarization } = transcriptionStructured.applyAlternatingSpeakerHeuristic(
+          detail.whisperSegments,
+          heuristicOpts,
+        ));
+      }
       const text = transcriptionStructured.segmentsToPlainText(segments) || detail.text;
       return {
         text,
@@ -456,7 +512,7 @@ async function transcribeFilePath(inputAbsolutePath, options) {
 
     const { segments, speakers, diarization } = transcriptionStructured.applyAlternatingSpeakerHeuristic(
       allRaw,
-      { pauseThresholdSec },
+      heuristicOpts,
     );
     const text = transcriptionStructured.segmentsToPlainText(segments);
     return {
@@ -497,6 +553,7 @@ async function transcribeBuffer(buffer, suggestedExtension, database, transcript
       model: transcriptionOptions.model,
       language: transcriptionOptions.language,
       database,
+      captureSources: transcriptionOptions.captureSources,
     });
   } finally {
     safeUnlink(inPath);

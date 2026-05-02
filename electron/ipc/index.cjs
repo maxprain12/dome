@@ -40,9 +40,9 @@ const runsHandlers = require('./runs.cjs');
 const marketplaceHandlers = require('./marketplace.cjs');
 const cloudStorageHandlers = require('./cloud-storage.cjs');
 const transcriptionHandlers = require('./transcription.cjs');
+const transcriptionRecovery = require('../transcription-recovery.cjs');
+const transcriptionSession = require('../transcription-session.cjs');
 const browserContextHandlers = require('./browser-context.cjs');
-const transcriptionOverlayHandlers = require('./transcription-overlay.cjs');
-const callsHandlers = require('./calls.cjs');
 const kbLlmHandlers = require('./kb-llm.cjs');
 const skillsHandlers = require('./skills.cjs');
 
@@ -120,6 +120,7 @@ function registerAll(deps) {
   runsHandlers.register({ ipcMain, windowManager, validateSender });
   marketplaceHandlers.register({ ipcMain, windowManager, validateSender });
   cloudStorageHandlers.register({ ipcMain, windowManager, database, fileStorage });
+  transcriptionSession.setWindowManager(windowManager);
   transcriptionHandlers.register({
     ipcMain,
     windowManager,
@@ -131,18 +132,17 @@ function registerAll(deps) {
     ollamaService,
     pendingDisplayMediaSources,
   });
-  browserContextHandlers.register({ ipcMain, windowManager });
-  transcriptionOverlayHandlers.register({ ipcMain, windowManager });
-  callsHandlers.register({
-    ipcMain,
-    windowManager,
+  // Recover any sessions left mid-flight by a previous crash. Fire-and-forget;
+  // recovery logs its own errors and never blocks startup.
+  void transcriptionRecovery.runOnStartup({
     database,
     fileStorage,
-    aiToolsHandler,
+    windowManager,
     thumbnail,
     initModule,
     ollamaService,
   });
+  browserContextHandlers.register({ ipcMain, windowManager });
   kbLlmHandlers.register({ ipcMain, windowManager, database, validateSender });
   skillsHandlers.register({ ipcMain, windowManager, database, validateSender, app });
 
