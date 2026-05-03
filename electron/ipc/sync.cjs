@@ -75,7 +75,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       });
     } catch (error) {
       console.error('[Sync] Export error:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -117,8 +117,17 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         yauzl.open(zipPath, { lazyEntries: true }, (err, zf) => {
           if (err) return reject(err);
 
-          zf.on('end', () => resolve());
-          zf.on('error', (e) => reject(e));
+          let resolved = false;
+          zf.on('end', () => {
+            resolved = true;
+            resolve();
+          });
+          zf.on('error', (e) => {
+            if (!resolved) {
+              resolved = true;
+              reject(e);
+            }
+          });
 
           zf.on('entry', (entry) => {
             try {

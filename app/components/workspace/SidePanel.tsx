@@ -183,8 +183,8 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
     async function loadBacklinks() {
       try {
         const result = await window.electron.db.resources.getBacklinks(resourceId);
-        if (result?.success) {
-          setBacklinks((result.data || []) as ResourceSemanticBacklink[]);
+        if (result?.success && result.data) {
+          setBacklinks(result.data);
         }
       } catch (error) {
         console.error('Error loading backlinks:', error);
