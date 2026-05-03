@@ -179,6 +179,18 @@ export default function AgentCanvasView() {
     }
   }, [store.executionStatus, t]);
 
+  const handleClear = useCallback(() => {
+    store.clearCanvas();
+    setSelectedNodeId(null);
+  }, [store]);
+
+  const handleRename = useCallback(async () => {
+    const newName = await showPrompt(t('canvas.rename_workflow_title'), store.activeWorkflowName);
+    if (newName?.trim()) {
+      store.setWorkflowName(newName.trim());
+    }
+  }, [store, t]);
+
   const handleStop = useCallback(() => {
     store.resetExecution();
     window.electron?.invoke('ai:langgraph:abort').catch(() => {});
@@ -227,24 +239,13 @@ export default function AgentCanvasView() {
       });
       if (result.success && result.data) {
         store.setActiveWorkflow(result.data);
-        showToast('success', t('toast.workflow_saved'));
+        store.markClean();
+        showToast('success', t('toast.workflow_created'));
       } else {
-        showToast('error', result.error ?? t('toast.workflow_save_error'));
+        showToast('error', result.error ?? t('toast.workflow_create_error'));
       }
     }
   }, [store, hubProjectId, t]);
-
-  const handleClear = useCallback(() => {
-    store.clearCanvas();
-    setSelectedNodeId(null);
-  }, [store]);
-
-  const handleRename = useCallback(async () => {
-    const newName = await showPrompt(t('canvas.rename_workflow_title'), store.activeWorkflowName);
-    if (newName?.trim()) {
-      store.setWorkflowName(newName.trim());
-    }
-  }, [store, t]);
 
   const selectedNode = selectedNodeId ? (nodes.find((n) => n.id === selectedNodeId) ?? null) : null;
 
