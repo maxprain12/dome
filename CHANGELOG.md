@@ -4,6 +4,32 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.1.7] - 2026-05-03
+
+### Added
+
+- **Many**: herramientas shell, archivo y UI; servidor **MCP** embebido de Dome (`DomeMcpServerSettings`); overlay de cursor para interacciones asistidas.
+- **Electron**: nuevos IPC y bridge (`shell`, `dome-mcp`, ejecutor ampliado en `ai-tools-handler`).
+
+### Changed
+
+- **Many / agent canvas**: mejoras en el panel Many y Agent Canvas.
+- **Auditorías**: ciclo habitual de audits (tipos, errores, seguridad, docs, i18n).
+
+### Fixed
+
+- Acceso seguro a `error.message` y condiciones de carrera en varios IPC (incl. `sync`); rutas relacionadas en almacenamiento y sincronización.
+- **`SidePanel`**: eliminación de doble type assertion en backlinks.
+- **`UnifiedSidebar`**: limpieza de `setTimeout` en `TreeNode`.
+- **`PptCapturePage`**: fondo con `var(--bg-secondary)` en lugar de `#fff` hardcoded.
+- **i18n**: claves faltantes en studio y strings en `GenerateSourceModal`.
+
+### Documentation
+
+- Referencia IPC actualizada en `docs/architecture/ipc-channels.md`.
+
+[2.1.7]: https://github.com/maxprain12/dome/releases/tag/v2.1.7
+
 ## [2.1.6] - 2026-04-27
 
 ### Fixed
