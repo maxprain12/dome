@@ -1,6 +1,7 @@
 import { useRef, useState } from "react"
 import type { NodeViewProps } from "@tiptap/react"
 import { NodeViewWrapper } from "@tiptap/react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { CloseIcon } from "@/components/tiptap-icons/close-icon"
 import "@/components/tiptap-node/image-upload-node/image-upload-node.scss"
@@ -432,6 +433,7 @@ const DropZoneContent: React.FC<{ maxSize: number; limit: number }> = ({
 )
 
 export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
+  const { t } = useTranslation()
   const { accept, limit, maxSize } = props.node.attrs
   const inputRef = useRef<HTMLInputElement>(null)
   const extension = props.extension
@@ -515,7 +517,7 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
         <div className="tiptap-image-upload-previews">
           {fileItems.length > 1 && (
             <div className="tiptap-image-upload-header">
-              <span>Uploading {fileItems.length} files</span>
+              <span>{t('common.uploading_files', { count: fileItems.length })}</span>
               <Button
                 type="button"
                 variant="ghost"
@@ -524,7 +526,7 @@ export const ImageUploadNode: React.FC<NodeViewProps> = (props) => {
                   clearAllFiles()
                 }}
               >
-                Clear All
+                {t('common.clear_all', 'Clear all')}
               </Button>
             </div>
           )}
