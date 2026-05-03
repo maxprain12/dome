@@ -10,6 +10,18 @@ const { exec } = require('child_process');
 const { dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
+const { z } = require('zod');
+
+const ShellExecPayloadSchema = z.object({
+  command: z.string(),
+  cwd: z.string().optional(),
+});
+
+const ShellFileSearchPayloadSchema = z.object({
+  directory: z.string(),
+  pattern: z.string(),
+  type: z.enum(['name', 'content']).optional(),
+});
 
 const EXEC_TIMEOUT_MS = 60_000;
 const SEARCH_MAX_RESULTS = 200;
@@ -19,15 +31,20 @@ function register({ ipcMain, windowManager }) {
    * shell:exec — show a confirmation dialog then execute the command.
    * Returns { cancelled, stdout, stderr, exitCode } or { success: false, error }.
    */
-  ipcMain.handle('shell:exec', async (event, { command, cwd }) => {
+  ipcMain.handle('shell:exec', async (event, raw) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    if (typeof command !== 'string' || !command.trim()) {
+    const parsed = ShellExecPayloadSchema.safeParse(raw ?? {});
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid payload' };
+    }
+    const { command, cwd } = parsed.data;
+    if (!command.trim()) {
       return { success: false, error: 'No command provided' };
     }
 
-    const workDir = (typeof cwd === 'string' && cwd.trim()) ? cwd.trim() : undefined;
+    const workDir = cwd && cwd.trim() ? cwd.trim() : undefined;
 
     // Native confirmation dialog — blocks until user responds.
     const win = windowManager.getWindowByWebContentsId?.(event.sender.id) ?? null;
@@ -67,18 +84,24 @@ function register({ ipcMain, windowManager }) {
    * or whose content contains a string.
    * Returns { success, matches: [{ path, name, isDirectory }] }.
    */
-  ipcMain.handle('shell:file:search', async (event, { directory, pattern, type = 'name' }) => {
+  ipcMain.handle('shell:file:search', async (event, raw) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    if (typeof directory !== 'string' || !directory.trim()) {
+    const parsed = ShellFileSearchPayloadSchema.safeParse(raw ?? {});
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid payload' };
+    }
+    const { directory, pattern, type: typeRaw } = parsed.data;
+    const type = typeRaw ?? 'name';
+    if (!directory.trim()) {
       return { success: false, error: 'No directory provided' };
     }
-    if (typeof pattern !== 'string' || !pattern.trim()) {
+    if (!pattern.trim()) {
       return { success: false, error: 'No pattern provided' };
     }
 
-    const root = path.resolve(directory);
+    const root = path.resolve(directory.trim());
     if (!fs.existsSync(root)) {
       return { success: false, error: 'Directory not found' };
     }

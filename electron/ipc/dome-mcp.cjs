@@ -10,6 +10,19 @@
  */
 
 const path = require('path');
+const { z } = require('zod');
+
+/** Payload for dome-mcp:start (number port, { port }, nullish, or empty object). */
+const DomeMcpStartPayloadSchema = z.union([
+  z.number().finite(),
+  z
+    .object({
+      port: z.union([z.number(), z.string(), z.null()]).optional(),
+    })
+    .passthrough(),
+  z.undefined(),
+  z.null(),
+]);
 
 let domeMcpServer;
 try {
@@ -36,11 +49,16 @@ function register({ ipcMain, windowManager, database }) {
     }
     if (!domeMcpServer) return { success: false, error: 'MCP server module not available' };
 
+    const validated = DomeMcpStartPayloadSchema.safeParse(payload);
+    if (!validated.success) {
+      return { success: false, error: 'Invalid payload' };
+    }
+    const body = validated.data;
     const rawPort =
-      typeof payload === 'number' && Number.isFinite(payload)
-        ? payload
-        : payload && typeof payload === 'object' && 'port' in payload
-          ? payload.port
+      typeof body === 'number' && Number.isFinite(body)
+        ? body
+        : body && typeof body === 'object' && 'port' in body
+          ? body.port
           : undefined;
     let listenPort = rawPort != null && rawPort !== '' ? Number(rawPort) : null;
     if (listenPort !== null && !Number.isFinite(listenPort)) listenPort = null;
