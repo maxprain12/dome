@@ -91,7 +91,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
       console.error('[AISetupStep] Error al guardar:', error);
       setSaveError(error instanceof Error ? error.message : t('onboarding.error_saving_config'));
     }
-  }, [provider, apiKey, model, ollamaBaseURL, ollamaModel]);
+  }, [provider, apiKey, model, ollamaBaseURL, ollamaModel, t]);
 
   useEffect(() => {
     const handleFinalize = () => handleNext();

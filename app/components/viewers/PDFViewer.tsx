@@ -516,7 +516,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
                   annotations={annotations}
                   activeTool={activeTool}
                   color={color}
-                  strokeWidth={strokeWidth}
+                  _strokeWidth={strokeWidth}
                   onAnnotationCreate={handleAnnotationCreate}
                 />
               </div>
