@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `npm run generate:ipc-inventory`.
-> Última generación: 2026-05-02T22:00:14.178Z
+> Última generación: 2026-05-03T13:51:02.811Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -220,6 +220,10 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `db:workflows:get` | `electron/ipc/database.cjs:890` |
 | `db:workflows:list` | `electron/ipc/database.cjs:878` |
 | `db:workflows:update` | `electron/ipc/database.cjs:929` |
+| `dome-mcp:bridge-path` | `electron/ipc/dome-mcp.cjs:97` |
+| `dome-mcp:start` | `electron/ipc/dome-mcp.cjs:33` |
+| `dome-mcp:status` | `electron/ipc/dome-mcp.cjs:89` |
+| `dome-mcp:stop` | `electron/ipc/dome-mcp.cjs:71` |
 | `domeauth:disconnect` | `electron/ipc/dome-auth.cjs:44` |
 | `domeauth:getQuota` | `electron/ipc/dome-auth.cjs:57` |
 | `domeauth:getSession` | `electron/ipc/dome-auth.cjs:19` |
@@ -334,6 +338,8 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `select-files` | `electron/ipc/system.cjs:55` |
 | `select-folder` | `electron/ipc/system.cjs:73` |
 | `set-theme` | `electron/ipc/system.cjs:157` |
+| `shell:exec` | `electron/ipc/shell.cjs:22` |
+| `shell:file:search` | `electron/ipc/shell.cjs:70` |
 | `show-item-in-folder` | `electron/ipc/system.cjs:121` |
 | `show-save-dialog` | `electron/ipc/system.cjs:95` |
 | `skills:create` | `electron/ipc/skills.cjs:355` |

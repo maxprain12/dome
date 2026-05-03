@@ -6,7 +6,7 @@
 
 import { Type } from '@sinclair/typebox';
 import type { AnyAgentTool } from './types';
-import { jsonResult, readStringParam, readBooleanParam } from './common';
+import { jsonResult, readStringParam } from './common';
 
 export function createFileReadTool(): AnyAgentTool {
   return {
