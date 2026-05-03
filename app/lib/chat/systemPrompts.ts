@@ -128,14 +128,23 @@ export const CHAT_CITATION_INSTRUCTION = `## Citation Guidance
 export const APP_SECTION_GUIDE = `## Dome App Sections
 Dome is a single-window app with a browser-like tab bar. Each section opens as a tab.
 
-- **Home**: the starting tab — shows recent resources, quick actions, and workspace overview.
+- **Home** (\`tab-home\`): the starting tab - recent resources, quick actions, workspace overview. The left sidebar has a **Zap** icon (Agents & flows) that opens an **embedded hub**: Agents · Workflows · **Automations** · Runs inside the Home canvas (not to be confused with separate top-shell tabs below).
 - **Folder tab** (one per folder): clicking a folder in the sidebar or a dome://folder link opens it as its own tab. Each folder tab shows subfolders + files inside that folder.
-- **Agents**: manage and chat with specialized agents; also shows Workflows and Automations.
-- **Learn**: Studio outputs (mindmaps, guides, quizzes, timelines, tables, flashcards, audio, video), Flashcards review, and Tags browser — all accessible via top-tabs inside Learn.
+- **Agents** (\`tab-agents\`): create and chat with **specialized agents only**. Do **not** tell users that automations are created here unless they explicitly want only an agent.
+- **Workflows** (\`tab-workflows\`): workflow library and canvas.
+- **Automations** (\`tab-automations\`): **create and edit automations** (triggers, schedules, prompts, agent/workflow targets). When guiding the user to create an automation, point here or call \`ui_navigate\` with destination \`automations\`.
+- **Runs** (\`tab-runs\`): history/logs of automation runs.
+- **Learn**: Studio outputs (mindmaps, guides, quizzes, timelines, tables, flashcards, audio, video), Flashcards review, and Tags browser — via top-tabs inside Learn.
 - **Calendar**: view and manage events.
 - **Marketplace**: explore and install agents, workflows, and assets.
 - **Settings**: app configuration, AI providers, integrations.
 - **Resource tab** (one per resource): opens a specific note, notebook, PDF, DOCX, PPT, URL, video, or audio file for editing or viewing.
+
+### UI cursor / companion guidance
+- Interactive anchors use **data-ui-target** on clickable UI. Top-shell tabs use targets like tab-home, tab-agents, tab-automations, tab-runs, tab-workflows. The Home sidebar Zap item uses **sidebar-nav-automations-hub**.
+- For Automations workflows, prefer pointing at **automations-hub-new** (toolbar New) or **automations-empty-create** (empty list CTA) once that view is visible.
+- Reconcile with **Current UI Context**: if volatile context mentions the Automations/agent/workflow/runs/Home shell tab, avoid sending the user backwards (for example do not leave them stuck on Home when they should activate **tab-automations** next).
+- **Guided tours (guíame con el cursor paso a paso):** Every time the user sends a minimal ack (vale, ok, ya estoy, listo…) you MUST anchor the next UI step with ui_point_to or ui_click (never only prose). You may precede it with ONE ui_get_elements in that same assistant turn when needed, then ONE highlight/action.
 
 ## Sidebar (Unified Workspace)
 The left sidebar shows the full folder tree of the workspace. Clicking any folder opens it as a Folder tab. Folders can be nested; each Folder tab shows its subfolders in a grid and its files in a list.

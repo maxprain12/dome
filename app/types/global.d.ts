@@ -1653,6 +1653,29 @@ declare global {
         rememberFact: (key: string, value: string) => Promise<{ success: boolean; error?: string }>;
       };
 
+      shell: {
+        exec: (command: string, cwd?: string) => Promise<{
+          success: boolean;
+          cancelled?: boolean;
+          stdout?: string;
+          stderr?: string;
+          exitCode?: number;
+          error?: string;
+        }>;
+        fileSearch: (directory: string, pattern: string, type?: 'name' | 'content') => Promise<{
+          success: boolean;
+          matches?: Array<{ path: string; name: string; isDirectory: boolean }>;
+          error?: string;
+        }>;
+      };
+
+      domeMcp: {
+        start: (port?: number) => Promise<{ success: boolean; port?: number; alreadyRunning?: boolean; error?: string }>;
+        stop: () => Promise<{ success: boolean; error?: string }>;
+        status: () => Promise<{ running: boolean; port: number | null; sessions: Array<{ clientName: string }> }>;
+        bridgePath: () => Promise<string | null>;
+      };
+
       // Cloud Storage API (Google Drive)
       cloud: {
         getAccounts: () => Promise<{

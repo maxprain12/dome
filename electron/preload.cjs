@@ -504,6 +504,14 @@ const ALLOWED_CHANNELS = {
     'marketplace:install-plugin',
     'marketplace:install-skill',
     'marketplace:uninstall-skill',
+    // Shell execution & native file search (Many agent tools)
+    'shell:exec',
+    'shell:file:search',
+    // Dome MCP server management
+    'dome-mcp:start',
+    'dome-mcp:stop',
+    'dome-mcp:status',
+    'dome-mcp:bridge-path',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -583,6 +591,8 @@ const ALLOWED_CHANNELS = {
     'dome:open-settings-in-tab',
     'dome:open-singleton-tab',
     'skills:updated',
+    // UI cursor actions (dispatched from main process when Many uses LangGraph ui_* tools)
+    'dome:ui-action',
   ],
 };
 
@@ -1658,6 +1668,39 @@ const electronHandler = {
 
     // Remember a fact about the user in long-term memory
     rememberFact: (key, value) => ipcRenderer.invoke('personality:remember-fact', { key, value }),
+  },
+
+  // ============================================
+  // SHELL — command execution & file search (Many agent tools)
+  // ============================================
+  shell: {
+    /**
+     * Execute a shell command after native confirmation dialog.
+     * @param {string} command
+     * @param {string} [cwd]
+     * @returns {Promise<{success:boolean, cancelled?:boolean, stdout?:string, stderr?:string, exitCode?:number, error?:string}>}
+     */
+    exec: (command, cwd) => ipcRenderer.invoke('shell:exec', { command, cwd }),
+
+    /**
+     * Recursive file search by name pattern or content.
+     * @param {string} directory
+     * @param {string} pattern
+     * @param {'name'|'content'} [type]
+     * @returns {Promise<{success:boolean, matches?:Array<{path:string,name:string,isDirectory:boolean}>, error?:string}>}
+     */
+    fileSearch: (directory, pattern, type) =>
+      ipcRenderer.invoke('shell:file:search', { directory, pattern, type }),
+  },
+
+  // ============================================
+  // DOME MCP SERVER — manage the external MCP server
+  // ============================================
+  domeMcp: {
+    start: (port) => ipcRenderer.invoke('dome-mcp:start', port),
+    stop: () => ipcRenderer.invoke('dome-mcp:stop'),
+    status: () => ipcRenderer.invoke('dome-mcp:status'),
+    bridgePath: () => ipcRenderer.invoke('dome-mcp:bridge-path'),
   },
 };
 

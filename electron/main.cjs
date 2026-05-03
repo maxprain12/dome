@@ -830,6 +830,22 @@ app
       console.warn('[Main] Transcription shortcut init:', shortcutErr?.message);
     }
 
+    // Auto-start Dome MCP server if enabled in settings
+    try {
+      const q = database.getQueries();
+      const mcpEnabled = q.getSetting?.get('dome_mcp_enabled');
+      if (mcpEnabled?.value === '1') {
+        const domeMcpServer = require('./dome-mcp-server.cjs');
+        const portRow = q.getSetting?.get('dome_mcp_port');
+        const port = portRow?.value ? parseInt(portRow.value, 10) : 37214;
+        domeMcpServer.start(port).catch((e) =>
+          console.warn('[Main] DomeMCP auto-start failed:', e?.message),
+        );
+      }
+    } catch (mcpErr) {
+      console.warn('[Main] DomeMCP auto-start check failed:', mcpErr?.message);
+    }
+
     // IMPORTANTE: Crear ventana PRIMERO para que la UI se muestre inmediatamente
     // La inicializacion de LanceDB puede fallar o bloquearse con modulos nativos
     const mainWindow = await createWindow();

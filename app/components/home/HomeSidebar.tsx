@@ -160,6 +160,7 @@ export default function HomeSidebar({ flashcardDueCount: _flashcardDueCount }: H
               <button
                 key={item.id}
                 type="button"
+                data-ui-target={`sidebar-nav-${item.id}`}
                 data-tour={item.id === 'agents' ? 'agents' : item.id}
                 onClick={() => handleNavClick(item)}
                 className="flex items-center justify-center rounded-lg transition-colors duration-200 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)]"

@@ -98,6 +98,22 @@ const TOOL_HANDLER_MAP = {
 
   image_describe: 'gemmaImageDescribe',
   screen_understand: 'gemmaScreenUnderstand',
+
+  // Native file & shell tools
+  file_read: 'fileRead',
+  file_write: 'fileWrite',
+  file_list: 'fileList',
+  file_search: 'fileSearch',
+  shell_exec: 'shellExec',
+
+  // UI interaction tools (dispatch to renderer via IPC broadcast)
+  ui_point_to: 'uiPointTo',
+  ui_click: 'uiClick',
+  ui_type: 'uiType',
+  ui_scroll: 'uiScroll',
+  ui_navigate: 'uiNavigate',
+  ui_get_elements: 'uiGetElements',
+  ui_hide_cursor: 'uiHideCursor',
 };
 
 function normalizeToolName(name) {

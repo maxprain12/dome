@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   User, Palette, Brain, Mic, Settings as SettingsIcon,
   MessageCircle, Puzzle, Plug2, Wand2, Database, Cloud,
-  Globe, BookMarked, Calendar,
+  Globe, BookMarked, Calendar, Server,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import DomeButton from '@/components/ui/DomeButton';
@@ -16,6 +16,7 @@ export type SettingsSection =
   | 'transcription'
   | 'whatsapp'
   | 'mcp'
+  | 'dome_mcp'
   | 'skills'
   | 'plugins'
   | 'advanced'
@@ -64,6 +65,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'cloud',    icon: <Cloud className="w-3.5 h-3.5" /> },
       { id: 'calendar', icon: <Calendar className="w-3.5 h-3.5" /> },
       { id: 'mcp',      icon: <Plug2 className="w-3.5 h-3.5" /> },
+      { id: 'dome_mcp', icon: <Server className="w-3.5 h-3.5" /> },
     ],
   },
   {
