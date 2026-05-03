@@ -3162,6 +3162,204 @@ async function gatherStudioQuizContext(args) {
 }
 
 // =============================================================================
+// UI Interaction Tools (LangGraph path — dispatches to renderer via IPC)
+// =============================================================================
+
+/**
+ * Broadcast a UI action to all renderer windows.
+ * The renderer listens for 'dome:ui-action' and executes the corresponding DOM operation.
+ */
+function broadcastUiAction(type, args) {
+  if (windowManagerRef?.broadcast) {
+    windowManagerRef.broadcast('dome:ui-action', { type, args });
+  }
+}
+
+async function uiPointTo(args) {
+  broadcastUiAction('point_to', args);
+  return { status: 'dispatched', action: 'point_to', target: args.target, tooltip: args.tooltip ?? null };
+}
+
+async function uiClick(args) {
+  broadcastUiAction('click', args);
+  return { status: 'dispatched', action: 'click', target: args.target };
+}
+
+async function uiType(args) {
+  broadcastUiAction('type', args);
+  return { status: 'dispatched', action: 'type', target: args.target };
+}
+
+async function uiScroll(args) {
+  broadcastUiAction('scroll', args);
+  return { status: 'dispatched', action: 'scroll', direction: args.direction };
+}
+
+async function uiNavigate(args) {
+  broadcastUiAction('navigate', args);
+  return { status: 'dispatched', action: 'navigate', destination: args.destination };
+}
+
+async function uiGetElements(args) {
+  const win = windowManagerRef?.get?.('main');
+  if (!win || win.isDestroyed()) {
+    return { status: 'error', error: 'No main window available' };
+  }
+  try {
+    const elements = await win.webContents.executeJavaScript(`
+      (() => {
+        const els = document.querySelectorAll('[data-ui-target]');
+        return Array.from(els).map(el => ({
+          target: el.getAttribute('data-ui-target'),
+          tag: el.tagName.toLowerCase(),
+          text: (el.textContent || '').trim().slice(0, 60),
+          visible: !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
+        }));
+      })()
+    `);
+    return { elements };
+  } catch (e) {
+    return { status: 'error', error: e?.message || 'executeJavaScript failed' };
+  }
+}
+
+async function uiHideCursor(args) {
+  broadcastUiAction('hide_cursor', {});
+  return { status: 'dispatched', action: 'hide_cursor' };
+}
+
+// =============================================================================
+// Native File & Shell Tools
+// =============================================================================
+
+const { exec: childExec } = require('child_process');
+const { dialog: electronDialog } = require('electron');
+const nodePath = require('path');
+
+const SHELL_EXEC_TIMEOUT_MS = 60_000;
+const FILE_SEARCH_MAX = 200;
+
+async function fileRead(args) {
+  const filePath = typeof args.path === 'string' ? args.path : '';
+  if (!filePath) return { status: 'error', error: 'path is required' };
+  try {
+    const content = fs.readFileSync(nodePath.resolve(filePath), 'utf8');
+    return { status: 'success', path: filePath, content, size: content.length };
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+}
+
+async function fileWrite(args) {
+  const filePath = typeof args.path === 'string' ? args.path : '';
+  const content = typeof args.content === 'string' ? args.content : '';
+  if (!filePath) return { status: 'error', error: 'path is required' };
+  try {
+    const resolved = nodePath.resolve(filePath);
+    fs.mkdirSync(nodePath.dirname(resolved), { recursive: true });
+    fs.writeFileSync(resolved, content, 'utf8');
+    return { status: 'success', path: filePath, bytesWritten: Buffer.byteLength(content, 'utf8') };
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+}
+
+async function fileList(args) {
+  const dirPath = typeof args.path === 'string' ? args.path : '';
+  if (!dirPath) return { status: 'error', error: 'path is required' };
+  try {
+    const resolved = nodePath.resolve(dirPath);
+    const entries = fs.readdirSync(resolved, { withFileTypes: true });
+    const items = entries.map((e) => ({
+      name: e.name,
+      path: nodePath.join(resolved, e.name),
+      isDirectory: e.isDirectory(),
+    }));
+    return { status: 'success', path: dirPath, count: items.length, items };
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+}
+
+function _walkDirForSearch(dir, visitor) {
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return true; }
+  for (const e of entries) {
+    if (e.name.startsWith('.')) continue;
+    const full = nodePath.join(dir, e.name);
+    const isDir = e.isDirectory();
+    if (!visitor({ full, name: e.name, isDir })) return false;
+    if (isDir) { if (!_walkDirForSearch(full, visitor)) return false; }
+  }
+  return true;
+}
+
+async function fileSearch(args) {
+  const directory = typeof args.directory === 'string' ? args.directory : '';
+  const pattern = typeof args.pattern === 'string' ? args.pattern : '';
+  const type = args.type === 'content' ? 'content' : 'name';
+  if (!directory) return { status: 'error', error: 'directory is required' };
+  if (!pattern) return { status: 'error', error: 'pattern is required' };
+  const root = nodePath.resolve(directory);
+  if (!fs.existsSync(root)) return { status: 'error', error: 'Directory not found' };
+  const matches = [];
+  const re = new RegExp(pattern.replace(/\*/g, '.*').replace(/\?/g, '.'), 'i');
+  _walkDirForSearch(root, (entry) => {
+    if (type === 'name') {
+      if (re.test(entry.name)) matches.push({ path: entry.full, name: entry.name, isDirectory: entry.isDir });
+    } else if (!entry.isDir) {
+      try {
+        if (re.test(fs.readFileSync(entry.full, 'utf8'))) matches.push({ path: entry.full, name: entry.name, isDirectory: false });
+      } catch { /* binary or unreadable */ }
+    }
+    return matches.length < FILE_SEARCH_MAX;
+  });
+  return { status: 'success', directory, pattern, type, count: matches.length, matches };
+}
+
+async function shellExec(args) {
+  const command = typeof args.command === 'string' ? args.command.trim() : '';
+  const cwd = typeof args.cwd === 'string' ? args.cwd.trim() : undefined;
+  if (!command) return { status: 'error', error: 'command is required' };
+
+  // Require user confirmation via native dialog
+  const win = windowManagerRef ? (windowManagerRef.getAll?.()[0] ?? null) : null;
+  let confirmed = false;
+  try {
+    const { response } = await electronDialog.showMessageBox(win, {
+      type: 'question',
+      title: 'Many quiere ejecutar un comando',
+      message: `$ ${command}`,
+      detail: cwd ? `en: ${cwd}` : 'en: directorio de trabajo actual',
+      buttons: ['Cancelar', 'Ejecutar'],
+      defaultId: 1,
+      cancelId: 0,
+    });
+    confirmed = response === 1;
+  } catch (err) {
+    return { status: 'error', error: `Dialog error: ${err.message}` };
+  }
+
+  if (!confirmed) return { status: 'cancelled', message: 'User cancelled execution' };
+
+  return new Promise((resolve) => {
+    childExec(
+      command,
+      { cwd, timeout: SHELL_EXEC_TIMEOUT_MS, maxBuffer: 1024 * 1024 * 10 },
+      (err, stdout, stderr) => {
+        resolve({
+          status: 'success',
+          command,
+          stdout: stdout || '',
+          stderr: stderr || '',
+          exitCode: err?.code ?? 0,
+        });
+      },
+    );
+  });
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -3272,4 +3470,20 @@ module.exports = {
 
   gemmaImageDescribe,
   gemmaScreenUnderstand,
+
+  // Native file & shell tools
+  fileRead,
+  fileWrite,
+  fileList,
+  fileSearch,
+  shellExec,
+
+  // UI interaction tools
+  uiPointTo,
+  uiClick,
+  uiType,
+  uiScroll,
+  uiNavigate,
+  uiGetElements,
+  uiHideCursor,
 };

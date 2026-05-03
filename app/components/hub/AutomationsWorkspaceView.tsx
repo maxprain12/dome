@@ -702,6 +702,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                 type="button"
                 variant="primary"
                 size="xs"
+                data-ui-target="automations-hub-new"
                 onClick={handleNew}
                 className="shrink-0 !bg-[var(--dome-accent)] hover:!brightness-110"
                 leftIcon={<Plus className="w-3 h-3" aria-hidden />}
@@ -743,6 +744,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                   type="button"
                   variant="primary"
                   size="sm"
+                  data-ui-target="automations-empty-create"
                   onClick={handleNew}
                   className="mt-1 !bg-[var(--dome-accent)]"
                   leftIcon={<Plus className="w-3.5 h-3.5" aria-hidden />}

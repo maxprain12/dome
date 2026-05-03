@@ -201,6 +201,9 @@ export {
   createMemorySearchStub,
   createMemoryGetStub,
   createMemoryTools,
+  createMemorySearchWithIPC,
+  createMemoryGetWithIPC,
+  createRememberFactTool,
 } from './memory';
 
 export { createLoadSkillTools } from './load-skill';
@@ -262,6 +265,32 @@ export {
   createMarketplaceTools,
 } from './marketplace-tools';
 
+// Tools - Native File & Shell
+export {
+  createFileReadTool,
+  createFileWriteTool,
+  createFileListTool,
+  createFileSearchTool,
+  createFileTools,
+} from './file-tools';
+
+export {
+  createShellExecTool,
+  createShellTools,
+} from './shell-tools';
+
+// Tools - UI Interaction (cursor, clicks, navigation)
+export {
+  createUiPointToTool,
+  createUiClickTool,
+  createUiTypeTool,
+  createUiScrollTool,
+  createUiNavigateTool,
+  createUiGetElementsTool,
+  createUiHideCursorTool,
+  createUiTools,
+} from './ui-tools';
+
 // =============================================================================
 // Default Tools
 // =============================================================================
@@ -287,6 +316,10 @@ import { createPdfAnnotationTools } from './pdf-annotation-tools';
 import { createCalendarTools } from './calendar-tools';
 import { createEntityTools } from './entity-tools';
 import { createMarketplaceTools } from './marketplace-tools';
+import { createMemorySearchWithIPC, createMemoryGetWithIPC } from './memory';
+import { createFileTools } from './file-tools';
+import { createShellTools } from './shell-tools';
+import { createUiTools } from './ui-tools';
 
 /**
  * Configuration for creating default tools
@@ -384,6 +417,13 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // Marketplace tools (search and install)
   tools.push(...createMarketplaceTools());
 
+  // Native file & shell tools
+  tools.push(...createFileTools());
+  tools.push(...createShellTools());
+
+  // UI interaction tools (cursor, click, navigate)
+  tools.push(...createUiTools());
+
   return tools;
 }
 
@@ -430,6 +470,9 @@ export function createManyToolsForContext(
     tools.push(...createContextTools());
   }
 
+  // Memory tools: semantic search + retrieval via IPC
+  tools.push(createMemorySearchWithIPC(), createMemoryGetWithIPC());
+
   // Notebook tools only when viewing a notebook (saves tokens elsewhere)
   if (isNotebook) {
     tools.push(...createNotebookTools());
@@ -447,22 +490,27 @@ export function createManyToolsForContext(
     tools.push(...createPdfAnnotationTools());
   }
 
-  // Calendar tools: useful in Home or when user asks about schedule
+  // Calendar tools: useful everywhere
   tools.push(...createCalendarTools());
 
-  // Studio, audio, deep research, graph: useful in Home/library context
-  if (isHome || isNotebook) {
-    tools.push(...createStudioTools());
-    tools.push(...createAudioOverviewTools());
-    tools.push(...createDeepResearchTools());
-    tools.push(...createGraphTools());
-  }
+  // Studio, audio, deep research, graph: available in all contexts
+  tools.push(...createStudioTools());
+  tools.push(...createAudioOverviewTools());
+  tools.push(...createDeepResearchTools());
+  tools.push(...createGraphTools());
 
   // Entity creation tools (agents, workflows, automations): useful when user asks to create
   tools.push(...createEntityTools());
 
   // Marketplace tools: useful when user asks about marketplace agents/workflows
   tools.push(...createMarketplaceTools());
+
+  // Native file & shell tools
+  tools.push(...createFileTools());
+  tools.push(...createShellTools());
+
+  // UI interaction tools (cursor, click, navigate)
+  tools.push(...createUiTools());
 
   return tools;
 }

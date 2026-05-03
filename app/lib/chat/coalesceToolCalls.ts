@@ -41,7 +41,7 @@ export function coalesceDuplicateToolCalls(calls: ToolCallData[]): ToolCallData[
     else if (bad) settled.set(fp, { kind: 'error', error: bad.error, result: bad.result });
   }
 
-  return calls.map((tc) => {
+  const patched = calls.map((tc) => {
     const patch = settled.get(fingerprint(tc));
     if (!patch || (tc.status !== 'running' && tc.status !== 'pending')) return tc;
     if (patch.kind === 'success') {
@@ -54,6 +54,11 @@ export function coalesceDuplicateToolCalls(calls: ToolCallData[]): ToolCallData[
       result: patch.result,
     };
   });
+
+  // Ensure IDs are unique — keep the last (most complete) entry per id.
+  const seen = new Map<string, number>();
+  patched.forEach((tc, i) => seen.set(tc.id, i));
+  return patched.filter((tc, i) => seen.get(tc.id) === i);
 }
 
 /**
@@ -91,9 +96,9 @@ export function applyToolResultChunk(
     const allSame = pendingIdx.every((i) => fingerprint(mapped[i]!) === fp0);
     if (allSame) {
       const next = mapped.slice();
-      for (const i of pendingIdx) {
-        next[i] = { ...next[i]!, id: tid, status: 'success' as const, result };
-      }
+      pendingIdx.forEach((i, j) => {
+        next[i] = { ...next[i]!, id: j === 0 ? tid : `${tid}_${j}`, status: 'success' as const, result };
+      });
       return coalesceDuplicateToolCalls(next);
     }
   }

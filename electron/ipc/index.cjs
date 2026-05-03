@@ -45,6 +45,8 @@ const transcriptionSession = require('../transcription-session.cjs');
 const browserContextHandlers = require('./browser-context.cjs');
 const kbLlmHandlers = require('./kb-llm.cjs');
 const skillsHandlers = require('./skills.cjs');
+const shellHandlers = require('./shell.cjs');
+const domeMcpHandlers = require('./dome-mcp.cjs');
 
 /**
  * Register all IPC handlers
@@ -145,6 +147,8 @@ function registerAll(deps) {
   browserContextHandlers.register({ ipcMain, windowManager });
   kbLlmHandlers.register({ ipcMain, windowManager, database, validateSender });
   skillsHandlers.register({ ipcMain, windowManager, database, validateSender, app });
+  shellHandlers.register({ ipcMain, windowManager });
+  domeMcpHandlers.register({ ipcMain, windowManager, database });
 
 }
 

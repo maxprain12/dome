@@ -130,6 +130,7 @@ function TabItem({ tab, isActive, onActivate, onClose, onContextMenu }: TabItemP
       type="button"
       onClick={onActivate}
       onContextMenu={(e) => onContextMenu(e, tab)}
+      data-ui-target={`tab-${tab.type}`}
       className="flex items-center gap-1.5 px-3 shrink-0 relative group transition-colors duration-100"
       style={{
         height: '100%',

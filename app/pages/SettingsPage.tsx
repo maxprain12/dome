@@ -15,6 +15,7 @@ import LanguageSettings from '@/components/settings/LanguageSettings';
 import TranscriptionSettingsPanel from '@/components/settings/TranscriptionSettingsPanel';
 import KbLlmSettingsPanel from '@/components/settings/KbLlmSettingsPanel';
 import CalendarSettingsPanel from '@/components/settings/CalendarSettingsPanel';
+import DomeMcpServerSettings from '@/components/settings/DomeMcpServerSettings';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 
@@ -25,6 +26,7 @@ const VALID_SECTIONS = [
   'transcription',
   'whatsapp',
   'mcp',
+  'dome_mcp',
   'skills',
   'plugins',
   'advanced',
@@ -92,6 +94,8 @@ export default function SettingsPage() {
         return <WhatsAppSettingsPanel />;
       case 'mcp':
         return <MCPSettingsPanel />;
+      case 'dome_mcp':
+        return <DomeMcpServerSettings />;
       case 'skills':
         return <SkillsSettingsPanel />;
       case 'plugins':

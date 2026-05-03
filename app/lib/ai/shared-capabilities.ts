@@ -31,6 +31,10 @@ const HOME_SECTION_LOCATIONS: Record<string, { location: string; description: st
   tags: { location: 'Home > Tags', description: 'browsing resources by tag' },
   agents: { location: 'Home > Agents', description: 'managing specialized agents' },
   'agent-teams': { location: 'Home > Workflows', description: 'working with workflows and agent teams' },
+  'automations-hub': {
+    location: 'Home > Agents & flows (sidebar Zap)',
+    description: 'hub with Agents, Workflows, Automations, and Runs inside the Home view',
+  },
   marketplace: { location: 'Home > Marketplace', description: 'exploring marketplace items, agents, and workflows' },
   chat: { location: 'Home > Many Chat', description: 'chatting with Many from Home' },
   recent: { location: 'Home > Recent', description: 'reviewing recently updated resources and links' },
@@ -65,6 +69,23 @@ export function getUiLocationDescription(
       description: 'managing workspace projects (create, delete, switch active project)',
     };
   }
+  if (
+    shellTabType === 'agents' ||
+    shellTabType === 'workflows' ||
+    shellTabType === 'automations' ||
+    shellTabType === 'runs'
+  ) {
+    const labels: Record<string, string> = {
+      agents: 'Agents (top tab) — agent library and chats',
+      workflows: 'Workflows (top tab) — workflow canvas and library',
+      automations: 'Automations (top tab) — triggers, schedules, automation editor',
+      runs: 'Runs (top tab) — automation execution history',
+    };
+    return {
+      location: labels[shellTabType] ?? `Shell tab: ${shellTabType}`,
+      description: `User has this top-level Dome tab focused (${shellTabType}); use matching ui targets like tab-${shellTabType} when pointing`,
+    };
+  }
   if (pathname === '/' || pathname === '/home') {
     return describeHomeSection(homeSidebarSection);
   }
@@ -97,8 +118,18 @@ export function buildSharedUiContextBlock(context: SharedAgentContext): string {
 
   if (context.shellTabType === 'projects') {
     lines.push('- Active shell tab: Projects (project management, not the Home library)');
-  } else if (context.pathname === '/' || context.pathname === '/home') {
-    lines.push(`- Active Home section: ${context.homeSidebarSection || 'library'}`);
+  } else if (
+    context.shellTabType &&
+    ['agents', 'workflows', 'automations', 'runs', 'home'].includes(context.shellTabType)
+  ) {
+    lines.push(
+      `- Active shell tab: ${context.shellTabType} → point with data-ui-target "tab-${context.shellTabType}" when that top tab exists`,
+    );
+  }
+  if (context.pathname === '/' || context.pathname === '/home') {
+    lines.push(
+      `- Active Home sidebar/canvas section: ${context.homeSidebarSection || 'library'} (independent from the shell tab strip)`,
+    );
   }
   if (context.currentFolderId) {
     lines.push(`- Current folder ID: ${context.currentFolderId}`);
