@@ -75,7 +75,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       });
     } catch (error) {
       console.error('[Sync] Export error:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
