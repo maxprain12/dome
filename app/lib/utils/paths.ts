@@ -36,7 +36,7 @@ export function getUserDataPath(): string {
   }
 
   // If in Electron main process (or node)
-  if (typeof process !== 'undefined' && process.versions && process.versions.electron && (process as any).type !== 'renderer') {
+  if (typeof process !== 'undefined' && process.versions && process.versions.electron && (process as { type?: string }).type !== 'renderer') {
     try {
       // Sync path helper in main process only; dynamic import is async.
       // eslint-disable-next-line @typescript-eslint/no-require-imports -- Electron main CJS
