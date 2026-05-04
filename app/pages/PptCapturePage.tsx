@@ -72,7 +72,7 @@ export default function PptCapturePage() {
 
     // Expose the control API that ppt-slide-extractor.cjs calls via
     // win.webContents.executeJavaScript().
-    (window as any).__pptCapture = {
+    (window as unknown as Record<string, unknown>).__pptCapture = {
       /**
        * Load a PPTX file from a base64 string and render the first slide.
        * @returns The total number of slides.
@@ -97,7 +97,7 @@ export default function PptCapturePage() {
         });
 
         // Store on window so renderSlide() can access it
-        (window as any).__pptPreviewer = previewer;
+        (window as unknown as Record<string, unknown>).__pptPreviewer = previewer;
 
         await previewer.preview(bytes.buffer);
 
@@ -117,7 +117,7 @@ export default function PptCapturePage() {
         } catch {
           // Non-critical: the CSS fallback (#ffffff) handles the common case.
         }
-        (window as any).__pptLightColor = lightColor;
+        (window as unknown as Record<string, unknown>).__pptLightColor = lightColor;
 
         // Fix dark-slide text colors for slide 0 (already rendered by preview)
         await new Promise<void>((r) =>
@@ -136,13 +136,14 @@ export default function PptCapturePage() {
        * applies the dark-slide text color fix. Returns a promise for the caller to await.
        */
       renderSlide: (index: number): Promise<boolean> => {
-        const previewer = (window as any).__pptPreviewer;
+        const previewer = (window as unknown as Record<string, unknown>).__pptPreviewer as PptxPreviewer | undefined;
         if (!previewer || !containerRef.current) return Promise.resolve(false);
-        previewer.renderSingleSlide(index);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (previewer as unknown as { renderSingleSlide: (index: number) => void }).renderSingleSlide(index);
         return new Promise((resolve) => {
           requestAnimationFrame(() =>
             requestAnimationFrame(() => {
-              const lightColor = (window as any).__pptLightColor ?? '#ffffff';
+              const lightColor = (window as unknown as Record<string, unknown>).__pptLightColor as string ?? '#ffffff';
               fixDarkSlideTextColors(containerRef.current!, lightColor);
               resolve(true);
             }),
@@ -151,19 +152,19 @@ export default function PptCapturePage() {
       },
 
       getSlideCount: (): number => {
-        return (window as any).__pptPreviewer?.slideCount ?? 0;
+        return (window as unknown as Record<string, { slideCount?: number }>).__pptPreviewer?.slideCount ?? 0;
       },
     };
 
     // Signal that the API is ready for the main process to poll.
-    (window as any).__pptCaptureReady = true;
+    (window as unknown as Record<string, unknown>).__pptCaptureReady = true;
 
     return () => {
       style.remove();
-      (window as any).__pptCapture = null;
-      (window as any).__pptCaptureReady = false;
-      (window as any).__pptPreviewer = null;
-      (window as any).__pptLightColor = undefined;
+      (window as unknown as Record<string, unknown>).__pptCapture = null;
+      (window as unknown as Record<string, unknown>).__pptCaptureReady = false;
+      (window as unknown as Record<string, unknown>).__pptPreviewer = null;
+      (window as unknown as Record<string, unknown>).__pptLightColor = undefined;
       // Restore styles
       document.body.setAttribute('style', prevBodyStyle);
       if (root) root.setAttribute('style', prevRootStyle);
