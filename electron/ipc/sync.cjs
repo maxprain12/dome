@@ -11,7 +11,7 @@ const archiver = require('archiver');
 const { app, dialog, BrowserWindow } = require('electron');
 const yauzl = require('yauzl');
 
-function register({ ipcMain, windowManager, database, fileStorage, validateSender, sanitizePath }) {
+function register({ ipcMain, windowManager, database, fileStorage, sanitizePath }) {
   /**
    * Export all data to a ZIP file
    */
