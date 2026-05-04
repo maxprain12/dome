@@ -147,7 +147,7 @@ function registerAll(deps) {
   browserContextHandlers.register({ ipcMain, windowManager });
   kbLlmHandlers.register({ ipcMain, windowManager, database, validateSender });
   skillsHandlers.register({ ipcMain, windowManager, database, validateSender, app });
-  shellHandlers.register({ ipcMain, windowManager });
+  shellHandlers.register({ ipcMain, windowManager, sanitizePath });
   domeMcpHandlers.register({ ipcMain, windowManager, database });
 
 }
