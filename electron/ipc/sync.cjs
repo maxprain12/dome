@@ -114,17 +114,22 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       fs.mkdirSync(tempDir, { recursive: true });
 
       await new Promise((resolve, reject) => {
-        yauzl.open(zipPath, { lazyEntries: true }, (err, zf) => {
-          if (err) return reject(err);
+        let resolved = false;
+        let zf;
 
-          let resolved = false;
+        const cleanup = () => { resolved = true; };
+
+        yauzl.open(zipPath, { lazyEntries: true }, (err, zipFile) => {
+          if (err) return reject(err);
+          zf = zipFile;
+
           zf.on('end', () => {
-            resolved = true;
+            cleanup();
             resolve();
           });
           zf.on('error', (e) => {
             if (!resolved) {
-              resolved = true;
+              cleanup();
               reject(e);
             }
           });
