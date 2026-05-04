@@ -242,12 +242,15 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       }
 
       return { success: true, content: fullResponse };
-    } catch (error) {
+    try {
       console.error('[AI Cloud] Stream error:', error);
       if (event.sender && !event.sender.isDestroyed()) {
-        event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: error.message });
+        event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: error instanceof Error ? error.message : String(error) });
       }
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    } catch (err) {
+      console.error('[AI Cloud] Stream error (outer):', err);
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
   });
 

@@ -414,8 +414,9 @@ function register({ ipcMain, windowManager, database }) {
         send({ done: true });
         return { success: true };
       }
-      send({ error: error.message || 'Error desconocido en Agent Team' });
-      return { success: false, error: error.message };
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      send({ error: errorMsg || 'Error desconocido en Agent Team' });
+      return { success: false, error: errorMsg };
     } finally {
       agentTeamAbortControllers.delete(streamId);
     }
@@ -431,7 +432,7 @@ function register({ ipcMain, windowManager, database }) {
       return { success: true };
     } catch (error) {
       console.error('[AgentTeam] Abort error:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 }
