@@ -26,7 +26,7 @@ const ShellFileSearchPayloadSchema = z.object({
 const EXEC_TIMEOUT_MS = 60_000;
 const SEARCH_MAX_RESULTS = 200;
 
-function register({ ipcMain, windowManager }) {
+function register({ ipcMain, windowManager, sanitizePath }) {
   /**
    * shell:exec — show a confirmation dialog then execute the command.
    * Returns { cancelled, stdout, stderr, exitCode } or { success: false, error }.
@@ -101,7 +101,11 @@ function register({ ipcMain, windowManager }) {
       return { success: false, error: 'No pattern provided' };
     }
 
-    const root = path.resolve(directory.trim());
+    const safeDir = sanitizePath(directory.trim(), true);
+    if (!safeDir) {
+      return { success: false, error: 'Invalid path' };
+    }
+    const root = path.resolve(safeDir);
     if (!fs.existsSync(root)) {
       return { success: false, error: 'Directory not found' };
     }
