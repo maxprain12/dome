@@ -118,7 +118,6 @@ function register({ ipcMain, windowManager, database, fileStorage, sanitizePath 
           if (err) return reject(err);
 
           let resolved = false;
-          let hasError = false;
 
           zf.on('end', () => {
             if (!resolved) {
@@ -128,7 +127,6 @@ function register({ ipcMain, windowManager, database, fileStorage, sanitizePath 
           });
           zf.on('error', (e) => {
             if (!resolved) {
-              hasError = true;
               resolved = true;
               reject(e);
             }
@@ -197,7 +195,11 @@ function register({ ipcMain, windowManager, database, fileStorage, sanitizePath 
             }
           });
 
-          zf.readEntry();
+          try {
+            zf.readEntry();
+          } catch (readErr) {
+            reject(readErr);
+          }
         });
       });
 
