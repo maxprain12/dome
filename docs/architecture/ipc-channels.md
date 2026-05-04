@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `npm run generate:ipc-inventory`.
-> Última generación: 2026-05-03T14:06:13.109Z
+> Última generación: 2026-05-04T22:00:31.641Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
