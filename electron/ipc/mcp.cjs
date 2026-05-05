@@ -11,10 +11,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Returns success, tool count, and optional error.
    */
   ipcMain.handle('mcp:testConnection', async (event) => {
-    try {
-      validateSender(event, windowManager);
-    } catch (err) {
-      console.warn('[MCP] Unauthorized:', err?.message);
+    if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, toolCount: 0, error: 'Unauthorized' };
     }
     try {
@@ -39,10 +36,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Receives server config: { name, type, command?, args?, url?, env? }
    */
   ipcMain.handle('mcp:testServer', async (event, server) => {
-    try {
-      validateSender(event, windowManager);
-    } catch (err) {
-      console.warn('[MCP] Unauthorized:', err?.message);
+    if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, toolCount: 0, error: 'Unauthorized' };
     }
     try {
@@ -63,18 +57,15 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Returns { success, token?, error? }
    */
   ipcMain.handle('mcp:startOAuthFlow', async (event, providerId) => {
-    try {
-      validateSender(event, windowManager);
-    } catch (err) {
-      console.warn('[MCP OAuth] Unauthorized:', err?.message);
-      return { success: false, error: 'Unauthorized' };
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, toolCount: 0, error: 'Unauthorized' };
     }
     try {
       const result = await mcpOauth.startOAuthFlow(providerId, database);
       return { success: true, token: result.token };
     } catch (err) {
       console.warn('[MCP OAuth] Flow failed:', err?.message);
-      return { success: false, error: err?.message || String(err) };
+      return { success: false, toolCount: 0, error: err?.message || String(err) };
     }
   });
 
@@ -82,10 +73,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
    * Get OAuth-supported MCP providers
    */
   ipcMain.handle('mcp:getOAuthProviders', async (event) => {
-    try {
-      validateSender(event, windowManager);
-    } catch (err) {
-      console.warn('[MCP] Unauthorized:', err?.message);
+    if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, providers: [], error: 'Unauthorized' };
     }
     try {
