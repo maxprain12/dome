@@ -2748,9 +2748,10 @@ function runMigrations(db) {
          VALUES ('__test_artifact_28__', 'default', 'artifact', 'Test', 0, 0)`
       );
       testStmt.run();
-      db.exec("DELETE FROM resources WHERE id = '__test_artifact_28__'");
     } catch {
       needsArtifactType = true;
+    } finally {
+      try { db.exec("DELETE FROM resources WHERE id = '__test_artifact_28__'"); } catch { /* no-op if row was never inserted */ }
     }
 
     if (needsArtifactType) {

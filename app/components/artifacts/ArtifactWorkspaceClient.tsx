@@ -21,7 +21,6 @@ function getDomeCssVars(): Record<string, string> {
     '--secondary-text',
     '--tertiary-text',
     '--accent',
-    '--secondary',
     '--border',
     '--border-hover',
   ];
@@ -39,9 +38,9 @@ function buildSrcdoc(artifact: ArtifactRecord): string {
     .map(([k, v]) => `  ${k}: ${v};`)
     .join('\n');
 
-  const htmlState = artifact.state as { html?: string; data?: unknown };
-  const html = htmlState?.html ?? '<p style="color:var(--secondary-text);padding:1rem">Empty artifact — ask Many to generate content.</p>';
-  const data = JSON.stringify(htmlState?.data ?? {});
+  const htmlState = artifact.state && typeof artifact.state === 'object' ? artifact.state as { html?: string; data?: unknown } : {};
+  const html = htmlState.html ?? '<p style="color:var(--secondary-text);padding:1rem">Empty artifact — ask Many to generate content.</p>';
+  const data = JSON.stringify(htmlState.data ?? {});
 
   return `<!DOCTYPE html>
 <html>
@@ -103,8 +102,12 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
       if (result.success && result.data) {
         setArtifact(result.data);
       } else {
-        setError(result.error ?? 'Artifact not found');
+        setError(result.error ?? t('common.unknown_error'));
       }
+      setLoading(false);
+    }).catch((err: unknown) => {
+      if (cancelled) return;
+      setError(err instanceof Error ? err.message : t('common.unknown_error'));
       setLoading(false);
     });
 
@@ -132,9 +135,13 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
         const newData = event.data.payload;
         const currentState = (artifact.state ?? {}) as Record<string, unknown>;
         const updatedState = { ...currentState, data: newData };
-        const result = await window.electron.artifacts.update({ resourceId, state: updatedState });
-        if (result.success && result.data) {
-          setArtifact(result.data);
+        try {
+          const result = await window.electron.artifacts.update({ resourceId, state: updatedState });
+          if (result.success && result.data) {
+            setArtifact(result.data);
+          }
+        } catch {
+          // state update failure is non-fatal; iframe continues working
         }
       }
     };
@@ -159,7 +166,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
     return <HubListState variant="loading" loadingLabel={t('common.loading')} />;
   }
   if (error || !artifact) {
-    return <HubListState variant="error" errorMessage={error ?? 'Unknown error'} />;
+    return <HubListState variant="error" errorMessage={error ?? t('common.error')} />;
   }
 
   return (

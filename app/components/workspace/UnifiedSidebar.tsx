@@ -1410,7 +1410,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
 
   const handleCreateArtifact = useCallback(async () => {
     if (!window.electron?.artifacts) return;
-    const now = Date.now();
     const result = await window.electron.artifacts.create({
       title: t('artifacts.new_artifact'),
       artifactType: 'custom',

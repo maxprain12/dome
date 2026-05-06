@@ -1725,7 +1725,7 @@ const electronHandler = {
     delete: (resourceId) => ipcRenderer.invoke('artifact:delete', resourceId),
     list: (projectId) => ipcRenderer.invoke('artifact:list', projectId),
     export: (resourceId) => ipcRenderer.invoke('artifact:export', resourceId),
-    import: (filePath) => ipcRenderer.invoke('artifact:import', filePath),
+    import: () => ipcRenderer.invoke('artifact:import'),
   },
 };
 

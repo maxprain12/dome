@@ -175,8 +175,12 @@ export function createArtifactDeleteTool(): AnyAgentTool {
       if (!isElectronAI()) return jsonResult({ error: 'Requires Electron environment.' });
       const params = args as Record<string, unknown>;
       const resourceId = readStringParam(params, 'resource_id', { required: true });
-      // Remove artifact record then resource record (triggers sidebar removal)
-      await window.electron.invoke('artifact:delete', resourceId);
+      // Remove artifact record first; surface any failure before touching the resource row
+      const artifactResult = await window.electron.invoke('artifact:delete', resourceId);
+      if (!artifactResult?.success) {
+        return jsonResult({ success: false, error: artifactResult?.error ?? 'Failed to delete artifact record' });
+      }
+      // Remove resource row (triggers sidebar removal)
       const result = await window.electron.invoke('db:resources:delete', resourceId);
       return jsonResult(result);
     },

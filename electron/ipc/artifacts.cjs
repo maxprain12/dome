@@ -203,7 +203,7 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
-  ipcMain.handle('artifact:import', async (event, filePath) => {
+  ipcMain.handle('artifact:import', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -211,17 +211,14 @@ function register({ ipcMain, windowManager, database }) {
       const queries = database.getQueries();
       const db = database.getDB();
 
-      let raw;
-      if (filePath) {
-        raw = fs.readFileSync(filePath, 'utf8');
-      } else {
-        const result = await dialog.showOpenDialog({
-          filters: [{ name: 'Dome Artifact', extensions: ['json'] }],
-          properties: ['openFile'],
-        });
-        if (result.canceled || !result.filePaths[0]) return { success: false, cancelled: true };
-        raw = fs.readFileSync(result.filePaths[0], 'utf8');
-      }
+      // Always use a native dialog — never accept a file path from the renderer
+      // to prevent path traversal attacks.
+      const result = await dialog.showOpenDialog({
+        filters: [{ name: 'Dome Artifact', extensions: ['json'] }],
+        properties: ['openFile'],
+      });
+      if (result.canceled || !result.filePaths[0]) return { success: false, cancelled: true };
+      const raw = fs.readFileSync(result.filePaths[0], 'utf8');
 
       const bundle = JSON.parse(raw);
       if (!bundle?.artifact?.artifact_type) {
