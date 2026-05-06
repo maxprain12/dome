@@ -127,7 +127,25 @@ export type ResourceType =
   | 'excel'
   | 'ppt'
   | 'note'
-  | 'document';
+  | 'document'
+  | 'artifact';
+
+export type ArtifactType = 'task-tracker' | 'chart' | 'custom';
+
+export interface ArtifactRecord {
+  id: string;
+  resourceId: string;
+  artifactType: ArtifactType;
+  template: string | null;
+  /** Parsed state object — shape depends on artifactType */
+  state: Record<string, unknown>;
+  linkedResourceId: string | null;
+  version: number;
+  title: string;
+  projectId: string;
+  createdAt: number;
+  updatedAt: number;
+}
 
 export interface Resource {
   id: string;

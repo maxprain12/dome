@@ -28,6 +28,7 @@ const TranscriptionsListPage = lazy(() => import('@/components/transcription/Tra
 const TranscriptionDetailPage = lazy(() => import('@/components/transcription/TranscriptionDetailPage'));
 const SemanticGraphView = lazy(() => import('@/components/semantic-graph/SemanticGraphView'));
 const ArtifactTabView = lazy(() => import('@/components/shell/ArtifactTabView'));
+const ArtifactWorkspaceClient = lazy(() => import('@/components/artifacts/ArtifactWorkspaceClient'));
 
 function Loading() {
   const { t } = useTranslation();
@@ -346,6 +347,17 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       );
 
     case 'artifact':
+      // Persisted artifact opened from the sidebar
+      if (tab.resourceId) {
+        return (
+          <ErrorBoundary>
+            <Suspense fallback={<Loading />}>
+              <ArtifactWorkspaceClient resourceId={tab.resourceId} />
+            </Suspense>
+          </ErrorBoundary>
+        );
+      }
+      // Transient chat artifact (existing behaviour — no resourceId)
       if (!tab.artifactPayload) return <NoResource />;
       return (
         <ErrorBoundary>

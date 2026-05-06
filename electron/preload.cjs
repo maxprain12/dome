@@ -512,6 +512,14 @@ const ALLOWED_CHANNELS = {
     'dome-mcp:stop',
     'dome-mcp:status',
     'dome-mcp:bridge-path',
+    // Artifacts
+    'artifact:create',
+    'artifact:get',
+    'artifact:update',
+    'artifact:delete',
+    'artifact:list',
+    'artifact:export',
+    'artifact:import',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -593,6 +601,10 @@ const ALLOWED_CHANNELS = {
     'skills:updated',
     // UI cursor actions (dispatched from main process when Many uses LangGraph ui_* tools)
     'dome:ui-action',
+    // Artifact events
+    'artifact:created',
+    'artifact:updated',
+    'artifact:deleted',
   ],
 };
 
@@ -1701,6 +1713,19 @@ const electronHandler = {
     stop: () => ipcRenderer.invoke('dome-mcp:stop'),
     status: () => ipcRenderer.invoke('dome-mcp:status'),
     bridgePath: () => ipcRenderer.invoke('dome-mcp:bridge-path'),
+  },
+
+  // ============================================
+  // ARTIFACTS
+  // ============================================
+  artifacts: {
+    create: (opts) => ipcRenderer.invoke('artifact:create', opts),
+    get: (resourceId) => ipcRenderer.invoke('artifact:get', resourceId),
+    update: (opts) => ipcRenderer.invoke('artifact:update', opts),
+    delete: (resourceId) => ipcRenderer.invoke('artifact:delete', resourceId),
+    list: (projectId) => ipcRenderer.invoke('artifact:list', projectId),
+    export: (resourceId) => ipcRenderer.invoke('artifact:export', resourceId),
+    import: (filePath) => ipcRenderer.invoke('artifact:import', filePath),
   },
 };
 
