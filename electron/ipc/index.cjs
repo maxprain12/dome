@@ -47,6 +47,7 @@ const kbLlmHandlers = require('./kb-llm.cjs');
 const skillsHandlers = require('./skills.cjs');
 const shellHandlers = require('./shell.cjs');
 const domeMcpHandlers = require('./dome-mcp.cjs');
+const artifactsHandlers = require('./artifacts.cjs');
 
 /**
  * Register all IPC handlers
@@ -149,6 +150,7 @@ function registerAll(deps) {
   skillsHandlers.register({ ipcMain, windowManager, database, validateSender, app });
   shellHandlers.register({ ipcMain, windowManager, sanitizePath });
   domeMcpHandlers.register({ ipcMain, windowManager, database });
+  artifactsHandlers.register({ ipcMain, windowManager, database });
 
 }
 

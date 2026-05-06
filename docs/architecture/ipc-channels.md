@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `npm run generate:ipc-inventory`.
-> Última generación: 2026-05-04T22:00:31.641Z
+> Última generación: 2026-05-06T11:23:27.331Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -64,6 +64,13 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:resourceUpdate` | `electron/ipc/ai-tools.cjs:317` |
 | `ai:tools:screenUnderstand` | `electron/ipc/ai-tools.cjs:692` |
 | `ai:webSearch` | `electron/ipc/ai.cjs:555` |
+| `artifact:create` | `electron/ipc/artifacts.cjs:35` |
+| `artifact:delete` | `electron/ipc/artifacts.cjs:137` |
+| `artifact:export` | `electron/ipc/artifacts.cjs:170` |
+| `artifact:get` | `electron/ipc/artifacts.cjs:87` |
+| `artifact:import` | `electron/ipc/artifacts.cjs:206` |
+| `artifact:list` | `electron/ipc/artifacts.cjs:152` |
+| `artifact:update` | `electron/ipc/artifacts.cjs:103` |
 | `audio:generate-podcast` | `electron/ipc/audio.cjs:86` |
 | `audio:generate-speech` | `electron/ipc/audio.cjs:31` |
 | `audio:get-status` | `electron/ipc/audio.cjs:120` |

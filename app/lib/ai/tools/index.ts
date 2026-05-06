@@ -133,6 +133,16 @@ export {
   createImportFileToDomeTool,
 } from './resource-actions';
 
+// Tools - Artifacts
+export {
+  createArtifactCreateTool,
+  createArtifactGetTool,
+  createArtifactUpdateStateTool,
+  createArtifactListTool,
+  createArtifactDeleteTool,
+  createArtifactTools,
+} from './artifact-tools';
+
 // Tools - Flashcards
 export {
   createFlashcardCreateTool,
@@ -320,6 +330,7 @@ import { createMemorySearchWithIPC, createMemoryGetWithIPC } from './memory';
 import { createFileTools } from './file-tools';
 import { createShellTools } from './shell-tools';
 import { createUiTools } from './ui-tools';
+import { createArtifactTools } from './artifact-tools';
 
 /**
  * Configuration for creating default tools
@@ -424,6 +435,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // UI interaction tools (cursor, click, navigate)
   tools.push(...createUiTools());
 
+  // Artifact tools (create, get, update, list, delete persisted artifacts)
+  tools.push(...createArtifactTools());
+
   return tools;
 }
 
@@ -511,6 +525,9 @@ export function createManyToolsForContext(
 
   // UI interaction tools (cursor, click, navigate)
   tools.push(...createUiTools());
+
+  // Artifact tools
+  tools.push(...createArtifactTools());
 
   return tools;
 }

@@ -332,6 +332,7 @@ export const useTabStore = create<TabStore>((set, get) => {
         audio: 'resource',
         video: 'resource',
         excel: 'resource',
+        artifact: 'artifact',
         default: 'resource',
       };
       const tabType: TabType = typeMap[resourceType] ?? 'resource';

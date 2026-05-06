@@ -1713,8 +1713,46 @@ declare global {
         }) => Promise<{ success: boolean; resource?: Resource; error?: string; duplicate?: { id: string; title: string } }>;
         onAuthResult: (callback: (data: { success: boolean; provider: string; email?: string; accountId?: string; error?: string }) => void) => RemoveListenerFn;
       };
+
+      // Artifacts API
+      artifacts: {
+        create: (opts: {
+          title: string;
+          artifactType: 'task-tracker' | 'chart' | 'custom';
+          template?: string | null;
+          state?: Record<string, unknown>;
+          linkedResourceId?: string | null;
+          projectId?: string;
+          folderId?: string | null;
+        }) => Promise<{ success: boolean; data?: ArtifactRecord; error?: string }>;
+        get: (resourceId: string) => Promise<{ success: boolean; data?: ArtifactRecord; error?: string }>;
+        update: (opts: {
+          resourceId: string;
+          state?: Record<string, unknown>;
+          artifactType?: 'task-tracker' | 'chart' | 'custom';
+          linkedResourceId?: string | null;
+        }) => Promise<{ success: boolean; data?: ArtifactRecord; error?: string }>;
+        delete: (resourceId: string) => Promise<{ success: boolean; error?: string }>;
+        list: (projectId?: string) => Promise<{ success: boolean; data?: ArtifactRecord[]; error?: string }>;
+        export: (resourceId: string) => Promise<{ success: boolean; filePath?: string; cancelled?: boolean; error?: string }>;
+        import: () => Promise<{ success: boolean; cancelled?: boolean; data?: ArtifactRecord; error?: string }>;
+      };
     };
   }
+}
+
+interface ArtifactRecord {
+  id: string;
+  resourceId: string;
+  artifactType: 'task-tracker' | 'chart' | 'custom';
+  template: string | null;
+  state: Record<string, unknown>;
+  linkedResourceId: string | null;
+  version: number;
+  title: string;
+  projectId: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 // CSS Modules

@@ -71,6 +71,7 @@ function getResourceIcon(type: string) {
     case 'image': return <Image className="w-3.5 h-3.5" strokeWidth={1.75} />;
     case 'audio': return <Music className="w-3.5 h-3.5" strokeWidth={1.75} />;
     case 'ppt': return <Presentation className="w-3.5 h-3.5" strokeWidth={1.75} />;
+    case 'artifact': return <Layers className="w-3.5 h-3.5" strokeWidth={1.75} />;
     case 'folder': return <Folder className="w-3.5 h-3.5" strokeWidth={1.75} />;
     default: return <File className="w-3.5 h-3.5" strokeWidth={1.75} />;
   }
@@ -118,7 +119,7 @@ function getFolderColor(resource: Resource): string {
 interface TreeNodeData {
   id: string;
   name: string;
-  type: 'folder' | 'notebook' | 'url' | 'youtube' | 'pdf' | 'image' | 'audio' | 'video' | 'ppt' | 'file';
+  type: 'folder' | 'notebook' | 'url' | 'youtube' | 'pdf' | 'image' | 'audio' | 'video' | 'ppt' | 'file' | 'artifact';
   children?: TreeNodeData[];
   resource?: Resource;
 }
@@ -1129,9 +1130,10 @@ interface AddResourceMenuProps {
   onAddUrl: () => void;
   onImportFile: () => void;
   onImportFromCloud: () => void;
+  onCreateArtifact: () => void;
 }
 
-function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddUrl, onImportFile, onImportFromCloud }: AddResourceMenuProps) {
+function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddUrl, onImportFile, onImportFromCloud, onCreateArtifact }: AddResourceMenuProps) {
   const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -1152,6 +1154,7 @@ function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddU
   const ITEMS = [
     { icon: <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />, label: t('toolbar.note'), action: onCreateNote },
     { icon: <NotebookPen className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Notebook', action: onCreateNotebook },
+    { icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.75} />, label: t('artifacts.new_artifact'), action: onCreateArtifact },
     { icon: <Link className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'URL / Artículo', action: onAddUrl },
     { icon: <Upload className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Importar fichero', action: onImportFile },
     { icon: <Cloud className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Importar desde Cloud', action: onImportFromCloud },
@@ -1404,6 +1407,25 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       useTabStore.getState().openResourceTab(id, 'notebook', 'Untitled Notebook');
     }
   }, [getDefaultProjectId, fetchResources]);
+
+  const handleCreateArtifact = useCallback(async () => {
+    if (!window.electron?.artifacts) return;
+    const result = await window.electron.artifacts.create({
+      title: t('artifacts.new_artifact'),
+      artifactType: 'custom',
+      state: {
+        html: '<div style="padding:1.5rem;color:var(--secondary-text)">' +
+          '<p>Ask Many to generate content for this artifact.</p>' +
+          '</div>',
+        data: {},
+      },
+      projectId: getDefaultProjectId(),
+    });
+    if (result?.success && result.data) {
+      await fetchResources({ silent: true });
+      useTabStore.getState().openResourceTab(result.data.resourceId, 'artifact', result.data.title);
+    }
+  }, [getDefaultProjectId, fetchResources, t]);
 
   const handleAddUrl = useCallback(async (url: string) => {
     if (!window.electron?.db?.resources) return;
@@ -1897,6 +1919,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           onClose={() => setAddMenu(null)}
           onCreateNote={handleCreateNote}
           onCreateNotebook={handleCreateNotebook}
+          onCreateArtifact={() => { setAddMenu(null); handleCreateArtifact(); }}
           onAddUrl={() => setShowUrlInput(true)}
           onImportFile={handleImportFile}
           onImportFromCloud={() => { setAddMenu(null); setShowCloudPicker(true); }}

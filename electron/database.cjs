@@ -376,7 +376,26 @@ function initDatabase() {
     )
   `);
 
+  // Artifacts table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS artifacts (
+      id TEXT PRIMARY KEY,
+      resource_id TEXT NOT NULL UNIQUE,
+      artifact_type TEXT NOT NULL CHECK(artifact_type IN ('task-tracker', 'chart', 'custom')),
+      template TEXT,
+      state TEXT NOT NULL DEFAULT '{}',
+      linked_resource_id TEXT,
+      version INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE,
+      FOREIGN KEY (linked_resource_id) REFERENCES resources(id) ON DELETE SET NULL
+    )
+  `);
+
   // Indexes
+  db.exec('CREATE INDEX IF NOT EXISTS idx_artifacts_resource ON artifacts(resource_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_artifacts_type ON artifacts(artifact_type)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_resources_project ON resources(project_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(type)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_citations_source ON citations(source_id)');
@@ -2719,6 +2738,99 @@ function runMigrations(db) {
       console.error('[DB] Migration 27 failed:', error);
     }
   }
+
+  // Migration 28: Add 'artifact' to resources.type CHECK constraint
+  {
+    let needsArtifactType = false;
+    try {
+      const testStmt = db.prepare(
+        `INSERT INTO resources (id, project_id, type, title, created_at, updated_at)
+         VALUES ('__test_artifact_28__', 'default', 'artifact', 'Test', 0, 0)`
+      );
+      testStmt.run();
+    } catch {
+      needsArtifactType = true;
+    } finally {
+      try { db.exec("DELETE FROM resources WHERE id = '__test_artifact_28__'"); } catch { /* no-op if row was never inserted */ }
+    }
+
+    if (needsArtifactType) {
+      const v = parseInt(
+        db.prepare('SELECT value FROM settings WHERE key = ?').get('schema_version')?.value ?? '0',
+        10
+      );
+      if (v < 28) {
+        console.log('[DB] Running migration 28: add artifact type to resources');
+        const now = Date.now();
+        try {
+          const tableInfo = db.prepare('PRAGMA table_info(resources)').all();
+          const existingCols = new Set(tableInfo.map((c) => c.name));
+          db.exec('DROP TABLE IF EXISTS resources_new');
+          db.exec(`
+            CREATE TABLE resources_new (
+              id TEXT PRIMARY KEY,
+              project_id TEXT NOT NULL,
+              type TEXT NOT NULL CHECK(type IN (
+                'note','pdf','video','audio','image','url','document',
+                'folder','notebook','excel','ppt','artifact'
+              )),
+              title TEXT NOT NULL,
+              content TEXT,
+              file_path TEXT,
+              internal_path TEXT,
+              file_mime_type TEXT,
+              file_size INTEGER,
+              file_hash TEXT,
+              thumbnail_data TEXT,
+              original_filename TEXT,
+              folder_id TEXT,
+              metadata TEXT,
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+              FOREIGN KEY (folder_id) REFERENCES resources_new(id) ON DELETE SET NULL
+            )
+          `);
+          const base = ['id','project_id','type','title','content','file_path','metadata','created_at','updated_at'];
+          const optional = ['internal_path','file_mime_type','file_size','file_hash','thumbnail_data','original_filename','folder_id'];
+          const cols = [...base, ...optional.filter((c) => existingCols.has(c))].join(', ');
+          db.exec(`INSERT INTO resources_new (${cols}) SELECT ${cols} FROM resources`);
+          db.exec('DROP TABLE resources');
+          db.exec('ALTER TABLE resources_new RENAME TO resources');
+          db.exec('CREATE INDEX IF NOT EXISTS idx_resources_project ON resources(project_id)');
+          db.exec('CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(type)');
+          db.exec('CREATE INDEX IF NOT EXISTS idx_resources_file_hash ON resources(file_hash)');
+          db.exec('CREATE INDEX IF NOT EXISTS idx_resources_internal_path ON resources(internal_path)');
+          db.exec('CREATE INDEX IF NOT EXISTS idx_resources_folder ON resources(folder_id)');
+          try {
+            db.exec(`CREATE TRIGGER IF NOT EXISTS resources_ai AFTER INSERT ON resources BEGIN
+              INSERT INTO resources_fts(resource_id, title, content)
+              VALUES (new.id, new.title, COALESCE(new.content, ''));
+            END`);
+            db.exec(`CREATE TRIGGER IF NOT EXISTS resources_ad AFTER DELETE ON resources BEGIN
+              DELETE FROM resources_fts WHERE resource_id = old.id;
+            END`);
+            db.exec(`CREATE TRIGGER IF NOT EXISTS resources_au AFTER UPDATE ON resources BEGIN
+              DELETE FROM resources_fts WHERE resource_id = old.id;
+              INSERT INTO resources_fts(resource_id, title, content)
+              VALUES (new.id, new.title, COALESCE(new.content, ''));
+            END`);
+          } catch (triggerErr) {
+            console.log('[DB] FTS triggers already exist:', triggerErr.message);
+          }
+          db.prepare(
+            `INSERT INTO settings (key, value, updated_at)
+             VALUES ('schema_version', '28', ?)
+             ON CONFLICT(key) DO UPDATE SET value = '28', updated_at = excluded.updated_at`
+          ).run(now);
+          invalidateQueries();
+          console.log('[DB] Migration 28 complete - artifact type added to resources');
+        } catch (error) {
+          console.error('[DB] Migration 28 failed:', error);
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -3618,6 +3730,29 @@ function getQueries() {
       WHERE session_id = ?
       ORDER BY track ASC, seq ASC
     `),
+
+    // Artifacts
+    createArtifact: db.prepare(`
+      INSERT INTO artifacts (id, resource_id, artifact_type, template, state, linked_resource_id, version, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+    `),
+    getArtifactByResourceId: db.prepare('SELECT * FROM artifacts WHERE resource_id = ?'),
+    getArtifactById: db.prepare('SELECT * FROM artifacts WHERE id = ?'),
+    listArtifactsByProject: db.prepare(`
+      SELECT a.* FROM artifacts a
+      JOIN resources r ON a.resource_id = r.id
+      WHERE r.project_id = ?
+      ORDER BY a.updated_at DESC
+    `),
+    updateArtifactState: db.prepare(`
+      UPDATE artifacts SET state = ?, version = version + 1, updated_at = ? WHERE resource_id = ?
+    `),
+    updateArtifact: db.prepare(`
+      UPDATE artifacts
+      SET artifact_type = ?, template = ?, state = ?, linked_resource_id = ?, version = version + 1, updated_at = ?
+      WHERE resource_id = ?
+    `),
+    deleteArtifact: db.prepare('DELETE FROM artifacts WHERE resource_id = ?'),
   };
 
   return _queries;

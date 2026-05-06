@@ -2,6 +2,7 @@
 # Un nombre por línea (ej. resources.cjs). Los que NO aparezcan aquí deben usar zod.
 ai-tools.cjs
 ai.cjs
+artifacts.cjs
 audio.cjs
 auth.cjs
 browser-context.cjs
