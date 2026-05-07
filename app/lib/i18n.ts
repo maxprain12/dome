@@ -2721,6 +2721,7 @@ const es = {
     max_file_size: 'Máximo {{size}}MB por archivo',
     file_count_limit: '{{count}} archivo(s) máximo',
     uploading_files: 'Subiendo {{count}} archivos',
+    clear_all: 'Limpiar todo',
   },
   focused_editor: {
     toolbar: 'Barra del editor enfocado',
@@ -5332,6 +5333,7 @@ const fr = {
     max_file_size: 'Maximum {{size}}Mo par fichier',
     file_count_limit: '{{count}} fichier(s) maximum',
     uploading_files: 'Téléchargement de {{count}} fichiers',
+    clear_all: 'Tout effacer',
   },
   focused_editor: {
     toolbar: "Barre de l'éditeur concentré",
@@ -7943,6 +7945,7 @@ const pt = {
     max_file_size: 'Máximo {{size}}MB por arquivo',
     file_count_limit: '{{count}} arquivo(s) máximo',
     uploading_files: 'A enviar {{count}} arquivos',
+    clear_all: 'Limpar tudo',
   },
   focused_editor: {
     toolbar: 'Barra do editor focado',
