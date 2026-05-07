@@ -1,8 +1,9 @@
 ---
 id: 0002
 title: Estructura por capas en el renderer
-status: proposed
+status: accepted
 date: 2026-04-27
+updated: 2026-05-07
 ---
 
 # ADR-0002: Alinear el frontend con capas explícitas
