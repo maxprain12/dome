@@ -8,8 +8,7 @@
 import { Type } from '@sinclair/typebox';
 import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam } from './common';
-import { generateId } from '@/lib/utils';
-import { isElectronDB } from '@/lib/utils/formatting';
+import { generateId, isElectronDB } from '@/lib/utils/formatting';
 
 const PdfAnnotationCreateSchema = Type.Object({
   resource_id: Type.String({
