@@ -146,7 +146,10 @@ export default function MindMap({ data, title, onClose, onExport }: MindMapProps
     setSelectedNodeId((id) => (id === nodeId ? null : nodeId));
   }, []);
 
-  const depthColors = ['#596037', '#7B8A4A', '#9AA55E', '#B8BF78', '#D4D99A'];
+  // TODO(tech-debt): depthColors are used for mind map node depth gradient.
+  // These are application-specific colors not in globals.css. Consider adding
+  // dedicated CSS variables for mind map depth levels if this pattern expands.
+  const depthColors = ['var(--accent)', 'var(--success)', 'var(--warning)', 'var(--error)', 'var(--primary-text)'];
 
   const selectedNode = selectedNodeId ? data.nodes.find((n) => n.id === selectedNodeId) : null;
 

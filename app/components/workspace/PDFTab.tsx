@@ -9,7 +9,11 @@ import PDFNotesList from '../viewers/pdf/PDFNotesList';
 
 type SectionId = 'toc' | 'thumbnails' | 'highlights' | 'notes';
 
-const COLORS = ['#ffeb3b', '#4caf50', '#2196f3', '#f44336', '#ff9800', '#9c27b0'];
+// TODO(tech-debt): These colors are hardcoded for the PDF annotation toolbar.
+// They are UI accent colors (not text/background colors) and need a proper design
+// treatment. Consider replacing with a dedicated annotation color palette if this
+// feature is expanded.
+const COLORS = ['var(--warning)', 'var(--success)', 'var(--accent)', 'var(--error)', '#ff9800', '#9c27b0'];
 
 export default function PDFTab() {
   const { t } = useTranslation();

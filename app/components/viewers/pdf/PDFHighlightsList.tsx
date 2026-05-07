@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import type { PDFAnnotation } from '@/lib/pdf/annotation-utils';
 
 const COLOR_ORDER = [
-  '#ffeb3b', '#4caf50', '#2196f3', '#f44336', '#ff9800', '#9c27b0',
+  'var(--warning)', 'var(--success)', 'var(--accent)', 'var(--error)', '#ff9800', '#9c27b0',
 ];
 
 const SNIPPET_MAX_LENGTH = 80;
@@ -29,7 +29,7 @@ export default function PDFHighlightsList({ annotations, onGoToPage }: PDFHighli
   const groupedByColor = useMemo(() => {
     const map = new Map<string, PDFAnnotation[]>();
     for (const h of highlights) {
-      const c = h.style.color || '#ffeb3b';
+      const c = h.style.color || 'var(--warning)';
       const list = map.get(c) ?? [];
       list.push(h);
       map.set(c, list);

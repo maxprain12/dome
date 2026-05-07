@@ -19,6 +19,9 @@ import {
 import { HighlighterIcon } from "@/components/tiptap-icons/highlighter-icon"
 
 export const COLOR_HIGHLIGHT_SHORTCUT_KEY = "mod+shift+h"
+// TODO(tech-debt): colorValue hex values below are used as fallback when useColorValue=true.
+// The tiptap highlight extension requires actual hex values. Consider extracting to a
+// shared constants file if other components need similar patterns.
 export const HIGHLIGHT_COLORS = [
   {
     label: "Default background",
