@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { orderUnifiedResourcesByHybrid } from '@/lib/search/hybrid-search';
 import { recordSearchResultSelected } from '@/lib/search/search-signals';
+import { formatDistanceToNow } from '@/lib/utils';
 
 interface SearchResult {
   id: string;
@@ -45,23 +46,6 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   studio:       <Sparkles     className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
   graph:        <GitBranch    className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
 };
-
-function formatDistanceToNow(timestamp: number): string {
-  const now = Date.now();
-  const diff = now - timestamp;
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 7) {
-    return new Date(timestamp).toLocaleDateString();
-  }
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  if (minutes > 0) return `${minutes}m ago`;
-  return 'Just now';
-}
 
 interface UseSimpleSearchOptions {
   onResourceSelect?: (resource: { id: string; type: string; title: string }) => void;
