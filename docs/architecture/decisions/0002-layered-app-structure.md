@@ -1,7 +1,7 @@
 ---
 id: 0002
 title: Estructura por capas en el renderer
-status: accepted
+status: proposed
 date: 2026-04-27
 updated: 2026-05-07
 ---
