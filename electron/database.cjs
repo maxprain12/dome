@@ -7,6 +7,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { app } = require('electron');
 
 let _db = null;
@@ -2831,6 +2832,125 @@ function runMigrations(db) {
       }
     }
   }
+
+  if (version < 29) {
+    console.log('[DB] Running migration 29 - artifact_runtime_data + automation_artifact_bindings');
+    try {
+      const now = Date.now();
+      db.exec('PRAGMA foreign_keys = ON');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS artifact_runtime_data (
+          id TEXT PRIMARY KEY,
+          artifact_id TEXT NOT NULL,
+          slot TEXT NOT NULL DEFAULT 'default',
+          data_json TEXT NOT NULL,
+          schema_version INTEGER NOT NULL DEFAULT 1,
+          last_run_id TEXT,
+          last_automation_id TEXT,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (artifact_id) REFERENCES artifacts(id) ON DELETE CASCADE,
+          UNIQUE(artifact_id, slot)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_artifact_runtime_data_artifact ON artifact_runtime_data(artifact_id)');
+      db.exec(
+        'CREATE INDEX IF NOT EXISTS idx_artifact_runtime_data_auto ON artifact_runtime_data(last_automation_id)',
+      );
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS automation_artifact_bindings (
+          id TEXT PRIMARY KEY,
+          automation_id TEXT NOT NULL,
+          artifact_resource_id TEXT NOT NULL,
+          slot TEXT NOT NULL DEFAULT 'default',
+          update_policy TEXT NOT NULL DEFAULT 'replace',
+          transform_hint TEXT,
+          extract_mode TEXT NOT NULL DEFAULT 'json_fence',
+          enabled INTEGER NOT NULL DEFAULT 1,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (automation_id) REFERENCES automation_definitions(id) ON DELETE CASCADE,
+          FOREIGN KEY (artifact_resource_id) REFERENCES resources(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_auto_art_bindings_auto ON automation_artifact_bindings(automation_id)');
+      db.exec(
+        'CREATE INDEX IF NOT EXISTS idx_auto_art_bindings_res ON automation_artifact_bindings(artifact_resource_id)',
+      );
+
+      const artRows = db.prepare('SELECT id, state FROM artifacts').all();
+      const insertRt = db.prepare(`
+        INSERT OR IGNORE INTO artifact_runtime_data (
+          id, artifact_id, slot, data_json, schema_version, last_run_id, last_automation_id, updated_at
+        ) VALUES (?, ?, 'default', ?, 1, NULL, NULL, ?)
+      `);
+      for (const ar of artRows) {
+        let st = {};
+        try {
+          st = JSON.parse(ar.state || '{}');
+        } catch {
+          st = {};
+        }
+        const data = st && typeof st.data === 'object' && st.data !== null && !Array.isArray(st.data) ? st.data : null;
+        if (data && Object.keys(data).length > 0) {
+          insertRt.run(crypto.randomUUID(), ar.id, JSON.stringify(data), now);
+        }
+      }
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '29', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '29', updated_at = excluded.updated_at
+      `).run(now);
+
+      invalidateQueries();
+      console.log('[DB] Migration 29 complete - artifact runtime + automation bindings');
+    } catch (error) {
+      console.error('[DB] Migration 29 failed:', error);
+    }
+  }
+
+  // Migration 30: Reclassify mis-typed document resources (xlsx→excel, pptx→ppt)
+  if (version < 30) {
+    console.log('[DB] Running migration 30 - reclassify xlsx/pptx resources');
+    try {
+      const now = Date.now();
+      db.prepare(`
+        UPDATE resources
+        SET type='excel', updated_at=?
+        WHERE type='document'
+          AND (
+            lower(original_filename) LIKE '%.xlsx'
+            OR lower(original_filename) LIKE '%.xls'
+            OR lower(original_filename) LIKE '%.csv'
+            OR file_mime_type LIKE '%spreadsheetml%'
+            OR file_mime_type = 'text/csv'
+          )
+      `).run(now);
+
+      db.prepare(`
+        UPDATE resources
+        SET type='ppt', updated_at=?
+        WHERE type='document'
+          AND (
+            lower(original_filename) LIKE '%.pptx'
+            OR lower(original_filename) LIKE '%.ppt'
+            OR file_mime_type LIKE '%presentationml%'
+          )
+      `).run(now);
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '30', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '30', updated_at = excluded.updated_at
+      `).run(now);
+
+      invalidateQueries();
+      console.log('[DB] Migration 30 complete - xlsx/pptx reclassified');
+    } catch (error) {
+      console.error('[DB] Migration 30 failed:', error);
+    }
+  }
 }
 
 /**
@@ -3308,13 +3428,13 @@ function getQueries() {
     // Semantic chunk embeddings + relations (replaces resource_links / note_embeddings)
     countSemanticIndexableResources: db.prepare(`
       SELECT COUNT(*) AS c FROM resources
-      WHERE type IN ('note','url','document','pdf','notebook','ppt','excel','image')
+      WHERE type IN ('note','url','document','pdf','notebook','ppt','excel','image','artifact')
     `),
     countResourcesWithSemanticChunks: db.prepare(`
       SELECT COUNT(DISTINCT r.id) AS c
       FROM resources r
       INNER JOIN resource_chunks rc ON rc.resource_id = r.id AND rc.model_version = ?
-      WHERE r.type IN ('note','url','document','pdf','notebook','ppt','excel','image')
+      WHERE r.type IN ('note','url','document','pdf','notebook','ppt','excel','image','artifact')
     `),
     countSemanticChunksForModel: db.prepare(`
       SELECT COUNT(*) AS c FROM resource_chunks WHERE model_version = ?
@@ -3753,6 +3873,40 @@ function getQueries() {
       WHERE resource_id = ?
     `),
     deleteArtifact: db.prepare('DELETE FROM artifacts WHERE resource_id = ?'),
+    getArtifactsLinkedToResource: db.prepare('SELECT * FROM artifacts WHERE linked_resource_id = ?'),
+
+    // Artifact runtime payloads (DOME_DATA slots) + automation → artifact sinks
+    getArtifactRuntimeDataByArtifactSlot: db.prepare(`
+      SELECT * FROM artifact_runtime_data WHERE artifact_id = ? AND slot = ?
+    `),
+    listArtifactRuntimeDataByArtifact: db.prepare(`
+      SELECT * FROM artifact_runtime_data WHERE artifact_id = ?
+    `),
+    upsertArtifactRuntimeData: db.prepare(`
+      INSERT INTO artifact_runtime_data (
+        id, artifact_id, slot, data_json, schema_version, last_run_id, last_automation_id, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(artifact_id, slot) DO UPDATE SET
+        data_json = excluded.data_json,
+        schema_version = excluded.schema_version,
+        last_run_id = excluded.last_run_id,
+        last_automation_id = excluded.last_automation_id,
+        updated_at = excluded.updated_at
+    `),
+    deleteArtifactRuntimeDataByArtifact: db.prepare('DELETE FROM artifact_runtime_data WHERE artifact_id = ?'),
+
+    listAutomationArtifactBindings: db.prepare(`
+      SELECT * FROM automation_artifact_bindings WHERE automation_id = ? ORDER BY created_at ASC
+    `),
+    insertAutomationArtifactBinding: db.prepare(`
+      INSERT INTO automation_artifact_bindings (
+        id, automation_id, artifact_resource_id, slot, update_policy, transform_hint, extract_mode, enabled, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    deleteAutomationArtifactBindingsByAutomation: db.prepare(`
+      DELETE FROM automation_artifact_bindings WHERE automation_id = ?
+    `),
+    getAutomationArtifactBindingById: db.prepare('SELECT * FROM automation_artifact_bindings WHERE id = ?'),
   };
 
   return _queries;

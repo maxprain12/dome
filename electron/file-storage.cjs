@@ -275,6 +275,24 @@ function exportFile(internalPath, destinationPath) {
 }
 
 /**
+ * Classify a file extension to the canonical Dome resource type.
+ * @param {string} ext - File extension (with or without leading dot)
+ * @param {string} [providedType] - Fallback type if extension is unknown
+ * @returns {string} Dome resource type
+ */
+function classifyFileType(ext, providedType) {
+  const e = (ext || '').toLowerCase().replace(/^\.?/, '.');
+  if (['.xlsx', '.xls', '.csv'].includes(e)) return 'excel';
+  if (['.pptx', '.ppt'].includes(e)) return 'ppt';
+  if (['.docx', '.doc'].includes(e)) return 'document';
+  if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'].includes(e)) return 'image';
+  if (e === '.pdf') return 'pdf';
+  if (['.mp4', '.webm', '.mov', '.avi', '.mkv'].includes(e)) return 'video';
+  if (['.mp3', '.wav', '.ogg', '.flac', '.m4a'].includes(e)) return 'audio';
+  return providedType || 'document';
+}
+
+/**
  * Get storage usage statistics
  * @returns {{total: number, byType: Record<string, number>, fileCount: number}}
  */
@@ -388,6 +406,7 @@ module.exports = {
   getTypeDir,
   getMimeType,
   calculateHash,
+  classifyFileType,
   importFile,
   importFromBuffer,
   overwriteFile,

@@ -1736,6 +1736,8 @@ declare global {
         list: (projectId?: string) => Promise<{ success: boolean; data?: ArtifactRecord[]; error?: string }>;
         export: (resourceId: string) => Promise<{ success: boolean; filePath?: string; cancelled?: boolean; error?: string }>;
         import: () => Promise<{ success: boolean; cancelled?: boolean; data?: ArtifactRecord; error?: string }>;
+        refreshLinked: (resourceId: string) => Promise<{ success: boolean; error?: string }>;
+        setLinkedResource: (resourceId: string, linkedResourceId: string | null) => Promise<{ success: boolean; data?: ArtifactRecord; error?: string }>;
       };
     };
   }

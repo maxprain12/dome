@@ -1,5 +1,10 @@
 'use strict';
 
+const { getResolvedStateForArtifactRow } = require('../artifact-serialize.cjs');
+
+/** Max length stored in `resources.content` for FTS (artifacts only; keeps SQLite rows reasonable). */
+const ARTIFACT_FTS_CONTENT_CAP = 200_000;
+
 /**
  * @typedef {{ text: string, source: 'content' | 'empty' }} IndexableText
  */
@@ -80,13 +85,73 @@ function stripTags(html) {
 }
 
 /**
+ * Plain-text + structured payload for semantic index and FTS (artifact resources).
  * @param {Record<string, unknown>} row resource row
- * @param {unknown} [_queries] unused — kept for API compatibility
+ * @param {unknown} queries database.getQueries() or null
  * @returns {IndexableText}
  */
-function getIndexableText(row, _queries) {
+function buildArtifactIndexPayload(row, queries) {
+  const title = String(row.title || '').trim();
+  const id = String(row.id || '');
+  if (!queries || typeof queries.getArtifactByResourceId?.get !== 'function' || !id) {
+    return title ? { text: title, source: 'content' } : { text: '', source: 'empty' };
+  }
+  const art = queries.getArtifactByResourceId.get(id);
+  if (!art) {
+    return title ? { text: title, source: 'content' } : { text: '', source: 'empty' };
+  }
+  const state = getResolvedStateForArtifactRow(queries, art);
+  const html = typeof state.html === 'string' ? state.html : '';
+  const htmlText = stripTags(html);
+  let dataStr = '';
+  if (state.data !== undefined && state.data !== null) {
+    try {
+      dataStr = typeof state.data === 'string' ? state.data : JSON.stringify(state.data);
+    } catch {
+      dataStr = String(state.data);
+    }
+  }
+  const metaBlock = [
+    title,
+    `artifact_type:${String(art.artifact_type || '')}`,
+    art.template ? `template:${String(art.template)}` : '',
+    art.linked_resource_id ? `linked_resource_id:${art.linked_resource_id}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+  const parts = [
+    metaBlock,
+    htmlText ? `html_text:\n${htmlText}` : '',
+    dataStr ? `structured_data:\n${dataStr}` : '',
+  ].filter(Boolean);
+  const text = parts.join('\n\n').trim();
+  if (!text) return { text: '', source: 'empty' };
+  return { text, source: 'content' };
+}
+
+/**
+ * Denormalize search text into `resources.content` so `resources_fts` triggers index titles + body.
+ * Safe for type `artifact` only.
+ * @param {Record<string, import('better-sqlite3').Statement>} queries
+ * @param {string} resourceId
+ */
+function syncArtifactFtsContent(queries, resourceId) {
+  if (!resourceId || !queries?.getResourceById?.get || !queries.updateResourceContent?.run) return;
+  const row = queries.getResourceById.get(resourceId);
+  if (!row || String(row.type) !== 'artifact') return;
+  const { text } = buildArtifactIndexPayload(row, queries);
+  const payload =
+    text.length > ARTIFACT_FTS_CONTENT_CAP ? text.slice(0, ARTIFACT_FTS_CONTENT_CAP) : text;
+  queries.updateResourceContent.run(payload, Date.now(), resourceId);
+}
+
+function getIndexableText(row, queries) {
   const type = String(row.type || '');
   const title = String(row.title || '').trim();
+
+  if (type === 'artifact') {
+    return buildArtifactIndexPayload(row, queries);
+  }
 
   if (type === 'note') {
     const raw = String(row.content || '');
@@ -132,6 +197,9 @@ function getIndexableText(row, _queries) {
 
 module.exports = {
   getIndexableText,
+  buildArtifactIndexPayload,
+  syncArtifactFtsContent,
+  ARTIFACT_FTS_CONTENT_CAP,
   stripTags,
   extractPlainTextFromProseMirror,
 };

@@ -1,0 +1,74 @@
+### Persisted library mini-apps (`artifact_create`, `artifact_update_state`, …)
+
+Use this companion to `artifacts.txt` whenever you mutate **Kind B — library** artifacts stored in Dome’s SQLite catalog.
+
+---
+
+## Lifecycle
+
+1. **Create** via `artifact_create` with `{ title, artifactType, template, state?, linkedResourceId?, projectId?, folderId? }`.
+2. **Read** via `artifact_get` / list via Many’s hub or `artifact_list`.
+3. **Mutate iframe data** inside the persisted HTML (`__dome_updateState`) or remotely via `artifact_update_state`.
+
+---
+
+## Payload shape (`state`)
+
+`state` is JSON stored in SQLite. Typical persisted HTML mini-apps embed:
+
+```json
+{
+  "html": "<section>…minimal markup…</section>",
+  "css": "optional extra tokens-only styles",
+  "data": {},
+  "linkedData": null
+}
+```
+
+- **`html`** — body markup; keep inputs with `data-dome-key`, `name`, or `id` fields so Dome can mirror values ↔ `window.DOME_DATA`.
+- **`css`** — scoped styles; obey tokens from `artifacts.txt`.
+- **`data`** — mirrored into `window.DOME_DATA` for editable fields (`input`, `textarea`, `select`). Updated values flow back via `__dome_updateState(next)`.
+- **`linkedData`** — optional snapshot injected by Dome when `linkedResourceId` points at an Excel workbook. Read-only for the model; display only.
+
+---
+
+## Iframe contract (MANDATORY)
+
+Dome injects before your script bundle:
+
+- `window.DOME_DATA` — initial field bag (merge of `state.data` + `state.linkedData` exposure in workspace UI).
+- `window.__dome_updateState(nextDataObject)` — call after every meaningful mutation; persists to SQLite immediately.
+- `window.__dome_collectState()` — optional hook for explicit saves (toolbar “Save”).
+
+**Rules**
+
+- No `window.electron`, `fetch`, remote assets, or `localStorage` fallback required — Dome injects an in-memory storage shim.
+- Always call `__dome_updateState` after programmatic DOM edits that should survive restarts.
+- Keep bundle self-contained; inline JS only.
+
+---
+
+## Tool reference
+
+| Tool | When |
+| --- | --- |
+| `artifact_create` | User needs a durable mini-app (trackers, forms, dashboards that persist). |
+| `artifact_get` | Need current `state` / metadata. |
+| `artifact_update_state` | Push server-side JSON merges (automation sink, agent batch updates). |
+| `artifact_delete` | Remove resource + artifact row. |
+| `artifact_link_resource` | Bind `linkedResourceId` (Excel) for `linkedData` refresh. |
+
+After `artifact_create`, emit the `artifact:created_entity` fenced card described in `entity_rules` so the Hub UI can render shortcuts.
+
+---
+
+## Linked Excel resources
+
+When `linkedResourceId` references a spreadsheet, Dome may populate `state.linkedData` with `{ sheet_names, sheet_name, data }` grids. Your HTML should read-only render `linkedData` and persist user tweaks through `state.data`.
+
+---
+
+## Safety
+
+- Respect token palette + typography rules from `artifacts.txt`.
+- Never echo raw JSON to the user; summarize actions in natural language alongside internal tool calls.

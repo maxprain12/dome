@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import type { TFunction } from 'i18next';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import type { BudgetBreakdown } from '@/components/many/TokenBudgetBadge';
 import {
   onRunChunk,
   onRunStep,
@@ -47,6 +48,10 @@ export interface LangGraphRunStreamOptions {
    */
   onRunTerminal?: (run: PersistentRun) => void;
   /**
+   * Called when the first chunk of a run emits a token budget breakdown.
+   */
+  onBudget?: (breakdown: BudgetBreakdown) => void;
+  /**
    * i18next translator; used for streaming labels.
    */
   t: TFunction;
@@ -71,6 +76,7 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
     setPendingApproval,
     onRunStatus,
     onRunTerminal,
+    onBudget,
     t,
   } = options;
 
@@ -87,6 +93,11 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
 
     const unsubChunk = onRunChunk((payload) => {
       if (payload.runId !== activeRunId) return;
+
+      if (payload.type === 'budget' && payload.breakdown && onBudget) {
+        onBudget(payload.breakdown);
+        return;
+      }
 
       if (payload.type === 'text' && payload.text) {
         setStreamingMessage((prev) =>
@@ -209,7 +220,7 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
       unsubChunk();
       unsubStep();
     };
-  }, [activeRunId, setStreamingMessage, setPendingApproval, onRunStatus, onRunTerminal, t]);
+  }, [activeRunId, setStreamingMessage, setPendingApproval, onRunStatus, onRunTerminal, onBudget, t]);
 }
 
 function upsertRunStep(steps: PersistentRunStep[], step: PersistentRunStep): PersistentRunStep[] {

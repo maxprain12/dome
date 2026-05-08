@@ -16,8 +16,10 @@ const PDFViewer = lazy(() => import('../viewers/PDFViewer'));
 const VideoPlayer = lazy(() => import('../viewers/VideoPlayer'));
 const AudioPlayer = lazy(() => import('../viewers/AudioPlayer'));
 const ImageViewer = lazy(() => import('../viewers/ImageViewer'));
-const _DocxViewer = lazy(() => import('../viewers/DocxViewer'));
+const DocxViewer = lazy(() => import('../viewers/DocxViewer'));
 const SpreadsheetViewer = lazy(() => import('../viewers/SpreadsheetViewer'));
+const PptViewerLazy = lazy(() => import('../viewers/PptViewer'));
+const ArtifactWorkspaceClient = lazy(() => import('../artifacts/ArtifactWorkspaceClient'));
 
 interface WorkspaceLayoutProps {
   resourceId: string;
@@ -192,6 +194,12 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
               </p>
             </div>
           );
+        case 'artifact':
+          return (
+            <div className="flex flex-col h-full min-h-0 w-full overflow-hidden">
+              <ArtifactWorkspaceClient resourceId={resource.id} />
+            </div>
+          );
         case 'url':
         case 'notebook': {
           const metadata = typeof resource.metadata === 'string'
@@ -214,6 +222,31 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
               <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--dome-accent)' }} />
               <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
                 Redirecting to {resource.type} viewer...
+              </p>
+            </div>
+          );
+        }
+        case 'document': {
+          const mime = resource.file_mime_type || '';
+          const name = (resource.original_filename || resource.title || '').toLowerCase();
+          if (mime.includes('spreadsheetml') || /\.(xlsx|xls|csv)$/.test(name)) {
+            return <SpreadsheetViewer resource={resource} />;
+          }
+          if (mime.includes('wordprocessingml') || /\.(docx|doc)$/.test(name)) {
+            return <DocxViewer resource={resource} />;
+          }
+          if (mime.includes('presentationml') || /\.(pptx|ppt)$/.test(name)) {
+            return <PptViewerLazy resource={resource} activeIndex={0} />;
+          }
+          // genuinely unsupported document (txt, rtf, etc.)
+          return (
+            <div className="flex flex-col items-center justify-center h-full p-8">
+              <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--dome-text-muted)' }} />
+              <p className="text-lg font-medium" style={{ color: 'var(--dome-text)' }}>
+                Unsupported file type
+              </p>
+              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+                This resource type ({resource.type}) cannot be previewed in the workspace.
               </p>
             </div>
           );

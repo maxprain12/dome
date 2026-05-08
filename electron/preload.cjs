@@ -605,6 +605,8 @@ const ALLOWED_CHANNELS = {
     'artifact:created',
     'artifact:updated',
     'artifact:deleted',
+    'artifact:refresh-linked',
+    'artifact:set-linked-resource',
   ],
 };
 
@@ -1726,6 +1728,9 @@ const electronHandler = {
     list: (projectId) => ipcRenderer.invoke('artifact:list', projectId),
     export: (resourceId) => ipcRenderer.invoke('artifact:export', resourceId),
     import: () => ipcRenderer.invoke('artifact:import'),
+    refreshLinked: (resourceId) => ipcRenderer.invoke('artifact:refresh-linked', resourceId),
+    setLinkedResource: (resourceId, linkedResourceId) =>
+      ipcRenderer.invoke('artifact:set-linked-resource', { resourceId, linkedResourceId }),
   },
 };
 

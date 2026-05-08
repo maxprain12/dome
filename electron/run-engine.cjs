@@ -175,6 +175,58 @@ function emit(channel, payload) {
   _windowManager?.broadcast?.(channel, payload);
 }
 
+function normalizeAutomationArtifactBindingRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    automationId: row.automation_id,
+    artifactResourceId: row.artifact_resource_id,
+    slot: row.slot || 'default',
+    updatePolicy: row.update_policy,
+    transformHint: row.transform_hint ?? null,
+    extractMode: row.extract_mode || 'json_fence',
+    enabled: !!row.enabled,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function attachAutomationArtifactBindings(automation) {
+  if (!automation) return null;
+  const queries = getQueries();
+  const rows = queries.listAutomationArtifactBindings.all(automation.id);
+  const artifactBindings = rows.map(normalizeAutomationArtifactBindingRow);
+  return { ...automation, artifactBindings };
+}
+
+function replaceAutomationArtifactBindings(automationId, rawBindings) {
+  const queries = getQueries();
+  const ts = now();
+  queries.deleteAutomationArtifactBindingsByAutomation.run(automationId);
+  if (!Array.isArray(rawBindings)) return;
+  for (const b of rawBindings) {
+    if (!b || !b.artifactResourceId) continue;
+    const res = queries.getResourceById.get(String(b.artifactResourceId));
+    if (!res || res.type !== 'artifact') continue;
+    const policy = ['replace', 'merge_shallow', 'merge_deep', 'append_array'].includes(b.updatePolicy)
+      ? b.updatePolicy
+      : 'replace';
+    const extract = ['json_fence', 'full_output'].includes(b.extractMode) ? b.extractMode : 'json_fence';
+    queries.insertAutomationArtifactBinding.run(
+      typeof b.id === 'string' && b.id.length >= 32 ? b.id : crypto.randomUUID(),
+      automationId,
+      String(b.artifactResourceId),
+      String(b.slot || 'default'),
+      policy,
+      b.transformHint != null ? String(b.transformHint) : null,
+      extract,
+      b.enabled === false ? 0 : 1,
+      ts,
+      ts,
+    );
+  }
+}
+
 function normalizeAutomationRow(row) {
   if (!row) return null;
   return {
@@ -337,6 +389,24 @@ function patchRun(runId, patch) {
       setAutomationRunStatus(next.automationId, next.status);
     } catch (e) {
       console.warn('[RunEngine] setAutomationRunStatus failed:', e?.message);
+    }
+  }
+  const becameCompleted =
+    next.status === 'completed' &&
+    current.status !== 'completed' &&
+    next.automationId &&
+    typeof next.outputText === 'string' &&
+    next.outputText.trim() !== '';
+  if (becameCompleted && _database && _windowManager) {
+    try {
+      const { applyArtifactSinksForCompletedRun } = require('./artifact-sink.cjs');
+      applyArtifactSinksForCompletedRun(_database, _windowManager, {
+        automationId: next.automationId,
+        runId,
+        outputText: next.outputText,
+      });
+    } catch (e) {
+      console.warn('[RunEngine] artifact sink failed:', e?.message);
     }
   }
   return next;
@@ -507,23 +577,26 @@ function upsertAutomation(input) {
       normalized.updatedAt,
     );
   }
-  return normalizeAutomationRow(queries.getAutomationDefinitionById.get(normalized.id));
+  if (input.artifactBindings !== undefined) {
+    replaceAutomationArtifactBindings(normalized.id, input.artifactBindings);
+  }
+  return attachAutomationArtifactBindings(normalizeAutomationRow(queries.getAutomationDefinitionById.get(normalized.id)));
 }
 
 function listAutomations(filters = {}) {
   const queries = getQueries();
   if (filters.targetType && filters.targetId) {
     const rows = queries.getAutomationDefinitionsByTarget.all(filters.targetType, filters.targetId);
-    const mapped = rows.map(normalizeAutomationRow);
+    const mapped = rows.map(normalizeAutomationRow).map(attachAutomationArtifactBindings);
     if (filters.projectId) {
       return mapped.filter((a) => a.projectId === filters.projectId);
     }
     return mapped;
   }
   if (filters.projectId) {
-    return queries.getAutomationDefinitionsByProject.all(filters.projectId).map(normalizeAutomationRow);
+    return queries.getAutomationDefinitionsByProject.all(filters.projectId).map(normalizeAutomationRow).map(attachAutomationArtifactBindings);
   }
-  return queries.getAllAutomationDefinitions.all().map(normalizeAutomationRow);
+  return queries.getAllAutomationDefinitions.all().map(normalizeAutomationRow).map(attachAutomationArtifactBindings);
 }
 
 function deleteAutomation(id) {
@@ -538,7 +611,8 @@ function deleteRun(runId) {
 
 function getAutomation(id) {
   const queries = getQueries();
-  return normalizeAutomationRow(queries.getAutomationDefinitionById.get(id));
+  const base = normalizeAutomationRow(queries.getAutomationDefinitionById.get(id));
+  return attachAutomationArtifactBindings(base);
 }
 
 function setAutomationRunStatus(automationId, status) {
@@ -888,6 +962,10 @@ function createRunChunkEmitter(runId, context) {
       patchRun(runId, { lastHeartbeatAt: heartbeat });
       return;
     }
+    if (data.type === 'budget' && data.breakdown) {
+      emit(RUN_CHUNK_CHANNEL, { runId, type: 'budget', breakdown: data.breakdown });
+      return;
+    }
     if (data.type === 'usage' && data.usage) {
       context.llmUsage = mergeLlmUsage(context.llmUsage, data.usage);
       return;
@@ -951,6 +1029,13 @@ async function executeLangGraphRun(runId, params) {
     skipHitl: !!params.skipHitl,
     automationProjectId,
   };
+  const runtimeContext = (params.contextId || (Array.isArray(params.pinnedResourceIds) && params.pinnedResourceIds.length > 0))
+    ? {
+        activeResourceId: params.contextId || null,
+        pinnedResourceIds: Array.isArray(params.pinnedResourceIds) ? params.pinnedResourceIds : [],
+      }
+    : null;
+
   try {
     const result = await langgraphAgent.invokeLangGraphAgent({
       provider: context.provider,
@@ -967,6 +1052,7 @@ async function executeLangGraphRun(runId, params) {
       signal: context.controller.signal,
       onChunk: createRunChunkEmitter(runId, context),
       automationProjectId,
+      runtimeContext,
     });
     const current = getRun(runId);
     if (current?.status === 'waiting_approval' || result?.__interrupt__) {
@@ -1564,6 +1650,32 @@ async function fireContextualAutomations(tag) {
   return { fired };
 }
 
+function buildAutomationUserContent(automation) {
+  const base =
+    automation.inputTemplate?.prompt || automation.description || automation.title || 'Automatización';
+  let content = String(base);
+  const bindings = Array.isArray(automation.artifactBindings) ? automation.artifactBindings : [];
+  const enabledBindings = bindings.filter((b) => b && b.enabled !== false && b.artifactResourceId);
+  if (enabledBindings.length > 0) {
+    const lines = enabledBindings.map(
+      (b) =>
+        `- resourceId=${b.artifactResourceId} slot=${b.slot || 'default'} policy=${
+          b.updatePolicy || 'replace'
+        } extract=${b.extractMode || 'json_fence'}`,
+    );
+    content +=
+      `\n\n[Salida requerida: al terminar, incluye exactamente un bloque de código Markdown \`\`\`json ... \`\`\` cuyo contenido sea un ÚNICO objeto JSON (raíz = objeto) con los datos para actualizar el artefacto vinculado. Líneas de destino:]\n${lines.join(
+        '\n',
+      )}`;
+  }
+  const it = automation.inputTemplate || {};
+  if (it.boundArtifactResourceId && enabledBindings.length === 0) {
+    const slot = it.artifactOutputSlot || 'default';
+    content += `\n\n[Salida requerida: incluye un bloque \`\`\`json ... \`\`\` con un objeto JSON para el recurso artifact ${it.boundArtifactResourceId} (slot: ${slot}).]`;
+  }
+  return content;
+}
+
 async function startAutomationNow(automationId) {
   const automation = getAutomation(automationId);
   if (!automation) {
@@ -1582,7 +1694,7 @@ async function startAutomationNow(automationId) {
     return run;
   }
   const targetOwnerType = automation.targetType === 'many' ? 'many' : 'agent';
-  const targetLabel = automation.inputTemplate?.prompt || automation.description || automation.title;
+  const targetLabel = buildAutomationUserContent(automation);
   const toolIds = automation.inputTemplate?.toolIds || [];
   const toolDefinitions = Array.isArray(toolIds) && toolIds.length > 0
     ? getToolDefinitionsByIds(toolIds)

@@ -10,7 +10,7 @@
 const { readPrompt } = require('./prompts-loader.cjs');
 
 const RESOURCE_LINK_INSTRUCTION = `## Resource & Navigation Links
-When mentioning a resource (note, PDF, video, etc.) that the user can open in Dome, ALWAYS use: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, excel, ppt, video, audio, image, folder.
+When mentioning a resource (note, PDF, video, etc.) that the user can open in Dome, ALWAYS use: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, excel, ppt, video, audio, image, folder, artifact.
 
 NEVER use resource:// — it does not work. NEVER use [[Title]] wikilinks or file:// or raw URLs for internal resources—they open in the browser instead of in Dome. NEVER use /resource/ID as the link URL—always use dome://resource/ID/TYPE.
 
@@ -204,6 +204,13 @@ function todayEnLong() {
  * @param {DomeSystemPromptOptions} options
  * @returns {string}
  */
+const REFERENCE_DOCS_STUB = `## Reference docs (load only if the user's request needs them)
+Available via dome_load_doc(id):
+- entity_rules — when creating agents, workflows, automations, or marketplace installs
+- artifacts — when emitting any artifact block (inline chat artifacts OR persisted library mini-apps); contains the decision matrix for which kind to use
+- artifact_persisted — when creating, updating, or deleting a persisted library mini-app (artifact_create / artifact_update_state / artifact_delete)
+- resource_links — only if you are unsure about the dome:// link format`;
+
 function buildDomeSystemPrompt(options) {
   const sections = [];
 
@@ -211,15 +218,12 @@ function buildDomeSystemPrompt(options) {
   if (persona) sections.push(persona);
 
   sections.push(APP_SECTION_GUIDE);
-  sections.push(RESOURCE_LINK_INSTRUCTION);
-
-  const artifactsTxt = readPrompt('martin/artifacts.txt');
-  if (artifactsTxt) sections.push(artifactsTxt.trim());
 
   const toolsTxt = readPrompt('martin/tools.txt');
   if (toolsTxt) sections.push(toolsTxt.trim());
 
-  if (!options.omitEntityRules) sections.push(ENTITY_CREATION_RULES);
+  sections.push(REFERENCE_DOCS_STUB);
+
   if (!options.omitToolUsageMode) sections.push(TOOL_USAGE_MODE);
   if (!options.omitCitationGuidance) sections.push(CHAT_CITATION_INSTRUCTION);
 

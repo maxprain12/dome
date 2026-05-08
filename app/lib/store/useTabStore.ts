@@ -406,6 +406,7 @@ export const useTabStore = create<TabStore>((set, get) => {
         audio: 'resource',
         video: 'resource',
         excel: 'resource',
+        artifact: 'artifact',
       };
       const newTabs = tabs.map((tab) => {
         if (tab.id !== targetTabId) return tab;

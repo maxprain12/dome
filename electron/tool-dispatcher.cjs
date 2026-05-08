@@ -19,8 +19,11 @@ const database = require('./database.cjs');
  * Tool name (normalized) to aiToolsHandler method mapping
  */
 const TOOL_HANDLER_MAP = {
+  dome_load_doc: 'domeLoadDoc',
   resource_search: 'resourceSearch',
   resource_get: 'resourceGet',
+  resource_get_active: 'resourceGetActive',
+  resource_get_pinned: 'resourceGetPinned',
   resource_get_section: 'resourceGetSection',
   resource_list: 'resourceList',
   resource_semantic_search: 'resourceSemanticSearch',
@@ -106,6 +109,14 @@ const TOOL_HANDLER_MAP = {
   file_search: 'fileSearch',
   shell_exec: 'shellExec',
 
+  // Persisted chat artifacts (iframe mini-apps; same contract as artifact-tools.ts)
+  artifact_create: 'artifactCreate',
+  artifact_get: 'artifactGet',
+  artifact_update_state: 'artifactUpdateState',
+  artifact_list: 'artifactList',
+  artifact_delete: 'artifactDelete',
+  artifact_link_resource: 'artifactLinkResource',
+
   // UI interaction tools (dispatch to renderer via IPC broadcast)
   ui_point_to: 'uiPointTo',
   ui_click: 'uiClick',
@@ -172,6 +183,27 @@ async function executeToolInMain(toolName, args, toolContext) {
             includeContent: args.include_content !== false,
             maxContentLength: args.max_content_length,
           });
+        }
+        break;
+      }
+      case 'resourceGetActive': {
+        const activeId = toolContext?.runtimeContext?.activeResourceId;
+        if (!activeId) {
+          result = { success: false, error: 'No active resource in this session. Open a document first.' };
+        } else {
+          result = await aiToolsHandler.resourceGet(activeId, { includeContent: true, maxContentLength: 12000 });
+        }
+        break;
+      }
+      case 'resourceGetPinned': {
+        const pinnedIds = toolContext?.runtimeContext?.pinnedResourceIds || [];
+        const rid = args.id || args.resource_id;
+        if (!rid) {
+          result = { success: false, error: 'id is required. Check the Pinned Context Resources list in the system prompt.' };
+        } else if (pinnedIds.length > 0 && !pinnedIds.includes(rid)) {
+          result = { success: false, error: `Resource ${rid} is not pinned. Use resource_get for arbitrary resources.` };
+        } else {
+          result = await aiToolsHandler.resourceGet(rid, { includeContent: true, maxContentLength: 5000 });
         }
         break;
       }
@@ -498,6 +530,21 @@ async function executeToolInMain(toolName, args, toolContext) {
       case 'calendarDeleteEvent':
         result = await fn({ event_id: args.event_id });
         break;
+      case 'domeLoadDoc': {
+        const { getSectionBody } = require('./prompt-sections.cjs');
+        const docId = args.id || args.section_id || args.doc_id;
+        if (!docId) {
+          result = { error: 'id is required. Valid values: entity_rules, artifacts, artifact_persisted, resource_links' };
+        } else {
+          const body = getSectionBody(docId);
+          if (!body) {
+            result = { error: `Unknown doc id: "${docId}". Valid: entity_rules, artifacts, artifact_persisted, resource_links` };
+          } else {
+            result = { id: docId, content: body };
+          }
+        }
+        break;
+      }
       case 'getToolDefinition':
         result = await fn(args.tool_name || args.toolName || '');
         break;
@@ -527,6 +574,45 @@ async function executeToolInMain(toolName, args, toolContext) {
           intent: args.intent,
         });
         break;
+      case 'artifactList':
+        result = await fn({
+          project_id: automationProjectId || args.project_id || args.projectId,
+        });
+        break;
+      case 'artifactCreate':
+        result = await fn({
+          ...args,
+          project_id: automationProjectId || args.project_id || args.projectId,
+        });
+        break;
+      case 'artifactGet': {
+        const artRid = args.resource_id || args.resourceId;
+        const artDenied = denyUnlessResourceInScope(artRid);
+        if (artDenied) result = artDenied;
+        else result = await fn({ resource_id: artRid });
+        break;
+      }
+      case 'artifactUpdateState': {
+        const artUpdRid = args.resource_id || args.resourceId;
+        const artUpdDenied = denyUnlessResourceInScope(artUpdRid);
+        if (artUpdDenied) result = artUpdDenied;
+        else result = await fn({ ...args, resource_id: artUpdRid });
+        break;
+      }
+      case 'artifactDelete': {
+        const artDelRid = args.resource_id || args.resourceId;
+        const artDelDenied = denyUnlessResourceInScope(artDelRid);
+        if (artDelDenied) result = artDelDenied;
+        else result = await fn({ resource_id: artDelRid });
+        break;
+      }
+      case 'artifactLinkResource': {
+        const artLinkRid = args.artifact_resource_id || args.resource_id;
+        const artLinkDenied = denyUnlessResourceInScope(artLinkRid);
+        if (artLinkDenied) result = artLinkDenied;
+        else result = await fn({ resource_id: artLinkRid, linked_resource_id: args.linked_resource_id ?? null });
+        break;
+      }
       default:
         result = await fn(args);
     }
@@ -578,6 +664,12 @@ function getToolDefsBySubagent() {
       'resource_create',
       'resource_update',
       'resource_delete',
+      'artifact_create',
+      'artifact_get',
+      'artifact_list',
+      'artifact_update_state',
+      'artifact_delete',
+      'artifact_link_resource',
       'flashcard_create',
       'notebook_get',
       'notebook_add_cell',
@@ -1040,6 +1132,106 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'artifact_create',
+        description:
+          'Create a persisted interactive artifact (mini-app) as a resource. Sandboxed iframe — MUST use window.DOME_DATA + window.__dome_updateState after each user change for SQLite persistence; NEVER localStorage/sessionStorage/IndexedDB for app data. ' +
+          'Types: task-tracker, chart, custom. Set html (fragment) and optional data (initial DOME_DATA). ' +
+          'CSS variables --bg, --accent, etc. are injected.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Display title' },
+            artifact_type: {
+              type: 'string',
+              enum: ['task-tracker', 'chart', 'custom'],
+              description: 'Semantic type',
+            },
+            html: { type: 'string', description: 'Self-contained HTML/CSS/JS' },
+            data: { type: 'object', description: 'Initial structured data for DOME_DATA' },
+            project_id: { type: 'string', description: 'Project ID (default: current)' },
+          },
+          required: ['title', 'artifact_type', 'html'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'artifact_get',
+        description: 'Get full artifact state (html, data, metadata) by resource ID.',
+        parameters: {
+          type: 'object',
+          properties: { resource_id: { type: 'string', description: 'Artifact resource ID' } },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'artifact_update_state',
+        description:
+          'Update an artifact: pass html and/or data (merged with existing). In-iframe JS must sync with __dome_updateState; do not use browser storage for durable state. Omit fields you do not change.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Artifact resource ID' },
+            html: { type: 'string', description: 'New self-contained HTML if replacing UI' },
+            data: { type: 'object', description: 'New structured data merged into state' },
+          },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'artifact_list',
+        description: 'List persisted artifacts in a project (titles, ids, types).',
+        parameters: {
+          type: 'object',
+          properties: { project_id: { type: 'string', description: 'Project ID (default: current)' } },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'artifact_delete',
+        description: 'Delete a persisted artifact resource and remove it from the library.',
+        parameters: {
+          type: 'object',
+          properties: { resource_id: { type: 'string', description: 'Artifact resource ID' } },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'artifact_link_resource',
+        description:
+          'Link (or unlink) a persisted artifact to an Excel/spreadsheet resource. ' +
+          'Once linked: Dome auto-refreshes the artifact whenever the spreadsheet is edited and exposes all sheet data as window.DOME_DATA.linkedData.sheets[sheetName]. ' +
+          'A "Refresh data" button appears in the artifact toolbar. ' +
+          'Use this when the user asks to link a dashboard to an Excel, or when an artifact was created without linkedResourceId. ' +
+          'Pass linked_resource_id=null to remove the link.',
+        parameters: {
+          type: 'object',
+          properties: {
+            artifact_resource_id: { type: 'string', description: 'Resource ID of the artifact to link' },
+            linked_resource_id: {
+              type: ['string', 'null'],
+              description: 'Resource ID of the Excel/spreadsheet to link to, or null to unlink',
+            },
+          },
+          required: ['artifact_resource_id', 'linked_resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'flashcard_create',
         description: 'Create a flashcard deck from Q&A pairs. Each card must have only question (string) and answer (string). Optionally difficulty: "easy"|"medium"|"hard". Do not add tags or other fields.',
         parameters: {
@@ -1364,6 +1556,25 @@ function getAllToolDefinitions() {
             intent: { type: 'string', description: 'Optional user goal to bias the analysis' },
           },
           required: ['image_base64'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'dome_load_doc',
+        description:
+          'Load a reference doc section on demand. Call this BEFORE using tools or emitting artifact blocks that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), resource_links (if unsure about dome:// link format).',
+        parameters: {
+          type: 'object',
+          properties: {
+            id: {
+              type: 'string',
+              enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'resource_links'],
+              description: 'Section identifier',
+            },
+          },
+          required: ['id'],
         },
       },
     },

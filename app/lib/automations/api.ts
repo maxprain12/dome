@@ -22,6 +22,29 @@ export type PersistentRunStepStatus =
   | 'error'
   | 'cancelled';
 
+export type AutomationArtifactBinding = {
+  id: string;
+  automationId: string;
+  artifactResourceId: string;
+  slot: string;
+  updatePolicy: 'replace' | 'merge_shallow' | 'merge_deep' | 'append_array';
+  transformHint: string | null;
+  extractMode: 'json_fence' | 'full_output';
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
+/** Fields accepted when upserting an automation (run-engine fills FK + timestamps). */
+export type AutomationArtifactBindingUpsert = {
+  id?: string;
+  artifactResourceId: string;
+  slot?: string;
+  updatePolicy?: AutomationArtifactBinding['updatePolicy'];
+  extractMode?: AutomationArtifactBinding['extractMode'];
+  enabled?: boolean;
+};
+
 export interface AutomationDefinition {
   id: string;
   projectId?: string;
@@ -45,6 +68,9 @@ export interface AutomationDefinition {
     toolIds?: string[];
     mcpServerIds?: string[];
     subagentIds?: Array<'research' | 'library' | 'writer' | 'data'>;
+    /** Optional hint: sync JSON output to this Hub artifact resource (used when no artifactBindings rows). */
+    boundArtifactResourceId?: string;
+    artifactOutputSlot?: string;
   } | null;
   outputMode?: AutomationOutputMode;
   enabled: boolean;
@@ -53,7 +79,13 @@ export interface AutomationDefinition {
   lastRunStatus?: string | null;
   createdAt?: number;
   updatedAt?: number;
+  /** Persisted automation → Hub artifact sinks (run engine applies on successful automation runs). */
+  artifactBindings?: AutomationArtifactBinding[];
 }
+
+export type SaveAutomationPayload = Omit<Partial<AutomationDefinition>, 'artifactBindings'> & {
+  artifactBindings?: AutomationArtifactBindingUpsert[];
+};
 
 export interface PersistentRunStep {
   id: string;
@@ -149,7 +181,7 @@ export async function getAutomation(automationId: string): Promise<AutomationDef
   return invoke<AutomationDefinition | null>('automations:get', automationId);
 }
 
-export async function saveAutomation(automation: Partial<AutomationDefinition>): Promise<AutomationDefinition> {
+export async function saveAutomation(automation: SaveAutomationPayload): Promise<AutomationDefinition> {
   const saved = await invoke<AutomationDefinition>('automations:upsert', automation);
   notifyAutomationsChanged();
   return saved;
@@ -209,6 +241,8 @@ export async function startLangGraphRun(params: {
   /** Many voice: read reply with TTS when run completes */
   autoSpeak?: boolean;
   voiceLanguage?: string;
+  /** IDs of resources pinned to the chat context (lazy content loading). */
+  pinnedResourceIds?: string[];
 }): Promise<PersistentRun> {
   return invoke<PersistentRun>('runs:startLangGraph', params);
 }
@@ -254,6 +288,14 @@ export function onRunChunk(callback: (payload: {
   actionRequests?: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
   reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
   threadId?: string;
+  breakdown?: {
+    systemApprox: number;
+    toolsApprox: number;
+    historyApprox: number;
+    totalApprox: number;
+    toolCount: number;
+    historyTurns: number;
+  };
 }) => void): () => void {
   const electron = ensureElectron();
   return electron.on('runs:chunk', callback);

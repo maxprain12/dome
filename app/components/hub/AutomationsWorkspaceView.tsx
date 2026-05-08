@@ -5,6 +5,7 @@ import {
   Bot, Workflow, Zap, Plus, Play, Trash2, Pencil,
   Clock, Loader2, X,
   Download, Upload,
+  Layers,
 } from 'lucide-react';
 import {
   listAutomations,
@@ -14,6 +15,7 @@ import {
   AUTOMATIONS_CHANGED_EVENT,
   type AutomationDefinition,
   type AutomationOutputMode,
+  type AutomationArtifactBinding,
 } from '@/lib/automations/api';
 import type { ManyAgent } from '@/types';
 import type { CanvasWorkflow } from '@/types/canvas';
@@ -52,6 +54,15 @@ export interface AutomationFilter {
   targetId?: string;
   targetLabel?: string;
 }
+type AutomationBindingDraft = {
+  id?: string;
+  artifactResourceId: string;
+  slot: string;
+  updatePolicy: AutomationArtifactBinding['updatePolicy'];
+  extractMode: AutomationArtifactBinding['extractMode'];
+  enabled: boolean;
+};
+
 type DraftState = {
   id?: string;
   title: string;
@@ -68,6 +79,9 @@ type DraftState = {
   prompt: string;
   /** Comma-separated context tags when trigger is contextual (e.g. resource_opened) */
   contextTags: string;
+  artifactBindings: AutomationBindingDraft[];
+  boundArtifactResourceId: string;
+  artifactOutputSlot: string;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -96,6 +110,9 @@ const EMPTY_DRAFT: DraftState = {
   outputMode: 'chat_only',
   prompt: '',
   contextTags: 'resource_opened',
+  artifactBindings: [],
+  boundArtifactResourceId: '',
+  artifactOutputSlot: 'default',
 };
 
 // ─── Automation Edit Drawer ───────────────────────────────────────────────────
@@ -104,6 +121,7 @@ interface AutomationEditDrawerProps {
   draft: DraftState;
   agents: ManyAgent[];
   workflows: CanvasWorkflow[];
+  hubArtifacts: Array<{ resourceId: string; title: string }>;
   isNew: boolean;
   saving: boolean;
   onDraftChange: (partial: Partial<DraftState>) => void;
@@ -114,7 +132,7 @@ interface AutomationEditDrawerProps {
 }
 
 function AutomationEditDrawer({
-  draft, agents, workflows, isNew, saving, onDraftChange, onSave, onCancel, embedded,
+  draft, agents, workflows, hubArtifacts, isNew, saving, onDraftChange, onSave, onCancel, embedded,
 }: AutomationEditDrawerProps) {
   const { t } = useTranslation();
   const formFields = (
@@ -275,6 +293,176 @@ function AutomationEditDrawer({
           textareaClassName="text-sm resize-none"
         />
 
+        <div
+          className="flex flex-col gap-3 rounded-xl p-3"
+          style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+        >
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+            <span className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>
+              {t('automation.artifact_sink_section')}
+            </span>
+          </div>
+          <p className="text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+            {t('automation.artifact_sink_hint')}
+          </p>
+
+          {draft.artifactBindings.map((b, idx) => (
+            <div
+              key={idx}
+              className="flex flex-col gap-2 rounded-lg p-2"
+              style={{ border: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}
+            >
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-medium" style={{ color: 'var(--dome-text)' }}>
+                  {t('automation.artifact_select')}
+                </label>
+                <DomeSelect
+                  value={b.artifactResourceId}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    onDraftChange({
+                      artifactBindings: draft.artifactBindings.map((row, i) =>
+                        i === idx ? { ...row, artifactResourceId: v } : row,
+                      ),
+                    });
+                  }}
+                  className="w-full"
+                  selectClassName="text-sm"
+                >
+                  <option value="">—</option>
+                  {hubArtifacts.map((a) => (
+                    <option key={a.resourceId} value={a.resourceId}>
+                      {a.title}
+                    </option>
+                  ))}
+                </DomeSelect>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <DomeInput
+                  label={t('automation.artifact_slot')}
+                  type="text"
+                  value={b.slot}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    onDraftChange({
+                      artifactBindings: draft.artifactBindings.map((row, i) =>
+                        i === idx ? { ...row, slot: v } : row,
+                      ),
+                    });
+                  }}
+                  className="w-full"
+                  inputClassName="text-sm"
+                />
+                <DomeSelect
+                  label={t('automation.artifact_policy')}
+                  value={b.updatePolicy}
+                  onChange={(e) => {
+                    const v = e.target.value as AutomationBindingDraft['updatePolicy'];
+                    onDraftChange({
+                      artifactBindings: draft.artifactBindings.map((row, i) =>
+                        i === idx ? { ...row, updatePolicy: v } : row,
+                      ),
+                    });
+                  }}
+                  className="w-full"
+                  selectClassName="text-sm"
+                >
+                  <option value="replace">{t('automation.artifact_policy_replace')}</option>
+                  <option value="merge_shallow">{t('automation.artifact_policy_merge_shallow')}</option>
+                  <option value="merge_deep">{t('automation.artifact_policy_merge_deep')}</option>
+                  <option value="append_array">{t('automation.artifact_policy_append_array')}</option>
+                </DomeSelect>
+              </div>
+              <DomeSelect
+                label={t('automation.artifact_extract_mode')}
+                value={b.extractMode}
+                onChange={(e) => {
+                  const v = e.target.value as AutomationBindingDraft['extractMode'];
+                  onDraftChange({
+                    artifactBindings: draft.artifactBindings.map((row, i) =>
+                      i === idx ? { ...row, extractMode: v } : row,
+                    ),
+                  });
+                }}
+                className="w-full"
+                selectClassName="text-sm"
+              >
+                <option value="json_fence">{t('automation.extract_json_fence')}</option>
+                <option value="full_output">{t('automation.extract_full_output')}</option>
+              </DomeSelect>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs" style={{ color: 'var(--dome-text)' }}>{t('automation.state_enabled')}</span>
+                <DomeToggle
+                  checked={b.enabled}
+                  onChange={(v) => {
+                    onDraftChange({
+                      artifactBindings: draft.artifactBindings.map((row, i) =>
+                        i === idx ? { ...row, enabled: v } : row,
+                      ),
+                    });
+                  }}
+                  size="sm"
+                />
+                <DomeButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto text-[var(--dome-error)]"
+                  onClick={() => {
+                    onDraftChange({
+                      artifactBindings: draft.artifactBindings.filter((_, i) => i !== idx),
+                    });
+                  }}
+                >
+                  {t('automation.artifact_remove_binding')}
+                </DomeButton>
+              </div>
+            </div>
+          ))}
+
+          <DomeButton
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full border-[var(--dome-border)]"
+            onClick={() =>
+              onDraftChange({
+                artifactBindings: [
+                  ...draft.artifactBindings,
+                  {
+                    artifactResourceId: hubArtifacts[0]?.resourceId ?? '',
+                    slot: 'default',
+                    updatePolicy: 'replace',
+                    extractMode: 'json_fence',
+                    enabled: true,
+                  },
+                ],
+              })
+            }
+          >
+            {t('automation.artifact_add_binding')}
+          </DomeButton>
+
+          <DomeInput
+            label={t('automation.bound_artifact_optional')}
+            type="text"
+            value={draft.boundArtifactResourceId}
+            onChange={(e) => onDraftChange({ boundArtifactResourceId: e.target.value })}
+            placeholder={t('automation.bound_artifact_placeholder')}
+            className="w-full"
+            inputClassName="text-sm font-mono text-xs"
+          />
+          <DomeInput
+            label={t('automation.artifact_slot')}
+            type="text"
+            value={draft.artifactOutputSlot}
+            onChange={(e) => onDraftChange({ artifactOutputSlot: e.target.value })}
+            className="w-full"
+            inputClassName="text-sm"
+          />
+        </div>
+
         <DomeSelect
           label={t('automation.output')}
           value={draft.outputMode}
@@ -387,6 +575,33 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
   const [saving, setSaving] = useState(false);
   const [runningId, setRunningId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [hubArtifacts, setHubArtifacts] = useState<Array<{ resourceId: string; title: string }>>([]);
+
+  useEffect(() => {
+    if (formMode === 'hidden') return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await window.electron?.artifacts?.list(projectId);
+        if (cancelled) return;
+        if (res?.success && Array.isArray(res.data)) {
+          setHubArtifacts(
+            res.data.map((a) => ({
+              resourceId: a.resourceId,
+              title: (a.title && String(a.title).trim()) ? String(a.title) : a.resourceId,
+            })),
+          );
+        } else {
+          setHubArtifacts([]);
+        }
+      } catch {
+        if (!cancelled) setHubArtifacts([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [formMode, projectId]);
 
   // Update filter when initialFilter changes (from clicking "Automatizaciones" on an agent/workflow)
   useEffect(() => {
@@ -458,6 +673,16 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
       outputMode: a.outputMode ?? 'chat_only',
       prompt: a.inputTemplate?.prompt ?? '',
       contextTags: (a.schedule?.contextTags ?? ['resource_opened']).join(', '),
+      artifactBindings: (a.artifactBindings ?? []).map((b) => ({
+        id: b.id,
+        artifactResourceId: b.artifactResourceId,
+        slot: b.slot || 'default',
+        updatePolicy: b.updatePolicy,
+        extractMode: b.extractMode,
+        enabled: b.enabled !== false,
+      })),
+      boundArtifactResourceId: a.inputTemplate?.boundArtifactResourceId ?? '',
+      artifactOutputSlot: a.inputTemplate?.artifactOutputSlot ?? 'default',
     });
     setFormMode('edit');
   };
@@ -499,7 +724,25 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                     .filter(Boolean),
                 }
               : null,
-        inputTemplate: { prompt: draft.prompt.trim() },
+        inputTemplate: {
+          prompt: draft.prompt.trim(),
+          ...(draft.boundArtifactResourceId.trim()
+            ? {
+                boundArtifactResourceId: draft.boundArtifactResourceId.trim(),
+                artifactOutputSlot: (draft.artifactOutputSlot || 'default').trim(),
+              }
+            : {}),
+        },
+        artifactBindings: draft.artifactBindings
+          .filter((b) => b.artifactResourceId.trim())
+          .map((b) => ({
+            id: b.id,
+            artifactResourceId: b.artifactResourceId.trim(),
+            slot: (b.slot || 'default').trim(),
+            updatePolicy: b.updatePolicy,
+            extractMode: b.extractMode,
+            enabled: b.enabled,
+          })),
         outputMode: draft.outputMode,
       });
       showToast('success', draft.id ? t('toast.automation_updated') : t('toast.automation_created'));
@@ -628,6 +871,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
             draft={draft}
             agents={agents}
             workflows={workflows}
+            hubArtifacts={hubArtifacts}
             isNew={true}
             saving={saving}
             onDraftChange={(partial) => setDraft((prev) => ({ ...prev, ...partial }))}
@@ -902,6 +1146,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
             draft={draft}
             agents={agents}
             workflows={workflows}
+            hubArtifacts={hubArtifacts}
             isNew={false}
             saving={saving}
             onDraftChange={(partial) => setDraft((prev) => ({ ...prev, ...partial }))}

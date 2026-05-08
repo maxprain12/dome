@@ -9,18 +9,20 @@ import { isElectronAI } from '@/lib/utils/formatting';
 // =============================================================================
 
 const DOME_DESIGN_SYSTEM = `
-Dome Design System (apply when generating artifact HTML):
-- CSS variables automatically injected into the iframe:
-    --bg (page background), --bg-secondary (cards/panels), --bg-tertiary (inputs),
-    --primary-text (headings), --secondary-text (body), --tertiary-text (muted),
-    --accent (buttons/links, ~purple), --border (borders), --border-hover
-- Structured data available as window.DOME_DATA (JSON)
-- To persist state changes call: window.__dome_updateState(newDataObject)
-- HTML must be self-contained; inline CSS/JS or CDN libraries (e.g. Chart.js via cdn.jsdelivr.net) are allowed
-- Font: Inter, -apple-system, sans-serif | Spacing multiples of 4px | Border-radius 4-12px
-- Use button styles: background var(--accent), color #fff, padding 8px 16px, border-radius 6px
-- Dark/light mode handled automatically via CSS variables — do not hardcode colors
-- Keep the UI clean and minimal; use the provided CSS vars for all colors
+Dome persisted-artifact contract (MUST follow for artifact_create / artifact_update_state):
+- Iframe is sandboxed: NO localStorage, sessionStorage, IndexedDB, or cookies for app state — they fail or are wrong. MUST NOT reference them in generated JS.
+- All durable state lives in SQLite via state.data → window.DOME_DATA. Initialize every field from DOME_DATA merged with in-code defaults (never leave arrays undefined before user actions).
+- After EVERY user mutation that must survive app restart, call window.__dome_updateState(nextDataObject) with the full next data object (same shape as DOME_DATA).
+- Optional window.__dome_collectState() only if some values cannot be represented on DOME_DATA; user may also click Save in the toolbar.
+- Do not tell the user that data "auto-persists in the browser".
+
+Design system (styling):
+- CSS variables injected into the iframe: --bg, --bg-secondary, --bg-tertiary, --primary-text, --secondary-text, --tertiary-text, --accent, --border, --border-hover
+- Form controls: stable id, name, or data-dome-key per input matching keys in data; anonymous fields use __dome_input_0, __dome_input_1, …
+- HTML self-contained; inline CSS/JS or CDN libs (e.g. Chart.js) allowed
+- Font: Inter, -apple-system, sans-serif | spacing 4px grid | border-radius 6–12px
+- Buttons: background var(--accent), color #fff, padding 8px 16px, border-radius 6px
+- Use CSS vars only; do not hardcode colors
 `;
 
 // =============================================================================
@@ -33,7 +35,7 @@ export function createArtifactCreateTool(): AnyAgentTool {
     name: 'artifact_create',
     description:
       'Create a persisted interactive artifact (mini-app) stored as a resource in Dome. ' +
-      'The artifact is rendered as self-contained HTML/CSS/JS in a sandboxed iframe. ' +
+      'Self-contained HTML/CSS/JS in a sandboxed iframe — MUST persist state only via window.DOME_DATA + window.__dome_updateState after each change; NEVER localStorage/sessionStorage. ' +
       'artifact_type options: "task-tracker" (Kanban board), "chart" (data chart), "custom" (any UI). ' +
       'Set state.html to fully self-contained HTML. Set state.data to the initial structured data object. ' +
       DOME_DESIGN_SYSTEM,
@@ -104,7 +106,7 @@ export function createArtifactUpdateStateTool(): AnyAgentTool {
     name: 'artifact_update_state',
     description:
       'Update an existing artifact. Provide the full new state object (html and/or data). ' +
-      'To update only the structured data (e.g. add a task), set state.data. ' +
+      'For data-only updates (e.g. add a row), set state.data; generated HTML MUST use __dome_updateState for runtime sync — NEVER browser storage. ' +
       'To regenerate the UI, set state.html. Both can be updated at once.' +
       DOME_DESIGN_SYSTEM,
     parameters: Type.Object({
@@ -187,6 +189,37 @@ export function createArtifactDeleteTool(): AnyAgentTool {
   };
 }
 
+export function createArtifactLinkResourceTool(): AnyAgentTool {
+  return {
+    label: 'Link Artifact to Resource',
+    name: 'artifact_link_resource',
+    description:
+      'Link (or unlink) a persisted artifact to a spreadsheet/Excel resource. ' +
+      'Once linked, Dome auto-refreshes the artifact whenever the spreadsheet is edited ' +
+      'and exposes all sheet data as window.DOME_DATA.linkedData.sheets[sheetName]. ' +
+      'Pass linkedResourceId=null to remove an existing link.',
+    parameters: Type.Object({
+      artifact_resource_id: Type.String({
+        description: 'The resource ID of the artifact to link (returned by artifact_create or artifact_list).',
+      }),
+      linked_resource_id: Type.Union([Type.String(), Type.Null()], {
+        description: 'Resource ID of the Excel/spreadsheet to link to, or null to unlink.',
+      }),
+    }),
+    execute: async (_id, args) => {
+      if (!isElectronAI()) return jsonResult({ error: 'Requires Electron environment.' });
+      const params = args as Record<string, unknown>;
+      const artifactResourceId = readStringParam(params, 'artifact_resource_id', { required: true });
+      const linkedResourceId = params.linked_resource_id as string | null | undefined;
+      const result = await window.electron.artifacts.setLinkedResource(
+        artifactResourceId,
+        linkedResourceId ?? null,
+      );
+      return jsonResult(result);
+    },
+  };
+}
+
 export function createArtifactTools(): AnyAgentTool[] {
   return [
     createArtifactCreateTool(),
@@ -194,5 +227,6 @@ export function createArtifactTools(): AnyAgentTool[] {
     createArtifactUpdateStateTool(),
     createArtifactListTool(),
     createArtifactDeleteTool(),
+    createArtifactLinkResourceTool(),
   ];
 }

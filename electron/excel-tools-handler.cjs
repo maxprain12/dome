@@ -21,6 +21,7 @@ const {
 
 const database = require('./database.cjs');
 const fileStorage = require('./file-storage.cjs');
+const artifactLinkSync = require('./artifact-link-sync.cjs');
 
 let windowManagerRef = null;
 function setWindowManager(wm) {
@@ -198,6 +199,7 @@ async function excelSetCell(resourceId, sheetName, cellRef, value) {
 
     await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
+    artifactLinkSync.syncLinkedArtifactsForResource(database, windowManagerRef, resourceId).catch(() => {});
     return {
       success: true,
       resource_id: resourceId,
@@ -257,6 +259,7 @@ async function excelSetRange(resourceId, sheetName, rangeRef, values) {
 
     await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
+    artifactLinkSync.syncLinkedArtifactsForResource(database, windowManagerRef, resourceId).catch(() => {});
     return {
       success: true,
       resource_id: resourceId,
@@ -310,6 +313,7 @@ async function excelAddRow(resourceId, sheetName, values, afterRow) {
 
     await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
+    artifactLinkSync.syncLinkedArtifactsForResource(database, windowManagerRef, resourceId).catch(() => {});
     return {
       success: true,
       resource_id: resourceId,
@@ -352,6 +356,7 @@ async function excelAddSheet(resourceId, sheetName, data) {
 
     await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
+    artifactLinkSync.syncLinkedArtifactsForResource(database, windowManagerRef, resourceId).catch(() => {});
     return {
       success: true,
       resource_id: resourceId,
@@ -489,6 +494,9 @@ async function excelExport(resourceId, options = {}) {
     return { success: false, error: error.message };
   }
 }
+
+// Inject excelGet into artifact-link-sync (avoids circular require)
+artifactLinkSync.setExcelGet(excelGet);
 
 module.exports = {
   setWindowManager,

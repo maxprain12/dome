@@ -11,7 +11,7 @@ const {
   resetPipeline,
 } = require('./embeddings.service.cjs');
 const { chunkText, assignPageNumbersFromMarkers } = require('./chunking.cjs');
-const { getIndexableText } = require('./resource-text.cjs');
+const { getIndexableText, syncArtifactFtsContent } = require('./resource-text.cjs');
 const fileStorage = require('../file-storage.cjs');
 const cloudLlm = require('./cloud-llm.service.cjs');
 const cloudLlmTasks = require('./cloud-llm-tasks.cjs');
@@ -58,7 +58,24 @@ function centroidL2Normalized(vectors) {
  * @param {string} type
  */
 function shouldIndexResourceType(type) {
-  return ['note', 'url', 'document', 'pdf', 'notebook', 'ppt', 'excel', 'image'].includes(type);
+  return ['note', 'url', 'document', 'pdf', 'notebook', 'ppt', 'excel', 'image', 'artifact'].includes(
+    type,
+  );
+}
+
+/**
+ * Keep FTS row in sync when artifact embeddings run (sweep / reindex). IPC also syncs on mutation for low latency.
+ * @param {Record<string, import('better-sqlite3').Statement>} queries
+ * @param {{ type?: string, id?: string } | undefined} resource
+ */
+function finalizeArtifactSearchSurface(queries, resource) {
+  const rid = resource?.id;
+  if (!rid || String(resource?.type) !== 'artifact') return;
+  try {
+    syncArtifactFtsContent(queries, rid);
+  } catch (e) {
+    console.warn('[indexing.pipeline] artifact fts sync', e?.message || e);
+  }
 }
 
 /**
@@ -150,6 +167,7 @@ function createIndexer(opts) {
     if (!text || source === 'empty') {
       queries.deleteChunksByResource.run(resourceId);
       queries.deleteSemanticAutoFromSource.run(resourceId);
+      finalizeArtifactSearchSurface(queries, resource);
       return { ok: true, skipped: true, reason: 'empty_text' };
     }
 
@@ -160,11 +178,13 @@ function createIndexer(opts) {
         assignPageNumbersFromMarkers(text, chunks);
       }
     } catch {
+      finalizeArtifactSearchSurface(queries, resource);
       return { ok: false, error: 'chunking_failed' };
     }
     if (chunks.length === 0) {
       queries.deleteChunksByResource.run(resourceId);
       queries.deleteSemanticAutoFromSource.run(resourceId);
+      finalizeArtifactSearchSurface(queries, resource);
       return { ok: true, skipped: true, reason: 'no_chunks' };
     }
 
@@ -179,6 +199,7 @@ function createIndexer(opts) {
       resetPipeline();
       const msg = e instanceof Error ? e.message : String(e);
       console.error('[indexing.pipeline] embedding_failed', resourceId, msg);
+      finalizeArtifactSearchSurface(queries, resource);
       return { ok: false, error: 'embedding_failed', message: msg };
     }
     const now = Date.now();
@@ -208,6 +229,7 @@ function createIndexer(opts) {
 
     const myCentroid = centroidL2Normalized(vectors);
     if (!myCentroid) {
+      finalizeArtifactSearchSurface(queries, resource);
       return { ok: true, count: 0, chunks: chunks.length, textSource: source };
     }
 
@@ -241,6 +263,8 @@ function createIndexer(opts) {
       upsertAutoEdge(queries, resourceId, r.targetId, r.sim, now);
       upsertAutoEdge(queries, r.targetId, resourceId, r.sim, now);
     }
+
+    finalizeArtifactSearchSurface(queries, resource);
 
     return { ok: true, count: topK.length, chunks: chunks.length, textSource: source };
   }

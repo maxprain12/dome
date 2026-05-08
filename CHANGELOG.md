@@ -4,7 +4,7 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
-## [2.1.7] - 2026-05-03
+## [2.1.7](https://github.com/maxprain12/dome/releases/tag/v2.1.7) - 2026-05-03
 
 ### Added
 
@@ -19,26 +19,22 @@ All notable changes to Dome are documented in this file.
 ### Fixed
 
 - Acceso seguro a `error.message` y condiciones de carrera en varios IPC (incl. `sync`); rutas relacionadas en almacenamiento y sincronización.
-- **`SidePanel`**: eliminación de doble type assertion en backlinks.
-- **`UnifiedSidebar`**: limpieza de `setTimeout` en `TreeNode`.
-- **`PptCapturePage`**: fondo con `var(--bg-secondary)` en lugar de `#fff` hardcoded.
+- `**SidePanel`**: eliminación de doble type assertion en backlinks.
+- `**UnifiedSidebar**`: limpieza de `setTimeout` en `TreeNode`.
+- `**PptCapturePage**`: fondo con `var(--bg-secondary)` en lugar de `#fff` hardcoded.
 - **i18n**: claves faltantes en studio y strings en `GenerateSourceModal`.
 
 ### Documentation
 
 - Referencia IPC actualizada en `docs/architecture/ipc-channels.md`.
 
-[2.1.7]: https://github.com/maxprain12/dome/releases/tag/v2.1.7
-
-## [2.1.6] - 2026-04-27
+## [2.1.6](https://github.com/maxprain12/dome/releases/tag/v2.1.6) - 2026-04-27
 
 ### Fixed
 
 - **CI / empaquetado**: compatibilidad con **electron-builder 26** eliminando la opción NSIS obsoleta `compression` del `package.json`; corregía el fallo de los jobs macOS y Windows del workflow de release.
 
-[2.1.6]: https://github.com/maxprain12/dome/releases/tag/v2.1.6
-
-## [2.1.5] - 2026-04-27
+## [2.1.5](https://github.com/maxprain12/dome/releases/tag/v2.1.5) - 2026-04-27
 
 ### Added
 
@@ -63,11 +59,9 @@ All notable changes to Dome are documented in this file.
 
 ### Chore
 
-- **`.gitignore`**: ignorar `bun.lock` (el proyecto usa **npm** y `package-lock.json`).
+- `**.gitignore`**: ignorar `bun.lock` (el proyecto usa **npm** y `package-lock.json`).
 
-[2.1.5]: https://github.com/maxprain12/dome/releases/tag/v2.1.5
-
-## [2.1.4] - 2026-04-27
+## [2.1.4](https://github.com/maxprain12/dome/releases/tag/v2.1.4) - 2026-04-27
 
 ### Added
 
@@ -95,11 +89,11 @@ All notable changes to Dome are documented in this file.
 ### Removed (API obsoletas)
 
 - **IPC `ai:embeddings`** y funciones de embedding en cloud (`embeddingsOpenAI` / `Google` / `Voyage`, `aiCloudService.embeddings`) — el índice usa Nomic en main.
-- **`ollamaService.generateEmbeddings`** (lotes).
+- `**ollamaService.generateEmbeddings**` (lotes).
 - **Preload `window.electron.send()`** (usar `invoke`).
 - **WhatsApp** `session.disconnect` (usar `stop` / `logout`).
-- **`renderPDFPage`** en `pdf-loader.ts` (duplicaba render del visor).
-- **Alias Tiptap** `buildNoteExtensions`, **`extractPdfTextWithGemma`**, export **`MAX_INPUT_CHARS`** duplicado en `embeddings.service.cjs`.
+- `**renderPDFPage`** en `pdf-loader.ts` (duplicaba render del visor).
+- **Alias Tiptap** `buildNoteExtensions`, `**extractPdfTextWithGemma`**, export `**MAX_INPUT_CHARS**` duplicado en `embeddings.service.cjs`.
 
 ### Removed
 
@@ -107,9 +101,7 @@ All notable changes to Dome are documented in this file.
 - **Gemma on-device**: worker WebGPU, `gemma:*` IPC, `GemmaWorkerPage`, STT `local-gemma` (mapeado a Whisper cloud), UI y docs asociadas; visión/PDF región vía `cloud:llm:*` y `electron/services/cloud-llm.service.cjs`.
 - Runtime Python **pageindex-runtime**, puentes y indexadores asociados, **Docling** en proceso principal, e IPC `pageindex:*` / `docling:*` (sustituidos por el índice semántico local documentado en `docs/indexing.md`).
 
-[2.1.4]: https://github.com/maxprain12/dome/releases/tag/v2.1.4
-
-## [2.1.3] - 2026-03-24
+## [2.1.3](https://github.com/maxprain12/dome/releases/tag/v2.1.3) - 2026-03-24
 
 ### Fixed
 
@@ -117,9 +109,7 @@ All notable changes to Dome are documented in this file.
 - **Playwright packaging**: bundled browser resources are now copied into the app and resolved correctly in packaged builds, including macOS `arm64`.
 - **After-pack validation**: `scripts/after-pack.cjs` now checks the correct bundled Playwright browser location and avoids misleading warnings about `playwright-core`.
 
-[2.1.3]: https://github.com/maxprain12/dome/releases/tag/v2.1.3
-
-## [2.1.2] - 2026-03-24
+## [2.1.2](https://github.com/maxprain12/dome/releases/tag/v2.1.2) - 2026-03-24
 
 ### Added
 
@@ -137,25 +127,19 @@ All notable changes to Dome are documented in this file.
 
 - **Diseño**: ampliación de `docs/dome-design-guide.md`.
 
-[2.1.2]: https://github.com/maxprain12/dome/releases/tag/v2.1.2
-
-## [2.1.1] - 2026-03-23
+## [2.1.1](https://github.com/maxprain12/dome/releases/tag/v2.1.1) - 2026-03-23
 
 ### Changed
 
 - **Electron**: Gestión de ventanas mejorada y manejo de recursos de assets en el proceso principal.
 
-[2.1.1]: https://github.com/maxprain12/dome/releases/tag/v2.1.1
-
-## [2.1.0] - 2026-03-22
+## [2.1.0](https://github.com/maxprain12/dome/releases/tag/v2.1.0) - 2026-03-22
 
 ### Changed
 
 - **Many / chat**: `MarkdownRenderer` y `ManyPanel` con mejor manejo de carpetas y recuperación de sesión.
 
-[2.1.0]: https://github.com/maxprain12/dome/releases/tag/v2.1.0
-
-## [2.0.9] - 2026-03-22
+## [2.0.9](https://github.com/maxprain12/dome/releases/tag/v2.0.9) - 2026-03-22
 
 ### Changed
 
@@ -166,9 +150,7 @@ All notable changes to Dome are documented in this file.
 
 - **Repositorio**: Ajustes en `.gitignore`, gestión de credenciales en CI y generación de iconos.
 
-[2.0.9]: https://github.com/maxprain12/dome/releases/tag/v2.0.9
-
-## [2.0.8] - 2026-03-22
+## [2.0.8](https://github.com/maxprain12/dome/releases/tag/v2.0.8) - 2026-03-22
 
 ### Added
 
@@ -206,9 +188,7 @@ All notable changes to Dome are documented in this file.
 - **Node.js en CI**: versión **24** en el job de build.
 - **Etiqueta**: `v2.0.8` alineada con estos cambios para releases reproducibles.
 
-[2.0.8]: https://github.com/maxprain12/dome/releases/tag/v2.0.8
-
-## [0.2.4] - 2026-02-17
+## [0.2.4](https://github.com/maxprain12/dome/releases/tag/v0.2.4) - 2026-02-17
 
 ### Added
 
@@ -222,9 +202,7 @@ All notable changes to Dome are documented in this file.
 - **Martin**: Mejoras en prompts, tools y componentes (MartinFloatingButton).
 - **Indexación de recursos**: Programación vía semantic-index-scheduler e IPC `db:semantic:*`.
 
-[0.2.4]: https://github.com/maxprain12/dome/releases/tag/v0.2.4
-
-## [0.2.3] - 2026-02-17
+## [0.2.3](https://github.com/maxprain12/dome/releases/tag/v0.2.3) - 2026-02-17
 
 ### Fixed
 
@@ -237,9 +215,7 @@ All notable changes to Dome are documented in this file.
 - **Descripciones de tools**: Descripciones más concisas en resource-actions, resources y context para optimizar tokens.
 - **System prompt unificado**: Instrucciones de tools centralizadas en `tools.txt` para todos los proveedores (OpenAI, Anthropic, Google, Ollama).
 
-[0.2.3]: https://github.com/maxprain12/dome/releases/tag/v0.2.3
-
-## [0.1.7] - 2026-02-15
+## [0.1.7](https://github.com/maxprain12/dome/releases/tag/v0.1.7) - 2026-02-15
 
 ### Added
 
@@ -303,9 +279,7 @@ All notable changes to Dome are documented in this file.
 - **FlashcardStudyView**: Posicionamiento dinámico del overlay según contexto.
 - **DocxViewer / SpreadsheetViewer**: Simplificación y limpieza.
 
-[0.1.7]: https://github.com/maxprain12/dome/releases/tag/v0.1.7
-
-## [0.1.5] - 2025-02-14
+## [0.1.5](https://github.com/maxprain12/dome/releases/tag/v0.1.5) - 2025-02-14
 
 ### Added
 
@@ -331,5 +305,3 @@ All notable changes to Dome are documented in this file.
 - `app/components/plugins/PetPluginSlot.tsx`: Slot que renderiza la mascota cuando hay un plugin pet habilitado.
 - `app/components/plugins/PetMascot.tsx`: Componente de mascota con navegación, sprites y click para abrir chat.
 - `app/components/home/HomeLayout.tsx`: Montaje de `PetPluginSlot` en el área principal del Home.
-
-[0.1.5]: https://github.com/maxprain12/dome/releases/tag/v0.1.5

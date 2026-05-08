@@ -8,7 +8,7 @@
  */
 
 export const RESOURCE_LINK_INSTRUCTION = `## Resource & Navigation Links
-When mentioning a resource (note, PDF, video, etc.) that the user can open in Dome, ALWAYS use: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, excel, ppt, video, audio, image, folder.
+When mentioning a resource (note, PDF, video, etc.) that the user can open in Dome, ALWAYS use: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, excel, ppt, video, audio, image, folder, artifact.
 
 NEVER use resource:// — it does not work. NEVER use [[Title]] wikilinks or file:// or raw URLs for internal resources—they open in the browser instead of in Dome. NEVER use /resource/ID as the link URL—always use dome://resource/ID/TYPE.
 

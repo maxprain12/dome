@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeBadge from '@/components/ui/DomeBadge';
 
-const INDEXABLE = new Set(['pdf', 'note', 'document', 'url', 'notebook', 'ppt', 'excel', 'image']);
+const INDEXABLE = new Set(['pdf', 'note', 'document', 'url', 'notebook', 'ppt', 'excel', 'image', 'artifact']);
 
 interface IndexStatusBadgeProps {
   resourceId: string;

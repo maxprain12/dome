@@ -6,6 +6,7 @@ import DomeButton from '@/components/ui/DomeButton';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { buildDomeThemeStyleContent, useDomeThemeSnapshot } from '@/lib/chat/useDomeThemeSnapshot';
 import i18n from '@/lib/i18n';
+import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
 
 const DOME_ARTIFACT = 'dome-artifact';
 const DOME_THEME = 'dome:theme';
@@ -23,6 +24,7 @@ function buildSrcDoc(artifact: HtmlArtifactV, themeCss: string): string {
   const { html, css = '', js = '' } = artifact;
   const boot = `
 <script>
+${DOME_IFRAME_STORAGE_SHIM_SCRIPT}
 (function() {
   var resizeTimer;
   function postReady() {
@@ -212,7 +214,7 @@ export default function HtmlArtifactFrame({
       <iframe
         ref={iframeRef}
         title={artifact.title || 'html-artifact'}
-        sandbox="allow-scripts"
+        sandbox="allow-scripts allow-modals"
         style={{
           width: '100%',
           height,
