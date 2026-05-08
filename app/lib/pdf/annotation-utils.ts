@@ -5,6 +5,19 @@
 
 import type { PageViewport } from 'pdfjs-dist';
 
+const CSS_VAR_CACHE: Record<string, string> = {};
+
+export function resolveCssColor(color: string): string {
+  if (!color.startsWith('var(')) return color;
+  if (CSS_VAR_CACHE[color]) return CSS_VAR_CACHE[color];
+  if (typeof window === 'undefined') return color;
+  const root = document.documentElement;
+  const computed = getComputedStyle(root).getPropertyValue(color.slice(4, -1).trim());
+  const resolved = computed.trim() || color;
+  CSS_VAR_CACHE[color] = resolved;
+  return resolved;
+}
+
 export type AnnotationType = 'highlight' | 'note';
 
 export interface PDFAnnotation {
@@ -177,7 +190,6 @@ export function renderAnnotation(
 
   const { coordinates, style, type } = annotation;
 
-  // Convert PDF coordinates to viewport coordinates
   const viewportRect = convertPDFRectToViewport(viewport, {
     x: coordinates.x,
     y: coordinates.y,
@@ -186,8 +198,9 @@ export function renderAnnotation(
   });
 
   ctx.globalAlpha = style.opacity ?? 0.3;
-  ctx.strokeStyle = style.color;
-  ctx.fillStyle = style.color;
+  const resolvedColor = resolveCssColor(style.color);
+  ctx.strokeStyle = resolvedColor;
+  ctx.fillStyle = resolvedColor;
   ctx.lineWidth = style.strokeWidth ?? 2;
 
   switch (type) {
@@ -209,7 +222,7 @@ function renderHighlight(
 ): void {
   if (viewportRect.width > 0 && viewportRect.height > 0) {
     ctx.globalAlpha = style.opacity ?? 0.3;
-    ctx.fillStyle = style.color;
+    ctx.fillStyle = resolveCssColor(style.color);
     ctx.fillRect(viewportRect.x, viewportRect.y, viewportRect.width, viewportRect.height);
   }
 }
@@ -224,18 +237,18 @@ function renderNote(
 
   // Draw note background
   ctx.globalAlpha = 0.95;
-  ctx.fillStyle = style.color || 'var(--accent)';
+  ctx.fillStyle = resolveCssColor(style.color || 'var(--accent)');
   ctx.fillRect(coordinates.x, coordinates.y, noteWidth, noteHeight);
 
   // Draw note border
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = 'var(--warning)';
+  ctx.strokeStyle = resolveCssColor('var(--warning)');
   ctx.lineWidth = 2;
   ctx.strokeRect(coordinates.x, coordinates.y, noteWidth, noteHeight);
 
   // Draw text if available
   if (content) {
-    ctx.fillStyle = 'var(--primary-text)';
+    ctx.fillStyle = resolveCssColor('var(--primary-text)');
     ctx.font = '12px sans-serif';
     const lines = content.split('\n');
     const lineHeight = 16;

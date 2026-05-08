@@ -147,9 +147,9 @@ export default function MindMap({ data, title, onClose, onExport }: MindMapProps
   }, []);
 
   // TODO(tech-debt): depthColors are used for mind map node depth gradient.
-  // These are application-specific colors not in globals.css. Consider adding
-  // dedicated CSS variables for mind map depth levels if this pattern expands.
-  const depthColors = ['var(--accent)', 'var(--success)', 'var(--warning)', 'var(--error)', 'var(--primary-text)'];
+  // Using accent family for neutral gradient - semantic colors (warning/error) 
+  // should not imply depth/status. These form a neutral depth progression.
+  const depthColors = ['var(--accent)', 'var(--accent-hover)', 'var(--bg-tertiary)', 'var(--secondary-text)', 'var(--primary-text)'];
 
   const selectedNode = selectedNodeId ? data.nodes.find((n) => n.id === selectedNodeId) : null;
 

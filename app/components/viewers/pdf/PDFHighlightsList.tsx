@@ -3,8 +3,20 @@ import { ChevronRight } from 'lucide-react';
 import type { PDFAnnotation } from '@/lib/pdf/annotation-utils';
 
 const COLOR_ORDER = [
-  'var(--warning)', 'var(--success)', 'var(--accent)', 'var(--error)', '#ff9800', '#9c27b0',
+  'var(--warning)', 'var(--success)', 'var(--accent)', 'var(--error)',
 ];
+
+const HEX_TO_VAR_MAP: Record<string, string> = {
+  '#E6C47A': 'var(--warning)',
+  '#596037': 'var(--accent)',
+  '#A4AD7A': 'var(--accent)',
+  '#E88585': 'var(--error)',
+};
+
+function normalizeColor(color: string): string {
+  if (color.startsWith('var(')) return color;
+  return HEX_TO_VAR_MAP[color] ?? color;
+}
 
 const SNIPPET_MAX_LENGTH = 80;
 
@@ -29,7 +41,7 @@ export default function PDFHighlightsList({ annotations, onGoToPage }: PDFHighli
   const groupedByColor = useMemo(() => {
     const map = new Map<string, PDFAnnotation[]>();
     for (const h of highlights) {
-      const c = h.style.color || 'var(--warning)';
+      const c = normalizeColor(h.style.color || 'var(--warning)');
       const list = map.get(c) ?? [];
       list.push(h);
       map.set(c, list);
