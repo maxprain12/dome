@@ -13,7 +13,7 @@ type SectionId = 'toc' | 'thumbnails' | 'highlights' | 'notes';
 // They are UI accent colors (not text/background colors) and need a proper design
 // treatment. Consider replacing with a dedicated annotation color palette if this
 // feature is expanded.
-const COLORS = ['var(--warning)', 'var(--success)', 'var(--accent)', 'var(--error)', '#ff9800', '#9c27b0'];
+const COLORS = ['var(--warning)', 'var(--success)', 'var(--accent)', 'var(--error)'];
 
 export default function PDFTab() {
   const { t } = useTranslation();

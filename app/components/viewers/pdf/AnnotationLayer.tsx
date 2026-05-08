@@ -6,7 +6,8 @@ import {
   renderAnnotation, 
   isPointInAnnotation,
   convertViewportRectToPDF,
-  convertPDFRectToViewport
+  convertPDFRectToViewport,
+  resolveCssColor
 } from '@/lib/pdf/annotation-utils';
 import { getPageTextContent, extractTextFromRegion } from '@/lib/pdf/pdf-loader';
 
@@ -100,7 +101,7 @@ export default function AnnotationLayer({
             width: coordinates.width,
             height: coordinates.height,
           });
-          ctx.strokeStyle = 'var(--accent)';
+          ctx.strokeStyle = resolveCssColor('var(--accent)');
           ctx.lineWidth = 2;
           ctx.setLineDash([5, 5]);
           ctx.strokeRect(
@@ -116,7 +117,7 @@ export default function AnnotationLayer({
       // Render current highlight being drawn
       if (isDrawing && startPoint && currentPoint && activeTool === 'highlight') {
         ctx.globalAlpha = 0.3;
-        ctx.fillStyle = color;
+        ctx.fillStyle = resolveCssColor(color);
         ctx.fillRect(
           Math.min(startPoint.x, currentPoint.x),
           Math.min(startPoint.y, currentPoint.y),
