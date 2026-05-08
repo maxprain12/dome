@@ -24,6 +24,80 @@ function colToLetter(col: number): string {
   return result;
 }
 
+/** Expand A1:C3 range to list of uppercase cell addresses */
+function expandRange(range: string): string[] {
+  const parts = range.toUpperCase().replace(/\$/g, '').split(':');
+  if (parts.length !== 2) return [];
+  const parseRef = (r: string) => {
+    const m = r.match(/^([A-Z]+)(\d+)$/);
+    if (!m) return null;
+    let col = 0;
+    for (const ch of m[1]) col = col * 26 + ch.charCodeAt(0) - 64;
+    return { col: col - 1, row: parseInt(m[2], 10) - 1 };
+  };
+  const a = parseRef(parts[0]);
+  const b = parseRef(parts[1]);
+  if (!a || !b) return [];
+  const refs: string[] = [];
+  for (let r = Math.min(a.row, b.row); r <= Math.max(a.row, b.row); r++) {
+    for (let c = Math.min(a.col, b.col); c <= Math.max(a.col, b.col); c++) {
+      refs.push(`${colToLetter(c)}${r + 1}`);
+    }
+  }
+  return refs;
+}
+
+/**
+ * Evaluate a basic Excel formula against a numeric cell map.
+ * Handles: SUM/AVERAGE/COUNT/MIN/MAX, arithmetic (+−×÷), cell refs, ranges.
+ */
+function evalFormula(formula: string, cellMap: Map<string, number>): string {
+  let expr = formula.replace(/^=/, '').trim();
+
+  // Resolve aggregate functions
+  expr = expr.replace(
+    /\b(SUM|AVERAGE|AVG|COUNT|MIN|MAX)\s*\(([^)]+)\)/gi,
+    (_, fn: string, args: string) => {
+      const vals: number[] = [];
+      for (const arg of args.split(',')) {
+        const a = arg.trim().replace(/\$/g, '').toUpperCase();
+        const targets = a.includes(':') ? expandRange(a) : [a];
+        for (const ref of targets) {
+          const v = cellMap.get(ref);
+          if (v !== undefined && isFinite(v)) vals.push(v);
+        }
+      }
+      if (!vals.length) return '0';
+      switch (fn.toUpperCase()) {
+        case 'SUM': return String(vals.reduce((a, b) => a + b, 0));
+        case 'AVERAGE':
+        case 'AVG': return String(vals.reduce((a, b) => a + b, 0) / vals.length);
+        case 'COUNT': return String(vals.length);
+        case 'MIN': return String(Math.min(...vals));
+        case 'MAX': return String(Math.max(...vals));
+        default: return '0';
+      }
+    },
+  );
+
+  // Replace remaining cell references with numeric values
+  expr = expr.replace(/\$?[A-Z]+\$?\d+/gi, (ref) => {
+    const v = cellMap.get(ref.replace(/\$/g, '').toUpperCase());
+    return v !== undefined ? String(v) : '0';
+  });
+
+  // Evaluate arithmetic (safe: only numbers + operators + parens remain)
+  try {
+    if (!/^[\d\s+\-*/().e,]+$/i.test(expr)) return '';
+    const val = Function(`"use strict"; return (${expr})`)() as unknown;
+    if (typeof val !== 'number' || !isFinite(val)) return '';
+    // Round to 10 significant digits to eliminate floating-point noise
+    return String(Math.round(val * 1e10) / 1e10);
+  } catch {
+    return '';
+  }
+}
+
 /** Parse string to number or boolean for Excel cell value */
 function parseCellValue(raw: string): string | number | boolean {
   const trimmed = raw.trim();
@@ -83,31 +157,90 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
         const ExcelJS = (await import('exceljs')).default;
         const binary = atob(result.data);
         const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(bytes.buffer);
         const parsedSheets: SheetData[] = [];
+
         workbook.eachSheet((worksheet) => {
-          const rows: string[][] = [];
+          type RawCell = { value: string; formula: string | null; addr: string };
+          const rawGrid: RawCell[][] = [];
+          // cellMap: addr → numeric value (for formula evaluation)
+          const cellMap = new Map<string, number>();
+
+          // ── Pass 1: read literal values and collect formula strings ──
+          let rowIndex = 0;
           worksheet.eachRow({ includeEmpty: true }, (row) => {
-            const r: string[] = [];
+            const rawRow: RawCell[] = [];
             row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-              while (r.length < colNumber - 1) r.push('');
+              while (rawRow.length < colNumber - 1)
+                rawRow.push({ value: '', formula: null, addr: '' });
+              const addr = `${colToLetter(colNumber - 1)}${rowIndex + 1}`;
               const v = cell.value;
               let s = '';
-              if (v == null) s = '';
-              else if (typeof v === 'object' && v !== null && 'richText' in v) {
+              let formula: string | null = null;
+
+              if (v == null) {
+                s = '';
+              } else if (typeof v !== 'object') {
+                s = String(v);
+                const n = Number(v);
+                if (isFinite(n)) cellMap.set(addr, n);
+              } else if (v instanceof Date) {
+                s = v.toISOString();
+              } else if ('richText' in v) {
                 s = (v as { richText: { text: string }[] }).richText.map((t) => t.text).join('');
-              } else if (v instanceof Date) s = v.toISOString();
-              else s = String(v);
-              r[colNumber - 1] = s;
+              } else if ('formula' in v || 'sharedFormula' in v || 'result' in v) {
+                const fv = v as { formula?: string; sharedFormula?: string; result?: unknown };
+                const res = fv.result;
+                if (res != null && typeof res !== 'object') {
+                  // Cached result available
+                  s = String(res);
+                  const n = Number(res);
+                  if (isFinite(n)) cellMap.set(addr, n);
+                } else if (res instanceof Date) {
+                  s = res.toISOString();
+                } else if (res != null && typeof res === 'object' && 'error' in res) {
+                  s = String((res as { error: unknown }).error);
+                } else {
+                  // No cached result — record formula for Pass 2
+                  formula = (fv.formula ?? fv.sharedFormula ?? '').replace(/^=/, '');
+                }
+              } else if ('text' in v) {
+                s = String((v as { text: unknown }).text);
+              } else if ('error' in v) {
+                s = String((v as { error: unknown }).error);
+              }
+
+              rawRow[colNumber - 1] = { value: s, formula, addr };
             });
-            rows.push(r);
+            rawGrid.push(rawRow);
+            rowIndex++;
           });
+
+          // ── Pass 2: evaluate formula cells (up to 3 dependency layers) ──
+          for (let pass = 0; pass < 3; pass++) {
+            let changed = false;
+            for (const rawRow of rawGrid) {
+              for (const rc of rawRow) {
+                if (!rc.formula) continue;
+                const evaluated = evalFormula(rc.formula, cellMap);
+                if (evaluated !== '') {
+                  rc.value = evaluated;
+                  const n = Number(evaluated);
+                  if (isFinite(n)) cellMap.set(rc.addr, n);
+                  rc.formula = null;
+                  changed = true;
+                }
+              }
+            }
+            if (!changed) break;
+          }
+
+          const rows = rawGrid.map((rawRow) => rawRow.map((rc) => rc.value));
           parsedSheets.push({ name: worksheet.name, data: rows });
         });
+
         setSheets(parsedSheets);
       }
     } catch (err) {

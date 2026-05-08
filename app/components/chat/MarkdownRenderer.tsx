@@ -259,8 +259,9 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
             const lookup = await electron.db.resources.getById(resourceId);
             if (lookup?.success && lookup.data) {
               const data = lookup.data as { type?: string; title?: string };
-              if (!resourceType) resourceType = data.type || 'url';
               resourceTitle = data.title || 'Recurso';
+              // DB type is canonical (e.g. artifact) even if the model used /note in the link.
+              resourceType = data.type || resourceType || 'url';
             } else if (!resourceType) {
               showToast('error', getResultError(lookup, t('toast.resource_not_found')));
               return;

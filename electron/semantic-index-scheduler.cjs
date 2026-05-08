@@ -85,7 +85,7 @@ async function indexMissingResources() {
       .prepare(
         `
       SELECT r.id FROM resources r
-      WHERE r.type IN ('note','url','document','pdf','notebook','ppt','excel','image')
+      WHERE r.type IN ('note','url','document','pdf','notebook','ppt','excel','image','artifact')
       AND NOT EXISTS (
         SELECT 1 FROM resource_chunks c WHERE c.resource_id = r.id AND c.model_version = ?
       )

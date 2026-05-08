@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import TokenBudgetBadge, { type BudgetBreakdown } from './TokenBudgetBadge';
 import { useTranslation } from 'react-i18next';
 import { Search, FolderOpen, ClipboardList, Bot, BarChart2, Calendar, Mail } from 'lucide-react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
@@ -86,27 +87,6 @@ function skillPathPatternsMatch(patterns: string[], ctxPath: string, pathnameOnl
   return false;
 }
 
-type ResourceContextPayload = {
-  content?: string | null;
-  summary?: string | null;
-  transcription?: string | null;
-  metadata?: Record<string, unknown> | null;
-};
-
-function getPreferredResourceContextContent(resource: ResourceContextPayload): string {
-  const scrapedContent = typeof resource.metadata?.scraped_content === 'string'
-    ? resource.metadata.scraped_content
-    : '';
-  const metadataSummary = typeof resource.metadata?.summary === 'string'
-    ? resource.metadata.summary
-    : '';
-
-  return (
-    [resource.content, scrapedContent, resource.summary, resource.transcription, metadataSummary]
-      .find((value) => typeof value === 'string' && value.trim().length > 0)
-      ?.trim() || ''
-  );
-}
 
 interface ManyPanelProps {
   width: number;
@@ -170,6 +150,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   } | null>(null);
   const prefersReducedMotion = useReducedMotion();
   const [providerInfo, setProviderInfo] = useState<string>('');
+  const [lastBudget, setLastBudget] = useState<BudgetBreakdown | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -566,6 +547,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     setPendingApproval: handleManyPendingApproval,
     onRunStatus: handleManyRunStatus,
     onRunTerminal: handleManyRunTerminal,
+    onBudget: setLastBudget,
     t,
   });
 
@@ -795,53 +777,19 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         volatileParts.push(`## What I know about you\n${userMemory}`);
       }
 
-      if (pinnedResources.length > 0 && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
-        const pinnedIds = pinnedResources.map((r) => r.id);
-        let pinnedBlock =
-          '## Pinned Context Resources\nThe following resources have been added to context by the user. Use their content directly — do NOT call resource_get or resource_search for these IDs unless you need pages not shown here.\n';
-        for (const resource of pinnedResources) {
-          try {
-            const result = await window.electron.ai.tools.resourceGet(resource.id, {
-              includeContent: true,
-              maxContentLength: 5000,
-            });
-            if (result?.success && result?.resource) {
-              const r = result.resource;
-              const content = getPreferredResourceContextContent(r);
-              pinnedBlock += `\n### [${resource.title}] (id: ${resource.id}, type: ${resource.type})\n`;
-              if (content?.trim()) {
-                pinnedBlock += content.slice(0, 5000);
-                if (content.length > 5000) pinnedBlock += '\n[Content truncated]';
-              } else {
-                pinnedBlock += '(No content available)';
-              }
-            }
-          } catch {
-            pinnedBlock += `\n### [${resource.title}] (id: ${resource.id})\n(Could not load content)`;
-          }
-        }
-        pinnedBlock += `\n\n> Already loaded resource IDs (skip fetching): ${pinnedIds.join(', ')}`;
-        volatileParts.push(pinnedBlock);
+      if (pinnedResources.length > 0) {
+        const pinnedSummary = pinnedResources
+          .map((r) => `- ${r.title} (id: ${r.id}, type: ${r.type})`)
+          .join('\n');
+        volatileParts.push(
+          `## Pinned Context Resources\nAvailable via resource_get_pinned(id). Do NOT call resource_search or resource_get for these IDs.\n${pinnedSummary}`,
+        );
       }
 
-      if (effectiveResourceId && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
-        try {
-          const result = await window.electron.ai.tools.resourceGet(effectiveResourceId, {
-            includeContent: true,
-            maxContentLength: 12000,
-          });
-          if (result?.success && result?.resource) {
-            const r = result.resource;
-            const content = getPreferredResourceContextContent(r);
-            if (content?.trim()) {
-              let block = `## Current Resource Content\nThe user is viewing "${r.title || currentResourceTitle}". Use this as the primary context for answering the user directly.\n\n${content.slice(0, 12000)}`;
-              if (content.length > 12000) block += '\n\n[Content truncated for length]';
-              volatileParts.push(block);
-            }
-          }
-        } catch (e) {
-          console.warn('[Many] Could not fetch resource content:', e);
-        }
+      if (effectiveResourceId && currentResourceTitle) {
+        volatileParts.push(
+          `## Active Resource\n"${currentResourceTitle}" (id: ${effectiveResourceId}). Call resource_get_active() to read its content when needed.`,
+        );
       }
 
       // User-configured skills: one-shot or sticky session skill, else all enabled (legacy)
@@ -878,7 +826,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               if (match) {
                 const b = s.body?.trim() || '';
                 if (b) {
-                  pathBlocks.push(`### ${s.name || s.id}\n${b}\n`);
+                  // Truncate path-matched skills to 1500 chars to save tokens;
+                  // model can call load_skill for the full body if needed.
+                  const truncated = b.length > 1500 ? `${b.slice(0, 1499)}…\n[Call load_skill('${s.slug || s.id}') for full body]` : b;
+                  pathBlocks.push(`### ${s.name || s.id}\n${truncated}\n`);
                   activeSkillRecords.push({ allowed_tools: s.allowed_tools || [] });
                 }
               }
@@ -886,29 +837,24 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             if (pathBlocks.length > 0) {
               volatileParts.push(`## Context skills (path match)\n${pathBlocks.join('\n')}\n`);
             }
-            const CATALOG = 1536;
+            // Build minimal catalog: slug + when_to_use (≤80 chars each).
+            // Model calls load_skill(name) to get the full body on demand.
+            const CATALOG_MAX_SKILLS = 40;
             const lines: string[] = [];
             for (const s of all) {
+              if (lines.length >= CATALOG_MAX_SKILLS) break;
               if (s.disable_model_invocation) continue;
               if (!s.body?.trim()) continue;
               const slug = String(s.slug || s.id || '').trim();
-              const desc = String(s.description || s.name || '').trim();
-              if (!desc || desc === slug || desc === s.id) {
+              const label = String(s.when_to_use || s.description || s.name || '').trim();
+              if (!label || label === slug || label === s.id) {
                 console.warn('[Many] Skipping skill catalog entry (orphan metadata):', s.id);
                 continue;
               }
-              const w = s.when_to_use ? ` — ${s.when_to_use}` : '';
-              const line = `- /${slug}: ${desc.slice(0, 400)}${w}`.trim();
-              if (line.length > CATALOG) {
-                lines.push(`${line.slice(0, CATALOG - 1)}…`);
-              } else {
-                lines.push(line);
-              }
+              lines.push(`- /${slug}: ${label.slice(0, 80)}`);
             }
             if (lines.length > 0) {
-              skillsCatalogMarkdown = `## Available Skills (use load_skill tool with field **name** = slash name, e.g. \`research-assistant\`)\n${lines.join(
-                '\n',
-              )}\n`;
+              skillsCatalogMarkdown = `## Available Skills\nUse load_skill(name) to get full instructions. Only call it when clearly relevant.\n${lines.join('\n')}\n`;
             }
           }
         }
@@ -1022,6 +968,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         projectId: chatProjectId,
         autoSpeak: sendOptions?.autoSpeak ? true : undefined,
         voiceLanguage: sendOptions?.autoSpeak ? voiceLanguage : undefined,
+        pinnedResourceIds: pinnedResources.length > 0 ? pinnedResources.map((r) => r.id) : undefined,
       });
       delegatedToRunEngine = true;
       if (sendOptions?.autoSpeak) {
@@ -1600,6 +1547,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           </details>
         </div>
       ) : null}
+
+      {/* Token budget telemetry badge */}
+      {lastBudget && !pendingApproval && (
+        <div className="flex justify-end px-3 py-0.5">
+          <TokenBudgetBadge breakdown={lastBudget} />
+        </div>
+      )}
 
       {/* Hide bottom input when welcome screen is showing centered input */}
       {!(

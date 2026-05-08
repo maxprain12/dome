@@ -30,6 +30,8 @@ const path = require('path');
 const skillRegistry = require('./skills/registry.cjs');
 const { renderSkillBody } = require('./skills/renderer.cjs');
 const { rrfMerge } = require('./hybrid-rrf.cjs');
+const { serializeArtifactRecord, parseJsonState } = require('./artifact-serialize.cjs');
+const { afterArtifactMutation } = require('./artifact-index-sync.cjs');
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -3360,6 +3362,241 @@ async function shellExec(args) {
 }
 
 // =============================================================================
+// Artifact tools (LangGraph / main process — mirrors IPC artifact:* handlers)
+// =============================================================================
+
+function _isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function _syncArtifactRuntimeFromState(queries, artifactRow, stateObj, now) {
+  if (!artifactRow || !_isPlainObject(stateObj?.data)) return;
+  const cryptoMod = require('crypto');
+  const dataStr = JSON.stringify(stateObj.data);
+  const existing = queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
+  queries.upsertArtifactRuntimeData.run(
+    existing?.id || cryptoMod.randomUUID(),
+    artifactRow.id,
+    'default',
+    dataStr,
+    existing?.schema_version ?? 1,
+    existing?.last_run_id ?? null,
+    existing?.last_automation_id ?? null,
+    now,
+  );
+}
+
+async function artifactList(args) {
+  try {
+    const queries = database.getQueries();
+    let projectId = args?.project_id ?? args?.projectId;
+    if (!projectId) {
+      const cur = await getCurrentProject();
+      projectId = cur?.id || 'default';
+    }
+    const rows = queries.listArtifactsByProject.all(projectId);
+    const results = rows.map((row) => {
+      const resource = queries.getResourceById.get(row.resource_id);
+      return serializeArtifactRecord(row, resource, queries);
+    });
+    return { success: true, data: results };
+  } catch (error) {
+    console.error('[AI Tools] artifactList error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function artifactGet(args) {
+  try {
+    const resourceId = args?.resource_id ?? args?.resourceId;
+    if (!resourceId) return { success: false, error: 'resource_id is required' };
+    const queries = database.getQueries();
+    const artifact = queries.getArtifactByResourceId.get(resourceId);
+    if (!artifact) return { success: false, error: 'Artifact not found' };
+    const resource = queries.getResourceById.get(resourceId);
+    return { success: true, data: serializeArtifactRecord(artifact, resource, queries) };
+  } catch (error) {
+    console.error('[AI Tools] artifactGet error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function artifactCreate(args) {
+  try {
+    const cryptoMod = require('crypto');
+    const title = typeof args?.title === 'string' ? args.title.trim() : '';
+    if (!title) return { success: false, error: 'title is required' };
+    const rawType = args?.artifact_type ?? args?.artifactType ?? 'custom';
+    const allowed = new Set(['task-tracker', 'chart', 'custom']);
+    const artifactType = allowed.has(rawType) ? rawType : 'custom';
+    const html = typeof args?.html === 'string' ? args.html : '';
+    if (!html.trim()) return { success: false, error: 'html is required' };
+    const data = _isPlainObject(args?.data) ? args.data : {};
+
+    let projectId = args?.project_id ?? args?.projectId;
+    if (!projectId) {
+      const cur = await getCurrentProject();
+      projectId = cur?.id || 'default';
+    }
+
+    const queries = database.getQueries();
+    const db = database.getDB();
+    const now = Date.now();
+    const resourceId = cryptoMod.randomUUID();
+    const artifactId = cryptoMod.randomUUID();
+    const state = { html, data };
+    const stateStr = JSON.stringify(state);
+
+    const tx = db.transaction(() => {
+      queries.createResource.run(resourceId, projectId, 'artifact', title, null, null, null, null, now, now);
+      queries.createArtifact.run(artifactId, resourceId, artifactType, null, stateStr, null, now, now);
+      const art = queries.getArtifactByResourceId.get(resourceId);
+      if (art) {
+        _syncArtifactRuntimeFromState(queries, art, parseJsonState(stateStr), now);
+      }
+    });
+    tx();
+
+    const resource = queries.getResourceById.get(resourceId);
+    const artifact = queries.getArtifactByResourceId.get(resourceId);
+    const serialized = serializeArtifactRecord(artifact, resource, queries);
+
+    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
+      windowManagerRef.broadcast('resource:created', resource);
+      windowManagerRef.broadcast('artifact:created', serialized);
+    }
+
+    afterArtifactMutation(database, resourceId);
+
+    return { success: true, data: serialized };
+  } catch (error) {
+    console.error('[AI Tools] artifactCreate error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function artifactUpdateState(args) {
+  try {
+    const resourceId = args?.resource_id ?? args?.resourceId;
+    if (!resourceId) return { success: false, error: 'resource_id is required' };
+    const queries = database.getQueries();
+    const db = database.getDB();
+    const existing = queries.getArtifactByResourceId.get(resourceId);
+    if (!existing) return { success: false, error: 'Artifact not found' };
+
+    const prevState = parseJsonState(existing.state);
+    const mergedState = { ...prevState };
+    if (args.html !== undefined) mergedState.html = args.html;
+    if (args.data !== undefined) mergedState.data = args.data;
+
+    const now = Date.now();
+    const stateStr = JSON.stringify(mergedState);
+    const tx = db.transaction(() => {
+      queries.updateArtifactState.run(stateStr, now, resourceId);
+      const updated = queries.getArtifactByResourceId.get(resourceId);
+      if (updated) {
+        _syncArtifactRuntimeFromState(queries, updated, parseJsonState(stateStr), now);
+      }
+    });
+    tx();
+
+    const updated = queries.getArtifactByResourceId.get(resourceId);
+    const resource = queries.getResourceById.get(resourceId);
+    const serialized = serializeArtifactRecord(updated, resource, queries);
+
+    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
+      windowManagerRef.broadcast('artifact:updated', serialized);
+    }
+
+    afterArtifactMutation(database, resourceId);
+
+    return { success: true, data: serialized };
+  } catch (error) {
+    console.error('[AI Tools] artifactUpdateState error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function artifactDelete(args) {
+  try {
+    const resourceId = args?.resource_id ?? args?.resourceId;
+    if (!resourceId) return { success: false, error: 'resource_id is required' };
+
+    const queries = database.getQueries();
+    const resource = queries.getResourceById.get(resourceId);
+    if (!resource) return { success: false, error: 'Resource not found' };
+    if (resource.type !== 'artifact') {
+      return { success: false, error: 'Resource is not an artifact' };
+    }
+
+    if (resource.internal_path) {
+      try {
+        fileStorage.deleteFile(resource.internal_path);
+      } catch (e) {
+        console.warn('[AI Tools] artifactDelete file cleanup:', e.message);
+      }
+    }
+
+    queries.deleteResource.run(resourceId);
+
+    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
+      windowManagerRef.broadcast('artifact:deleted', { resourceId });
+      windowManagerRef.broadcast('resource:deleted', { id: resourceId });
+    }
+
+    return {
+      success: true,
+      deleted: { id: resourceId, title: resource.title, type: resource.type },
+    };
+  } catch (error) {
+    console.error('[AI Tools] artifactDelete error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function artifactLinkResource(args) {
+  try {
+    const resourceId = args?.resource_id ?? args?.artifact_resource_id;
+    if (!resourceId) return { success: false, error: 'artifact_resource_id is required' };
+
+    const linkedResourceId = args?.linked_resource_id ?? null;
+    const { syncLinkedArtifactsForResource } = require('./artifact-link-sync.cjs');
+    const { serializeArtifactRecord } = require('./artifact-serialize.cjs');
+
+    const queries = database.getQueries();
+    const db = database.getDB();
+    const now = Date.now();
+
+    const existing = queries.getArtifactByResourceId.get(resourceId);
+    if (!existing) return { success: false, error: 'Artifact not found' };
+
+    db.prepare(
+      'UPDATE artifacts SET linked_resource_id = ?, version = version + 1, updated_at = ? WHERE resource_id = ?',
+    ).run(linkedResourceId, now, resourceId);
+
+    const updated = queries.getArtifactByResourceId.get(resourceId);
+    const resource = queries.getResourceById.get(resourceId);
+    const serialized = serializeArtifactRecord(updated, resource, queries);
+
+    if (windowManagerRef?.broadcast) {
+      windowManagerRef.broadcast('artifact:updated', serialized);
+    }
+
+    if (linkedResourceId) {
+      await syncLinkedArtifactsForResource(database, windowManagerRef, linkedResourceId);
+    }
+
+    return {
+      success: true,
+      artifact: { id: resourceId, title: resource?.title, linked_resource_id: linkedResourceId },
+    };
+  } catch (error) {
+    console.error('[AI Tools] artifactLinkResource error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -3371,9 +3608,15 @@ module.exports = {
   markdownToTipTapJSON,
 
 
+  // Meta-tools (handled directly in tool-dispatcher.cjs switch; stub satisfies guard)
+  domeLoadDoc: () => null,
+
   // Resource tools (read)
   resourceSearch,
   resourceGet,
+  // Lazy-context wrappers: actual ID lookup happens in tool-dispatcher.cjs
+  resourceGetActive: resourceGet,
+  resourceGetPinned: resourceGet,
   resourceGetSection,
   resourceList,
   resourceSemanticSearch,
@@ -3386,6 +3629,14 @@ module.exports = {
   resourceUpdate,
   resourceDelete,
   resourceMoveToFolder,
+
+  // Artifacts (persisted iframe mini-apps)
+  artifactList,
+  artifactGet,
+  artifactCreate,
+  artifactUpdateState,
+  artifactDelete,
+  artifactLinkResource,
 
   // Project tools
   projectList,

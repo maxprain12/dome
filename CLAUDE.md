@@ -133,6 +133,11 @@ dome/
 │   ├── ollama-service.cjs      # Local Ollama integration
 │   ├── automation-service.cjs  # Automation/scheduled task execution
 │   ├── run-engine.cjs          # Agent run execution engine
+│   ├── artifact-sink.cjs       # Automation→artifact data binding
+│   ├── artifact-serialize.cjs  # Artifact serialization helpers
+│   ├── artifact-index-sync.cjs # Re-index after artifact mutation
+│   ├── prompt-budget.cjs       # Token budget estimation (char/4 approx)
+│   ├── prompt-sections.cjs     # On-demand prompt reference sections (dome_load_doc)
 │   ├── plugin-loader.cjs       # Plugin system
 │   ├── marketplace-config.cjs  # Plugin marketplace
 │   ├── pdf-extractor.cjs       # PDF text/page extraction
@@ -215,6 +220,36 @@ import { createAIClient } from '@/lib/ai/client';
 ### Automations & Run Engine
 
 `electron/automation-service.cjs` manages scheduled/triggered automation rules. `electron/run-engine.cjs` executes individual agent runs (used by both automations and the Runs UI). Run state is persisted to SQLite and surfaced in `app/components/automations/RunLogView.tsx` via `runs` IPC domain.
+
+After a run completes, `electron/artifact-sink.cjs` checks for automation→artifact bindings (`automation_artifact_bindings` table) and applies them: it extracts JSON from the run output and merges it into the target artifact's `state.data`, then broadcasts `artifact:updated` via `windowManager`.
+
+### Artifacts System
+
+Artifacts are interactive mini-apps. Two kinds:
+
+**Kind A — Inline chat artifacts**: emitted as `\`\`\`artifact:TYPE` fenced blocks in a chat reply. Rendered ephemerally inside the message. Types (defined in `app/lib/chat/artifactSchemas.ts`): `calculator`, `diagram`, `dashboard`, `html`, `tabs`, `playground`, `timeline`, `flashcard_deck`, `calendar_event`, `chart`, `pdf_summary`, `action_items`, `list`, `created_entity`. Zod-validated at parse time; `KNOWN_ARTIFACT_TYPES` / `ZOD_VALIDATED_ARTIFACT_TYPES` control which types are promoted vs. rendered as raw code.
+
+**Kind B — Persisted library mini-apps**: created by the agent calling the `artifact_create` tool (IPC `artifact:create`). Stored in SQLite `artifacts` table (schema in `electron/database.cjs`). Key fields: `resource_id`, `artifact_type`, `template` (HTML string), `state` (JSON with `data` sub-key), `linked_resource_id`.
+
+**Iframe persistence contract** (renderer → SQLite):
+- `window.DOME_DATA` — injected by Dome before each render; always read initial state from here
+- `window.__dome_updateState(nextDataObject)` — call after every mutation; syncs to SQLite immediately
+- `window.__dome_collectState()` — optional; called by the toolbar "Save" button
+- `localStorage`/`sessionStorage` are unavailable inside the sandboxed iframe (srcdoc + no `allow-same-origin`); `app/lib/chat/artifactStorageShim.ts` injects an in-memory shim so legacy code doesn't crash
+
+**Key files:**
+- `electron/ipc/artifacts.cjs` — IPC handlers: `artifact:create`, `artifact:get`, `artifact:update`, `artifact:delete`, `artifact:list`, `artifact:export`, `artifact:import`
+- `electron/artifact-sink.cjs` — automation binding logic (`applyArtifactSinksForCompletedRun`)
+- `electron/artifact-index-sync.cjs` — semantic re-index after artifact mutation
+- `electron/artifact-serialize.cjs` — serialization helpers
+- `app/components/artifacts/ArtifactWorkspaceClient.tsx` — library view (opens via tab)
+- `app/components/chat/artifacts/HtmlArtifactFrame.tsx` — iframe renderer (chat + workspace)
+- `app/lib/chat/artifactSchemas.ts` — Zod schemas + `parseArtifactSegments()` for streaming
+- `app/lib/ai/tools/artifact-tools.ts` — agent tools (`artifact_create`, `artifact_get`, `artifact_update_state`)
+
+**Prompt guidance** (loaded on-demand via `dome_load_doc`): `prompts/martin/artifacts.txt` (decision matrix, inline format rules) and `prompts/martin/artifact-persisted.txt` (full `artifact_create` API + `__dome_updateState` contract).
+
+**`linked_resource_id`**: the DB column exists and the IPC accepts it, but automatic data-refresh from the linked resource into `DOME_DATA` is not yet implemented. Currently the agent must call `excel_get` + `artifact_update_state` manually to refresh an artifact from an Excel.
 
 ### Shell & Tab System
 

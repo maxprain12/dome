@@ -4,28 +4,31 @@
  * Emits a deterministic string optimized for provider prompt caching (stable prefix first):
  *   1. staticPersona (Many persona, agent instructions, supervisor template…)
  *   2. App section guide (APP_SECTION_GUIDE)
- *   3. Resource / navigation link rules
- *   4. Artifact emission rules (prompts/martin/artifacts.txt)
- *   5. Tool limits + catalog summary (prompts/martin/tools.txt)
- *   6. Entity creation rules (marketplace, workflows, automations)
- *   7. Tool usage mode
- *   8. Citation guidance
- *   9. Optional skills catalog markdown (Many — load_skill list)
- *  10. Current date
- *  11. Volatile session context (UI, pinned, memory, resource body, path/active skills)
- *  12. Extra sections (e.g. resource tool hints)
- *  13. Voice suffix (optional)
+ *   3. Tool limits + catalog summary (prompts/martin/tools.txt)
+ *   4. Reference docs stub (dome_load_doc catalog — lazy loaded on demand)
+ *   5. Tool usage mode
+ *   6. Citation guidance
+ *   7. Optional skills catalog markdown (Many — load_skill list)
+ *   8. Current date
+ *   9. Volatile session context (UI, pinned, memory, active skills)
+ *  10. Extra sections (e.g. resource tool hints)
+ *  11. Voice suffix (optional)
  */
 
 import { prompts } from '@/lib/prompts/loader';
 import {
-  RESOURCE_LINK_INSTRUCTION,
-  ENTITY_CREATION_RULES,
   TOOL_USAGE_MODE,
   CHAT_CITATION_INSTRUCTION,
   APP_SECTION_GUIDE,
   buildVoiceSuffix,
 } from './systemPrompts';
+
+const REFERENCE_DOCS_STUB = `## Reference docs (load only if the user's request needs them)
+Available via dome_load_doc(id):
+- entity_rules — when creating agents, workflows, automations, or marketplace installs
+- artifacts — when emitting any artifact block (inline chat artifacts OR persisted library mini-apps); contains the decision matrix for which kind to use
+- artifact_persisted — when creating, updating, or deleting a persisted library mini-app (artifact_create / artifact_update_state / artifact_delete)
+- resource_links — only if you are unsure about the dome:// link format`;
 
 export type DomeSystemPromptOptions = {
   /** Stable persona / role text (no per-session UI context). */
@@ -44,7 +47,7 @@ export type DomeSystemPromptOptions = {
   omitCitationGuidance?: boolean;
   /** Skip the Tool Usage Mode block (rare — only when caller already provides one). */
   omitToolUsageMode?: boolean;
-  /** Skip the Entity Creation block (e.g. read-only agents). */
+  /** @deprecated entity_rules are now loaded lazily via dome_load_doc. */
   omitEntityRules?: boolean;
 };
 
@@ -64,11 +67,9 @@ export function buildDomeSystemPrompt(options: DomeSystemPromptOptions): string 
   if (persona) sections.push(persona);
 
   sections.push(APP_SECTION_GUIDE);
-  sections.push(RESOURCE_LINK_INSTRUCTION);
-  sections.push(prompts.martin.artifacts);
   sections.push(prompts.martin.tools);
+  sections.push(REFERENCE_DOCS_STUB);
 
-  if (!options.omitEntityRules) sections.push(ENTITY_CREATION_RULES);
   if (!options.omitToolUsageMode) sections.push(TOOL_USAGE_MODE);
   if (!options.omitCitationGuidance) sections.push(CHAT_CITATION_INSTRUCTION);
 
@@ -100,8 +101,6 @@ export function buildDomeSystemPrompt(options: DomeSystemPromptOptions): string 
 }
 
 export {
-  RESOURCE_LINK_INSTRUCTION,
-  ENTITY_CREATION_RULES,
   TOOL_USAGE_MODE,
   CHAT_CITATION_INSTRUCTION,
   APP_SECTION_GUIDE,

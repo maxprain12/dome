@@ -33,6 +33,14 @@ function runEmbedExclusive(fn) {
 }
 
 /**
+ * The ONNX session can SIGTRAP after many sequential inferences without a session reset
+ * (same issue as consecutive reindexAll calls). Reset every N inferences to keep the
+ * session fresh and prevent the crash.
+ */
+let _embedInvocationCount = 0;
+const PIPELINE_RESET_INTERVAL = 25;
+
+/**
  * @param {{ modelsDir: string }} opts
  */
 function configureTransformersEnv(opts) {
@@ -65,6 +73,7 @@ async function getPipeline() {
  */
 function resetPipeline() {
   _pipelinePromise = null;
+  _embedInvocationCount = 0;
 }
 
 /**
@@ -104,6 +113,12 @@ function tensorToRowVectors(tensor) {
  */
 async function embedDocuments(texts) {
   return runEmbedExclusive(async () => {
+    // Periodically reset the ONNX session to avoid the session-corruption SIGTRAP that
+    // occurs after many sequential inferences (same bug as consecutive reindexAll calls).
+    _embedInvocationCount += 1;
+    if (_embedInvocationCount % PIPELINE_RESET_INTERVAL === 0) {
+      resetPipeline();
+    }
     const pipe = await getPipeline();
     const inputs = (texts || []).map((t) => `search_document: ${String(t ?? '')}`);
     const out = [];

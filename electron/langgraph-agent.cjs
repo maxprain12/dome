@@ -18,6 +18,7 @@ const { getMCPTools } = require('./mcp-client.cjs');
 const database = require('./database.cjs');
 const { getDomeCheckpointer } = require('./checkpointer.cjs');
 const { withLangfuseCallbacks } = require('./observability.cjs');
+const { measurePrompt } = require('./prompt-budget.cjs');
 
 function pickTokenNumber(obj, keys) {
   if (!obj || typeof obj !== 'object') return null;
@@ -648,9 +649,15 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     automationProjectId,
     provider,
     customTools,
+    runtimeContext,
   } = opts;
 
-  const toolContext = automationProjectId ? { automationProjectId } : null;
+  const toolContext = (automationProjectId || runtimeContext)
+    ? {
+        ...(automationProjectId ? { automationProjectId } : {}),
+        ...(runtimeContext ? { runtimeContext } : {}),
+      }
+    : null;
 
   const rtEmittedCallIds = new Set();
   const rtEmittedResultIds = new Set();
@@ -705,6 +712,25 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       ? (mcpServerIds.length > 0 ? await getMCPTools(database, mcpServerIds) : [])
       : await getMCPTools(database);
     const mainAgentDefs = [
+      {
+        type: 'function',
+        function: {
+          name: 'dome_load_doc',
+          description:
+            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), resource_links (if unsure about dome:// link format).',
+          parameters: {
+            type: 'object',
+            properties: {
+              id: {
+                type: 'string',
+                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'resource_links'],
+                description: 'Section identifier',
+              },
+            },
+            required: ['id'],
+          },
+        },
+      },
       {
         type: 'function',
         function: {
@@ -803,6 +829,77 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     tools = [...tools, ...customTools];
   }
 
+  // Always inject dome_load_doc (meta-tool) — handles both branches.
+  const alreadyHasDomeLoadDoc = tools.some((t) => (t.name || t.function?.name) === 'dome_load_doc');
+  if (!alreadyHasDomeLoadDoc) {
+    const domeLoadDocDef = [
+      {
+        type: 'function',
+        function: {
+          name: 'dome_load_doc',
+          description:
+            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), resource_links (if unsure about dome:// link format).',
+          parameters: {
+            type: 'object',
+            properties: {
+              id: {
+                type: 'string',
+                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'resource_links'],
+                description: 'Section identifier',
+              },
+            },
+            required: ['id'],
+          },
+        },
+      },
+    ];
+    const domeLoadDocTools = await createLangChainToolsFromOpenAIDefinitions(domeLoadDocDef, (name, args) => {
+      const capError = callCounter.check(name);
+      if (capError) return { error: capError };
+      return executeToolInMain(name, args, toolContext);
+    });
+    tools = [...domeLoadDocTools, ...tools];
+  }
+
+  // Inject runtime-context tools when the session has an active or pinned resource.
+  if (runtimeContext?.activeResourceId || runtimeContext?.pinnedResourceIds?.length > 0) {
+    const rtDefs = [];
+    if (runtimeContext.activeResourceId) {
+      rtDefs.push({
+        type: 'function',
+        function: {
+          name: 'resource_get_active',
+          description: 'Get the full content of the resource currently open in the viewer. Use when the user asks to read, summarize, analyze, or reference the active document.',
+          parameters: { type: 'object', properties: {}, additionalProperties: false },
+        },
+      });
+    }
+    if (runtimeContext.pinnedResourceIds?.length > 0) {
+      rtDefs.push({
+        type: 'function',
+        function: {
+          name: 'resource_get_pinned',
+          description: 'Get the content of a resource pinned to context by the user. Only use IDs listed in the system prompt Pinned Context Resources section.',
+          parameters: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'The resource ID from the Pinned Context Resources list.' },
+            },
+            required: ['id'],
+          },
+        },
+      });
+    }
+    if (rtDefs.length > 0) {
+      const rtTools = await createLangChainToolsFromOpenAIDefinitions(rtDefs, (name, args) => {
+        const capError = callCounter.check(name);
+        if (capError) return { error: capError };
+        return executeToolInMain(name, args, toolContext);
+      });
+      tools = [...tools, ...rtTools];
+    }
+  }
+
   const interruptOn = buildHitlInterruptOn(skipHitl, useDirectTools);
   const hitlMiddleware = humanInTheLoopMiddleware({
     interruptOn,
@@ -865,6 +962,18 @@ async function invokeLangGraphAgent(opts) {
   // Trimming is handled inside the graph by `DomeTrimMessages` middleware so
   // that intermediate tool turns also stay within the provider budget.
   const lcMessages = await toLangChainMessages(messages);
+
+  // Emit token budget breakdown for telemetry (first message of the run only).
+  if (onChunk) {
+    const sysMsg = Array.isArray(messages) ? messages.find((m) => m.role === 'system') : null;
+    const histMsgs = Array.isArray(messages) ? messages.filter((m) => m.role !== 'system') : [];
+    const budgetBreakdown = measurePrompt({
+      system: sysMsg?.content || '',
+      tools: opts.toolDefinitions || [],
+      history: histMsgs,
+    });
+    onChunk({ type: 'budget', breakdown: budgetBreakdown });
+  }
 
   const config = withLangfuseCallbacks({
     configurable: { thread_id: threadId || `dome_${Date.now()}` },

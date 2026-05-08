@@ -11,6 +11,7 @@ import martinExcelContext from '../../../prompts/martin/excel-context.txt?raw';
 import martinPptContext from '../../../prompts/martin/ppt-context.txt?raw';
 import martinDocumentContext from '../../../prompts/martin/document-context.txt?raw';
 import martinArtifacts from '../../../prompts/martin/artifacts.txt?raw';
+import martinArtifactPersisted from '../../../prompts/martin/artifact-persisted.txt?raw';
 import martinFloatingBase from '../../../prompts/martin/floating-base.txt?raw';
 import editorSystem from '../../../prompts/editor/system.txt?raw';
 import editorReview from '../../../prompts/editor/actions/review.txt?raw';
@@ -31,6 +32,7 @@ const manyPromptSet = {
   pptContext: martinPptContext,
   documentContext: martinDocumentContext,
   artifacts: martinArtifacts,
+  artifactPersisted: martinArtifactPersisted,
   floatingBase: martinFloatingBase,
 };
 

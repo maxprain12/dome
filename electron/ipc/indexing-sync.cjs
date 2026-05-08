@@ -8,7 +8,7 @@
 const { resetPipeline } = require('../services/embeddings.service.cjs');
 const semanticIndexScheduler = require('../semantic-index-scheduler.cjs');
 
-const INDEXABLE_TYPES = ['pdf', 'note', 'document', 'url', 'notebook', 'ppt', 'excel', 'image'];
+const INDEXABLE_TYPES = ['pdf', 'note', 'document', 'url', 'notebook', 'ppt', 'excel', 'image', 'artifact'];
 
 /**
  * @param {Object} deps

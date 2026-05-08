@@ -72,7 +72,18 @@ function cellValueToPrimitive(cell) {
   if (typeof v === 'object' && v !== null) {
     if (Array.isArray(v)) return v.map((x) => (x && x.text) || x).join('');
     if (v.richText) return v.richText.map((t) => t.text).join('');
-    if ('formula' in v && v.result != null) return v.result;
+    // Formula cells (regular 'formula' key or shared 'sharedFormula' key).
+    // ALWAYS enter this branch for formula cells — if result is null the xlsx has
+    // no cached value, return '' rather than falling through to String(v) = "[object Object]".
+    if ('formula' in v || 'sharedFormula' in v) {
+      const r = v.result;
+      if (r == null) return '';
+      if (typeof r === 'string' || typeof r === 'number' || typeof r === 'boolean') return r;
+      if (r instanceof Date) return r;
+      // Formula error objects like { error: '#REF!' }
+      if (typeof r === 'object' && r !== null && r.error) return r.error;
+      return '';
+    }
     if (v.hyperlink) return v.text != null ? v.text : String(v.hyperlink);
     if (v.text) return v.text;
   }

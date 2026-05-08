@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `npm run generate:ipc-inventory`.
-> Última generación: 2026-05-06T11:23:27.331Z
+> Última generación: 2026-05-08T21:31:17.164Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -65,12 +65,14 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:screenUnderstand` | `electron/ipc/ai-tools.cjs:692` |
 | `ai:webSearch` | `electron/ipc/ai.cjs:555` |
 | `artifact:create` | `electron/ipc/artifacts.cjs:35` |
-| `artifact:delete` | `electron/ipc/artifacts.cjs:137` |
-| `artifact:export` | `electron/ipc/artifacts.cjs:170` |
-| `artifact:get` | `electron/ipc/artifacts.cjs:87` |
-| `artifact:import` | `electron/ipc/artifacts.cjs:206` |
-| `artifact:list` | `electron/ipc/artifacts.cjs:152` |
-| `artifact:update` | `electron/ipc/artifacts.cjs:103` |
+| `artifact:delete` | `electron/ipc/artifacts.cjs:155` |
+| `artifact:export` | `electron/ipc/artifacts.cjs:188` |
+| `artifact:get` | `electron/ipc/artifacts.cjs:94` |
+| `artifact:import` | `electron/ipc/artifacts.cjs:225` |
+| `artifact:list` | `electron/ipc/artifacts.cjs:170` |
+| `artifact:refresh-linked` | `electron/ipc/artifacts.cjs:332` |
+| `artifact:set-linked-resource` | `electron/ipc/artifacts.cjs:297` |
+| `artifact:update` | `electron/ipc/artifacts.cjs:110` |
 | `audio:generate-podcast` | `electron/ipc/audio.cjs:86` |
 | `audio:generate-speech` | `electron/ipc/audio.cjs:31` |
 | `audio:get-status` | `electron/ipc/audio.cjs:120` |
@@ -318,21 +320,21 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `plugin:read-asset` | `electron/ipc/plugins.cjs:89` |
 | `plugin:setEnabled` | `electron/ipc/plugins.cjs:77` |
 | `plugin:uninstall` | `electron/ipc/plugins.cjs:65` |
-| `resource:delete` | `electron/ipc/resources.cjs:691` |
-| `resource:export` | `electron/ipc/resources.cjs:641` |
-| `resource:extractPptImages` | `electron/ipc/resources.cjs:419` |
-| `resource:getFilePath` | `electron/ipc/resources.cjs:289` |
+| `resource:delete` | `electron/ipc/resources.cjs:677` |
+| `resource:export` | `electron/ipc/resources.cjs:627` |
+| `resource:extractPptImages` | `electron/ipc/resources.cjs:405` |
+| `resource:getFilePath` | `electron/ipc/resources.cjs:275` |
 | `resource:import` | `electron/ipc/resources.cjs:18` |
-| `resource:importFromContent` | `electron/ipc/resources.cjs:797` |
-| `resource:importMultiple` | `electron/ipc/resources.cjs:168` |
-| `resource:readDocumentContent` | `electron/ipc/resources.cjs:456` |
-| `resource:readFile` | `electron/ipc/resources.cjs:378` |
-| `resource:readFileBuffer` | `electron/ipc/resources.cjs:329` |
-| `resource:regenerateThumbnail` | `electron/ipc/resources.cjs:725` |
-| `resource:saveDocxFromHtml` | `electron/ipc/resources.cjs:554` |
-| `resource:scheduleIndex` | `electron/ipc/resources.cjs:138` |
-| `resource:setThumbnail` | `electron/ipc/resources.cjs:764` |
-| `resource:writeExcelContent` | `electron/ipc/resources.cjs:497` |
+| `resource:importFromContent` | `electron/ipc/resources.cjs:783` |
+| `resource:importMultiple` | `electron/ipc/resources.cjs:167` |
+| `resource:readDocumentContent` | `electron/ipc/resources.cjs:442` |
+| `resource:readFile` | `electron/ipc/resources.cjs:364` |
+| `resource:readFileBuffer` | `electron/ipc/resources.cjs:315` |
+| `resource:regenerateThumbnail` | `electron/ipc/resources.cjs:711` |
+| `resource:saveDocxFromHtml` | `electron/ipc/resources.cjs:540` |
+| `resource:scheduleIndex` | `electron/ipc/resources.cjs:137` |
+| `resource:setThumbnail` | `electron/ipc/resources.cjs:750` |
+| `resource:writeExcelContent` | `electron/ipc/resources.cjs:483` |
 | `runs:abort` | `electron/ipc/runs.cjs:66` |
 | `runs:delete` | `electron/ipc/runs.cjs:77` |
 | `runs:get` | `electron/ipc/runs.cjs:6` |
@@ -400,14 +402,14 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `whatsapp:start` | `electron/ipc/whatsapp.cjs:53` |
 | `whatsapp:status` | `electron/ipc/whatsapp.cjs:25` |
 | `whatsapp:stop` | `electron/ipc/whatsapp.cjs:71` |
-| `window:broadcast` | `electron/ipc/window.cjs:281` |
-| `window:close` | `electron/ipc/window.cjs:195` |
-| `window:close-current` | `electron/ipc/window.cjs:246` |
-| `window:create` | `electron/ipc/window.cjs:138` |
-| `window:create-modal` | `electron/ipc/window.cjs:165` |
-| `window:list` | `electron/ipc/window.cjs:262` |
-| `window:maximize-toggle` | `electron/ipc/window.cjs:229` |
-| `window:minimize-current` | `electron/ipc/window.cjs:213` |
-| `window:open-folder` | `electron/ipc/window.cjs:311` |
-| `window:open-settings` | `electron/ipc/window.cjs:362` |
-| `window:open-workspace` | `electron/ipc/window.cjs:333` |
+| `window:broadcast` | `electron/ipc/window.cjs:283` |
+| `window:close` | `electron/ipc/window.cjs:197` |
+| `window:close-current` | `electron/ipc/window.cjs:248` |
+| `window:create` | `electron/ipc/window.cjs:140` |
+| `window:create-modal` | `electron/ipc/window.cjs:167` |
+| `window:list` | `electron/ipc/window.cjs:264` |
+| `window:maximize-toggle` | `electron/ipc/window.cjs:231` |
+| `window:minimize-current` | `electron/ipc/window.cjs:215` |
+| `window:open-folder` | `electron/ipc/window.cjs:313` |
+| `window:open-settings` | `electron/ipc/window.cjs:364` |
+| `window:open-workspace` | `electron/ipc/window.cjs:335` |

@@ -27,8 +27,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       }
 
       const ext = path.extname(filePath).toLowerCase();
-      const isExcel = ext === '.xlsx' || ext === '.xls';
-      const effectiveType = (type === 'document' && isExcel) ? 'excel' : type;
+      const effectiveType = fileStorage.classifyFileType(ext, type);
 
       // Import file to internal storage
       const importResult = await fileStorage.importFile(filePath, effectiveType);
@@ -66,9 +65,9 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         }
       }
 
-      // Extract text content for document/excel types (for card preview and AI tools)
+      // Extract text content for document/excel/ppt types (for card preview and AI tools)
       let contentText = null;
-      if (effectiveType === 'document' || effectiveType === 'excel') {
+      if (effectiveType === 'document' || effectiveType === 'excel' || effectiveType === 'ppt') {
         try {
           contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
         } catch (extractError) {
@@ -182,20 +181,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
         // Determine type from extension if not provided
         const ext = path.extname(filePath).toLowerCase();
-        let fileType = type;
-        if (!fileType) {
-          if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'].includes(ext)) {
-            fileType = 'image';
-          } else if (ext === '.pdf') {
-            fileType = 'pdf';
-          } else if (['.mp4', '.webm', '.mov', '.avi', '.mkv'].includes(ext)) {
-            fileType = 'video';
-          } else if (['.mp3', '.wav', '.ogg', '.flac', '.m4a'].includes(ext)) {
-            fileType = 'audio';
-          } else {
-            fileType = 'document';
-          }
-        }
+        const fileType = fileStorage.classifyFileType(ext, type);
 
         const importResult = await fileStorage.importFile(filePath, fileType);
 
@@ -219,9 +205,9 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
           importResult.mimeType
         );
 
-        // Extract text for documents and PDFs
+        // Extract text for documents, spreadsheets and presentations
         let contentText = null;
-        if (fileType === 'document') {
+        if (fileType === 'document' || fileType === 'excel' || fileType === 'ppt') {
           try {
             contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
           } catch (e) {

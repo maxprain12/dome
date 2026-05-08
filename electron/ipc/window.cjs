@@ -68,12 +68,14 @@ async function openWorkspaceForResource(resourceId, resourceType, options = {}, 
     return openFolderForFolder(resourceId, { database, windowManager, nativeTheme });
   }
 
+  const canonicalType = resource.type || resourceType;
+
   const windowId = `workspace-${resourceId}`;
   const existingWindow = windowManager.get(windowId);
   if (existingWindow && !existingWindow.isDestroyed()) {
     existingWindow.focus();
     // If we have a page param for PDF/document, reload the window with the new URL so it navigates to that page
-    const isPdfOrDoc = resourceType === 'pdf' || resourceType === 'document';
+    const isPdfOrDoc = canonicalType === 'pdf' || canonicalType === 'document';
     if (page != null && isPdfOrDoc) {
       try {
         const currentUrl = existingWindow.webContents.getURL();
@@ -91,18 +93,18 @@ async function openWorkspaceForResource(resourceId, resourceType, options = {}, 
   }
 
   let route;
-  if (resourceType === 'url') {
+  if (canonicalType === 'url') {
     let metadata = {};
     try {
       metadata = resource.metadata ? JSON.parse(resource.metadata) : {};
     } catch (e) { /* ignore */ }
     const isYouTube = metadata.url_type === 'youtube' || !!metadata.video_id;
     route = isYouTube ? `/workspace/youtube?id=${resourceId}` : `/workspace/url?id=${resourceId}`;
-  } else if (resourceType === 'notebook') {
+  } else if (canonicalType === 'notebook') {
     route = `/workspace/notebook?id=${resourceId}`;
-  } else if (resourceType === 'ppt') {
+  } else if (canonicalType === 'ppt') {
     route = `/workspace/ppt?id=${resourceId}`;
-  } else if (resourceType === 'document') {
+  } else if (canonicalType === 'document') {
     const filename = (resource.original_filename || resource.title || '').toLowerCase();
     const mime = resource.file_mime_type || '';
     const isPptx = filename.endsWith('.pptx') || filename.endsWith('.ppt') || mime.includes('presentationml') || mime.includes('ms-powerpoint');
@@ -110,7 +112,7 @@ async function openWorkspaceForResource(resourceId, resourceType, options = {}, 
     const base = isPptx ? `/workspace/ppt?id=${resourceId}` : (isDocx ? `/workspace/docx?id=${resourceId}` : `/workspace?id=${resourceId}`);
     route = page && !isPptx && !isDocx ? `${base}&page=${page}` : base;
   } else {
-    route = (resourceType === 'pdf' && page) ? `/workspace?id=${resourceId}&page=${page}` : `/workspace?id=${resourceId}`;
+    route = (canonicalType === 'pdf' && page) ? `/workspace?id=${resourceId}&page=${page}` : `/workspace?id=${resourceId}`;
   }
 
   windowManager.create(

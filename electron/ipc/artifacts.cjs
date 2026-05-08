@@ -1,31 +1,31 @@
 /* eslint-disable no-console */
 const crypto = require('crypto');
+const { serializeArtifactRecord, parseJsonState } = require('../artifact-serialize.cjs');
+const { afterArtifactMutation } = require('../artifact-index-sync.cjs');
+const { syncLinkedArtifactsForResource } = require('../artifact-link-sync.cjs');
 
 function generateId() {
   return crypto.randomUUID();
 }
 
-function serializeArtifact(row, resource) {
-  if (!row) return null;
-  let state = {};
-  try {
-    state = JSON.parse(row.state);
-  } catch {
-    // keep empty
-  }
-  return {
-    id: row.id,
-    resourceId: row.resource_id,
-    artifactType: row.artifact_type,
-    template: row.template || null,
-    state,
-    linkedResourceId: row.linked_resource_id || null,
-    version: row.version,
-    title: resource?.title ?? '',
-    projectId: resource?.project_id ?? 'default',
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function syncRuntimeDataFromState(queries, artifactRow, stateObj, now) {
+  if (!artifactRow || !isPlainObject(stateObj?.data)) return;
+  const dataStr = JSON.stringify(stateObj.data);
+  const existing = queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
+  queries.upsertArtifactRuntimeData.run(
+    existing?.id || crypto.randomUUID(),
+    artifactRow.id,
+    'default',
+    dataStr,
+    existing?.schema_version ?? 1,
+    existing?.last_run_id ?? null,
+    existing?.last_automation_id ?? null,
+    now,
+  );
 }
 
 function register({ ipcMain, windowManager, database }) {
@@ -67,15 +67,22 @@ function register({ ipcMain, windowManager, database }) {
           now,
           now,
         );
+        const art = queries.getArtifactByResourceId.get(resourceId);
+        if (art) {
+          syncRuntimeDataFromState(queries, art, parseJsonState(stateStr), now);
+        }
       });
       tx();
 
-      const resource = queries.getResourceById.get(resourceId);
-      const artifact = queries.getArtifactByResourceId.get(resourceId);
-      const serialized = serializeArtifact(artifact, resource);
+      const queries2 = database.getQueries();
+      const resource = queries2.getResourceById.get(resourceId);
+      const artifact = queries2.getArtifactByResourceId.get(resourceId);
+      const serialized = serializeArtifactRecord(artifact, resource, queries2);
 
       windowManager.broadcast('resource:created', resource);
       windowManager.broadcast('artifact:created', serialized);
+
+      afterArtifactMutation(database, resourceId);
 
       return { success: true, data: serialized };
     } catch (error) {
@@ -93,7 +100,7 @@ function register({ ipcMain, windowManager, database }) {
       const artifact = queries.getArtifactByResourceId.get(resourceId);
       if (!artifact) return { success: false, error: 'Artifact not found' };
       const resource = queries.getResourceById.get(resourceId);
-      return { success: true, data: serializeArtifact(artifact, resource) };
+      return { success: true, data: serializeArtifactRecord(artifact, resource, queries) };
     } catch (error) {
       console.error('[Artifact] Error getting:', error);
       return { success: false, error: error.message };
@@ -106,27 +113,38 @@ function register({ ipcMain, windowManager, database }) {
     }
     try {
       const queries = database.getQueries();
+      const db = database.getDB();
       const now = Date.now();
       const existing = queries.getArtifactByResourceId.get(resourceId);
       if (!existing) return { success: false, error: 'Artifact not found' };
 
-      if (artifactType !== undefined || linkedResourceId !== undefined) {
-        queries.updateArtifact.run(
-          artifactType ?? existing.artifact_type,
-          existing.template,
-          state !== undefined ? JSON.stringify(state) : existing.state,
-          linkedResourceId !== undefined ? (linkedResourceId ?? null) : (existing.linked_resource_id ?? null),
-          now,
-          resourceId,
-        );
-      } else if (state !== undefined) {
-        queries.updateArtifactState.run(JSON.stringify(state), now, resourceId);
-      }
+      const tx = db.transaction(() => {
+        if (artifactType !== undefined || linkedResourceId !== undefined) {
+          queries.updateArtifact.run(
+            artifactType ?? existing.artifact_type,
+            existing.template,
+            state !== undefined ? JSON.stringify(state) : existing.state,
+            linkedResourceId !== undefined ? (linkedResourceId ?? null) : (existing.linked_resource_id ?? null),
+            now,
+            resourceId,
+          );
+        } else if (state !== undefined) {
+          queries.updateArtifactState.run(JSON.stringify(state), now, resourceId);
+        }
+        const updated = queries.getArtifactByResourceId.get(resourceId);
+        if (updated && state !== undefined) {
+          syncRuntimeDataFromState(queries, updated, parseJsonState(JSON.stringify(state)), now);
+        }
+      });
+      tx();
 
       const updated = queries.getArtifactByResourceId.get(resourceId);
       const resource = queries.getResourceById.get(resourceId);
-      const serialized = serializeArtifact(updated, resource);
+      const serialized = serializeArtifactRecord(updated, resource, queries);
       windowManager.broadcast('artifact:updated', serialized);
+
+      afterArtifactMutation(database, resourceId);
+
       return { success: true, data: serialized };
     } catch (error) {
       console.error('[Artifact] Error updating:', error);
@@ -158,7 +176,7 @@ function register({ ipcMain, windowManager, database }) {
       const rows = queries.listArtifactsByProject.all(projectId || 'default');
       const results = rows.map((row) => {
         const resource = queries.getResourceById.get(row.resource_id);
-        return serializeArtifact(row, resource);
+        return serializeArtifactRecord(row, resource, queries);
       });
       return { success: true, data: results };
     } catch (error) {
@@ -176,6 +194,7 @@ function register({ ipcMain, windowManager, database }) {
       const artifact = queries.getArtifactByResourceId.get(resourceId);
       if (!artifact) return { success: false, error: 'Artifact not found' };
       const resource = queries.getResourceById.get(resourceId);
+      const mergedState = serializeArtifactRecord(artifact, resource, queries)?.state ?? parseJsonState(artifact.state);
 
       const bundle = {
         version: 1,
@@ -184,7 +203,7 @@ function register({ ipcMain, windowManager, database }) {
           title: resource?.title ?? 'Untitled',
           artifact_type: artifact.artifact_type,
           template: artifact.template ?? null,
-          state: JSON.parse(artifact.state || '{}'),
+          state: mergedState,
           linked_resource_id: artifact.linked_resource_id ?? null,
         },
       };
@@ -211,8 +230,6 @@ function register({ ipcMain, windowManager, database }) {
       const queries = database.getQueries();
       const db = database.getDB();
 
-      // Always use a native dialog — never accept a file path from the renderer
-      // to prevent path traversal attacks.
       const result = await dialog.showOpenDialog({
         filters: [{ name: 'Dome Artifact', extensions: ['json'] }],
         properties: ['openFile'],
@@ -253,19 +270,82 @@ function register({ ipcMain, windowManager, database }) {
           now,
           now,
         );
+        const art = queries.getArtifactByResourceId.get(resourceId);
+        if (art) {
+          syncRuntimeDataFromState(queries, art, parseJsonState(JSON.stringify(state ?? {})), now);
+        }
       });
       tx();
 
-      const resource = queries.getResourceById.get(resourceId);
-      const artifact = queries.getArtifactByResourceId.get(resourceId);
-      const serialized = serializeArtifact(artifact, resource);
+      const queries2 = database.getQueries();
+      const resource = queries2.getResourceById.get(resourceId);
+      const artifact = queries2.getArtifactByResourceId.get(resourceId);
+      const serialized = serializeArtifactRecord(artifact, resource, queries2);
 
       windowManager.broadcast('resource:created', resource);
       windowManager.broadcast('artifact:created', serialized);
 
+      afterArtifactMutation(database, resourceId);
+
       return { success: true, data: serialized };
     } catch (error) {
       console.error('[Artifact] Error importing:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('artifact:set-linked-resource', async (event, { resourceId, linkedResourceId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    if (!resourceId || typeof resourceId !== 'string') {
+      return { success: false, error: 'resourceId required' };
+    }
+    try {
+      const queries = database.getQueries();
+      const db = database.getDB();
+      const now = Date.now();
+      const existing = queries.getArtifactByResourceId.get(resourceId);
+      if (!existing) return { success: false, error: 'Artifact not found' };
+
+      db.prepare(
+        'UPDATE artifacts SET linked_resource_id = ?, version = version + 1, updated_at = ? WHERE resource_id = ?',
+      ).run(linkedResourceId ?? null, now, resourceId);
+
+      const updated = queries.getArtifactByResourceId.get(resourceId);
+      const resource = queries.getResourceById.get(resourceId);
+      const serialized = serializeArtifactRecord(updated, resource, queries);
+      windowManager.broadcast('artifact:updated', serialized);
+
+      // Immediately sync Excel data into the artifact if a resource is being linked
+      if (linkedResourceId) {
+        await syncLinkedArtifactsForResource(database, windowManager, linkedResourceId);
+      }
+
+      return { success: true, data: serialized };
+    } catch (error) {
+      console.error('[Artifact] Error setting linked resource:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('artifact:refresh-linked', async (event, resourceId) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    if (!resourceId || typeof resourceId !== 'string') {
+      return { success: false, error: 'resourceId required' };
+    }
+    try {
+      const queries = database.getQueries();
+      const artifact = queries.getArtifactByResourceId.get(resourceId);
+      if (!artifact) return { success: false, error: 'Artifact not found' };
+      if (!artifact.linked_resource_id) return { success: false, error: 'No linked resource' };
+
+      await syncLinkedArtifactsForResource(database, windowManager, artifact.linked_resource_id);
+      return { success: true };
+    } catch (error) {
+      console.error('[Artifact] Error refreshing linked data:', error);
       return { success: false, error: error.message };
     }
   });

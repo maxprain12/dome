@@ -15,6 +15,7 @@ import { useManyStore } from '@/lib/store/useManyStore';
 import { showToast } from '@/lib/store/useToastStore';
 import type { PdfRegionMeta } from '@/lib/store/useManyStore';
 import { parseArtifactBlocks, stripArtifactBlocks } from '@/lib/chat/artifactSchemas';
+import { parseUserMessageVisualSegments } from '@/lib/chat/userMessageVisual';
 import { calendarArtifactFromToolCalls } from '@/lib/chat/calendarToolArtifact';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import type { PersistentRunStep } from '@/lib/automations/api';
@@ -94,6 +95,11 @@ export default function ChatMessage({
   };
 
   // Copy message content to clipboard
+  const userVisualSegments = useMemo(() => {
+    if (!isUser || !message.content) return null;
+    return parseUserMessageVisualSegments(message.content);
+  }, [isUser, message.content]);
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(message.content);
@@ -325,11 +331,30 @@ export default function ChatMessage({
               {/* Message text — segments interleaved: text | artifact | text | ... */}
               {message.content ? (
                 <div className="min-w-0 w-full break-words" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
-                  {isUser ? (
-                    <span className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>
-                      {stripArtifactBlocks(message.content)}
-                    </span>
-                  ) : (
+                  {isUser && userVisualSegments && userVisualSegments.length > 0 ? (
+                    <div className="flex flex-col gap-2 min-w-0 w-full">
+                      {userVisualSegments.map((seg, idx) =>
+                        seg.type === 'text' ? (
+                          <span
+                            key={`u-txt-${idx}`}
+                            className="whitespace-pre-wrap break-words"
+                            style={{ overflowWrap: 'anywhere' }}
+                          >
+                            {seg.value}
+                          </span>
+                        ) : (
+                          <div key={`u-img-${idx}`} className="min-w-0 max-w-full rounded-md overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)]">
+                            <img
+                              src={seg.src}
+                              alt={seg.alt || t('chat.attachment_image_alt')}
+                              className="max-w-full max-h-64 w-auto object-contain block mx-auto"
+                              loading="lazy"
+                            />
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  ) : !isUser ? (
                     <>
                       {contentSegments.map((seg, idx) =>
                         seg.type === 'text' ? (
@@ -348,6 +373,10 @@ export default function ChatMessage({
                         ),
                       )}
                     </>
+                  ) : (
+                    <span className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>
+                      {message.content ? stripArtifactBlocks(message.content) : ''}
+                    </span>
                   )}
                 </div>
               ) : message.isStreaming ? (
