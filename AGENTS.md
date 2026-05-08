@@ -107,3 +107,41 @@ gh pr merge --auto --squash
 | VPS setup                 | [docs/vps-audit-setup.md](docs/vps-audit-setup.md)                                                                |
 
 
+---
+
+## Cursor Cloud specific instructions
+
+### Display / Electron
+
+The VM's X server runs on **`:1`** (not `:99`). Before launching Electron, export `DISPLAY=:1`. The standard dev command is:
+
+```bash
+export DISPLAY=:1
+npm run electron:dev
+```
+
+Expected non-fatal errors in headless: `dbus` failures (no session bus), `WebGL1 blocklisted` (no GPU), `gpu_process_host.cc` warnings. These do not affect app functionality.
+
+### Validation commands (see "Step 3" above)
+
+All five commands should exit 0 on a clean `main`:
+
+```bash
+npm run typecheck
+npm run lint          # 0 errors; warnings are acceptable
+npm run build
+npm run check:ipc-inventory
+npm run depcruise
+```
+
+### Native modules
+
+`npm install` triggers `postinstall` which rebuilds native deps (`better-sqlite3`, `sharp`, `node-pty`, etc.) for Electron's Node ABI and installs Playwright Chromium. If `npm install` succeeds, no separate rebuild step is needed.
+
+### No external services required
+
+The app runs fully offline with an embedded SQLite database. AI features degrade without API keys but the app launches, navigates, and manages projects/resources without them.
+
+### Data path (Linux)
+
+User data is stored at `~/.config/dome/` (SQLite DB at `~/.config/dome/dome.db`). Use `npm run clean` to reset.
