@@ -258,6 +258,7 @@ export default function AnnotationLayer({
           style: {
             color,
             opacity: 0.3,
+            strokeWidth: _strokeWidth,
           },
           selectedText: selectedText || undefined,
         };
@@ -275,6 +276,7 @@ export default function AnnotationLayer({
       startPoint,
       pageIndex,
       color,
+      _strokeWidth,
       onAnnotationCreate,
       getCanvasCoordinates,
       page,
