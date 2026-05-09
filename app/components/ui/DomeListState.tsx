@@ -53,7 +53,7 @@ export default function DomeListState({
         <Loader2
           className={cn(
             'animate-spin motion-reduce:animate-none',
-            fullHeight ? 'w-8 h-8 text-[var(--accent)]' : 'w-5 h-5 text-[var(--tertiary-text)]',
+            fullHeight ? 'size-8 text-[var(--accent)]' : 'size-5 text-[var(--tertiary-text)]',
           )}
           aria-hidden
         />
@@ -73,7 +73,7 @@ export default function DomeListState({
           fullHeight ? 'h-full p-8 gap-4' : py,
         )}
       >
-        <AlertCircle className="w-12 h-12 shrink-0 text-[var(--error)]" aria-hidden />
+        <AlertCircle className="size-12 shrink-0 text-[var(--error)]" aria-hidden />
         <p className={cn('font-medium text-[var(--error)]', fullHeight ? 'text-sm max-w-md' : 'text-sm')}>
           {msg}
         </p>

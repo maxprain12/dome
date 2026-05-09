@@ -30,11 +30,11 @@ interface PermissionRowProps {
 
 function PermissionRow({ label, status, onRequest, onOpenPrefs, loading, t }: PermissionRowProps) {
   const statusConfig: Record<PermStatus, { icon: React.ReactNode; color: string; text: string }> = {
-    granted: { icon: <ShieldCheck className="h-4 w-4" />, color: 'var(--success)', text: t('settings.transcription.perm_granted') },
-    denied: { icon: <ShieldOff className="h-4 w-4" />, color: 'var(--error)', text: t('settings.transcription.perm_denied') },
-    'not-determined': { icon: <ShieldQuestion className="h-4 w-4" />, color: 'var(--warning)', text: t('settings.transcription.perm_not_determined') },
-    restricted: { icon: <ShieldAlert className="h-4 w-4" />, color: 'var(--error)', text: t('settings.transcription.perm_restricted') },
-    unknown: { icon: <ShieldQuestion className="h-4 w-4" />, color: 'var(--dome-text-muted,var(--tertiary-text))', text: '—' },
+    granted: { icon: <ShieldCheck className="size-4" />, color: 'var(--success)', text: t('settings.transcription.perm_granted') },
+    denied: { icon: <ShieldOff className="size-4" />, color: 'var(--error)', text: t('settings.transcription.perm_denied') },
+    'not-determined': { icon: <ShieldQuestion className="size-4" />, color: 'var(--warning)', text: t('settings.transcription.perm_not_determined') },
+    restricted: { icon: <ShieldAlert className="size-4" />, color: 'var(--error)', text: t('settings.transcription.perm_restricted') },
+    unknown: { icon: <ShieldQuestion className="size-4" />, color: 'var(--dome-text-muted,var(--tertiary-text))', text: '—' },
   };
   const cfg = statusConfig[status];
 
@@ -221,7 +221,7 @@ export default function TranscriptionSettingsPanel() {
         }
         trailing={
           <DomeIconBox size="md" className="!w-10 !h-10">
-            <Mic className="w-5 h-5 text-[var(--accent)]" aria-hidden />
+            <Mic className="size-5 text-[var(--accent)]" aria-hidden />
           </DomeIconBox>
         }
         className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"

@@ -19,12 +19,12 @@ export default function DomeStatusBadge({ status, className }: DomeStatusBadgePr
         color,
       }}
     >
-      {status === 'running' && <Loader2 className="w-2.5 h-2.5 animate-spin" aria-hidden />}
-      {status === 'queued' && <Clock className="w-2.5 h-2.5" aria-hidden />}
-      {status === 'waiting_approval' && <Clock className="w-2.5 h-2.5" aria-hidden />}
-      {status === 'completed' && <CheckCircle2 className="w-2.5 h-2.5" aria-hidden />}
-      {status === 'failed' && <XCircle className="w-2.5 h-2.5" aria-hidden />}
-      {status === 'cancelled' && <XCircle className="w-2.5 h-2.5" aria-hidden />}
+      {status === 'running' && <Loader2 className="size-2.5 animate-spin" aria-hidden />}
+      {status === 'queued' && <Clock className="size-2.5" aria-hidden />}
+      {status === 'waiting_approval' && <Clock className="size-2.5" aria-hidden />}
+      {status === 'completed' && <CheckCircle2 className="size-2.5" aria-hidden />}
+      {status === 'failed' && <XCircle className="size-2.5" aria-hidden />}
+      {status === 'cancelled' && <XCircle className="size-2.5" aria-hidden />}
       {runStatusLabel(status)}
     </span>
   );

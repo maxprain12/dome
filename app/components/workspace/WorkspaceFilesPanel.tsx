@@ -254,7 +254,7 @@ export default function WorkspaceFilesPanel({
           }}
         >
           <div
-            className="flex items-center justify-center w-14 h-14 rounded-2xl mb-4"
+            className="flex items-center justify-center size-14 rounded-2xl mb-4"
             style={{
               background: 'var(--translucent)',
               color: 'var(--accent)',
@@ -331,7 +331,7 @@ export default function WorkspaceFilesPanel({
               }}
             >
               <div
-                className="flex items-center justify-center w-8 h-8 rounded-lg shrink-0"
+                className="flex items-center justify-center size-8 rounded-lg shrink-0"
                 style={{ background: 'var(--translucent)', color: 'var(--accent)' }}
               >
                 <Folder size={16} />
@@ -507,7 +507,7 @@ export default function WorkspaceFilesPanel({
                       value={pipInput}
                       onChange={(e) => setPipInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handlePipInstall()}
-                      className="flex-1 min-w-0 px-2 py-2 rounded-lg text-xs"
+                      className="flex-1 min-w-0 p-2 rounded-lg text-xs"
                       style={{
                         background: 'var(--bg-secondary)',
                         border: '1px solid var(--border)',

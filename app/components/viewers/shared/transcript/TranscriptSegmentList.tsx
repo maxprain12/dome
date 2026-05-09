@@ -109,7 +109,7 @@ export default function TranscriptSegmentList({
                 >
                   {formatMediaTime(seg.startTime)}
                 </span>
-                <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: colors.dot }} />
+                <span className="size-1.5 rounded-full shrink-0" style={{ background: colors.dot }} />
                 <span className="font-semibold uppercase tracking-wider" style={{ color: colors.label }}>
                   {speakerLabel}
                 </span>
@@ -146,7 +146,7 @@ export default function TranscriptSegmentList({
             {/* Speaker header */}
             <div className="mb-1.5 flex items-center gap-2 px-4 text-[11px]">
               <span
-                className="h-2 w-2 rounded-full shrink-0"
+                className="size-2 rounded-full shrink-0"
                 style={{ background: colors.dot }}
                 aria-hidden
               />

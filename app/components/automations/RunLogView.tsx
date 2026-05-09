@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n, { getDateTimeLocaleTag } from '@/lib/i18n';
 import { getToolDisplayLabel } from '@/lib/chat/toolDisplayLabels';
@@ -359,15 +359,29 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
     </div>
   );
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex"
-      style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)' }}
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default border-0 p-0"
+        style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)' }}
+        aria-label={t('runLog.close_panel')}
+        onClick={onClose}
+      />
       <div
-        className="ml-auto h-full flex flex-col min-h-0 w-[min(720px,92vw)] border-l border-[var(--border)] bg-[var(--bg)] shadow-[-4px_0_16px_rgba(0,0,0,0.06)]"
+        className="absolute right-0 top-0 flex h-full min-h-0 w-[min(720px,92vw)] flex-col border-l border-[var(--border)] bg-[var(--bg)] shadow-[-4px_0_16px_rgba(0,0,0,0.06)]"
         style={{ animation: 'slideInRight 0.2s ease-out' }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={run.title || run.id}
         onClick={(e) => e.stopPropagation()}
       >
         <DomeDrawerLayout
@@ -388,7 +402,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
                     onClick={onClose}
                     aria-label={t('runLog.close_panel')}
                   >
-                    <X className="w-[18px] h-[18px]" aria-hidden />
+                    <X className="size-[18px]" aria-hidden />
                   </DomeButton>
                 </>
               }

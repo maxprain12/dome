@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -45,7 +52,7 @@ import DomeDivider from '@/components/ui/DomeDivider';
 const TAB_OVERFLOW_MIN_COUNT = 8;
 
 function TabIcon({ tab }: { tab: DomeTab }) {
-  const cls = 'w-3.5 h-3.5 shrink-0';
+  const cls = 'size-3.5 shrink-0';
   const sw = 1.75;
   switch (tab.type) {
     case 'home': return <Home className={cls} strokeWidth={sw} />;
@@ -118,7 +125,7 @@ interface TabItemProps {
   isActive: boolean;
   onActivate: () => void;
   onClose: () => void;
-  onContextMenu: (e: React.MouseEvent, tab: DomeTab) => void;
+  onContextMenu: (e: ReactMouseEvent, tab: DomeTab) => void;
 }
 
 function TabItem({ tab, isActive, onActivate, onClose, onContextMenu }: TabItemProps) {
@@ -150,7 +157,7 @@ function TabItem({ tab, isActive, onActivate, onClose, onContextMenu }: TabItemP
         cursor: 'pointer',
         userSelect: 'none',
         WebkitAppRegion: 'no-drag',
-      } as React.CSSProperties}
+      } as CSSProperties}
       onMouseEnter={(e) => {
         if (!isActive) {
           (e.currentTarget as HTMLButtonElement).style.background = folderColor
@@ -182,7 +189,7 @@ function TabItem({ tab, isActive, onActivate, onClose, onContextMenu }: TabItemP
           }}
           aria-label={t('workspace.close_tab', { title: displayTitle })}
         >
-          <X className="w-3 h-3" strokeWidth={2} />
+          <X className="size-3" strokeWidth={2} />
         </span>
       )}
     </button>
@@ -264,7 +271,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
     };
   }, [ctxMenu]);
 
-  const openTabContext = useCallback((e: React.MouseEvent, tab: DomeTab) => {
+  const openTabContext = useCallback((e: ReactMouseEvent, tab: DomeTab) => {
     e.preventDefault();
     e.stopPropagation();
     setCtxMenu({ x: e.clientX, y: e.clientY, tab, view: 'main' });
@@ -314,7 +321,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
               title={t('workspace.tab_menu_all_tabs')}
               aria-label={t('workspace.tab_menu_all_tabs')}
             >
-              <MoreHorizontal className="w-4 h-4" strokeWidth={2} />
+              <MoreHorizontal className="size-4" strokeWidth={2} />
             </DomeButton>
             {overflowMenuOpen && (
               <div
@@ -397,13 +404,64 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
             title={t('workspace.new_conversation')}
             aria-label={t('workspace.new_conversation')}
           >
-            <Plus className="w-3.5 h-3.5" strokeWidth={2} />
+            <Plus className="size-3.5" strokeWidth={2} />
           </DomeButton>
 
           <div className="flex-1 min-w-[12px]" />
         </div>
       </div>
     </>
+  );
+}
+
+const TAB_CONTEXT_MENU_ITEM_BASE: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 9,
+  width: '100%',
+  padding: '8px 10px',
+  border: 'none',
+  borderRadius: 6,
+  background: 'transparent',
+  cursor: 'pointer',
+  textAlign: 'left',
+  fontSize: 12.5,
+  fontWeight: 500,
+  color: 'var(--dome-text)',
+};
+
+function TabContextMenuItem({
+  label,
+  onClick,
+  disabled,
+  danger,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  danger?: boolean;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={disabled}
+      onClick={() => {
+        if (!disabled) onClick();
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        ...TAB_CONTEXT_MENU_ITEM_BASE,
+        opacity: disabled ? 0.45 : 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        background: hover && !disabled ? 'var(--dome-bg-hover)' : 'transparent',
+        color: danger ? 'var(--dome-danger, #ef4444)' : 'var(--dome-text)',
+      }}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -472,7 +530,7 @@ function TabContextMenuBridge({
     onClose();
   };
 
-  const menuStyle: React.CSSProperties = {
+  const menuStyle: CSSProperties = {
     position: 'fixed',
     left: Math.min(x, window.innerWidth - 240),
     top: Math.min(y, window.innerHeight - 320),
@@ -486,66 +544,17 @@ function TabContextMenuBridge({
     padding: 6,
   };
 
-  const itemBase: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 9,
-    width: '100%',
-    padding: '8px 10px',
-    border: 'none',
-    borderRadius: 6,
-    background: 'transparent',
-    cursor: 'pointer',
-    textAlign: 'left',
-    fontSize: 12.5,
-    fontWeight: 500,
-    color: 'var(--dome-text)',
-  };
-
-  const Item = ({
-    label,
-    onClick,
-    disabled,
-    danger,
-  }: {
-    label: string;
-    onClick: () => void;
-    disabled?: boolean;
-    danger?: boolean;
-  }) => {
-    const [hover, setHover] = useState(false);
-    return (
-      <button
-        type="button"
-        role="menuitem"
-        disabled={disabled}
-        onClick={() => { if (!disabled) onClick(); }}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        style={{
-          ...itemBase,
-          opacity: disabled ? 0.45 : 1,
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          background: hover && !disabled ? 'var(--dome-bg-hover)' : 'transparent',
-          color: danger ? 'var(--dome-danger, #ef4444)' : 'var(--dome-text)',
-        }}
-      >
-        {label}
-      </button>
-    );
-  };
-
   if (view === 'colors' && showColors) {
     return ReactDOM.createPortal(
       <div style={menuStyle} role="menu">
         <button
           type="button"
           onClick={onBackToMain}
-          style={{ ...itemBase, marginBottom: 4 }}
+          style={{ ...TAB_CONTEXT_MENU_ITEM_BASE, marginBottom: 4 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
         >
-          <ChevronLeft className="w-3.5 h-3.5 shrink-0" />
+          <ChevronLeft className="size-3.5 shrink-0" />
           {t('workspace.tab_menu_back')}
         </button>
         <div
@@ -561,7 +570,7 @@ function TabContextMenuBridge({
                 void persistFolderTabColor(tab, color);
                 onClose();
               }}
-              className="w-6 h-6 rounded border"
+              className="size-6 rounded border"
               style={{
                 backgroundColor: color,
                 borderColor: 'var(--dome-border)',
@@ -583,33 +592,33 @@ function TabContextMenuBridge({
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.stopPropagation()}
     >
-      <Item
+      <TabContextMenuItem
         label={t('workspace.tab_menu_close')}
         disabled={Boolean(tab.pinned)}
         onClick={() => run(() => closeTab(tab.id))}
       />
-      <Item
+      <TabContextMenuItem
         label={t('workspace.tab_menu_close_others')}
         onClick={() => run(() => closeOtherTabs(tab.id))}
       />
-      <Item
+      <TabContextMenuItem
         label={t('workspace.tab_menu_close_to_right')}
         disabled={!hasRight}
         onClick={() => run(() => closeTabsToTheRight(tab.id))}
       />
       <DomeDivider spacingClass="my-1" className="mx-1" />
-      <Item
+      <TabContextMenuItem
         label={tab.pinned ? t('workspace.tab_menu_unpin') : t('workspace.tab_menu_pin')}
         disabled={!canPinToggle}
         onClick={() => run(() => togglePinTab(tab.id))}
       />
       {showColors && (
-        <Item
+        <TabContextMenuItem
           label={t('workspace.tab_menu_change_color')}
           onClick={() => onOpenColors()}
         />
       )}
-      <Item
+      <TabContextMenuItem
         label={t('workspace.tab_menu_duplicate')}
         disabled={isHome}
         onClick={() => run(() => duplicateTab(tab.id))}
@@ -617,7 +626,7 @@ function TabContextMenuBridge({
       {canOpenAsReference && (
         <>
           <DomeDivider spacingClass="my-1" className="mx-1" />
-          <Item
+          <TabContextMenuItem
             label={t('workspace.tab_menu_open_as_reference', 'Abrir como referencia en pestaña activa')}
             onClick={() =>
               run(() => {

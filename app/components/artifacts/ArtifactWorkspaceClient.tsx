@@ -386,7 +386,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
       <DomeSubpageHeader
         title={
           <span className="flex items-center gap-2">
-            <Layers className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} />
+            <Layers className="size-4 shrink-0" style={{ color: 'var(--accent)' }} />
             <span style={{ color: 'var(--primary-text)' }}>{artifact.title}</span>
           </span>
         }
@@ -406,7 +406,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
                   border: '1px solid var(--border)',
                 }}
               >
-                <RefreshCw className={`w-3.5 h-3.5${refreshing ? ' animate-spin' : ''}`} />
+                <RefreshCw className={`size-3.5${refreshing ? ' animate-spin' : ''}`} />
                 {t('artifacts.refresh_linked')}
               </button>
             )}
@@ -422,7 +422,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
                 border: '1px solid var(--border)',
               }}
             >
-              <Save className="w-3.5 h-3.5" />
+              <Save className="size-3.5" />
               {saving ? t('common.saving') : t('artifacts.save_state')}
             </button>
             <button
@@ -436,7 +436,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
                 border: '1px solid var(--border)',
               }}
             >
-              <Download className="w-3.5 h-3.5" />
+              <Download className="size-3.5" />
               {t('artifacts.export_artifact')}
             </button>
           </>

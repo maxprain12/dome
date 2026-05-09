@@ -14,7 +14,7 @@ export default function HubTitleBlock({ icon: Icon, title, subtitle, iconAriaHid
     <>
       <DomeIconBox size="md" background="var(--dome-accent-bg)">
         <Icon
-          className="w-4 h-4"
+          className="size-4"
           style={{ color: 'var(--dome-accent)' }}
           strokeWidth={1.75}
           aria-hidden={iconAriaHidden}

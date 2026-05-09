@@ -11,7 +11,7 @@ export default function EmptyState({ icon: Icon, title, description }: EmptyStat
   return (
     <DomeListState
       variant="empty"
-      icon={<Icon className="w-12 h-12" style={{ color: 'var(--tertiary-text)' }} aria-hidden />}
+      icon={<Icon className="size-12" style={{ color: 'var(--tertiary-text)' }} aria-hidden />}
       title={title}
       description={description}
       fullHeight

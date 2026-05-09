@@ -19,6 +19,20 @@ export default function HomePage() {
   const { loadPreferences } = useAppStore();
 
   useEffect(() => {
+    let cancelled = false;
+    const timeoutIds: ReturnType<typeof setTimeout>[] = [];
+
+    const scheduleTimeout = (fn: () => void, ms: number) => {
+      const id = setTimeout(fn, ms);
+      timeoutIds.push(id);
+      return id;
+    };
+
+    const delay = (ms: number) =>
+      new Promise<void>((resolve) => {
+        scheduleTimeout(() => resolve(), ms);
+      });
+
     async function init() {
       setDebugInfo('Init effect starting...');
 
@@ -30,10 +44,12 @@ export default function HomePage() {
           // Wait for Electron API to be available (max 2 seconds)
           setDebugInfo('Waiting for Electron API...');
           let retries = 0;
-          while (!window.electron && retries < 20) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+          while (typeof window !== 'undefined' && !window.electron && retries < 20) {
+            if (cancelled) return;
+            await delay(100);
             retries++;
           }
+          if (cancelled) return;
           setDebugInfo(`Waited ${retries * 100}ms for Electron API`);
         }
 
@@ -44,18 +60,21 @@ export default function HomePage() {
         }
         setDebugInfo(`Electron available: ${hasElectron}`);
 
-        // Create timeout promise
+        let initRaceTimer: ReturnType<typeof setTimeout> | undefined;
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Initialization timeout')), INIT_TIMEOUT_MS);
+          initRaceTimer = scheduleTimeout(() => reject(new Error('Initialization timeout')), INIT_TIMEOUT_MS);
         });
 
         setDebugInfo('Calling initializeApp...');
 
-        // Race initialization against timeout
-        const result = await Promise.race([
-          initializeApp(),
-          timeoutPromise,
-        ]);
+        let result: Awaited<ReturnType<typeof initializeApp>>;
+        try {
+          result = await Promise.race([initializeApp(), timeoutPromise]);
+        } finally {
+          if (initRaceTimer != null) clearTimeout(initRaceTimer);
+        }
+
+        if (cancelled) return;
 
         setDebugInfo(`Init result: ${JSON.stringify(result)}`);
 
@@ -65,13 +84,22 @@ export default function HomePage() {
           // Also add timeout for these operations
           setDebugInfo('Loading profile and preferences...');
 
-          await Promise.race([
-            Promise.all([loadUserProfile(), loadPreferences()]),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Profile load timeout')), 5000)),
-          ]).catch(err => {
+          let profileRaceTimer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            await Promise.race([
+              Promise.all([loadUserProfile(), loadPreferences()]),
+              new Promise<never>((_, reject) => {
+                profileRaceTimer = scheduleTimeout(() => reject(new Error('Profile load timeout')), 5000);
+              }),
+            ]);
+          } catch (err) {
             console.warn('[Page] Failed to load profile/preferences:', err);
             // Continue anyway - defaults will be used
-          });
+          } finally {
+            if (profileRaceTimer != null) clearTimeout(profileRaceTimer);
+          }
+
+          if (cancelled) return;
 
           setDebugInfo('Checking onboarding...');
 
@@ -88,6 +116,7 @@ export default function HomePage() {
         }
       } catch (error) {
         // Handle timeout or any other initialization error
+        if (cancelled) return;
         console.error('[Page] Initialization failed or timed out:', error);
         setInitError(error instanceof Error ? error.message : 'Unknown error');
         setDebugInfo(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -96,7 +125,12 @@ export default function HomePage() {
       }
     }
 
-    init();
+    void init();
+
+    return () => {
+      cancelled = true;
+      for (const id of timeoutIds) clearTimeout(id);
+    };
   }, [loadUserProfile, loadPreferences]);
 
   const handleOnboardingComplete = () => {

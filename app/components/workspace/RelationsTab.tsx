@@ -125,7 +125,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
     return (
       <div className="flex items-center justify-center h-full">
         <div
-          className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full"
+          className="animate-spin size-5 border-2 border-current border-t-transparent rounded-full"
           style={{ color: 'var(--dome-text-muted)' }}
         />
       </div>

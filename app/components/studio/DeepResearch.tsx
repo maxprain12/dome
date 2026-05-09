@@ -393,7 +393,7 @@ function SourcesList({
         {sources.map((source, index) => (
           <div key={source.id} className="flex gap-3">
             <span
-              className="text-xs font-bold shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center"
+              className="text-xs font-bold shrink-0 mt-0.5 size-5 rounded-full flex items-center justify-center"
               style={{
                 background: 'var(--bg-tertiary)',
                 color: 'var(--secondary-text)',

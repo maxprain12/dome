@@ -206,13 +206,13 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             <div className="relative flex items-center gap-3">
               {/* Icon */}
               <div
-                className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                className="size-10 rounded-lg flex items-center justify-center shrink-0"
                 style={{
                   backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.15)' : DOME_GREEN_LIGHT,
                 }}
               >
                 <Shield
-                  className="w-5 h-5"
+                  className="size-5"
                   style={{ color: provider === 'dome' ? DOME_GREEN_LIGHT : DOME_GREEN }}
                 />
               </div>
@@ -259,13 +259,13 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                         color: provider === 'dome' ? 'rgba(255,255,255,0.85)' : DOME_GREEN,
                       }}
                     >
-                      <Icon className="w-2.5 h-2.5" />
+                      <Icon className="size-2.5" />
                       <span className="text-[10px] font-medium">{label}</span>
                     </div>
                   ))}
                 </div>
                 {provider === 'dome' && (
-                  <CheckCircle2 className="w-4 h-4" style={{ color: DOME_GREEN_LIGHT }} />
+                  <CheckCircle2 className="size-4" style={{ color: DOME_GREEN_LIGHT }} />
                 )}
               </div>
             </div>
@@ -294,7 +294,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 <div className="flex flex-col items-start gap-2">
                   <div className="flex items-center justify-between w-full">
                     <div
-                      className="w-7 h-7 rounded-md flex items-center justify-center"
+                      className="size-7 rounded-md flex items-center justify-center"
                       style={{
                         backgroundColor: isSelected ? DOME_GREEN_LIGHT : 'var(--dome-bg-hover)',
                       }}
@@ -303,11 +303,11 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                         className="flex items-center justify-center"
                         style={{ color: isSelected ? DOME_GREEN : 'var(--dome-text-muted)' }}
                       >
-                        <IconComponent className="w-3.5 h-3.5" />
+                        <IconComponent className="size-3.5" />
                       </span>
                     </div>
                     {isSelected && (
-                      <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />
+                      <CheckCircle2 className="size-3.5" style={{ color: DOME_GREEN }} />
                     )}
                   </div>
                   <div>
@@ -343,7 +343,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
             >
               <div className="flex items-center gap-3">
                 <div
-                  className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                  className="size-7 rounded-md flex items-center justify-center shrink-0"
                   style={{
                     backgroundColor: isSelected ? DOME_GREEN_LIGHT : 'var(--dome-bg-hover)',
                   }}
@@ -352,7 +352,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                     className="flex items-center justify-center shrink-0"
                     style={{ color: isSelected ? DOME_GREEN : 'var(--dome-text-muted)' }}
                   >
-                    <IconComponent className="w-3.5 h-3.5" />
+                    <IconComponent className="size-3.5" />
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -379,11 +379,11 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                       color: DOME_GREEN,
                     }}
                   >
-                    <HardDrive className="w-2.5 h-2.5" />
+                    <HardDrive className="size-2.5" />
                     <span className="text-[10px] font-medium">{t('onboarding.offline')}</span>
                   </div>
                   {isSelected && (
-                    <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />
+                    <CheckCircle2 className="size-3.5" style={{ color: DOME_GREEN }} />
                   )}
                 </div>
               </div>
@@ -482,17 +482,17 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
               <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>{t('onboarding.status')}</span>
               {checkingOllama ? (
                 <div className="flex items-center gap-1.5">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                  <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
                   <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('onboarding.verifying')}</span>
                 </div>
               ) : ollamaAvailable === true ? (
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" style={{ color: DOME_GREEN }} />
+                  <CheckCircle2 className="size-3.5" style={{ color: DOME_GREEN }} />
                   <span className="text-xs font-medium" style={{ color: DOME_GREEN }}>{t('onboarding.connected')}</span>
                 </div>
               ) : ollamaAvailable === false ? (
                 <div className="flex items-center gap-1.5" style={{ color: 'var(--dome-error, #ef4444)' }}>
-                  <XCircle className="w-3.5 h-3.5" />
+                  <XCircle className="size-3.5" />
                   <span className="text-xs font-medium">{t('onboarding.not_available')}</span>
                 </div>
               ) : (
@@ -512,7 +512,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 opacity: checkingOllama ? 0.6 : 1,
               }}
             >
-              <RefreshCw className={`w-3 h-3 ${checkingOllama ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`size-3 ${checkingOllama ? 'animate-spin' : ''}`} />
               {t('onboarding.test_connection')}
             </button>
           </div>
@@ -555,13 +555,13 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
                 className="text-[11px] font-medium flex items-center gap-1 hover:opacity-80"
                 style={{ color: DOME_GREEN, cursor: loadingModels ? 'not-allowed' : 'pointer', opacity: loadingModels ? 0.6 : 1 }}
               >
-                <RefreshCw className={`w-3 h-3 ${loadingModels ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`size-3 ${loadingModels ? 'animate-spin' : ''}`} />
                 {t('onboarding.refresh_list')}
               </button>
             </div>
             {loadingModels ? (
               <div className="flex items-center gap-2 p-3 rounded-lg" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
                 <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('onboarding.loading_models')}</span>
               </div>
             ) : ollamaModels.length > 0 ? (

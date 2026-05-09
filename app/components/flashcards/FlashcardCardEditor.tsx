@@ -44,7 +44,7 @@ export default function FlashcardCardEditor({ card, index, onUpdate, onDelete }:
       <div className="flex items-start gap-3">
         {/* Drag handle / index */}
         <div className="flex flex-col items-center gap-1 pt-1 shrink-0">
-          <GripVertical className="w-4 h-4 opacity-30" style={{ color: 'var(--tertiary-text)' }} />
+          <GripVertical className="size-4 opacity-30" style={{ color: 'var(--tertiary-text)' }} />
           <span
             className="text-[10px] font-bold"
             style={{ color: 'var(--tertiary-text)' }}
@@ -120,7 +120,7 @@ export default function FlashcardCardEditor({ card, index, onUpdate, onDelete }:
               className="btn btn-ghost p-1.5 rounded-md transition-colors hover:bg-[rgba(239,68,68,0.1)]"
               aria-label={t('ui.delete', 'Eliminar tarjeta')}
             >
-              <Trash2 className="w-4 h-4" style={{ color: 'var(--error, #ef4444)' }} />
+              <Trash2 className="size-4" style={{ color: 'var(--error, #ef4444)' }} />
             </button>
           </div>
         </div>

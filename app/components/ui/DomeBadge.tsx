@@ -42,7 +42,7 @@ export default function DomeBadge({
         style={{ borderColor: color, color }}
       >
         {dot ? (
-          <span className="shrink-0 rounded-full w-1.5 h-1.5" style={{ backgroundColor: color }} aria-hidden />
+          <span className="shrink-0 rounded-full size-1.5" style={{ backgroundColor: color }} aria-hidden />
         ) : null}
         <span className="truncate">{label}</span>
       </span>
@@ -53,7 +53,7 @@ export default function DomeBadge({
     return (
       <span className={cn(base, 'text-[var(--base-text)]')} style={{ backgroundColor: color }}>
         {dot ? (
-          <span className="shrink-0 rounded-full w-1.5 h-1.5 bg-[var(--base-text)]/80" aria-hidden />
+          <span className="shrink-0 rounded-full size-1.5 bg-[var(--base-text)]/80" aria-hidden />
         ) : null}
         <span className="truncate">{label}</span>
       </span>
@@ -69,7 +69,7 @@ export default function DomeBadge({
       }}
     >
       {dot ? (
-        <span className="shrink-0 rounded-full w-1.5 h-1.5" style={{ backgroundColor: color }} aria-hidden />
+        <span className="shrink-0 rounded-full size-1.5" style={{ backgroundColor: color }} aria-hidden />
       ) : null}
       <span className="truncate">{label}</span>
     </span>

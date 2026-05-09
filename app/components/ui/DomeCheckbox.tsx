@@ -38,7 +38,7 @@ export default function DomeCheckbox({
           type="checkbox"
           disabled={disabled}
           className={cn(
-            'mt-0.5 h-4 w-4 shrink-0 rounded border cursor-pointer',
+            'mt-0.5 size-4 shrink-0 rounded border cursor-pointer',
             'border-[var(--border)] bg-[var(--bg)] text-[var(--accent)]',
             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]',
             disabled && 'opacity-50 cursor-not-allowed',

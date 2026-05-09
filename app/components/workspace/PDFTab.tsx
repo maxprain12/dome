@@ -140,7 +140,7 @@ export default function PDFTab() {
                 key={c}
                 type="button"
                 onClick={() => pdfState.onColorChange(c)}
-                className="w-4 h-4 rounded border"
+                className="size-4 rounded border"
                 style={{
                   background: c,
                   borderColor: pdfState.color === c ? 'var(--accent)' : 'var(--border)',

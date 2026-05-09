@@ -124,11 +124,11 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
         className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-b border-[var(--dome-border,var(--border))] bg-[var(--bg)]"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <Cpu className="w-4 h-4 text-[var(--accent)] shrink-0" aria-hidden />
+          <Cpu className="size-4 text-[var(--accent)] shrink-0" aria-hidden />
           <h1 className="text-base font-semibold text-[var(--primary-text)] truncate">{t('agentTeam.new_team_title')}</h1>
         </div>
         <DomeButton type="button" variant="ghost" size="sm" iconOnly onClick={onCancel} aria-label={t('common.close')}>
-          <X className="w-4 h-4" />
+          <X className="size-4" />
         </DomeButton>
       </header>
 
@@ -137,7 +137,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
         {STEP_ORDER.map((s, i) => (
           <div key={s} className="flex items-center gap-1">
             <div
-              className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium transition-all"
+              className="flex items-center justify-center size-6 rounded-full text-xs font-medium transition-all"
                 style={{
                 background:
                   s === step
@@ -243,7 +243,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                       <img
                         src={`/agents/sprite_${agent.iconIndex}.png`}
                         alt=""
-                        className="w-9 h-9 shrink-0 rounded-lg object-contain"
+                        className="size-9 shrink-0 rounded-lg object-contain"
                         style={{ background: 'var(--dome-surface)' }}
                       />
                       <div className="flex-1 min-w-0">
@@ -255,7 +255,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                         </div>
                       </div>
                       <div
-                        className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center"
+                        className="size-5 rounded-full shrink-0 flex items-center justify-center"
                         style={{
                           background: selected ? 'var(--accent)' : 'var(--border)',
                           color: 'var(--base-text)',
@@ -336,7 +336,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                   <img
                     src={`/agents/sprite_${idx}.png`}
                     alt={`Icono ${idx}`}
-                    className="w-full h-full object-contain"
+                    className="size-full object-contain"
                   />
                 </DomeButton>
               ))}
@@ -355,7 +355,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
             variant="outline"
             size="md"
             onClick={currentStepIndex === 0 ? onCancel : handleBack}
-            leftIcon={currentStepIndex === 0 ? undefined : <ChevronLeft className="w-4 h-4" />}
+            leftIcon={currentStepIndex === 0 ? undefined : <ChevronLeft className="size-4" />}
           >
             {currentStepIndex === 0 ? 'Cancelar' : 'Atrás'}
           </DomeButton>
@@ -369,7 +369,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
               onClick={() => void handleCreate()}
               disabled={isCreating}
               loading={isCreating}
-              leftIcon={!isCreating ? <Users className="w-4 h-4" /> : undefined}
+              leftIcon={!isCreating ? <Users className="size-4" /> : undefined}
             >
               {isCreating ? 'Creando...' : 'Crear equipo'}
             </DomeButton>
@@ -380,7 +380,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
               size="md"
               onClick={handleNext}
               disabled={!canProceed()}
-              rightIcon={<ChevronRight className="w-4 h-4" />}
+              rightIcon={<ChevronRight className="size-4" />}
             >
               Siguiente
             </DomeButton>

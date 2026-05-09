@@ -253,7 +253,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
     return (
       <div
         ref={hostRef}
-        className="h-full w-full flex items-center justify-center"
+        className="size-full flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-secondary)', overflow: 'hidden' }}
       >
         <div

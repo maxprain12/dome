@@ -61,9 +61,9 @@ export function DashboardHero({
           size="sm"
           leftIcon={
             isEditing ? (
-              <Check className="h-4 w-4" strokeWidth={2} aria-hidden />
+              <Check className="size-4" strokeWidth={2} aria-hidden />
             ) : (
-              <Settings2 className="h-4 w-4" strokeWidth={2} aria-hidden />
+              <Settings2 className="size-4" strokeWidth={2} aria-hidden />
             )
           }
           onClick={isEditing ? onDoneEditing : onStartCustomize}
@@ -104,13 +104,13 @@ export function DashboardHero({
               }}
             >
               <span
-                className="flex h-8 w-8 items-center justify-center rounded-full"
+                className="flex size-8 items-center justify-center rounded-full"
                 style={{
                   background: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 18%, transparent)',
                   color: 'var(--dome-accent, var(--accent))',
                 }}
               >
-                <Flame className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+                <Flame className="size-4" strokeWidth={2.5} aria-hidden />
               </span>
               <div className="flex items-baseline gap-1.5">
                 <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: 'var(--dome-accent, var(--accent))' }}>

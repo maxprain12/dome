@@ -28,7 +28,7 @@ export default function LanguageSettings() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <DomeSubpageHeader
-        className="!border-0 px-0 py-0 bg-transparent"
+        className="!border-0 p-0 bg-transparent"
         title={t('settings.language.title')}
         subtitle={t('settings.language.subtitle')}
       />
@@ -47,7 +47,7 @@ export default function LanguageSettings() {
               return {
                 value: lang,
                 label: `${t(`settings.language.languages.${lang}`)} (${lang.toUpperCase()})`,
-                icon: <Languages className="w-3.5 h-3.5" style={{ color }} aria-hidden />,
+                icon: <Languages className="size-3.5" style={{ color }} aria-hidden />,
               };
             })}
             value={currentLang}

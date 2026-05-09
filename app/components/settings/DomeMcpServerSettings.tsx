@@ -32,8 +32,8 @@ function CopyBlock({ label, value }: { label: string; value: string }) {
       </div>
       <DomeButton variant="secondary" size="sm" onClick={copy} className="w-full">
         {copied
-          ? <><CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-green-500" />Copiado</>
-          : <><Copy className="w-3.5 h-3.5 mr-1.5" />{`Copiar config (${label})`}</>}
+          ? <><CheckCircle2 className="size-3.5 mr-1.5 text-green-500" />Copiado</>
+          : <><Copy className="size-3.5 mr-1.5" />{`Copiar config (${label})`}</>}
       </DomeButton>
     </div>
   );
@@ -116,8 +116,8 @@ export default function DomeMcpServerSettings() {
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             {status.running
-              ? <Wifi className="w-4 h-4 shrink-0 text-green-500" />
-              : <WifiOff className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />}
+              ? <Wifi className="size-4 shrink-0 text-green-500" />
+              : <WifiOff className="size-4 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />}
             <div>
               <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                 {t('dome_mcp.enable_label')}
@@ -136,7 +136,7 @@ export default function DomeMcpServerSettings() {
               title={t('dome_mcp.refresh')}
               style={{ color: 'var(--dome-text-muted)' }}
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
             </button>
             <DomeToggle checked={status.running} onChange={handleToggle} disabled={loading} size="sm" />
           </div>
@@ -175,7 +175,7 @@ export default function DomeMcpServerSettings() {
             <div className="space-y-1">
               {status.sessions.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <Server className="w-3.5 h-3.5 shrink-0 text-green-500" />
+                  <Server className="size-3.5 shrink-0 text-green-500" />
                   <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                     {s.clientName}
                   </span>

@@ -95,7 +95,7 @@ export default function TranscriptToolbar({
               {t('media.transcript_follow_playback')}
               {isPlaying ? (
                 <span
-                  className="h-1.5 w-1.5 animate-pulse rounded-full shrink-0"
+                  className="size-1.5 animate-pulse rounded-full shrink-0"
                   style={{ background: 'var(--dome-accent)' }}
                   aria-hidden
                 />
@@ -120,7 +120,7 @@ export default function TranscriptToolbar({
             aria-label={t('media.transcript_copy')}
             className={`${iconBtn} disabled:opacity-50`}
           >
-            <Copy className="h-4 w-4" aria-hidden />
+            <Copy className="size-4" aria-hidden />
           </DomeButton>
 
           <DomeButton
@@ -133,7 +133,7 @@ export default function TranscriptToolbar({
             aria-label={t('media.transcript_open_settings')}
             className={iconBtn}
           >
-            <Settings className="h-4 w-4" aria-hidden />
+            <Settings className="size-4" aria-hidden />
           </DomeButton>
 
           <DomeButton
@@ -147,9 +147,9 @@ export default function TranscriptToolbar({
             className={iconBtn}
           >
             {miniPlayerCollapsed ? (
-              <ChevronUp className="h-4 w-4" aria-hidden />
+              <ChevronUp className="size-4" aria-hidden />
             ) : (
-              <ChevronDown className="h-4 w-4" aria-hidden />
+              <ChevronDown className="size-4" aria-hidden />
             )}
           </DomeButton>
 
@@ -167,9 +167,9 @@ export default function TranscriptToolbar({
                 className={`${iconBtn} disabled:opacity-50`}
               >
                 {regenerating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
                 ) : (
-                  <RefreshCw className="h-4 w-4" aria-hidden />
+                  <RefreshCw className="size-4" aria-hidden />
                 )}
               </DomeButton>
               <DomeButton
@@ -178,7 +178,7 @@ export default function TranscriptToolbar({
                 size="sm"
                 onClick={onOpenNote}
                 className="ml-1 gap-1.5 !rounded-lg !px-3 !py-1.5 !text-xs !h-auto min-h-0 !bg-[var(--dome-accent)] !text-[var(--dome-on-accent,#fff)]"
-                leftIcon={<ExternalLink className="h-3.5 w-3.5" aria-hidden />}
+                leftIcon={<ExternalLink className="size-3.5" aria-hidden />}
               >
                 {t('media.open_linked_note')}
               </DomeButton>
@@ -193,9 +193,9 @@ export default function TranscriptToolbar({
               className="ml-1 gap-1.5 !rounded-lg !px-3 !py-1.5 !text-xs !h-auto min-h-0 border-[var(--dome-border)] bg-[var(--dome-surface)] text-[var(--dome-text)] hover:bg-[var(--dome-bg-hover)] disabled:opacity-50"
               leftIcon={
                 transcribing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
                 ) : (
-                  <FileText className="h-3.5 w-3.5" aria-hidden />
+                  <FileText className="size-3.5" aria-hidden />
                 )
               }
             >

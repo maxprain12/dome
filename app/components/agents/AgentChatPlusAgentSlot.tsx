@@ -47,9 +47,9 @@ export function AgentChatPlusAgentSlot({
     <button
       type="button"
       onClick={() => setSubview(null)}
-      className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)]"
+      className="mb-1 flex w-full items-center gap-2 rounded-xl p-2.5 text-left transition-colors hover:bg-[var(--bg-hover)]"
     >
-      <ChevronLeft className="h-4 w-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
+      <ChevronLeft className="size-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
       <span className="text-[13px] font-medium text-[var(--primary-text)]">{t('agent.back')}</span>
     </button>
   );
@@ -83,7 +83,7 @@ export function AgentChatPlusAgentSlot({
             return (
               <div
                 key={id}
-                className="flex items-center justify-between gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-[var(--bg-hover)]"
+                className="flex items-center justify-between gap-3 rounded-xl p-2 transition-colors hover:bg-[var(--bg-hover)]"
               >
                 <span
                   className={`min-w-0 flex-1 truncate text-[13px] font-medium ${
@@ -121,15 +121,15 @@ export function AgentChatPlusAgentSlot({
                   key={id}
                   type="button"
                   onClick={() => setSubview({ kind: 'mcp', serverId: id })}
-                  className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)]"
+                  className="flex w-full items-center justify-between gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-[var(--bg-hover)]"
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    <Plug2 className="h-3.5 w-3.5 shrink-0 text-[var(--tertiary-text)]" />
+                    <Plug2 className="size-3.5 shrink-0 text-[var(--tertiary-text)]" />
                     <span className="truncate text-[13px] font-medium text-[var(--primary-text)]" title={id}>
                       {id}
                     </span>
                   </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
+                  <ChevronRight className="size-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
                 </button>
               ))}
             </div>
@@ -154,7 +154,7 @@ export function AgentChatPlusAgentSlot({
                 return (
                   <div
                     key={id}
-                    className="flex items-center justify-between gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-[var(--bg-hover)]"
+                    className="flex items-center justify-between gap-3 rounded-xl p-2 transition-colors hover:bg-[var(--bg-hover)]"
                   >
                     <span
                       className={`min-w-0 flex-1 truncate text-[13px] font-medium ${
@@ -172,12 +172,12 @@ export function AgentChatPlusAgentSlot({
                   key={group}
                   type="button"
                   onClick={() => setSubview({ kind: 'tools', group })}
-                  className="flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2.5 text-left transition-colors hover:bg-[var(--bg-hover)]"
+                  className="flex w-full items-center justify-between gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-[var(--bg-hover)]"
                 >
                   <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-[var(--primary-text)]">
                     {t(toolGroupLabelKey(group))}
                   </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
+                  <ChevronRight className="size-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
                 </button>
               );
             })}

@@ -35,6 +35,25 @@ const STATUS_COLORS = {
   error: { header: 'var(--error-bg)', textColor: 'var(--error)' },
 };
 
+function AgentNodeStatusIcon({
+  status,
+  systemColor,
+}: {
+  status: AgentNodeData['status'];
+  systemColor: string;
+}) {
+  switch (status) {
+    case 'running':
+      return <Loader2 className="size-3.5 animate-spin" style={{ color: systemColor }} />;
+    case 'done':
+      return <CheckCircle2 className="size-3.5" style={{ color: 'var(--success)' }} />;
+    case 'error':
+      return <AlertCircle className="size-3.5" style={{ color: 'var(--error)' }} />;
+    default:
+      return null;
+  }
+}
+
 export default function AgentNode({
   data,
   selected,
@@ -54,19 +73,6 @@ export default function AgentNode({
   const isSystemAgent = !data.agentId && !!data.systemAgentRole;
   const systemDef = data.systemAgentRole ? SYSTEM_AGENTS[data.systemAgentRole] : null;
   const systemColor = systemDef?.color ?? 'var(--dome-accent)';
-
-  const StatusIcon = () => {
-    switch (data.status) {
-      case 'running':
-        return <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: systemColor }} />;
-      case 'done':
-        return <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />;
-      case 'error':
-        return <AlertCircle className="w-3.5 h-3.5" style={{ color: 'var(--error)' }} />;
-      default:
-        return null;
-    }
-  };
 
   const agentInitials = data.agentName ? data.agentName.slice(0, 2).toUpperCase() : '?';
 
@@ -106,16 +112,16 @@ export default function AgentNode({
         }}
       >
         <div
-          className="w-6 h-6 rounded-lg flex items-center justify-center text-white font-bold text-[10px] shrink-0"
+          className="size-6 rounded-lg flex items-center justify-center text-white font-bold text-[10px] shrink-0"
           style={{ background: systemColor }}
         >
           {isSystemAgent && RoleIcon ? (
-            <RoleIcon className="w-3.5 h-3.5 text-white" />
+            <RoleIcon className="size-3.5 text-white" />
           ) : data.agentIconIndex > 0 && !iconLoadFailed ? (
             <img
               src={`/agents/sprite_${data.agentIconIndex}.png`}
               alt={data.agentName ?? 'Agent'}
-              className="w-full h-full object-contain rounded-lg"
+              className="size-full object-contain rounded-lg"
               onError={() => setIconLoadFailed(true)}
             />
           ) : (
@@ -139,13 +145,13 @@ export default function AgentNode({
             </span>
           ) : null}
         </div>
-        <StatusIcon />
+        <AgentNodeStatusIcon status={data.status} systemColor={systemColor} />
       </div>
 
       <div className="p-3 min-h-[48px]">
         {data.status === 'idle' && !data.agentId && !data.systemAgentRole && (
           <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            <Bot className="w-4 h-4 opacity-40 shrink-0" />
+            <Bot className="size-4 opacity-40 shrink-0" />
             <span className="italic leading-snug">{t('canvas.no_agent_assigned')}</span>
           </div>
         )}
@@ -157,7 +163,7 @@ export default function AgentNode({
 
         {data.status === 'idle' && data.agentId && (
           <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            <ChevronRight className="w-3.5 h-3.5 opacity-40 shrink-0" />
+            <ChevronRight className="size-3.5 opacity-40 shrink-0" />
             <span className="italic leading-snug">{t('canvas.ready_to_execute')}</span>
           </div>
         )}
@@ -166,7 +172,7 @@ export default function AgentNode({
           <div className="space-y-1.5">
             <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
               <div
-                className="h-full w-full rounded-full animate-pulse"
+                className="size-full rounded-full animate-pulse"
                 style={{
                   background: 'linear-gradient(90deg, transparent 0%, var(--dome-accent) 50%, transparent 100%)',
                 }}

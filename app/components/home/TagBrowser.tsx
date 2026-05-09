@@ -167,7 +167,7 @@ export default function TagBrowser() {
                   }}
                 >
                   <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                    className="size-8 rounded-lg flex items-center justify-center shrink-0"
                     style={{ background: `${color}18`, color }}
                   >
                     <ResourceTypeIcon type={res.type} />
@@ -221,7 +221,7 @@ export default function TagBrowser() {
               }}
             >
               <div
-                className="w-2 h-2 rounded-full shrink-0"
+                className="size-2 rounded-full shrink-0"
                 style={{ background: color }}
               />
               {tag.name}

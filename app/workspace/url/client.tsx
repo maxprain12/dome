@@ -205,7 +205,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
         style={{ background: 'var(--dome-bg)' }}
       >
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+          <Loader2 className="size-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
           <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>{t('workspace.loading_resources')}</p>
         </div>
       </div>
@@ -218,7 +218,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
         className="flex flex-col items-center justify-center min-h-full p-8"
         style={{ background: 'var(--dome-bg)' }}
       >
-        <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--dome-error, #ef4444)' }} />
+        <AlertCircle className="size-12 mb-4" style={{ color: 'var(--dome-error, #ef4444)' }} />
         <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
           {t('workspace.error_loading')}
         </h2>

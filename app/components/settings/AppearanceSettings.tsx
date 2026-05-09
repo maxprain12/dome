@@ -38,7 +38,7 @@ export default function AppearanceSettings() {
           options={themes.map((th) => ({
             value: th.value,
             label: t(th.labelKey),
-            icon: <th.icon className="w-3.5 h-3.5" aria-hidden />,
+            icon: <th.icon className="size-3.5" aria-hidden />,
           }))}
         />
         {activeDesc ? (
@@ -50,8 +50,8 @@ export default function AppearanceSettings() {
         <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.appearance.customization')}</DomeSectionLabel>
         <DomeCard>
           <div className="flex items-center gap-3 opacity-40">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
-              <div className="w-4 h-4 rounded-full" style={{ backgroundColor: 'var(--dome-accent-bg)' }} />
+            <div className="size-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
+              <div className="size-4 rounded-full" style={{ backgroundColor: 'var(--dome-accent-bg)' }} />
             </div>
             <div>
               <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>

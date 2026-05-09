@@ -76,6 +76,76 @@ const SYSTEM_AGENT_ICONS: Record<SystemAgentRole, React.ElementType> = {
   curator: FolderKanban,
 };
 
+function CanvasPaletteSectionHeader({
+  expanded,
+  onToggle,
+  label,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="w-full flex items-center gap-1.5 mb-2 text-left"
+    >
+      {expanded ? (
+        <ChevronDown className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+      ) : (
+        <ChevronRight className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+      )}
+      <span className="text-[11px] font-semibold tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+        {label}
+      </span>
+    </button>
+  );
+}
+
+function CanvasPaletteRow({
+  icon: Icon,
+  label,
+  description,
+  color,
+  onAdd,
+  onDragStart,
+  title,
+}: {
+  icon: React.ElementType;
+  label: string;
+  description: string;
+  color: string;
+  onAdd: () => void;
+  onDragStart: (e: React.DragEvent) => void;
+  title?: string;
+}) {
+  return (
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onClick={onAdd}
+      className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors hover:bg-[var(--dome-bg)] border border-transparent hover:border-[var(--dome-border)]"
+      title={title ?? description}
+    >
+      <div
+        className="size-7 rounded-md flex items-center justify-center shrink-0"
+        style={{ background: color }}
+      >
+        <Icon className="size-3.5 text-white" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium truncate leading-tight" style={{ color: 'var(--dome-text)' }}>
+          {label}
+        </p>
+        <p className="text-[11px] truncate leading-snug mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
   const { t } = useTranslation();
   const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
@@ -221,72 +291,6 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
     e.dataTransfer.effectAllowed = 'copy';
   };
 
-  const SectionHeader = ({
-    expanded,
-    onToggle,
-    label,
-  }: {
-    expanded: boolean;
-    onToggle: () => void;
-    label: string;
-  }) => (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="w-full flex items-center gap-1.5 mb-2 text-left"
-    >
-      {expanded ? (
-        <ChevronDown className="w-3 h-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-      ) : (
-        <ChevronRight className="w-3 h-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-      )}
-      <span className="text-[11px] font-semibold tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
-        {label}
-      </span>
-    </button>
-  );
-
-  const PaletteRow = ({
-    icon: Icon,
-    label,
-    description,
-    color,
-    onAdd,
-    onDragStart,
-    title,
-  }: {
-    icon: React.ElementType;
-    label: string;
-    description: string;
-    color: string;
-    onAdd: () => void;
-    onDragStart: (e: React.DragEvent) => void;
-    title?: string;
-  }) => (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      onClick={onAdd}
-      className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors hover:bg-[var(--dome-bg)] border border-transparent hover:border-[var(--dome-border)]"
-      title={title ?? description}
-    >
-      <div
-        className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-        style={{ background: color }}
-      >
-        <Icon className="w-3.5 h-3.5 text-white" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium truncate leading-tight" style={{ color: 'var(--dome-text)' }}>
-          {label}
-        </p>
-        <p className="text-[11px] truncate leading-snug mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-          {description}
-        </p>
-      </div>
-    </div>
-  );
-
   return (
     <div
       className="flex flex-col h-full overflow-y-auto shrink-0"
@@ -298,7 +302,7 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
       }}
     >
       <div className="px-3 pt-3 pb-2">
-        <SectionHeader
+        <CanvasPaletteSectionHeader
           expanded={inputsExpanded}
           onToggle={() => setInputsExpanded((v) => !v)}
           label={t('canvas.palette_inputs')}
@@ -306,7 +310,7 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
         {inputsExpanded && (
           <div className="space-y-2">
             {INPUT_NODE_CONFIG.map((n) => (
-              <PaletteRow
+              <CanvasPaletteRow
                 key={n.type}
                 icon={n.icon}
                 label={t(n.labelKey)}
@@ -322,14 +326,14 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
 
       <div className="mx-3 h-px" style={{ background: 'var(--dome-border)' }} />
 
-      <div className="px-3 py-3">
-        <SectionHeader
+      <div className="p-3">
+        <CanvasPaletteSectionHeader
           expanded={outputsExpanded}
           onToggle={() => setOutputsExpanded((v) => !v)}
           label={t('canvas.palette_outputs')}
         />
         {outputsExpanded && (
-          <PaletteRow
+          <CanvasPaletteRow
             icon={Terminal}
             label={t('canvas.output_result_label')}
             description={t('canvas.output_result_desc')}
@@ -342,8 +346,8 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
 
       <div className="mx-3 h-px" style={{ background: 'var(--dome-border)' }} />
 
-      <div className="px-3 py-3">
-        <SectionHeader
+      <div className="p-3">
+        <CanvasPaletteSectionHeader
           expanded={systemAgentsExpanded}
           onToggle={() => setSystemAgentsExpanded((v) => !v)}
           label={t('canvas.palette_system_agents')}
@@ -364,10 +368,10 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
                   title={desc}
                 >
                   <div
-                    className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                    className="size-7 rounded-md flex items-center justify-center shrink-0"
                     style={{ background: sysAgent.color }}
                   >
-                    <RoleIcon className="w-3.5 h-3.5 text-white" />
+                    <RoleIcon className="size-3.5 text-white" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium truncate leading-tight" style={{ color: sysAgent.color }}>
@@ -386,7 +390,7 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
 
       <div className="mx-3 h-px" style={{ background: 'var(--dome-border)' }} />
 
-      <div className="px-3 py-3 flex-1 flex flex-col min-h-0">
+      <div className="p-3 flex-1 flex flex-col min-h-0">
         <div className="flex items-center gap-1.5 mb-2">
           <button
             type="button"
@@ -394,9 +398,9 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
             className="flex items-center gap-1.5 text-left flex-1 min-w-0"
           >
             {agentsExpanded ? (
-              <ChevronDown className="w-3 h-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+              <ChevronDown className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
             ) : (
-              <ChevronRight className="w-3 h-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+              <ChevronRight className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
             )}
             <span className="text-[11px] font-semibold tracking-wide truncate" style={{ color: 'var(--dome-text-muted)' }}>
               {t('canvas.palette_my_agents')}
@@ -409,7 +413,7 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
             title={t('canvas.reload_agents')}
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 ${loadingAgents ? 'animate-spin' : ''}`}
+              className={`size-3.5 ${loadingAgents ? 'animate-spin' : ''}`}
               style={{ color: 'var(--dome-text-muted)' }}
             />
           </button>
@@ -419,7 +423,7 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
           <>
             <div className="relative mb-2">
               <Search
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+                className="absolute left-2 top-1/2 -translate-y-1/2 size-3 pointer-events-none"
                 style={{ color: 'var(--dome-text-muted)' }}
               />
               <input
@@ -453,20 +457,20 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
                       className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors hover:bg-[var(--dome-bg)] border border-transparent hover:border-[var(--dome-border)]"
                     >
                       <div
-                        className="w-7 h-7 rounded-md overflow-hidden shrink-0 flex items-center justify-center text-white text-[10px] font-bold"
+                        className="size-7 rounded-md overflow-hidden shrink-0 flex items-center justify-center text-white text-[10px] font-bold"
                         style={{ background: 'var(--dome-accent)' }}
                       >
                         {agent.iconIndex > 0 ? (
                           <img
                             src={`/agents/sprite_${agent.iconIndex}.png`}
                             alt={agent.name}
-                            className="w-full h-full object-cover"
+                            className="size-full object-cover"
                             onError={(e) => {
                               (e.currentTarget as HTMLImageElement).style.display = 'none';
                             }}
                           />
                         ) : (
-                          <Bot className="w-3.5 h-3.5" />
+                          <Bot className="size-3.5" />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">

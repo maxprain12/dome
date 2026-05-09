@@ -148,7 +148,7 @@ function MonthView({
   }, [events]);
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="size-full flex flex-col">
       {/* Weekday header */}
       <div className="grid grid-cols-7 border-b shrink-0" style={{ borderColor: 'var(--dome-border)' }}>
         {weekdayShortLabels.map((wd) => (
@@ -202,7 +202,7 @@ function MonthView({
               {/* Day number */}
               <div className="flex items-center justify-end mb-0.5">
                 <span
-                  className="w-6 h-6 flex items-center justify-center text-xs rounded-full"
+                  className="size-6 flex items-center justify-center text-xs rounded-full"
                   style={{
                     background: today ? 'var(--dome-accent)' : undefined,
                     color: today ? 'var(--dome-on-accent)' : 'var(--dome-text-muted)',
@@ -357,7 +357,7 @@ function CurrentTimeLine({ hourHeight }: { hourHeight: number }) {
   return (
     <div className="absolute left-0 right-0 pointer-events-none z-10" style={{ top: minuteOffset }}>
       <div className="flex items-center">
-        <div className="w-2 h-2 rounded-full shrink-0 -ml-1" style={{ background: 'var(--dome-accent)' }} />
+        <div className="size-2 rounded-full shrink-0 -ml-1" style={{ background: 'var(--dome-accent)' }} />
         <div className="flex-1 h-px" style={{ background: 'var(--dome-accent)' }} />
       </div>
     </div>
@@ -420,7 +420,7 @@ function WeekView({
           >
             <div className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>{format(day, 'EEE', { locale: dfLocale })}</div>
             <div
-              className="text-base mx-auto mt-0.5 w-8 h-8 flex items-center justify-center rounded-full font-medium"
+              className="text-base mx-auto mt-0.5 size-8 flex items-center justify-center rounded-full font-medium"
               style={{
                 background: isToday(day) ? 'var(--dome-accent)' : undefined,
                 color: isToday(day) ? 'var(--dome-on-accent, #fff)' : 'var(--dome-text)',
@@ -613,7 +613,7 @@ function YearView({
                     style={{ height: 16 }}
                   >
                     <span
-                      className="w-4 h-4 flex items-center justify-center rounded-full text-[9px]"
+                      className="size-4 flex items-center justify-center rounded-full text-[9px]"
                       style={{
                         background: today && inMonth ? 'var(--dome-accent)' : undefined,
                         color: !inMonth ? 'transparent' : today ? 'var(--dome-on-accent, #fff)' : 'var(--dome-text)',
@@ -707,7 +707,7 @@ export default function CalendarGrid({
             style={{ color: 'var(--dome-text)' }}
             aria-label={t('common.back')}
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="size-4" />
           </button>
           <button
             type="button"
@@ -716,7 +716,7 @@ export default function CalendarGrid({
             style={{ color: 'var(--dome-text)' }}
             aria-label={t('common.next')}
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="size-4" />
           </button>
           <button
             type="button"

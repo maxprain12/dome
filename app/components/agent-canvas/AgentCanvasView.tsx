@@ -290,11 +290,11 @@ export default function AgentCanvasView() {
         >
           <div className="text-center space-y-3 max-w-sm px-6 opacity-50">
             <div
-              className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto"
+              className="size-14 rounded-2xl flex items-center justify-center mx-auto"
               style={{ background: 'var(--dome-accent-bg)' }}
             >
               <svg
-                className="w-7 h-7"
+                className="size-7"
                 style={{ color: 'var(--dome-accent)' }}
                 fill="none"
                 stroke="currentColor"

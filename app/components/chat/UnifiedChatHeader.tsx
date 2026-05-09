@@ -32,7 +32,7 @@ export const UnifiedChatHeader = memo(function UnifiedChatHeader({
       )}
     >
       {startSlot ? <div className="shrink-0 flex items-center">{startSlot}</div> : null}
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--bg-secondary)]">
+      <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--bg-secondary)]">
         {left}
       </div>
       <div className="min-w-0 flex-1">

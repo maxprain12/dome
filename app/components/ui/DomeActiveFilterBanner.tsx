@@ -32,7 +32,7 @@ export default function DomeActiveFilterBanner({
       }}
     >
       <div className="flex items-center gap-2 min-w-0">
-        <Filter className="w-3.5 h-3.5 shrink-0 opacity-70" aria-hidden />
+        <Filter className="size-3.5 shrink-0 opacity-70" aria-hidden />
         <span className="truncate">{label}</span>
       </div>
       <button
@@ -42,7 +42,7 @@ export default function DomeActiveFilterBanner({
         style={{ color: 'var(--dome-accent, var(--accent))' }}
         aria-label={clearLabel}
       >
-        <X className="w-3 h-3" aria-hidden />
+        <X className="size-3" aria-hidden />
         {clearLabel}
       </button>
     </div>

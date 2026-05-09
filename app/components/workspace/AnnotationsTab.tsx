@@ -51,7 +51,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent)' }} />
+        <Loader2 className="size-6 animate-spin" style={{ color: 'var(--accent)' }} />
       </div>
     );
   }
@@ -78,7 +78,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
         {annotations.length === 0 ? (
           <div className="text-center py-8">
             <MessageSquare
-              className="w-10 h-10 mx-auto mb-3"
+              className="size-10 mx-auto mb-3"
               style={{ color: 'var(--tertiary)' }}
             />
             <p className="text-sm" style={{ color: 'var(--secondary)' }}>

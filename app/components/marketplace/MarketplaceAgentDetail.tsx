@@ -55,13 +55,13 @@ export default function MarketplaceAgentDetail({
         {/* Close */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg transition-all z-10"
+          className="absolute top-4 right-4 size-8 flex items-center justify-center rounded-lg transition-all z-10"
           style={{
             color: 'var(--dome-text-muted)',
             background: 'var(--dome-bg)',
           }}
         >
-          <X className="w-4 h-4" />
+          <X className="size-4" />
         </button>
 
         <div className="overflow-y-auto" style={{ maxHeight: '85vh' }}>
@@ -69,13 +69,13 @@ export default function MarketplaceAgentDetail({
           <div className="p-6 pb-0">
             <div className="flex items-start gap-4">
               <div
-                className="w-16 h-16 shrink-0 rounded-2xl overflow-hidden"
+                className="size-16 shrink-0 rounded-2xl overflow-hidden"
                 style={{ background: 'var(--dome-accent-bg)' }}
               >
                 <img
                   src={`/agents/sprite_${agent.iconIndex}.png`}
                   alt={agent.name}
-                  className="w-full h-full object-contain"
+                  className="size-full object-contain"
                 />
               </div>
               <div className="flex-1 min-w-0 pt-1">
@@ -94,7 +94,7 @@ export default function MarketplaceAgentDetail({
                         color: 'var(--dome-accent)',
                       }}
                     >
-                      <Star className="w-3 h-3" />
+                      <Star className="size-3" />
                       Dome Team
                     </span>
                   )}
@@ -118,7 +118,7 @@ export default function MarketplaceAgentDetail({
                 className="text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5"
                 style={{ color: 'var(--dome-text-muted)' }}
               >
-                <Tag className="w-3.5 h-3.5" />
+                <Tag className="size-3.5" />
                 Categories
               </h4>
               <div className="flex flex-wrap gap-2">
@@ -144,7 +144,7 @@ export default function MarketplaceAgentDetail({
                   className="text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5"
                   style={{ color: 'var(--dome-text-muted)' }}
                 >
-                  <Wrench className="w-3.5 h-3.5" />
+                  <Wrench className="size-3.5" />
                   Tools
                 </h4>
                 <div className="flex flex-wrap gap-2">
@@ -224,22 +224,22 @@ export default function MarketplaceAgentDetail({
             >
               {isInstalling ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  <div className="size-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                   Installing…
                 </>
               ) : isInstalled && !hasUpdate ? (
                 <>
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="size-4" />
                   Installed
                 </>
               ) : hasUpdate ? (
                 <>
-                  <Download className="w-4 h-4" />
+                  <Download className="size-4" />
                   Update agent
                 </>
               ) : (
                 <>
-                  <Download className="w-4 h-4" />
+                  <Download className="size-4" />
                   Install agent
                 </>
               )}

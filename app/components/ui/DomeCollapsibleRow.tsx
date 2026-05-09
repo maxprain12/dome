@@ -57,7 +57,7 @@ export default function DomeCollapsibleRow({
         {hasBody ? (
           <ChevronDown
             className={cn(
-              'shrink-0 w-4 h-4 text-[var(--tertiary-text)] transition-transform motion-reduce:transition-none',
+              'shrink-0 size-4 text-[var(--tertiary-text)] transition-transform motion-reduce:transition-none',
               expanded ? 'rotate-180' : 'rotate-0',
             )}
             aria-hidden

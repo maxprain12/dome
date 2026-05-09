@@ -125,7 +125,7 @@ function EmptyState({ section }: { section: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[400px] p-12 text-center">
       <div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center mb-5"
+        className="size-16 rounded-2xl flex items-center justify-center mb-5"
         style={{ background: 'var(--dome-accent-bg)' }}
       >
         <Brain size={28} style={{ color: 'var(--dome-accent)' }} />

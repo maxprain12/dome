@@ -296,21 +296,21 @@ function ArtifactHeader({
         variant="ghost"
         size="sm"
         onClick={onToggle}
-        className="flex-1 min-w-0 justify-start gap-2 h-auto py-1 px-1 font-normal"
+        className="flex-1 min-w-0 justify-start gap-2 h-auto p-1 font-normal"
         leftIcon={
           <DomeIconBox
             size="sm"
             background={`color-mix(in srgb, ${styles.iconColor} 15%, transparent)`}
             className="!w-[26px] !h-[26px] !rounded-md"
           >
-            <Icon className="w-3.5 h-3.5" style={{ color: styles.iconColor }} />
+            <Icon className="size-3.5" style={{ color: styles.iconColor }} />
           </DomeIconBox>
         }
         rightIcon={
           expanded ? (
-            <ChevronUp className="w-3.5 h-3.5 shrink-0 text-[var(--secondary-text)]" aria-hidden />
+            <ChevronUp className="size-3.5 shrink-0 text-[var(--secondary-text)]" aria-hidden />
           ) : (
-            <ChevronDown className="w-3.5 h-3.5 shrink-0 text-[var(--secondary-text)]" aria-hidden />
+            <ChevronDown className="size-3.5 shrink-0 text-[var(--secondary-text)]" aria-hidden />
           )
         }
       >
@@ -327,10 +327,10 @@ function ArtifactHeader({
           onClick={handleOpenTab}
           title={t('chat.open_in_tab')}
           aria-label={t('chat.open_in_tab')}
-          className="gap-0 !p-1.5 h-8 w-8 min-w-0 text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+          className="gap-0 !p-1.5 size-8 min-w-0 text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
           iconOnly
         >
-          <PanelRight className="w-3.5 h-3.5" aria-hidden />
+          <PanelRight className="size-3.5" aria-hidden />
         </DomeButton>
         <DomeButton
           type="button"
@@ -339,10 +339,10 @@ function ArtifactHeader({
           onClick={handleExportJson}
           title={t('chat.export_json')}
           aria-label={t('chat.export_json')}
-          className="gap-0 !p-1.5 h-8 w-8 min-w-0 text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+          className="gap-0 !p-1.5 size-8 min-w-0 text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
           iconOnly
         >
-          <Download className="w-3.5 h-3.5" aria-hidden />
+          <Download className="size-3.5" aria-hidden />
         </DomeButton>
         <DomeButton
           type="button"
@@ -353,9 +353,9 @@ function ArtifactHeader({
           className="shrink-0 gap-1 h-auto py-1 px-2 text-[11px] text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
           leftIcon={
             copied ? (
-              <Check className="w-3 h-3 text-[var(--success)]" aria-hidden />
+              <Check className="size-3 text-[var(--success)]" aria-hidden />
             ) : (
-              <Copy className="w-3 h-3" aria-hidden />
+              <Copy className="size-3" aria-hidden />
             )
           }
         >

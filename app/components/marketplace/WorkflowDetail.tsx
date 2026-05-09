@@ -67,7 +67,7 @@ export default function WorkflowDetail({
                   className="text-xs px-2 py-0.5 rounded-full font-medium flex items-center gap-1"
                   style={{ background: 'var(--dome-bg)', color: 'var(--dome-accent)', border: '1px solid var(--dome-border)' }}
                 >
-                  <Sparkles className="w-3 h-3" /> Dome Team
+                  <Sparkles className="size-3" /> Dome Team
                 </span>
               )}
             </div>
@@ -79,7 +79,7 @@ export default function WorkflowDetail({
             onClick={onClose}
             className="p-1.5 rounded-lg transition-colors hover:bg-white/50"
           >
-            <X className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+            <X className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
           </button>
         </div>
 
@@ -97,13 +97,13 @@ export default function WorkflowDetail({
                 return (
                   <div key={node.id} className="flex items-center gap-2">
                     {i > 0 && (
-                      <ArrowRight className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+                      <ArrowRight className="size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
                     )}
                     <div
                       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
                       style={{ background: 'var(--dome-accent-bg)', border: '1px solid var(--dome-border)' }}
                     >
-                      <NodeIcon className="w-3 h-3" style={{ color: nodeMeta.color }} />
+                      <NodeIcon className="size-3" style={{ color: nodeMeta.color }} />
                       <span className="text-xs font-medium" style={{ color: nodeMeta.color }}>
                         {node.data.label}
                       </span>
@@ -143,10 +143,10 @@ export default function WorkflowDetail({
                     }}
                   >
                     <div
-                      className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                      className="size-8 rounded-xl flex items-center justify-center shrink-0"
                       style={{ background: 'var(--dome-accent)' }}
                     >
-                      <Bot className="w-4 h-4 text-white" />
+                      <Bot className="size-4 text-white" />
                     </div>
                     <div>
                       <p className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
@@ -182,7 +182,7 @@ export default function WorkflowDetail({
                   className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium"
                   style={{ background: 'var(--accent)', color: 'var(--base-text)' }}
                 >
-                  <Clock className="w-3 h-3" />
+                  <Clock className="size-3" />
                   {workflow.estimatedTime}
                 </span>
               )}
@@ -207,7 +207,7 @@ export default function WorkflowDetail({
           {workflow.useCases && workflow.useCases.length > 0 && (
             <div className="px-5 pb-4">
               <h3 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--dome-text-muted)' }}>
-                <Lightbulb className="w-3 h-3 inline mr-1 -mt-0.5" />
+                <Lightbulb className="size-3 inline mr-1 -mt-0.5" />
                 Use cases
               </h3>
               <ul className="space-y-1.5">
@@ -254,22 +254,22 @@ export default function WorkflowDetail({
             >
               {isInstalling ? (
                 <span className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  <span className="size-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                   Installing…
                 </span>
               ) : isInstalled && !hasUpdate ? (
                 <>
-                  <Play className="w-4 h-4" />
+                  <Play className="size-4" />
                   Open in Canvas
                 </>
               ) : hasUpdate ? (
                 <>
-                  <Download className="w-4 h-4" />
+                  <Download className="size-4" />
                   Update
                 </>
               ) : (
                 <>
-                  <Download className="w-4 h-4" />
+                  <Download className="size-4" />
                   Install
                 </>
               )}

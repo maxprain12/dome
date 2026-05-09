@@ -63,18 +63,18 @@ import { db } from '@/lib/db/client';
 // ---------------------------------------------------------------------------
 function getResourceIcon(type: string) {
   switch (type) {
-    case 'note': return <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />;
-    case 'notebook': return <BookOpen className="w-3.5 h-3.5" strokeWidth={1.75} />;
-    case 'url': return <Globe className="w-3.5 h-3.5" strokeWidth={1.75} />;
+    case 'note': return <FileText className="size-3.5" strokeWidth={1.75} />;
+    case 'notebook': return <BookOpen className="size-3.5" strokeWidth={1.75} />;
+    case 'url': return <Globe className="size-3.5" strokeWidth={1.75} />;
     case 'youtube':
-    case 'video': return <Video className="w-3.5 h-3.5" strokeWidth={1.75} />;
-    case 'pdf': return <File className="w-3.5 h-3.5" strokeWidth={1.75} />;
-    case 'image': return <Image className="w-3.5 h-3.5" strokeWidth={1.75} />;
-    case 'audio': return <Music className="w-3.5 h-3.5" strokeWidth={1.75} />;
-    case 'ppt': return <Presentation className="w-3.5 h-3.5" strokeWidth={1.75} />;
-    case 'artifact': return <Layers className="w-3.5 h-3.5" strokeWidth={1.75} />;
-    case 'folder': return <Folder className="w-3.5 h-3.5" strokeWidth={1.75} />;
-    default: return <File className="w-3.5 h-3.5" strokeWidth={1.75} />;
+    case 'video': return <Video className="size-3.5" strokeWidth={1.75} />;
+    case 'pdf': return <File className="size-3.5" strokeWidth={1.75} />;
+    case 'image': return <Image className="size-3.5" strokeWidth={1.75} />;
+    case 'audio': return <Music className="size-3.5" strokeWidth={1.75} />;
+    case 'ppt': return <Presentation className="size-3.5" strokeWidth={1.75} />;
+    case 'artifact': return <Layers className="size-3.5" strokeWidth={1.75} />;
+    case 'folder': return <Folder className="size-3.5" strokeWidth={1.75} />;
+    default: return <File className="size-3.5" strokeWidth={1.75} />;
   }
 }
 
@@ -242,14 +242,14 @@ function ContextMenu({
         {/* Open as reference / popout — only for non-folder resources */}
         {!isFolder && onOpenInSplit && canOpenInSplit && (
           <CtxItem
-            icon={<PanelRightOpen className="w-3.5 h-3.5" />}
+            icon={<PanelRightOpen className="size-3.5" />}
             label={t('focused_editor.open_reference', 'Abrir como referencia')}
             onClick={() => { onOpenInSplit(r); onClose(); }}
           />
         )}
         {!isFolder && onOpenInWindow && r.type === 'note' && (
           <CtxItem
-            icon={<Maximize2 className="w-3.5 h-3.5" />}
+            icon={<Maximize2 className="size-3.5" />}
             label={t('focused_editor.popout', 'Abrir en ventana')}
             onClick={() => { onOpenInWindow(r); onClose(); }}
           />
@@ -259,14 +259,14 @@ function ContextMenu({
         )}
 
         {/* Rename */}
-        <CtxItem icon={<Edit3 className="w-3.5 h-3.5" />} label="Renombrar" onClick={() => { onRename(r); onClose(); }} />
+        <CtxItem icon={<Edit3 className="size-3.5" />} label="Renombrar" onClick={() => { onRename(r); onClose(); }} />
 
         {/* Move */}
-        <CtxItem icon={<FolderInput className="w-3.5 h-3.5" />} label="Mover a carpeta" onClick={() => { onMove(r); onClose(); }} />
+        <CtxItem icon={<FolderInput className="size-3.5" />} label="Mover a carpeta" onClick={() => { onMove(r); onClose(); }} />
 
         {/* New subfolder — folders only */}
         {isFolder && (
-          <CtxItem icon={<FolderPlus className="w-3.5 h-3.5" />} label="Nueva subcarpeta" onClick={() => { onNewFolder(r.id); onClose(); }} />
+          <CtxItem icon={<FolderPlus className="size-3.5" />} label="Nueva subcarpeta" onClick={() => { onNewFolder(r.id); onClose(); }} />
         )}
 
         {/* Color picker — folders only */}
@@ -286,7 +286,7 @@ function ContextMenu({
               onClick={() => setShowColors((s) => !s)}
             >
               <span
-                className="w-3.5 h-3.5 rounded-full shrink-0 flex items-center justify-center"
+                className="size-3.5 rounded-full shrink-0 flex items-center justify-center"
                 style={{
                   background: currentColor?.startsWith('#') ? currentColor : 'var(--dome-accent)',
                   boxShadow: `0 0 0 1.5px ${currentColor?.startsWith('#') ? currentColor + '44' : 'transparent'}`,
@@ -294,7 +294,7 @@ function ContextMenu({
               />
               <span className="flex-1" style={{ fontWeight: 500 }}>Color de carpeta</span>
               <ChevronDown
-                className="w-3 h-3 shrink-0"
+                className="size-3 shrink-0"
                 style={{ color: 'var(--dome-text-muted)', transform: showColors ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 150ms' }}
               />
             </button>
@@ -323,7 +323,7 @@ function ContextMenu({
                           boxShadow: hoveredColor === opt.value ? `0 2px 8px ${opt.value}66` : 'none',
                         }}
                       >
-                        {isActive && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
+                        {isActive && <Check className="size-2.5 text-white" strokeWidth={3} />}
                       </button>
                     );
                   })}
@@ -355,7 +355,7 @@ function ContextMenu({
 
         {/* Delete */}
         <CtxItem
-          icon={<Trash2 className="w-3.5 h-3.5" />}
+          icon={<Trash2 className="size-3.5" />}
           label="Eliminar"
           onClick={() => { onDelete(r); onClose(); }}
           danger
@@ -408,16 +408,16 @@ function MoveFolderModal({ resource, allFolders, onConfirm, onClose }: {
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--dome-border)' }}>
           <span className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>Mover "{resource.title}"</span>
           <button type="button" onClick={onClose} className="rounded flex items-center justify-center hover:bg-[var(--dome-bg-hover)]" style={{ width: 24, height: 24, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>
-            <X className="w-3.5 h-3.5" />
+            <X className="size-3.5" />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto py-1.5">
           <button type="button" className="flex items-center gap-2 w-full text-left px-4 py-2 transition-colors"
             style={{ background: selected === null ? 'var(--dome-bg-hover)' : 'transparent', border: 'none', cursor: 'pointer', fontSize: 12.5, color: 'var(--dome-text)' }}
             onClick={() => setSelected(null)}>
-            <Hash className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+            <Hash className="size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
             <span className="flex-1">{t('ui.no_folder_root')}</span>
-            {selected === null && <Check className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />}
+            {selected === null && <Check className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />}
           </button>
           {available.map((f) => (
             <button key={f.id} type="button"
@@ -426,9 +426,9 @@ function MoveFolderModal({ resource, allFolders, onConfirm, onClose }: {
               onClick={() => setSelected(f.id)}
               onMouseEnter={(e) => { if (selected !== f.id) (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
               onMouseLeave={(e) => { if (selected !== f.id) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}>
-              <Folder className="w-3.5 h-3.5 shrink-0" style={{ color: getFolderColor(f) }} />
+              <Folder className="size-3.5 shrink-0" style={{ color: getFolderColor(f) }} />
               <span className="flex-1 truncate">{f.title}</span>
-              {selected === f.id && <Check className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />}
+              {selected === f.id && <Check className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />}
             </button>
           ))}
         </div>
@@ -622,14 +622,14 @@ function TreeNode({
         >
           <span className="shrink-0 flex items-center justify-center" style={{ width: 14, height: 14 }}>
             {isFolder
-              ? <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? '' : '-rotate-90'}`} strokeWidth={2.5} />
+              ? <ChevronDown className={`size-3 transition-transform ${isExpanded ? '' : '-rotate-90'}`} strokeWidth={2.5} />
               : null}
           </span>
 
           {/* Folder icon with color swatch */}
           {isFolder ? (
             <span className="shrink-0 relative flex items-center justify-center">
-              <Folder className="w-3.5 h-3.5" style={{ color: folderColor }} strokeWidth={1.75} fill={`${folderColor}33`} />
+              <Folder className="size-3.5" style={{ color: folderColor }} strokeWidth={1.75} fill={`${folderColor}33`} />
             </span>
           ) : (
             <span className="shrink-0" style={{ color: 'var(--dome-text-muted)' }}>
@@ -669,7 +669,7 @@ function TreeNode({
               (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)';
             }}
           >
-            <MoreHorizontal className="w-3.5 h-3.5" />
+            <MoreHorizontal className="size-3.5" />
           </button>
         )}
       </div>
@@ -933,7 +933,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
       {/* Search + selection toggle */}
       <div className="px-3 pt-2 pb-1.5 flex items-center gap-1.5">
         <div className="flex-1 flex items-center gap-1.5 rounded px-2" style={{ height: 26, background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
-          <Search className="w-3 h-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={2} />
+          <Search className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={2} />
           <input
             type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('workspace.search_resources')} className="flex-1 bg-transparent outline-none border-none"
@@ -948,7 +948,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
             className="shrink-0 flex items-center justify-center rounded"
             style={{ width: 24, height: 26, background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', cursor: 'pointer', color: 'var(--dome-text-muted)' }}
           >
-            <Check className="w-3 h-3" />
+            <Check className="size-3" />
           </button>
         ) : (
           <button
@@ -958,7 +958,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
             className="shrink-0 flex items-center justify-center rounded"
             style={{ width: 24, height: 26, background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)', border: '1px solid var(--dome-accent)', cursor: 'pointer', color: 'var(--dome-accent)' }}
           >
-            <X className="w-3 h-3" />
+            <X className="size-3" />
           </button>
         )}
       </div>
@@ -982,7 +982,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
                 cursor: 'pointer',
               }}
             >
-              <Trash2 className="w-3 h-3" />
+              <Trash2 className="size-3" />
               {t('common.delete')}
             </button>
           )}
@@ -1153,12 +1153,12 @@ function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateNotebook, onAddU
   };
 
   const ITEMS = [
-    { icon: <FileText className="w-3.5 h-3.5" strokeWidth={1.75} />, label: t('toolbar.note'), action: onCreateNote },
-    { icon: <NotebookPen className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Notebook', action: onCreateNotebook },
-    { icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.75} />, label: t('artifacts.new_artifact'), action: onCreateArtifact },
-    { icon: <Link className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'URL / Artículo', action: onAddUrl },
-    { icon: <Upload className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Importar fichero', action: onImportFile },
-    { icon: <Cloud className="w-3.5 h-3.5" strokeWidth={1.75} />, label: 'Importar desde Cloud', action: onImportFromCloud },
+    { icon: <FileText className="size-3.5" strokeWidth={1.75} />, label: t('toolbar.note'), action: onCreateNote },
+    { icon: <NotebookPen className="size-3.5" strokeWidth={1.75} />, label: 'Notebook', action: onCreateNotebook },
+    { icon: <Layers className="size-3.5" strokeWidth={1.75} />, label: t('artifacts.new_artifact'), action: onCreateArtifact },
+    { icon: <Link className="size-3.5" strokeWidth={1.75} />, label: 'URL / Artículo', action: onAddUrl },
+    { icon: <Upload className="size-3.5" strokeWidth={1.75} />, label: 'Importar fichero', action: onImportFile },
+    { icon: <Cloud className="size-3.5" strokeWidth={1.75} />, label: 'Importar desde Cloud', action: onImportFromCloud },
   ];
 
   return (
@@ -1581,14 +1581,14 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'section',
         sectionId: 'library',
         label: t('workspace.home'),
-        icon: <Home className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        icon: <Home className="size-4 shrink-0" strokeWidth={sw} />,
       },
       {
         key: 'projects',
         kind: 'tab',
         tabType: 'projects',
         label: t('tabs.projects'),
-        icon: <Layers className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        icon: <Layers className="size-4 shrink-0" strokeWidth={sw} />,
         onOpen: openProjectsTab,
       },
       {
@@ -1596,7 +1596,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'calendar',
         label: t('workspace.calendar'),
-        icon: <Calendar className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        icon: <Calendar className="size-4 shrink-0" strokeWidth={sw} />,
         onOpen: openCalendarTab,
       },
       {
@@ -1604,7 +1604,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'agents',
         label: t('automationHub.tab_agents'),
-        icon: <Bot className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        icon: <Bot className="size-4 shrink-0" strokeWidth={sw} />,
         count: hubCounts.agents,
         onOpen: openAgentsTab,
       },
@@ -1613,7 +1613,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'workflows',
         label: t('automationHub.tab_workflows'),
-        icon: <Workflow className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        icon: <Workflow className="size-4 shrink-0" strokeWidth={sw} />,
         count: hubCounts.workflows,
         onOpen: openWorkflowsTab,
       },
@@ -1622,7 +1622,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'automations',
         label: t('automationHub.tab_automations'),
-        icon: <Zap className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        icon: <Zap className="size-4 shrink-0" strokeWidth={sw} />,
         count: hubCounts.automations,
         onOpen: openAutomationsTab,
       },
@@ -1631,7 +1631,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'runs',
         label: t('automationHub.tab_runs'),
-        icon: <Activity className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        icon: <Activity className="size-4 shrink-0" strokeWidth={sw} />,
         count: hubCounts.runs,
         onOpen: openRunsTab,
       },
@@ -1659,7 +1659,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'learn',
         label: t('workspace.learn'),
-        icon: <BookOpen className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        icon: <BookOpen className="size-4 shrink-0" strokeWidth={sw} />,
         onOpen: openLearnTab,
       },
       {
@@ -1667,7 +1667,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'tags',
         label: t('workspace.tags'),
-        icon: <Tag className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        icon: <Tag className="size-4 shrink-0" strokeWidth={sw} />,
         onOpen: openTagsTab,
       },
       {
@@ -1675,7 +1675,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'marketplace',
         label: t('workspace.marketplace'),
-        icon: <Store className="w-4 h-4 shrink-0" strokeWidth={sw} />,
+        icon: <Store className="size-4 shrink-0" strokeWidth={sw} />,
         onOpen: openMarketplaceTab,
       },
     ];
@@ -1715,7 +1715,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         <button
           type="button"
           onClick={() => setProjectMenuOpen((o) => !o)}
-          className="flex items-center gap-1.5 w-full rounded-md px-1.5 py-1.5 text-left transition-colors"
+          className="flex items-center gap-1.5 w-full rounded-md p-1.5 text-left transition-colors"
           style={{ background: projectMenuOpen ? 'var(--dome-bg-hover)' : 'transparent', border: 'none', cursor: 'pointer' }}
           onMouseEnter={(e) => {
             if (!projectMenuOpen) (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
@@ -1724,7 +1724,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             if (!projectMenuOpen) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
           }}
         >
-          <div className="w-4 h-4 shrink-0" style={{ filter: 'var(--dome-logo-filter)' }}>
+          <div className="size-4 shrink-0" style={{ filter: 'var(--dome-logo-filter)' }}>
             <img src="/many.png" alt="" width={16} height={16} style={{ objectFit: 'contain' }} />
           </div>
           <span
@@ -1734,7 +1734,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             {activeProjectLabel}
           </span>
           <ChevronDown
-            className={`w-3.5 h-3.5 shrink-0 transition-transform ${projectMenuOpen ? 'rotate-180' : ''}`}
+            className={`size-3.5 shrink-0 transition-transform ${projectMenuOpen ? 'rotate-180' : ''}`}
             strokeWidth={2.5}
             style={{ color: 'var(--dome-text-muted)' }}
           />
@@ -1763,7 +1763,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
                 </button>
               ))}
             </div>
-            <div className="px-2 py-2 border-t flex gap-1" style={{ borderColor: 'var(--dome-border)' }}>
+            <div className="p-2 border-t flex gap-1" style={{ borderColor: 'var(--dome-border)' }}>
               <input
                 value={quickProjectName}
                 onChange={(e) => setQuickProjectName(e.target.value)}
@@ -1878,7 +1878,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
             >
-              <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} strokeWidth={2.5} />
+              <ChevronDown className={`size-3 shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} strokeWidth={2.5} />
               <span>Workspace</span>
             </button>
 
@@ -1895,7 +1895,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+              <Plus className="size-3.5" strokeWidth={2.5} />
             </button>
 
             {/* New folder button */}
@@ -1908,14 +1908,14 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
             >
-              <FolderPlus className="w-3.5 h-3.5" strokeWidth={2} />
+              <FolderPlus className="size-3.5" strokeWidth={2} />
             </button>
           </div>
           {workspaceOpen && (
             <div className="pb-2">
               {loading ? (
                 <div className="flex items-center justify-center py-6">
-                  <RefreshCw className="w-4 h-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                  <RefreshCw className="size-4 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
                 </div>
               ) : (
                 <FileTree
@@ -2030,7 +2030,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             })}
           </div>
         </div>
-        <div className="px-2 py-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
+        <div className="p-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
         <button
           type="button"
           onClick={() => {
@@ -2048,7 +2048,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
         >
           <div className="relative shrink-0">
-            <Settings className="w-4 h-4" strokeWidth={1.75} />
+            <Settings className="size-4" strokeWidth={1.75} />
             {updateAvailable && (
               <span
                 className="absolute -top-0.5 -right-0.5 rounded-full"
@@ -2059,7 +2059,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           <span>Settings</span>
         </button>
         </div>
-        <div className="flex items-center justify-between px-2 py-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
+        <div className="flex items-center justify-between p-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
           <span style={{ fontSize: 10, color: 'var(--dome-text-muted)', opacity: 0.6 }}>Made with ❤️ by <a href="https://www.linkedin.com/in/advo2/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Alder</a> and <a href="https://www.linkedin.com/in/maria-sugasaga/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Mery</a></span>
           <button
             type="button"
@@ -2069,7 +2069,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
           >
-            {isDark ? <Sun className="w-3.5 h-3.5" strokeWidth={1.75} /> : <Moon className="w-3.5 h-3.5" strokeWidth={1.75} />}
+            {isDark ? <Sun className="size-3.5" strokeWidth={1.75} /> : <Moon className="size-3.5" strokeWidth={1.75} />}
           </button>
         </div>
       </div>

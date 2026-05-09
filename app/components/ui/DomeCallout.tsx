@@ -71,7 +71,7 @@ export default function DomeCallout({
       role="note"
     >
       <div className="flex gap-2.5 min-w-0">
-        <Icon className="shrink-0 w-4 h-4 mt-0.5" style={{ color: s.icon }} aria-hidden />
+        <Icon className="shrink-0 size-4 mt-0.5" style={{ color: s.icon }} aria-hidden />
         <div className="min-w-0 flex-1 space-y-1">
           {title ? (
             <p className="text-xs font-semibold" style={{ color: s.title }}>

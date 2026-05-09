@@ -150,7 +150,7 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
                       cursor: showExplanation ? 'default' : 'pointer',
                     }}
                   >
-                    <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+                    <span className="size-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
                       style={{
                         background: isCorrect ? 'var(--success)' : isWrong ? 'var(--error)' : isSelected ? 'var(--dome-accent, #596037)' : 'var(--bg-tertiary)',
                         color: (isCorrect || isWrong || isSelected) ? 'var(--base-text)' : 'var(--secondary-text)',

@@ -15,7 +15,7 @@ import { getAnalyticsEnabled, getUserProfile } from '@/lib/settings';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 
 export default function AnalyticsProvider({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
+  const { pathname: routePathname } = useLocation();
   const [analyticsActive, setAnalyticsActive] = useState(false);
 
   useEffect(() => {
@@ -63,10 +63,10 @@ export default function AnalyticsProvider({ children }: { children: React.ReactN
   useEffect(() => {
     if (!analyticsActive) return;
     capturePostHog(ANALYTICS_EVENTS.PAGEVIEW, {
-      path: location.pathname,
+      path: routePathname,
       title: document.title,
     });
-  }, [analyticsActive, location.pathname]);
+  }, [analyticsActive, routePathname]);
 
   return <>{children}</>;
 }

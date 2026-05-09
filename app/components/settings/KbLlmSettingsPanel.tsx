@@ -148,7 +148,7 @@ export default function KbLlmSettingsPanel() {
         subtitle={t('settings.kb_llm.subtitle')}
         trailing={
           <DomeIconBox size="md" className="!w-10 !h-10">
-            <BookMarked className="w-5 h-5 text-[var(--accent)]" aria-hidden />
+            <BookMarked className="size-5 text-[var(--accent)]" aria-hidden />
           </DomeIconBox>
         }
         className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"
@@ -239,7 +239,7 @@ export default function KbLlmSettingsPanel() {
             type="button"
             variant="outline"
             loading={syncing}
-            leftIcon={<RefreshCw className="h-4 w-4" />}
+            leftIcon={<RefreshCw className="size-4" />}
             onClick={() => void handleSyncAll()}
           >
             {t('settings.kb_llm.sync_all')}

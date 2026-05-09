@@ -308,7 +308,7 @@ export default function AudioOverview({
         </div>
       ) : hasAudio ? (
         <div
-          className="px-4 py-4 border-b shrink-0"
+          className="p-4 border-b shrink-0"
           style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
         >
           {/* Progress bar */}
@@ -326,7 +326,7 @@ export default function AudioOverview({
               }}
             >
               <div
-                className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute right-0 top-1/2 -translate-y-1/2 size-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                 style={{
                   background: 'var(--accent)',
                   boxShadow: '0 0 4px rgba(0,0,0,0.2)',
@@ -357,7 +357,7 @@ export default function AudioOverview({
               </button>
               <button
                 onClick={togglePlay}
-                className="flex items-center justify-center w-9 h-9 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                className="flex items-center justify-center size-9 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{
                   background: 'var(--accent)',
                   color: 'var(--base-text)',
@@ -408,7 +408,7 @@ export default function AudioOverview({
       ) : (
         /* No audio available - show message */
         <div
-          className="flex items-center justify-center gap-2 px-4 py-4 border-b shrink-0"
+          className="flex items-center justify-center gap-2 p-4 border-b shrink-0"
           style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
         >
           <Mic size={16} style={{ color: 'var(--tertiary-text)' }} />

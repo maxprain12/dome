@@ -110,7 +110,7 @@ export default function EventModal({
             className="p-1 rounded hover:bg-[var(--dome-bg)]"
             style={{ color: 'var(--dome-text-muted)' }}
           >
-            <X className="w-5 h-5" />
+            <X className="size-5" />
           </button>
         </div>
 

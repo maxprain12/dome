@@ -22,7 +22,7 @@ export default function AgentIconStep({ selectedIndex, onChange }: AgentIconStep
               key={idx}
               type="button"
               onClick={() => onChange(idx)}
-              className={`flex items-center justify-center w-12 h-12 rounded-xl border-2 transition-all ${isSelected ? 'ring-2 ring-[var(--accent)]' : ''
+              className={`flex items-center justify-center size-12 rounded-xl border-2 transition-all ${isSelected ? 'ring-2 ring-[var(--accent)]' : ''
                 }`}
               style={{
                 borderColor: isSelected ? 'var(--accent)' : 'var(--border)',
@@ -32,7 +32,7 @@ export default function AgentIconStep({ selectedIndex, onChange }: AgentIconStep
               <img
                 src={`/agents/sprite_${idx}.png`}
                 alt={`Icon ${idx}`}
-                className="w-8 h-8 object-contain"
+                className="size-8 object-contain"
               />
             </button>
           );

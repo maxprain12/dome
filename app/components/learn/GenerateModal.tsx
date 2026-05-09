@@ -111,7 +111,7 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
             role="status"
             aria-live="polite"
           >
-            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+            <Loader2 className="size-8 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
             <p className="text-sm font-medium px-6 text-center" style={{ color: 'var(--dome-text)' }}>
               {t('learn.generating')}
             </p>

@@ -35,7 +35,7 @@ interface Props {
 }
 
 const PROVIDER_ICON = {
-  google: <Cloud className="w-4 h-4" />,
+  google: <Cloud className="size-4" />,
 };
 
 const IMPORTABLE_TYPES = new Set([
@@ -181,13 +181,13 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-2">
-            <Cloud className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+            <Cloud className="size-4" style={{ color: 'var(--accent)' }} />
             <span className="font-semibold text-sm" style={{ color: 'var(--primary-text)' }}>
               Importar desde Cloud
             </span>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg hover:opacity-70 transition-opacity">
-            <X className="w-4 h-4" style={{ color: 'var(--tertiary-text)' }} />
+            <X className="size-4" style={{ color: 'var(--tertiary-text)' }} />
           </button>
         </div>
 
@@ -215,7 +215,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
         {/* No accounts */}
         {accounts.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center gap-3" style={{ color: 'var(--tertiary-text)' }}>
-            <Cloud className="w-10 h-10 opacity-30" />
+            <Cloud className="size-10 opacity-30" />
             <p className="text-sm">No hay cuentas cloud conectadas.</p>
             <p className="text-xs">Conecta Google Drive en Settings → Cloud.</p>
           </div>
@@ -231,14 +231,14 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                 disabled={breadcrumbs.length <= 1}
                 className="p-1.5 rounded-lg disabled:opacity-30 transition-opacity hover:opacity-70"
               >
-                <ChevronLeft className="w-3.5 h-3.5" style={{ color: 'var(--secondary-text)' }} />
+                <ChevronLeft className="size-3.5" style={{ color: 'var(--secondary-text)' }} />
               </button>
 
               {/* Breadcrumb trail */}
               <div className="flex items-center gap-1 flex-1 overflow-hidden">
                 {breadcrumbs.map((crumb, i) => (
                   <span key={i} className="flex items-center gap-1 shrink-0">
-                    {i > 0 && <ChevronRight className="w-3 h-3 opacity-40" style={{ color: 'var(--tertiary-text)' }} />}
+                    {i > 0 && <ChevronRight className="size-3 opacity-40" style={{ color: 'var(--tertiary-text)' }} />}
                     <button
                       onClick={() => handleBreadcrumb(i)}
                       className="text-xs hover:opacity-70 transition-opacity truncate max-w-[120px]"
@@ -252,7 +252,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
 
               {/* Search */}
               <div className="flex items-center gap-1" style={{ backgroundColor: 'var(--bg-tertiary)', borderRadius: 8, border: '1px solid var(--border)', padding: '4px 10px' }}>
-                <Search className="w-3 h-3 shrink-0" style={{ color: 'var(--tertiary-text)' }} />
+                <Search className="size-3 shrink-0" style={{ color: 'var(--tertiary-text)' }} />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -263,7 +263,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                 />
                 {search && (
                   <button onClick={() => { setSearch(''); if (selectedAccount) loadFiles(selectedAccount, currentFolderId); }}>
-                    <X className="w-3 h-3" style={{ color: 'var(--tertiary-text)' }} />
+                    <X className="size-3" style={{ color: 'var(--tertiary-text)' }} />
                   </button>
                 )}
               </div>
@@ -272,7 +272,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
             {/* Error */}
             {error && (
               <div className="flex items-center gap-2 mx-5 mt-3 px-3 py-2 rounded-lg text-xs" style={{ backgroundColor: 'rgba(239,68,68,0.08)', color: 'var(--dome-error)' }}>
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <AlertCircle className="size-3.5 shrink-0" />
                 {error}
               </div>
             )}
@@ -281,12 +281,12 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
             <div className="flex-1 overflow-y-auto px-3 py-2">
               {loading ? (
                 <div className="flex items-center justify-center h-full gap-2" style={{ color: 'var(--tertiary-text)' }}>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" />
                   <span className="text-xs">Cargando...</span>
                 </div>
               ) : files.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full gap-2" style={{ color: 'var(--tertiary-text)' }}>
-                  <Folder className="w-8 h-8 opacity-30" />
+                  <Folder className="size-8 opacity-30" />
                   <span className="text-xs">Carpeta vacía</span>
                 </div>
               ) : (
@@ -306,10 +306,10 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                       >
                         {/* Icon */}
-                        <div className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg" style={{ backgroundColor: file.isFolder ? 'var(--bg-tertiary)' : 'var(--bg-secondary)' }}>
+                        <div className="shrink-0 size-7 flex items-center justify-center rounded-lg" style={{ backgroundColor: file.isFolder ? 'var(--bg-tertiary)' : 'var(--bg-secondary)' }}>
                           {file.isFolder
-                            ? <Folder className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                            : <File className="w-4 h-4" style={{ color: 'var(--secondary-text)' }} />
+                            ? <Folder className="size-4" style={{ color: 'var(--accent)' }} />
+                            : <File className="size-4" style={{ color: 'var(--secondary-text)' }} />
                           }
                         </div>
 
@@ -327,9 +327,9 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                         {/* Action */}
                         <div className="shrink-0">
                           {file.isFolder ? (
-                            <ChevronRight className="w-3.5 h-3.5 opacity-40" style={{ color: 'var(--tertiary-text)' }} />
+                            <ChevronRight className="size-3.5 opacity-40" style={{ color: 'var(--tertiary-text)' }} />
                           ) : alreadyImported ? (
-                            <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--success)' }} />
+                            <CheckCircle2 className="size-4" style={{ color: 'var(--success)' }} />
                           ) : canImport ? (
                             <DomeButton
                               type="button"
@@ -341,7 +341,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                               }}
                               disabled={!!importing}
                               loading={isImportingThis}
-                              leftIcon={!isImportingThis ? <Download className="w-3 h-3" aria-hidden /> : undefined}
+                              leftIcon={!isImportingThis ? <Download className="size-3" aria-hidden /> : undefined}
                             >
                               {isImportingThis ? 'Importando...' : 'Importar'}
                             </DomeButton>

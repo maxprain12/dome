@@ -10,8 +10,8 @@ export interface DomeToggleProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
 }
 
 const trackSize: Record<'sm' | 'md', { track: string; thumb: string; translate: string }> = {
-  sm: { track: 'w-9 h-5', thumb: 'w-4 h-4', translate: 'translate-x-4' },
-  md: { track: 'w-11 h-6', thumb: 'w-5 h-5', translate: 'translate-x-5' },
+  sm: { track: 'w-9 h-5', thumb: 'size-4', translate: 'translate-x-4' },
+  md: { track: 'w-11 h-6', thumb: 'size-5', translate: 'translate-x-5' },
 };
 
 /**

@@ -169,7 +169,7 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
               className="text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)]"
               aria-label="Recargar plugin"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="size-4" />
             </DomeButton>
             <DomeButton
               type="button"
@@ -181,7 +181,7 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
               className="text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)]"
               aria-label="Cerrar"
             >
-              <X className="h-4 w-4" />
+              <X className="size-4" />
             </DomeButton>
           </div>
         </div>
@@ -201,7 +201,7 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
               title={plugin.name}
               srcDoc={srcDoc}
               sandbox="allow-scripts"
-              className="h-full w-full border-0"
+              className="size-full border-0"
             />
           )}
         </div>

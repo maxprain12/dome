@@ -88,7 +88,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
             style={{ color: 'var(--secondary)' }}
             aria-label="Cerrar modal"
           >
-            <X className="w-5 h-5" />
+            <X className="size-5" />
           </button>
         </div>
 

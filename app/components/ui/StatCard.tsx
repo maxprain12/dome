@@ -37,7 +37,7 @@ export default function StatCard({
       <div className="flex items-center justify-between">
         {Icon && (
           <Icon
-            className="h-4 w-4 shrink-0"
+            className="size-4 shrink-0"
             strokeWidth={1.5}
             style={{ color: iconColor }}
           />

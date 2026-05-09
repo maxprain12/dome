@@ -251,7 +251,7 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
             onClick={() => void runReindexAll()}
             title={t('semantic_graph.reindex_all')}
           >
-            <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${reindexBusy ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`size-3.5 shrink-0 ${reindexBusy ? 'animate-spin' : ''}`} />
             <span>{reindexBusy ? t('semantic_graph.indexing') : t('semantic_graph.reindex_all')}</span>
           </button>
         </div>
@@ -288,9 +288,9 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
             onClick={() => setLegendOpen((o) => !o)}
           >
             {legendOpen ? (
-              <ChevronDown className="w-3.5 h-3.5 shrink-0" />
+              <ChevronDown className="size-3.5 shrink-0" />
             ) : (
-              <ChevronRight className="w-3.5 h-3.5 shrink-0" />
+              <ChevronRight className="size-3.5 shrink-0" />
             )}
             <span>{t('semantic_graph.legend_heading')}</span>
             <span className="sr-only">{legendOpen ? t('semantic_graph.legend_collapse') : t('semantic_graph.legend_expand')}</span>
@@ -300,7 +300,7 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
               {GRAPH_RESOURCE_TYPES.map((rt) => (
                 <li key={rt} className="flex items-center gap-1.5 text-[11px] capitalize" style={{ color: 'var(--dome-text-secondary)' }}>
                   <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0 border"
+                    className="size-2.5 rounded-full shrink-0 border"
                     style={{
                       background: SEMANTIC_RESOURCE_TYPE_FILL[rt] ?? 'var(--dome-bg-hover)',
                       borderColor: 'var(--dome-border)',

@@ -201,11 +201,11 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
   const pipelineStep = (done: boolean, active: boolean, label: string) => (
     <div className="flex items-center gap-2 min-w-0">
       {active ? (
-        <Loader2 className="w-4 h-4 shrink-0 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+        <Loader2 className="size-4 shrink-0 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
       ) : done ? (
-        <CircleDot className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+        <CircleDot className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
       ) : (
-        <Circle className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-border)' }} aria-hidden />
+        <Circle className="size-4 shrink-0" style={{ color: 'var(--dome-border)' }} aria-hidden />
       )}
       <span
         className="text-xs font-medium truncate"
@@ -257,7 +257,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
             title={t('viewer.web_reextract')}
             aria-label={t('viewer.web_reextract_aria')}
           >
-            <RefreshCw className={`w-4 h-4 ${isBusy ? 'animate-spin' : ''}`} aria-hidden />
+            <RefreshCw className={`size-4 ${isBusy ? 'animate-spin' : ''}`} aria-hidden />
           </button>
           <button
             type="button"
@@ -268,13 +268,13 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
             title={t('viewer.open_in_browser')}
             aria-label={t('viewer.open_in_browser')}
           >
-            <ExternalLink className="w-4 h-4" aria-hidden />
+            <ExternalLink className="size-4" aria-hidden />
           </button>
         </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <div className="max-w-3xl mx-auto px-4 sm:p-6 space-y-6">
           {processingStatus === 'processing' || (processingStatus === 'pending' && isBusy) ? (
             <div className="space-y-6">
               <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
@@ -291,7 +291,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
             </div>
           ) : processingStatus === 'failed' ? (
             <div className="flex flex-col items-center justify-center py-14 text-center space-y-4 max-w-md mx-auto">
-              <AlertCircle className="w-12 h-12" style={{ color: 'var(--dome-error, #ef4444)' }} aria-hidden />
+              <AlertCircle className="size-12" style={{ color: 'var(--dome-error, #ef4444)' }} aria-hidden />
               <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
                 {t('viewer.scrape_status_failed')}
               </h2>
@@ -314,7 +314,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
             </div>
           ) : processingStatus !== 'completed' ? (
             <div className="flex flex-col items-center justify-center py-14 text-center space-y-4 max-w-md mx-auto">
-              <AlertCircle className="w-12 h-12" style={{ color: 'var(--warning)' }} aria-hidden />
+              <AlertCircle className="size-12" style={{ color: 'var(--warning)' }} aria-hidden />
               <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
                 {t('viewer.content_not_processed')}
               </h2>
@@ -348,7 +348,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                 </div>
               )}
 
-              <div className="px-5 py-6 sm:px-8 sm:py-8 space-y-5">
+              <div className="px-5 py-6 sm:p-8 space-y-5">
                 <header className="space-y-2">
                   <h1 className="text-xl sm:text-2xl font-semibold font-display leading-tight" style={{ color: 'var(--dome-text)' }}>
                     {displayTitle}

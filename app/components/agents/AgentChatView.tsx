@@ -593,10 +593,10 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
             <button
               type="button"
               onClick={onBack}
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)]"
+              className="flex size-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)]"
               title={t('agent.back')}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="size-4" />
             </button>
           ) : undefined
         }
@@ -604,7 +604,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           <img
             src={`/agents/sprite_${agent.iconIndex}.png`}
             alt={agent.name}
-            className="h-full w-full object-contain p-0.5"
+            className="size-full object-contain p-0.5"
           />
         }
         title={agent.name}
@@ -623,7 +623,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
       <UnifiedChatMessageArea
         ref={messagesContainerRef}
-        className="px-4 py-4 flex flex-col gap-5"
+        className="p-4 flex flex-col gap-5"
       >
         {chatMessages.length === 0 && !streamingMessage ? (
           <UnifiedChatEmptyState
@@ -631,7 +631,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
               <img
                 src={`/agents/sprite_${agent.iconIndex}.png`}
                 alt=""
-                className="w-full h-full object-contain p-1"
+                className="size-full object-contain p-1"
               />
             }
             title={agent.name}
@@ -652,7 +652,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
                 <img
                   src={`/agents/sprite_${agent.iconIndex}.png`}
                   alt=""
-                  className="w-6 h-6 object-contain rounded"
+                  className="size-6 object-contain rounded"
                 />
                 <div className="flex items-center gap-2 rounded-2xl rounded-tl-md bg-[var(--bg-secondary)] px-4 py-3">
                   <ReadingIndicator className="opacity-60" style={{ color: 'var(--secondary-text)' }} />

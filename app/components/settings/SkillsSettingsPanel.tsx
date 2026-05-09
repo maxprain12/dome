@@ -178,7 +178,7 @@ export default function SkillsSettingsPanel() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <DomeSubpageHeader
-        className="!border-0 px-0 py-0 bg-transparent"
+        className="!border-0 p-0 bg-transparent"
         title="Skills"
         subtitle={t('settings.skills.subtitle_file')}
       />
@@ -215,7 +215,7 @@ export default function SkillsSettingsPanel() {
               variant="outline"
               size="sm"
               onClick={() => void loadSkills()}
-              leftIcon={<RefreshCw className="w-3.5 h-3.5" aria-hidden />}
+              leftIcon={<RefreshCw className="size-3.5" aria-hidden />}
             >
               {t('common.refresh')}
             </DomeButton>
@@ -224,7 +224,7 @@ export default function SkillsSettingsPanel() {
               variant="outline"
               size="sm"
               onClick={() => void openPersonalSkillsRoot()}
-              leftIcon={<FolderOpen className="w-3.5 h-3.5" aria-hidden />}
+              leftIcon={<FolderOpen className="size-3.5" aria-hidden />}
             >
               {t('settings.skills.open_personal_dir')}
             </DomeButton>
@@ -233,7 +233,7 @@ export default function SkillsSettingsPanel() {
               variant="outline"
               size="sm"
               onClick={handleExport}
-              leftIcon={<FileJson className="w-3.5 h-3.5" aria-hidden />}
+              leftIcon={<FileJson className="size-3.5" aria-hidden />}
             >
               {t('settings.skills.export')}
             </DomeButton>
@@ -246,7 +246,7 @@ export default function SkillsSettingsPanel() {
                 setError(null);
                 setImportJson('');
               }}
-              leftIcon={<FileJson className="w-3.5 h-3.5" aria-hidden />}
+              leftIcon={<FileJson className="size-3.5" aria-hidden />}
             >
               {t('settings.skills.import')}
             </DomeButton>
@@ -257,7 +257,7 @@ export default function SkillsSettingsPanel() {
               className="w-36"
               inputClassName="text-xs"
             />
-            <DomeButton type="button" variant="primary" size="sm" onClick={() => void handleNewSkill()} leftIcon={<Plus className="w-3.5 h-3.5" aria-hidden />}>
+            <DomeButton type="button" variant="primary" size="sm" onClick={() => void handleNewSkill()} leftIcon={<Plus className="size-3.5" aria-hidden />}>
               {t('settings.skills.add')}
             </DomeButton>
           </div>
@@ -292,7 +292,7 @@ export default function SkillsSettingsPanel() {
                         variant="ghost"
                         size="sm"
                         onClick={() => void openSkillFolder(skill.id)}
-                        leftIcon={<ExternalLink className="w-3.5 h-3.5" aria-hidden />}
+                        leftIcon={<ExternalLink className="size-3.5" aria-hidden />}
                       >
                         {t('settings.skills.open_folder')}
                       </DomeButton>
@@ -332,7 +332,7 @@ export default function SkillsSettingsPanel() {
               size="sm"
               onClick={() => void saveEditing()}
               disabled={saving}
-              leftIcon={saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              leftIcon={saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
             >
               {t('settings.skills.save')}
             </DomeButton>

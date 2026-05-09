@@ -37,7 +37,7 @@ export default function HubSecondaryNav<T extends string>({ tabs, activeId, onCh
               borderBottom: isActive ? '2px solid var(--dome-accent)' : '2px solid transparent',
             }}
           >
-            <Icon className="w-3.5 h-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+            <Icon className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
             <span className="truncate">{tab.label}</span>
           </button>
         );

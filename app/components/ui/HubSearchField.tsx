@@ -24,7 +24,7 @@ export default function HubSearchField({
       className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border w-full min-w-0 max-w-xl ${className}`.trim()}
       style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
     >
-      <Search className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+      <Search className="size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
       <input
         type="search"
         value={value}

@@ -18,14 +18,14 @@ export default function LearnPage() {
   const tabs = useMemo(
     () =>
       [
-        { id: 'all' as const, label: t('learn.tab_all'), icon: <Layers className="w-4 h-4" strokeWidth={1.5} /> },
-        { id: 'decks' as const, label: t('learn.tab_decks'), icon: <Brain className="w-4 h-4" strokeWidth={1.5} /> },
-        { id: 'mindmaps' as const, label: t('learn.tab_mindmaps'), icon: <Map className="w-4 h-4" strokeWidth={1.5} /> },
-        { id: 'quizzes' as const, label: t('learn.tab_quizzes'), icon: <HelpCircle className="w-4 h-4" strokeWidth={1.5} /> },
-        { id: 'guides' as const, label: t('learn.tab_guides'), icon: <BookOpen className="w-4 h-4" strokeWidth={1.5} /> },
-        { id: 'faqs' as const, label: t('learn.tab_faqs'), icon: <MessageCircleQuestion className="w-4 h-4" strokeWidth={1.5} /> },
-        { id: 'timelines' as const, label: t('learn.tab_timelines'), icon: <CalendarRange className="w-4 h-4" strokeWidth={1.5} /> },
-        { id: 'tables' as const, label: t('learn.tab_tables'), icon: <Table2 className="w-4 h-4" strokeWidth={1.5} /> },
+        { id: 'all' as const, label: t('learn.tab_all'), icon: <Layers className="size-4" strokeWidth={1.5} /> },
+        { id: 'decks' as const, label: t('learn.tab_decks'), icon: <Brain className="size-4" strokeWidth={1.5} /> },
+        { id: 'mindmaps' as const, label: t('learn.tab_mindmaps'), icon: <Map className="size-4" strokeWidth={1.5} /> },
+        { id: 'quizzes' as const, label: t('learn.tab_quizzes'), icon: <HelpCircle className="size-4" strokeWidth={1.5} /> },
+        { id: 'guides' as const, label: t('learn.tab_guides'), icon: <BookOpen className="size-4" strokeWidth={1.5} /> },
+        { id: 'faqs' as const, label: t('learn.tab_faqs'), icon: <MessageCircleQuestion className="size-4" strokeWidth={1.5} /> },
+        { id: 'timelines' as const, label: t('learn.tab_timelines'), icon: <CalendarRange className="size-4" strokeWidth={1.5} /> },
+        { id: 'tables' as const, label: t('learn.tab_tables'), icon: <Table2 className="size-4" strokeWidth={1.5} /> },
       ] satisfies { id: LearnSection; label: string; icon: React.ReactNode }[],
     [t]
   );
@@ -90,7 +90,7 @@ export default function LearnPage() {
               color: 'var(--dome-text)',
             }}
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="size-3.5" />
             {t('learn.new_deck')}
           </button>
           <button
@@ -99,7 +99,7 @@ export default function LearnPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
             style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent, #fff)' }}
           >
-            <Wand2 className="w-3.5 h-3.5" />
+            <Wand2 className="size-3.5" />
             {t('learn.generate')}
           </button>
         </div>

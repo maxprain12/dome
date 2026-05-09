@@ -1,4 +1,5 @@
-import { useCallback, useRef, useEffect, useState } from 'react';
+import { useCallback, useRef, useEffect, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface ResizeHandleProps {
   onResize: (delta: number) => void;
@@ -7,12 +8,13 @@ interface ResizeHandleProps {
 }
 
 export default function ResizeHandle({ onResize, direction, className = '' }: ResizeHandleProps) {
+  const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const startPosRef = useRef<number>(0);
   const handleRef = useRef<HTMLDivElement>(null);
 
   const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
+    (e: ReactMouseEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
       
@@ -53,12 +55,44 @@ export default function ResizeHandle({ onResize, direction, className = '' }: Re
     };
   }, [isDragging, direction, onResize]);
 
+  const handleKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLDivElement>) => {
+      const step = 8;
+      if (direction === 'horizontal') {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          onResize(-step);
+        }
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          onResize(step);
+        }
+      } else {
+        if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          onResize(-step);
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          onResize(step);
+        }
+      }
+    },
+    [direction, onResize],
+  );
+
+  const separatorOrientation = direction === 'horizontal' ? 'vertical' : 'horizontal';
   const isHorizontal = direction === 'horizontal';
 
   return (
     <div
       ref={handleRef}
+      role="separator"
+      aria-orientation={separatorOrientation}
+      aria-label={t('workspace.panel_resize_handle')}
+      tabIndex={0}
       onMouseDown={handleMouseDown}
+      onKeyDown={handleKeyDown}
       className={`resize-handle ${isDragging ? 'dragging' : ''} ${className}`}
       style={{
         position: 'relative',

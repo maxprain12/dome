@@ -56,7 +56,7 @@ export default function StudyView() {
       >
         <div className="max-w-md w-full text-center">
           <div
-            className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
+            className="size-20 rounded-full flex items-center justify-center mx-auto mb-6"
             style={{ background: 'var(--dome-accent-bg)' }}
           >
             <CheckCircle size={40} style={{ color: 'var(--dome-accent)' }} />

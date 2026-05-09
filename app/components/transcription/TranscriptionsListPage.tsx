@@ -96,7 +96,7 @@ export default function TranscriptionsListPage() {
             className="flex min-w-[200px] flex-1 items-center gap-2 rounded-lg border px-2 py-1.5"
             style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
           >
-            <Search className="h-4 w-4 shrink-0 opacity-50" aria-hidden />
+            <Search className="size-4 shrink-0 opacity-50" aria-hidden />
             <input
               type="search"
               value={query}
@@ -135,7 +135,7 @@ export default function TranscriptionsListPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <Mic className="h-4 w-4 shrink-0 opacity-60" aria-hidden />
+                      <Mic className="size-4 shrink-0 opacity-60" aria-hidden />
                       <span className="truncate text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                         {r.title || r.id}
                       </span>

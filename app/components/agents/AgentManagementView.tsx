@@ -364,13 +364,13 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
         onClick={() => onAgentSelect?.(agent.id)}
         icon={
           <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
+            className="size-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
             style={{ background: 'var(--dome-accent-bg)' }}
           >
             <img
               src={`/agents/sprite_${agent.iconIndex}.png`}
               alt=""
-              className="w-full h-full object-contain"
+              className="size-full object-contain"
             />
           </div>
         }
@@ -399,7 +399,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
             {agent.updatedAt ? (
               <span className="inline-flex items-center gap-1 shrink-0">
                 <span aria-hidden>·</span>
-                <Clock className="w-3 h-3 shrink-0" aria-hidden />
+                <Clock className="size-3 shrink-0" aria-hidden />
                 {formatDate(agent.updatedAt)}
               </span>
             ) : null}
@@ -417,7 +417,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               onClick={() => void toggleFavorite(agent)}
             >
               <Star
-                className="w-3.5 h-3.5"
+                className="size-3.5"
                 style={{
                   color: agent.favorite ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
                   fill: agent.favorite ? 'var(--dome-accent)' : 'none',
@@ -435,7 +435,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                 aria-label={t('agents.automations')}
                 onClick={() => onShowAutomations(agent.id, agent.name)}
               >
-                <Zap className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+                <Zap className="size-3.5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
               </DomeButton>
             ) : null}
             <DomeButton
@@ -447,7 +447,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               aria-label={t('ui.edit')}
               onClick={() => setEditingAgent(agent)}
             >
-              <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+              <Pencil className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
             </DomeButton>
             <DomeButton
               type="button"
@@ -459,7 +459,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               className="!text-[var(--error)] hover:!bg-[var(--error-bg)]"
               onClick={() => setDeleteTarget(agent)}
             >
-              <Trash2 className="w-3.5 h-3.5" aria-hidden />
+              <Trash2 className="size-3.5" aria-hidden />
             </DomeButton>
           </div>
         }
@@ -490,7 +490,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
     return (
       <div key={folder.id} className="flex flex-col gap-2">
         <div
-          className="flex items-center gap-2 rounded-xl border px-2 py-2 transition-colors"
+          className="flex items-center gap-2 rounded-xl border p-2 transition-colors"
           style={{
             marginLeft: pad,
             borderColor: dragOverFolderId === folder.id ? 'var(--dome-accent)' : 'var(--dome-border)',
@@ -508,12 +508,12 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
             aria-expanded={isOpen}
           >
             {isOpen ? (
-              <ChevronDown className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+              <ChevronDown className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
             ) : (
-              <ChevronRight className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+              <ChevronRight className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
             )}
           </button>
-          <FolderOpen className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-accent)' }} />
+          <FolderOpen className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} />
           <span className="flex-1 min-w-0 text-sm font-medium break-words" style={{ color: 'var(--dome-text)' }}>
             {folder.name}
           </span>
@@ -524,7 +524,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)]"
               title={t('filter.new_folder')}
             >
-              <FolderPlus className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+              <FolderPlus className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
             </button>
             <button
               type="button"
@@ -533,7 +533,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               title={t('agents.folder_actions')}
               aria-haspopup="true"
             >
-              <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+              <MoreHorizontal className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
             </button>
             {menuFolderId === folder.id ? (
               <div
@@ -669,19 +669,19 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                 className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-colors"
                 style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
               >
-                <FolderPlus className="w-3 h-3" />
+                <FolderPlus className="size-3" />
                 {t('filter.new_folder')}
               </button>
               <button
                 type="button"
                 onClick={handleExport}
                 disabled={agents.length === 0}
-                className="flex items-center justify-center w-7 h-7 rounded-md transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
+                className="flex items-center justify-center size-7 rounded-md transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
                 title={t('agents.export_agents')}
               >
-                <Download className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} />
+                <Download className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} />
               </button>
-              <label className="flex items-center justify-center w-7 h-7 rounded-md transition-all hover:bg-[var(--dome-surface)] cursor-pointer">
+              <label className="flex items-center justify-center size-7 rounded-md transition-all hover:bg-[var(--dome-surface)] cursor-pointer">
                 <input
                   type="file"
                   accept=".json,application/json"
@@ -690,9 +690,9 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                   disabled={importing}
                 />
                 {importing ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                  <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
                 ) : (
-                  <Upload className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} />
+                  <Upload className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} />
                 )}
               </label>
               <button
@@ -701,7 +701,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                 className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all hover:opacity-90"
                 style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
               >
-                <Plus className="w-3 h-3" />
+                <Plus className="size-3" />
                 {t('ui.add')}
               </button>
             </>
@@ -729,7 +729,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
           ) : agents.length === 0 ? (
             <HubListState
               variant="empty"
-              icon={<FolderOpen className="w-7 h-7" style={{ color: 'var(--dome-accent)' }} />}
+              icon={<FolderOpen className="size-7" style={{ color: 'var(--dome-accent)' }} />}
               title={t('agents.no_agents_yet')}
               description={t('agents.no_agents_desc')}
               action={
@@ -739,7 +739,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                   size="sm"
                   onClick={() => setShowNewAgent(true)}
                   className="mt-1 !bg-[var(--dome-accent)]"
-                  leftIcon={<Plus className="w-3.5 h-3.5" aria-hidden />}
+                  leftIcon={<Plus className="size-3.5" aria-hidden />}
                 >
                   {t('agents.create_first_agent')}
                 </DomeButton>

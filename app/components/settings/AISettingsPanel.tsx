@@ -244,7 +244,7 @@ export default function AISettingsPanel() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <DomeSubpageHeader
-        className="!border-0 px-0 py-0 bg-transparent"
+        className="!border-0 p-0 bg-transparent"
         title={t('settings.ai.title')}
         subtitle={t('settings.ai.subtitle')}
       />
@@ -279,7 +279,7 @@ export default function AISettingsPanel() {
                   className="!w-9 !h-9 !rounded-lg"
                   background={provider === 'dome' ? 'rgba(255,255,255,0.15)' : 'var(--dome-accent-bg)'}
                 >
-                  <Shield className="w-4 h-4" style={{ color: provider === 'dome' ? 'var(--dome-accent-bg)' : 'var(--dome-accent)' }} />
+                  <Shield className="size-4" style={{ color: provider === 'dome' ? 'var(--dome-accent-bg)' : 'var(--dome-accent)' }} />
                 </DomeIconBox>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
@@ -302,11 +302,11 @@ export default function AISettingsPanel() {
                   {[{ icon: Lock, label: t('settings.ai.private') }, { icon: Zap, label: t('settings.ai.fast') }].map(({ icon: Icon, label }) => (
                     <div key={label} className="flex items-center gap-1 px-2 py-1 rounded-md"
                       style={{ backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.12)' : accentMix(10), color: provider === 'dome' ? 'rgba(255,255,255,0.85)' : 'var(--dome-accent)' }}>
-                      <Icon className="w-2.5 h-2.5" />
+                      <Icon className="size-2.5" />
                       <span className="text-[10px] font-medium">{label}</span>
                     </div>
                   ))}
-                  {provider === 'dome' && <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--dome-accent-bg)' }} />}
+                  {provider === 'dome' && <CheckCircle2 className="size-4" style={{ color: 'var(--dome-accent-bg)' }} />}
                 </div>
               </div>
             </button>
@@ -343,10 +343,10 @@ export default function AISettingsPanel() {
                         background={isSelected ? 'var(--dome-accent-bg)' : 'var(--dome-bg-hover)'}
                       >
                         <span style={{ color: isSelected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
-                          <Icon className="w-3.5 h-3.5" aria-hidden />
+                          <Icon className="size-3.5" aria-hidden />
                         </span>
                       </DomeIconBox>
-                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />}
+                      {isSelected && <CheckCircle2 className="size-3.5" style={{ color: 'var(--dome-accent)' }} />}
                     </div>
                     <div>
                       <p className="text-xs font-semibold leading-none mb-0.5" style={{ color: 'var(--dome-text)' }}>{option.label}</p>
@@ -382,7 +382,7 @@ export default function AISettingsPanel() {
                     background={isSelected ? 'var(--dome-accent-bg)' : 'var(--dome-bg-hover)'}
                   >
                     <span style={{ color: isSelected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
-                      <Icon className="w-3.5 h-3.5" aria-hidden />
+                      <Icon className="size-3.5" aria-hidden />
                     </span>
                   </DomeIconBox>
                   <div className="flex-1 min-w-0">
@@ -394,10 +394,10 @@ export default function AISettingsPanel() {
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ backgroundColor: accentMix(10), color: 'var(--dome-accent)' }}>
-                      <HardDrive className="w-2.5 h-2.5" />
+                      <HardDrive className="size-2.5" />
                       <span className="text-[10px] font-medium">Offline</span>
                     </div>
-                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />}
+                    {isSelected && <CheckCircle2 className="size-3.5" style={{ color: 'var(--dome-accent)' }} />}
                   </div>
                 </div>
               </button>
@@ -437,7 +437,7 @@ export default function AISettingsPanel() {
                   onClick={() => setShowApiKey((v) => !v)}
                   aria-label={showApiKey ? 'Ocultar API key' : 'Mostrar API key'}
                 >
-                  {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {showApiKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                 </DomeButton>
               </div>
               {PROVIDERS[provider]?.docsUrl && (
@@ -495,15 +495,15 @@ export default function AISettingsPanel() {
                 <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>Estado</span>
                 {checkingOllama ? (
                   <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                    <Loader2 className="w-3 h-3 animate-spin" /> {t('settings.ai.status_checking')}
+                    <Loader2 className="size-3 animate-spin" /> {t('settings.ai.status_checking')}
                   </span>
                 ) : ollamaAvailable === true ? (
                   <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--dome-accent)' }}>
-                    <CheckCircle2 className="w-3.5 h-3.5" /> {t('settings.ai.status_connected')}
+                    <CheckCircle2 className="size-3.5" /> {t('settings.ai.status_connected')}
                   </span>
                 ) : ollamaAvailable === false ? (
                   <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--dome-error, #ef4444)' }}>
-                    <XCircle className="w-3.5 h-3.5" /> {t('settings.ai.status_disconnected')}
+                    <XCircle className="size-3.5" /> {t('settings.ai.status_disconnected')}
                   </span>
                 ) : (
                   <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.status_unverified')}</span>
@@ -515,7 +515,7 @@ export default function AISettingsPanel() {
                 size="sm"
                 onClick={() => void checkOllamaConnection()}
                 disabled={checkingOllama}
-                leftIcon={<RefreshCw className={`w-3 h-3 ${checkingOllama ? 'animate-spin' : ''}`} aria-hidden />}
+                leftIcon={<RefreshCw className={`size-3 ${checkingOllama ? 'animate-spin' : ''}`} aria-hidden />}
               >
                 {t('settings.ai.test_btn')}
               </DomeButton>
@@ -570,7 +570,7 @@ export default function AISettingsPanel() {
                   onClick={() => setShowOllamaApiKey((v) => !v)}
                   aria-label={showOllamaApiKey ? 'Ocultar' : 'Mostrar'}
                 >
-                  {showOllamaApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {showOllamaApiKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                 </DomeButton>
               </div>
             </div>
@@ -585,14 +585,14 @@ export default function AISettingsPanel() {
                   size="xs"
                   onClick={() => void loadOllamaModels()}
                   disabled={loadingModels}
-                  leftIcon={<RefreshCw className={`w-2.5 h-2.5 ${loadingModels ? 'animate-spin' : ''}`} aria-hidden />}
+                  leftIcon={<RefreshCw className={`size-2.5 ${loadingModels ? 'animate-spin' : ''}`} aria-hidden />}
                 >
                   {t('settings.ai.refresh')}
                 </DomeButton>
               </div>
               {loadingModels ? (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                  <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
                   <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.loading_models')}</span>
                 </div>
               ) : ollamaModels.length > 0 ? (
@@ -644,7 +644,7 @@ export default function AISettingsPanel() {
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: domeConnected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }} />
+              <div className="size-1.5 rounded-full" style={{ backgroundColor: domeConnected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }} />
               <span className="text-xs" style={{ color: domeConnected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
                 {domeConnected ? t('settings.ai.status_connected') : t('settings.ai.status_disconnected')}
               </span>
@@ -682,7 +682,7 @@ export default function AISettingsPanel() {
         <DomeCard className="space-y-4">
           <div className="flex items-start gap-3">
             <DomeIconBox size="md" background="var(--dome-accent-bg)">
-              <Search className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />
+              <Search className="size-4" style={{ color: 'var(--dome-accent)' }} />
             </DomeIconBox>
             <div>
               <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>Playwright Web Search</p>

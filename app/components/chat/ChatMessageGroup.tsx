@@ -45,14 +45,14 @@ export default memo(function ChatMessageGroup({
             <img
               src={assistantAvatarSrc}
               alt=""
-              className="w-8 h-8 object-contain rounded-lg"
+              className="size-8 object-contain rounded-lg"
             />
           ) : (
             <ManyAvatar size="sm" />
           )
         ) : isUser ? (
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center"
+            className="size-8 rounded-full flex items-center justify-center"
             style={{ backgroundColor: 'var(--accent)' }}
           >
             <User size={16} className="text-white" />

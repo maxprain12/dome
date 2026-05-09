@@ -61,7 +61,7 @@ export default function DomeProgressBar({
           )}
         >
           <div
-            className="h-full w-full animate-pulse rounded-full motion-reduce:animate-none"
+            className="size-full animate-pulse rounded-full motion-reduce:animate-none"
             style={{
               background: 'linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%)',
             }}

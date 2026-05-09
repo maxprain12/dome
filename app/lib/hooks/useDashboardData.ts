@@ -402,21 +402,23 @@ export function useDashboardData(projectId: string | null = null): DashboardData
   }, [load]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.electron?.on) return;
+    if (typeof window === 'undefined' || !window.electron?.on) return undefined;
 
-    const unsubs: Array<(() => void) | undefined> = [
-      window.electron.on('resource:created', () => void load()),
-      window.electron.on('resource:updated', () => void load()),
-      window.electron.on('resource:deleted', () => void load()),
-    ];
+    const unsubscribeCreated = window.electron.on('resource:created', () => void load());
+    const unsubscribeUpdated = window.electron.on('resource:updated', () => void load());
+    const unsubscribeDeleted = window.electron.on('resource:deleted', () => void load());
+    let unsubscribeRuns: (() => void) | undefined;
     try {
-      unsubs.push(onRunUpdated(() => void load()));
+      unsubscribeRuns = onRunUpdated(() => void load());
     } catch {
       /* Electron API not fully available */
     }
 
     return () => {
-      unsubs.forEach((fn) => fn?.());
+      unsubscribeCreated();
+      unsubscribeUpdated();
+      unsubscribeDeleted();
+      unsubscribeRuns?.();
     };
   }, [load]);
 

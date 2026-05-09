@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { useAudioLevel } from '@/lib/transcription/useAudioLevel';
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
 }
 
 export default function InlineLevelMeter({ stream, bars = 6, active = true }: Props) {
+  const meterId = useId();
   const level = useAudioLevel(stream);
 
   const heights = useMemo(() => {
@@ -25,7 +26,7 @@ export default function InlineLevelMeter({ stream, bars = 6, active = true }: Pr
     <div className="flex items-end gap-[2px]" aria-hidden style={{ height: 14 }}>
       {heights.map((h, i) => (
         <span
-          key={i}
+          key={`${meterId}-${i}`}
           style={{
             display: 'inline-block',
             width: 2,

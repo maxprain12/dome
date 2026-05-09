@@ -89,9 +89,9 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
                   }}
                 >
                   {hintOpen ? (
-                    <ChevronDown className="w-3.5 h-3.5" aria-hidden />
+                    <ChevronDown className="size-3.5" aria-hidden />
                   ) : (
-                    <ChevronRight className="w-3.5 h-3.5" aria-hidden />
+                    <ChevronRight className="size-3.5" aria-hidden />
                   )}
                   {t('chat.playground_hint')}
                 </button>
@@ -130,9 +130,9 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
                   }}
                 >
                   {solOpen ? (
-                    <ChevronDown className="w-3.5 h-3.5" aria-hidden />
+                    <ChevronDown className="size-3.5" aria-hidden />
                   ) : (
-                    <ChevronRight className="w-3.5 h-3.5" aria-hidden />
+                    <ChevronRight className="size-3.5" aria-hidden />
                   )}
                   {t('chat.playground_solution')}
                 </button>

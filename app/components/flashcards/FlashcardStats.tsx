@@ -49,7 +49,7 @@ export default function FlashcardStats({
     <div className="flex flex-col items-center text-center px-6 py-8">
       {/* Trophy icon */}
       <div
-        className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
+        className="size-20 rounded-full flex items-center justify-center mb-6"
         style={{
           background: accuracy >= 70
             ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))'
@@ -57,7 +57,7 @@ export default function FlashcardStats({
         }}
       >
         <Trophy
-          className="w-10 h-10"
+          className="size-10"
           style={{ color: accuracy >= 70 ? 'var(--success, #10b981)' : 'var(--accent)' }}
         />
       </div>
@@ -76,13 +76,13 @@ export default function FlashcardStats({
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-4 w-full max-w-sm mb-8">
         <StatCard
-          icon={<Target className="w-5 h-5" />}
+          icon={<Target className="size-5" />}
           label={t('flashcard.stats_precision')}
           value={`${accuracy}%`}
           color="var(--accent)"
         />
         <StatCard
-          icon={<Zap className="w-5 h-5" />}
+          icon={<Zap className="size-5" />}
           label={t('flashcard.stats_best_streak')}
           value={`${maxStreak}`}
           color="var(--warning, #f59e0b)"
@@ -98,7 +98,7 @@ export default function FlashcardStats({
           color="var(--success, #10b981)"
         />
         <StatCard
-          icon={<Clock className="w-5 h-5" />}
+          icon={<Clock className="size-5" />}
           label={t('flashcard.stats_duration')}
           value={formatDuration(durationMs)}
           color="var(--secondary-text)"

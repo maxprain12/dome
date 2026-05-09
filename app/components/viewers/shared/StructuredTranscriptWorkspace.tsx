@@ -303,7 +303,7 @@ export default function StructuredTranscriptWorkspace({
                     className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition-colors hover:brightness-95"
                     style={{ background: colors.chipBg, cursor: 'text' }}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: colors.dot }} aria-hidden />
+                    <span className="size-1.5 rounded-full shrink-0" style={{ background: colors.dot }} aria-hidden />
                     <input
                       value={localSpeakerLabels[sid] ?? (speakersMap[sid]?.label || sid)}
                       onChange={(e) =>
@@ -327,7 +327,7 @@ export default function StructuredTranscriptWorkspace({
         </div>
       ) : null}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 md:px-6">
         {showEmpty ? (
           <TranscriptEmptyState t={t} hint={t('media.transcript_empty_hint')} />
         ) : (

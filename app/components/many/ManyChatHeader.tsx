@@ -44,7 +44,7 @@ export default memo(function ManyChatHeader({
           <button
             type="button"
             onClick={onStartNewChat}
-            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--primary-text)]"
+            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--primary-text)]"
             title={t('many.newChat')}
             aria-label={t('many.newChat')}
           >
@@ -54,7 +54,7 @@ export default memo(function ManyChatHeader({
             <button
               type="button"
               onClick={onClear}
-              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--primary-text)]"
+              className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--primary-text)]"
               title={t('many.clear_chat')}
               aria-label={t('many.clear_chat_aria')}
             >
@@ -65,7 +65,7 @@ export default memo(function ManyChatHeader({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--primary-text)]"
+            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-[var(--tertiary-text)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--primary-text)]"
             aria-label={t('many.close_chat_aria')}
           >
             <X size={18} />

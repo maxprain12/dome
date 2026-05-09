@@ -360,7 +360,7 @@ export default memo(function ManyChatInput({
               type="button"
               ref={buttonRef}
               onClick={() => setShowDropdown(!showDropdown)}
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-all ${
+              className={`flex size-8 shrink-0 items-center justify-center rounded-full transition-all ${
                 showDropdown || hasActiveCapabilities
                   ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'
                   : 'text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]'
@@ -426,7 +426,7 @@ export default memo(function ManyChatInput({
               <button
                 type="button"
                 onClick={onAbort}
-                className="flex h-9 w-9 items-center justify-center rounded-full transition-all"
+                className="flex size-9 items-center justify-center rounded-full transition-all"
                 style={{ background: 'var(--primary-text)', color: 'var(--bg)' }}
                 title={t('chat.stop')}
                 aria-label={t('chat.stop')}
@@ -438,7 +438,7 @@ export default memo(function ManyChatInput({
                 type="button"
                 onClick={onSend}
                 disabled={!input.trim() && attachments.length === 0}
-                className="flex h-9 w-9 items-center justify-center rounded-full transition-all"
+                className="flex size-9 items-center justify-center rounded-full transition-all"
                 style={{
                   background: input.trim() || attachments.length > 0 ? 'var(--primary-text)' : 'var(--bg-tertiary)',
                   color: input.trim() || attachments.length > 0 ? 'var(--bg)' : 'var(--tertiary-text)',

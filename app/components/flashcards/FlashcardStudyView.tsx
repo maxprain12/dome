@@ -147,16 +147,16 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
             className="btn btn-ghost p-2 rounded-lg"
             aria-label={t('ui.close', 'Cerrar')}
           >
-            <X className="w-5 h-5" style={{ color: 'var(--secondary-text)' }} />
+            <X className="size-5" style={{ color: 'var(--secondary-text)' }} />
           </button>
         </div>
 
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <div
-            className="w-20 h-20 rounded-full flex items-center justify-center mb-6"
+            className="size-20 rounded-full flex items-center justify-center mb-6"
             style={{ background: 'rgba(123, 118, 208, 0.1)' }}
           >
-            <RotateCcw className="w-10 h-10" style={{ color: 'var(--accent)' }} />
+            <RotateCcw className="size-10" style={{ color: 'var(--accent)' }} />
           </div>
           <h3
             className="text-xl font-semibold mb-2"
@@ -204,7 +204,7 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
             className="btn btn-ghost p-2 rounded-lg"
             aria-label={t('ui.close', 'Cerrar')}
           >
-            <X className="w-5 h-5" style={{ color: 'var(--secondary-text)' }} />
+            <X className="size-5" style={{ color: 'var(--secondary-text)' }} />
           </button>
         </div>
 
@@ -261,7 +261,7 @@ export default function FlashcardStudyView({ deckId, onClose, overlayContext = '
           className="btn btn-ghost p-2 rounded-lg"
           aria-label={t('ui.close', 'Cerrar')}
         >
-          <X className="w-5 h-5" style={{ color: 'var(--secondary-text)' }} />
+          <X className="size-5" style={{ color: 'var(--secondary-text)' }} />
         </button>
       </div>
 

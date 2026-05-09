@@ -71,7 +71,7 @@ export default function PluginsSettings() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <DomeSubpageHeader
-        className="!border-0 px-0 py-0 bg-transparent"
+        className="!border-0 p-0 bg-transparent"
         title="Plugins"
         subtitle={t('settings.plugins.subtitle')}
       />
@@ -91,7 +91,7 @@ export default function PluginsSettings() {
               variant="empty"
               title={t('settings.plugins.empty_title')}
               description={t('settings.plugins.empty_desc')}
-              icon={<Puzzle className="w-8 h-8 text-[var(--dome-text-muted)] opacity-50" aria-hidden />}
+              icon={<Puzzle className="size-8 text-[var(--dome-text-muted)] opacity-50" aria-hidden />}
             />
           </DomeCard>
         ) : (
@@ -135,7 +135,7 @@ export default function PluginsSettings() {
                       className="text-[var(--dome-text-muted)]"
                       title="Desinstalar"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="size-3.5" />
                     </DomeButton>
                   </div>
                 </div>
@@ -153,7 +153,7 @@ export default function PluginsSettings() {
           variant="outline"
           size="sm"
           onClick={() => void handleInstall()}
-          leftIcon={<FolderOpen className="w-3.5 h-3.5" aria-hidden />}
+          leftIcon={<FolderOpen className="size-3.5" aria-hidden />}
         >
           {t('settings.plugins.install_from_folder')}
         </DomeButton>

@@ -246,8 +246,8 @@ export default function ChatMessage({
               onClick={() => setThinkingExpanded(!thinkingExpanded)}
               className="group flex items-center gap-2 py-1 px-2 rounded-lg transition-colors hover:bg-[var(--bg-hover)] cursor-pointer"
             >
-              <div className="flex items-center justify-center h-5 w-5 rounded text-[var(--tertiary-text)] group-hover:text-[var(--secondary-text)]">
-                <ChevronRight className={`h-3.5 w-3.5 transition-transform ${thinkingExpanded ? 'rotate-90' : ''}`} />
+              <div className="flex items-center justify-center size-5 rounded text-[var(--tertiary-text)] group-hover:text-[var(--secondary-text)]">
+                <ChevronRight className={`size-3.5 transition-transform ${thinkingExpanded ? 'rotate-90' : ''}`} />
               </div>
               <span className="text-[13px] font-medium text-[var(--secondary-text)]">
                 {t('chat.reasoning')}
@@ -303,14 +303,14 @@ export default function ChatMessage({
             {isUser && (
               <button
                 onClick={handleCopy}
-                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex h-6 w-6 items-center justify-center rounded-full hover:bg-[var(--bg-hover)]"
+                className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex size-6 items-center justify-center rounded-full hover:bg-[var(--bg-hover)]"
                 style={{ color: 'var(--tertiary-text)' }}
                 title={t('chat.copy_message')}
                 aria-label={t('chat.copy_message')}
               >
                 {copied
-                  ? <Check className="w-3 h-3" style={{ color: 'var(--success)' }} />
-                  : <Copy className="w-3 h-3" />}
+                  ? <Check className="size-3" style={{ color: 'var(--success)' }} />
+                  : <Copy className="size-3" />}
               </button>
             )}
 
@@ -446,33 +446,33 @@ export default function ChatMessage({
                 >
                   <button
                     onClick={handleCopy}
-                    className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
+                    className="flex size-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
                     style={{ color: 'var(--tertiary-text)' }}
                     title={t('chat.copy_message')}
                     aria-label={t('chat.copy_message')}
                   >
-                    {copied ? <Check className="w-3 h-3" style={{ color: 'var(--success)' }} /> : <Copy className="w-3 h-3" />}
+                    {copied ? <Check className="size-3" style={{ color: 'var(--success)' }} /> : <Copy className="size-3" />}
                   </button>
                   {onSaveAsNote && message.content ? (
                     <button
                       onClick={handleSaveAsNote}
-                      className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
+                      className="flex size-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
                       style={{ color: savedAsNote ? 'var(--success)' : 'var(--tertiary-text)' }}
                       title={savedAsNote ? t('chat.saved_as_note') : t('chat.save_as_note')}
                       aria-label={savedAsNote ? t('chat.saved_as_note') : t('chat.save_as_note')}
                     >
-                      {savedAsNote ? <Check className="w-3 h-3" /> : <BookmarkPlus className="w-3 h-3" />}
+                      {savedAsNote ? <Check className="size-3" /> : <BookmarkPlus className="size-3" />}
                     </button>
                   ) : null}
                   {onRegenerate ? (
                     <button
                       onClick={onRegenerate}
-                      className="flex h-6 w-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
+                      className="flex size-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
                       style={{ color: 'var(--tertiary-text)' }}
                       title={t('chat.regenerate')}
                       aria-label={t('chat.regenerate')}
                     >
-                      <RefreshCw className="w-3 h-3" />
+                      <RefreshCw className="size-3" />
                     </button>
                   ) : null}
                   <span

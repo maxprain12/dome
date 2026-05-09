@@ -235,7 +235,7 @@ export default function MetadataModal({
             className="btn btn-primary flex items-center gap-1.5"
           >
             {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
               <Save size={14} />
             )}

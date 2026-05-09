@@ -12,6 +12,20 @@ interface DataTableProps {
 
 type SortDirection = 'asc' | 'desc' | null;
 
+function DataTableSortIcon({
+  columnKey,
+  sortKey,
+  sortDir,
+}: {
+  columnKey: string;
+  sortKey: string | null;
+  sortDir: SortDirection;
+}) {
+  if (sortKey !== columnKey) return <ArrowUpDown size={12} className="opacity-30" />;
+  if (sortDir === 'asc') return <ArrowUp size={12} style={{ color: 'var(--dome-accent, #596037)' }} />;
+  return <ArrowDown size={12} style={{ color: 'var(--dome-accent, #596037)' }} />;
+}
+
 export default function DataTable({ data, title, onClose }: DataTableProps) {
   const { t } = useTranslation();
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -71,12 +85,6 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
     URL.revokeObjectURL(url);
   }, [data.columns, filteredAndSorted, title]);
 
-  const SortIcon = ({ columnKey }: { columnKey: string }) => {
-    if (sortKey !== columnKey) return <ArrowUpDown size={12} className="opacity-30" />;
-    if (sortDir === 'asc') return <ArrowUp size={12} style={{ color: 'var(--dome-accent, #596037)' }} />;
-    return <ArrowDown size={12} style={{ color: 'var(--dome-accent, #596037)' }} />;
-  };
-
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
       {/* Header */}
@@ -135,7 +143,7 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
                 >
                   <div className="flex items-center gap-1">
                     {col.label}
-                    <SortIcon columnKey={col.key} />
+                    <DataTableSortIcon columnKey={col.key} sortKey={sortKey} sortDir={sortDir} />
                   </div>
                 </th>
               ))}

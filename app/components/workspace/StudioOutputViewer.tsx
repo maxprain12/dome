@@ -19,7 +19,7 @@ function StudioOutputFallback() {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center h-full p-8" style={{ color: 'var(--tertiary-text)' }}>
-      <Loader2 className="w-8 h-8 animate-spin mb-4" />
+      <Loader2 className="size-8 animate-spin mb-4" />
       <span>{t('studio.loading')}</span>
     </div>
   );
@@ -61,7 +61,7 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
       return (
         <div className="flex flex-col items-center justify-center h-full p-8">
           <AlertCircle
-            className="w-12 h-12 mb-4"
+            className="size-12 mb-4"
             style={{ color: 'var(--tertiary-text)' }}
           />
           <p
@@ -119,7 +119,7 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
         return (
           <div className="flex flex-col items-center justify-center h-full p-8">
             <AlertCircle
-              className="w-12 h-12 mb-4"
+              className="size-12 mb-4"
               style={{ color: 'var(--tertiary-text)' }}
             />
             <p

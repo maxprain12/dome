@@ -473,7 +473,7 @@ export default function MarketplaceView() {
       if (isInstalled && !hasUpdate) {
         return (
           <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
-            <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.installed')}
+            <CheckCircle2 className="size-3.5" /> {t('marketplace.installed')}
           </span>
         );
       }
@@ -489,7 +489,7 @@ export default function MarketplaceView() {
           disabled={!!installingId}
           loading={isInstalling}
           className="!bg-[var(--dome-accent)] hover:!brightness-110"
-          leftIcon={!isInstalling ? <Download className="w-3 h-3" aria-hidden /> : undefined}
+          leftIcon={!isInstalling ? <Download className="size-3" aria-hidden /> : undefined}
         >
           {isInstalling ? t('marketplace.installing') : hasUpdate ? t('marketplace.update') : t('marketplace.install')}
         </DomeButton>
@@ -514,7 +514,7 @@ export default function MarketplaceView() {
           disabled={!!installingWorkflowId}
           loading={isInstalling}
           className="!bg-[var(--dome-accent)] hover:!brightness-110"
-          leftIcon={!isInstalling ? <Download className="w-3 h-3" aria-hidden /> : undefined}
+          leftIcon={!isInstalling ? <Download className="size-3" aria-hidden /> : undefined}
         >
           {isInstalling
             ? t('marketplace.installing')
@@ -533,7 +533,7 @@ export default function MarketplaceView() {
       if (isInstalled) {
         return (
           <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
-            <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.installed')}
+            <CheckCircle2 className="size-3.5" /> {t('marketplace.installed')}
           </span>
         );
       }
@@ -549,7 +549,7 @@ export default function MarketplaceView() {
           disabled={!!installingPlugin}
           loading={!!installingPlugin}
           className="!bg-[var(--dome-accent)] hover:!brightness-110"
-          leftIcon={!installingPlugin ? <Download className="w-3 h-3" aria-hidden /> : undefined}
+          leftIcon={!installingPlugin ? <Download className="size-3" aria-hidden /> : undefined}
         >
           {installingPlugin ? t('marketplace.installing_plugin') : t('marketplace.install_plugin')}
         </DomeButton>
@@ -563,7 +563,7 @@ export default function MarketplaceView() {
       if (isInstalled) {
         return (
           <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
-            <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.added')}
+            <CheckCircle2 className="size-3.5" /> {t('marketplace.added')}
           </span>
         );
       }
@@ -579,7 +579,7 @@ export default function MarketplaceView() {
           disabled={!!installingMcpId}
           loading={isInstalling}
           className="!bg-[var(--dome-accent)] hover:!brightness-110"
-          leftIcon={!isInstalling ? <Download className="w-3 h-3" aria-hidden /> : undefined}
+          leftIcon={!isInstalling ? <Download className="size-3" aria-hidden /> : undefined}
         >
           {isInstalling ? t('marketplace.adding') : t('marketplace.add')}
         </DomeButton>
@@ -593,7 +593,7 @@ export default function MarketplaceView() {
       if (isInstalled) {
         return (
           <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
-            <CheckCircle2 className="w-3.5 h-3.5" /> {t('marketplace.active')}
+            <CheckCircle2 className="size-3.5" /> {t('marketplace.active')}
           </span>
         );
       }
@@ -609,7 +609,7 @@ export default function MarketplaceView() {
           disabled={!!installingSkillId}
           loading={isInstalling}
           className="!bg-[var(--dome-accent)] hover:!brightness-110"
-          leftIcon={!isInstalling ? <Download className="w-3 h-3" aria-hidden /> : undefined}
+          leftIcon={!isInstalling ? <Download className="size-3" aria-hidden /> : undefined}
         >
           {isInstalling ? t('marketplace.activating') : t('marketplace.activate')}
         </DomeButton>
@@ -664,7 +664,7 @@ export default function MarketplaceView() {
             onClick={handleRefresh}
             disabled={loading}
             className="border-[var(--dome-border)] bg-[var(--dome-surface)] text-[var(--dome-text-secondary)]"
-            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />}
+            leftIcon={<RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />}
           >
             {t('marketplace.refresh')}
           </DomeButton>
@@ -714,7 +714,7 @@ export default function MarketplaceView() {
             <DomeListState
               variant="empty"
               fullHeight
-              icon={<Search className="w-10 h-10 opacity-20" aria-hidden />}
+              icon={<Search className="size-10 opacity-20" aria-hidden />}
               title={t('marketplace.no_results')}
               description={t('marketplace.no_results_hint')}
             />
@@ -738,7 +738,7 @@ export default function MarketplaceView() {
                     }
                     icon={
                       <span className="inline-flex items-center gap-1">
-                        <Icon className="w-3 h-3 shrink-0" style={{ color: meta.textColor }} aria-hidden />
+                        <Icon className="size-3 shrink-0" style={{ color: meta.textColor }} aria-hidden />
                         <DomeBadge label={meta.badge} variant="soft" color={meta.textColor} size="xs" />
                       </span>
                     }
@@ -748,7 +748,7 @@ export default function MarketplaceView() {
                           {item.name}
                         </span>
                         {item.featured ? (
-                          <Star className="w-3.5 h-3.5 shrink-0 text-amber-500 fill-amber-500" aria-hidden />
+                          <Star className="size-3.5 shrink-0 text-amber-500 fill-amber-500" aria-hidden />
                         ) : null}
                       </span>
                     }

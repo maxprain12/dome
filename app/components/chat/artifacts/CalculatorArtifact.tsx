@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { CalculatorArtifactV } from '@/lib/chat/artifactSchemas';
-import { isSafeCalculatorFormula } from '@/lib/chat/artifactSchemas';
+import { evaluateSafeCalculatorFormula } from '@/lib/chat/artifactSchemas';
 
 const DOME_RANGE_STYLE_ID = 'dome-calculator-range-style';
 const DOME_RANGE_CSS = `
@@ -44,17 +44,6 @@ function formatValue(n: number, format: CalculatorArtifactV['outputs'][0]['forma
   return s;
 }
 
-function evalFormula(formula: string, env: Record<string, number>): number {
-  if (!isSafeCalculatorFormula(formula)) return NaN;
-  const keys = Object.keys(env);
-  try {
-    const fn = new Function(...keys, `return (${formula})`);
-    return fn(...keys.map((k) => env[k]!)) as number;
-  } catch {
-    return NaN;
-  }
-}
-
 export default function CalculatorArtifact({ artifact }: { artifact: CalculatorArtifactV }) {
   ensureRangeStyle();
   const initial = useMemo(() => {
@@ -69,7 +58,7 @@ export default function CalculatorArtifact({ artifact }: { artifact: CalculatorA
 
   const outputs = useMemo(() => {
     return artifact.outputs.map((o) => {
-      const v = evalFormula(o.formula, values);
+      const v = evaluateSafeCalculatorFormula(o.formula, values);
       return { ...o, computed: v };
     });
   }, [artifact.outputs, values]);

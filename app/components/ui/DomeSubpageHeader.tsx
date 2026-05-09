@@ -37,7 +37,7 @@ export default function DomeSubpageHeader({
           className="shrink-0 rounded-lg p-1.5 text-[var(--primary-text)] hover:bg-[var(--bg-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg)]"
           aria-label={backLabel}
         >
-          <ChevronLeft className="w-5 h-5" aria-hidden />
+          <ChevronLeft className="size-5" aria-hidden />
         </button>
       ) : null}
       <div className="min-w-0 flex-1">

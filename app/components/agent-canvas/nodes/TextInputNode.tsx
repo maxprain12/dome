@@ -32,10 +32,10 @@ export default function TextInputNode({
         style={{ background: 'var(--dome-bg)', borderBottom: '1px solid var(--dome-border)' }}
       >
         <div
-          className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+          className="size-6 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: 'var(--dome-accent)' }}
         >
-          <Type className="w-3.5 h-3.5 text-white" />
+          <Type className="size-3.5 text-white" />
         </div>
         <span className="text-xs font-semibold leading-tight truncate" style={{ color: 'var(--dome-text)' }}>
           {data.label}

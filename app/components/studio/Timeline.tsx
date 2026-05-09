@@ -48,7 +48,7 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
               {/* Dot */}
               <div className="relative shrink-0" style={{ zIndex: 'var(--z-local)' }}>
                 <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  className="size-10 rounded-full flex items-center justify-center"
                   style={{
                     background: index === 0
                       ? 'var(--dome-accent, #596037)'

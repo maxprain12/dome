@@ -72,10 +72,10 @@ export default function OutputNode({
         style={{ background: 'var(--dome-bg)', borderBottom: '1px solid var(--dome-border)' }}
       >
         <div
-          className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+          className="size-6 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: isDone ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}
         >
-          <Terminal className="w-3.5 h-3.5 text-white" />
+          <Terminal className="size-3.5 text-white" />
         </div>
         <span
           className="flex-1 text-xs font-semibold leading-tight truncate"
@@ -83,10 +83,10 @@ export default function OutputNode({
         >
           {data.label}
         </span>
-        {isRunning && <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" style={{ color: 'var(--dome-accent)' }} />}
+        {isRunning && <Loader2 className="size-3.5 animate-spin shrink-0" style={{ color: 'var(--dome-accent)' }} />}
         {isDone && (
           <div className="flex items-center gap-0.5 shrink-0">
-            <CheckCircle2 className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
+            <CheckCircle2 className="size-3.5" style={{ color: 'var(--dome-accent)' }} />
             <button
               type="button"
               onClick={handleCopy}
@@ -94,9 +94,9 @@ export default function OutputNode({
               title={t('canvas.copy_to_clipboard')}
             >
               {copied ? (
-                <Check className="w-3.5 h-3.5" style={{ color: 'var(--success)' }} />
+                <Check className="size-3.5" style={{ color: 'var(--success)' }} />
               ) : (
-                <Copy className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
+                <Copy className="size-3.5" style={{ color: 'var(--dome-accent)' }} />
               )}
             </button>
             <button
@@ -107,9 +107,9 @@ export default function OutputNode({
               title={t('canvas.save_as_note')}
             >
               {saving ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+                <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-accent)' }} />
               ) : (
-                <Save className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} />
+                <Save className="size-3.5" style={{ color: 'var(--dome-accent)' }} />
               )}
             </button>
           </div>
@@ -119,7 +119,7 @@ export default function OutputNode({
       <div className="p-3" style={{ minHeight: 52 }}>
         {!data.content ? (
           <div className="flex flex-col items-center justify-center py-2 gap-1" style={{ color: 'var(--dome-text-muted)' }}>
-            <Terminal className="w-4 h-4 opacity-25" />
+            <Terminal className="size-4 opacity-25" />
             <p className="text-[10px] italic text-center px-1 leading-snug">{t('canvas.output_placeholder')}</p>
           </div>
         ) : (

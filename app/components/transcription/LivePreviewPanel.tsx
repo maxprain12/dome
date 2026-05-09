@@ -104,7 +104,7 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
       </div>
       <div
         ref={scrollRef}
-        className="px-3 py-3 overflow-y-auto"
+        className="p-3 overflow-y-auto"
         style={{
           fontSize: 13,
           lineHeight: 1.5,

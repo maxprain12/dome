@@ -149,7 +149,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
 
   return (
     <div
-      className="flex flex-col h-full w-full min-w-[240px] border-l border-[var(--dome-border)]"
+      className="flex flex-col size-full min-w-[240px] border-l border-[var(--dome-border)]"
       style={{ background: 'var(--dome-sidebar-bg)' }}
     >
       {renameId ? (
@@ -178,7 +178,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
               <DomeButton type="button" variant="ghost" size="sm" onClick={() => setRenameId(null)}>
                 {t('common.cancel')}
               </DomeButton>
-              <DomeButton type="submit" variant="primary" size="sm" leftIcon={<Check className="w-3.5 h-3.5" />}>
+              <DomeButton type="submit" variant="primary" size="sm" leftIcon={<Check className="size-3.5" />}>
                 {t('common.save')}
               </DomeButton>
             </div>
@@ -201,7 +201,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
               title={newChatLabel}
               aria-label={newChatLabel}
             >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+              <Plus className="size-3.5" strokeWidth={2.5} />
             </DomeButton>
             <DomeButton
               type="button"
@@ -212,7 +212,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
               className="!p-1 w-[26px] h-[26px] min-w-0 text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-text)]"
               aria-label={t('chat.close_chat')}
             >
-              <X className="w-3.5 h-3.5" strokeWidth={2} />
+              <X className="size-3.5" strokeWidth={2} />
             </DomeButton>
           </div>
         }
@@ -221,7 +221,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
       <div className="px-3 py-2.5 shrink-0 border-b border-[var(--dome-border)] border-opacity-50">
         <div className="relative">
           <Search
-            className="absolute left-2.5 top-1/2 z-10 w-3.5 h-3.5 -translate-y-1/2 shrink-0 text-[var(--dome-text-muted)] pointer-events-none"
+            className="absolute left-2.5 top-1/2 z-10 size-3.5 -translate-y-1/2 shrink-0 text-[var(--dome-text-muted)] pointer-events-none"
             strokeWidth={2}
             aria-hidden
           />
@@ -261,7 +261,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
                 trailing={
                   <div className="flex items-center gap-1.5 shrink-0">
                     {session.pinned && (
-                      <Pin className="w-3 h-3 text-[var(--dome-accent)]" fill="currentColor" aria-hidden />
+                      <Pin className="size-3 text-[var(--dome-accent)]" fill="currentColor" aria-hidden />
                     )}
                     <span className="tabular-nums text-[11px] text-[var(--tertiary-text)] group-hover:hidden">
                       {timeAgo(session.updatedAt ?? session.messages[session.messages.length - 1]?.timestamp ?? session.createdAt, t)}
@@ -279,7 +279,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
                       title={pinLabel}
                       aria-label={pinLabel}
                     >
-                      <Pin className="w-3.5 h-3.5" strokeWidth={2} />
+                      <Pin className="size-3.5" strokeWidth={2} />
                     </DomeButton>
                     <DomeButton
                       type="button"
@@ -291,7 +291,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
                       title={t('chat.rename_conversation')}
                       aria-label={t('chat.rename_conversation')}
                     >
-                      <Pencil className="w-3.5 h-3.5" strokeWidth={2} />
+                      <Pencil className="size-3.5" strokeWidth={2} />
                     </DomeButton>
                     <DomeButton
                       type="button"
@@ -302,7 +302,7 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
                       onClick={(e) => handleDeleteSession(e, session.id)}
                       aria-label={t('chat.delete_conversation')}
                     >
-                      <X className="w-3.5 h-3.5" strokeWidth={2} />
+                      <X className="size-3.5" strokeWidth={2} />
                     </DomeButton>
                   </div>
                 }

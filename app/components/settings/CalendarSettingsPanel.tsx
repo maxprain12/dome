@@ -109,7 +109,7 @@ export default function CalendarSettingsPanel() {
         subtitle={t('settings.calendar.subtitle')}
         trailing={
           <DomeIconBox size="md" className="!w-10 !h-10" background="var(--accent)">
-            <Calendar className="w-5 h-5 text-[var(--base-text)]" aria-hidden />
+            <Calendar className="size-5 text-[var(--base-text)]" aria-hidden />
           </DomeIconBox>
         }
         className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"
@@ -133,7 +133,7 @@ export default function CalendarSettingsPanel() {
                     type="button"
                     variant="outline"
                     size="xs"
-                    leftIcon={<Unplug className="w-3.5 h-3.5" />}
+                    leftIcon={<Unplug className="size-3.5" />}
                     onClick={() => void disconnect(a.id)}
                   >
                     {t('settings.calendar.disconnect')}

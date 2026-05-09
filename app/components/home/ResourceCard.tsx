@@ -72,22 +72,22 @@ export default memo(function ResourceCard({
     // Excel sub-type specific icons
     if (resource.type === 'excel') {
       switch (excelSubType) {
-        case 'xlsx': return <FileSpreadsheet className="w-5 h-5" strokeWidth={1.5} />;
-        default: return <File className="w-5 h-5" strokeWidth={1.5} />;
+        case 'xlsx': return <FileSpreadsheet className="size-5" strokeWidth={1.5} />;
+        default: return <File className="size-5" strokeWidth={1.5} />;
       }
     }
 
     switch (resource.type) {
-      case 'note': return <FileText className="w-5 h-5" strokeWidth={1.5} />;
-      case 'notebook': return <Notebook className="w-5 h-5" strokeWidth={1.5} />;
-      case 'pdf': return <File className="w-5 h-5" strokeWidth={1.5} />;
-      case 'video': return <Video className="w-5 h-5" strokeWidth={1.5} />;
-      case 'audio': return <Music className="w-5 h-5" strokeWidth={1.5} />;
-      case 'image': return <ImageIcon className="w-5 h-5" strokeWidth={1.5} />;
-      case 'url': return <Link2 className="w-5 h-5" strokeWidth={1.5} />;
-      case 'folder': return <FolderOpen className="w-5 h-5" strokeWidth={1.5} />;
-      case 'ppt': return <Presentation className="w-5 h-5" strokeWidth={1.5} />;
-      default: return <File className="w-5 h-5" strokeWidth={1.5} />;
+      case 'note': return <FileText className="size-5" strokeWidth={1.5} />;
+      case 'notebook': return <Notebook className="size-5" strokeWidth={1.5} />;
+      case 'pdf': return <File className="size-5" strokeWidth={1.5} />;
+      case 'video': return <Video className="size-5" strokeWidth={1.5} />;
+      case 'audio': return <Music className="size-5" strokeWidth={1.5} />;
+      case 'image': return <ImageIcon className="size-5" strokeWidth={1.5} />;
+      case 'url': return <Link2 className="size-5" strokeWidth={1.5} />;
+      case 'folder': return <FolderOpen className="size-5" strokeWidth={1.5} />;
+      case 'ppt': return <Presentation className="size-5" strokeWidth={1.5} />;
+      default: return <File className="size-5" strokeWidth={1.5} />;
     }
   };
 
@@ -182,7 +182,7 @@ export default memo(function ResourceCard({
       >
         <div role="gridcell" className="flex items-center gap-3 min-w-0">
           <div
-            className="flex items-center justify-center w-8 h-8 rounded shrink-0"
+            className="flex items-center justify-center size-8 rounded shrink-0"
             style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
           >
             {getIcon()}
@@ -262,7 +262,7 @@ export default memo(function ResourceCard({
         {/* Play icon overlay for Video */}
         {resource.type === 'video' && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-            <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+            <div className="size-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
               <Play size={20} className="ml-0.5 text-black" fill="currentColor" />
             </div>
           </div>
@@ -277,9 +277,9 @@ export default memo(function ResourceCard({
       </div>
 
       {/* Footer Info */}
-      <div className="flex items-center gap-3 px-3 py-3 border-t border-[var(--border)] bg-[var(--dome-surface)]">
+      <div className="flex items-center gap-3 p-3 border-t border-[var(--border)] bg-[var(--dome-surface)]">
         <div
-          className="flex items-center justify-center w-8 h-8 rounded shrink-0"
+          className="flex items-center justify-center size-8 rounded shrink-0"
           style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
         >
           {getIcon()}
