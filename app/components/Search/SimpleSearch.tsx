@@ -22,6 +22,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { orderUnifiedResourcesByHybrid } from '@/lib/search/hybrid-search';
 import { recordSearchResultSelected } from '@/lib/search/search-signals';
 import { formatDistanceToNow } from '@/lib/utils';
+import { stableStringHash } from '@/lib/utils/stableStringHash';
 
 interface SearchResult {
   id: string;
@@ -473,17 +474,24 @@ function highlight(text: string, query: string): string {
 
 function SnippetText({ text, query }: { text: string; query: string }) {
   const parts = highlight(text, query).split(/\*\*(.+?)\*\*/g);
+  const counts = new Map<string, number>();
   return (
     <span>
-      {parts.map((part, i) =>
-        i % 2 === 1 ? (
-          <mark key={i} style={{ background: 'color-mix(in srgb, var(--dome-accent) 20%, transparent)', color: 'var(--dome-accent)', borderRadius: '2px' }}>
+      {parts.map((part, i) => {
+        const isHit = i % 2 === 1;
+        const payload = `${isHit ? 'hit' : 'txt'}:${part}`;
+        const h = stableStringHash(payload);
+        const ord = (counts.get(h) ?? 0) + 1;
+        counts.set(h, ord);
+        const k = `snippet:${h}:${ord}`;
+        return isHit ? (
+          <mark key={k} style={{ background: 'color-mix(in srgb, var(--dome-accent) 20%, transparent)', color: 'var(--dome-accent)', borderRadius: '2px' }}>
             {part}
           </mark>
         ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
+          <span key={k}>{part}</span>
+        );
+      })}
     </span>
   );
 }

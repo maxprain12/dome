@@ -319,10 +319,11 @@ export default function MCPSettingsPanel() {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
+                          <label htmlFor={`mcp-server-env-${index}`} className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
                             env (JSON)
                           </label>
                           <DomeTextarea
+                            id={`mcp-server-env-${index}`}
                             placeholder='{"API_KEY":"valor"}'
                             value={envDrafts[index] ?? (server.env ? JSON.stringify(server.env) : '')}
                             onChange={(e) => setEnvDrafts((d) => ({ ...d, [index]: e.target.value }))}
@@ -363,10 +364,11 @@ export default function MCPSettingsPanel() {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
+                          <label htmlFor={`mcp-server-headers-${index}`} className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
                             Headers (JSON, opcional)
                           </label>
                           <DomeTextarea
+                            id={`mcp-server-headers-${index}`}
                             placeholder='{"Authorization": "Bearer token"}'
                             value={headersDrafts[index] ?? (server.headers ? JSON.stringify(server.headers) : '')}
                             onChange={(e) => setHeadersDrafts((d) => ({ ...d, [index]: e.target.value }))}

@@ -89,7 +89,6 @@ export default function ResourcePickerModal({
           placeholder="Buscar en la librería…"
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
-          autoFocus
         />
         <Text size="xs" c="dimmed">
           {loading ? 'Buscando…' : `${items.length} resultado(s)`}

@@ -86,8 +86,9 @@ export default function AgentMcpStep({ selectedIds, onChange }: AgentMcpStepProp
             className="rounded-xl border p-3"
             style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-secondary)' }}
           >
-            <label className="flex items-start gap-3 cursor-pointer">
+            <label htmlFor={`agent-mcp-server-${s.name}`} aria-label={s.name} className="flex items-start gap-3 cursor-pointer">
               <input
+                id={`agent-mcp-server-${s.name}`}
                 type="checkbox"
                 checked={selectedSet.has(s.name)}
                 onChange={() => toggle(s.name)}
@@ -155,6 +156,7 @@ export default function AgentMcpStep({ selectedIds, onChange }: AgentMcpStepProp
                   {s.tools.map((tool) => (
                     <label
                       key={tool.id}
+                      htmlFor={`agent-mcp-tool-${s.name}-${String(tool.id ?? tool.name)}`}
                       className="flex items-start justify-between gap-3 rounded-md px-2 py-1.5 cursor-pointer hover:bg-[var(--bg-hover)]"
                     >
                       <div className="min-w-0">
@@ -168,6 +170,7 @@ export default function AgentMcpStep({ selectedIds, onChange }: AgentMcpStepProp
                         ) : null}
                       </div>
                       <input
+                        id={`agent-mcp-tool-${s.name}-${String(tool.id ?? tool.name)}`}
                         type="checkbox"
                         className="rounded mt-0.5"
                         checked={tool.enabled !== false}

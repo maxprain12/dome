@@ -6,6 +6,7 @@ import type { OutputNodeData } from '@/types/canvas';
 import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { generateId } from '@/lib/utils';
+import { stableStringHash } from '@/lib/utils/stableStringHash';
 import { useTranslation } from 'react-i18next';
 
 export default function OutputNode({
@@ -143,57 +144,64 @@ function MarkdownPreview({ content }: { content: string }) {
   const lines = content.split('\n');
   const elements: React.ReactNode[] = [];
   let i = 0;
+  let serial = 0;
+  const nextKey = (payload: string) => {
+    serial += 1;
+    return `canvas-md:${stableStringHash(payload)}:${serial}`;
+  };
 
   while (i < lines.length) {
     const line = lines[i] ?? '';
 
     if (line.startsWith('### ')) {
       elements.push(
-        <h3 key={i} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
+        <h3 key={nextKey(`h3:${line}`)} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
           {line.slice(4)}
         </h3>,
       );
     } else if (line.startsWith('## ')) {
       elements.push(
-        <h2 key={i} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
+        <h2 key={nextKey(`h2:${line}`)} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
           {line.slice(3)}
         </h2>,
       );
     } else if (line.startsWith('# ')) {
       elements.push(
-        <h1 key={i} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
+        <h1 key={nextKey(`h1:${line}`)} className="font-bold text-xs mb-1 mt-2" style={{ color: 'var(--dome-text)' }}>
           {line.slice(2)}
         </h1>,
       );
     } else if (line.startsWith('- ') || line.startsWith('* ')) {
       elements.push(
-        <div key={i} className="flex gap-1.5 mb-0.5">
+        <div key={nextKey(`li:${line}`)} className="flex gap-1.5 mb-0.5">
           <span style={{ color: 'var(--dome-accent)' }}>•</span>
           <span style={{ color: 'var(--dome-text-secondary)' }}>{formatInline(line.slice(2))}</span>
         </div>,
       );
     } else if (line.trim() === '') {
-      elements.push(<div key={i} className="h-1.5" />);
+      elements.push(<div key={nextKey('blank')} className="h-1.5" />);
     } else if (line.startsWith('```')) {
       const codeLines: string[] = [];
+      const openIdx = i;
       i++;
       while (i < lines.length && !(lines[i] ?? '').startsWith('```')) {
         codeLines.push(lines[i] ?? '');
         i++;
       }
+      const codeJoined = codeLines.join('\n');
       elements.push(
         <pre
-          key={i}
+          key={nextKey(`code:${line}:${openIdx}:${codeJoined.slice(0, 80)}`)}
           className="text-xs p-2 rounded-lg overflow-x-auto mb-1"
           style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)', fontFamily: 'monospace' }}
         >
-          {codeLines.join('\n')}
+          {codeJoined}
         </pre>,
       );
     } else {
       elements.push(
         <p
-          key={i}
+          key={nextKey(`p:${line}`)}
           className="mb-0.5 leading-relaxed"
           style={{ color: 'var(--dome-text-secondary)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
         >
@@ -210,15 +218,20 @@ function MarkdownPreview({ content }: { content: string }) {
 
 function formatInline(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-  return parts.map((rawPart, i) => {
+  const counts = new Map<string, number>();
+  return parts.map((rawPart) => {
     const part = rawPart ?? '';
+    const h = stableStringHash(part);
+    const ord = (counts.get(h) ?? 0) + 1;
+    counts.set(h, ord);
+    const k = `inl:${h}:${ord}`;
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i}>{part.slice(2, -2)}</strong>;
+      return <strong key={k}>{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith('`') && part.endsWith('`')) {
       return (
         <code
-          key={i}
+          key={k}
           className="px-1 py-0.5 rounded text-xs"
           style={{ background: 'var(--dome-bg)', fontFamily: 'monospace' }}
         >

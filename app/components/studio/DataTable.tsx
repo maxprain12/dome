@@ -114,12 +114,11 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             placeholder={t('studio.filter_rows_placeholder')}
-            className="w-full pl-8 pr-3 py-1.5 rounded-md text-xs"
+            className="w-full pl-8 pr-3 py-1.5 rounded-md text-xs focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{
               background: 'var(--bg-secondary)',
               border: '1px solid var(--border)',
               color: 'var(--primary-text)',
-              outline: 'none',
             }}
           />
         </div>

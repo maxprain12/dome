@@ -162,7 +162,6 @@ export default function DocumentNode({
                 style={{ color: 'var(--dome-text-muted)' }}
               />
               <input
-                autoFocus
                 type="text"
                 placeholder={t('canvas.picker_search')}
                 value={query}

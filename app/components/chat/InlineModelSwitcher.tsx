@@ -241,7 +241,6 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
                         }}
                         placeholder={t('chat.custom_model_placeholder')}
                         className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1 text-[11px] text-[var(--primary-text)]"
-                        autoFocus
                       />
                       <button
                         type="button"

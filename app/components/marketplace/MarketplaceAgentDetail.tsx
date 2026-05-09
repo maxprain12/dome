@@ -38,22 +38,27 @@ export default function MarketplaceAgentDetail({
 }: MarketplaceAgentDetailProps) {
   const { t } = useTranslation();
   return (
-    <div
-      className="fixed inset-0 z-[var(--z-modal,1000)] flex items-center justify-center"
-      style={{ backgroundColor: 'var(--translucent, rgba(0,0,0,0.4))', backdropFilter: 'blur(8px)' }}
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[var(--z-modal,1000)] flex items-center justify-center" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+        style={{ backgroundColor: 'var(--translucent, rgba(0,0,0,0.4))', backdropFilter: 'blur(8px)' }}
+        aria-label={t('ui.close')}
+        onClick={onClose}
+      />
       <div
-        className="relative w-full max-w-lg mx-4 rounded-2xl shadow-2xl overflow-hidden animate-fade-in"
+        className="relative z-10 w-full max-w-lg mx-4 rounded-2xl shadow-2xl overflow-hidden animate-fade-in"
         style={{
           background: 'var(--dome-surface)',
           border: '1px solid var(--dome-border)',
           maxHeight: '85vh',
         }}
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         {/* Close */}
         <button
+          type="button"
           onClick={onClose}
           className="absolute top-4 right-4 size-8 flex items-center justify-center rounded-lg transition-all z-10"
           style={{

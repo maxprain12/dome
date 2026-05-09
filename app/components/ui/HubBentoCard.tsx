@@ -40,6 +40,7 @@ export default function HubBentoCard({
   layout = 'list',
 }: HubBentoCardProps) {
   const interactive = Boolean(onClick) && !disabled;
+  const surfaceRole = interactive ? 'button' : draggable ? 'group' : undefined;
 
   const handleKey = (e: KeyboardEvent) => {
     if (!interactive) return;
@@ -56,6 +57,8 @@ export default function HubBentoCard({
 
   const trailingWrap = trailing ? (
     <div
+      role="toolbar"
+      aria-orientation="horizontal"
       className="shrink-0 flex items-center gap-0.5"
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
@@ -89,14 +92,15 @@ export default function HubBentoCard({
 
   if (layout === 'list') {
     return (
+      // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- optional click + HTML5 drag on same wrapper
       <div
-        role={interactive ? 'button' : undefined}
+        role={surfaceRole}
         tabIndex={interactive ? 0 : undefined}
         draggable={Boolean(draggable)}
         onDragStart={onDragStart}
         onDragEnd={onDragEnd}
-        onClick={handleClick}
-        onKeyDown={handleKey}
+        onClick={interactive ? handleClick : undefined}
+        onKeyDown={interactive ? handleKey : undefined}
         className={cn(
           'flex w-full max-w-full min-w-0 flex-row items-start gap-4 rounded-xl border p-4 transition-all outline-none',
           interactiveCls,
@@ -121,14 +125,15 @@ export default function HubBentoCard({
   }
 
   return (
+    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- optional click + HTML5 drag on same wrapper
     <div
-      role={interactive ? 'button' : undefined}
+      role={surfaceRole}
       tabIndex={interactive ? 0 : undefined}
       draggable={Boolean(draggable)}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      onClick={handleClick}
-      onKeyDown={handleKey}
+      onClick={interactive ? handleClick : undefined}
+      onKeyDown={interactive ? handleKey : undefined}
       className={cn(
         'flex flex-col gap-3 p-4 rounded-xl border transition-all outline-none min-w-0',
         interactiveCls,

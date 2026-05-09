@@ -105,7 +105,6 @@ export default function ProfileStep({
             onChange={(e) => setName(e.target.value)}
             onBlur={() => setTouched((t) => ({ ...t, name: true }))}
             placeholder={t('onboarding.full_name_placeholder')}
-            autoFocus
             className="w-full pl-9 pr-9 py-2.5 rounded-xl text-sm outline-none transition-all"
             style={{
               background: 'var(--dome-bg-hover)',

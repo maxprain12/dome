@@ -382,7 +382,6 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
         role="dialog"
         aria-modal="true"
         aria-label={run.title || run.id}
-        onClick={(e) => e.stopPropagation()}
       >
         <DomeDrawerLayout
           className="h-full border-0 shadow-none bg-transparent"

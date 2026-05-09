@@ -438,6 +438,8 @@ function SelectionBubbleMenu({
   return ReactDOM.createPortal(
     <div
       className="note-bubble-menu"
+      role="toolbar"
+      aria-label="Formato de nota"
       style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
       onMouseDown={(e) => e.preventDefault()}
     >

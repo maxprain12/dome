@@ -111,7 +111,7 @@ export const MentionSuggestionMenu = forwardRef<MentionMenuHandle, MentionSugges
               }}
             >
               <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--dome-text)' }}>{item.label}</span>
-              <span style={{ fontSize: 11, color: 'var(--dome-text-muted)' }}>{item.type}</span>
+              <span style={{ fontSize: 12, color: 'var(--dome-text-muted)' }}>{item.type}</span>
             </button>
           );
         })}

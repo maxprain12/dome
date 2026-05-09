@@ -468,7 +468,7 @@ export default memo(function ManyChatInput({
             zIndex: 'var(--z-popover)',
           }}
         >
-          <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--tertiary-text)' }}>
+          <div className="px-3 py-1.5 text-[12px] font-medium uppercase tracking-wider" style={{ color: 'var(--tertiary-text)' }}>
             {t('chat.slash_skills_title')}
           </div>
           {slash.filteredSkills.length === 0 ? (
@@ -491,11 +491,11 @@ export default memo(function ManyChatInput({
                 >
                   <span className="font-medium">{skill.name}</span>
                   {skill.description ? (
-                    <span className="text-[11px] text-[var(--tertiary-text)] line-clamp-2">{skill.description}</span>
+                    <span className="text-[12px] text-[var(--tertiary-text)] line-clamp-2">{skill.description}</span>
                   ) : null}
                 </button>
                 <div className="flex flex-wrap gap-2 px-3 pb-2">
-                  <label className="flex cursor-pointer items-center gap-1.5 text-[10px] text-[var(--secondary-text)]">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[var(--secondary-text)]">
                     <input
                       type="checkbox"
                       checked={activeStickySkillId === skill.id}
@@ -533,7 +533,7 @@ export default memo(function ManyChatInput({
             zIndex: 'var(--z-popover)',
           }}
         >
-          <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--tertiary-text)' }}>
+          <div className="px-3 py-1.5 text-[12px] font-medium uppercase tracking-wider" style={{ color: 'var(--tertiary-text)' }}>
             {t('many.add_to_context')}
           </div>
           {mention.mentionResources.length === 0 ? (
@@ -557,7 +557,7 @@ export default memo(function ManyChatInput({
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {resource.title}
                 </span>
-                <span style={{ fontSize: 10, color: 'var(--tertiary-text)', flexShrink: 0 }}>{resource.type}</span>
+                <span style={{ fontSize: 12, color: 'var(--tertiary-text)', flexShrink: 0 }}>{resource.type}</span>
               </button>
             ))
           )}

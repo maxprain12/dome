@@ -59,7 +59,6 @@ export default function EmbedModal({ opened, onClose, editor, kind }: EmbedModal
           placeholder={t('editor.embed_modal_url_placeholder')}
           value={url}
           onChange={(e) => setUrl(e.currentTarget.value)}
-          autoFocus
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();

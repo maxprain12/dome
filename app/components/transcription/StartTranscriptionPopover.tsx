@@ -157,7 +157,7 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
       </div>
 
       {/* Sources */}
-      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--dome-text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dome-text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>
         {t('transcriptions.start_sources_label', 'Capture')}
       </div>
       <div className="grid grid-cols-2 gap-2 mb-3">
@@ -213,13 +213,13 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
                 ) : (
                   <div style={{ width: '100%', height: 60, background: 'var(--dome-bg-tertiary)' }} />
                 )}
-                <div style={{ padding: '4px 6px', fontSize: 10, color: 'var(--dome-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ padding: '4px 6px', fontSize: 12, color: 'var(--dome-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {src.name}
                 </div>
               </button>
             ))}
             {!loadingSources && captureSources.length === 0 && (
-              <div className="col-span-2" style={{ fontSize: 11, color: 'var(--dome-text-muted)', padding: 8 }}>
+              <div className="col-span-2" style={{ fontSize: 12, color: 'var(--dome-text-muted)', padding: 8 }}>
                 {t('transcriptions.no_capture_sources', 'No sources detected')}
               </div>
             )}
@@ -228,7 +228,7 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
       )}
 
       {/* Options */}
-      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--dome-text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--dome-text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.4 }}>
         {t('transcriptions.start_options_label', 'Options')}
       </div>
       <div className="flex flex-col gap-1.5 mb-3">

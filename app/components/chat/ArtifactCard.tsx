@@ -350,7 +350,7 @@ function ArtifactHeader({
           size="xs"
           onClick={onCopy}
           title={t('ui.copy_content')}
-          className="shrink-0 gap-1 h-auto py-1 px-2 text-[11px] text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+          className="shrink-0 gap-1 h-auto py-1 px-2 text-[12px] text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
           leftIcon={
             copied ? (
               <Check className="size-3 text-[var(--success)]" aria-hidden />
@@ -470,7 +470,7 @@ function PDFSummaryContent({ artifact }: { artifact: PDFSummaryArtifact }) {
     <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Metadata */}
       {artifact.metadata && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 11, color: 'var(--secondary-text)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, fontSize: 12, color: 'var(--secondary-text)' }}>
           {artifact.metadata.author && (
             <span>
               <span style={{ fontWeight: 600 }}>{t('artifacts.author')}:</span> {artifact.metadata.author}
@@ -636,7 +636,7 @@ function ActionItemsContent({ artifact }: { artifact: ActionItemsArtifact }) {
               {item.text}
             </span>
             {(item.assignee || item.due_date) && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 3, fontSize: 11, color: 'var(--tertiary-text)' }}>
+              <div style={{ display: 'flex', gap: 8, marginTop: 3, fontSize: 12, color: 'var(--tertiary-text)' }}>
                 {item.assignee && <span>@{item.assignee}</span>}
                 {item.due_date && <span>{t('artifacts.due')} {item.due_date}</span>}
               </div>
@@ -676,7 +676,7 @@ function ChartContent({ artifact }: { artifact: ChartArtifact }) {
                 />
               ))}
             </div>
-            <span style={{ fontSize: 11, width: 40, textAlign: 'right', color: 'var(--secondary-text)', flexShrink: 0 }}>
+            <span style={{ fontSize: 12, width: 40, textAlign: 'right', color: 'var(--secondary-text)', flexShrink: 0 }}>
               {artifact.data.datasets[0]?.data[idx]}
             </span>
           </div>
@@ -690,7 +690,7 @@ function CodeContent({ artifact }: { artifact: CodeArtifact }) {
   return (
     <div style={{ padding: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: 'var(--secondary-text)' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', color: 'var(--secondary-text)' }}>
           {artifact.language}
         </span>
       </div>
@@ -789,7 +789,7 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
           display: 'flex', flexDirection: 'column', gap: 4,
         }}>
           {configEntries.map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', gap: 8, fontSize: 11 }}>
+            <div key={k} style={{ display: 'flex', gap: 8, fontSize: 12 }}>
               <span style={{ color: 'var(--tertiary-text)', fontWeight: 500, flexShrink: 0, textTransform: 'capitalize' }}>
                 {k.replace(/_/g, ' ')}:
               </span>

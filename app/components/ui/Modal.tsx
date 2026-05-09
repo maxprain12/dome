@@ -45,27 +45,25 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 flex items-center justify-center p-4"
       style={{ zIndex: 'var(--z-modal-backdrop)' }}
     >
-      {/* Overlay */}
-      <div
-        className="absolute inset-0 backdrop-blur-sm cursor-pointer"
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0 backdrop-blur-sm"
         style={{ backgroundColor: 'var(--translucent)' }}
+        aria-label="Cerrar modal"
         onClick={onClose}
-        aria-hidden="true"
       />
 
-      {/* Modal */}
       <div
-        className={`relative rounded-lg shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col`}
-        style={{ 
+        className={`relative z-10 rounded-lg shadow-2xl w-full ${sizeClasses[size]} max-h-[90vh] flex flex-col`}
+        style={{
           zIndex: 'var(--z-modal)',
           backgroundColor: 'var(--bg)',
-          border: '1px solid var(--border)'
+          border: '1px solid var(--border)',
         }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"

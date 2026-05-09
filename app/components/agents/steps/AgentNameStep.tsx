@@ -37,10 +37,11 @@ export default function AgentNameStep({
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--primary-text)' }}>
+        <label htmlFor="agent-name-step-name" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--primary-text)' }}>
           Nombre *
         </label>
         <input
+          id="agent-name-step-name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -52,7 +53,6 @@ export default function AgentNameStep({
             color: 'var(--primary-text)',
           }}
           maxLength={80}
-          autoFocus
         />
         {name.trim().length === 0 && (
           <p className="text-xs mt-1" style={{ color: 'var(--warning)' }}>
@@ -61,10 +61,11 @@ export default function AgentNameStep({
         )}
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--primary-text)' }}>
+        <label htmlFor="agent-name-step-description" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--primary-text)' }}>
           Descripción
         </label>
         <textarea
+          id="agent-name-step-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Describe qué hace este agente y para qué sirve."

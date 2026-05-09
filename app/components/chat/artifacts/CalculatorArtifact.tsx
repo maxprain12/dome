@@ -92,7 +92,7 @@ export default function CalculatorArtifact({ artifact }: { artifact: CalculatorA
               />
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   color: 'var(--tertiary-text)',
                   fontVariantNumeric: 'tabular-nums',
                 }}

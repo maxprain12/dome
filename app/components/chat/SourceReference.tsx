@@ -26,7 +26,7 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
     <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
       <div
         style={{
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: 600,
           color: 'var(--tertiary-text)',
           marginBottom: 8,
@@ -77,7 +77,7 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
                     color: 'var(--base-text)',
                     borderRadius: 4,
                     padding: '1px 5px',
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: 600,
                     lineHeight: 1.4,
                   }}
@@ -90,13 +90,13 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
                     {source.title}
                   </span>
                   {source.nodeTitle && (
-                    <span style={{ fontSize: 10, color: 'var(--tertiary-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200, display: 'block', marginTop: 1 }}>
+                    <span style={{ fontSize: 12, color: 'var(--tertiary-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200, display: 'block', marginTop: 1 }}>
                       {source.nodeTitle}
                     </span>
                   )}
                 </span>
                 {source.pageLabel ? (
-                  <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 11, color: 'var(--accent)', fontWeight: 500 }}>
+                  <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 12, color: 'var(--accent)', fontWeight: 500 }}>
                     <Bookmark style={{ width: 10, height: 10 }} />
                     {source.pageLabel.replace(/^págs?\.\s*/i, 'p. ')}
                   </span>

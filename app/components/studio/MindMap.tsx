@@ -216,6 +216,8 @@ export default function MindMap({ data, title, onClose, onExport }: MindMapProps
         {/* SVG Canvas */}
         <div
           className="flex-1 min-w-0 overflow-hidden"
+          role="application"
+          aria-label={t('studio.mind_map_canvas', { defaultValue: 'Lienzo del mapa mental' })}
           style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}

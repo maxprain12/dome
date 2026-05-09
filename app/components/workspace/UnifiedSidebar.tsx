@@ -232,7 +232,7 @@ function ContextMenu({
     >
       {/* Resource label */}
       <div className="px-3 pt-2.5 pb-1.5" style={{ borderBottom: '1px solid var(--dome-border)' }}>
-        <p className="truncate" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--dome-text-muted)' }}>
+        <p className="truncate" style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--dome-text-muted)' }}>
           {isFolder ? 'Carpeta' : r.type === 'notebook' ? 'Cuaderno' : r.type === 'url' ? 'URL' : r.type === 'pdf' ? 'PDF' : 'Archivo'}
         </p>
         <p className="truncate mt-0.5" style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--dome-text)' }}>{r.title}</p>
@@ -333,17 +333,17 @@ function ContextMenu({
                 <div style={{ height: 16, display: 'flex', alignItems: 'center' }}>
                   {hoveredLabel ? (
                     <span style={{
-                      fontSize: 11, fontWeight: 500, color: hoveredColor ?? 'var(--dome-text-muted)',
+                      fontSize: 12, fontWeight: 500, color: hoveredColor ?? 'var(--dome-text-muted)',
                       transition: 'color 100ms',
                     }}>
                       {hoveredLabel}
                     </span>
                   ) : currentColor ? (
-                    <span style={{ fontSize: 11, color: 'var(--dome-text-muted)' }}>
+                    <span style={{ fontSize: 12, color: 'var(--dome-text-muted)' }}>
                       {FOLDER_COLOR_OPTIONS.find((o) => o.value === currentColor)?.label ?? 'Personalizado'}
                     </span>
                   ) : (
-                    <span style={{ fontSize: 11, color: 'var(--dome-text-muted)' }}>{t('ui.no_color')}</span>
+                    <span style={{ fontSize: 12, color: 'var(--dome-text-muted)' }}>{t('ui.no_color')}</span>
                   )}
                 </div>
               </div>
@@ -402,9 +402,20 @@ function MoveFolderModal({ resource, allFolders, onConfirm, onClose }: {
   const available = allFolders.filter((f) => f.id !== resource.id);
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="rounded-xl shadow-xl border flex flex-col" style={{ width: 300, maxHeight: 400, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}>
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+        style={{ background: 'rgba(0,0,0,0.45)' }}
+        aria-label={t('ui.close')}
+        onClick={onClose}
+      />
+      <div
+        className="relative z-10 rounded-xl shadow-xl border flex flex-col"
+        style={{ width: 300, maxHeight: 400, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--dome-border)' }}>
           <span className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>Mover "{resource.title}"</span>
           <button type="button" onClick={onClose} className="rounded flex items-center justify-center hover:bg-[var(--dome-bg-hover)]" style={{ width: 24, height: 24, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>
@@ -449,9 +460,20 @@ function DeleteConfirmModal({ resource, onConfirm, onClose }: {
 }) {
   const { t } = useTranslation();
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="rounded-xl shadow-xl border p-5 flex flex-col gap-3" style={{ width: 290, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}>
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+        style={{ background: 'rgba(0,0,0,0.45)' }}
+        aria-label={t('ui.close')}
+        onClick={onClose}
+      />
+      <div
+        className="relative z-10 rounded-xl shadow-xl border p-5 flex flex-col gap-3"
+        style={{ width: 290, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
+        role="dialog"
+        aria-modal="true"
+      >
         <div>
           <p className="font-medium text-sm mb-1" style={{ color: 'var(--dome-text)' }}>
             {t('ui.delete_confirm', { type: resource.type === 'folder' ? 'folder' : 'resource' })}
@@ -483,9 +505,20 @@ function NewFolderModal({ parentId, onConfirm, onClose }: {
   const submit = () => { const t = name.trim(); if (t) { onConfirm(t, parentId); onClose(); } };
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="rounded-xl shadow-xl border p-5 flex flex-col gap-3" style={{ width: 280, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}>
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+        style={{ background: 'rgba(0,0,0,0.45)' }}
+        aria-label={t('ui.close')}
+        onClick={onClose}
+      />
+      <div
+        className="relative z-10 rounded-xl shadow-xl border p-5 flex flex-col gap-3"
+        style={{ width: 280, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
+        role="dialog"
+        aria-modal="true"
+      >
         <p className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>{t('ui.new_folder')}</p>
         <input ref={inputRef} type="text" value={name} onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onClose(); }}
@@ -937,7 +970,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
           <input
             type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('workspace.search_resources')} className="flex-1 bg-transparent outline-none border-none"
-            style={{ fontSize: 11, color: 'var(--dome-text)', caretColor: 'var(--dome-accent)' }}
+            style={{ fontSize: 12, color: 'var(--dome-text)', caretColor: 'var(--dome-accent)' }}
           />
         </div>
         {!selectionMode ? (
@@ -966,7 +999,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
       {/* Selection action bar */}
       {selectionMode && (
         <div className="px-3 pb-1.5 flex items-center gap-1.5">
-          <span className="flex-1 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="flex-1 text-[12px]" style={{ color: 'var(--dome-text-muted)' }}>
             {selectedIds.size > 0 ? `${selectedIds.size} sel.` : t('common.select')}
           </span>
           {selectedIds.size > 0 && (
@@ -974,7 +1007,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
               type="button"
               onClick={() => setBulkDeleteConfirm(true)}
               disabled={bulkDeleting}
-              className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium"
+              className="flex items-center gap-1 rounded px-2 py-0.5 text-[12px] font-medium"
               style={{
                 background: 'color-mix(in srgb, var(--dome-error, #ef4444) 10%, transparent)',
                 color: 'var(--dome-error, #ef4444)',
@@ -992,7 +1025,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
       {/* Tree */}
       <div className="flex-1 overflow-y-auto px-2 pb-2">
         {filteredTree.length === 0 ? (
-          <p className="text-center py-4" style={{ fontSize: 11, color: 'var(--dome-text-muted)' }}>
+          <p className="text-center py-4" style={{ fontSize: 12, color: 'var(--dome-text-muted)' }}>
             {t('ui.no_results')}
           </p>
         ) : (
@@ -1096,9 +1129,20 @@ function UrlInputModal({ onConfirm, onClose }: { onConfirm: (url: string) => voi
   };
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="rounded-xl shadow-xl border p-5 flex flex-col gap-3" style={{ width: 320, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}>
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+        style={{ background: 'rgba(0,0,0,0.45)' }}
+        aria-label={t('ui.close')}
+        onClick={onClose}
+      />
+      <div
+        className="relative z-10 rounded-xl shadow-xl border p-5 flex flex-col gap-3"
+        style={{ width: 320, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
+        role="dialog"
+        aria-modal="true"
+      >
         <p className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>{t('ui.add_url')}</p>
         <input
           ref={inputRef}
@@ -1855,7 +1899,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
                 {count !== undefined ? (
                   <span
                     className="shrink-0 tabular-nums"
-                    style={{ fontSize: 11, fontWeight: 500, color: 'var(--dome-text-muted)' }}
+                    style={{ fontSize: 12, fontWeight: 500, color: 'var(--dome-text-muted)' }}
                   >
                     {count}
                   </span>
@@ -1874,7 +1918,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             <button
               onClick={() => setWorkspaceOpen(!workspaceOpen)}
               className="flex items-center gap-1.5 flex-1 min-w-0 text-left rounded-md px-1 py-0.5 transition-colors"
-              style={{ color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}
+              style={{ color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
             >
@@ -1976,7 +2020,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           <p
             className="px-2 pb-1 uppercase tracking-wide"
             style={{
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: 600,
               letterSpacing: '0.06em',
               color: 'var(--dome-text-muted)',
@@ -2020,7 +2064,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
                   {count !== undefined ? (
                     <span
                       className="shrink-0 tabular-nums"
-                      style={{ fontSize: 11, fontWeight: 500, color: 'var(--dome-text-muted)' }}
+                      style={{ fontSize: 12, fontWeight: 500, color: 'var(--dome-text-muted)' }}
                     >
                       {count}
                     </span>
@@ -2060,7 +2104,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         </button>
         </div>
         <div className="flex items-center justify-between p-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
-          <span style={{ fontSize: 10, color: 'var(--dome-text-muted)', opacity: 0.6 }}>Made with ❤️ by <a href="https://www.linkedin.com/in/advo2/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Alder</a> and <a href="https://www.linkedin.com/in/maria-sugasaga/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Mery</a></span>
+          <span style={{ fontSize: 12, color: 'var(--dome-text-muted)', opacity: 0.6 }}>Made with ❤️ by <a href="https://www.linkedin.com/in/advo2/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Alder</a> and <a href="https://www.linkedin.com/in/maria-sugasaga/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">Mery</a></span>
           <button
             type="button"
             onClick={() => updateTheme(isDark ? 'light' : 'dark')}

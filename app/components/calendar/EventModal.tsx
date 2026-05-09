@@ -90,18 +90,23 @@ export default function EventModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.5)' }}
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full border-0 p-0 cursor-pointer"
+        style={{ background: 'rgba(0,0,0,0.5)' }}
+        aria-label={t('ui.close')}
+        onClick={onClose}
+      />
       <div
-        className="rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-auto"
+        className="relative z-10 rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-auto"
         style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="event-modal-title"
       >
         <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--dome-border)' }}>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
+          <h2 id="event-modal-title" className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
             {event ? t('calendarPage.edit_event') : t('calendarPage.new_event')}
           </h2>
           <button
@@ -116,10 +121,11 @@ export default function EventModal({
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+            <label htmlFor="event-modal-title-input" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
               {t('common.name')}
             </label>
             <input
+              id="event-modal-title-input"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -135,10 +141,11 @@ export default function EventModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+            <label htmlFor="event-modal-location" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
               {t('common.location')}
             </label>
             <input
+              id="event-modal-location"
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
@@ -167,10 +174,11 @@ export default function EventModal({
           {!allDay && (
             <>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+                <label htmlFor="event-modal-start-dt" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
                   {t('calendarPage.event_start')}
                 </label>
                 <input
+                  id="event-modal-start-dt"
                   type="datetime-local"
                   value={startAt}
                   onChange={(e) => setStartAt(e.target.value)}
@@ -183,10 +191,11 @@ export default function EventModal({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+                <label htmlFor="event-modal-end-dt" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
                   {t('calendarPage.event_end')}
                 </label>
                 <input
+                  id="event-modal-end-dt"
                   type="datetime-local"
                   value={endAt}
                   onChange={(e) => setEndAt(e.target.value)}
@@ -204,10 +213,11 @@ export default function EventModal({
           {allDay && (
             <>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+                <label htmlFor="event-modal-start-date" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
                   {t('calendarPage.start_date')}
                 </label>
                 <input
+                  id="event-modal-start-date"
                   type="date"
                   value={startAt.slice(0, 10)}
                   onChange={(e) => setStartAt(e.target.value + 'T00:00')}
@@ -220,10 +230,11 @@ export default function EventModal({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+                <label htmlFor="event-modal-end-date" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
                   {t('calendarPage.end_date')}
                 </label>
                 <input
+                  id="event-modal-end-date"
                   type="date"
                   value={endAt.slice(0, 10)}
                   onChange={(e) => setEndAt(e.target.value + 'T23:59')}
@@ -239,10 +250,11 @@ export default function EventModal({
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+            <label htmlFor="event-modal-description" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
               {t('common.description')}
             </label>
             <textarea
+              id="event-modal-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}

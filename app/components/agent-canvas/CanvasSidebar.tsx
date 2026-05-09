@@ -120,12 +120,22 @@ function CanvasPaletteRow({
   onDragStart: (e: React.DragEvent) => void;
   title?: string;
 }) {
+  const handlePaletteKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onAdd();
+    }
+  };
+
   return (
     <div
+      role="button"
+      tabIndex={0}
       draggable
       onDragStart={onDragStart}
       onClick={onAdd}
-      className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors hover:bg-[var(--dome-bg)] border border-transparent hover:border-[var(--dome-border)]"
+      onKeyDown={handlePaletteKeyDown}
+      className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors hover:bg-[var(--dome-bg)] border border-transparent hover:border-[var(--dome-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-1"
       title={title ?? description}
     >
       <div
@@ -361,10 +371,18 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
               return (
                 <div
                   key={sysAgent.role}
+                  role="button"
+                  tabIndex={0}
                   draggable
                   onDragStart={(e) => handleDragStart(e, 'system-agent', undefined, sysAgent.role)}
                   onClick={() => onAddNode(createNode('system-agent', undefined, sysAgent.role))}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors hover:bg-[var(--dome-bg)] border border-transparent hover:border-[var(--dome-border)]"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onAddNode(createNode('system-agent', undefined, sysAgent.role));
+                    }
+                  }}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors hover:bg-[var(--dome-bg)] border border-transparent hover:border-[var(--dome-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-1"
                   title={desc}
                 >
                   <div
@@ -451,10 +469,18 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
                   return (
                     <div
                       key={agent.id}
+                      role="button"
+                      tabIndex={0}
                       draggable
                       onDragStart={(e) => handleDragStart(e, 'agent', agent)}
                       onClick={() => onAddNode(createNode('agent', agent))}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors hover:bg-[var(--dome-bg)] border border-transparent hover:border-[var(--dome-border)]"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onAddNode(createNode('agent', agent));
+                        }
+                      }}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors hover:bg-[var(--dome-bg)] border border-transparent hover:border-[var(--dome-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-1"
                     >
                       <div
                         className="size-7 rounded-md overflow-hidden shrink-0 flex items-center justify-center text-white text-[10px] font-bold"

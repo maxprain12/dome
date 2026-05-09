@@ -311,12 +311,12 @@ export default function WorkspaceHeader({
               onBlur={editableTitle.onBlur}
               placeholder={editableTitle.placeholder ?? 'Sin título'}
               aria-label="Título del recurso"
+              className="focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               style={{
                 flex: 1,
                 minWidth: 0,
                 background: 'transparent',
                 border: 'none',
-                outline: 'none',
                 fontSize: 13,
                 fontWeight: 500,
                 color: 'var(--dome-text)',
@@ -350,7 +350,7 @@ export default function WorkspaceHeader({
                 {resource.title}
               </h1>
               {subtitle && (
-                <span style={{ fontSize: 11, color: 'var(--dome-text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                <span style={{ fontSize: 12, color: 'var(--dome-text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                   {subtitle}
                 </span>
               )}
@@ -375,7 +375,7 @@ export default function WorkspaceHeader({
               borderRadius: 6,
               border: '1px solid var(--dome-border)',
               background: 'transparent',
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 500,
               color: notebookWorkspacePath || notebookVenvPath ? 'var(--dome-text)' : 'var(--dome-text-muted)',
               cursor: 'pointer',

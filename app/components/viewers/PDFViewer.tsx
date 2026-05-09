@@ -522,6 +522,8 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
               </div>
               {pdfRegionMode && (
                 <div
+                  role="region"
+                  aria-label={t('pdf.region_selection', { defaultValue: 'Selección de región PDF' })}
                   className="absolute inset-0 z-20 cursor-crosshair"
                   style={{ touchAction: 'none' }}
                   onMouseDown={(e) => {

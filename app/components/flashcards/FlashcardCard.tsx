@@ -9,9 +9,18 @@ interface FlashcardCardProps {
 export default function FlashcardCard({ question, answer, isFlipped, onFlip }: FlashcardCardProps) {
   return (
     <div
+      role="button"
+      tabIndex={0}
       className="flashcard-container w-full"
       style={{ height: '320px' }}
+      aria-label={isFlipped ? 'Mostrar pregunta' : 'Mostrar respuesta'}
       onClick={onFlip}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onFlip();
+        }
+      }}
     >
       <div className={`flashcard-flip ${isFlipped ? 'flipped' : ''}`}>
         <div className="flashcard-face flashcard-front">

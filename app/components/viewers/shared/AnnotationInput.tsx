@@ -87,7 +87,6 @@ function AnnotationInputComponent({
           color: 'var(--primary-text)',
           width: '180px',
         }}
-        autoFocus
         onKeyDown={handleKeyDown}
         disabled={isSaving}
       />

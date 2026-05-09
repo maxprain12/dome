@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 
@@ -10,7 +10,13 @@ export default function DeckModal({ onClose }: DeckModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const { loadDecks } = useLearnStore();
+
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => titleInputRef.current?.focus());
+    return () => window.cancelAnimationFrame(id);
+  }, []);
 
   const handleCreate = async () => {
     if (!title.trim()) return;
@@ -34,24 +40,24 @@ export default function DeckModal({ onClose }: DeckModalProps) {
     }
   };
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center p-4 z-50"
-      style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={handleBackdropClick}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+        style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+        aria-label="Cerrar"
+        onClick={onClose}
+      />
       <div
-        className="w-full max-w-md rounded-xl shadow-2xl overflow-hidden"
+        className="relative z-10 w-full max-w-md rounded-xl shadow-2xl overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="deck-modal-title"
         style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
       >
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--dome-border)' }}>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
+          <h2 id="deck-modal-title" className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
             Nuevo Deck
           </h2>
           <button
@@ -65,10 +71,12 @@ export default function DeckModal({ onClose }: DeckModalProps) {
 
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
+            <label htmlFor="deck-modal-title-input" className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
               Título
             </label>
             <input
+              ref={titleInputRef}
+              id="deck-modal-title-input"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -79,15 +87,15 @@ export default function DeckModal({ onClose }: DeckModalProps) {
                 border: '1px solid var(--dome-border)',
                 color: 'var(--dome-text)',
               }}
-              autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
+            <label htmlFor="deck-modal-description" className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
               Descripción <span style={{ color: 'var(--dome-text-muted)' }}>(opcional)</span>
             </label>
             <textarea
+              id="deck-modal-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Conceptos fundamentales del curso..."

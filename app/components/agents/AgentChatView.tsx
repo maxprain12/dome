@@ -18,6 +18,7 @@ import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { db } from '@/lib/db/client';
 import { appendSkillsMarkdown } from '@/lib/skills/append-markdown';
+import { stableMessageGroupKey } from '@/lib/chat/stableMessageGroupKey';
 import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
 import ReadingIndicator from '@/components/chat/ReadingIndicator';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
@@ -639,9 +640,9 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           />
         ) : (
           <>
-            {messageGroups.map((group, index) => (
+            {messageGroups.map((group) => (
               <ChatMessageGroup
-                key={`group-${index}-${group[0]?.id || index}`}
+                key={stableMessageGroupKey(group)}
                 messages={group}
                 showAvatar={false}
                 assistantAvatarSrc={agentAvatarSrc}

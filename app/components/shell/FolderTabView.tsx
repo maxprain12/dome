@@ -71,6 +71,7 @@ function ColorPickerPopover({
   onSave: (color: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,6 +85,8 @@ function ColorPickerPopover({
   return (
     <div
       ref={ref}
+      role="group"
+      aria-label={t('folder.changeColor', 'Cambiar color')}
       className="fixed z-[var(--z-popover)] rounded-xl shadow-lg p-2.5"
       style={{ top: pos.top, left: pos.left, background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
       onMouseDown={(e) => e.stopPropagation()}
@@ -146,6 +149,7 @@ function SubfolderCard({
   const menuBtnRef = useRef<HTMLButtonElement>(null);
   const renameRef = useRef<HTMLInputElement>(null);
   const color = getFolderColor(folder);
+  const folderSelectId = `folder-tab-row-select-${folder.id}`;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -198,12 +202,13 @@ function SubfolderCard({
       onMouseLeave={() => { setHovered(false); }}
     >
       {showSelectionChrome ? (
-        <div
-          className="absolute left-2 top-2 z-[2] flex items-center"
-          onClick={(e) => { e.stopPropagation(); }}
+        <label
+          className="absolute left-2 top-2 z-[2] flex items-center cursor-pointer"
+          htmlFor={folderSelectId}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <input
+            id={folderSelectId}
             type="checkbox"
             checked={selected}
             onChange={() => {}}
@@ -212,7 +217,7 @@ function SubfolderCard({
             style={{ accentColor: 'var(--dome-accent)' }}
             aria-label={t('selection.deselect')}
           />
-        </div>
+        </label>
       ) : null}
       {/* Main clickable area */}
       {renaming ? (
@@ -283,6 +288,7 @@ function SubfolderCard({
 
           {menuOpen && menuPos && (
             <div
+              role="menu"
               className="fixed z-[var(--z-popover)] rounded-lg shadow-lg py-1 min-w-[150px]"
               style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
@@ -404,7 +410,6 @@ function FileRow({
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') setRenaming(false);
             }}
-            autoFocus
             className="flex-1 text-[13px] font-medium rounded px-2 py-0.5 outline-none"
             style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-accent)', color: 'var(--dome-text)' }}
           />
@@ -466,6 +471,7 @@ function FileRow({
           </button>
           {menuOpen && menuPos && (
             <div
+              role="menu"
               className="fixed z-[var(--z-popover)] rounded-lg shadow-lg py-1 min-w-[130px]"
               style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}

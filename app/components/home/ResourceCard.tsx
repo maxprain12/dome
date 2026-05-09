@@ -169,47 +169,85 @@ export default memo(function ResourceCard({
     return (
       <div
         className={`group relative rounded-lg transition-colors border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--dome-bg-secondary)] ${isSelected ? 'bg-[var(--dome-accent-bg)] border-[var(--dome-accent)] z-10' : 'bg-[var(--dome-surface)]'
-          } ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
+          } ${onClick ? 'cursor-pointer' : ''}`}
         style={{ ...listGridStyle, padding: '8px 16px', height: '48px' }}
-        onClick={(e) => onClick?.(e)}
         onContextMenu={handleContextMenu}
-        role={onClick ? 'row' : undefined}
+        role="group"
         aria-selected={isSelected}
-        tabIndex={onClick ? 0 : undefined}
-        onKeyDown={onClick ? handleCardKeyDown : undefined}
         draggable={isDraggable}
         onDragStart={handleDragStart}
       >
-        <div role="gridcell" className="flex items-center gap-3 min-w-0">
-          <div
-            className="flex items-center justify-center size-8 rounded shrink-0"
-            style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
+        {onClick ? (
+          <button
+            type="button"
+            className="contents cursor-pointer text-left font-inherit rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-inset"
+            onClick={(e) => onClick(e)}
+            onKeyDown={handleCardKeyDown}
+            aria-label={resource.title || 'Abrir recurso'}
           >
-            {getIcon()}
-          </div>
-          <div className="flex flex-col min-w-0">
-            <div className="text-sm font-medium truncate text-[var(--dome-text)]">
-              {resource.title || 'Untitled'}
-            </div>
-            {searchSnippet && (
-              <div className="text-xs text-[var(--dome-text-muted)] truncate max-w-[300px]">
-                {searchSnippet}
-              </div>
-            )}
-          </div>
-        </div>
-        <div role="gridcell" className="text-xs text-[var(--dome-text-muted)] truncate">
-          {getResourceTypeLabel(resource.type)}
-        </div>
-        <div role="gridcell" className="text-xs text-[var(--dome-text-muted)] truncate tabular-nums">
-          {resource.updated_at ? formatDistanceToNow(resource.updated_at) : '—'}
-        </div>
-        <div role="gridcell" className="text-xs text-[var(--dome-text-muted)] truncate tabular-nums">
-          {resource.file_size != null ? formatFileSize(resource.file_size) : '—'}
-        </div>
-        <div role="gridcell" className="flex justify-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+            <span className="flex items-center gap-3 min-w-0">
+              <span
+                className="flex items-center justify-center size-8 rounded shrink-0"
+                style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
+              >
+                {getIcon()}
+              </span>
+              <span className="flex flex-col min-w-0">
+                <span className="text-sm font-medium truncate text-[var(--dome-text)]">
+                  {resource.title || 'Untitled'}
+                </span>
+                {searchSnippet && (
+                  <span className="text-xs text-[var(--dome-text-muted)] truncate max-w-[300px]">
+                    {searchSnippet}
+                  </span>
+                )}
+              </span>
+            </span>
+            <span className="text-xs text-[var(--dome-text-muted)] truncate">
+              {getResourceTypeLabel(resource.type)}
+            </span>
+            <span className="text-xs text-[var(--dome-text-muted)] truncate tabular-nums">
+              {resource.updated_at ? formatDistanceToNow(resource.updated_at) : '—'}
+            </span>
+            <span className="text-xs text-[var(--dome-text-muted)] truncate tabular-nums">
+              {resource.file_size != null ? formatFileSize(resource.file_size) : '—'}
+            </span>
+          </button>
+        ) : (
+          <>
+            <span className="flex items-center gap-3 min-w-0">
+              <span
+                className="flex items-center justify-center size-8 rounded shrink-0"
+                style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
+              >
+                {getIcon()}
+              </span>
+              <span className="flex flex-col min-w-0">
+                <span className="text-sm font-medium truncate text-[var(--dome-text)]">
+                  {resource.title || 'Untitled'}
+                </span>
+                {searchSnippet && (
+                  <span className="text-xs text-[var(--dome-text-muted)] truncate max-w-[300px]">
+                    {searchSnippet}
+                  </span>
+                )}
+              </span>
+            </span>
+            <span className="text-xs text-[var(--dome-text-muted)] truncate">
+              {getResourceTypeLabel(resource.type)}
+            </span>
+            <span className="text-xs text-[var(--dome-text-muted)] truncate tabular-nums">
+              {resource.updated_at ? formatDistanceToNow(resource.updated_at) : '—'}
+            </span>
+            <span className="text-xs text-[var(--dome-text-muted)] truncate tabular-nums">
+              {resource.file_size != null ? formatFileSize(resource.file_size) : '—'}
+            </span>
+          </>
+        )}
+        <span className="flex justify-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
           {onDelete ? (
             <button
+              type="button"
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
               className="p-1.5 rounded-md hover:bg-[var(--error-bg)] text-[var(--dome-text-muted)] hover:text-[var(--error)] transition-colors"
               title="Delete"
@@ -218,12 +256,69 @@ export default memo(function ResourceCard({
               <Trash2 size={14} />
             </button>
           ) : null}
-        </div>
+        </span>
       </div>
     );
   }
 
   // Grid view
+  const previewBlock = (
+    <div className="relative flex-1 w-full bg-[var(--dome-bg-secondary)] overflow-hidden min-h-0">
+      {hasThumbnail ? (
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-500 group-hover:scale-105"
+          style={{ backgroundImage: thumbnail! }}
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity" style={{ color: getTypeColor() }}>
+          {resource.type === 'folder'
+            ? <FolderOpen size={64} strokeWidth={1} />
+            : <File size={48} strokeWidth={1} />
+          }
+        </div>
+      )}
+
+      {resource.type === 'video' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
+          <div className="size-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+            <Play size={20} className="ml-0.5 text-black" fill="currentColor" />
+          </div>
+        </div>
+      )}
+
+      {resource.updated_at && (
+        <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/90 text-neutral-600 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          {formatShortDistance(resource.updated_at)}
+        </div>
+      )}
+    </div>
+  );
+
+  const footerTextBlock = (
+    <>
+      <div
+        className="flex items-center justify-center size-8 rounded shrink-0"
+        style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
+      >
+        {getIcon()}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-[var(--dome-text)] truncate" title={resource.title}>
+          {resource.title || 'Untitled'}
+        </div>
+        {(searchSnippet || searchOrigin) ? (
+          <div className="text-xs text-[var(--dome-text-muted)] truncate">
+            {searchSnippet || searchOrigin}
+          </div>
+        ) : (
+          <div className="text-xs text-[var(--dome-text-muted)] truncate">
+            {getResourceTypeLabel(resource.type)}
+          </div>
+        )}
+      </div>
+    </>
+  );
+
   return (
     <div
       className={`group relative flex flex-col rounded-xl overflow-hidden transition-all duration-200 border ${isSelected
@@ -231,76 +326,48 @@ export default memo(function ResourceCard({
           : 'border-[var(--border)] bg-[var(--dome-surface)] hover:border-[var(--dome-accent-hover)] hover:shadow-md'
         } ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
       style={{ aspectRatio: 'var(--card-aspect-ratio, 4/3)' }}
-      onClick={(e) => onClick?.(e)}
       onContextMenu={handleContextMenu}
-      role={onClick ? 'button' : undefined}
+      role="group"
       aria-selected={isSelected}
-      tabIndex={onClick ? 0 : undefined}
-      onKeyDown={onClick ? handleCardKeyDown : undefined}
       draggable={isDraggable}
       onDragStart={handleDragStart}
     >
-      {/* Preview Area */}
-      <div
-        className="relative flex-1 w-full bg-[var(--dome-bg-secondary)] overflow-hidden"
-      >
-        {hasThumbnail ? (
-          <div
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-500 group-hover:scale-105"
-            style={{ backgroundImage: thumbnail! }}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity" style={{ color: getTypeColor() }}>
-            {/* Large icon for placeholder */}
-            {resource.type === 'folder'
-              ? <FolderOpen size={64} strokeWidth={1} />
-              : <File size={48} strokeWidth={1} />
-            }
-          </div>
-        )}
-
-        {/* Play icon overlay for Video */}
-        {resource.type === 'video' && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-            <div className="size-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-              <Play size={20} className="ml-0.5 text-black" fill="currentColor" />
-            </div>
-          </div>
-        )}
-
-        {/* Time badge overlay */}
-        {resource.updated_at && (
-          <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/90 text-neutral-600 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
-            {formatShortDistance(resource.updated_at)}
-          </div>
-        )}
-      </div>
-
-      {/* Footer Info */}
-      <div className="flex items-center gap-3 p-3 border-t border-[var(--border)] bg-[var(--dome-surface)]">
-        <div
-          className="flex items-center justify-center size-8 rounded shrink-0"
-          style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
-        >
-          {getIcon()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-[var(--dome-text)] truncate" title={resource.title}>
-            {resource.title || 'Untitled'}
-          </div>
-          {(searchSnippet || searchOrigin) ? (
-            <div className="text-xs text-[var(--dome-text-muted)] truncate">
-              {searchSnippet || searchOrigin}
-            </div>
-          ) : (
-            <div className="text-xs text-[var(--dome-text-muted)] truncate">
-              {getResourceTypeLabel(resource.type)}
-            </div>
-          )}
-        </div>
-        {/* Context Menu Trigger (visible on hover) */}
+      {onClick ? (
         <button
-          className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--dome-bg)] text-[var(--dome-text-muted)] transition-all"
+          type="button"
+          className="flex flex-col flex-1 min-h-0 w-full text-left p-0 m-0 border-0 bg-transparent rounded-none cursor-pointer font-inherit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--dome-accent)]"
+          onClick={(e) => onClick(e)}
+          onKeyDown={handleCardKeyDown}
+          aria-label={resource.title || 'Abrir recurso'}
+        >
+          {previewBlock}
+          <div className="flex items-center gap-3 p-3 pr-11 border-t border-[var(--border)] bg-[var(--dome-surface)] shrink-0">
+            {footerTextBlock}
+          </div>
+        </button>
+      ) : (
+        <>
+          {previewBlock}
+          <div className="flex items-center gap-3 p-3 border-t border-[var(--border)] bg-[var(--dome-surface)] shrink-0 relative">
+            {footerTextBlock}
+            <button
+              type="button"
+              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--dome-bg)] text-[var(--dome-text-muted)] transition-all shrink-0 ml-auto"
+              onClick={(e) => {
+                e.stopPropagation();
+                onContextMenu?.(e, resource);
+              }}
+            >
+              <MoreHorizontal size={16} />
+            </button>
+          </div>
+        </>
+      )}
+
+      {onClick ? (
+        <button
+          type="button"
+          className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[var(--dome-bg)] text-[var(--dome-text-muted)] transition-all pointer-events-auto"
           onClick={(e) => {
             e.stopPropagation();
             onContextMenu?.(e, resource);
@@ -308,7 +375,7 @@ export default memo(function ResourceCard({
         >
           <MoreHorizontal size={16} />
         </button>
-      </div>
+      ) : null}
 
       {resource.type === 'url' && resource.metadata && (
         <div className="absolute bottom-[52px] right-2">

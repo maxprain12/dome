@@ -45,7 +45,7 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
                     <span
                       key={tag}
                       style={{
-                        fontSize: 10,
+                        fontSize: 12,
                         padding: '2px 6px',
                         borderRadius: 'var(--radius-sm)',
                         background: 'var(--bg-hover)',

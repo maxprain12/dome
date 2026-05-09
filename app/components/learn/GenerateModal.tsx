@@ -71,19 +71,16 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
     [selectedType, generate, onClose],
   );
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && !isGenerating) {
-      onClose();
-    }
-  };
-
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center p-4 z-50"
-      style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={handleBackdropClick}
-      role="presentation"
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0 disabled:cursor-default"
+        style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+        aria-label={t('ui.close')}
+        disabled={isGenerating}
+        onClick={() => !isGenerating && onClose()}
+      />
       <GenerateSourceModal
         isOpen={sourceModalOpen}
         onClose={() => setSourceModalOpen(false)}
@@ -100,9 +97,11 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
       />
 
       <div
-        className="relative w-full max-w-lg rounded-xl shadow-2xl overflow-hidden"
+        className="relative z-10 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden"
         style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="generate-modal-title"
       >
         {isGenerating ? (
           <div
@@ -118,7 +117,7 @@ export default function GenerateModal({ onClose }: GenerateModalProps) {
           </div>
         ) : null}
         <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: 'var(--dome-border)' }}>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
+          <h2 id="generate-modal-title" className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
             {t('learn.generate_title')}
           </h2>
           <button

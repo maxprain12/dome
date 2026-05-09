@@ -106,12 +106,6 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
     }
   };
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   if (isLoading) {
     return (
       <div
@@ -124,20 +118,27 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
   }
 
   return (
-    <div
-      className="fixed inset-0 flex items-center justify-center p-4 z-50"
-      style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={handleBackdropClick}
-    >
+    <div className="fixed inset-0 flex items-center justify-center p-4 z-50" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+        style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)' }}
+        aria-label={t('ui.close')}
+        onClick={onClose}
+      />
       <div
-        className="w-full max-w-2xl max-h-[90vh] rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        className="relative z-10 w-full max-w-2xl max-h-[90vh] rounded-xl shadow-2xl overflow-hidden flex flex-col"
         style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="deck-editor-heading"
       >
         <div className="flex items-center justify-between p-5 border-b shrink-0" style={{ borderColor: 'var(--dome-border)' }}>
-          <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
+          <h2 id="deck-editor-heading" className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
             {t('common.edit')} Deck
           </h2>
           <button
+            type="button"
             onClick={onClose}
             className="p-2 rounded-lg transition-colors"
             style={{ color: 'var(--dome-text-muted)' }}
@@ -149,10 +150,11 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
         <div className="flex-1 overflow-auto p-5 space-y-4">
           {deck && (
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
+              <label htmlFor="deck-editor-title" className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
                 Título
               </label>
               <input
+                id="deck-editor-title"
                 type="text"
                 value={deck.title}
                 onChange={(e) => setDeck({ ...deck, title: e.target.value })}
@@ -168,11 +170,12 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
 
           {deck && (
             <div>
-              <label className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
+              <label htmlFor="deck-editor-description" className="block text-sm font-medium mb-2" style={{ color: 'var(--dome-text)' }}>
                 Descripción
               </label>
 
               <textarea
+                id="deck-editor-description"
                 value={deck.description || ''}
                 onChange={(e) => setDeck({ ...deck, description: e.target.value })}
                 rows={2}
@@ -201,10 +204,11 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
                   <div className="flex items-start gap-3">
                     <div className="flex-1 space-y-3">
                       <div>
-                        <label className="block text-xs font-medium mb-1" style={{ color: 'var(--dome-text-muted)' }}>
+                        <label htmlFor={`deck-editor-card-q-${index}`} className="block text-xs font-medium mb-1" style={{ color: 'var(--dome-text-muted)' }}>
                           Pregunta
                         </label>
                         <input
+                          id={`deck-editor-card-q-${index}`}
                           type="text"
                           value={card.question}
                           onChange={(e) => handleCardChange(index, 'question', e.target.value)}
@@ -218,10 +222,11 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium mb-1" style={{ color: 'var(--dome-text-muted)' }}>
+                        <label htmlFor={`deck-editor-card-a-${index}`} className="block text-xs font-medium mb-1" style={{ color: 'var(--dome-text-muted)' }}>
                           Respuesta
                         </label>
                         <input
+                          id={`deck-editor-card-a-${index}`}
                           type="text"
                           value={card.answer}
                           onChange={(e) => handleCardChange(index, 'answer', e.target.value)}
@@ -236,6 +241,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
                       </div>
                     </div>
                     <button
+                      type="button"
                       onClick={() => handleRemoveCard(index)}
                       className="p-2 rounded-lg transition-colors shrink-0"
                       style={{ color: 'var(--error)', background: 'var(--error-bg)' }}
@@ -247,6 +253,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
               ))}
 
               <button
+                type="button"
                 onClick={handleAddCard}
                 className="w-full p-3 rounded-lg border border-dashed flex items-center justify-center gap-2 text-sm transition-all"
                 style={{
@@ -263,6 +270,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
 
         <div className="flex items-center justify-end gap-3 p-5 border-t shrink-0" style={{ borderColor: 'var(--dome-border)' }}>
           <button
+            type="button"
             onClick={onClose}
             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
             style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
@@ -270,6 +278,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
             Cancelar
           </button>
           <button
+            type="button"
             onClick={handleSave}
             disabled={isSaving}
             className="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2"

@@ -7,6 +7,7 @@ import "./label.scss"
 
 function Label({ className, ...props }: React.ComponentProps<"label">) {
   return (
+    // oxlint-disable-next-line jsx-a11y/label-has-associated-control -- callers associate via props spread
     <label
       data-slot="tiptap-label"
       className={cn("tiptap-label", className)}

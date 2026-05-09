@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Cloud, Folder, File, ChevronRight, ChevronLeft,
   Search, X, Download, Loader2, AlertCircle, CheckCircle2,
@@ -66,6 +68,7 @@ function formatSize(bytes: number | null) {
 }
 
 export default function CloudFilePicker({ onClose, projectId, folderId }: Props) {
+  const { t } = useTranslation();
   const [accounts, setAccounts] = useState<CloudAccount[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<CloudAccount | null>(null);
   const [files, setFiles] = useState<CloudFile[]>([]);
@@ -165,18 +168,23 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[500] flex items-center justify-center"
-      style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
+    <div className="fixed inset-0 z-[500] flex items-center justify-center" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+        style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
+        aria-label={t('ui.close')}
+        onClick={onClose}
+      />
       <div
-        className="flex flex-col rounded-2xl overflow-hidden"
+        className="relative z-10 flex flex-col rounded-2xl overflow-hidden"
         style={{
           width: 680, height: 520,
           backgroundColor: 'var(--bg)', border: '1px solid var(--border)',
           boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
         }}
+        role="dialog"
+        aria-modal="true"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -186,7 +194,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
               Importar desde Cloud
             </span>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:opacity-70 transition-opacity">
+          <button type="button" onClick={onClose} className="p-1 rounded-lg hover:opacity-70 transition-opacity">
             <X className="size-4" style={{ color: 'var(--tertiary-text)' }} />
           </button>
         </div>
@@ -237,7 +245,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
               {/* Breadcrumb trail */}
               <div className="flex items-center gap-1 flex-1 overflow-hidden">
                 {breadcrumbs.map((crumb, i) => (
-                  <span key={i} className="flex items-center gap-1 shrink-0">
+                  <span key={`trail:${breadcrumbs.slice(0, i + 1).map((c) => String(c.id ?? 'root')).join('/')}`} className="flex items-center gap-1 shrink-0">
                     {i > 0 && <ChevronRight className="size-3 opacity-40" style={{ color: 'var(--tertiary-text)' }} />}
                     <button
                       onClick={() => handleBreadcrumb(i)}
@@ -296,14 +304,25 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                     const alreadyImported = importedIds.has(file.id);
                     const isImportingThis = importing === file.id;
 
+                    const folderRowHandlers = file.isFolder
+                      ? {
+                          role: 'button' as const,
+                          tabIndex: 0 as const,
+                          onClick: () => handleFolderOpen(file),
+                          onKeyDown: (e: KeyboardEvent) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleFolderOpen(file);
+                            }
+                          },
+                        }
+                      : {};
+
                     return (
                       <div
                         key={file.id}
-                        className="flex items-center gap-3 px-3 py-2 rounded-xl group transition-colors cursor-pointer"
-                        style={{ ':hover': {} } as React.CSSProperties}
-                        onClick={() => file.isFolder && handleFolderOpen(file)}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-hover)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-xl group transition-colors hover:bg-[var(--bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 ${file.isFolder ? 'cursor-pointer' : ''}`}
+                        {...folderRowHandlers}
                       >
                         {/* Icon */}
                         <div className="shrink-0 size-7 flex items-center justify-center rounded-lg" style={{ backgroundColor: file.isFolder ? 'var(--bg-tertiary)' : 'var(--bg-secondary)' }}>

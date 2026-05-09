@@ -45,21 +45,20 @@ export default function PromptModal() {
       className="fixed inset-0 flex items-center justify-center p-6"
       style={{ zIndex: 'var(--z-modal)' }}
     >
-      {/* Overlay with blur */}
-      <div
-        className="absolute inset-0 cursor-pointer animate-overlay"
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer animate-overlay border-0 p-0"
         style={{
           backgroundColor: 'rgba(0, 0, 0, 0.45)',
           backdropFilter: 'blur(6px)',
           WebkitBackdropFilter: 'blur(6px)',
         }}
+        aria-label={t('ui.close')}
         onClick={handleCancel}
-        aria-hidden="true"
       />
 
-      {/* Modal */}
       <div
-        className="relative w-full max-w-md"
+        className="relative z-10 w-full max-w-md"
         style={{
           backgroundColor: 'var(--bg)',
           border: '1.5px solid var(--border)',
@@ -68,9 +67,9 @@ export default function PromptModal() {
           animation: 'modal-appear 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           overflow: 'hidden',
         }}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="prompt-modal-title"
       >
         {/* Header */}
         <div
@@ -81,6 +80,7 @@ export default function PromptModal() {
           }}
         >
           <h2
+            id="prompt-modal-title"
             className="text-sm font-semibold"
             style={{ color: 'var(--primary-text)', letterSpacing: '-0.01em' }}
           >
@@ -109,6 +109,7 @@ export default function PromptModal() {
         {/* Content */}
         <form onSubmit={onSubmit} style={{ padding: '20px' }}>
           <label
+            htmlFor="prompt-modal-input"
             className="block text-sm mb-3"
             style={{
               color: 'var(--secondary-text)',
@@ -118,11 +119,12 @@ export default function PromptModal() {
             {message}
           </label>
           <input
+            id="prompt-modal-input"
             ref={inputRef}
             type="text"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            className="w-full text-sm outline-none transition-all duration-200"
+            className="w-full text-sm outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{
               padding: '10px 14px',
               backgroundColor: 'var(--bg-secondary)',

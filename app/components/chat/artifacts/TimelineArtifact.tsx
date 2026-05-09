@@ -46,7 +46,7 @@ export default function TimelineArtifact({ artifact }: { artifact: TimelineArtif
                 style={{
                   display: 'inline-block',
                   marginTop: 4,
-                  fontSize: 10,
+                  fontSize: 12,
                   padding: '2px 6px',
                   borderRadius: 'var(--radius-sm)',
                   background: 'var(--bg-tertiary)',

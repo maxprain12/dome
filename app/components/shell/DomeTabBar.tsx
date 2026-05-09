@@ -557,11 +557,7 @@ function TabContextMenuBridge({
           <ChevronLeft className="size-3.5 shrink-0" />
           {t('workspace.tab_menu_back')}
         </button>
-        <div
-          className="flex flex-wrap gap-1.5 px-1 pb-1"
-          onClick={(e) => e.stopPropagation()}
-          onContextMenu={(e) => e.stopPropagation()}
-        >
+        <div className="flex flex-wrap gap-1.5 px-1 pb-1" role="group">
           {FOLDER_COLOR_SWATCHES.map((color) => (
             <button
               key={color}
@@ -589,7 +585,6 @@ function TabContextMenuBridge({
       style={menuStyle}
       role="menu"
       aria-label={displayTitle}
-      onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.stopPropagation()}
     >
       <TabContextMenuItem

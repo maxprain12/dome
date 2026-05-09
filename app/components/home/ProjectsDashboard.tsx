@@ -428,7 +428,6 @@ export default function ProjectsDashboard({
                 value={newProjectName}
                 onChange={(e) => setNewProjectName(e.target.value)}
                 placeholder={t('projects.project_name')}
-                autoFocus
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) void handleCreateProject(); }}
                 className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--dome-accent)]"
                 style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
@@ -671,7 +670,13 @@ export default function ProjectsDashboard({
 
       {/* ── KB dropdown backdrop ──────────────────────────────────────────── */}
       {kbMenuFor !== null && (
-        <div className="fixed inset-0 z-10" onClick={() => setKbMenuFor(null)} />
+        <button
+          type="button"
+          className="fixed inset-0 z-10 cursor-default border-0 p-0"
+          style={{ background: 'transparent' }}
+          aria-label={t('common.close')}
+          onClick={() => setKbMenuFor(null)}
+        />
       )}
 
       {/* ── Single delete modal ────────────────────────────────────────────── */}

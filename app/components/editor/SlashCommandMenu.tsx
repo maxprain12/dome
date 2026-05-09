@@ -94,7 +94,7 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
           <div key={group}>
             <div
               style={{
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 600,
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
@@ -154,7 +154,7 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
                     <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dome-text)', lineHeight: 1.3 }}>
                       {item.title}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--dome-text-muted)', lineHeight: 1.3 }}>
+                    <div style={{ fontSize: 12, color: 'var(--dome-text-muted)', lineHeight: 1.3 }}>
                       {item.description}
                     </div>
                   </div>
