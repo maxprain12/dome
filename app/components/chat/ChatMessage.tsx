@@ -19,6 +19,7 @@ import { parseUserMessageVisualSegments } from '@/lib/chat/userMessageVisual';
 import { calendarArtifactFromToolCalls } from '@/lib/chat/calendarToolArtifact';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import type { PersistentRunStep } from '@/lib/automations/api';
+import { stableStringHash } from '@/lib/utils/stableStringHash';
 
 /**
  * ChatMessage - Individual message with actions
@@ -97,8 +98,17 @@ export default function ChatMessage({
   // Copy message content to clipboard
   const userVisualSegments = useMemo(() => {
     if (!isUser || !message.content) return null;
-    return parseUserMessageVisualSegments(message.content);
-  }, [isUser, message.content]);
+    const parsed = parseUserMessageVisualSegments(message.content);
+    const counts = new Map<string, number>();
+    return parsed.map((seg) => {
+      const payload =
+        seg.type === 'text' ? `text:${seg.value}` : `img:${seg.src}:${seg.alt ?? ''}`;
+      const h = stableStringHash(payload);
+      const ord = (counts.get(h) ?? 0) + 1;
+      counts.set(h, ord);
+      return { ...seg, reactKey: `${message.id}:uv:${h}:${ord}` };
+    });
+  }, [isUser, message.content, message.id]);
 
   const handleCopy = async () => {
     try {
@@ -185,30 +195,46 @@ export default function ChatMessage({
   }, [message.content, message.citationMap]);
 
   const contentSegments = useMemo(() => {
-    if (!message.content) return [{ type: 'text' as const, content: '' }];
+    const counts = new Map<string, number>();
+    const nextKey = (payload: string) => {
+      const h = stableStringHash(payload);
+      const ord = (counts.get(h) ?? 0) + 1;
+      counts.set(h, ord);
+      return `${message.id}:cs:${h}:${ord}`;
+    };
+
+    if (!message.content) return [{ type: 'text' as const, content: '', reactKey: nextKey('empty') }];
+
     const parsed = parseArtifactBlocks(message.content, { allowStreaming: !!message.isStreaming });
     return parsed.map((seg) => {
       if (seg.kind === 'text') {
-        return { type: 'text' as const, content: seg.content };
+        return {
+          type: 'text' as const,
+          content: seg.content,
+          reactKey: nextKey(`text:${seg.content}`),
+        };
       }
       if (seg.kind === 'artifact') {
         return {
           type: 'artifact' as const,
           artifact: { ...seg.value, type: seg.artifactType as ArtifactType } as AnyArtifact,
+          reactKey: nextKey(`artifact:${seg.artifactType}:${JSON.stringify(seg.value)}`),
         };
       }
       if (seg.kind === 'invalid') {
         return {
           type: 'text' as const,
           content: `\`\`\`json\n${seg.raw}\n\`\`\`\n*${t('chat.artifact_invalid')}*`,
+          reactKey: nextKey(`invalid:${seg.raw}`),
         };
       }
       return {
         type: 'text' as const,
         content: `*${t('chat.artifact_streaming', { type: seg.artifactType, defaultValue: `Generando artefacto (${seg.artifactType})…` })}*`,
+        reactKey: nextKey(`stream:${seg.artifactType}`),
       };
     });
-  }, [message.content, message.isStreaming, t]);
+  }, [message.content, message.isStreaming, message.id, t]);
 
   const displayToolCalls = useMemo(
     () => coalesceDuplicateToolCalls(message.toolCalls ?? []),
@@ -333,17 +359,17 @@ export default function ChatMessage({
                 <div className="min-w-0 w-full break-words" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                   {isUser && userVisualSegments && userVisualSegments.length > 0 ? (
                     <div className="flex flex-col gap-2 min-w-0 w-full">
-                      {userVisualSegments.map((seg, idx) =>
+                      {userVisualSegments.map((seg) =>
                         seg.type === 'text' ? (
                           <span
-                            key={`u-txt-${idx}`}
+                            key={seg.reactKey}
                             className="whitespace-pre-wrap break-words"
                             style={{ overflowWrap: 'anywhere' }}
                           >
                             {seg.value}
                           </span>
                         ) : (
-                          <div key={`u-img-${idx}`} className="min-w-0 max-w-full rounded-md overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)]">
+                          <div key={seg.reactKey} className="min-w-0 max-w-full rounded-md overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)]">
                             <img
                               src={seg.src}
                               alt={seg.alt || t('chat.attachment_image_alt')}
@@ -356,18 +382,18 @@ export default function ChatMessage({
                     </div>
                   ) : !isUser ? (
                     <>
-                      {contentSegments.map((seg, idx) =>
+                      {contentSegments.map((seg) =>
                         seg.type === 'text' ? (
                           seg.content ? (
                             <MarkdownRenderer
-                              key={`text-${idx}`}
+                              key={seg.reactKey}
                               content={seg.content}
                               citationMap={message.citationMap}
                               onClickCitation={onClickCitation || handleOpenCitation}
                             />
                           ) : null
                         ) : (
-                          <div key={`artifact-${idx}`} className="my-3">
+                          <div key={seg.reactKey} className="my-3">
                             <ArtifactCard artifact={seg.artifact} />
                           </div>
                         ),
@@ -395,7 +421,7 @@ export default function ChatMessage({
               {isUser && message.content && (
                 <div
                   className="mt-1 text-right opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ fontSize: '10px', color: 'var(--tertiary-text)' }}
+                  style={{ fontSize: '12px', color: 'var(--tertiary-text)' }}
                 >
                   {formattedTime}
                 </div>

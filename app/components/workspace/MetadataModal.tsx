@@ -84,25 +84,17 @@ export default function MetadataModal({
 
   if (!isOpen) return null;
 
-  const handleOverlayKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onClose();
-    }
-  };
-
   return (
-    <div
-      className="modal-overlay animate-overlay cursor-pointer"
-      onClick={onClose}
-      role="button"
-      tabIndex={0}
-      onKeyDown={handleOverlayKeyDown}
-      aria-label={t('viewer.close_modal')}
-    >
+    <div className="modal-overlay animate-overlay relative" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+        style={{ background: 'inherit' }}
+        aria-label={t('viewer.close_modal')}
+        onClick={onClose}
+      />
       <div
-        className="modal-content max-w-lg animate-modal"
-        onClick={(e) => e.stopPropagation()}
+        className="modal-content max-w-lg animate-modal relative z-10"
         role="dialog"
         aria-modal="true"
         aria-labelledby="metadata-modal-title"
@@ -111,7 +103,7 @@ export default function MetadataModal({
           <h2 id="metadata-modal-title" className="text-lg font-semibold font-display" style={{ color: 'var(--primary-text)' }}>
             Resource Info
           </h2>
-          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')}>
+          <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')}>
             <X size={18} style={{ color: 'var(--secondary-text)' }} />
           </button>
         </div>
@@ -213,11 +205,11 @@ export default function MetadataModal({
 
           {(resource.internal_path || resource.file_path) ? (
             <div className="flex gap-2 pt-2">
-              <button onClick={handleOpenFile} className="btn btn-secondary flex items-center gap-1.5">
+              <button type="button" onClick={handleOpenFile} className="btn btn-secondary flex items-center gap-1.5">
                 <ExternalLink size={14} />
                 Open with default app
               </button>
-              <button onClick={handleShowInFolder} className="btn btn-secondary flex items-center gap-1.5">
+              <button type="button" onClick={handleShowInFolder} className="btn btn-secondary flex items-center gap-1.5">
                 <FolderOpen size={14} />
                 Show in Finder
               </button>
@@ -226,10 +218,11 @@ export default function MetadataModal({
         </div>
 
         <div className="modal-footer">
-          <button onClick={onClose} className="btn btn-ghost">
+          <button type="button" onClick={onClose} className="btn btn-ghost">
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSave}
             disabled={isSaving || title === resource.title}
             className="btn btn-primary flex items-center gap-1.5"

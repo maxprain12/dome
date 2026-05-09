@@ -1,6 +1,7 @@
 'use client';
 
 import { X, Download, ArrowRight, Bot, Type, FileText, Image, Terminal, Play, Clock, Lightbulb, Sparkles } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { WorkflowTemplate } from '@/types/canvas';
 
 interface WorkflowDetailProps {
@@ -36,18 +37,23 @@ export default function WorkflowDetail({
   onInstall,
   onClose,
 }: WorkflowDetailProps) {
+  const { t } = useTranslation();
   const agentNodes = workflow.nodes.filter((n) => n.data.type === 'agent');
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+        style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
+        aria-label={t('ui.close')}
+        onClick={onClose}
+      />
       <div
-        className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden"
+        className="relative z-10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden"
         style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', maxHeight: '85vh' }}
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         {/* Header */}
         <div
@@ -76,6 +82,7 @@ export default function WorkflowDetail({
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 rounded-lg transition-colors hover:bg-white/50"
           >

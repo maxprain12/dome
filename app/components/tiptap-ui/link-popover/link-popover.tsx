@@ -137,7 +137,6 @@ const LinkMain: React.FC<LinkMainProps> = ({
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={handleKeyDown}
-            autoFocus
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"

@@ -27,13 +27,14 @@ export default function AgentInstructionsStep({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--primary-text)' }}>
+      <label htmlFor="agent-instructions-textarea" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--primary-text)' }}>
         Instrucciones del sistema
       </label>
       <p className="text-xs mb-2" style={{ color: 'var(--secondary-text)' }}>
         Define el rol, comportamiento y restricciones del agente. El modelo seguirá estas instrucciones en cada conversación.
       </p>
       <textarea
+        id="agent-instructions-textarea"
         value={instructions}
         onChange={(e) => setInstructions(e.target.value)}
         placeholder={EXAMPLE}

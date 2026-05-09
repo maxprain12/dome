@@ -454,24 +454,33 @@ export default function CalendarPage() {
       {showImport && importPreview && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.5)' }}
-          onClick={() => !importBusy && setShowImport(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="calendar-import-dialog-title"
         >
+          <button
+            type="button"
+            className="absolute inset-0 min-h-full w-full cursor-default border-0 p-0"
+            style={{ background: 'rgba(0,0,0,0.5)' }}
+            aria-label={t('common.close')}
+            disabled={importBusy}
+            onClick={() => setShowImport(false)}
+          />
           <div
-            className="rounded-xl shadow-xl max-w-md w-full p-5"
+            className="relative z-10 max-h-[90vh] overflow-y-auto rounded-xl shadow-xl max-w-md w-full p-5"
             style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-            onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
+            <h3 id="calendar-import-dialog-title" className="text-base font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
               {t('calendarPage.import_title')}
             </h3>
             <p className="text-sm mb-4" style={{ color: 'var(--dome-text-muted)' }}>
               {t('calendarPage.import_preview', { count: importPreview.events.length, raw: importPreview.rawCount })}
             </p>
-            <label className="block text-xs mb-1" style={{ color: 'var(--dome-text-muted)' }}>
+            <label htmlFor="calendar-import-target-select" className="block text-sm mb-1" style={{ color: 'var(--dome-text-muted)' }}>
               {t('calendarPage.import_target')}
             </label>
             <select
+              id="calendar-import-target-select"
               value={importTargetId}
               onChange={(e) => setImportTargetId(e.target.value)}
               className="w-full rounded-lg border px-3 py-2 text-sm mb-4"

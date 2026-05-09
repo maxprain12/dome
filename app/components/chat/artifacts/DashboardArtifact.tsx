@@ -114,7 +114,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
               >
                 <div
                   style={{
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: 600,
                     textTransform: 'uppercase',
                     letterSpacing: '0.04em',
@@ -170,7 +170,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                 {sub && (
                   <div
                     style={{
-                      fontSize: 11,
+                      fontSize: 12,
                       color: 'var(--tertiary-text)',
                       lineHeight: 1.4,
                       marginTop: 2,
@@ -319,7 +319,7 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: 11,
+                    fontSize: 12,
                     textAlign: 'center',
                     padding: 4,
                     color: cell ? toneColor[cell.tone ?? 'neutral'] : 'var(--tertiary-text)',

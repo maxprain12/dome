@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next';
 import type { StructuredTranscriptPayload, TranscriptionSegment } from '@/types';
 import { resolveSpeakerLabel } from '@/lib/utils/resource-metadata';
 import { escapeRegExp, formatMediaTime, getSpeakerColor } from './transcriptUtils';
+import { stableStringHash } from '@/lib/utils/stableStringHash';
 
 interface TranscriptSegmentListProps {
   t: TFunction;
@@ -16,26 +17,33 @@ interface TranscriptSegmentListProps {
   speakerOrder: Map<string, number>;
 }
 
-function HighlightedText({ text, query }: { text: string; query: string }) {
+function HighlightedText({ text, query, stableKey }: { text: string; query: string; stableKey: string }) {
   const q = query.trim();
   if (!q) return <>{text}</>;
   const re = new RegExp(`(${escapeRegExp(q)})`, 'gi');
   const parts = text.split(re);
+  const counts = new Map<string, number>();
   return (
     <>
-      {parts.map((part, i) =>
-        part.toLowerCase() === q.toLowerCase() ? (
+      {parts.map((part) => {
+        const isHit = part.toLowerCase() === q.toLowerCase();
+        const payload = `${stableKey}:${isHit ? 'h' : 't'}:${part}`;
+        const h = stableStringHash(payload);
+        const ord = (counts.get(h) ?? 0) + 1;
+        counts.set(h, ord);
+        const k = `${stableKey}:hl:${h}:${ord}`;
+        return isHit ? (
           <mark
-            key={i}
+            key={k}
             className="rounded px-0.5"
             style={{ background: 'color-mix(in srgb, var(--dome-accent) 35%, transparent)' }}
           >
             {part}
           </mark>
         ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
+          <span key={k}>{part}</span>
+        );
+      })}
     </>
   );
 }
@@ -115,7 +123,7 @@ export default function TranscriptSegmentList({
                 </span>
               </div>
               <p className="text-[15px] leading-relaxed" style={{ opacity: isActive ? 1 : 0.9 }}>
-                <HighlightedText text={seg.text} query={searchQuery} />
+                <HighlightedText text={seg.text} query={searchQuery} stableKey={seg.id} />
               </p>
             </button>
           );
@@ -138,11 +146,11 @@ export default function TranscriptSegmentList({
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-5">
-      {groups.map((group, gi) => {
+      {groups.map((group) => {
         const colors = getSpeakerColor(speakerOrder.get(group.speakerId) ?? 0);
         const speakerLabel = resolveSpeakerLabel(group.segs[0], speakersMap);
         return (
-          <div key={`${gi}-${group.speakerId}-${group.segs[0].id}`} className="flex flex-col">
+          <div key={`${group.speakerId}:${group.segs.map((s) => s.id).join('|')}`} className="flex flex-col">
             {/* Speaker header */}
             <div className="mb-1.5 flex items-center gap-2 px-4 text-[11px]">
               <span
@@ -184,7 +192,7 @@ export default function TranscriptSegmentList({
                       {formatMediaTime(seg.startTime)}
                     </span>
                     <p className="text-[15px] leading-relaxed" style={{ opacity: isActive ? 1 : 0.9 }}>
-                      <HighlightedText text={seg.text} query={searchQuery} />
+                      <HighlightedText text={seg.text} query={searchQuery} stableKey={seg.id} />
                     </p>
                   </div>
                 </button>

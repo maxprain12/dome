@@ -154,8 +154,14 @@ function TreeNodeComponent({
         }}
       >
         {showSelChrome ? (
-          <span className="shrink-0 flex items-center justify-center" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+          <label
+            htmlFor={`fm-tree-sel-${node.id}`}
+            className="shrink-0 flex items-center justify-center cursor-pointer"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
             <input
+              id={`fm-tree-sel-${node.id}`}
               type="checkbox"
               checked={selected}
               onChange={() => {}}
@@ -167,7 +173,7 @@ function TreeNodeComponent({
               style={{ accentColor: 'var(--dome-accent)' }}
               aria-label={t('selection.deselect')}
             />
-          </span>
+          </label>
         ) : null}
         <span className="shrink-0 flex items-center justify-center" style={{ width: 14, height: 14 }}>
           {isFolder ? (

@@ -72,7 +72,7 @@ function PDFThumbnailItem({ page, pageNumber, isActive, onClick }: PDFThumbnailI
         {isRendering && (
           <div
             className="absolute inset-0 flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.8)', fontSize: 10 }}
+            style={{ background: 'rgba(255,255,255,0.8)', fontSize: 12 }}
           >
             ...
           </div>

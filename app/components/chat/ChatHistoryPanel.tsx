@@ -1,4 +1,4 @@
-import { useState, useMemo, type CSSProperties, type FormEvent } from 'react';
+import { useState, useMemo, type FormEvent } from 'react';
 import { Search, X, Plus, Pin, Pencil, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -136,16 +136,6 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
   };
 
   const newChatLabel = t('chat.new_chat');
-  const modalOverlay: CSSProperties = {
-    position: 'fixed',
-    inset: 0,
-    zIndex: 100,
-    background: 'rgb(0 0 0 / 0.45)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-  };
 
   return (
     <div
@@ -153,25 +143,26 @@ export default function ChatHistoryPanel({ onClose }: ChatHistoryPanelProps) {
       style={{ background: 'var(--dome-sidebar-bg)' }}
     >
       {renameId ? (
-        <div
-          className="fixed inset-0 z-[200] flex items-center justify-center p-3"
-          style={modalOverlay}
-          role="dialog"
-          aria-modal
-          onClick={() => setRenameId(null)}
-        >
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3" role="presentation">
+          <button
+            type="button"
+            className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+            style={{ background: 'rgb(0 0 0 / 0.45)' }}
+            aria-label={t('common.close')}
+            onClick={() => setRenameId(null)}
+          />
           <form
             onSubmit={handleApplyRename}
-            onClick={(ev) => ev.stopPropagation()}
-            className="w-full max-w-sm rounded-lg border border-[var(--dome-border)] bg-[var(--dome-surface)] p-3 shadow-lg"
+            className="relative z-10 w-full max-w-sm rounded-lg border border-[var(--dome-border)] bg-[var(--dome-surface)] p-3 shadow-lg"
             style={{ background: 'var(--dome-surface)' }}
+            role="dialog"
+            aria-modal="true"
           >
             <p className="text-xs font-medium text-[var(--dome-text)] mb-2">{t('chat.rename_conversation')}</p>
             <DomeInput
               className="gap-0 mb-3"
               value={renameValue}
               onChange={(e) => setRenameValue(e.target.value)}
-              autoFocus
               inputClassName="!text-sm"
             />
             <div className="flex justify-end gap-2">

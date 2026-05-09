@@ -169,7 +169,7 @@ export default function DomeContextMenu({
                 'bg-[var(--dome-surface,var(--bg-secondary))]',
               )}
               style={menuStyle}
-              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
             >
               {items.map((item, idx) => (
                 <div key={`${item.label}-${idx}`}>

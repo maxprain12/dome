@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { usePyodide } from '@/lib/notebook/PyodideProvider';
 import CodeCellEditor from './CodeCellEditor';
 import type { NotebookCodeCell, NotebookOutput } from '@/types';
+import { stableStringHash } from '@/lib/utils/stableStringHash';
 
 interface CodeCellProps {
   cell: NotebookCodeCell;
@@ -80,11 +81,11 @@ export default function CodeCell({
     }
   }, [externalRun, doRun]);
 
-  const renderOutput = (output: NotebookOutput, idx: number) => {
+  const renderOutput = (output: NotebookOutput) => {
     if (output.output_type === 'stream' && 'text' in output) {
       const text = Array.isArray(output.text) ? output.text.join('') : output.text;
       return (
-        <div key={idx} className="overflow-x-auto max-w-full">
+        <div className="overflow-x-auto max-w-full">
           <pre
             className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
             style={{
@@ -107,7 +108,7 @@ export default function CodeCell({
       if (imagePng) {
         const src = typeof imagePng === 'string' ? imagePng : imagePng[0];
         return (
-          <div key={idx} className="p-2">
+          <div className="p-2">
             <img
               src={`data:image/png;base64,${src}`}
               alt="Notebook cell output"
@@ -119,14 +120,13 @@ export default function CodeCell({
       if (imageSvg) {
         const svg = typeof imageSvg === 'string' ? imageSvg : (Array.isArray(imageSvg) ? imageSvg[0] : '') ?? '';
         return (
-          <div key={idx} className="p-2" dangerouslySetInnerHTML={{ __html: svg }} />
+          <div className="p-2" dangerouslySetInnerHTML={{ __html: svg }} />
         );
       }
       if (textHtml) {
         const html = Array.isArray(textHtml) ? textHtml.join('') : textHtml;
         return (
           <div
-            key={idx}
             className="p-2 prose prose-sm max-w-none break-words overflow-x-auto"
             style={{
               color: 'var(--primary-text)',
@@ -139,7 +139,7 @@ export default function CodeCell({
       }
       const text = typeof textPlain === 'string' ? textPlain : Array.isArray(textPlain) ? textPlain.join('') : JSON.stringify(data);
       return (
-        <div key={idx} className="overflow-x-auto max-w-full">
+        <div className="overflow-x-auto max-w-full">
           <pre
             className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
             style={{ background: 'var(--bg-secondary)', color: 'var(--primary-text)' }}
@@ -152,7 +152,7 @@ export default function CodeCell({
     if (output.output_type === 'error') {
       const tb = output.traceback?.join('\n') || `${output.ename}: ${output.evalue}`;
       return (
-        <div key={idx} className="overflow-x-auto max-w-full">
+        <div className="overflow-x-auto max-w-full">
           <pre
             className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
             style={{ background: 'var(--error-bg)', color: 'var(--error)' }}
@@ -261,9 +261,17 @@ export default function CodeCell({
             background: 'var(--bg-tertiary)',
           }}
         >
-          {cell.outputs.map((o, i) => (
-            <div key={i}>{renderOutput(o, i)}</div>
-          ))}
+          {(() => {
+            const counts = new Map<string, number>();
+            return cell.outputs.map((o) => {
+              const h = stableStringHash(JSON.stringify(o));
+              const ord = (counts.get(h) ?? 0) + 1;
+              counts.set(h, ord);
+              return (
+                <div key={`${h}:${ord}`}>{renderOutput(o)}</div>
+              );
+            });
+          })()}
         </div>
       )}
     </div>

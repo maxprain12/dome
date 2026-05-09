@@ -84,7 +84,6 @@ export default function WelcomeStep({ initialName = '', initialEmail = '', onCom
                 color: 'var(--dome-text)',
                 border: errors.name ? '1px solid var(--dome-error, #ef4444)' : '1px solid var(--dome-border)',
               }}
-              autoFocus
             />
             {errors.name && (
               <p className="text-xs mt-1" style={{ color: 'var(--dome-error, #ef4444)' }}>{errors.name}</p>

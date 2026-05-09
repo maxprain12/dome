@@ -219,6 +219,39 @@ export default function AudioOverview({
     [duration, isAudioLoaded]
   );
 
+  const seekToFraction = useCallback(
+    (fraction: number) => {
+      if (!audioRef.current || !isAudioLoaded || duration <= 0) return;
+      const f = Math.max(0, Math.min(1, fraction));
+      const newTime = f * duration;
+      audioRef.current.currentTime = newTime;
+      setCurrentTime(newTime);
+    },
+    [duration, isAudioLoaded],
+  );
+
+  const handleSeekKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!audioRef.current || !isAudioLoaded || duration <= 0) return;
+      const frac = currentTime / duration;
+      const step = 0.05;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        seekToFraction(frac + step);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        seekToFraction(frac - step);
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        seekToFraction(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        seekToFraction(1);
+      }
+    },
+    [currentTime, duration, isAudioLoaded, seekToFraction],
+  );
+
   const skipForward = useCallback(() => {
     if (!audioRef.current) return;
     audioRef.current.currentTime = Math.min(audioRef.current.currentTime + 15, duration);
@@ -285,7 +318,7 @@ export default function AudioOverview({
           </span>
         </div>
         {onClose && (
-          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
+          <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
             <X size={16} />
           </button>
         )}
@@ -314,9 +347,16 @@ export default function AudioOverview({
           {/* Progress bar */}
           <div
             ref={progressBarRef}
-            className="w-full h-1.5 rounded-full cursor-pointer mb-3 group"
+            role="slider"
+            tabIndex={0}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress)}
+            aria-label={t('studio.seek_audio', { defaultValue: 'Buscar posición en audio' })}
+            className="w-full h-1.5 rounded-full cursor-pointer mb-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{ background: 'var(--bg-tertiary)' }}
             onClick={handleSeek}
+            onKeyDown={handleSeekKeyDown}
           >
             <div
               className="h-full rounded-full relative transition-all"
@@ -428,11 +468,13 @@ export default function AudioOverview({
             return (
               <div
                 key={index}
+                role="button"
+                tabIndex={0}
                 ref={(el) => {
                   if (el) lineRefs.current.set(index, el);
                   else lineRefs.current.delete(index);
                 }}
-                className="flex gap-3 p-3 rounded-lg transition-colors cursor-pointer group"
+                className="flex gap-3 p-3 rounded-lg transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{
                   background: isActive ? 'var(--bg-tertiary)' : 'transparent',
                   borderLeft: isActive
@@ -440,6 +482,12 @@ export default function AudioOverview({
                     : '3px solid transparent',
                 }}
                 onClick={() => handleLineClick(index)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleLineClick(index);
+                  }
+                }}
               >
                 {/* Speaker label */}
                 <div className="shrink-0 pt-0.5">

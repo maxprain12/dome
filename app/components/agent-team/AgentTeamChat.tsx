@@ -16,6 +16,7 @@ import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
 import { buildCitationMap } from '@/lib/utils/citations';
+import { stableMessageGroupKey } from '@/lib/chat/stableMessageGroupKey';
 import { collectTeamMcpServerIds } from '@/lib/ai/shared-capabilities';
 import { inferMcpServerForTool, loadMcpServersSetting } from '@/lib/mcp/settings';
 import type { MCPServerConfig } from '@/types';
@@ -465,16 +466,17 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
                 {team.name}
               </div>
               <div className="flex flex-wrap items-center gap-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                {memberAgents.map((a) => (
-                  <span key={a.id} className="flex items-center gap-1">
-                    <img src={`/agents/sprite_${a.iconIndex}.png`} alt="" className="size-3 object-contain" />
-                    {a.name}
-                  </span>
-                )).reduce<React.ReactNode[]>((acc, el, i) => {
-                  if (i > 0) acc.push(<span key={`sep-${i}`}>·</span>);
-                  acc.push(el);
-                  return acc;
-                }, [])}
+                {memberAgents.flatMap((a, i) => {
+                  const chip = (
+                    <span key={a.id} className="flex items-center gap-1">
+                      <img src={`/agents/sprite_${a.iconIndex}.png`} alt="" className="size-3 object-contain" />
+                      {a.name}
+                    </span>
+                  );
+                  if (i === 0) return [chip];
+                  const prev = memberAgents[i - 1];
+                  return [<span key={`sep-${prev.id}-${a.id}`}>·</span>, chip];
+                })}
               </div>
             </div>
           </div>
@@ -530,9 +532,9 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
             </div>
           </div>
         ) : (
-          messageGroups.map((group, index) => (
+          messageGroups.map((group) => (
             <ChatMessageGroup
-              key={`team-group-${index}-${group[0]?.id || index}`}
+              key={stableMessageGroupKey(group)}
               messages={group}
               showAvatar={false}
             />

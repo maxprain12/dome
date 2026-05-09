@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
 import { Play, SkipForward, FastForward, Download, Upload, Code2, FileText, GripVertical, Trash2, Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import CodeCell from './CodeCell';
@@ -8,6 +8,7 @@ import MarkdownCell from './MarkdownCell';
 import { usePyodide } from '@/lib/notebook/PyodideProvider';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import type { NotebookContent, NotebookCell, NotebookCodeCell, NotebookMarkdownCell } from '@/types';
+import { stableStringHash } from '@/lib/utils/stableStringHash';
 import { parseNotebookContent, normalizeImportedNotebook } from '@/lib/notebook/default-notebook';
 
 interface NotebookEditorProps {
@@ -21,6 +22,21 @@ interface NotebookEditorProps {
   venvPath?: string;
 }
 
+function cellSourceString(cell: NotebookCell): string {
+  return Array.isArray(cell.source) ? cell.source.join('') : cell.source;
+}
+
+function buildNotebookCellsWithStableKeys(cells: NotebookCell[]): Array<{ cell: NotebookCell; stableKey: string }> {
+  const counts = new Map<string, number>();
+  return cells.map((cell) => {
+    const payload = `${cell.cell_type}:${cellSourceString(cell)}`;
+    const h = stableStringHash(payload);
+    const ord = (counts.get(h) ?? 0) + 1;
+    counts.set(h, ord);
+    return { cell, stableKey: `${cell.cell_type}:${h}:${ord}` };
+  });
+}
+
 function getCodeCellIndices(cells: NotebookCell[]): number[] {
   return cells
     .map((c, i) => (c.cell_type === 'code' ? i : -1))
@@ -31,7 +47,8 @@ const useIPCKernel = typeof window !== 'undefined' && !!window.electron?.noteboo
 
 export default function NotebookEditor({ content, onChange, editable = true, title = 'notebook', workingDirectory, venvPath }: NotebookEditorProps) {
   const { t } = useTranslation();
-  const nb = parseNotebookContent(content);
+  const nb = useMemo(() => parseNotebookContent(content), [content]);
+  const cellsZipped = useMemo(() => buildNotebookCellsWithStableKeys(nb.cells), [nb.cells]);
   const { runPython } = usePyodide();
   const [selectedCellIndex, setSelectedCellIndex] = useState(0);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
@@ -367,9 +384,9 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
       </div>
 
       {/* Cells */}
-      {nb.cells.map((cell, idx) => (
+      {cellsZipped.map(({ cell, stableKey }, idx) => (
         <div
-          key={idx}
+          key={stableKey}
           className={`cell-wrapper flex flex-col gap-2 rounded-xl p-3 ${
             prefersReducedMotion ? '' : 'transition-all duration-200'
           } ${idx === selectedCellIndex ? 'ring-2 ring-[var(--translucent)] ring-offset-2' : ''}`}

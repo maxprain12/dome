@@ -189,7 +189,6 @@ export default function ModelSelector({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar modelos..."
-                  autoFocus
                 />
               </div>
             </div>

@@ -136,8 +136,17 @@ export default function StudyView() {
           </div>
 
           <div
+            role="button"
+            tabIndex={0}
             onClick={flipCard}
-            className="relative aspect-[3/2] rounded-xl cursor-pointer transition-all duration-300"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                flipCard();
+              }
+            }}
+            aria-label={t('flashcard.press_space_flip')}
+            className="relative aspect-[3/2] rounded-xl cursor-pointer transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
             style={{
               background: 'var(--dome-surface)',
               border: `2px solid ${isCardFlipped ? 'var(--dome-accent)' : 'var(--dome-border)'}`,

@@ -86,7 +86,7 @@ function ThumbnailCell({
           <span
             style={{
               color: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.6)',
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: 700,
               fontVariantNumeric: 'tabular-nums',
             }}
@@ -141,7 +141,7 @@ function ThumbnailCell({
           <span
             style={{
               color: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.6)',
-              fontSize: 9,
+              fontSize: 12,
               fontWeight: 700,
               fontVariantNumeric: 'tabular-nums',
             }}
@@ -193,7 +193,7 @@ function ThumbnailCell({
         <span
           style={{
             color: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.4)',
-            fontSize: 9,
+            fontSize: 12,
             fontWeight: 700,
             fontVariantNumeric: 'tabular-nums',
           }}
@@ -299,6 +299,7 @@ function SlideThumbnailStripComponent({
               type="button"
               data-slide-index={i}
               onClick={() => handleSelect(i)}
+              className="focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
               style={{
                 width: '100%',
                 padding: 0,
@@ -309,7 +310,6 @@ function SlideThumbnailStripComponent({
                 alignItems: 'center',
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 marginBottom: 8,
-                outline: 'none',
               }}
               aria-label={`Slide ${i + 1}`}
               aria-pressed={isActive}
@@ -330,7 +330,7 @@ function SlideThumbnailStripComponent({
                   <span
                     style={{
                       color: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.35)',
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: 700,
                       fontVariantNumeric: 'tabular-nums',
                     }}

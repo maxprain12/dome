@@ -193,7 +193,7 @@ export default function ExecutionLog({
             });
             return (
               <div key={entry.id} className="flex items-start gap-2 text-xs leading-relaxed">
-                <span className="shrink-0 tabular-nums" style={{ color: 'var(--dome-text-muted)', fontSize: 10 }}>
+                <span className="shrink-0 tabular-nums" style={{ color: 'var(--dome-text-muted)', fontSize: 12 }}>
                   {time}
                 </span>
                 <EntryIcon className="size-3 shrink-0 mt-0.5" style={{ color: meta.color }} />

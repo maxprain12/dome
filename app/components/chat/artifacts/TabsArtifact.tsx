@@ -184,7 +184,7 @@ export default function TabsArtifact({ artifact }: { artifact: TabsArtifactV }) 
               {tab.badge && (
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: 12,
                     padding: '1px 6px',
                     borderRadius: 'var(--radius-md)',
                     background: 'var(--bg-tertiary)',

@@ -185,7 +185,7 @@ export default function HtmlArtifactFrame({
       </div>
       <div
         style={{
-          fontSize: 11,
+          fontSize: 12,
           color: 'var(--tertiary-text)',
           lineHeight: 1.4,
         }}
@@ -195,7 +195,7 @@ export default function HtmlArtifactFrame({
       {showSource && (
         <pre
           style={{
-            fontSize: 11,
+            fontSize: 12,
             maxHeight: 200,
             overflow: 'auto',
             padding: 8,
@@ -213,7 +213,7 @@ export default function HtmlArtifactFrame({
       )}
       <iframe
         ref={iframeRef}
-        title={artifact.title || 'html-artifact'}
+        title="HTML artifact"
         sandbox="allow-scripts allow-modals"
         style={{
           width: '100%',

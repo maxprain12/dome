@@ -163,7 +163,6 @@ export default function ImageNode({
                 style={{ color: 'var(--dome-text-muted)' }}
               />
               <input
-                autoFocus
                 type="text"
                 placeholder={t('canvas.picker_search_images')}
                 value={query}

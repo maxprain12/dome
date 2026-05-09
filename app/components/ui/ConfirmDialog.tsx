@@ -59,22 +59,34 @@ export function ConfirmDialog({
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        backdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 'var(--z-modal)',
         animation: 'overlay-appear 0.2s ease-out',
       }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
     >
-      <div
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full border-0 p-0"
         style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(4px)',
+          cursor: 'pointer',
+        }}
+        aria-label={t('ui.close')}
+        onClick={onCancel}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        style={{
+          position: 'relative',
+          zIndex: 1,
           width: '100%',
           maxWidth: '400px',
+          margin: '0 16px',
           backgroundColor: 'var(--bg)',
           border: '1px solid var(--border)',
           borderRadius: 'var(--radius-xl, 12px)',
@@ -109,6 +121,7 @@ export function ConfirmDialog({
             </div>
           )}
           <h3
+            id="confirm-dialog-title"
             style={{
               margin: 0,
               fontSize: '16px',

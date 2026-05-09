@@ -159,6 +159,8 @@ export default function BlockHandles({ editor, enabled = true }: BlockHandlesPro
         handleRefs.current.root = el;
       }}
       className="dome-block-handles"
+      role="group"
+      aria-label="Handles de bloque"
       style={{ position: 'fixed', top, left, zIndex: 30 }}
       onMouseEnter={() => {
         if (leaveTimerRef.current) {

@@ -21,7 +21,7 @@ export function ChatSkillChip({
         borderRadius: 6,
         border: `1px solid color-mix(in srgb, var(--accent) ${sticky ? 40 : 25}%, var(--border))`,
         background: sticky ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'color-mix(in srgb, var(--accent) 6%, transparent)',
-        fontSize: 11,
+        fontSize: 12,
         color: 'var(--secondary-text)',
         maxWidth: 200,
       }}

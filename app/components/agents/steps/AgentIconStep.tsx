@@ -19,7 +19,7 @@ export default function AgentIconStep({ selectedIndex, onChange }: AgentIconStep
           const isSelected = selectedIndex === idx;
           return (
             <button
-              key={idx}
+              key={`agent-icon-${idx}`}
               type="button"
               onClick={() => onChange(idx)}
               className={`flex items-center justify-center size-12 rounded-xl border-2 transition-all ${isSelected ? 'ring-2 ring-[var(--accent)]' : ''

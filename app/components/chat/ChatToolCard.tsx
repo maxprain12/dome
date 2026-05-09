@@ -33,6 +33,7 @@ import DomeButton from '@/components/ui/DomeButton';
 import DomeBadge from '@/components/ui/DomeBadge';
 import { getToolDisplayLabel } from '@/lib/chat/toolDisplayLabels';
 import { extractCalendarEventFromToolResult, unwrapToolResultPayload } from '@/lib/chat/calendarToolArtifact';
+import { stableStringHash } from '@/lib/utils/stableStringHash';
 
 /**
  * ChatToolCard - Polished display for tool calls with category color system
@@ -139,18 +140,18 @@ function renderToolSuccessHighlight(
           <span className="truncate">{cal.title || t('chat.calendar_event_untitled', { defaultValue: 'Evento' })}</span>
         </div>
         {cal.startLabel ? (
-          <p className="text-[11px]" style={{ color: 'var(--secondary-text)' }}>
+          <p className="text-[12px]" style={{ color: 'var(--secondary-text)' }}>
             {cal.startLabel}
             {cal.endLabel && cal.endLabel !== cal.startLabel ? ` → ${cal.endLabel}` : ''}
           </p>
         ) : null}
         {cal.location ? (
-          <p className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
+          <p className="text-[12px]" style={{ color: 'var(--tertiary-text)' }}>
             {cal.location}
           </p>
         ) : null}
         {cal.id ? (
-          <p className="text-[10px] font-mono opacity-70 truncate" style={{ color: 'var(--tertiary-text)' }}>
+          <p className="text-[12px] font-mono opacity-70 truncate" style={{ color: 'var(--tertiary-text)' }}>
             {cal.id}
           </p>
         ) : null}
@@ -179,7 +180,7 @@ function renderToolSuccessHighlight(
           <Layers className="size-3.5 shrink-0 text-[var(--success)]" aria-hidden />
           <span className="truncate">{title}</span>
         </div>
-        <p className="text-[11px]" style={{ color: 'var(--secondary-text)' }}>
+        <p className="text-[12px]" style={{ color: 'var(--secondary-text)' }}>
           {t('chat.flashcard_deck_count', { count, defaultValue: '{{count}} tarjetas' })}
         </p>
       </div>
@@ -201,7 +202,7 @@ function renderToolSuccessHighlight(
           <p className="text-xs font-semibold truncate" style={{ color: 'var(--primary-text)' }}>
             {title}
           </p>
-          <p className="text-[10px] font-mono opacity-70 truncate" style={{ color: 'var(--tertiary-text)' }}>
+          <p className="text-[12px] font-mono opacity-70 truncate" style={{ color: 'var(--tertiary-text)' }}>
             {typ} · {id}
           </p>
         </div>
@@ -319,16 +320,21 @@ function JsonPrettyPrinter({ value, depth = 0 }: { value: unknown; depth?: numbe
   }
   if (Array.isArray(value)) {
     if (value.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>[]</span>;
+    let serial = 0;
     return (
       <span>
         {'[\u200B'}
         <span style={{ paddingLeft: 16 * (depth + 1) }}>
-          {value.map((item, i) => (
-            <div key={i} style={{ paddingLeft: 16, background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)' }}>
+          {value.map((item, position) => {
+            serial += 1;
+            const rowKey = `${stableStringHash(JSON.stringify(item))}:${serial}`;
+            return (
+            <div key={rowKey} style={{ paddingLeft: 16, background: serial % 2 === 1 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)' }}>
               <JsonPrettyPrinter value={item} depth={depth + 1} />
-              {i < value.length - 1 && <span style={{ color: 'var(--tertiary-text)' }}>,</span>}
+              {position < value.length - 1 && <span style={{ color: 'var(--tertiary-text)' }}>,</span>}
             </div>
-          ))}
+          );
+          })}
         </span>
         {']'}
       </span>
@@ -470,7 +476,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
       return (
         <pre
           style={{
-            fontSize: 11,
+            fontSize: 12,
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
             overflowY: 'auto',
@@ -488,10 +494,15 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
     }
 
     if (documentItems && documentItems.length > 0) {
+      const counts = new Map<string, number>();
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {documentItems.map((item, idx) => (
-            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {documentItems.map((item) => {
+            const h = stableStringHash(JSON.stringify(item));
+            const ord = (counts.get(h) ?? 0) + 1;
+            counts.set(h, ord);
+            return (
+            <div key={`doc:${h}:${ord}`} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {item.metadata?.title != null && (
                 <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary-text)', margin: 0 }}>
                   {String(item.metadata.title)}
@@ -503,7 +514,8 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       );
     }
@@ -517,16 +529,22 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
     }
 
     if (contentImages && contentImages.length > 0) {
+      const imgCounts = new Map<string, number>();
       return (
         <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {contentImages.map((item, idx) => (
-            <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {contentImages.map((item) => {
+            const h = stableStringHash(item.dataUrl);
+            const ord = (imgCounts.get(h) ?? 0) + 1;
+            imgCounts.set(h, ord);
+            const figureN = ord;
+            return (
+            <div key={`fig:${h}:${ord}`} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {item.label && (
-                <p style={{ fontSize: 11, color: 'var(--secondary-text)', margin: 0 }}>{item.label}</p>
+                <p style={{ fontSize: 12, color: 'var(--secondary-text)', margin: 0 }}>{item.label}</p>
               )}
               <img
                 src={item.dataUrl}
-                alt={item.label || `Figure ${idx + 1}`}
+                alt={item.label || `Figure ${figureN}`}
                 style={{
                   maxWidth: 280,
                   maxHeight: 200,
@@ -536,7 +554,8 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
                 }}
               />
             </div>
-          ))}
+            );
+          })}
         </div>
       );
     }
@@ -588,7 +607,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
                     {item.title}
                   </span>
                   {item.snippet && (
-                    <span style={{ fontSize: 11, color: 'var(--tertiary-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 12, color: 'var(--tertiary-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.snippet}
                     </span>
                   )}
@@ -636,7 +655,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
       return (
         <div
           style={{
-            fontSize: 11,
+            fontSize: 12,
             fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
             overflowY: 'auto',
             maxHeight: 256,
@@ -653,7 +672,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
     return (
       <pre
         style={{
-          fontSize: 11,
+          fontSize: 12,
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word',
           overflowY: 'auto',
@@ -714,7 +733,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
                 {label}
               </span>
               {argsSummary ? (
-                <span className="text-[11px] text-[var(--tertiary-text)] leading-snug mt-px truncate">
+                <span className="text-[12px] text-[var(--tertiary-text)] leading-snug mt-px truncate">
                   {argsSummary}
                 </span>
               ) : null}
@@ -732,7 +751,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
                   variant="ghost"
                   size="xs"
                   onClick={() => setShowRawJson(!showRawJson)}
-                  className="!h-auto !px-0 !py-0 font-mono text-[10px] underline text-[var(--tertiary-text)] opacity-70 hover:opacity-100"
+                  className="!h-auto !px-0 !py-0 font-mono text-[12px] underline text-[var(--tertiary-text)] opacity-70 hover:opacity-100"
                 >
                   {showRawJson ? t('chat.formatted_view') : t('chat.view_json')}
                 </DomeButton>

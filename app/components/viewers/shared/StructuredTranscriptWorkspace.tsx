@@ -300,11 +300,14 @@ export default function StructuredTranscriptWorkspace({
                 return (
                   <label
                     key={sid}
+                    htmlFor={`structured-transcript-speaker-${sid}`}
                     className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] transition-colors hover:brightness-95"
                     style={{ background: colors.chipBg, cursor: 'text' }}
                   >
+                    <span className="sr-only">{speakersMap[sid]?.label || sid}</span>
                     <span className="size-1.5 rounded-full shrink-0" style={{ background: colors.dot }} aria-hidden />
                     <input
+                      id={`structured-transcript-speaker-${sid}`}
                       value={localSpeakerLabels[sid] ?? (speakersMap[sid]?.label || sid)}
                       onChange={(e) =>
                         setLocalSpeakerLabels((prev) => ({

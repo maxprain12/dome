@@ -92,7 +92,6 @@ export default function PDFNotesList({
                       minHeight: 60,
                     }}
                     rows={3}
-                    autoFocus
                   />
                   <div className="flex gap-2">
                     <button

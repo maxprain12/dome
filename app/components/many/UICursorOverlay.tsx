@@ -147,7 +147,7 @@ export default function UICursorOverlay() {
             borderRadius: 'var(--radius-sm)',
             border: '1px solid var(--dome-border)',
             padding: '5px 10px',
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 500,
             lineHeight: 1.35,
             letterSpacing: '0.01em',

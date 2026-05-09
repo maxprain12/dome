@@ -33,16 +33,23 @@ export default function CreateDeckModal({ onClose, onCreated }: CreateDeckModalP
   }, [title, description, onCreated]);
 
   return (
-    <div
-      className="modal-overlay"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="create-deck-title"
-    >
+    <div className="modal-overlay relative" role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
+        style={{
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+        }}
+        aria-label={t('ui.cancel')}
+        onClick={onClose}
+      />
       <div
-        className="modal-content max-w-md animate-modal"
-        onClick={(e) => e.stopPropagation()}
+        className="modal-content max-w-md animate-modal relative z-10"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-deck-title"
       >
         <div className="modal-header">
           <h3
@@ -57,18 +64,19 @@ export default function CreateDeckModal({ onClose, onCreated }: CreateDeckModalP
         <div className="modal-body space-y-4">
           <div>
             <label
+              htmlFor="flashcard-create-deck-title"
               className="text-xs font-semibold mb-1.5 block"
               style={{ color: 'var(--secondary-text)' }}
             >
               {t('flashcard.title', 'Titulo')}
             </label>
             <input
+              id="flashcard-create-deck-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={t('flashcard.deck_name_placeholder', 'Ej: Vocabulario de Biologia...')}
               className="input"
-              autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && title.trim()) handleCreate();
                 if (e.key === 'Escape') onClose();
@@ -78,12 +86,14 @@ export default function CreateDeckModal({ onClose, onCreated }: CreateDeckModalP
 
           <div>
             <label
+              htmlFor="flashcard-create-deck-description"
               className="text-xs font-semibold mb-1.5 block"
               style={{ color: 'var(--secondary-text)' }}
             >
               {t('flashcard.description_optional', 'Descripcion (opcional)')}
             </label>
             <textarea
+              id="flashcard-create-deck-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t('flashcard.deck_description_placeholder', 'Describe el contenido del mazo...')}

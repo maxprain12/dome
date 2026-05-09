@@ -173,6 +173,9 @@ function MonthView({
           return (
             <div
               key={key}
+              role="button"
+              tabIndex={0}
+              aria-label={format(day, 'PPPP')}
               className="border-b border-r p-1 transition-colors cursor-pointer overflow-hidden"
               style={{
                 borderColor: 'var(--dome-border)',
@@ -184,6 +187,12 @@ function MonthView({
                     : undefined,
               }}
               onClick={() => onDayClick(day)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onDayClick(day);
+                }
+              }}
               onDragOver={(e) => { e.preventDefault(); setDragOverDay(key); }}
               onDragLeave={() => setDragOverDay(null)}
               onDrop={(e) => {
@@ -225,7 +234,7 @@ function MonthView({
                   />
                 ))}
                 {dayEvs.length > 3 && (
-                  <span className="text-[10px] pl-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+                  <span className="text-[12px] pl-1.5" style={{ color: 'var(--dome-text-muted)' }}>
                     +{dayEvs.length - 3} más
                   </span>
                 )}
@@ -312,7 +321,7 @@ function DraggableTimeEvent({
 
   return (
     <div
-      className="absolute left-0.5 right-0.5 rounded-md px-1.5 text-[11px] select-none overflow-hidden"
+      className="absolute left-0.5 right-0.5 rounded-md px-1.5 text-[12px] select-none overflow-hidden"
       style={{
         top: renderTop,
         height: renderHeight,
@@ -323,19 +332,33 @@ function DraggableTimeEvent({
         opacity: dragging ? 0.85 : 1,
         transition: dragging ? 'none' : 'top 0.1s, height 0.1s',
       }}
+      role="button"
+      tabIndex={0}
+      aria-label={event.title || t('workspace.untitled')}
       onPointerDown={handleMoveStart}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (!dragging) {
+            e.stopPropagation();
+            onEventClick?.(event);
+          }
+        }
+      }}
       onClick={(e) => { if (!dragging) { e.stopPropagation(); onEventClick?.(event); } }}
       title={event.title}
     >
       <div className="font-medium leading-[16px] truncate">{event.title || t('workspace.untitled')}</div>
       {renderHeight > 28 && (
-        <div className="opacity-75 text-[10px] truncate">{format(startDate, 'HH:mm')} – {format(endDate, 'HH:mm')}</div>
+        <div className="opacity-75 text-[12px] truncate">{format(startDate, 'HH:mm')} – {format(endDate, 'HH:mm')}</div>
       )}
       {onEventDateChange && (
-        <div
-          className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize"
+        <button
+          type="button"
+          aria-label={t('calendarPage.resize_event_handle', { defaultValue: 'Resize event duration' })}
+          className="absolute bottom-0 left-0 right-0 h-2 w-full cursor-ns-resize border-0 bg-transparent p-0"
           onPointerDown={handleResizeStart}
         />
       )}
@@ -584,12 +607,21 @@ function YearView({
         return (
           <div
             key={month.toISOString()}
+            role="button"
+            tabIndex={0}
+            aria-label={`${format(month, 'MMMM yyyy', { locale: dfLocale })}`}
             className="rounded-xl border p-3 cursor-pointer transition-all hover:shadow-md"
             style={{
               borderColor: isCurrentMonth ? 'var(--dome-accent)' : 'var(--dome-border)',
               background: 'var(--dome-surface)',
             }}
             onClick={() => onMonthClick(month)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onMonthClick(month);
+              }
+            }}
           >
             <div
               className="text-[12px] font-semibold mb-2 capitalize"
@@ -600,7 +632,7 @@ function YearView({
 
             <div className="grid grid-cols-7 gap-px mb-1">
               {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d, i) => (
-                <div key={i} className="text-[8px] text-center" style={{ color: 'var(--dome-text-muted)' }}>{d}</div>
+                <div key={i} className="text-[12px] text-center leading-none" style={{ color: 'var(--dome-text-muted)' }}>{d}</div>
               ))}
               {days.map((day) => {
                 const inMonth = isSameMonth(day, month);
@@ -613,7 +645,7 @@ function YearView({
                     style={{ height: 16 }}
                   >
                     <span
-                      className="size-4 flex items-center justify-center rounded-full text-[9px]"
+                      className="size-4 flex items-center justify-center rounded-full text-[12px] leading-none"
                       style={{
                         background: today && inMonth ? 'var(--dome-accent)' : undefined,
                         color: !inMonth ? 'transparent' : today ? 'var(--dome-on-accent, #fff)' : 'var(--dome-text)',
@@ -634,7 +666,7 @@ function YearView({
             </div>
 
             {monthEvs.length > 0 && (
-              <div className="text-[10px] mt-1" style={{ color: 'var(--dome-text-muted)' }}>
+              <div className="text-[12px] mt-1" style={{ color: 'var(--dome-text-muted)' }}>
                 {monthEvs.length} evento{monthEvs.length !== 1 ? 's' : ''}
               </div>
             )}
