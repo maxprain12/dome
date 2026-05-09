@@ -13,7 +13,8 @@ const HEX_TO_VAR_MAP: Record<string, string> = {
   '#E88585': 'var(--error)',
 };
 
-function normalizeColor(color: string): string {
+function normalizeColor(color: string | undefined): string {
+  if (!color) return 'var(--warning)';
   if (color.startsWith('var(')) return color;
   return HEX_TO_VAR_MAP[color] ?? color;
 }
