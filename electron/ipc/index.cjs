@@ -65,7 +65,7 @@ function registerAll(deps) {
     webScraper,
     youtubeService,
     ollamaService,
-    ollamaManager,
+    getOllamaManager,
     aiToolsHandler,
     aiCloudService,
     ttsService,
@@ -100,7 +100,7 @@ function registerAll(deps) {
   migrationHandlers.register({ ipcMain, fs, windowManager, database, fileStorage, thumbnail });
   webHandlers.register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService, initModule });
   imageHandlers.register({ ipcMain, windowManager, cropImage });
-  ollamaHandlers.register({ ipcMain, windowManager, database, ollamaService, ollamaManager });
+  ollamaHandlers.register({ ipcMain, windowManager, database, ollamaService, getOllamaManager });
   whatsappHandlers.register({ ipcMain, windowManager, database, fileStorage, ollamaService, initModule, aiToolsHandler });
   authHandlers.register({ ipcMain, windowManager, authManager });
   personalityHandlers.register({ ipcMain, windowManager, personalityLoader });

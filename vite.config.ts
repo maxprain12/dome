@@ -27,6 +27,23 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+          const afterNM = id.split('node_modules/').pop() ?? '';
+          const segments = afterNM.split('/');
+          const pkg = segments[0]?.startsWith('@') ? `${segments[0]}/${segments[1]}` : segments[0];
+          if (!pkg) return;
+          if (pkg === 'react' || pkg === 'react-dom' || pkg === 'scheduler' || pkg === 'react-router' || pkg === 'react-router-dom') {
+            return 'vendor-react';
+          }
+          if (pkg.startsWith('@mantine')) return 'vendor-mantine';
+          if (pkg.startsWith('@tiptap')) return 'vendor-tiptap';
+          return undefined;
+        },
+      },
+    },
   },
 
   // Development server (override with DOME_VITE_PORT or VITE_DEV_PORT for worktrees)

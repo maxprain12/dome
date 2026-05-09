@@ -1403,8 +1403,14 @@ const electronHandler = {
         ipcRenderer.invoke('ai:tools:excelGet', { resourceId, options }),
       excelGetFilePath: (resourceId) =>
         ipcRenderer.invoke('ai:tools:excelGetFilePath', { resourceId }),
-      excelSetCell: (resourceId, sheetName, cell, value) =>
-        ipcRenderer.invoke('ai:tools:excelSetCell', { resourceId, sheetName, cell, value }),
+      excelSetCell: (resourceId, sheetName, cell, value, options) =>
+        ipcRenderer.invoke('ai:tools:excelSetCell', {
+          resourceId,
+          sheetName,
+          cell,
+          value,
+          invokedBy: options?.invokedBy,
+        }),
       excelSetRange: (resourceId, sheetName, range, values) =>
         ipcRenderer.invoke('ai:tools:excelSetRange', { resourceId, sheetName, range, values }),
       excelAddRow: (resourceId, sheetName, values, afterRow) =>

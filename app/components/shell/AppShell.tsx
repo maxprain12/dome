@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
+import { shallow } from 'zustand/shallow';
 import DomeTabBar from './DomeTabBar';
 import ContentRouter from './ContentRouter';
-import ManyPanel from '@/components/many/ManyPanel';
 import ChatHistoryPanel from '@/components/chat/ChatHistoryPanel';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
@@ -32,6 +32,29 @@ function readInt(key: string, fallback: number, min: number, max: number): numbe
   return fallback;
 }
 
+const ManyPanelLazy = lazy(() => import('@/components/many/ManyPanel'));
+
+function ManyPanelWithSuspense(props: {
+  width: number;
+  onClose: () => void;
+  isVisible: boolean;
+  isFullscreen?: boolean;
+  mode?: 'full' | 'headless';
+}) {
+  const { t } = useTranslation();
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-1 items-center justify-center h-full min-h-[80px]" style={{ background: 'var(--dome-bg)' }}>
+          <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('common.loading')}</span>
+        </div>
+      }
+    >
+      <ManyPanelLazy {...props} />
+    </Suspense>
+  );
+}
+
 export default function AppShell() {
   const { t } = useTranslation();
   const [manyWidth, setManyWidth] = useState(MANY_DEFAULT);
@@ -42,8 +65,13 @@ export default function AppShell() {
   const manyWidthRef = useRef(manyWidth);
   manyWidthRef.current = manyWidth;
 
-  const { openChatTab, activeTabId, tabs } = useTabStore();
-  const { leftSidebarCollapsed, toggleLeftSidebar } = useResizeStore();
+  const openChatTab = useTabStore((s) => s.openChatTab);
+  const { activeTabId, tabs } = useTabStore(
+    (s) => ({ activeTabId: s.activeTabId, tabs: s.tabs }),
+    shallow,
+  );
+  const leftSidebarCollapsed = useResizeStore((s) => s.leftSidebarCollapsed);
+  const toggleLeftSidebar = useResizeStore((s) => s.toggleLeftSidebar);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const isChatTab = activeTab?.type === 'chat';
@@ -97,14 +125,6 @@ export default function AppShell() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.electron?.on) return;
-    const unsub = window.electron.on('dome:open-resource-in-tab', (data: { resourceId: string; resourceType: string; title: string }) => {
-      useTabStore.getState().openResourceTab(data.resourceId, data.resourceType, data.title || t('app.resource'));
-    });
-    return () => unsub?.();
-  }, [t]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
@@ -304,7 +324,7 @@ export default function AppShell() {
               {showChatHistory ? (
                 <ChatHistoryPanel onClose={handleToggleRightSidebar} />
               ) : (
-                <ManyPanel
+                <ManyPanelWithSuspense
                   width={manyWidth}
                   onClose={handleToggleRightSidebar}
                   isVisible
@@ -322,7 +342,7 @@ export default function AppShell() {
             style={{ zIndex: -10 }}
           >
             <div style={{ width: manyWidth, minHeight: 1 }}>
-              <ManyPanel
+              <ManyPanelWithSuspense
                 width={manyWidth}
                 onClose={() => {}}
                 isVisible

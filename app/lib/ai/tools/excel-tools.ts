@@ -220,6 +220,7 @@ export function createExcelSetCellTool(): AnyAgentTool {
           readStringParam(params, 'sheet_name'),
           cell,
           value as string | number | boolean,
+          { invokedBy: 'agent' },
         );
         return jsonResult(result);
       } catch (err) {

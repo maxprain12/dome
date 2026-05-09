@@ -3583,7 +3583,13 @@ async function artifactLinkResource(args) {
     }
 
     if (linkedResourceId) {
-      await syncLinkedArtifactsForResource(database, windowManagerRef, linkedResourceId);
+      const sheetName = args?.sheet_name ?? args?.sheetName;
+      await syncLinkedArtifactsForResource(
+        database,
+        windowManagerRef,
+        linkedResourceId,
+        sheetName ? { sheetName: String(sheetName) } : undefined,
+      );
     }
 
     return {

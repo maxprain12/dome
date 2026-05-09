@@ -195,8 +195,9 @@ export function createArtifactLinkResourceTool(): AnyAgentTool {
     name: 'artifact_link_resource',
     description:
       'Link (or unlink) a persisted artifact to a spreadsheet/Excel resource. ' +
-      'Once linked, Dome auto-refreshes the artifact whenever the spreadsheet is edited ' +
-      'and exposes all sheet data as window.DOME_DATA.linkedData.sheets[sheetName]. ' +
+      'Once linked, Dome auto-refreshes the artifact when the spreadsheet changes. ' +
+      'Synced rows are in window.DOME_DATA.linkedData.data (AOA), window.DOME_DATA.linkedData.sheet_name, ' +
+      'and window.DOME_DATA.linkedData.sheets[sheetName] (same grid as .data for the active sheet). ' +
       'Pass linkedResourceId=null to remove an existing link.',
     parameters: Type.Object({
       artifact_resource_id: Type.String({

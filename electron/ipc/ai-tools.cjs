@@ -18,8 +18,11 @@ function broadcastToolAnalytics(windowManager, channel, success) {
   }
 }
 
-function toolTrace(channel, params, result, err) {
+/** @param {{ invokedBy?: 'ui' | 'agent' }} [meta] */
+function toolTrace(channel, params, result, err, meta) {
   if (!TOOL_TRACE) return;
+  const tag =
+    meta?.invokedBy === 'ui' ? '[Tools:UI]' : '[AI:Tools]';
   const sanitize = (obj, maxLen = 120) => {
     if (obj == null) return obj;
     if (typeof obj === 'string') return obj.length > maxLen ? obj.slice(0, maxLen) + '...' : obj;
@@ -35,10 +38,10 @@ function toolTrace(channel, params, result, err) {
     return obj;
   };
   if (err) {
-    console.log(`[AI:Tools] ${channel} ERROR`, { params: sanitize(params), error: err.message });
+    console.log(`${tag} ${channel} ERROR`, { params: sanitize(params), error: err.message });
   } else {
     const summary = result?.success === false ? { success: false, error: result.error } : { success: true, count: result?.count ?? result?.resources?.length ?? result?.resource ? 1 : '?' };
-    console.log(`[AI:Tools] ${channel}`, { params: sanitize(params), result: summary });
+    console.log(`${tag} ${channel}`, { params: sanitize(params), result: summary });
   }
 }
 
@@ -469,17 +472,18 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     }
   });
 
-  ipcMain.handle('ai:tools:excelSetCell', async (event, { resourceId, sheetName, cell, value }) => {
+  ipcMain.handle('ai:tools:excelSetCell', async (event, { resourceId, sheetName, cell, value, invokedBy }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
+    const traceMeta = invokedBy === 'ui' ? { invokedBy: 'ui' } : { invokedBy: 'agent' };
     try {
       const result = await aiToolsHandler.excelSetCell(resourceId, sheetName, cell, value);
-      toolTrace('excelSetCell', { resourceId, cell }, result);
+      toolTrace('excelSetCell', { resourceId, cell }, result, null, traceMeta);
       broadcastToolAnalytics(windowManager, 'ai:tools:excelSetCell', result?.success !== false);
       return result;
     } catch (error) {
-      toolTrace('excelSetCell', { resourceId }, null, error);
+      toolTrace('excelSetCell', { resourceId }, null, error, traceMeta);
       broadcastToolAnalytics(windowManager, 'ai:tools:excelSetCell', false);
       return { success: false, error: error.message };
     }

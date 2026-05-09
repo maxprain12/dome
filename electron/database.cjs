@@ -12,6 +12,8 @@ const { app } = require('electron');
 
 let _db = null;
 let _queries = null;
+/** Avoid duplicate migration/schema work when initDatabase runs from main + init module */
+let _schemaInitialized = false;
 
 /**
  * Get database instance (lazy initialization)
@@ -41,6 +43,10 @@ function getDB() {
  * Initialize database schema
  */
 function initDatabase() {
+  if (_schemaInitialized) {
+    return;
+  }
+
   const db = getDB();
 
   // Enable optimizations
@@ -511,6 +517,7 @@ function initDatabase() {
   createDefaultProject(db);
 
   console.log('✅ Database schema initialized');
+  _schemaInitialized = true;
 }
 
 /**
@@ -4336,6 +4343,7 @@ function closeDB() {
     _db.close();
     _db = null;
     _queries = null;
+    _schemaInitialized = false;
     console.log('✅ Database closed');
   }
 }

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { shallow } from 'zustand/shallow';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useUserStore } from '@/lib/store/useUserStore';
@@ -26,7 +27,17 @@ export default function DashboardView() {
     openChatTab,
     openLearnTab,
     openAgentsTab,
-  } = useTabStore();
+  } = useTabStore(
+    (s) => ({
+      openResourceTab: s.openResourceTab,
+      openFolderTab: s.openFolderTab,
+      openCalendarTab: s.openCalendarTab,
+      openChatTab: s.openChatTab,
+      openLearnTab: s.openLearnTab,
+      openAgentsTab: s.openAgentsTab,
+    }),
+    shallow,
+  );
   const currentProject = useAppStore((s) => s.currentProject);
   const homeDashboard = useAppStore((s) => s.homeDashboard);
   const updateHomeDashboard = useAppStore((s) => s.updateHomeDashboard);
