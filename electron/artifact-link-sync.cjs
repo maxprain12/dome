@@ -3,7 +3,6 @@
 /* eslint-disable no-console */
 
 const { serializeArtifactRecord, parseJsonState } = require('./artifact-serialize.cjs');
-const { afterArtifactMutation } = require('./artifact-index-sync.cjs');
 
 /** @type {null | ((resourceId: string, opts?: Record<string, unknown>) => Promise<unknown>)} */
 let _excelGet = null;
@@ -28,9 +27,39 @@ function isExcelLinkedResource(resource) {
 }
 
 /**
- * Snapshot the linked workbook into every artifact pointing at linkedResourceId.
+ * Prefer an explicit sheet from the tool / caller, else the sheet stored in any linked artifact, else {} (first sheet).
+ * @param {ReturnType<import('./database.cjs')['getQueries']>} queries
+ * @param {string} linkedResourceId
+ * @param {{ sheetName?: string } | null | undefined} syncHints
  */
-async function syncLinkedArtifactsForResource(database, windowManager, linkedResourceId) {
+function buildExcelGetOpts(queries, linkedResourceId, syncHints) {
+  const getOpts = /** @type {Record<string, unknown>} */ ({});
+  const hint = syncHints && typeof syncHints.sheetName === 'string' ? syncHints.sheetName.trim() : '';
+  if (hint) {
+    getOpts.sheet_name = hint;
+    return getOpts;
+  }
+  try {
+    const rowsPeek = queries.getArtifactsLinkedToResource.all(linkedResourceId);
+    for (const art of rowsPeek) {
+      const st = parseJsonState(art.state);
+      const ld = st.linkedData;
+      if (ld && typeof ld === 'object' && ld.sheet_name != null && String(ld.sheet_name).trim()) {
+        getOpts.sheet_name = String(ld.sheet_name).trim();
+        return getOpts;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return getOpts;
+}
+
+/**
+ * Snapshot the linked workbook into every artifact pointing at linkedResourceId.
+ * @param {{ sheetName?: string } | null | undefined} [syncHints] — e.g. active sheet after excelSetCell so sync matches the edited tab, not always worksheets[0]
+ */
+async function syncLinkedArtifactsForResource(database, windowManager, linkedResourceId, syncHints) {
   if (!database || !linkedResourceId) return;
   const queries = database.getQueries();
 
@@ -42,16 +71,27 @@ async function syncLinkedArtifactsForResource(database, windowManager, linkedRes
     return;
   }
 
+  const getOpts = buildExcelGetOpts(queries, linkedResourceId, syncHints);
   /** @type {{ success?: boolean } & Record<string, unknown>} */
-  const xl = await _excelGet(linkedResourceId, {});
+  const xl = await _excelGet(linkedResourceId, getOpts);
   if (!xl || xl.success !== true) return;
+
+  const data = Array.isArray(xl.data) ? xl.data : [];
+  const sheetKey =
+    (xl.sheet_name != null && String(xl.sheet_name).trim()) ||
+    (Array.isArray(xl.sheet_names) && xl.sheet_names[0] != null && String(xl.sheet_names[0])) ||
+    'Sheet1';
+  /** @type {Record<string, unknown[][]>} */
+  const sheets = {};
+  sheets[sheetKey] = data;
 
   const linkedData = {
     resource_id: linkedResourceId,
     title: xl.title,
     sheet_names: xl.sheet_names,
     sheet_name: xl.sheet_name,
-    data: Array.isArray(xl.data) ? xl.data : [],
+    data,
+    sheets,
     synced_at: Date.now(),
   };
 
@@ -70,7 +110,7 @@ async function syncLinkedArtifactsForResource(database, windowManager, linkedRes
       if (serialized && windowManager?.broadcast) {
         windowManager.broadcast('artifact:updated', serialized);
       }
-      afterArtifactMutation(database, rid);
+      // linkedData mirror only — buildArtifactIndexPayload uses html+data, not linkedData (resource-text.cjs)
     } catch (e) {
       console.warn('[artifact-link-sync] row failed', e?.message || e);
     }

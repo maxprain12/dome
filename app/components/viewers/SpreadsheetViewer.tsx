@@ -292,7 +292,8 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
           resource.id,
           sheet.name,
           cellRef,
-          parsedValue
+          parsedValue,
+          { invokedBy: 'ui' }
         );
 
         if (result?.success) {

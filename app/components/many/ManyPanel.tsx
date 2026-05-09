@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import TokenBudgetBadge, { type BudgetBreakdown } from './TokenBudgetBadge';
 import { useTranslation } from 'react-i18next';
+import { shallow } from 'zustand/shallow';
 import { Search, FolderOpen, ClipboardList, Bot, BarChart2, Calendar, Mail } from 'lucide-react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { useLocation, useSearchParams } from 'react-router-dom';
@@ -120,7 +121,28 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     petPromptOverride,
     whatsappConnected,
     pinnedResources,
-  } = useManyStore();
+  } = useManyStore(
+    (s) => ({
+      status: s.status,
+      setFullscreen: s.setFullscreen,
+      setStatus: s.setStatus,
+      messages: s.messages,
+      addMessage: s.addMessage,
+      clearMessages: s.clearMessages,
+      startNewChat: s.startNewChat,
+      switchSession: s.switchSession,
+      deleteSession: s.deleteSession,
+      hydrateSession: s.hydrateSession,
+      sessions: s.sessions,
+      currentSessionId: s.currentSessionId,
+      currentResourceId: s.currentResourceId,
+      currentResourceTitle: s.currentResourceTitle,
+      petPromptOverride: s.petPromptOverride,
+      whatsappConnected: s.whatsappConnected,
+      pinnedResources: s.pinnedResources,
+    }),
+    shallow,
+  );
   const pendingPdfRegion = useManyStore((s) => s.pendingPdfRegion);
   const clearPendingPdfRegion = useManyStore((s) => s.clearPendingPdfRegion);
   const currentFolderId = useAppStore((s) => s.currentFolderId);

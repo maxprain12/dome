@@ -1271,7 +1271,8 @@ declare global {
             resourceId: string,
             sheetName: string | undefined,
             cell: string,
-            value: string | number | boolean
+            value: string | number | boolean,
+            options?: { invokedBy?: 'ui' | 'agent' }
           ) => Promise<{ success: boolean; error?: string }>;
           excelSetRange: (
             resourceId: string,

@@ -1,5 +1,11 @@
 /* eslint-disable no-console */
-function register({ ipcMain, windowManager, database, ollamaService, ollamaManager }) {
+function register({ ipcMain, windowManager, database, ollamaService, getOllamaManager }) {
+  function ensureEmbeddedOllama() {
+    const win = windowManager.get?.('main');
+    const mgr = getOllamaManager();
+    mgr.ensureInitialized(win && !win.isDestroyed() ? win : null);
+    return mgr;
+  }
   /**
    * Check if Ollama is available
    */
@@ -192,7 +198,8 @@ function register({ ipcMain, windowManager, database, ollamaService, ollamaManag
     }
 
     try {
-      const result = await ollamaManager.ensureRunning(version || 'latest');
+      const mgr = ensureEmbeddedOllama();
+      const result = await mgr.ensureRunning(version || 'latest');
       return result;
     } catch (error) {
       console.error('[OllamaManager] Error starting:', error);
@@ -209,7 +216,8 @@ function register({ ipcMain, windowManager, database, ollamaService, ollamaManag
     }
 
     try {
-      const result = await ollamaManager.stop();
+      const mgr = ensureEmbeddedOllama();
+      const result = await mgr.stop();
       return result;
     } catch (error) {
       console.error('[OllamaManager] Error stopping:', error);
@@ -226,8 +234,9 @@ function register({ ipcMain, windowManager, database, ollamaService, ollamaManag
     }
 
     try {
-      const status = ollamaManager.getStatus();
-      const isRunning = await ollamaManager.isRunning();
+      const mgr = ensureEmbeddedOllama();
+      const status = mgr.getStatus();
+      const isRunning = await mgr.isRunning();
       return {
         success: true,
         ...status,
@@ -248,7 +257,8 @@ function register({ ipcMain, windowManager, database, ollamaService, ollamaManag
     }
 
     try {
-      const result = await ollamaManager.download(version || 'latest');
+      const mgr = ensureEmbeddedOllama();
+      const result = await mgr.download(version || 'latest');
       return result;
     } catch (error) {
       console.error('[OllamaManager] Error downloading:', error);
@@ -265,7 +275,8 @@ function register({ ipcMain, windowManager, database, ollamaService, ollamaManag
     }
 
     try {
-      const versions = ollamaManager.getDownloadedVersions();
+      const mgr = ensureEmbeddedOllama();
+      const versions = mgr.getDownloadedVersions();
       return { success: true, versions };
     } catch (error) {
       console.error('[OllamaManager] Error getting versions:', error);

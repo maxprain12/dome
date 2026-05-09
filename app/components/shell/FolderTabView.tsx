@@ -8,6 +8,7 @@ import {
   Palette, FolderInput,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { shallow } from 'zustand/shallow';
 import { useResources, type Resource } from '@/lib/hooks/useResources';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -720,7 +721,15 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     }
   }, [selectedIds, refetch, t]);
 
-  const { openResourceTab, openFolderTab, activateTab, updateTab } = useTabStore();
+  const { openResourceTab, openFolderTab, activateTab, updateTab } = useTabStore(
+    (s) => ({
+      openResourceTab: s.openResourceTab,
+      openFolderTab: s.openFolderTab,
+      activateTab: s.activateTab,
+      updateTab: s.updateTab,
+    }),
+    shallow,
+  );
   const setCurrentFolderId = useAppStore((s) => s.setCurrentFolderId);
   const currentProject = useAppStore((s) => s.currentProject);
 

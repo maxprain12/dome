@@ -42,6 +42,7 @@ import {
   Maximize2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { shallow } from 'zustand/shallow';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore, type TabType } from '@/lib/store/useTabStore';
 import type { Resource } from '@/lib/hooks/useResources';
@@ -1267,7 +1268,23 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     openMarketplaceTab,
     activeTabId,
     tabs,
-  } = useTabStore();
+  } = useTabStore(
+    (s) => ({
+      openSettingsTab: s.openSettingsTab,
+      openCalendarTab: s.openCalendarTab,
+      openProjectsTab: s.openProjectsTab,
+      openLearnTab: s.openLearnTab,
+      openTagsTab: s.openTagsTab,
+      openAgentsTab: s.openAgentsTab,
+      openWorkflowsTab: s.openWorkflowsTab,
+      openAutomationsTab: s.openAutomationsTab,
+      openRunsTab: s.openRunsTab,
+      openMarketplaceTab: s.openMarketplaceTab,
+      activeTabId: s.activeTabId,
+      tabs: s.tabs,
+    }),
+    shallow,
+  );
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const isDark = theme === 'dark';

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { shallow } from 'zustand/shallow';
 import HubListState from '@/components/ui/HubListState';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
 import { useManyStore } from '@/lib/store/useManyStore';
@@ -79,7 +80,7 @@ function getResourceTabType(resourceType: string): DomeTab['type'] {
 }
 
 function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMode?: boolean }) {
-  const { closeTab } = useTabStore();
+  const closeTab = useTabStore((s) => s.closeTab);
 
   switch (tab.type) {
     case 'home':
@@ -417,7 +418,10 @@ const PERSISTENT_TAB_TYPES = new Set([
 ]);
 
 export default function ContentRouter() {
-  const { tabs, activeTabId } = useTabStore();
+  const { tabs, activeTabId } = useTabStore(
+    (s) => ({ tabs: s.tabs, activeTabId: s.activeTabId }),
+    shallow,
+  );
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   if (!activeTab) return <Loading />;

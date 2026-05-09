@@ -30,6 +30,7 @@ import {
   Layers,
   Mic,
 } from 'lucide-react';
+import { shallow } from 'zustand/shallow';
 import {
   useTabStore,
   type DomeTab,
@@ -201,7 +202,17 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
     closeTab,
     closeAllUnpinnedTabs,
     closeAllTabsToHome,
-  } = useTabStore();
+  } = useTabStore(
+    (s) => ({
+      tabs: s.tabs,
+      activeTabId: s.activeTabId,
+      activateTab: s.activateTab,
+      closeTab: s.closeTab,
+      closeAllUnpinnedTabs: s.closeAllUnpinnedTabs,
+      closeAllTabsToHome: s.closeAllTabsToHome,
+    }),
+    shallow,
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   useHorizontalScroll(scrollRef);
@@ -418,7 +429,19 @@ function TabContextMenuBridge({
     openResourceInSplit,
     tabs,
     activeTabId,
-  } = useTabStore();
+  } = useTabStore(
+    (s) => ({
+      closeTab: s.closeTab,
+      closeOtherTabs: s.closeOtherTabs,
+      closeTabsToTheRight: s.closeTabsToTheRight,
+      togglePinTab: s.togglePinTab,
+      duplicateTab: s.duplicateTab,
+      openResourceInSplit: s.openResourceInSplit,
+      tabs: s.tabs,
+      activeTabId: s.activeTabId,
+    }),
+    shallow,
+  );
 
   const { tab, view, x, y } = state;
   const displayTitle = getDomeTabDisplayTitle(tab, t);

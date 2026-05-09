@@ -12,9 +12,7 @@
  * - Graceful server lifecycle management
  */
 
-const { ElectronOllama } = require('electron-ollama');
 const { app } = require('electron');
-const path = require('path');
 
 class OllamaManager {
   constructor() {
@@ -27,19 +25,33 @@ class OllamaManager {
   }
 
   /**
-   * Initialize the Ollama manager
-   * @param {BrowserWindow} mainWindow - Main window for sending status updates
+   * Lazily load electron-ollama and create ElectronOllama. Idempotent.
+   * @param {import('electron').BrowserWindow | null | undefined} mainWindow - For renderer events (optional until window exists)
+   */
+  ensureInitialized(mainWindow) {
+    if (!this.eo) {
+      const { ElectronOllama } = require('electron-ollama');
+      this.eo = new ElectronOllama({
+        basePath: app.getPath('userData'),
+        directory: 'ollama-binaries',
+      });
+      console.log('[OllamaManager] Initialized with basePath:', app.getPath('userData'));
+    }
+    if (
+      mainWindow &&
+      typeof mainWindow.isDestroyed === 'function' &&
+      !mainWindow.isDestroyed()
+    ) {
+      this.mainWindow = mainWindow;
+    }
+    return this;
+  }
+
+  /**
+   * @param {import('electron').BrowserWindow | null | undefined} mainWindow
    */
   initialize(mainWindow) {
-    this.mainWindow = mainWindow;
-
-    // Initialize ElectronOllama with app's userData path
-    this.eo = new ElectronOllama({
-      basePath: app.getPath('userData'),
-      directory: 'ollama-binaries'
-    });
-
-    console.log('[OllamaManager] Initialized with basePath:', app.getPath('userData'));
+    return this.ensureInitialized(mainWindow);
   }
 
   /**

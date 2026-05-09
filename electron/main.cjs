@@ -215,7 +215,7 @@ const cropImage = require('./crop-image.cjs');
 const webScraper = require('./web-scraper.cjs');
 const youtubeService = require('./youtube-service.cjs');
 const ollamaService = require('./ollama-service.cjs');
-const ollamaManager = require('./ollama-manager.cjs');
+const { getOllamaManager, cleanupOllamaManagerIfLoaded } = require('./ollama-manager-lazy.cjs');
 const aiToolsHandler = require('./ai-tools-handler.cjs');
 const excelToolsHandler = require('./excel-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
@@ -410,9 +410,16 @@ async function createWindow() {
     });
   }
 
-  // Initialize Ollama Manager
-  ollamaManager.initialize(mainWindow);
-  console.log('[Main] Ollama Manager initialized');
+  try {
+    const row = database.getQueries().getSetting.get('ai_provider');
+    const provider = String(row?.value || '').toLowerCase();
+    if (provider === 'ollama') {
+      getOllamaManager().ensureInitialized(mainWindow);
+      console.log('[Main] Ollama embedded manager ready (ai_provider=ollama)');
+    }
+  } catch (e) {
+    console.warn('[Main] Ollama provider gate:', e?.message);
+  }
 
   return mainWindow;
 }
@@ -808,7 +815,7 @@ app
       webScraper,
       youtubeService,
       ollamaService,
-      ollamaManager,
+      getOllamaManager,
       aiToolsHandler,
       aiCloudService,
       ttsService,
@@ -1033,7 +1040,7 @@ app.on('before-quit', async () => {
   runEngine.stop();
   // Semantic indexer runs in-process; no separate subprocess to stop
   await webScraper.close?.();
-  await ollamaManager.cleanup();
+  await cleanupOllamaManagerIfLoaded();
   try {
     require('./checkpointer.cjs').closeDomeCheckpointer();
   } catch (e) {

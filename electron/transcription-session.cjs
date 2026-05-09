@@ -20,18 +20,6 @@ const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
 
-/** NDJSON debug (duration pipeline) — safe to delete after diagnosis */
-const AUDIO_DURATION_DEBUG_LOG = path.join(__dirname, '..', '.cursor', 'debug-audio-duration.log');
-/** @param {Record<string, unknown>} payload */
-function audioDurationDebugLog(payload) {
-  try {
-    fs.appendFileSync(
-      AUDIO_DURATION_DEBUG_LOG,
-      `${JSON.stringify({ t: Date.now(), ...payload })}\n`,
-    );
-  } catch { /* ignore */ }
-}
-
 const transcriptionService = require('./transcription-service.cjs');
 const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
 
@@ -167,9 +155,8 @@ function loadFluentFfmpeg() {
  * Fix: raw byte-cat into one .webm, then decode once; if that still looks too small,
  * try per-file decode + concat filter (some Electron builds emit self-contained slices).
  *
- * @param {Record<string, unknown>} [debugCtx]
  */
-function concatFilesToMp3(sortedFiles, outputMp3, debugCtx) {
+function concatFilesToMp3(sortedFiles, outputMp3) {
   const ff = loadFluentFfmpeg();
   if (!ff || !sortedFiles.length) return Promise.reject(new Error('ffmpeg or files missing'));
   const existing = sortedFiles.filter((p) => p && fs.existsSync(p));
@@ -190,29 +177,13 @@ function concatFilesToMp3(sortedFiles, outputMp3, debugCtx) {
     }
   }
 
-  function logConcat(strategy) {
-    if (!debugCtx) return;
-    try {
-      const st = fs.statSync(outputMp3);
-      audioDurationDebugLog({
-        hypothesisId: 'AUD',
-        step: 'concatMp3',
-        strategy,
-        outBytes: st.size,
-        webmSum,
-        nFiles: existing.length,
-        ...debugCtx,
-      });
-    } catch { /* ignore */ }
-  }
-
   if (existing.length === 1) {
     return new Promise((resolve, reject) => {
       ff(existing[0])
         .audioCodec('libmp3lame')
         .audioFrequency(16000)
         .audioBitrate('64k')
-        .on('end', () => { logConcat('single'); resolve(); })
+        .on('end', () => { resolve(); })
         .on('error', reject)
         .save(outputMp3);
     });
@@ -247,7 +218,6 @@ function concatFilesToMp3(sortedFiles, outputMp3, debugCtx) {
           reject(new Error('byteCat MP3 too small vs WebM input'));
           return;
         }
-        logConcat('byteCat');
         resolve();
       })
       .on('error', (err) => {
@@ -276,7 +246,6 @@ function concatFilesToMp3(sortedFiles, outputMp3, debugCtx) {
           reject(new Error('filter concat MP3 too small'));
           return;
         }
-        logConcat('filter');
         resolve();
       })
       .on('error', reject)
@@ -301,7 +270,6 @@ function concatFilesToMp3(sortedFiles, outputMp3, debugCtx) {
             reject(new Error('All WebM concat strategies produced a short MP3'));
             return;
           }
-          logConcat('demuxer');
           resolve();
         })
         .on('error', (err) => {
@@ -359,19 +327,6 @@ function probeFormatDurationSec(filePath) {
       resolve(Number.isFinite(d) && d > 0 ? d : null);
     });
   });
-}
-
-/** @param {Array<{ file_path?: string }>} chunks */
-function sumChunkBytesOnDisk(chunks) {
-  let n = 0;
-  for (const c of chunks) {
-    const p = c?.file_path;
-    if (!p) continue;
-    try {
-      n += fs.statSync(p).size;
-    } catch { /* ignore */ }
-  }
-  return n;
 }
 
 // ---------------------------------------------------------------------------
@@ -497,11 +452,7 @@ async function transcribeChunkBestEffort(deps, session, chunk) {
 
     const tempMp3 = path.join(session.sessionDir, `_partial-${chunk.track}-${chunk.seq}.mp3`);
     try {
-      await concatFilesToMp3(savedFiles, tempMp3, {
-        sessionId: session.id,
-        track: chunk.track,
-        partial: true,
-      });
+      await concatFilesToMp3(savedFiles, tempMp3);
     } catch (concatErr) {
       console.warn('[TranscriptionSession] partial concat failed:', concatErr?.message);
       return;
@@ -624,7 +575,7 @@ async function finalizeSession(deps, sessionId) {
     const chunks = byTrack[track];
     if (!chunks.length) continue;
     const outMp3 = path.join(sessionDir, `${track}.mp3`);
-    await concatFilesToMp3(chunks.map((c) => c.file_path), outMp3, { sessionId, track });
+    await concatFilesToMp3(chunks.map((c) => c.file_path), outMp3);
     trackMp3s[track] = outMp3;
   }
 
@@ -633,59 +584,23 @@ async function finalizeSession(deps, sessionId) {
   if (trackMp3s.mic && trackMp3s.system) {
     const micDurPre = await probeFormatDurationSec(trackMp3s.mic);
     const sysDurPre = await probeFormatDurationSec(trackMp3s.system);
-    audioDurationDebugLog({
-      hypothesisId: 'AUD',
-      step: 'preMix',
-      sessionId,
-      micChunks: byTrack.mic.length,
-      sysChunks: byTrack.system.length,
-      micWebmBytes: sumChunkBytesOnDisk(byTrack.mic),
-      sysWebmBytes: sumChunkBytesOnDisk(byTrack.system),
-      micMp3Bytes: fs.existsSync(trackMp3s.mic) ? fs.statSync(trackMp3s.mic).size : null,
-      sysMp3Bytes: fs.existsSync(trackMp3s.system) ? fs.statSync(trackMp3s.system).size : null,
-      micDurPre,
-      sysDurPre,
-    });
 
     mergedMp3 = path.join(sessionDir, 'merged.mp3');
     await mixTwoMp3sToMp3(trackMp3s.mic, trackMp3s.system, mergedMp3);
 
     const mergedDurAfterMix = await probeFormatDurationSec(mergedMp3);
-    audioDurationDebugLog({
-      hypothesisId: 'AUD',
-      step: 'postMix',
-      sessionId,
-      mergedDurAfterMix,
-      mergedBytes: fs.existsSync(mergedMp3) ? fs.statSync(mergedMp3).size : null,
-    });
 
     // loopback/system WebM can decode to a tiny MP3 (~few seconds). In some cases amix
     // still yields a merged file far shorter than mic; keep the full mic take instead.
     if (micDurPre != null && mergedDurAfterMix != null
       && micDurPre >= 4
       && mergedDurAfterMix < micDurPre * 0.85) {
-      audioDurationDebugLog({
-        hypothesisId: 'AUD',
-        step: 'fallbackMicOnly',
-        sessionId,
-        micDurPre,
-        mergedDurAfterMix,
-      });
       mergedMp3 = trackMp3s.mic;
     } else {
       try {
         const mSz = fs.statSync(trackMp3s.mic).size;
         const meSz = fs.statSync(mergedMp3).size;
         if (mSz > 12000 && meSz > 0 && meSz < mSz * 0.25) {
-          audioDurationDebugLog({
-            hypothesisId: 'AUD',
-            step: 'fallbackMicOnlyBySize',
-            sessionId,
-            mSz,
-            meSz,
-            micDurPre,
-            mergedDurAfterMix,
-          });
           mergedMp3 = trackMp3s.mic;
         }
       } catch { /* ignore */ }
@@ -742,14 +657,6 @@ async function finalizeSession(deps, sessionId) {
   const durationMsFromFile = mergedDurationSec != null && mergedDurationSec > 0
     ? Math.round(mergedDurationSec * 1000)
     : null;
-  audioDurationDebugLog({
-    hypothesisId: 'AUD',
-    step: 'import',
-    sessionId,
-    mergedDurationSec,
-    durationMsFromFile,
-    importSize: importResult.size,
-  });
 
   const baseMetadata = {
     kind: 'transcription',

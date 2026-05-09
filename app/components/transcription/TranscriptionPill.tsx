@@ -32,7 +32,7 @@ export default function TranscriptionPill() {
   const cancel = useTranscriptionStore((s) => s.cancel);
   const controllerRef = useTranscriptionStore((s) => s._controller);
 
-  const { openTranscriptionsTab } = useTabStore();
+  const openTranscriptionsTab = useTabStore((s) => s.openTranscriptionsTab);
   const anchorRef = useRef<HTMLDivElement>(null);
   const [errorVisible, setErrorVisible] = useState(false);
 
