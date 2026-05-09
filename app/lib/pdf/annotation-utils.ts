@@ -8,13 +8,13 @@ import type { PageViewport } from 'pdfjs-dist';
 const CSS_VAR_CACHE: Record<string, string> = {};
 
 export function resolveCssColor(color: string, fallback?: string): string {
-  if (!color) return fallback ?? color;
+  if (!color) return fallback ?? '';
   if (!color.startsWith('var(')) return color;
-  if (CSS_VAR_CACHE[color]) return CSS_VAR_CACHE[color] || fallback || color;
-  if (typeof window === 'undefined') return fallback ?? color;
+  if (CSS_VAR_CACHE[color]) return CSS_VAR_CACHE[color] || fallback || '';
+  if (typeof window === 'undefined') return fallback ?? '';
   const root = document.documentElement;
   const computed = getComputedStyle(root).getPropertyValue(color.slice(4, -1).trim());
-  const resolved = computed.trim() || fallback || color;
+  const resolved = computed.trim() || fallback || '';
   CSS_VAR_CACHE[color] = resolved;
   return resolved;
 }
